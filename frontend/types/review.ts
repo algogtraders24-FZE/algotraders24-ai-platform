@@ -1,10 +1,10 @@
 export interface Review {
   id: string;
-  customerId: string; // -> Customer.id
-  productId: string; // -> Product.id
-  rating: number; // 1-5
+  customerId: string;
+  productId: string;
+  rating: number;
   title: string;
   comment: string;
-  verified: boolean; // verified purchase
+  verified: boolean;
   createdAt: string;
 }
