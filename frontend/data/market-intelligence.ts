@@ -1,0 +1,47 @@
+// data/market-intelligence.ts
+import type { MarketIntelligence } from "@/types/market-intelligence";
+
+export const marketIntelligence: MarketIntelligence[] = [
+  {
+    symbol: "EURUSD",
+    category: "forex",
+    overallScore: 76,
+    trend: "bullish",
+    trendStrength: 78,
+    sentiment: "bullish",
+    sentimentScore: 62,
+    volatility: "low",
+    liquidity: "deep",
+    confidence: 80,
+    summary: "Strong bullish momentum with deep liquidity and low volatility.",
+    updatedAt: "2025-01-15T10:00:00Z",
+  },
+  {
+    symbol: "BTCUSD",
+    category: "crypto",
+    overallScore: 41,
+    trend: "bearish",
+    trendStrength: 64,
+    sentiment: "bearish",
+    sentimentScore: -48,
+    volatility: "high",
+    liquidity: "normal",
+    confidence: 67,
+    summary: "Bearish pressure near resistance with elevated volatility.",
+    updatedAt: "2025-01-15T10:00:00Z",
+  },
+  {
+    symbol: "XAUUSD",
+    category: "commodities",
+    overallScore: 52,
+    trend: "neutral",
+    trendStrength: 45,
+    sentiment: "neutral",
+    sentimentScore: 8,
+    volatility: "medium",
+    liquidity: "deep",
+    confidence: 54,
+    summary: "Range-bound consolidation; awaiting directional catalyst.",
+    updatedAt: "2025-01-15T10:00:00Z",
+  },
+];
