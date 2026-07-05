@@ -13,9 +13,3 @@ export interface AssistantResponse {
   message: Message;
   usedTemplateId: string | null;
 }
-
-/** Future providers (OpenAI, Claude, Gemini, etc.) implement this. */
-export interface AIProvider {
-  name: string;
-  generate: (prompt: string) => Promise<string>;
-}
