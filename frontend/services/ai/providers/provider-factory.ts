@@ -4,7 +4,7 @@ import type { ProviderName } from "@/types/provider-name";
 import { UnknownProviderError } from "@/types/provider";
 import { providerRegistry } from "./provider-registry";
 
-export const DEFAULT_PROVIDER: ProviderName = "mock";
+export const DEFAULT_PROVIDER: ProviderName = "gemini";
 
 export function getProvider(name: ProviderName = DEFAULT_PROVIDER): AIProvider {
   const provider = providerRegistry[name];

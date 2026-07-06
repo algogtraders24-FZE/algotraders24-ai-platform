@@ -74,7 +74,7 @@ export default function AssistantPage() {
       <div className="flex flex-1 flex-col">
         <header className="border-b border-slate-800 px-4 py-3">
           <h1 className="text-lg font-bold">AI Strategy Assistant</h1>
-          <p className="text-xs text-slate-500">Persistent - mock provider</p>
+          <p className="text-xs text-slate-500">Persistent - Gemini 2.5 Flash</p>
         </header>
 
         <ChatWindow messages={active?.messages ?? []} thinking={thinking} error={error} />
