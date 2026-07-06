@@ -1,5 +1,4 @@
-// app/dashboard/assistant/page.tsx
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import type { StoredConversation } from "@/types/conversation-metadata";
@@ -53,4 +52,39 @@ export default function AssistantPage() {
       setActive(conv);
       await refresh();
     } catch {
-      setError("Something went wrong. Try
+      setError("Something went wrong. Try again.");
+    } finally {
+      setThinking(false);
+    }
+  };
+
+  return (
+    <div className="flex h-[calc(100vh-2rem)] overflow-hidden rounded-xl border border-slate-800 bg-slate-950 text-slate-100">
+      <ConversationSidebar
+        conversations={list}
+        activeId={active?.id ?? null}
+        onSelect={select}
+        onNew={newChat}
+        onRename={async (id, title) => { const c = list.find((x) => x.id === id); if (c) { await mgr.rename(c, title); await refresh(); } }}
+        onDelete={async (id) => { await mgr.deleteConversation(id); if (active?.id === id) setActive(null); await refresh(); }}
+        onPin={async (id, p) => { const c = list.find((x) => x.id === id); if (c) { await mgr.setPinned(c, p); await refresh(); } }}
+        onArchive={async (id, a) => { const c = list.find((x) => x.id === id); if (c) { await mgr.setArchived(c, a); await refresh(); } }}
+      />
+
+      <div className="flex flex-1 flex-col">
+        <header className="border-b border-slate-800 px-4 py-3">
+          <h1 className="text-lg font-bold">AI Strategy Assistant</h1>
+          <p className="text-xs text-slate-500">Persistent - mock provider</p>
+        </header>
+
+        <ChatWindow messages={active?.messages ?? []} thinking={thinking} error={error} />
+
+        <div className="px-4 py-2">
+          <PromptSuggestions onPick={handleSend} />
+        </div>
+
+        <ChatInput onSend={handleSend} disabled={thinking} />
+      </div>
+    </div>
+  );
+}
