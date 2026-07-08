@@ -14,6 +14,7 @@ export const DASHBOARD_NAV: DashboardNavItem[] = [
   { label: "AI Assistant", href: "/dashboard/assistant", icon: "AI" },
   { label: "Trading Copilot", href: "/dashboard/trading-copilot", icon: "CP" },
   { label: "Publishing", href: "/dashboard/publishing", icon: "PB" },
+  { label: "Automation", href: "/dashboard/automation", icon: "AU" },
   { label: "Orders", href: "/dashboard/orders", icon: "OR" },
   { label: "Profile", href: "/dashboard/profile", icon: "PF" },
   { label: "Settings", href: "/dashboard/settings", icon: "ST" },
