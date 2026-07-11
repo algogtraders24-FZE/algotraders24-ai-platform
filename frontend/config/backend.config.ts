@@ -46,7 +46,7 @@ export const SUBSYSTEM_LABELS: Record<SubsystemKey, string> = {
 
 // Feature flags — everything future is OFF until wired.
 export const FEATURE_FLAGS = {
-  databaseConnected: false,
+  databaseConnected: true,
   authEnabled: false,
   stripeEnabled: false,
   nowPaymentsEnabled: false,
@@ -82,3 +82,4 @@ export const ERROR_CODES = {
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
+
