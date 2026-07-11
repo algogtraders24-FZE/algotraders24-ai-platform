@@ -1,9 +1,9 @@
-import LicenseCard from "@/components/license/LicenseCard";
+﻿import LicenseCard from "@/components/license/LicenseCard";
 import { licenseManagementService } from "@/services/license-management.service";
 import { authService } from "@/services/auth.service";
 
-export default function LicensesPage() {
-  const user = authService.getCurrentUser();
+export default async function LicensesPage() {
+  const user = await authService.getCurrentUser();
   const licenses = licenseManagementService.getMyLicenses(user?.id ?? "");
 
   return (
@@ -21,3 +21,4 @@ export default function LicensesPage() {
     </div>
   );
 }
+

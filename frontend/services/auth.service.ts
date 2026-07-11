@@ -1,33 +1,39 @@
-import type { User } from "@/types/user";
-import type { Session } from "@/types/session";
-import type { LoginCredentials, AuthResult } from "@/types/auth";
+﻿// services/auth.service.ts
+// Sprint 14C - SHIM. Was mock; now delegates to real Supabase-backed SessionService.
+// Kept at the same path + method name so existing imports keep working.
+// NOTE: getCurrentUser() is now ASYNC. Callers must `await` it.
+import { SessionService } from "@/services/auth/SessionService";
 
-// Mock user — future me Supabase se aayega
-const MOCK_USER: User = {
-  id: "u1",
-  name: "Demo Customer",
-  email: "demo@algotraders24.ai",
-  role: "customer",
-  createdAt: "2025-06-01",
-};
+export interface CurrentUserShape {
+  id: string;
+  authId: string | null;
+  name: string;
+  email: string;
+  role: "user" | "admin";
+  planId: string;
+  status: "active" | "suspended";
+  emailVerified: boolean;
+}
 
 export const authService = {
-  getCurrentUser: (): User | null => MOCK_USER,
-
-  isAuthenticated: (): boolean => MOCK_USER !== null,
-
-  login: (credentials: LoginCredentials): AuthResult => {
-    // TODO: replace with Supabase auth
-    if (!credentials.email) return { success: false, message: "Email required" };
-    return { success: true };
+  // Real authenticated user (Prisma profile) or null.
+  getCurrentUser: async (): Promise<CurrentUserShape | null> => {
+    const sessionUser = await SessionService.getSessionUser();
+    if (!sessionUser) return null;
+    const p = sessionUser.profile;
+    return {
+      id: p.id,
+      authId: p.authId,
+      name: p.name,
+      email: p.email,
+      role: p.role,
+      planId: p.planId,
+      status: p.status,
+      emailVerified: p.emailVerified,
+    };
   },
 
-  logout: (): void => {
-    // TODO: clear Supabase session
-  },
-
-  refreshSession: (): Session | null => {
-    // TODO: refresh via Supabase
-    return null;
+  isAuthenticated: async (): Promise<boolean> => {
+    return SessionService.isAuthenticated();
   },
 };

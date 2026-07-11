@@ -1,9 +1,9 @@
-import InvoiceCard from "@/components/payment/InvoiceCard";
+﻿import InvoiceCard from "@/components/payment/InvoiceCard";
 import { invoiceService } from "@/services/invoice.service";
 import { authService } from "@/services/auth.service";
 
-export default function PaymentsPage() {
-  const user = authService.getCurrentUser();
+export default async function PaymentsPage() {
+  const user = await authService.getCurrentUser();
   const invoices = invoiceService.getByCustomer(user?.id ?? "");
 
   return (
@@ -19,3 +19,4 @@ export default function PaymentsPage() {
     </div>
   );
 }
+

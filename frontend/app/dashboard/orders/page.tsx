@@ -1,9 +1,9 @@
-import OrderCard from "@/components/payment/OrderCard";
+﻿import OrderCard from "@/components/payment/OrderCard";
 import { orderService } from "@/services/order.service";
 import { authService } from "@/services/auth.service";
 
-export default function OrdersPage() {
-  const user = authService.getCurrentUser();
+export default async function OrdersPage() {
+  const user = await authService.getCurrentUser();
   const orders = orderService.getByCustomer(user?.id ?? "");
 
   return (
@@ -19,3 +19,4 @@ export default function OrdersPage() {
     </div>
   );
 }
+

@@ -1,6 +1,5 @@
-// prisma/schema.prisma
 // Sprint 14B - Prisma models mapped to Sprint 14A entity shapes.
-
+// Sprint 14C - Added authId + emailVerified to User for Supabase Auth.
 generator client {
   provider = "prisma-client"
   output   = "../lib/generated/prisma"
@@ -11,14 +10,18 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  role      String   @default("user")
-  planId    String   @default("free")
-  status    String   @default("active")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(cuid())
+  authId        String?  @unique
+  email         String   @unique
+  name          String
+  role          String   @default("user")
+  planId        String   @default("free")
+  status        String   @default("active")
+  emailVerified Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([authId])
 }
 
 model Product {
