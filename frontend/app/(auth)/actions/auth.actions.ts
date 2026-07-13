@@ -91,3 +91,27 @@ export async function forgotPasswordAction(
     message: "If that email exists, a password reset link has been sent.",
   };
 }
+
+// Sprint 14C+ - Google OAuth sign-in.
+export async function signInWithGoogleAction(): Promise<void> {
+  const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+  const supabase = await createSupabaseServerClient();
+
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${baseUrl}/auth/callback`,
+    },
+  });
+
+  if (error) {
+    redirect(`/login?error=${encodeURIComponent(error.message)}`);
+  }
+
+  if (data?.url) {
+    redirect(data.url);
+  }
+}

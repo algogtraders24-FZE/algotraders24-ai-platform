@@ -5,6 +5,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { signUpAction, type ActionState } from "@/app/(auth)/actions/auth.actions";
+import GoogleButton from "@/components/auth/GoogleButton";
 
 const initialState: ActionState = {};
 
@@ -26,6 +27,9 @@ export default function SignupPage() {
           {state.message}
         </div>
       ) : (
+        <>
+          <GoogleButton />
+        <div className="my-4 flex items-center gap-3"><div className="h-px flex-1 bg-neutral-800" /><span className="text-xs text-neutral-500">or</span><div className="h-px flex-1 bg-neutral-800" /></div>
         <form action={formAction} className="mt-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-neutral-300">
@@ -82,6 +86,7 @@ export default function SignupPage() {
             {pending ? "Creating account..." : "Create account"}
           </button>
         </form>
+        </>
       )}
 
       <div className="mt-4 text-center text-sm">
@@ -93,3 +98,5 @@ export default function SignupPage() {
     </div>
   );
 }
+
+

@@ -5,6 +5,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { signInAction, type ActionState } from "@/app/(auth)/actions/auth.actions";
+import GoogleButton from "@/components/auth/GoogleButton";
 
 const initialState: ActionState = {};
 
@@ -20,6 +21,10 @@ export default function LoginPage() {
       <p className="mt-1 text-sm text-neutral-400">
         Sign in to your Algotraders24 account.
       </p>
+
+      <GoogleButton />
+
+      <div className="my-4 flex items-center gap-3"><div className="h-px flex-1 bg-neutral-800" /><span className="text-xs text-neutral-500">or</span><div className="h-px flex-1 bg-neutral-800" /></div>
 
       <form action={formAction} className="mt-6 space-y-4">
         <div>
@@ -72,3 +77,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

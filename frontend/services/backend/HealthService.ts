@@ -1,7 +1,8 @@
-﻿// services/backend/HealthService.ts
-// Sprint 14A — Backend Foundation
-// Health report + system status (mock subsystem values).
-
+// services/backend/HealthService.ts
+// Sprint 14A - Backend Foundation: health report + system status.
+// Sprint 14D - Database subsystem now reflects a real connectivity probe
+// (prisma.$queryRaw) instead of a static feature flag, and reports the
+// active repository mode (prisma | mock).
 import type {
   HealthReport,
   SystemStatusReport,
@@ -15,6 +16,11 @@ import {
   getEnvironment,
   SUBSYSTEM_LABELS,
 } from "@/config/backend.config";
+import {
+  isDatabaseReachable,
+  isDatabaseReachableCached,
+} from "@/lib/db-health";
+import { resolveRepositoryMode } from "@/config/repository.config";
 
 export class HealthService {
   getUptimeSeconds(): number {
@@ -39,25 +45,27 @@ export class HealthService {
     return { name: SUBSYSTEM_LABELS[key], health, detail };
   }
 
-  getSystemStatus(): SystemStatusReport {
-    const dbHealth: ServiceHealth = FEATURE_FLAGS.databaseConnected
-      ? "operational"
-      : "down";
-    const dbDetail = FEATURE_FLAGS.databaseConnected
-      ? "Connected"
-      : "Not connected (mock mode)";
+  private build(dbReachable: boolean): SystemStatusReport {
+    const mode = resolveRepositoryMode();
+
+    const dbHealth: ServiceHealth = dbReachable ? "operational" : "down";
+    const dbDetail = dbReachable
+      ? `Connected (Postgres, repositories: ${mode})`
+      : "Unreachable - repositories degraded to mock";
 
     const aiHealth: ServiceHealth = FEATURE_FLAGS.realAiProviders
       ? "operational"
       : "unknown";
 
+    const persistenceNote = mode === "prisma" ? "Persisted" : "Mock mode";
+
     const subsystems = {
       database: this.sub("database", dbHealth, dbDetail),
       aiProviders: this.sub("aiProviders", aiHealth, "Gemini 2.5 Flash active"),
-      automation: this.sub("automation", "operational", "Mock engine running"),
-      knowledge: this.sub("knowledge", "operational", "Mock RAG foundation"),
-      agents: this.sub("agents", "operational", "Agent framework active"),
-      billing: this.sub("billing", "operational", "Mock billing active"),
+      automation: this.sub("automation", "operational", `Automation engine running (${persistenceNote})`),
+      knowledge: this.sub("knowledge", "operational", `Knowledge base active (${persistenceNote})`),
+      agents: this.sub("agents", "operational", `Agent framework active (${persistenceNote})`),
+      billing: this.sub("billing", "operational", `Billing active (${persistenceNote})`),
       publishing: this.sub("publishing", "operational", "Publishing engine active"),
     };
 
@@ -71,6 +79,18 @@ export class HealthService {
       overallHealth: overall,
       timestamp: new Date().toISOString(),
     };
+  }
+
+  // Real connectivity probe. Preferred entry point for API routes.
+  async getSystemStatusAsync(): Promise<SystemStatusReport> {
+    const reachable = await isDatabaseReachable();
+    return this.build(reachable);
+  }
+
+  // Synchronous variant, kept for existing callers. Reads the cached probe
+  // result rather than issuing a query.
+  getSystemStatus(): SystemStatusReport {
+    return this.build(isDatabaseReachableCached());
   }
 }
 

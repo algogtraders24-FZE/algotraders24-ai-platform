@@ -1,5 +1,7 @@
 // Sprint 14B - Prisma models mapped to Sprint 14A entity shapes.
 // Sprint 14C - Added authId + emailVerified to User for Supabase Auth.
+// Sprint 14D - Added deletedAt (soft delete) to every model.
+// Sprint 14D Phase 1 - Added Plan + Subscription models.
 generator client {
   provider = "prisma-client"
   output   = "../lib/generated/prisma"
@@ -10,87 +12,133 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(cuid())
-  authId        String?  @unique
-  email         String   @unique
+  id            String    @id @default(cuid())
+  authId        String?   @unique
+  email         String    @unique
   name          String
-  role          String   @default("user")
-  planId        String   @default("free")
-  status        String   @default("active")
-  emailVerified Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  role          String    @default("user")
+  planId        String    @default("free")
+  status        String    @default("active")
+  emailVerified Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
 
   @@index([authId])
+  @@index([deletedAt])
+}
+
+model Plan {
+  id          String    @id
+  name        String
+  price       Float     @default(0)
+  interval    String    @default("month")
+  features    String[]  @default([])
+  isActive    Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@index([deletedAt])
+}
+
+model Subscription {
+  id                 String    @id @default(cuid())
+  userId             String
+  planId             String
+  status             String    @default("active")
+  currentPeriodStart DateTime  @default(now())
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
+
+  @@index([userId])
+  @@index([deletedAt])
 }
 
 model Product {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   name      String
-  slug      String   @unique
-  price     Float    @default(0)
-  status    String   @default("draft")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  slug      String    @unique
+  price     Float     @default(0)
+  status    String    @default("draft")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 model Conversation {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   userId        String
   title         String
-  messageCount  Int      @default(0)
-  lastMessageAt DateTime @default(now())
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  messageCount  Int       @default(0)
+  lastMessageAt DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
 
   @@index([userId])
+  @@index([deletedAt])
 }
 
 model Agent {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
   name      String
   type      String
-  status    String   @default("active")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  status    String    @default("active")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   @@index([userId])
+  @@index([deletedAt])
 }
 
 model Automation {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
   name      String
   trigger   String
-  enabled   Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  enabled   Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   @@index([userId])
+  @@index([deletedAt])
 }
 
 model Knowledge {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   userId     String
   title      String
   source     String
-  chunkCount Int      @default(0)
-  status     String   @default("processing")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  chunkCount Int       @default(0)
+  status     String    @default("processing")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
 
   @@index([userId])
+  @@index([deletedAt])
 }
 
 model Billing {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
   planId    String
-  status    String   @default("active")
-  amount    Float    @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  status    String    @default("active")
+  amount    Float     @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   @@index([userId])
+  @@index([deletedAt])
 }
