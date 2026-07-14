@@ -71,21 +71,41 @@ async function seedAdmin() {
 }
 
 async function seedProducts() {
-  const products = [
-    { slug: "ai-trend-master-ea", name: "AI Trend Master EA", price: 299, status: "active" },
-    { slug: "quantum-scalper-pro", name: "Quantum Scalper Pro", price: 499, status: "active" },
-    { slug: "axon-signal-engine", name: "Axon Signal Engine", price: 199, status: "active" },
-    { slug: "volatility-shield", name: "Volatility Shield", price: 149, status: "draft" },
-  ];
+  const { PRODUCTS } = await import("../data/products");
 
-  for (const p of products) {
+  for (const p of PRODUCTS) {
+    const data = {
+      slug: p.slug,
+      name: p.name,
+      shortDescription: p.shortDescription,
+      fullDescription: p.fullDescription,
+      category: p.category,
+      platform: p.platform,
+      supportedPlatforms: p.supportedPlatforms,
+      tags: p.tags,
+      price: p.price,
+      currency: p.currency,
+      images: p.images,
+      features: p.features,
+      specifications: p.specifications as unknown as object,
+      faqs: (p.faqs ?? []) as unknown as object,
+      version: p.version,
+      releaseDate: p.releaseDate,
+      lastUpdated: p.lastUpdated,
+      rating: p.rating,
+      downloads: p.downloads,
+      featured: p.featured,
+      status: p.status,
+      deletedAt: null,
+    };
+
     await prisma.product.upsert({
       where: { slug: p.slug },
-      update: { name: p.name, price: p.price, status: p.status, deletedAt: null },
-      create: p,
+      update: data,
+      create: data,
     });
   }
-  console.log(`  products: ${products.length} upserted`);
+  console.log(`  products: ${PRODUCTS.length} upserted (full catalogue)`);
 }
 
 async function seedUserScopedData(ownerId: string) {

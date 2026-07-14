@@ -1,3 +1,7 @@
+// app/products/[slug]/page.tsx
+// Sprint 14E - Server Component. Product detail, related products and the
+// static params list all come from PostgreSQL via ProductCatalogue.
+// Markup, layout and styling are unchanged.
 import { notFound } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
@@ -8,11 +12,14 @@ import ProductSpecifications from "@/components/product/ProductSpecifications";
 import SupportedPlatforms from "@/components/product/SupportedPlatforms";
 import ProductCTA from "@/components/product/ProductCTA";
 import RelatedProducts from "@/components/product/RelatedProducts";
-import { PRODUCTS } from "@/data/products";
+import { ProductCatalogue } from "@/services/products/ProductCatalogue";
 
-// Har product ka page pehle se build ho jaye (fast + SEO-ready)
-export function generateStaticParams() {
-  return PRODUCTS.map((p) => ({ slug: p.slug }));
+export const revalidate = 300;
+
+// Pre-build a page per product (fast + SEO-ready).
+export async function generateStaticParams() {
+  const slugs = await ProductCatalogue.getAllSlugs();
+  return slugs.map((slug) => ({ slug }));
 }
 
 export default async function ProductDetailPage({
@@ -21,13 +28,19 @@ export default async function ProductDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const product = PRODUCTS.find((p) => p.slug === slug);
-
+  const product = await ProductCatalogue.getBySlug(slug);
   if (!product) notFound();
+
+  const related = await ProductCatalogue.getRelated(
+    product.slug,
+    product.category,
+    3
+  );
 
   return (
     <main className="min-h-screen bg-[#050816] text-white">
       <Navbar />
+
       <ProductHero product={product} />
       <ProductGallery product={product} />
 
@@ -63,7 +76,7 @@ export default async function ProductDetailPage({
         </div>
       </section>
 
-      {/* FAQ (agar hai) */}
+      {/* FAQ */}
       {product.faqs && product.faqs.length > 0 && (
         <section className="px-6 mb-16">
           <div className="max-w-7xl mx-auto">
@@ -84,7 +97,8 @@ export default async function ProductDetailPage({
       )}
 
       <ProductCTA product={product} />
-      <RelatedProducts product={product} />
+      <RelatedProducts products={related} />
+
       <Footer />
     </main>
   );

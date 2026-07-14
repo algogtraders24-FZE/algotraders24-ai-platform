@@ -1,20 +1,16 @@
-"use client";
-
-import { useState } from "react";
+// app/products/page.tsx
+// Sprint 14E - Server Component. The catalogue now comes from PostgreSQL via
+// ProductCatalogue; filtering stays client-side in ProductsClient.
+// Markup, layout and styling are unchanged.
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
-import CategoryFilter from "@/components/product/CategoryFilter";
-import ProductGrid from "@/components/product/ProductGrid";
-import { PRODUCTS } from "@/data/products";
-import type { ProductCategoryId } from "@/types/product";
+import ProductsClient from "./ProductsClient";
+import { ProductCatalogue } from "@/services/products/ProductCatalogue";
 
-export default function ProductsPage() {
-  const [active, setActive] = useState<ProductCategoryId | "all">("all");
+export const revalidate = 300; // re-generate at most every 5 minutes
 
-  const filteredProducts =
-    active === "all"
-      ? PRODUCTS
-      : PRODUCTS.filter((product) => product.category === active);
+export default async function ProductsPage() {
+  const products = await ProductCatalogue.getAll();
 
   return (
     <main className="min-h-screen bg-[#050816] text-white">
@@ -35,17 +31,7 @@ export default function ProductsPage() {
         </div>
       </section>
 
-      <section className="px-6 mb-12">
-        <div className="max-w-7xl mx-auto">
-          <CategoryFilter active={active} onChange={setActive} />
-        </div>
-      </section>
-
-      <section className="px-6 pb-24">
-        <div className="max-w-7xl mx-auto">
-          <ProductGrid products={filteredProducts} />
-        </div>
-      </section>
+      <ProductsClient products={products} />
 
       <Footer />
     </main>
