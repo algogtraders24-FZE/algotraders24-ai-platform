@@ -106,15 +106,74 @@ model Conversation {
 }
 
 model Agent {
+  id             String    @id @default(cuid())
+  userId         String
+  type           String
+  name           String
+  description    String    @default("")
+  avatar         String    @default("")
+  status         String    @default("idle")
+  provider       String    @default("gemini")
+  version        String    @default("1.0.0")
+  memoryEnabled  Boolean   @default(true)
+  tools          String[]  @default([])
+  capabilities   String[]  @default([])
+  goal           String    @default("")
+  priority       Int       @default(3)
+  lastRun        DateTime?
+  nextRun        DateTime?
+  tasksCompleted Int       @default(0)
+  successRate    Int       @default(0)
+  estimatedCost  Float     @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  @@index([userId])
+  @@index([type])
+  @@index([deletedAt])
+}
+
+model AgentTask {
+  id         String    @id @default(cuid())
+  agentId    String
+  userId     String
+  title      String
+  status     String    @default("queued")
+  finishedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  @@index([agentId])
+  @@index([userId])
+  @@index([deletedAt])
+}
+
+model AgentMemory {
   id        String    @id @default(cuid())
+  agentId   String
   userId    String
-  name      String
-  type      String
-  status    String    @default("active")
+  key       String
+  value     String
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
+  @@index([agentId])
+  @@index([userId])
+  @@index([deletedAt])
+}
+
+model AgentActivity {
+  id        String    @id @default(cuid())
+  agentId   String
+  userId    String
+  message   String
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  @@index([agentId])
   @@index([userId])
   @@index([deletedAt])
 }

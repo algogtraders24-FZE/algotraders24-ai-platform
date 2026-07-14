@@ -1,18 +1,25 @@
 // services/agents/AgentMemory.ts
-// Temporary per-agent memory store. In-memory only; a future backend can
-// implement the same interface with real persistence + TTL.
-
+// Per-agent memory store. Sprint 14E - hydrated from PostgreSQL.
+// New entries are held in memory; persisting writes lands with the agent
+// execution sprint.
 import type { MemoryEntry } from "@/types/agent";
-import { mockMemory } from "@/data/mock-agents";
 import { AGENT_CONFIG } from "@/config/agent.config";
 
-let store: MemoryEntry[] = [...mockMemory];
+let store: MemoryEntry[] = [];
+
+export function hydrateMemory(entries: MemoryEntry[]): void {
+  store = [...entries];
+}
 
 export function getMemory(agentId: string): MemoryEntry[] {
   return store.filter((m) => m.agentId === agentId);
 }
 
-export function remember(agentId: string, key: string, value: string): MemoryEntry {
+export function remember(
+  agentId: string,
+  key: string,
+  value: string
+): MemoryEntry {
   const entry: MemoryEntry = {
     id: `mem-${Date.now()}`,
     agentId,

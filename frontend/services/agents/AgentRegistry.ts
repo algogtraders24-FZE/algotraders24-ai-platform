@@ -1,10 +1,14 @@
 // services/agents/AgentRegistry.ts
 // Central registry of all AI agents. The Manager loads from here.
-
+// Sprint 14E - Hydrated from PostgreSQL; no mock seed.
 import type { Agent, AgentType } from "@/types/agent";
-import { mockAgents } from "@/data/mock-agents";
 
-const registry: Map<string, Agent> = new Map(mockAgents.map((a) => [a.id, a]));
+const registry: Map<string, Agent> = new Map();
+
+export function hydrateAgents(agents: Agent[]): void {
+  registry.clear();
+  for (const a of agents) registry.set(a.id, a);
+}
 
 export function registerAgent(agent: Agent): void {
   registry.set(agent.id, agent);

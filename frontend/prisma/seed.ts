@@ -117,11 +117,107 @@ async function seedUserScopedData(ownerId: string) {
   await prisma.billing.deleteMany({ where: { userId: ownerId } });
   await prisma.subscription.deleteMany({ where: { userId: ownerId } });
 
-  await prisma.agent.createMany({
+  await prisma.agentTask.deleteMany({ where: { userId: ownerId } });
+  await prisma.agentMemory.deleteMany({ where: { userId: ownerId } });
+  await prisma.agentActivity.deleteMany({ where: { userId: ownerId } });
+
+  const agentSeed = [
+    {
+      type: "market-analyst",
+      name: "Market Analyst",
+      description: "Scans price action and macro signals to summarise market conditions.",
+      avatar: "MA",
+      status: "running",
+      goal: "Produce a daily read on trend, volatility and key levels.",
+      priority: 1,
+      tools: ["web-search", "chart-reader", "news-feed"],
+      capabilities: ["Trend analysis", "Volatility read", "Level mapping"],
+      tasksCompleted: 128,
+      successRate: 94,
+      estimatedCost: 3.4,
+    },
+    {
+      type: "risk-manager",
+      name: "Risk Sentinel",
+      description: "Monitors exposure, drawdown and position sizing against limits.",
+      avatar: "RS",
+      status: "idle",
+      goal: "Keep portfolio risk inside configured limits.",
+      priority: 1,
+      tools: ["portfolio-reader", "alerting"],
+      capabilities: ["Drawdown watch", "Exposure limits", "Sizing checks"],
+      tasksCompleted: 76,
+      successRate: 98,
+      estimatedCost: 1.2,
+    },
+    {
+      type: "news-researcher",
+      name: "News Digest Bot",
+      description: "Collects and condenses market-moving headlines.",
+      avatar: "ND",
+      status: "paused",
+      goal: "Deliver a concise digest of relevant market news.",
+      priority: 3,
+      tools: ["news-feed", "web-search"],
+      capabilities: ["Headline scan", "Summarisation"],
+      tasksCompleted: 41,
+      successRate: 88,
+      estimatedCost: 0.9,
+    },
+  ];
+
+  const nowAgent = new Date();
+  const createdAgents = [];
+  for (const a of agentSeed) {
+    const created = await prisma.agent.create({
+      data: {
+        userId: ownerId,
+        type: a.type,
+        name: a.name,
+        description: a.description,
+        avatar: a.avatar,
+        status: a.status,
+        provider: "gemini",
+        version: "1.0.0",
+        memoryEnabled: true,
+        tools: a.tools,
+        capabilities: a.capabilities,
+        goal: a.goal,
+        priority: a.priority,
+        lastRun: a.status === "paused" ? null : nowAgent,
+        nextRun: a.status === "paused" ? null : new Date(nowAgent.getTime() + 3600_000),
+        tasksCompleted: a.tasksCompleted,
+        successRate: a.successRate,
+        estimatedCost: a.estimatedCost,
+      },
+    });
+    createdAgents.push(created);
+  }
+
+  const analyst = createdAgents[0];
+  const sentinel = createdAgents[1];
+
+  await prisma.agentTask.createMany({
     data: [
-      { userId: ownerId, name: "Market Analyst", type: "analysis", status: "active" },
-      { userId: ownerId, name: "Risk Sentinel", type: "risk", status: "active" },
-      { userId: ownerId, name: "News Digest Bot", type: "research", status: "paused" },
+      { agentId: analyst.id, userId: ownerId, title: "Summarise overnight session", status: "done", finishedAt: new Date(nowAgent.getTime() - 3600_000) },
+      { agentId: analyst.id, userId: ownerId, title: "Map key EURUSD levels", status: "running", finishedAt: null },
+      { agentId: sentinel.id, userId: ownerId, title: "Check open exposure vs limits", status: "queued", finishedAt: null },
+    ],
+  });
+
+  await prisma.agentMemory.createMany({
+    data: [
+      { agentId: analyst.id, userId: ownerId, key: "preferred_pairs", value: "EURUSD, XAUUSD" },
+      { agentId: analyst.id, userId: ownerId, key: "session_focus", value: "London open" },
+      { agentId: sentinel.id, userId: ownerId, key: "max_drawdown_pct", value: "8" },
+    ],
+  });
+
+  await prisma.agentActivity.createMany({
+    data: [
+      { agentId: analyst.id, userId: ownerId, message: "Completed overnight session summary." },
+      { agentId: sentinel.id, userId: ownerId, message: "Exposure within limits (4.2% of equity)." },
+      { agentId: analyst.id, userId: ownerId, message: "Detected volatility expansion on XAUUSD." },
     ],
   });
 

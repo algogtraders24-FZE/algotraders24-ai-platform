@@ -1,29 +1,65 @@
 // services/agents/AgentEngine.ts
 // Main orchestration layer and public facade for the agent framework.
-// Implements the workflow: request -> manager -> planner -> task queue ->
-// executor -> memory -> result. UI talks only to this module.
-
+// Sprint 14E - Agents, tasks, memory and activity are loaded from PostgreSQL
+// via load(). Every accessor stays synchronous, so callers are unchanged.
 import type { Agent, AgentActivity, AgentMetrics } from "@/types/agent";
 import { loadAgents, getAgent } from "./AgentManager";
 import { planTasks } from "./AgentPlanner";
-import { enqueueTasks, getTasks } from "./AgentTaskManager";
+import { enqueueTasks, getTasks, hydrateTasks } from "./AgentTaskManager";
 import { executeTasks } from "./AgentExecutor";
-import { mockActivity } from "@/data/mock-agents";
+import { hydrateAgents } from "./AgentRegistry";
+import { hydrateMemory } from "./AgentMemory";
+import { AgentsApi } from "@/services/api/AgentsApi";
+
+let activityLog: AgentActivity[] = [];
+let loaded = false;
+let inFlight: Promise<void> | null = null;
 
 export interface AgentRunResult {
   agentId: string;
   activity: AgentActivity[];
 }
 
+export function isLoaded(): boolean {
+  return loaded;
+}
+
+// Loads the agent framework state and hydrates registry, tasks and memory.
+export async function load(
+  options: { signal?: AbortSignal; force?: boolean } = {}
+): Promise<void> {
+  if (loaded && !options.force) return;
+  if (inFlight && !options.force) return inFlight;
+
+  if (options.force) AgentsApi.invalidate();
+
+  inFlight = AgentsApi.load({ signal: options.signal }).then((data) => {
+    hydrateAgents(data.items);
+    hydrateTasks(data.tasks);
+    hydrateMemory(data.memory);
+    activityLog = data.activity;
+    loaded = true;
+  });
+
+  try {
+    await inFlight;
+  } finally {
+    inFlight = null;
+  }
+}
+
 /** Run an agent against a request through the full pipeline. */
-export async function runAgentPipeline(agentId: string, request: string): Promise<AgentRunResult | null> {
+export async function runAgentPipeline(
+  agentId: string,
+  request: string
+): Promise<AgentRunResult | null> {
   const agent = getAgent(agentId);
   if (!agent) return null;
 
   const tasks = planTasks(agent, request);
   enqueueTasks(tasks);
   const activity = await executeTasks(agent, tasks);
-
+  activityLog = [...activity, ...activityLog];
   return { agentId, activity };
 }
 
@@ -48,5 +84,7 @@ export function getMetrics(): AgentMetrics {
 }
 
 export function getRecentActivity(agentId?: string): AgentActivity[] {
-  return agentId ? mockActivity.filter((a) => a.agentId === agentId) : mockActivity;
+  return agentId
+    ? activityLog.filter((a) => a.agentId === agentId)
+    : activityLog;
 }
