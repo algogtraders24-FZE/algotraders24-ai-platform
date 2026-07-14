@@ -1,4 +1,4 @@
-﻿// services/billing/InvoiceService.ts
+// services/billing/InvoiceService.ts
 // Sprint 13A — Subscription & Billing Foundation
 // Query layer over invoice history.
 
@@ -9,6 +9,11 @@ export class InvoiceService {
   private invoices: Invoice[];
 
   constructor(invoices: Invoice[] = MOCK_INVOICES) {
+    this.invoices = invoices;
+  }
+
+  // Sprint 14E - Replaces the in-memory invoices with database billing records.
+  hydrate(invoices: Invoice[]): void {
     this.invoices = invoices;
   }
 

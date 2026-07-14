@@ -11,10 +11,10 @@ const prisma = new PrismaClient({ adapter });
 
 async function seedPlans() {
   const plans = [
-    { id: "free", name: "Free", price: 0, interval: "month", sortOrder: 1, features: ["1 AI agent", "100 messages / month", "Community support"] },
-    { id: "pro", name: "Pro", price: 49, interval: "month", sortOrder: 2, features: ["10 AI agents", "Unlimited messages", "Knowledge base", "Email support"] },
-    { id: "elite", name: "Elite", price: 149, interval: "month", sortOrder: 3, features: ["Unlimited agents", "Automation workflows", "Trading Copilot", "Priority support"] },
-    { id: "enterprise", name: "Enterprise", price: 499, interval: "month", sortOrder: 4, features: ["Everything in Elite", "Dedicated infrastructure", "SLA", "Account manager"] },
+    { id: "free", name: "Free", price: 0, interval: "month", sortOrder: 1, features: ["500 AI credits / month", "1 AI agent", "2 automations", "10 knowledge documents", "100 MB storage", "Community support"] },
+    { id: "pro", name: "Pro", price: 29, interval: "month", sortOrder: 2, features: ["10,000 AI credits / month", "5 AI agents", "25 automations", "200 knowledge documents", "5 GB storage", "API access", "3 team members"] },
+    { id: "elite", name: "Elite", price: 99, interval: "month", sortOrder: 3, features: ["50,000 AI credits / month", "20 AI agents", "100 automations", "1,000 knowledge documents", "25 GB storage", "API access", "Priority support", "Custom branding", "10 team members"] },
+    { id: "enterprise", name: "Enterprise", price: 499, interval: "month", sortOrder: 4, features: ["500,000 AI credits / month", "100 AI agents", "1,000 automations", "Unlimited knowledge documents", "500 GB storage", "API access", "Dedicated support & SLA", "Custom branding", "100 team members"] },
   ];
 
   for (const p of plans) {
@@ -132,8 +132,8 @@ async function seedUserScopedData(ownerId: string) {
 
   await prisma.billing.createMany({
     data: [
-      { userId: ownerId, planId: "pro", status: "active", amount: 49 },
-      { userId: ownerId, planId: "pro", status: "active", amount: 49 },
+      { userId: ownerId, planId: "pro", status: "active", amount: 29 },
+      { userId: ownerId, planId: "pro", status: "active", amount: 29 },
       { userId: ownerId, planId: "free", status: "canceled", amount: 0 },
     ],
   });

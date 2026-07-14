@@ -1,4 +1,4 @@
-﻿// services/billing/SubscriptionManager.ts
+// services/billing/SubscriptionManager.ts
 // Sprint 13A — Subscription & Billing Foundation
 // Subscription state + plan-change preview logic (mock, no persistence).
 
@@ -16,6 +16,11 @@ export class SubscriptionManager {
   private subscription: Subscription;
 
   constructor(subscription: Subscription = MOCK_SUBSCRIPTION) {
+    this.subscription = { ...subscription };
+  }
+
+  // Sprint 14E - Replaces the in-memory subscription with the database row.
+  hydrate(subscription: Subscription): void {
     this.subscription = { ...subscription };
   }
 

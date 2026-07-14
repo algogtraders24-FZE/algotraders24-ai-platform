@@ -1,4 +1,4 @@
-﻿// services/billing/PlanService.ts
+// services/billing/PlanService.ts
 // Sprint 13A — Subscription & Billing Foundation
 // Repository + query layer over plan data.
 
@@ -10,6 +10,11 @@ export class PlanService {
   private plans: Plan[];
 
   constructor(plans: Plan[] = MOCK_PLANS) {
+    this.plans = plans;
+  }
+
+  // Sprint 14E - Replaces the in-memory plan set with database-backed plans.
+  hydrate(plans: Plan[]): void {
     this.plans = plans;
   }
 
