@@ -125,11 +125,81 @@ async function seedUserScopedData(ownerId: string) {
     ],
   });
 
+  // Collections first, so documents can reference them.
+  await prisma.knowledgeCollection.deleteMany({ where: { userId: ownerId } });
+  const strategyCol = await prisma.knowledgeCollection.create({
+    data: { userId: ownerId, name: "Trading Strategies", description: "Strategy playbooks and system rules." },
+  });
+  const riskCol = await prisma.knowledgeCollection.create({
+    data: { userId: ownerId, name: "Risk & Compliance", description: "Risk frameworks and operating limits." },
+  });
+  const researchCol = await prisma.knowledgeCollection.create({
+    data: { userId: ownerId, name: "Market Research", description: "Outlooks, notes and market analysis." },
+  });
+
+  const nowTs = new Date();
   await prisma.knowledge.createMany({
     data: [
-      { userId: ownerId, title: "Trading Strategy Handbook", source: "handbook.pdf", chunkCount: 142, status: "indexed" },
-      { userId: ownerId, title: "Risk Management Guide", source: "risk-guide.pdf", chunkCount: 87, status: "indexed" },
-      { userId: ownerId, title: "Q1 Market Outlook", source: "outlook-q1.docx", chunkCount: 0, status: "processing" },
+      {
+        userId: ownerId,
+        title: "Trading Strategy Handbook",
+        description: "Core playbook covering entries, exits and position management.",
+        category: "Trading Strategies",
+        collectionId: strategyCol.id,
+        author: "Research Desk",
+        tags: ["strategy", "playbook", "entries"],
+        provider: "gemini",
+        language: "en",
+        fileType: "pdf",
+        documentSize: 2_450_000,
+        source: "handbook.pdf",
+        chunkCount: 142,
+        status: "indexed",
+        embeddingStatus: "embedded",
+        lastIndexed: nowTs,
+        retrievalCount: 48,
+        popularity: 92,
+      },
+      {
+        userId: ownerId,
+        title: "Risk Management Guide",
+        description: "Drawdown limits, sizing rules and exposure controls.",
+        category: "Risk Management",
+        collectionId: riskCol.id,
+        author: "Risk Team",
+        tags: ["risk", "drawdown", "sizing"],
+        provider: "gemini",
+        language: "en",
+        fileType: "pdf",
+        documentSize: 1_180_000,
+        source: "risk-guide.pdf",
+        chunkCount: 87,
+        status: "indexed",
+        embeddingStatus: "embedded",
+        lastIndexed: nowTs,
+        retrievalCount: 31,
+        popularity: 78,
+      },
+      {
+        userId: ownerId,
+        title: "Q1 Market Outlook",
+        description: "Quarterly macro outlook and positioning notes.",
+        category: "Market Structure",
+        collectionId: researchCol.id,
+        author: "Research Desk",
+        tags: ["macro", "outlook", "q1"],
+        provider: "gemini",
+        language: "en",
+        fileType: "md",
+        documentSize: 340_000,
+        source: "outlook-q1.docx",
+        chunkCount: 0,
+        status: "processing",
+        embeddingStatus: "pending",
+        lastIndexed: null,
+        retrievalCount: 0,
+        popularity: 12,
+      },
     ],
   });
 

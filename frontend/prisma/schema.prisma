@@ -134,15 +134,43 @@ model Automation {
 }
 
 model Knowledge {
-  id         String    @id @default(cuid())
-  userId     String
-  title      String
-  source     String
-  chunkCount Int       @default(0)
-  status     String    @default("processing")
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  deletedAt  DateTime?
+  id              String    @id @default(cuid())
+  userId          String
+  title           String
+  description     String    @default("")
+  category        String    @default("general")
+  collectionId    String?
+  author          String    @default("")
+  tags            String[]  @default([])
+  provider        String    @default("gemini")
+  language        String    @default("en")
+  fileType        String    @default("md")
+  documentSize    Int       @default(0)
+  source          String
+  chunkCount      Int       @default(0)
+  status          String    @default("processing")
+  embeddingStatus String    @default("pending")
+  lastIndexed     DateTime?
+  retrievalCount  Int       @default(0)
+  popularity      Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  @@index([userId])
+  @@index([category])
+  @@index([collectionId])
+  @@index([deletedAt])
+}
+
+model KnowledgeCollection {
+  id          String    @id @default(cuid())
+  userId      String
+  name        String
+  description String    @default("")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
 
   @@index([userId])
   @@index([deletedAt])
