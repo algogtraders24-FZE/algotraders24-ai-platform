@@ -248,3 +248,79 @@ model Billing {
   @@index([userId])
   @@index([deletedAt])
 }
+// ── Sprint 14E: Automation (Workflow) dashboard models ──────────────
+// World B — dashboard-facing. Separate from the simple `Automation` model.
+
+enum WorkflowTrigger {
+  manual
+  scheduled
+  event
+}
+
+enum WorkflowStatus {
+  active
+  paused
+  draft
+}
+
+enum RunStatus {
+  queued
+  running
+  success
+  failed
+}
+
+model Workflow {
+  id          String          @id @default(cuid())
+  userId      String
+  name        String
+  description String          @default("")
+  trigger     WorkflowTrigger @default(manual)
+  schedule    String?
+  status      WorkflowStatus  @default(draft)
+  steps       Json            @default("[]")
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  deletedAt   DateTime?
+
+  runs  WorkflowRun[]
+  queue WorkflowQueueItem[]
+
+  @@index([userId])
+  @@index([userId, status])
+  @@map("workflows")
+}
+
+model WorkflowRun {
+  id         String    @id @default(cuid())
+  workflowId String
+  userId     String
+  status     RunStatus @default(queued)
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  durationMs Int?
+  log        Json      @default("[]")
+  createdAt  DateTime  @default(now())
+  deletedAt  DateTime?
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId])
+  @@index([userId])
+  @@map("workflow_runs")
+}
+
+model WorkflowQueueItem {
+  id         String    @id @default(cuid())
+  workflowId String
+  userId     String
+  status     RunStatus @default(queued)
+  enqueuedAt DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+  deletedAt  DateTime?
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("workflow_queue_items")
+}

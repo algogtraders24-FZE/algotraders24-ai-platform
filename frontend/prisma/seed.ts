@@ -1,4 +1,4 @@
-// prisma/seed.ts
+﻿// prisma/seed.ts
 // Sprint 14D Phase 1 - Comprehensive seed script.
 // Idempotent: safe to run repeatedly. Uses upsert / delete-then-insert per entity.
 // Links demo data to the first real (Supabase-authenticated) user when one exists,
@@ -113,6 +113,9 @@ async function seedUserScopedData(ownerId: string) {
   await prisma.agent.deleteMany({ where: { userId: ownerId } });
   await prisma.knowledge.deleteMany({ where: { userId: ownerId } });
   await prisma.automation.deleteMany({ where: { userId: ownerId } });
+  await prisma.workflowQueueItem.deleteMany({ where: { userId: ownerId } });
+  await prisma.workflowRun.deleteMany({ where: { userId: ownerId } });
+  await prisma.workflow.deleteMany({ where: { userId: ownerId } });
   await prisma.conversation.deleteMany({ where: { userId: ownerId } });
   await prisma.billing.deleteMany({ where: { userId: ownerId } });
   await prisma.subscription.deleteMany({ where: { userId: ownerId } });
@@ -339,6 +342,37 @@ async function seedUserScopedData(ownerId: string) {
     },
   });
 
+  const wfDigest = await prisma.workflow.create({ data: {
+    userId: ownerId, name: "Daily Gold Analysis",
+    description: "Generate and publish gold analysis every morning.",
+    trigger: "scheduled", schedule: "0 7 * * *", status: "active",
+    steps: [
+      { id: "s1", actionId: "analyze-market", label: "Analyze XAUUSD" },
+      { id: "s2", actionId: "generate-article", label: "Generate article" },
+      { id: "s3", actionId: "publish-article", label: "Publish to blog" },
+    ],
+  } });
+  const wfNews = await prisma.workflow.create({ data: {
+    userId: ownerId, name: "News Digest",
+    description: "Summarize market news and send a newsletter.",
+    trigger: "scheduled", schedule: "0 9 * * 1-5", status: "active",
+    steps: [
+      { id: "s1", actionId: "summarize-news", label: "Summarize news" },
+      { id: "s2", actionId: "send-newsletter", label: "Send newsletter" },
+    ],
+  } });
+  await prisma.workflow.create({ data: {
+    userId: ownerId, name: "Weekly Review",
+    description: "Compile a weekly market review article.",
+    trigger: "scheduled", schedule: "0 18 * * 0", status: "paused",
+    steps: [{ id: "s1", actionId: "generate-article", label: "Generate review" }],
+  } });
+  await prisma.workflowRun.createMany({ data: [
+    { workflowId: wfDigest.id, userId: ownerId, status: "success", startedAt: new Date(now - 4 * 3600_000), finishedAt: new Date(now - 4 * 3600_000 + 12000), durationMs: 12000, log: ["Analyzed XAUUSD", "Generated article", "Published to blog"] },
+    { workflowId: wfNews.id, userId: ownerId, status: "success", startedAt: new Date(now - 3 * 3600_000), finishedAt: new Date(now - 3 * 3600_000 + 8000), durationMs: 8000, log: ["Summarized 6 stories", "Newsletter sent"] },
+    { workflowId: wfDigest.id, userId: ownerId, status: "failed", startedAt: new Date(now - 28 * 3600_000), finishedAt: new Date(now - 28 * 3600_000 + 5000), durationMs: 5000, log: ["Analyzed XAUUSD", "Article generation failed: rate limit"] },
+  ] });
+  await prisma.workflowQueueItem.create({ data: { workflowId: wfNews.id, userId: ownerId, status: "queued", enqueuedAt: new Date(now - 60_000) } });
   console.log("  agents: 3, knowledge: 3, automations: 3, conversations: 3, billing: 3, subscription: 1");
 }
 
@@ -360,3 +394,6 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+
+

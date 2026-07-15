@@ -11,6 +11,7 @@ import type { ProductEntity } from "./ProductRepository";
 import type { ConversationEntity } from "./ConversationRepository";
 import type { AgentEntity } from "./AgentRepository";
 import type { AutomationEntity } from "./AutomationRepository";
+import type { WorkflowEntity } from "./WorkflowRepository";
 import type { KnowledgeEntity } from "./KnowledgeRepository";
 import type { BillingEntity } from "./BillingRepository";
 
@@ -28,6 +29,8 @@ import { PrismaProductRepository } from "./PrismaProductRepository";
 import { PrismaConversationRepository } from "./PrismaConversationRepository";
 import { PrismaAgentRepository } from "./PrismaAgentRepository";
 import { PrismaAutomationRepository } from "./PrismaAutomationRepository";
+import { PrismaWorkflowRepository } from "./PrismaWorkflowRepository";
+import { WorkflowRepository } from "./WorkflowRepository";
 import { PrismaKnowledgeRepository } from "./PrismaKnowledgeRepository";
 import { PrismaBillingRepository } from "./PrismaBillingRepository";
 
@@ -46,6 +49,10 @@ export interface IAgentRepository extends IRepository<AgentEntity> {
 export interface IAutomationRepository extends IRepository<AutomationEntity> {
   findByUser(userId: string): Promise<AutomationEntity[]>;
 }
+
+export interface IWorkflowRepository extends IRepository<WorkflowEntity> {
+  findByUser(userId: string): Promise<WorkflowEntity[]>;
+}
 export interface IKnowledgeRepository extends IRepository<KnowledgeEntity> {
   findByUser(userId: string): Promise<KnowledgeEntity[]>;
 }
@@ -59,6 +66,7 @@ export class RepositoryFactory {
   private static _conversations: IConversationRepository | null = null;
   private static _agents: IAgentRepository | null = null;
   private static _automations: IAutomationRepository | null = null;
+  private static _workflows: IWorkflowRepository | null = null;
   private static _knowledge: IKnowledgeRepository | null = null;
   private static _billing: IBillingRepository | null = null;
 
@@ -74,6 +82,7 @@ export class RepositoryFactory {
     this._conversations = null;
     this._agents = null;
     this._automations = null;
+    this._workflows = null;
     this._knowledge = null;
     this._billing = null;
   }
@@ -124,6 +133,16 @@ export class RepositoryFactory {
     return this._automations;
   }
 
+  static workflows(): IWorkflowRepository {
+    if (!this._workflows) {
+      this._workflows =
+        this.mode() === "prisma"
+          ? new PrismaWorkflowRepository()
+          : new WorkflowRepository();
+    }
+    return this._workflows;
+  }
+
   static knowledge(): IKnowledgeRepository {
     if (!this._knowledge) {
       this._knowledge =
@@ -144,3 +163,9 @@ export class RepositoryFactory {
     return this._billing;
   }
 }
+
+
+
+
+
+
