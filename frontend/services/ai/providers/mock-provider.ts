@@ -1,8 +1,8 @@
-// services/ai/providers/mock-provider.ts
+﻿// services/ai/providers/mock-provider.ts
 import type { AIProvider } from "@/types/provider";
 import type { ProviderResponse, ProviderHealth } from "@/types/provider-response";
 import type { Message } from "@/types/message";
-import { mockResponses, DEFAULT_RESPONSE } from "@/data/mock-conversations";
+import { mockResponses, DEFAULT_RESPONSE } from "@/data/ai-mock-responses";
 
 function reply(text: string): string {
   const lower = text.toLowerCase();
