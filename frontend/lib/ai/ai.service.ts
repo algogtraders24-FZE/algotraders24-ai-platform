@@ -30,4 +30,17 @@ export class AIService {
     });
     return res;
   }
+
+  // Stateless completion - no history load, no persistence.
+  // Used by stateless callers like /api/ai. Not a new capability:
+  // it exposes the injected provider without the conversation layer.
+  async complete(
+    prompt: string,
+    model?: string,
+  ): Promise<AICompletionResponse> {
+    return this.provider.complete({
+      messages: [{ role: "user", content: prompt }],
+      model,
+    });
+  }
 }
