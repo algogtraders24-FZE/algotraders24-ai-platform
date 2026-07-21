@@ -212,6 +212,7 @@ model Knowledge {
   lastIndexed     DateTime?
   retrievalCount  Int       @default(0)
   popularity      Int       @default(0)
+  chunks          KnowledgeChunk[]
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
@@ -256,7 +257,6 @@ enum WorkflowTrigger {
   scheduled
   event
 }
-
 enum WorkflowStatus {
   active
   paused
@@ -323,4 +323,22 @@ model WorkflowQueueItem {
 
   @@index([userId])
   @@map("workflow_queue_items")
+}
+model KnowledgeChunk {
+  id          String    @id @default(cuid())
+  knowledgeId String
+  userId      String
+  content     String
+  chunkIndex  Int
+  tokenCount  Int       @default(0)
+  charCount   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  knowledge Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+
+  @@index([knowledgeId])
+  @@index([userId])
+  @@index([deletedAt])
 }
