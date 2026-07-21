@@ -1,12 +1,23 @@
-// app/api/private/products/route.ts
+﻿// app/api/private/products/route.ts
 // Sprint 14D - Repository-backed. Auth enforced by middleware.
 // Sprint 14E - Returns the full product catalogue (descriptions, media,
 // features, specifications, FAQs) now that Product is fully persisted.
 import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { prisma } from "@/lib/prisma";
+import { getUserOrNull } from "@/lib/auth/protectedRoute";
 
 export const GET = withContext(async (req, ctx) => {
+  const sessionUser = await getUserOrNull();
+  if (!sessionUser) {
+    return ApiResponse.error(
+      { code: "UNAUTHORIZED", message: "Authentication required" },
+      ctx.requestId,
+      401,
+      ctx.startedAt
+    );
+  }
+
   const url = new URL(req.url);
   const page = Math.max(1, Number(url.searchParams.get("page") ?? 1));
   const pageSize = Math.min(
@@ -66,3 +77,4 @@ export const GET = withContext(async (req, ctx) => {
     ctx.startedAt
   );
 });
+
