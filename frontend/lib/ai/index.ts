@@ -8,5 +8,6 @@ export * from "./embedding.interface";
 export { AIService } from "./ai.service";
 export { PlaceholderProvider } from "./providers/placeholder.provider";
 export { GeminiProvider } from "./providers/gemini.provider";
-export { loadGeminiEnv } from "./env";
+export { GeminiEmbeddingProvider } from "./providers/gemini-embedding.provider";
+export { loadGeminiEnv, loadGeminiEmbeddingEnv } from "./env";
 export { createAIService } from "./container";
