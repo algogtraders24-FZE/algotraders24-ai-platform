@@ -1,8 +1,8 @@
 ﻿// repositories/RepositoryFactory.ts
 // Sprint 14A - Single access point for all repositories (singleton instances).
-// Sprint 14D - Dependency injection: resolves mock vs Prisma implementations
-// from configuration. Callers are unchanged; only the wiring here decides.
-// Sprint 15B.4 - Added vectors() for pgvector operations (Prisma-only).
+// Sprint 14D - Dependency injection: mock vs Prisma resolved from config.
+// Sprint 15B.4 - vectors() for pgvector ops (Prisma-only).
+// Sprint 15B.7 - knowledgeChunks() for chunk persistence (Prisma-only).
 import type { IRepository } from "@/types/backend";
 import { resolveRepositoryMode } from "@/config/repository.config";
 
@@ -33,6 +33,8 @@ import { PrismaKnowledgeRepository } from "./PrismaKnowledgeRepository";
 import { PrismaBillingRepository } from "./PrismaBillingRepository";
 
 import { PrismaVectorRepository, type IVectorRepository } from "./VectorRepository";
+import { PrismaKnowledgeChunkRepository } from "./PrismaKnowledgeChunkRepository";
+import type { IKnowledgeChunkRepository } from "./KnowledgeChunkRepository";
 
 export interface IUserRepository extends IRepository<UserEntity> {
   findByEmail(email: string): Promise<UserEntity | null>;
@@ -67,6 +69,7 @@ export class RepositoryFactory {
   private static _knowledge: IKnowledgeRepository | null = null;
   private static _billing: IBillingRepository | null = null;
   private static _vectors: IVectorRepository | null = null;
+  private static _knowledgeChunks: IKnowledgeChunkRepository | null = null;
 
   static mode(): "mock" | "prisma" {
     return resolveRepositoryMode();
@@ -82,6 +85,7 @@ export class RepositoryFactory {
     this._knowledge = null;
     this._billing = null;
     this._vectors = null;
+    this._knowledgeChunks = null;
   }
 
   static users(): IUserRepository {
@@ -141,5 +145,10 @@ export class RepositoryFactory {
   static vectors(): IVectorRepository {
     if (!this._vectors) this._vectors = new PrismaVectorRepository();
     return this._vectors;
+  }
+
+  static knowledgeChunks(): IKnowledgeChunkRepository {
+    if (!this._knowledgeChunks) this._knowledgeChunks = new PrismaKnowledgeChunkRepository();
+    return this._knowledgeChunks;
   }
 }
