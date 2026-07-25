@@ -1,7 +1,7 @@
 ﻿// services/ai/assistant.service.ts
-// 15A.4-fix: client-side service. Gemini key server-side only, isliye
-// AIService seedha nahi — /api/ai (server route) ko fetch karta hai.
-// useSearch: true -> Google Search tool se real-time data (search path).
+// 15C.1 - RAG-augmented chat. Calls the authenticated /api/private/knowledge/chat
+// endpoint, which retrieves the user's own knowledge (scoped server-side),
+// injects it as context, and answers with Gemini + Google Search.
 // Request/response contracts (AssistantRequest/AssistantResponse) preserved.
 import type { AssistantRequest, AssistantResponse } from "@/types/assistant";
 import type { Message } from "@/types/message";
@@ -27,24 +27,24 @@ function toAssistantMessage(content: string): Message {
 export async function sendMessage(
   req: AssistantRequest,
 ): Promise<AssistantResponse> {
-  const res = await fetch("/api/ai", {
+  const res = await fetch("/api/private/knowledge/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt: req.message, useSearch: true }),
+    body: JSON.stringify({ query: req.message, useSearch: true }),
   });
 
-  const data = (await res.json()) as {
-    ok: boolean;
-    content: string;
-    kind?: string;
-  };
+  const json = (await res.json().catch(() => null)) as {
+    status?: string;
+    data?: { content?: string; ragApplied?: boolean; sourcesCount?: number };
+    error?: { message?: string };
+  } | null;
 
-  if (!data.ok) {
-    throw new Error(data.content || "AI request failed");
+  if (!res.ok || !json || json.status !== "ok" || !json.data) {
+    throw new Error(json?.error?.message || "The assistant could not respond");
   }
 
   return {
-    message: toAssistantMessage(data.content),
+    message: toAssistantMessage(json.data.content ?? ""),
     usedTemplateId: null,
   };
 }
