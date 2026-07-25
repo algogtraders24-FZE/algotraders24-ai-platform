@@ -35,6 +35,8 @@ import { PrismaBillingRepository } from "./PrismaBillingRepository";
 import { PrismaVectorRepository, type IVectorRepository } from "./VectorRepository";
 import { PrismaKnowledgeChunkRepository } from "./PrismaKnowledgeChunkRepository";
 import type { IKnowledgeChunkRepository } from "./KnowledgeChunkRepository";
+import { PrismaMessageRepository } from "./PrismaMessageRepository";
+import type { IMessageRepository } from "./MessageRepository";
 
 export interface IUserRepository extends IRepository<UserEntity> {
   findByEmail(email: string): Promise<UserEntity | null>;
@@ -70,6 +72,7 @@ export class RepositoryFactory {
   private static _billing: IBillingRepository | null = null;
   private static _vectors: IVectorRepository | null = null;
   private static _knowledgeChunks: IKnowledgeChunkRepository | null = null;
+  private static _messages: IMessageRepository | null = null;
 
   static mode(): "mock" | "prisma" {
     return resolveRepositoryMode();
@@ -86,6 +89,7 @@ export class RepositoryFactory {
     this._billing = null;
     this._vectors = null;
     this._knowledgeChunks = null;
+    this._messages = null;
   }
 
   static users(): IUserRepository {
@@ -150,5 +154,10 @@ export class RepositoryFactory {
   static knowledgeChunks(): IKnowledgeChunkRepository {
     if (!this._knowledgeChunks) this._knowledgeChunks = new PrismaKnowledgeChunkRepository();
     return this._knowledgeChunks;
+  }
+
+  static messages(): IMessageRepository {
+    if (!this._messages) this._messages = new PrismaMessageRepository();
+    return this._messages;
   }
 }

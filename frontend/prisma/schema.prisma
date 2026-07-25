@@ -101,6 +101,29 @@ model Conversation {
   updatedAt     DateTime  @updatedAt
   deletedAt     DateTime?
 
+  messages Message[]
+
+  @@index([userId])
+  @@index([deletedAt])
+}
+
+// Sprint 15C.3 - Server-side message persistence for a Conversation.
+// Immutable append-only turn (like AgentActivity): no updatedAt, content is
+// never edited in place. userId is denormalized onto the row (same pattern
+// as KnowledgeChunk.userId) so ownership can be enforced directly in a
+// scoped query without an extra join.
+model Message {
+  id             String    @id @default(cuid())
+  conversationId String
+  userId         String
+  role           String
+  content        String
+  createdAt      DateTime  @default(now())
+  deletedAt      DateTime?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
   @@index([userId])
   @@index([deletedAt])
 }

@@ -8,7 +8,8 @@
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint",
-    "validate:context": "tsx scripts/validate-context-manager.ts"
+    "validate:context": "tsx scripts/validate-context-manager.ts",
+    "validate:messages": "tsx scripts/validate-conversation-messages.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",
