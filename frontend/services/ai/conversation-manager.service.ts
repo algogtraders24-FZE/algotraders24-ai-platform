@@ -61,6 +61,26 @@ export async function setServerConversationId(
   return updated;
 }
 
+// Sprint 15C.6 - restore a thread's messages from the server (the id it was
+// linked to via setServerConversationId). Conservative by design: only
+// fills in when the local conversation has no messages of its own, so it
+// can never overwrite or duplicate anything the user already has locally
+// (e.g. a message typed while offline that never made it to the server).
+// A local conversation with no serverConversationId (brand new, or legacy
+// pre-15C.5 data) is untouched - the caller simply shouldn't call this
+// without one.
+export async function hydrateFromServer(
+  conv: StoredConversation,
+  serverMessages: Message[],
+): Promise<StoredConversation> {
+  if (conv.messages.length > 0 || serverMessages.length === 0) {
+    return conv;
+  }
+  const updated: StoredConversation = { ...conv, messages: serverMessages, updatedAt: now() };
+  await repo.save(updated);
+  return updated;
+}
+
 export async function deleteConversation(id: string): Promise<void> {
   await repo.remove(id);
 }

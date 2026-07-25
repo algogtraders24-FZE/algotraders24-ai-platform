@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { StoredConversation } from "@/types/conversation-metadata";
-import { createUserMessage, sendMessage } from "@/services/ai/assistant.service";
+import { createUserMessage, sendMessage, loadServerMessages } from "@/services/ai/assistant.service";
 import * as mgr from "@/services/ai/conversation-manager.service";
 import ConversationSidebar from "@/components/ai/ConversationSidebar";
 import ChatWindow from "@/components/ai/ChatWindow";
@@ -25,6 +25,23 @@ export default function AssistantPage() {
       setActive(all.find((c) => c.id === id) ?? all[0] ?? null);
     })();
   }, []);
+
+  // Sprint 15C.6 - restore history for a conversation that is linked to the
+  // server (has a serverConversationId) but has no local messages of its
+  // own, e.g. localStorage was cleared or this is a different browser.
+  // Never overwrites messages that already exist locally (see
+  // conversation-manager.service.ts's hydrateFromServer).
+  useEffect(() => {
+    if (!active || !active.serverConversationId || active.messages.length > 0) return;
+    const conv = active;
+    (async () => {
+      const serverMessages = await loadServerMessages(conv.serverConversationId!);
+      if (serverMessages.length === 0) return;
+      const hydrated = await mgr.hydrateFromServer(conv, serverMessages);
+      setActive((current) => (current?.id === conv.id ? hydrated : current));
+      await refresh();
+    })();
+  }, [active]);
 
   const select = async (id: string) => {
     const conv = list.find((c) => c.id === id) ?? null;
