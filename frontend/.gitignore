@@ -45,3 +45,4 @@ next-env.d.ts
 # Prisma / env
 .env
 .env*.local
+!.env.example
