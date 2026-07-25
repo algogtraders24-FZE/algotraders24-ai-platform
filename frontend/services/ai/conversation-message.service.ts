@@ -6,19 +6,22 @@
 // SECURITY: userId must be session-derived by the caller (see
 // lib/auth/protectedRoute.ts) - this service never trusts a client-supplied
 // userId as authorization. Every operation re-verifies that conversationId
-// belongs to userId in a single scoped query before touching any message,
-// mirroring app/api/private/knowledge/ingest/route.ts: a conversation that
-// exists but belongs to someone else is indistinguishable from one that does
-// not exist at all (NOT_FOUND, never a distinct "forbidden").
-import { prisma } from "@/lib/prisma";
+// belongs to userId before touching any message, mirroring
+// app/api/private/knowledge/ingest/route.ts: a conversation that exists but
+// belongs to someone else is indistinguishable from one that does not exist
+// at all (NOT_FOUND, never a distinct "forbidden").
+// Sprint 15C.7 - the ownership check itself now lives in
+// conversation-ownership.service.ts, shared with ConversationService
+// (conversation-lifecycle.service.ts) so both enforce it identically.
 import { RepositoryFactory, type IConversationRepository } from "@/repositories/RepositoryFactory";
 import type {
   IMessageRepository,
   MessageEntity,
   MessageRole,
 } from "@/repositories/MessageRepository";
-import { RepositoryError, EntityNotFoundError } from "@/types/repository";
+import { RepositoryError } from "@/types/repository";
 import type { Message } from "@/types/message";
+import { assertOwnedConversation } from "./conversation-ownership.service";
 
 const VALID_ROLES: readonly MessageRole[] = ["user", "assistant"];
 
@@ -62,16 +65,6 @@ export class ConversationMessageService {
     return role as MessageRole;
   }
 
-  private async assertOwnedConversation(conversationId: string, userId: string): Promise<void> {
-    const owned = await prisma.conversation.findFirst({
-      where: { id: conversationId, userId, deletedAt: null },
-      select: { id: true },
-    });
-    if (!owned) {
-      throw new EntityNotFoundError("Conversation", conversationId);
-    }
-  }
-
   async addMessage(params: {
     conversationId: string;
     userId: string;
@@ -83,7 +76,7 @@ export class ConversationMessageService {
     const role = this.assertRole(params.role);
     const content = this.assertNonEmpty(params.content, "content");
 
-    await this.assertOwnedConversation(conversationId, userId);
+    await assertOwnedConversation(conversationId, userId);
 
     const created = await this.repo.create({ conversationId, userId, role, content });
     await this.touchConversation(conversationId, userId);
@@ -118,14 +111,14 @@ export class ConversationMessageService {
   async getMessages(conversationId: string, userId: string): Promise<MessageEntity[]> {
     const id = this.assertNonEmpty(conversationId, "conversationId");
     const uid = this.assertNonEmpty(userId, "userId");
-    await this.assertOwnedConversation(id, uid);
+    await assertOwnedConversation(id, uid);
     return this.repo.findByConversation(id, uid);
   }
 
   async countMessages(conversationId: string, userId: string): Promise<number> {
     const id = this.assertNonEmpty(conversationId, "conversationId");
     const uid = this.assertNonEmpty(userId, "userId");
-    await this.assertOwnedConversation(id, uid);
+    await assertOwnedConversation(id, uid);
     return this.repo.countByConversation(id, uid);
   }
 }

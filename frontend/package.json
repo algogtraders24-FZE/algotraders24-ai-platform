@@ -12,7 +12,8 @@
     "validate:messages": "tsx scripts/validate-conversation-messages.ts",
     "validate:orchestration": "tsx scripts/validate-chat-orchestration.ts",
     "validate:client-conversation": "tsx scripts/validate-client-conversation-identity.ts",
-    "validate:history-sync": "tsx scripts/validate-conversation-history-sync.ts"
+    "validate:history-sync": "tsx scripts/validate-conversation-history-sync.ts",
+    "validate:lifecycle": "tsx scripts/validate-conversation-lifecycle.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",

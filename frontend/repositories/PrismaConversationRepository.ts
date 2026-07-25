@@ -16,6 +16,7 @@ export class PrismaConversationRepository extends PrismaBaseRepository<Conversat
       title: row.title,
       messageCount: row.messageCount,
       lastMessageAt: row.lastMessageAt.toISOString(),
+      archived: row.archived,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
@@ -27,6 +28,9 @@ export class PrismaConversationRepository extends PrismaBaseRepository<Conversat
       title: input.title,
       messageCount: input.messageCount,
       lastMessageAt: new Date(input.lastMessageAt),
+      // Optional on input (see ConversationEntity); the column itself
+      // already defaults to false, this just makes mock/Prisma parity explicit.
+      archived: input.archived ?? false,
     };
   }
 
@@ -36,6 +40,7 @@ export class PrismaConversationRepository extends PrismaBaseRepository<Conversat
       title: patch.title ?? undefined,
       messageCount: patch.messageCount ?? undefined,
       lastMessageAt: patch.lastMessageAt ? new Date(patch.lastMessageAt) : undefined,
+      archived: patch.archived ?? undefined,
     };
   }
 
