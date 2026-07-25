@@ -2,6 +2,10 @@
 // 15C.1 - RAG-augmented chat. Calls the authenticated /api/private/knowledge/chat
 // endpoint, which retrieves the user's own knowledge (scoped server-side),
 // injects it as context, and answers with Gemini + Google Search.
+// 15C.5 - forwards req.serverConversationId (when the caller has one) as
+// `conversationId` in the request body so the server reuses the same
+// Conversation across turns; other callers (publishing, trading-copilot,
+// agents) never set it, so their requests are byte-for-byte unchanged.
 // Request/response contracts (AssistantRequest/AssistantResponse) preserved.
 import type { AssistantRequest, AssistantResponse } from "@/types/assistant";
 import type { Message } from "@/types/message";
@@ -30,12 +34,16 @@ export async function sendMessage(
   const res = await fetch("/api/private/knowledge/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query: req.message, useSearch: true }),
+    body: JSON.stringify({
+      query: req.message,
+      useSearch: true,
+      ...(req.serverConversationId ? { conversationId: req.serverConversationId } : {}),
+    }),
   });
 
   const json = (await res.json().catch(() => null)) as {
     status?: string;
-    data?: { content?: string; ragApplied?: boolean; sourcesCount?: number };
+    data?: { content?: string; ragApplied?: boolean; sourcesCount?: number; conversationId?: string };
     error?: { message?: string };
   } | null;
 
@@ -46,5 +54,9 @@ export async function sendMessage(
   return {
     message: toAssistantMessage(json.data.content ?? ""),
     usedTemplateId: null,
+    // Optional by design (see AssistantResponse) - an older/other response
+    // shape without this field must not break the caller.
+    serverConversationId:
+      typeof json.data.conversationId === "string" ? json.data.conversationId : undefined,
   };
 }

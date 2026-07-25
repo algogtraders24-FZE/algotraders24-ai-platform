@@ -49,6 +49,18 @@ export async function setArchived(conv: StoredConversation, archived: boolean): 
   return updated;
 }
 
+// Sprint 15C.5 - link this local thread to the server Conversation returned
+// by the first successful chat response, so later turns reuse it instead of
+// creating a new one each time.
+export async function setServerConversationId(
+  conv: StoredConversation,
+  serverConversationId: string,
+): Promise<StoredConversation> {
+  const updated = { ...conv, serverConversationId };
+  await repo.save(updated);
+  return updated;
+}
+
 export async function deleteConversation(id: string): Promise<void> {
   await repo.remove(id);
 }

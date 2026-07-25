@@ -47,7 +47,14 @@ export default function AssistantPage() {
     await refresh();
     setThinking(true);
     try {
-      const res = await sendMessage({ conversationId: conv.id, message: text });
+      const res = await sendMessage({
+        conversationId: conv.id,
+        message: text,
+        serverConversationId: conv.serverConversationId,
+      });
+      if (res.serverConversationId && res.serverConversationId !== conv.serverConversationId) {
+        conv = await mgr.setServerConversationId(conv, res.serverConversationId);
+      }
       conv = await mgr.addMessage(conv, res.message);
       setActive(conv);
       await refresh();

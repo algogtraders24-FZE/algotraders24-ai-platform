@@ -10,7 +10,8 @@
     "lint": "eslint",
     "validate:context": "tsx scripts/validate-context-manager.ts",
     "validate:messages": "tsx scripts/validate-conversation-messages.ts",
-    "validate:orchestration": "tsx scripts/validate-chat-orchestration.ts"
+    "validate:orchestration": "tsx scripts/validate-chat-orchestration.ts",
+    "validate:client-conversation": "tsx scripts/validate-client-conversation-identity.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",
