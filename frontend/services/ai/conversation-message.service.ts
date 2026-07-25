@@ -11,19 +11,31 @@
 // exists but belongs to someone else is indistinguishable from one that does
 // not exist at all (NOT_FOUND, never a distinct "forbidden").
 import { prisma } from "@/lib/prisma";
-import { RepositoryFactory } from "@/repositories/RepositoryFactory";
+import { RepositoryFactory, type IConversationRepository } from "@/repositories/RepositoryFactory";
 import type {
   IMessageRepository,
   MessageEntity,
   MessageRole,
 } from "@/repositories/MessageRepository";
 import { RepositoryError, EntityNotFoundError } from "@/types/repository";
+import type { Message } from "@/types/message";
 
 const VALID_ROLES: readonly MessageRole[] = ["user", "assistant"];
+
+/** Converts a persisted row into the shape services/ai/context-manager.service.ts expects. */
+export function toMessage(entity: MessageEntity): Message {
+  return {
+    id: entity.id,
+    role: entity.role,
+    content: entity.content,
+    createdAt: entity.createdAt.toISOString(),
+  };
+}
 
 export class ConversationMessageService {
   constructor(
     private readonly repo: IMessageRepository = RepositoryFactory.messages(),
+    private readonly conversations: IConversationRepository = RepositoryFactory.conversations(),
   ) {}
 
   private assertNonEmpty(value: unknown, field: string): string {
@@ -73,7 +85,25 @@ export class ConversationMessageService {
 
     await this.assertOwnedConversation(conversationId, userId);
 
-    return this.repo.create({ conversationId, userId, role, content });
+    const created = await this.repo.create({ conversationId, userId, role, content });
+    await this.touchConversation(conversationId, userId);
+    return created;
+  }
+
+  // Sprint 15C.4 - keep Conversation.messageCount/lastMessageAt current now
+  // that messages are actually persisted. Best-effort: a metadata refresh
+  // failure must not undo an already-persisted message, so it is swallowed
+  // rather than thrown.
+  private async touchConversation(conversationId: string, userId: string): Promise<void> {
+    try {
+      const messageCount = await this.repo.countByConversation(conversationId, userId);
+      await this.conversations.update(conversationId, {
+        messageCount,
+        lastMessageAt: new Date().toISOString(),
+      });
+    } catch {
+      // Non-critical: the message row is the source of truth.
+    }
   }
 
   async addUserMessage(conversationId: string, userId: string, content: string): Promise<MessageEntity> {
