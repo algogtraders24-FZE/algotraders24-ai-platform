@@ -15,7 +15,7 @@ function slugify(text: string): string {
 
 export function buildSeo(title: string, keywords: string[]): SeoMetadata {
   const slug = slugify(title);
-  const url = `https://algotraders24.com/blog/${slug}`;
+  const url = `https://algotraders24.ai/blog/${slug}`;
   const description = `${title} — professional market analysis, key levels, and outlook from Algotraders24 AI.`;
 
   let score = 60;

@@ -7,8 +7,8 @@ function seo(title: string, slug: string, keywords: string[], score: number) {
     metaDescription: `${title} — professional market analysis, key levels, and outlook.`,
     keywords,
     slug,
-    canonicalUrl: `https://algotraders24.com/blog/${slug}`,
-    openGraph: { title, description: `${title} by Algotraders24 AI`, type: "article", url: `https://algotraders24.com/blog/${slug}` },
+    canonicalUrl: `https://algotraders24.ai/blog/${slug}`,
+    openGraph: { title, description: `${title} by Algotraders24 AI`, type: "article", url: `https://algotraders24.ai/blog/${slug}` },
     twitter: { card: "summary_large_image", title, description: `${title} — Algotraders24 AI` },
     score,
   };
