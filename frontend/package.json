@@ -15,7 +15,8 @@
     "validate:history-sync": "tsx scripts/validate-conversation-history-sync.ts",
     "validate:lifecycle": "tsx scripts/validate-conversation-lifecycle.ts",
     "validate:sync-propagation": "tsx scripts/validate-conversation-sync-propagation.ts",
-    "validate:reconciliation": "tsx scripts/validate-conversation-reconciliation.ts"
+    "validate:reconciliation": "tsx scripts/validate-conversation-reconciliation.ts",
+    "validate:hardening": "tsx scripts/validate-conversation-hardening.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",
