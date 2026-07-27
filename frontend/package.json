@@ -18,7 +18,8 @@
     "validate:reconciliation": "tsx scripts/validate-conversation-reconciliation.ts",
     "validate:hardening": "tsx scripts/validate-conversation-hardening.ts",
     "validate:market-foundation": "tsx scripts/validate-market-intelligence-foundation.ts",
-    "validate:market-orchestration": "tsx scripts/validate-market-analysis-orchestration.ts"
+    "validate:market-orchestration": "tsx scripts/validate-market-analysis-orchestration.ts",
+    "validate:alpha-vantage": "tsx scripts/validate-alpha-vantage-provider.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",
