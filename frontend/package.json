@@ -16,7 +16,8 @@
     "validate:lifecycle": "tsx scripts/validate-conversation-lifecycle.ts",
     "validate:sync-propagation": "tsx scripts/validate-conversation-sync-propagation.ts",
     "validate:reconciliation": "tsx scripts/validate-conversation-reconciliation.ts",
-    "validate:hardening": "tsx scripts/validate-conversation-hardening.ts"
+    "validate:hardening": "tsx scripts/validate-conversation-hardening.ts",
+    "validate:market-foundation": "tsx scripts/validate-market-intelligence-foundation.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",
