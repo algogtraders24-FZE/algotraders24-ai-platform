@@ -113,6 +113,18 @@ export class AnalysisRunService {
     });
   }
 
+  // Sprint 15D.2 - distinct from markUnavailable: "unavailable" means the
+  // market data provider had nothing to offer; "failed" means a
+  // downstream step (the AI call) errored despite having a context to
+  // work with. AnalysisRunStatus already anticipated both.
+  async markFailed(id: string, userId: string, reason: string): Promise<AnalysisRun | null> {
+    return this.store.update(id, userId, {
+      status: "failed",
+      summary: reason,
+      completedAt: new Date().toISOString(),
+    });
+  }
+
   async getRun(id: string, userId: string): Promise<AnalysisRun | null> {
     return this.store.findById(id, userId);
   }
