@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import type { StoredConversation } from "@/types/conversation-metadata";
-import { createUserMessage, sendMessage, loadServerMessages } from "@/services/ai/assistant.service";
+import {
+  createUserMessage,
+  sendMessage,
+  loadServerMessages,
+  archiveServerConversation,
+  deleteServerConversation,
+} from "@/services/ai/assistant.service";
 import * as mgr from "@/services/ai/conversation-manager.service";
 import ConversationSidebar from "@/components/ai/ConversationSidebar";
 import ChatWindow from "@/components/ai/ChatWindow";
@@ -90,9 +96,25 @@ export default function AssistantPage() {
         onSelect={select}
         onNew={newChat}
         onRename={async (id, title) => { const c = list.find((x) => x.id === id); if (c) { await mgr.rename(c, title); await refresh(); } }}
-        onDelete={async (id) => { await mgr.deleteConversation(id); if (active?.id === id) setActive(null); await refresh(); }}
+        onDelete={async (id) => {
+          // Sprint 15C.8 - best-effort propagation; the local delete always
+          // proceeds regardless of the server call's outcome.
+          const c = list.find((x) => x.id === id);
+          if (c?.serverConversationId) await deleteServerConversation(c.serverConversationId);
+          await mgr.deleteConversation(id);
+          if (active?.id === id) setActive(null);
+          await refresh();
+        }}
         onPin={async (id, p) => { const c = list.find((x) => x.id === id); if (c) { await mgr.setPinned(c, p); await refresh(); } }}
-        onArchive={async (id, a) => { const c = list.find((x) => x.id === id); if (c) { await mgr.setArchived(c, a); await refresh(); } }}
+        onArchive={async (id, a) => {
+          // Sprint 15C.8 - best-effort propagation, same rationale as onDelete.
+          const c = list.find((x) => x.id === id);
+          if (c) {
+            if (c.serverConversationId) await archiveServerConversation(c.serverConversationId, a);
+            await mgr.setArchived(c, a);
+            await refresh();
+          }
+        }}
       />
 
       <div className="flex flex-1 flex-col">

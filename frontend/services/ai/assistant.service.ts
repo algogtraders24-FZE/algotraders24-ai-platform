@@ -9,6 +9,9 @@
 // 15C.6 - loadServerMessages() reads a server conversation's persisted
 // history back (GET /api/private/conversations/[id]/messages), for the
 // client to restore a thread it doesn't have locally.
+// 15C.8 - archiveServerConversation()/deleteServerConversation() propagate
+// a local archive/unarchive/delete action to the linked server
+// conversation (PATCH/DELETE /api/private/conversations/[id]).
 // Request/response contracts (AssistantRequest/AssistantResponse) preserved.
 import type { AssistantRequest, AssistantResponse } from "@/types/assistant";
 import type { Message } from "@/types/message";
@@ -84,5 +87,44 @@ export async function loadServerMessages(serverConversationId: string): Promise<
     return json.data.messages as Message[];
   } catch {
     return [];
+  }
+}
+
+// Sprint 15C.8 - best-effort propagation of a local archive/unarchive
+// action to the linked server conversation. Never throws: a network
+// failure or an ownership rejection just means the server conversation is
+// unaffected - the local action (which the caller performs regardless) is
+// never rolled back. Mirrors loadServerMessages's resilience convention.
+export async function archiveServerConversation(
+  serverConversationId: string,
+  archived: boolean,
+): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `/api/private/conversations/${encodeURIComponent(serverConversationId)}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived }),
+      },
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Sprint 15C.8 - best-effort propagation of a local delete action to the
+// linked server conversation (soft-delete server-side). Never throws, same
+// rationale as archiveServerConversation above.
+export async function deleteServerConversation(serverConversationId: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `/api/private/conversations/${encodeURIComponent(serverConversationId)}`,
+      { method: "DELETE" },
+    );
+    return res.ok;
+  } catch {
+    return false;
   }
 }
