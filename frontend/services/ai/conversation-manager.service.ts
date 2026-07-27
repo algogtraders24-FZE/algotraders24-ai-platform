@@ -1,6 +1,7 @@
 // services/ai/conversation-manager.service.ts
 import type { StoredConversation } from "@/types/conversation-metadata";
 import type { Message } from "@/types/message";
+import type { ConversationListItem } from "@/services/api/ConversationsApi";
 import * as repo from "./conversation.repository";
 
 function now(): string {
@@ -79,6 +80,54 @@ export async function hydrateFromServer(
   const updated: StoredConversation = { ...conv, messages: serverMessages, updatedAt: now() };
   await repo.save(updated);
   return updated;
+}
+
+// Sprint 15C.9 - discover server conversations this device doesn't know
+// about yet (localStorage loss, a different browser/device, or simply
+// never having sent a message from here) and create a local representation
+// for each. Matching is solely by exact serverConversationId equality - no
+// title/timestamp/content heuristic ever runs - so a local-only
+// conversation with no serverConversationId can never be matched or merged
+// into any server conversation, and a conversation already linked locally
+// is never re-touched, overwritten, or duplicated. Deleted server
+// conversations never reach this function at all: GET
+// /api/private/conversations already excludes them, so `serverConversations`
+// is expected to be exactly that (already-filtered) list. Never calls the
+// chat endpoint, so recovery itself can never create a new server
+// conversation. `fetchMessages` is injected (matches hydrateFromServer's
+// separation - this module stays network-free) so callers can pass
+// assistant.service.ts's loadServerMessages, which already never throws.
+export async function reconcileServerConversations(
+  serverConversations: readonly ConversationListItem[],
+  fetchMessages: (serverConversationId: string) => Promise<Message[]>,
+): Promise<StoredConversation[]> {
+  const local = await loadRecent();
+  const knownServerIds = new Set(
+    local
+      .map((c) => c.serverConversationId)
+      .filter((id): id is string => typeof id === "string" && id.length > 0),
+  );
+
+  const recovered: StoredConversation[] = [];
+  for (const server of serverConversations) {
+    if (knownServerIds.has(server.id)) continue; // already known - never overwrite, never duplicate
+
+    const messages = await fetchMessages(server.id);
+    const conv: StoredConversation = {
+      id: `conv-${Date.now()}-${recovered.length}`,
+      title: server.title,
+      messages,
+      createdAt: server.createdAt,
+      updatedAt: server.updatedAt,
+      pinned: false,
+      archived: server.archived ?? false,
+      serverConversationId: server.id,
+    };
+    await repo.save(conv);
+    recovered.push(conv);
+    knownServerIds.add(server.id); // guards against duplicate ids within the same server list
+  }
+  return recovered;
 }
 
 export async function deleteConversation(id: string): Promise<void> {

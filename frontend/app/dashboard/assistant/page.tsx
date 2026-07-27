@@ -10,6 +10,7 @@ import {
   deleteServerConversation,
 } from "@/services/ai/assistant.service";
 import * as mgr from "@/services/ai/conversation-manager.service";
+import { getConversations } from "@/services/ai/conversation.service";
 import ConversationSidebar from "@/components/ai/ConversationSidebar";
 import ChatWindow from "@/components/ai/ChatWindow";
 import ChatInput from "@/components/ai/ChatInput";
@@ -29,6 +30,24 @@ export default function AssistantPage() {
       const id = await mgr.selectedId.get();
       const all = await mgr.loadRecent();
       setActive(all.find((c) => c.id === id) ?? all[0] ?? null);
+
+      // Sprint 15C.9 - discover server conversations this device doesn't
+      // know about yet (localStorage loss, a different browser/device, or
+      // simply never having sent a message from here). Never touches an
+      // existing local conversation - see reconcileServerConversations for
+      // the exact skip/duplicate-prevention rule. Cache bypassed
+      // (cacheTtlMs: 0) so recovery reflects current server state rather
+      // than a stale cached list. Failure here (offline, logged out mid
+      // -load, etc.) must not break the page.
+      try {
+        const serverList = await getConversations({ cacheTtlMs: 0 });
+        if (serverList.length > 0) {
+          const recovered = await mgr.reconcileServerConversations(serverList, loadServerMessages);
+          if (recovered.length > 0) await refresh();
+        }
+      } catch {
+        // Non-fatal - local conversations already loaded above are unaffected.
+      }
     })();
   }, []);
 

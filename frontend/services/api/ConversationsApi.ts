@@ -7,6 +7,9 @@ export interface ConversationListItem {
   title: string;
   messageCount: number;
   lastMessageAt: string;
+  // Sprint 15C.9 - the route has returned this since Sprint 15C.7 (the
+  // Conversation.archived column); the type just never caught up.
+  archived?: boolean;
   createdAt: string;
   updatedAt: string;
 }
