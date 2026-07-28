@@ -1,7 +1,9 @@
 // scripts/validate-alpha-vantage-provider.ts
 // Sprint 15D.3A - Standalone validation for the Alpha Vantage
 // MarketDataProvider adapter, plus an integration check through the real
-// MarketContextService and MarketAnalysisOrchestrationService. No test
+// MarketContextService, and (Sprint 15D.10) through the real
+// MarketIntelligencePipelineService + MarketAnalysisOrchestrationService,
+// which no longer uses MarketContextService as its data path. No test
 // framework exists in this project; run via
 // `npm run validate:alpha-vantage`.
 //
@@ -23,6 +25,7 @@ import { MarketDataProviderError } from "../lib/market-data/errors";
 import type { Clock } from "../lib/market-data/cache";
 import { MarketContextService } from "../services/ai/market-context.service";
 import { MarketDataProviderUnavailableError } from "../types/market-data-provider";
+import { MarketIntelligencePipelineService } from "../services/ai/market-intelligence-pipeline.service";
 import { MarketAnalysisOrchestrationService } from "../services/ai/market-analysis-orchestration.service";
 import { AnalysisRunService } from "../services/ai/analysis-run.service";
 import type { AIService } from "../lib/ai";
@@ -335,7 +338,11 @@ async function main(): Promise<void> {
   });
 
   // ---------------------------------------------------------------------
-  // G: integration through MarketContextService + MarketAnalysisOrchestrationService
+  // G: integration through MarketIntelligencePipelineService (Sprint 15D.8)
+  // + MarketAnalysisOrchestrationService (Sprint 15D.10 rewiring) - the
+  // orchestration service no longer uses MarketContextService as its data
+  // path, so this section now injects AlphaVantageProvider directly into
+  // the pipeline instead.
   // ---------------------------------------------------------------------
   class FakeAI implements Pick<AIService, "complete"> {
     lastPrompt = "";
@@ -345,16 +352,17 @@ async function main(): Promise<void> {
     }
   }
 
-  await test("G1: a successful provider context reaches orchestration end to end", async () => {
+  await test("G1: a successful provider result reaches orchestration end to end through the 15D.8 pipeline", async () => {
     await withApiKey(async () => {
       const { fetchImpl } = makeFetch(200, successBody());
-      const marketContext = new MarketContextService(new AlphaVantageProvider({ fetchImpl }));
+      const pipeline = new MarketIntelligencePipelineService(new AlphaVantageProvider({ fetchImpl }));
       const fakeAI = new FakeAI();
-      const orchestrator = new MarketAnalysisOrchestrationService(marketContext, new AnalysisRunService(), fakeAI);
+      const orchestrator = new MarketAnalysisOrchestrationService(pipeline, undefined, new AnalysisRunService(), fakeAI);
       const outcome = await orchestrator.analyze({ userId: "user-1", symbol: "XAUUSD", question: "Analyze gold XAUUSD" });
       assert.equal(outcome.status, "completed");
       if (outcome.status === "completed") {
-        assert.equal(outcome.result.evidence[0].source, "alpha-vantage");
+        assert.ok(outcome.result.confidence.basis.some((item) => item.source === "alpha-vantage"));
+        assert.ok(outcome.result.explainable.supportingEvidence.some((line) => line.basis[0]?.source === "alpha-vantage"));
       }
     });
   });
@@ -363,8 +371,8 @@ async function main(): Promise<void> {
     const original = process.env.ALPHA_VANTAGE_API_KEY;
     delete process.env.ALPHA_VANTAGE_API_KEY;
     try {
-      const marketContext = new MarketContextService(new AlphaVantageProvider());
-      const orchestrator = new MarketAnalysisOrchestrationService(marketContext, new AnalysisRunService(), new FakeAI());
+      const pipeline = new MarketIntelligencePipelineService(new AlphaVantageProvider());
+      const orchestrator = new MarketAnalysisOrchestrationService(pipeline, undefined, new AnalysisRunService(), new FakeAI());
       const outcome = await orchestrator.analyze({ userId: "user-1", symbol: "XAUUSD", question: "Analyze gold" });
       assert.equal(outcome.status, "provider-unavailable");
     } finally {
@@ -376,17 +384,21 @@ async function main(): Promise<void> {
   await test("G3: no fabricated fields appear anywhere in the orchestrated prompt or result", async () => {
     await withApiKey(async () => {
       const { fetchImpl } = makeFetch(200, successBody());
-      const marketContext = new MarketContextService(new AlphaVantageProvider({ fetchImpl }));
+      const pipeline = new MarketIntelligencePipelineService(new AlphaVantageProvider({ fetchImpl }));
       const fakeAI = new FakeAI();
-      const orchestrator = new MarketAnalysisOrchestrationService(marketContext, new AnalysisRunService(), fakeAI);
+      const orchestrator = new MarketAnalysisOrchestrationService(pipeline, undefined, new AnalysisRunService(), fakeAI);
       const outcome = await orchestrator.analyze({ userId: "user-1", symbol: "XAUUSD", question: "Analyze gold XAUUSD" });
       assert.equal(outcome.status, "completed");
-      assert.ok(fakeAI.lastPrompt.includes("Trend: unavailable"));
-      assert.ok(fakeAI.lastPrompt.includes("Volatility: unavailable"));
-      assert.ok(fakeAI.lastPrompt.includes("Sentiment: unavailable"));
-      assert.ok(fakeAI.lastPrompt.includes("Recent headlines: none available"));
+      // AlphaVantageProvider never supplies trend/volatility/sentiment/
+      // headlines (see the provider's own file header) - the explainer's
+      // own assumptions/limitations must say so explicitly in the prompt,
+      // never a guessed value standing in for them.
+      assert.ok(fakeAI.lastPrompt.includes("No technical evidence was available"));
+      assert.ok(fakeAI.lastPrompt.includes("No news evidence was available"));
+      assert.ok(fakeAI.lastPrompt.includes("No sentiment evidence was available"));
+      assert.ok(fakeAI.lastPrompt.includes("never invent a price, direction, headline, or conclusion"));
       if (outcome.status === "completed") {
-        assert.equal(outcome.result.evidence.every((e) => e.source === "alpha-vantage"), true);
+        assert.equal(outcome.result.confidence.basis.every((item) => item.source === "alpha-vantage"), true);
       }
     });
   });

@@ -1,33 +1,46 @@
 // services/ai/market-analysis-orchestration.service.ts
 // Sprint 15D.2 - First controlled Market Intelligence orchestration layer.
-// Chains: request validation -> intent/prompt routing (the dormant
-// scaffold, activated via resolvePromptRouting from Sprint 15D.1) ->
-// MarketContextService -> a bounded, non-fabricating AI prompt -> the
-// canonical lib/ai AIService -> AnalysisRunService. Never touches Context
-// Manager, RAG, embeddings, pgvector, the Gemini provider directly, or
+// Sprint 15D.10 - Rewired: request validation -> intent/prompt routing (the
+// dormant scaffold, activated via resolvePromptRouting from Sprint 15D.1)
+// -> MarketIntelligencePipelineService (Sprint 15D.8, itself chaining the
+// unmodified Evidence/Reasoning/Risk/Confidence engines) ->
+// ExplainableAnalysisService (Sprint 15D.9) -> a prompt built ONLY from
+// that ExplainableAnalysis -> the canonical lib/ai AIService ->
+// AnalysisRunService. MarketContextService is no longer used here (it was
+// the 15D.1-era data path; the 15D.8 pipeline now owns market-data
+// retrieval end to end) - it remains fully intact and independently
+// validated for any other caller. Never touches Context Manager, RAG,
+// embeddings, pgvector, the Gemini provider directly, or
 // app/api/private/knowledge/chat/route.ts - those remain exactly as
 // Sprint 15C left them.
 //
-// The AI dependency is typed as Pick<AIService, "complete"> rather than
-// the concrete class: AIService's constructor parameters are private,
-// which makes the class nominally typed in TypeScript - a plain fake
-// object can never satisfy it structurally. Pick<> exposes only the one
-// public method actually used here, so production code still defaults to
-// the real canonical AIService (createAIService()), while a validation
-// script can inject a network-free test double - the same
-// controlled-test-double approach Sprint 15D.1 already established for
-// MarketDataProvider, applied to the one other external dependency here.
+// Gemini's role in this flow is deliberately narrow: buildPrompt() below
+// passes it ONLY the already-computed, deterministic ExplainableAnalysis
+// fields, with an explicit instruction to restate them in natural language
+// and never perform new analysis or introduce a fact not already present.
+// The AI dependency is typed as Pick<AIService, "complete"> rather than the
+// concrete class: AIService's constructor parameters are private, which
+// makes the class nominally typed in TypeScript - a plain fake object can
+// never satisfy it structurally. Pick<> exposes only the one public method
+// actually used here, so production code still defaults to the real
+// canonical AIService (createAIService()), while a validation script can
+// inject a network-free test double.
 //
-// No real MarketDataProvider exists yet (Sprint 15D.1 scope), so with the
-// default constructor arguments every real call today deterministically
-// reaches the provider-unavailable outcome - by design, per the Sprint
-// 15D locked rule against using mock market data in any production path.
+// `intelligencePipeline` defaults to `new MarketIntelligencePipelineService()`,
+// which itself defaults its own `provider` argument to null - so with no
+// provider injected anywhere, every real call today deterministically
+// reaches the provider-unavailable outcome, exactly the same behavior (and
+// the same locked rule against fabricated/unexpectedly-live market data in
+// a default code path) this file already had before this sprint.
 import { createAIService, AIProviderError, type AIService } from "@/lib/ai";
 import { resolvePromptRouting, type ResolvedPromptRouting } from "./prompts/resolve-routing.service";
-import { MarketContextService } from "./market-context.service";
+import { MarketIntelligencePipelineService } from "./market-intelligence-pipeline.service";
+import { ExplainableAnalysisService } from "./explainable/explainable-analysis.service";
 import { AnalysisRunService } from "./analysis-run.service";
-import { MarketDataProviderUnavailableError } from "@/types/market-data-provider";
-import type { MarketContext } from "@/types/market-context";
+import type { MarketIntelligenceResult } from "@/types/market-intelligence-result";
+import type { ExplainableAnalysis } from "@/types/explainable-analysis";
+import type { EvidenceItem } from "@/types/evidence";
+import type { MarketContext, Evidence } from "@/types/market-context";
 import type {
   MarketAnalysisRequest,
   MarketAnalysisResult,
@@ -46,7 +59,8 @@ export class MarketAnalysisOrchestrationService {
   // lazily instead, only when a request has already cleared context
   // retrieval and genuinely needs it.
   constructor(
-    private readonly marketContext: MarketContextService = new MarketContextService(),
+    private readonly intelligencePipeline: MarketIntelligencePipelineService = new MarketIntelligencePipelineService(),
+    private readonly explainableAnalysis: ExplainableAnalysisService = new ExplainableAnalysisService(),
     private readonly analysisRuns: AnalysisRunService = new AnalysisRunService(),
     private readonly ai: Pick<AIService, "complete"> | null = null,
   ) {}
@@ -94,19 +108,19 @@ export class MarketAnalysisOrchestrationService {
     const routing = resolvePromptRouting(validated.question);
     const run = await this.analysisRuns.startRun(validated.userId, validated.symbol);
 
-    let context: MarketContext;
-    try {
-      context = await this.marketContext.getMarketContext({ symbol: validated.symbol });
-    } catch (error) {
-      const reason =
-        error instanceof MarketDataProviderUnavailableError
-          ? error.message
-          : "Market data is currently unavailable.";
-      const updated = await this.analysisRuns.markUnavailable(run.id, validated.userId, reason);
-      return { status: "provider-unavailable", run: updated ?? run, reason };
+    const intelligenceOutcome = await this.intelligencePipeline.run({ symbol: validated.symbol });
+    if (intelligenceOutcome.status === "provider-unavailable") {
+      const updated = await this.analysisRuns.markUnavailable(run.id, validated.userId, intelligenceOutcome.reason);
+      return { status: "provider-unavailable", run: updated ?? run, reason: intelligenceOutcome.reason };
+    }
+    if (intelligenceOutcome.status === "provider-error") {
+      const updated = await this.analysisRuns.markFailed(run.id, validated.userId, intelligenceOutcome.reason);
+      return { status: "provider-error", run: updated ?? run, reason: intelligenceOutcome.reason };
     }
 
-    const prompt = this.buildPrompt(validated, routing, context);
+    const intelligence = intelligenceOutcome.result;
+    const explainable = this.explainableAnalysis.explain(intelligence);
+    const prompt = this.buildPrompt(validated, routing, explainable);
 
     try {
       const completion = await this.getAI().complete(prompt);
@@ -122,13 +136,15 @@ export class MarketAnalysisOrchestrationService {
       }
 
       const result: MarketAnalysisResult = {
-        symbol: context.symbol,
+        symbol: intelligence.symbol,
         intent: routing.intent,
         summary: completion.content,
-        confidence: context.confidence,
-        evidence: context.confidence.basis,
+        explainable,
+        risk: intelligence.risk,
+        confidence: intelligence.confidence,
       };
-      const updated = await this.analysisRuns.completeRun(run.id, validated.userId, context, completion.content);
+      const legacyContext = this.toAnalysisRunContext(intelligence, explainable);
+      const updated = await this.analysisRuns.completeRun(run.id, validated.userId, legacyContext, completion.content);
       return { status: "completed", run: updated ?? run, result };
     } catch (error) {
       const message = error instanceof AIProviderError ? error.message : "The AI analysis could not be completed.";
@@ -137,53 +153,94 @@ export class MarketAnalysisOrchestrationService {
     }
   }
 
-  // Deterministic, bounded prompt built ONLY from resolved routing and
-  // whatever the MarketContext actually contains. Every field that has no
-  // evidence is stated as explicitly unavailable - never guessed - and the
-  // model is explicitly instructed not to invent values for it.
+  // Deterministic, bounded prompt built ONLY from the resolved routing and
+  // the already-computed ExplainableAnalysis - never from raw evidence,
+  // reasoning, risk, or confidence data directly. Gemini's only job here is
+  // to phrase what it is given: it is explicitly told not to add, remove,
+  // or contradict a single fact, and every section that states an absence
+  // ("no thesis can be formed", "no assumptions were required") must be
+  // carried through as-is, never smoothed over into invented content.
   private buildPrompt(
     request: MarketAnalysisRequest,
     routing: ResolvedPromptRouting,
-    context: MarketContext,
+    explainable: ExplainableAnalysis,
   ): string {
     const lines: string[] = [];
 
     lines.push(routing.persona.systemRole);
-    lines.push(routing.template);
+    lines.push(
+      "You are given a fully-computed, deterministic market intelligence analysis below. " +
+        "Your only task is to express it in clear, natural language for the user - you are a translator, not an analyst. " +
+        "Do not add facts, prices, headlines, risk levels, or conclusions that are not explicitly present below. " +
+        "Do not change the stated risk level, confidence level, or any evidence claim. " +
+        "If a section below states that something is unavailable or could not be determined, say so plainly - never invent a substitute or perform new analysis to fill the gap.",
+    );
     lines.push(`User question: ${request.question}`);
-    lines.push(`Symbol: ${context.symbol}`);
-    lines.push(`Trend: ${context.state.trend ?? "unavailable - do not assume a direction"}`);
-    lines.push(`Volatility: ${context.state.volatility ?? "unavailable"}`);
-    lines.push(`Liquidity: ${context.state.liquidity ?? "unavailable"}`);
-    lines.push(`Technical summary: ${context.technical.summary ?? "unavailable"}`);
-    lines.push(
-      context.news.headlines.length > 0
-        ? `Recent headlines: ${context.news.headlines.join("; ")}`
-        : "Recent headlines: none available",
-    );
-    lines.push(`Risk level: ${context.risk.level ?? "unavailable"}`);
-    if (context.risk.notes) lines.push(`Risk notes: ${context.risk.notes}`);
-    lines.push(`Sentiment: ${context.sentiment ?? "unavailable"}`);
-    lines.push(
-      `Confidence in available data: ${context.confidence.score}/100 based on ${context.confidence.basis.length} evidence item(s).`,
-    );
+    lines.push(`Symbol: ${explainable.symbol}`);
+    lines.push(`Executive summary: ${explainable.executiveSummary}`);
+    lines.push(`Market thesis: ${explainable.marketThesis}`);
 
-    lines.push("Evidence:");
-    if (context.confidence.basis.length === 0) {
-      lines.push("- None available. State clearly that this analysis is limited by data availability.");
-    } else {
-      for (const item of context.confidence.basis) {
-        lines.push(`- ${item.claim} (source: ${item.source}, as of ${item.asOf})`);
-      }
-    }
+    lines.push("Supporting evidence:");
+    lines.push(
+      explainable.supportingEvidence.length > 0
+        ? explainable.supportingEvidence.map((line) => `- ${line.text}`).join("\n")
+        : "- None available.",
+    );
+    lines.push("Opposing evidence:");
+    lines.push(
+      explainable.opposingEvidence.length > 0
+        ? explainable.opposingEvidence.map((line) => `- ${line.text}`).join("\n")
+        : "- None available.",
+    );
+    lines.push("Unknown factors:");
+    lines.push(explainable.unknownFactors.map((line) => `- ${line}`).join("\n"));
+    lines.push("Assumptions:");
+    lines.push(explainable.assumptions.map((line) => `- ${line}`).join("\n"));
+    lines.push("Limitations:");
+    lines.push(explainable.limitations.map((line) => `- ${line}`).join("\n"));
+    lines.push(`Confidence summary: ${explainable.confidenceSummary}`);
+    lines.push(`Risk summary: ${explainable.riskSummary}`);
+    lines.push(`Recommendation basis: ${explainable.recommendationBasis}`);
 
     lines.push(`Respond using this structure: ${routing.schema.sections.join(", ")}.`);
     lines.push(
-      "Explicitly state uncertainty wherever a field above is marked unavailable. " +
-        "Never invent specific prices, directional bias, or headlines not present in the evidence above.",
+      "Restate the analysis above naturally and completely - never perform new reasoning, " +
+        "never invent a price, direction, headline, or conclusion not already stated above.",
     );
 
     const prompt = lines.join("\n");
     return prompt.length > MAX_PROMPT_CHARS ? prompt.slice(0, MAX_PROMPT_CHARS) : prompt;
+  }
+
+  // Compatibility bridge for AnalysisRunService.completeRun(), whose
+  // signature (and AnalysisRun.context: MarketContext | null) is
+  // deliberately left unchanged by this sprint - AnalysisRunService is
+  // independently validated by Sprint 15D.1's own suite and this sprint
+  // does not touch it. Every field below is either a real value copied
+  // down from the new pipeline's richer types, or stays undefined/empty
+  // when nothing in the new pipeline computes an equivalent - never a
+  // guessed value invented just to fill the older, narrower shape.
+  private toAnalysisRunContext(intelligence: MarketIntelligenceResult, explainable: ExplainableAnalysis): MarketContext {
+    const toEvidence = (items: readonly EvidenceItem[]): Evidence[] =>
+      items.map((item) => ({ claim: item.claim, source: item.source, asOf: item.asOf }));
+    const allEvidence = toEvidence(intelligence.evidence.items);
+    const headlines = intelligence.evidence.items.filter((item) => item.type === "news").map((item) => item.claim);
+
+    return {
+      symbol: intelligence.symbol,
+      // trend/volatility/liquidity: no equivalent typed signal exists in
+      // the 15D.4-15D.8 pipeline output - left absent, never guessed.
+      state: { symbol: intelligence.symbol, evidence: allEvidence },
+      technical: { symbol: intelligence.symbol, summary: explainable.marketThesis, evidence: allEvidence },
+      news: { symbol: intelligence.symbol, headlines, evidence: allEvidence },
+      risk: {
+        symbol: intelligence.symbol,
+        level: intelligence.risk.overallLevel,
+        notes: explainable.riskSummary,
+        evidence: allEvidence,
+      },
+      confidence: { score: intelligence.confidence.overallScore, basis: toEvidence(intelligence.confidence.basis) },
+      generatedAt: intelligence.metadata.generatedAt,
+    };
   }
 }
