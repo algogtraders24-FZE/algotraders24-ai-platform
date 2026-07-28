@@ -22,7 +22,8 @@
     "validate:alpha-vantage": "tsx scripts/validate-alpha-vantage-provider.ts",
     "validate:evidence-intelligence": "tsx scripts/validate-evidence-intelligence.ts",
     "validate:reasoning-engine": "tsx scripts/validate-reasoning-engine.ts",
-    "validate:risk-engine": "tsx scripts/validate-risk-engine.ts"
+    "validate:risk-engine": "tsx scripts/validate-risk-engine.ts",
+    "validate:confidence-engine": "tsx scripts/validate-confidence-engine.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",
