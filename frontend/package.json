@@ -19,7 +19,8 @@
     "validate:hardening": "tsx scripts/validate-conversation-hardening.ts",
     "validate:market-foundation": "tsx scripts/validate-market-intelligence-foundation.ts",
     "validate:market-orchestration": "tsx scripts/validate-market-analysis-orchestration.ts",
-    "validate:alpha-vantage": "tsx scripts/validate-alpha-vantage-provider.ts"
+    "validate:alpha-vantage": "tsx scripts/validate-alpha-vantage-provider.ts",
+    "validate:evidence-intelligence": "tsx scripts/validate-evidence-intelligence.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",
