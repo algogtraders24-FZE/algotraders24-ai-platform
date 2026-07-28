@@ -23,7 +23,9 @@
     "validate:evidence-intelligence": "tsx scripts/validate-evidence-intelligence.ts",
     "validate:reasoning-engine": "tsx scripts/validate-reasoning-engine.ts",
     "validate:risk-engine": "tsx scripts/validate-risk-engine.ts",
-    "validate:confidence-engine": "tsx scripts/validate-confidence-engine.ts"
+    "validate:confidence-engine": "tsx scripts/validate-confidence-engine.ts",
+    "validate:intelligence-pipeline": "tsx scripts/validate-market-intelligence-pipeline.ts",
+    "validate:explainable-analysis": "tsx scripts/validate-explainable-analysis.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",
