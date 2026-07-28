@@ -21,7 +21,8 @@
     "validate:market-orchestration": "tsx scripts/validate-market-analysis-orchestration.ts",
     "validate:alpha-vantage": "tsx scripts/validate-alpha-vantage-provider.ts",
     "validate:evidence-intelligence": "tsx scripts/validate-evidence-intelligence.ts",
-    "validate:reasoning-engine": "tsx scripts/validate-reasoning-engine.ts"
+    "validate:reasoning-engine": "tsx scripts/validate-reasoning-engine.ts",
+    "validate:risk-engine": "tsx scripts/validate-risk-engine.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",
