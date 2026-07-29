@@ -1,92 +1,78 @@
-import Image from "next/image";
+// sections/Platforms/index.tsx
+// Sprint H1.5 - full redesign. The previous version pointed <Image> at
+// /platforms/*.png files that don't exist (public/platforms is empty),
+// producing a 404 for every card. Rather than fabricate placeholder logo
+// images we don't have rights to, each platform gets a plain icon badge and
+// its real name as text - no invented artwork standing in for a brand mark.
+// Restyled onto the H1.3 token system for consistency with the rest of the
+// page. Server Component: static content, no interactivity needed.
+import type { LucideIcon } from "lucide-react";
+import { Bot, LineChart, Workflow, Activity, Coins, Landmark } from "lucide-react";
 
-const platforms = [
+const platforms: { title: string; subtitle: string; description: string; icon: LucideIcon }[] = [
   {
     title: "MetaTrader 5",
     subtitle: "Expert Advisors",
     description: "Automated trading solutions for MT5 with advanced AI.",
-    logo: "/platforms/mt5.png",
+    icon: Bot,
   },
   {
     title: "TradingView",
     subtitle: "Indicators & Strategies",
     description: "Powerful indicators and strategies for TradingView.",
-    logo: "/platforms/tradingview.png",
+    icon: LineChart,
   },
   {
     title: "cTrader",
     subtitle: "Professional cBots",
     description: "High-performance cBots for cTrader platform.",
-    logo: "/platforms/ctrader.png",
+    icon: Workflow,
   },
   {
     title: "NinjaTrader",
     subtitle: "Automated Strategies",
     description: "Robust automated strategies for NinjaTrader.",
-    logo: "/platforms/ninjatrader.png",
+    icon: Activity,
   },
   {
     title: "Crypto Exchanges",
     subtitle: "Binance • Bybit • OKX",
     description: "AI trading bots for major crypto exchanges.",
-    logo: "/platforms/binance.png",
+    icon: Coins,
   },
   {
     title: "Indian Markets",
     subtitle: "NSE • BSE • MCX",
     description: "Algo trading solutions for Indian stock & commodity markets.",
-    logo: "/platforms/india.png",
+    icon: Landmark,
   },
 ];
 
 export default function Platforms() {
   return (
-    <section className="bg-[#08111f] py-24">
+    <section className="bg-ink py-24 text-text">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="text-center mb-16">
-          <p className="text-blue-500 uppercase tracking-[0.3em] font-semibold">
-            Supported Platforms
-          </p>
-
-          <h2 className="text-5xl font-bold mt-5">
-            One AI Platform.
-            <br />
-            Multiple Trading Ecosystems.
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold">Supported Platforms</p>
+          <h2 className="mt-4 font-display text-4xl font-medium md:text-5xl">
+            One AI platform. Multiple trading ecosystems.
           </h2>
-
-          <p className="text-gray-400 mt-5 text-lg">
-            Build once. Deploy everywhere.
-          </p>
+          <p className="mt-5 text-lg text-text-2">Build once. Deploy everywhere.</p>
         </div>
 
-        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-16 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {platforms.map((platform) => (
             <div
               key={platform.title}
-              className="rounded-2xl border border-white/10 bg-white/5 p-8 transition-all duration-300 hover:border-blue-500 hover:-translate-y-2"
+              className="rounded-card border border-border bg-ink-2 p-8 transition-colors hover:border-gold"
             >
-              <div className="flex justify-center mb-6">
-                <Image
-                  src={platform.logo}
-                  alt={platform.title}
-                  width={72}
-                  height={72}
-                />
+              <div className="flex h-14 w-14 items-center justify-center rounded-control border border-gold/30 bg-gold/10">
+                <platform.icon className="h-7 w-7 text-gold" aria-hidden="true" />
               </div>
 
-              <h3 className="text-2xl font-bold text-center">
-                {platform.title}
-              </h3>
-
-              <p className="text-blue-400 text-center mt-2 font-medium">
-                {platform.subtitle}
-              </p>
-
-              <div className="w-12 h-px bg-blue-500 mx-auto my-5" />
-
-              <p className="text-gray-400 text-center leading-7">
-                {platform.description}
-              </p>
+              <h3 className="mt-6 text-xl font-semibold">{platform.title}</h3>
+              <p className="mt-1 text-sm font-medium text-gold">{platform.subtitle}</p>
+              <p className="mt-4 text-sm leading-6 text-text-2">{platform.description}</p>
             </div>
           ))}
         </div>

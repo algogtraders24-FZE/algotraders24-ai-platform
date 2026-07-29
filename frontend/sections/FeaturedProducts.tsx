@@ -1,6 +1,12 @@
 // sections/FeaturedProducts.tsx
 // Sprint 14E - Server Component. Featured products now come from PostgreSQL
-// via ProductCatalogue. Markup, layout and styling are unchanged.
+// via ProductCatalogue.
+// Sprint H1.5 - repositioned per explicit direction: this section is no
+// longer the homepage's hero pitch, it's part of the platform ecosystem
+// narrative ("built on the same engine", not "buy our indicators"). Data
+// layer, product logic, and card contents are untouched - only the framing
+// copy and visual styling (old blue/purple theme -> the H1.3 token system,
+// for consistency with every other section) changed.
 import Link from "next/link";
 import { ProductCatalogue } from "@/services/products/ProductCatalogue";
 import type { Product } from "@/types/product";
@@ -35,60 +41,60 @@ export default async function FeaturedProducts() {
   const products = all.slice(0, 6);
 
   return (
-    <section className="bg-[#0C1324] text-white py-24">
+    <section className="bg-ink-2 py-24 text-text">
       <div className="max-w-7xl mx-auto px-6">
         {/* Heading */}
-        <div className="text-center mb-16">
-          <span className="text-blue-500 font-semibold tracking-wide uppercase text-sm">
-            Featured Products
+        <div className="text-center mb-16 mx-auto max-w-2xl">
+          <span className="text-sm font-semibold uppercase tracking-[0.2em] text-gold">
+            From The Platform Ecosystem
           </span>
-          <h2 className="text-4xl md:text-5xl font-bold mt-4">
-            AI Trading Software That Works
+          <h2 className="mt-4 font-display text-4xl font-medium md:text-5xl">
+            Tools built on the same intelligence
           </h2>
-          <p className="text-gray-400 mt-4 max-w-2xl mx-auto text-lg">
-            Premium Expert Advisors, indicators and bots built with
-            advanced AI for every major trading platform.
+          <p className="mt-5 text-lg text-text-2">
+            Every product below runs on the platform&apos;s deterministic evidence-and-reasoning engine —
+            not a standalone script.
           </p>
         </div>
 
         {/* Product Cards */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {products.map((product) => {
             const badge = badgeFor(product);
             return (
               <div
                 key={product.id}
-                className="rounded-2xl bg-[#111827] border border-[#1F2937] p-6 flex flex-col hover:border-blue-500 transition duration-300"
+                className="rounded-card border border-border bg-ink p-6 flex flex-col transition-colors hover:border-gold"
               >
                 {/* Top: tag + badge */}
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-xs font-semibold bg-blue-600/20 text-blue-400 px-3 py-1 rounded-full">
+                  <span className="text-xs font-medium rounded-control border border-gold/30 bg-gold/10 text-gold px-3 py-1">
                     {tagFor(product)}
                   </span>
                   {badge && (
-                    <span className="text-xs font-semibold bg-purple-600/20 text-purple-400 px-3 py-1 rounded-full">
+                    <span className="text-xs font-medium rounded-control border border-signal-up/30 bg-signal-up/10 text-signal-up px-3 py-1">
                       {badge}
                     </span>
                   )}
                 </div>
 
                 {/* Name + platform */}
-                <h3 className="text-xl font-bold mb-1">{product.name}</h3>
-                <p className="text-blue-400 text-sm mb-3">{product.platform}</p>
+                <h3 className="text-xl font-semibold mb-1">{product.name}</h3>
+                <p className="text-text-3 text-sm mb-3">{product.platform}</p>
 
                 {/* Description */}
-                <p className="text-gray-400 text-sm flex-grow">
+                <p className="text-text-2 text-sm leading-6 flex-grow">
                   {product.shortDescription}
                 </p>
 
                 {/* Bottom: price + button */}
                 <div className="flex items-center justify-between mt-6">
-                  <span className="text-2xl font-bold">${product.price}</span>
+                  <span className="text-2xl font-semibold">${product.price}</span>
                   <Link
                     href={`/products/${product.slug}`}
-                    className="bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-xl font-semibold transition"
+                    className="rounded-control bg-gold px-5 py-2 font-semibold text-ink transition hover:brightness-110"
                   >
-                    Buy Now
+                    View Details
                   </Link>
                 </div>
               </div>
@@ -100,7 +106,7 @@ export default async function FeaturedProducts() {
         <div className="text-center mt-12">
           <Link
             href="/products"
-            className="inline-block border border-gray-600 hover:border-blue-500 px-8 py-4 rounded-xl font-semibold transition"
+            className="inline-block rounded-control border border-border px-8 py-4 font-semibold text-text transition hover:border-gold"
           >
             View All Products
           </Link>
