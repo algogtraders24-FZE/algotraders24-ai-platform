@@ -1,46 +1,57 @@
-const FOOTER_LINKS = {
-  Products: ["MT5 Expert Advisors", "TradingView Indicators", "cTrader cBots", "Crypto Bots", "Indian Market Algos"],
-  Company: ["About Us", "Pricing", "Contact", "Careers", "Blog"],
-  Resources: ["AI Academy", "Documentation", "Market Intelligence", "Support", "FAQ"],
-  Legal: ["Terms of Service", "Privacy Policy", "Risk Disclaimer", "Refund Policy"],
-};
+// sections/Footer.tsx
+// Sprint H1.3 - Rebuilt per the approved Sprint H1.1 audit and H1.2A
+// design system: every link resolves to a real page (no href="#"
+// placeholders, no invented "AI Academy"/"Careers"/"Blog" destinations
+// that don't exist), and no fabricated statistics, testimonials, or trust
+// indicators - the risk disclosure line is real, plain text, not a link.
+import Link from "next/link";
 
 export default function Footer() {
   return (
-    <footer className="bg-[#0C1324] text-white border-t border-[#1F2937] pt-16 pb-8">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="grid md:grid-cols-5 gap-10">
-          <div className="md:col-span-1">
-            <h3 className="text-xl font-bold">
-              Algotraders<span className="text-blue-500">24</span> AI
+    <footer className="border-t border-border bg-ink-2 pt-16 pb-8 text-text">
+      <div className="mx-auto max-w-7xl px-6">
+        <div className="grid gap-10 md:grid-cols-3">
+          <div>
+            <h3 className="text-lg font-semibold">
+              Algotraders<span className="text-gold">24</span> AI
             </h3>
-            <p className="text-gray-400 text-sm mt-4 leading-6">
-              Next generation AI trading software for global markets.
-              Intelligent automation. Professional performance.
+            <p className="mt-4 max-w-sm text-sm leading-6 text-text-2">
+              An AI Trading Intelligence Platform — deterministic, evidence-based market analysis, explained in
+              plain language.
             </p>
           </div>
 
-          {Object.entries(FOOTER_LINKS).map(([heading, links]) => (
-            <div key={heading}>
-              <h4 className="font-semibold mb-4">{heading}</h4>
-              <ul className="space-y-3">
-                {links.map((link) => (
-                  <li key={link}>
-                    <a href="#" className="text-gray-400 text-sm hover:text-blue-400 transition">
-                      {link}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          <div>
+            <h4 className="mb-4 text-sm font-semibold">Product</h4>
+            <ul className="space-y-3 text-sm">
+              <li>
+                <Link href="/products" className="text-text-2 transition-colors hover:text-gold">
+                  All Products
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="mb-4 text-sm font-semibold">Account</h4>
+            <ul className="space-y-3 text-sm">
+              <li>
+                <Link href="/login" className="text-text-2 transition-colors hover:text-gold">
+                  Sign In
+                </Link>
+              </li>
+              <li>
+                <Link href="/signup" className="text-text-2 transition-colors hover:text-gold">
+                  Create Account
+                </Link>
+              </li>
+            </ul>
+          </div>
         </div>
 
-        <div className="border-t border-[#1F2937] mt-12 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-gray-400 text-sm">
-            © 2026 Algotraders24 AI. All rights reserved.
-          </p>
-          <p className="text-gray-500 text-xs max-w-2xl text-center md:text-right">
+        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 md:flex-row">
+          <p className="text-sm text-text-3">© 2026 Algotraders24 AI. All rights reserved.</p>
+          <p className="max-w-2xl text-center text-xs text-text-3 md:text-right">
             Trading involves risk. Past performance does not guarantee future results.
           </p>
         </div>

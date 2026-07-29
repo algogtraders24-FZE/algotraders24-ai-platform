@@ -3,13 +3,68 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Algotraders24 AI design system (Sprint H1.2A, approved).
+     Dark-committed for this transitional phase: every other section of the
+     homepage/dashboard is still hardcoded dark (see H1.3 report) - a real
+     light/dark toggle needs every section migrated together, not just the
+     ones this sprint touches, so these are plain values here rather than
+     branched under a prefers-color-scheme query. */
+  --ink: #0a0e15;
+  --ink-2: #131a25;
+  --ink-3: #1b2330;
+  --ink-4: #232b38;
+  --text: #eceff3;
+  --text-2: #9aa3b2;
+  --text-3: #6e7686;
+  --gold: #c99a44;
+  --gold-strong: #e0b564;
+  --steel: #8fa9c2;
+  --warn: #d89552;
+  --border: #232b38;
+  --signal-up: #3fb27f;
+  --signal-down: #d1594a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-4: var(--ink-4);
+  --color-text: var(--text);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+  --color-gold: var(--gold);
+  --color-gold-strong: var(--gold-strong);
+  --color-steel: var(--steel);
+  --color-warn: var(--warn);
+  --color-border: var(--border);
+  --color-signal-up: var(--signal-up);
+  --color-signal-down: var(--signal-down);
+
+  /* --font-sans/--font-mono are fed by next/font in app/layout.tsx via the
+     --font-geist-sans/--font-geist-mono variables - previously dead (no
+     font was ever loaded), now real. --font-display is new: a serif
+     reserved for H1 headlines only, per the approved type hierarchy. */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-serif-display);
+
+  /* Semantic radius scale (approved system) - additive alongside
+     Tailwind's own default xs/sm/md/lg/xl/2xl/3xl scale, never replacing it. */
+  --radius-control: 0.375rem; /* 6px - inputs, tags, nav CTA */
+  --radius-card: 0.75rem; /* 12px - cards */
+  --radius-panel: 1.25rem; /* 20px - panels, modals */
+
+  /* Elevation shadows (approved system) - additive alongside Tailwind's
+     own default shadow scale. Dark-tuned: soft and diffuse, never a harsh
+     light-mode-style shadow. */
+  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 20px rgba(0, 0, 0, 0.28);
+  --shadow-floating: 0 12px 32px rgba(0, 0, 0, 0.4);
+  --shadow-overlay: 0 24px 56px rgba(0, 0, 0, 0.5);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -20,7 +75,70 @@
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--ink);
+  color: var(--text);
+}
+
+/* Approved glass-surface recipe (H1.2A): nav bar and one dashboard overlay
+   panel type only - never a standard content card. Plain CSS class rather
+   than a Tailwind @utility, so it needs no v4-specific at-rule support. */
+.glass-surface {
+  backdrop-filter: blur(8px);
+  /* A literal rgba (matching --ink at 88% opacity) rather than
+     color-mix(in srgb, var(--ink) 88%, transparent): this project's build
+     pipeline was found (Sprint H1.3 verification) to silently collapse
+     color-mix() with a custom-property operand down to the opaque
+     variable itself, defeating the intended transparency. */
+  background: rgba(10, 14, 21, 0.88);
+  border: 1px solid var(--border);
+}
+
+/* Skip-to-content link (Sprint H1.3 accessibility requirement): invisible
+   until focused, then the first visible element on the page. */
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -3rem;
+  z-index: 100;
+  background: var(--gold);
+  color: var(--ink);
+  padding: 0.6rem 1rem;
+  border-radius: 0.375rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: top 150ms ease-out;
+}
+.skip-link:focus {
+  top: 1rem;
+}
+
+/* Approved motion system (H1.2B): the one earned entrance animation for
+   the Hero's staggered load sequence. Nothing else on the page animates
+   automatically - see the Hero component for how animation-delay is
+   applied per element. */
+@keyframes fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.hero-fade {
+  animation: fade-rise 350ms ease-out both;
+}
+
+/* Single global reduced-motion gate (H1.2B): disables all non-essential
+   motion at once, rather than scattered per-component checks. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

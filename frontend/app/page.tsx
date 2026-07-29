@@ -12,7 +12,7 @@ import Footer from "@/sections/Footer";
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-[#050816] text-white">
+    <main id="main-content" className="min-h-screen bg-[#050816] text-white">
       <Navbar />
       <MarketRibbon />
       <Hero />
