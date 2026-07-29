@@ -12,6 +12,10 @@
 // really does flow through these stages in this order, so the animation
 // represents something true rather than decorating an arbitrary list.
 // Plays once on scroll into view; respects prefers-reduced-motion.
+//
+// Sprint H1.7 - added a one-shot glow pulse (.animate-stage-pulse, in
+// globals.css) on whichever marker is lighting up at that instant, for a
+// more premium feel without adding anything that isn't already true.
 import { useEffect, useRef, useState } from "react";
 
 const STAGES = [
@@ -105,10 +109,13 @@ export default function ArchitectureVisualization() {
               <li key={stage.file} className="relative flex gap-6 pb-10 last:pb-0">
                 <div className="flex w-6 shrink-0 flex-col items-center">
                   <span
-                    className={`z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 font-mono text-[10px] transition-colors duration-500 ${
+                    className={`relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 font-mono text-[10px] transition-colors duration-500 ${
                       lit ? "border-gold bg-gold text-ink" : "border-border bg-ink-3 text-text-3"
                     }`}
                   >
+                    {index === activeStage && (
+                      <span key={activeStage} aria-hidden="true" className="absolute inset-0 rounded-full animate-stage-pulse" />
+                    )}
                     {index + 1}
                   </span>
                   {!isLast && (

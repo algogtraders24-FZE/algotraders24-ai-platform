@@ -4,6 +4,12 @@
 // A plain <ul>, not an <ol>: these five problems are a parallel set, not
 // a sequence - numbered markers would encode an order that doesn't exist.
 // Server Component: static content, no interactivity needed.
+//
+// Sprint H1.7 - wrapped the list in RevealOnScroll (institutional-grade
+// motion pass) so it fades up on scroll instead of popping in - the one
+// motion touch added here is purely aesthetic sequencing, not a claim.
+import RevealOnScroll from "@/components/motion/RevealOnScroll";
+
 const PROBLEMS = [
   {
     problem: "Information overload",
@@ -45,20 +51,22 @@ export default function WhyTraditionalTradingFails() {
           <p className="mt-5 text-lg text-text-2">It's data with no evidence, no reasoning, and no way to check it.</p>
         </div>
 
-        <ul className="mt-16 space-y-6">
-          {PROBLEMS.map((item) => (
-            <li key={item.problem} className="rounded-card border border-border bg-ink p-8">
-              <div className="border-l-2 border-signal-down/60 pl-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-signal-down">{item.problem}</p>
-                <p className="mt-2 text-sm leading-6 text-text-2">{item.detail}</p>
-              </div>
-              <div className="mt-5 border-l-2 border-gold pl-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold">How Algotraders24 AI solves this</p>
-                <p className="mt-2 text-sm leading-6 text-text">{item.solution}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <RevealOnScroll>
+          <ul className="mt-16 space-y-6">
+            {PROBLEMS.map((item) => (
+              <li key={item.problem} className="rounded-card border border-border bg-ink p-8">
+                <div className="border-l-2 border-signal-down/60 pl-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-signal-down">{item.problem}</p>
+                  <p className="mt-2 text-sm leading-6 text-text-2">{item.detail}</p>
+                </div>
+                <div className="mt-5 border-l-2 border-gold pl-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold">How Algotraders24 AI solves this</p>
+                  <p className="mt-2 text-sm leading-6 text-text">{item.solution}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </RevealOnScroll>
       </div>
     </section>
   );

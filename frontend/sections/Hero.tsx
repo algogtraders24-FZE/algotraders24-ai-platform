@@ -4,27 +4,31 @@
 // panel shows the real, true shape of the deterministic pipeline
 // (evidence -> reasoning -> risk -> confidence -> explained) instead of an
 // invented confidence score or claim - every label here is a fact about
-// the architecture itself, not a fabricated analysis result. Wiring a
-// real, live analysis into this panel is explicit follow-up work for
-// H1.4 (see the Sprint H1.3 report).
+// the architecture itself, not a fabricated analysis result.
 //
-// Zero client-side JavaScript: the entrance stagger is a CSS animation
-// with per-element animation-delay, and the pipeline tooltips use
-// group-hover/group-focus-within - no useState/useEffect needed here.
+// Sprint H1.7 - "Premium Hero Experience": added a purely decorative
+// ambient glow (aria-hidden, no data implication) and extracted the proof
+// panel into components/hero/PipelineProofPanel.tsx, which adds one small,
+// honest motion touch (see that file's header) plus a real link to
+// /dashboard/market-intelligence, now that Sprint L2.1 wired it to a real
+// analysis. Hero itself stays a Server Component - only the one child that
+// needs interactivity is client-side.
 import Link from "next/link";
-
-const PIPELINE = [
-  { label: "Evidence", detail: "Collected from real, attributed sources" },
-  { label: "Reasoning", detail: "Classified as supporting, opposing, or unresolved" },
-  { label: "Risk", detail: "Assessed across eight categories" },
-  { label: "Confidence", detail: "Scored from real evidence, never guessed" },
-  { label: "Explained", detail: "Presented in plain language — nothing hidden" },
-] as const;
+import PipelineProofPanel from "@/components/hero/PipelineProofPanel";
 
 export default function Hero() {
   return (
-    <section className="flex min-h-screen items-center bg-ink pt-20 text-text">
-      <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 md:grid-cols-2">
+    <section className="relative flex min-h-screen items-center overflow-hidden bg-ink pt-20 text-text">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-40 -top-40 h-[36rem] w-[36rem] rounded-full bg-gold/10 blur-3xl"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -bottom-56 -left-32 h-[28rem] w-[28rem] rounded-full bg-steel/10 blur-3xl"
+      />
+
+      <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-6 md:grid-cols-2">
         {/* Left side */}
         <div>
           <span
@@ -64,32 +68,7 @@ export default function Hero() {
 
         {/* Right side: the real pipeline, not a fake output */}
         <div className="hero-fade flex justify-center" style={{ animationDelay: "320ms" }}>
-          <div className="w-full max-w-md rounded-panel glass-surface p-8">
-            <h2 className="text-lg font-semibold">How every analysis is built</h2>
-            <p className="mt-1 text-sm text-text-3">The same deterministic process, every time.</p>
-
-            <ol className="mt-6 space-y-3">
-              {PIPELINE.map((stage, index) => (
-                <li key={stage.label} className="group relative">
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-4 rounded-control border border-border bg-ink-2 px-4 py-3 text-left transition-colors hover:border-gold focus-visible:border-gold"
-                    aria-describedby={`stage-detail-${index}`}
-                  >
-                    <span className="font-mono text-xs text-gold-strong">0{index + 1}</span>
-                    <span className="font-medium text-text">{stage.label}</span>
-                  </button>
-                  <div
-                    id={`stage-detail-${index}`}
-                    role="tooltip"
-                    className="pointer-events-none absolute left-0 right-0 top-full z-10 mt-1 rounded-control border border-border bg-ink-3 px-3 py-2 text-xs text-text-2 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
-                  >
-                    {stage.detail}
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </div>
+          <PipelineProofPanel />
         </div>
       </div>
     </section>

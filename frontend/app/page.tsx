@@ -5,7 +5,9 @@ import PlatformOverview from "@/sections/PlatformOverview";
 import WhyTraditionalTradingFails from "@/sections/WhyTraditionalTradingFails";
 import ExplainableIntelligence from "@/sections/ExplainableIntelligence";
 import ArchitectureVisualization from "@/sections/ArchitectureVisualization";
+import InteractiveAnalysisDemo from "@/sections/InteractiveAnalysisDemo";
 import AssistantPreview from "@/sections/AssistantPreview";
+import EnterpriseTrust from "@/sections/EnterpriseTrust";
 import Platforms from "@/sections/Platforms";
 import FeaturedProducts from "@/sections/FeaturedProducts";
 import CTA from "@/sections/CTA";
@@ -19,6 +21,12 @@ import Footer from "@/sections/Footer";
 // Intelligence as the page's second, more technical pipeline trace;
 // Platforms, FeaturedProducts, and CTA rebuilt onto the token system with
 // honest, repositioned copy and no broken image references.
+// Sprint H1.7 - Interactive Analysis Demo added after Architecture
+// Visualization (a hands-on, clearly-illustrative preview of the real
+// output shape wired to production in Sprint L2.1); Enterprise Trust added
+// after Assistant Preview, right before the commercial sections, earning
+// institutional confidence through verifiable architecture rather than
+// fabricated client claims.
 export default function Home() {
   return (
     <main id="main-content" className="min-h-screen bg-ink text-text">
@@ -29,7 +37,9 @@ export default function Home() {
       <WhyTraditionalTradingFails />
       <ExplainableIntelligence />
       <ArchitectureVisualization />
+      <InteractiveAnalysisDemo />
       <AssistantPreview />
+      <EnterpriseTrust />
       <Platforms />
       <FeaturedProducts />
       <CTA />

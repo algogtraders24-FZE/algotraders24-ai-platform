@@ -26,7 +26,8 @@
     "validate:confidence-engine": "tsx scripts/validate-confidence-engine.ts",
     "validate:intelligence-pipeline": "tsx scripts/validate-market-intelligence-pipeline.ts",
     "validate:explainable-analysis": "tsx scripts/validate-explainable-analysis.ts",
-    "validate:evidence-fusion": "tsx scripts/validate-evidence-fusion.ts"
+    "validate:evidence-fusion": "tsx scripts/validate-evidence-fusion.ts",
+    "validate:news-provider": "tsx scripts/validate-alpha-vantage-news-provider.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",

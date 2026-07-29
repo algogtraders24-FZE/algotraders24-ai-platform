@@ -8,6 +8,19 @@
 // documented mechanism, not a workaround. Historical/OHLC data is
 // explicitly out of scope for this slice (locked decision #9).
 //
+// Sprint L2.1 - During the first live wiring of this provider into a real
+// page, direct testing against the currently configured
+// ALPHA_VANTAGE_API_KEY found that CURRENCY_EXCHANGE_RATE genuinely rejects
+// XAU/XAG for this key/tier ("Invalid API call...") while the exact same
+// endpoint and key succeed for a real currency pair (EUR/USD returned a
+// live rate). This isn't a rate limit - that failure mode returns a
+// distinctly different "Information" message, also confirmed separately.
+// EURUSD is added below as the first symbol this provider can actually
+// serve end to end today. XAU/XAG stay mapped (the code path is correct
+// and will work the moment a metals-capable key/plan is in place) but are
+// surfaced to users as pending, not available - see
+// app/dashboard/market-intelligence/page.tsx.
+//
 // Never fabricates: trend, volatility, liquidity, riskLevel, sentiment,
 // technicalSummary, and headlines are never set by this provider - the
 // realtime exchange-rate endpoint has no opinion on any of them, and
@@ -28,9 +41,13 @@ const PROVIDER_NAME = "alpha-vantage";
 const BASE_URL = "https://www.alphavantage.co/query";
 const DEFAULT_CACHE_TTL_MS = 60_000;
 
-// Platform canonical symbol -> Alpha Vantage currency code. Locked scope
-// for this slice (decision #2): XAU/XAG only.
+// Platform canonical symbol -> Alpha Vantage currency code. Originally
+// locked to XAU/XAG only (decision #2); EURUSD added in Sprint L2.1 as the
+// first symbol confirmed to actually work against the configured key (see
+// file header). XAU/XAG remain mapped for when a metals-capable key/plan
+// is available.
 const SYMBOL_MAP: Record<string, string> = {
+  EURUSD: "EUR",
   XAUUSD: "XAU",
   XAGUSD: "XAG",
 };

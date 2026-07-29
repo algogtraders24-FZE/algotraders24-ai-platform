@@ -145,6 +145,23 @@ body {
   animation: fade-rise 350ms ease-out both;
 }
 
+/* Sprint H1.7 - a brief, one-shot glow on Architecture Visualization's
+   stage marker the instant it lights up: data genuinely does arrive at
+   that stage at that moment, so the pulse marks a real event in the
+   sequence rather than decorating an arbitrary list. Triggered by
+   remounting the element (key change), not by a looping animation. */
+@keyframes stage-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(201, 154, 68, 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 12px rgba(201, 154, 68, 0);
+  }
+}
+.animate-stage-pulse {
+  animation: stage-pulse 700ms ease-out;
+}
+
 /* Single global reduced-motion gate (H1.2B): disables all non-essential
    motion at once, rather than scattered per-component checks. */
 @media (prefers-reduced-motion: reduce) {

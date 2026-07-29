@@ -16,6 +16,7 @@
 // because that expand/collapse state is the interactivity itself.
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
+import RevealOnScroll from "@/components/motion/RevealOnScroll";
 
 const CAPABILITIES = [
   {
@@ -66,13 +67,14 @@ export default function PlatformOverview() {
           </p>
         </div>
 
+        <RevealOnScroll>
         <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {CAPABILITIES.map((capability, index) => {
             const open = openIndex === index;
             return (
               <div
                 key={capability.title}
-                className={`rounded-card border bg-ink-2 p-8 transition-colors ${open ? "border-gold" : "border-border hover:border-gold"}`}
+                className={`rounded-card border bg-ink-2 p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-raised ${open ? "border-gold" : "border-border hover:border-gold"}`}
               >
                 <span className="inline-block rounded-control border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-medium text-gold">
                   {capability.status}
@@ -105,6 +107,7 @@ export default function PlatformOverview() {
             );
           })}
         </div>
+        </RevealOnScroll>
       </div>
     </section>
   );

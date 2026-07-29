@@ -10,6 +10,7 @@
 import Link from "next/link";
 import { ProductCatalogue } from "@/services/products/ProductCatalogue";
 import type { Product } from "@/types/product";
+import RevealOnScroll from "@/components/motion/RevealOnScroll";
 
 // Short platform tag shown on the card (derived from the product platform).
 function tagFor(product: Product): string {
@@ -58,13 +59,14 @@ export default async function FeaturedProducts() {
         </div>
 
         {/* Product Cards */}
+        <RevealOnScroll>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {products.map((product) => {
             const badge = badgeFor(product);
             return (
               <div
                 key={product.id}
-                className="rounded-card border border-border bg-ink-2 p-6 flex flex-col transition-colors hover:border-gold"
+                className="rounded-card border border-border bg-ink-2 p-6 flex flex-col transition-all duration-300 hover:-translate-y-1 hover:border-gold hover:shadow-raised"
               >
                 {/* Top: tag + badge */}
                 <div className="flex items-center justify-between mb-4">
@@ -101,6 +103,7 @@ export default async function FeaturedProducts() {
             );
           })}
         </div>
+        </RevealOnScroll>
 
         {/* View all button */}
         <div className="text-center mt-12">

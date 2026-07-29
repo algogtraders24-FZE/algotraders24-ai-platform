@@ -118,8 +118,11 @@ async function main(): Promise<void> {
     await withApiKey(async () => {
       const { fetchImpl, calls } = makeFetch(200, successBody());
       const provider = new AlphaVantageProvider({ fetchImpl });
+      // Sprint L2.1 added EURUSD to SYMBOL_MAP (confirmed live-working
+      // against the configured key) - GBPUSD remains genuinely unmapped,
+      // so it still exercises this rejection path.
       await assert.rejects(
-        () => provider.getMarketContext({ symbol: "EURUSD" }),
+        () => provider.getMarketContext({ symbol: "GBPUSD" }),
         (err: unknown) => err instanceof MarketDataProviderError && err.kind === "unsupported_symbol",
       );
       assert.equal(calls.length, 0, "no fetch call should happen for a rejected symbol");
