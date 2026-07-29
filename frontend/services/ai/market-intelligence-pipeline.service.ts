@@ -8,6 +8,20 @@
 // touched or reimplemented here; this file only sequences calls and shapes
 // the envelope around their results.
 //
+// Sprint 15D.11 - Inserted EvidenceFusionService between collection and
+// ranking: collected evidence is now tagged as a "market-data" source
+// group and fused (deduplicated, attribution-preserved) before it reaches
+// the still-unmodified EvidenceRankingService. Fusion's own canonical
+// FusedEvidence[] output is immediately projected back down to
+// EvidenceItem[] via EvidenceFusionService.toEvidenceItems() - ranking's
+// own signature and logic never changed. `evidenceFusion` is appended
+// after `clock`, not inserted next to evidenceCollector/evidenceRanking
+// where it conceptually belongs, purely for backward compatibility: Sprint
+// 15D.8's own validation script already constructs this class with
+// explicit trailing positional arguments through `clock` - inserting a
+// parameter earlier in the list would have silently shifted every one of
+// those existing call sites.
+//
 // `provider` defaults to null, not a live AlphaVantageProvider: every other
 // consumer of MarketDataProvider in this codebase (MarketContextService,
 // MarketAnalysisOrchestrationService) makes the same deliberate choice, so
@@ -25,6 +39,7 @@ import { MarketDataProviderError } from "@/lib/market-data/errors";
 import { systemClock, type Clock } from "@/lib/market-data/cache";
 import { EvidenceCollectorService } from "./evidence/evidence-collector.service";
 import { EvidenceRankingService } from "./evidence/evidence-ranking.service";
+import { EvidenceFusionService } from "./evidence-fusion.service";
 import { ReasoningEngineService } from "./reasoning/reasoning-engine.service";
 import { RiskEngineService } from "./risk/risk-engine.service";
 import { ConfidenceEngineService } from "./confidence/confidence-engine.service";
@@ -36,7 +51,8 @@ import type {
 
 // Bumped only when this pipeline's own stage composition changes (e.g. a
 // stage is added/reordered) - not tied to any individual engine's version.
-export const MARKET_INTELLIGENCE_PIPELINE_VERSION = "15D.8.0";
+// Bumped for Sprint 15D.11's fusion-stage insertion.
+export const MARKET_INTELLIGENCE_PIPELINE_VERSION = "15D.11.0";
 
 // Recursively freezes an object graph in place. Applied once, at the very
 // end, to the assembled MarketIntelligenceResult - this freezes the
@@ -64,6 +80,7 @@ export class MarketIntelligencePipelineService {
     private readonly riskEngine: RiskEngineService = new RiskEngineService(),
     private readonly confidenceEngine: ConfidenceEngineService = new ConfidenceEngineService(),
     private readonly clock: Clock = systemClock,
+    private readonly evidenceFusion: EvidenceFusionService = new EvidenceFusionService(),
   ) {}
 
   /**
@@ -107,7 +124,13 @@ export class MarketIntelligencePipelineService {
     const generatedAt = raw.retrievedAt;
 
     const collected = this.evidenceCollector.collectFromMarketContextResult(raw, generatedAt);
-    const bundle = this.evidenceRanking.buildBundle(request.symbol, collected, generatedAt);
+    // Sprint 15D.11: fuse before ranking. Today there is only one real
+    // source group ("market-data"); a future News/EconomicCalendar/
+    // Sentiment provider just adds another EvidenceSourceGroup to this
+    // array - no other line in this method needs to change.
+    const fused = this.evidenceFusion.fuse([{ sourceType: "market-data", items: collected }]);
+    const fusedItems = this.evidenceFusion.toEvidenceItems(request.symbol, fused, generatedAt);
+    const bundle = this.evidenceRanking.buildBundle(request.symbol, fusedItems, generatedAt);
     const reasoning = this.reasoningEngine.reason(bundle);
     const risk = this.riskEngine.assess(reasoning);
     const confidence = this.confidenceEngine.assess(bundle, reasoning, risk);
