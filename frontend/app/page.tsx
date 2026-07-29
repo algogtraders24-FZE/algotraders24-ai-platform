@@ -1,27 +1,31 @@
 import Navbar from "@/components/layout/Navbar";
-import MarketRibbon from "@/sections/MarketRibbon";
 import Hero from "@/sections/Hero";
+import PlatformOverview from "@/sections/PlatformOverview";
+import WhyTraditionalTradingFails from "@/sections/WhyTraditionalTradingFails";
+import ExplainableIntelligence from "@/sections/ExplainableIntelligence";
+import AssistantPreview from "@/sections/AssistantPreview";
 import Platforms from "@/sections/Platforms";
-import Markets from "@/sections/Markets";
 import FeaturedProducts from "@/sections/FeaturedProducts";
-import Technology from "@/sections/Technology";
-import Stats from "@/sections/Stats";
-import Testimonials from "@/sections/Testimonials";
 import CTA from "@/sections/CTA";
 import Footer from "@/sections/Footer";
 
+// Sprint H1.4 - MarketRibbon, Markets, Technology, Stats, and Testimonials
+// are retired entirely (Phase 1: fabricated ticker data, fake metrics, and
+// invented testimonials - deleted, not hidden or patched). Platforms,
+// FeaturedProducts, and CTA are untouched this sprint (real, DB-backed, or
+// out of this sprint's explicit scope) - see the H1.4 report for what's
+// planned next.
 export default function Home() {
   return (
-    <main id="main-content" className="min-h-screen bg-[#050816] text-white">
+    <main id="main-content" className="min-h-screen bg-ink text-text">
       <Navbar />
-      <MarketRibbon />
       <Hero />
+      <PlatformOverview />
+      <WhyTraditionalTradingFails />
+      <ExplainableIntelligence />
+      <AssistantPreview />
       <Platforms />
-      <Markets />
       <FeaturedProducts />
-      <Technology />
-      <Stats />
-      <Testimonials />
       <CTA />
       <Footer />
     </main>
