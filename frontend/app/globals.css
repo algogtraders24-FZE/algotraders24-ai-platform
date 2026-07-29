@@ -16,7 +16,12 @@
   --ink-4: #232b38;
   --text: #eceff3;
   --text-2: #9aa3b2;
-  --text-3: #6e7686;
+  /* Sprint H1.6 accessibility fix: the original #6e7686 measured ~4.2:1 on
+     --ink and ~3.8:1 on --ink-2 - below the 4.5:1 WCAG AA floor for the
+     small/regular text it's used for (footer copyright, file-path labels,
+     etc). Lightened to clear 4.5:1 on both backgrounds while staying
+     visibly quieter than --text-2. */
+  --text-3: #8894a3;
   --gold: #c99a44;
   --gold-strong: #e0b564;
   --steel: #8fa9c2;
@@ -110,6 +115,16 @@ body {
 }
 .skip-link:focus {
   top: 1rem;
+}
+
+/* Sprint H1.6: a single global focus-visible treatment so every link and
+   button gets a consistent, on-brand keyboard focus indicator instead of
+   relying on inconsistent browser-default outlines - fixes it everywhere
+   at once rather than patching each component. */
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 /* Approved motion system (H1.2B): the one earned entrance animation for

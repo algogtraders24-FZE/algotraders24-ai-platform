@@ -13,6 +13,7 @@
 // time a visitor scrolls to it, and the "watch it build" effect - the
 // entire point of this section - would never be seen. Everything else in
 // this file is static markup.
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 const ANSWER_LINES = [
@@ -49,7 +50,7 @@ export default function AssistantPreview() {
   }, []);
 
   return (
-    <section className="bg-ink py-24 text-text">
+    <section className="bg-ink py-16 text-text md:py-24">
       <div className="mx-auto max-w-4xl px-6">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold">AI Assistant</p>
@@ -84,6 +85,15 @@ export default function AssistantPreview() {
               ))}
             </div>
           </div>
+        </div>
+
+        <div className="mt-8 text-center">
+          <Link
+            href="/dashboard/assistant"
+            className="text-sm font-semibold text-gold transition-colors hover:text-gold-strong"
+          >
+            Ask your own question →
+          </Link>
         </div>
       </div>
     </section>

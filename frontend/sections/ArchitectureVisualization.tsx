@@ -86,7 +86,7 @@ export default function ArchitectureVisualization() {
   }, []);
 
   return (
-    <section ref={sectionRef} className="bg-ink py-24 text-text">
+    <section ref={sectionRef} className="bg-ink-2 py-16 text-text md:py-24">
       <div className="mx-auto max-w-4xl px-6">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold">Architecture</p>
@@ -106,7 +106,7 @@ export default function ArchitectureVisualization() {
                 <div className="flex w-6 shrink-0 flex-col items-center">
                   <span
                     className={`z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 font-mono text-[10px] transition-colors duration-500 ${
-                      lit ? "border-gold bg-gold text-ink" : "border-border bg-ink-2 text-text-3"
+                      lit ? "border-gold bg-gold text-ink" : "border-border bg-ink-3 text-text-3"
                     }`}
                   >
                     {index + 1}

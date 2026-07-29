@@ -37,7 +37,7 @@ const PROBLEMS = [
 
 export default function WhyTraditionalTradingFails() {
   return (
-    <section className="bg-ink-2 py-24 text-text">
+    <section className="bg-ink-2 py-16 text-text md:py-24">
       <div className="mx-auto max-w-4xl px-6">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold">Why Traditional Trading Fails</p>

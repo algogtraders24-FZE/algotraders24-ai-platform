@@ -70,7 +70,7 @@ export default function ExplainableIntelligence() {
   }, []);
 
   return (
-    <section ref={sectionRef} className="bg-ink-2 py-24 text-text">
+    <section ref={sectionRef} className="bg-ink py-16 text-text md:py-24">
       <div className="mx-auto max-w-7xl px-6">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold">The Platform&apos;s Signature</p>
@@ -78,7 +78,7 @@ export default function ExplainableIntelligence() {
           <p className="mt-5 text-lg text-text-2">The same deterministic process behind every analysis — nothing invented, nothing hidden.</p>
         </div>
 
-        <ol className="mt-16 grid gap-4 md:grid-cols-5">
+        <ol className="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {STAGES.map((stage, index) => {
             const lit = index <= activeStage;
             return (
@@ -95,7 +95,7 @@ export default function ExplainableIntelligence() {
                 {index < STAGES.length - 1 && (
                   <div
                     aria-hidden="true"
-                    className={`absolute top-1/2 -right-2 hidden h-px w-4 -translate-y-1/2 transition-colors duration-500 md:block ${
+                    className={`absolute top-1/2 -right-2 hidden h-px w-4 -translate-y-1/2 transition-colors duration-500 lg:block ${
                       lit ? "bg-gold" : "bg-border"
                     }`}
                   />

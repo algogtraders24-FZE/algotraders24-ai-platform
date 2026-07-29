@@ -50,7 +50,7 @@ const platforms: { title: string; subtitle: string; description: string; icon: L
 
 export default function Platforms() {
   return (
-    <section className="bg-ink py-24 text-text">
+    <section className="bg-ink-2 py-16 text-text md:py-24">
       <div className="max-w-7xl mx-auto px-6">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold">Supported Platforms</p>
@@ -60,11 +60,11 @@ export default function Platforms() {
           <p className="mt-5 text-lg text-text-2">Build once. Deploy everywhere.</p>
         </div>
 
-        <div className="mt-16 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {platforms.map((platform) => (
             <div
               key={platform.title}
-              className="rounded-card border border-border bg-ink-2 p-8 transition-colors hover:border-gold"
+              className="rounded-card border border-border bg-ink p-8 transition-colors hover:border-gold"
             >
               <div className="flex h-14 w-14 items-center justify-center rounded-control border border-gold/30 bg-gold/10">
                 <platform.icon className="h-7 w-7 text-gold" aria-hidden="true" />

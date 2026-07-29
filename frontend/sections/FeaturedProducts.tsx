@@ -41,7 +41,7 @@ export default async function FeaturedProducts() {
   const products = all.slice(0, 6);
 
   return (
-    <section className="bg-ink-2 py-24 text-text">
+    <section className="bg-ink py-16 text-text md:py-24">
       <div className="max-w-7xl mx-auto px-6">
         {/* Heading */}
         <div className="text-center mb-16 mx-auto max-w-2xl">
@@ -64,7 +64,7 @@ export default async function FeaturedProducts() {
             return (
               <div
                 key={product.id}
-                className="rounded-card border border-border bg-ink p-6 flex flex-col transition-colors hover:border-gold"
+                className="rounded-card border border-border bg-ink-2 p-6 flex flex-col transition-colors hover:border-gold"
               >
                 {/* Top: tag + badge */}
                 <div className="flex items-center justify-between mb-4">

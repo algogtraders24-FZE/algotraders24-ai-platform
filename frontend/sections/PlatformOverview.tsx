@@ -56,7 +56,7 @@ export default function PlatformOverview() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   return (
-    <section className="bg-ink py-24 text-text">
+    <section className="bg-ink py-16 text-text md:py-24">
       <div className="mx-auto max-w-7xl px-6">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold">Platform Overview</p>
@@ -84,6 +84,7 @@ export default function PlatformOverview() {
                   type="button"
                   onClick={() => setOpenIndex(open ? null : index)}
                   aria-expanded={open}
+                  aria-controls={`capability-detail-${index}`}
                   className="mt-5 flex items-center gap-1.5 text-sm font-medium text-gold transition-colors hover:text-gold-strong"
                 >
                   {open ? "Show less" : "How it works"}
@@ -94,6 +95,8 @@ export default function PlatformOverview() {
                 </button>
 
                 <div
+                  id={`capability-detail-${index}`}
+                  aria-hidden={!open}
                   className={`grid transition-all duration-300 ease-out ${open ? "mt-3 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
                 >
                   <p className="overflow-hidden text-sm leading-6 text-text-2">{capability.detail}</p>
