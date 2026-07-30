@@ -92,6 +92,62 @@ export async function forgotPasswordAction(
   };
 }
 
+// Sprint R1.0.1 - Lets an already-authenticated, not-yet-verified user
+// request a fresh confirmation email. Scoped to the current session's own
+// email (never a client-supplied address) so this can't be used to spam
+// arbitrary inboxes.
+export async function resendVerificationAction(
+  _prev: ActionState
+): Promise<ActionState> {
+  void _prev; // required by useActionState's action signature, unused here
+  const sessionUser = await SessionService.getSessionUser();
+  if (!sessionUser?.profile.email) {
+    return { error: "You must be signed in to resend a verification email." };
+  }
+
+  const result = await AuthService.resendVerificationEmail(sessionUser.profile.email);
+  if (!result.success) {
+    return { error: result.error ?? "Could not resend verification email." };
+  }
+
+  return { success: true, message: "Verification email sent - check your inbox." };
+}
+
+// Sprint R1.0.1 - Completes the password reset flow started by
+// forgotPasswordAction. Requires an active recovery session (established by
+// /auth/callback after the user clicks the real emailed link) - AuthService
+// .updatePassword will fail with a real Supabase error otherwise, which is
+// surfaced here rather than assumed away.
+export async function resetPasswordAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
+
+  if (!password || !confirmPassword) {
+    return { error: "Both fields are required." };
+  }
+  if (password.length < 8) {
+    return { error: "Password must be at least 8 characters." };
+  }
+  if (password !== confirmPassword) {
+    return { error: "Passwords do not match." };
+  }
+
+  const result = await AuthService.updatePassword(password);
+  if (!result.success) {
+    return {
+      error:
+        result.error ??
+        "Could not reset your password. Your reset link may have expired - request a new one.",
+    };
+  }
+
+  revalidatePath("/dashboard");
+  redirect("/dashboard");
+}
+
 // Sprint 14C+ - Google OAuth sign-in.
 export async function signInWithGoogleAction(): Promise<void> {
   const { createSupabaseServerClient } = await import("@/lib/supabase/server");

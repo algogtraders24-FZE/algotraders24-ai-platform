@@ -13,6 +13,7 @@ import { requireUser } from "@/lib/auth/protectedRoute";
 import { signOutAction } from "@/app/(auth)/actions/auth.actions";
 import { PLAN_LABELS } from "@/config/billing.config";
 import type { PlanId } from "@/types/billing";
+import ResendVerificationButton from "@/components/auth/ResendVerificationButton";
 
 export default async function DashboardHome() {
   const sessionUser = await requireUser();
@@ -47,7 +48,12 @@ export default async function DashboardHome() {
           <p className="text-gray-400 mt-1">Here&apos;s your account overview.</p>
           <p className="text-xs text-gray-500 mt-1">
             {user.email}
-            {user.emailVerified ? "" : " · email not verified"}
+            {!user.emailVerified && (
+              <>
+                {" "}
+                · email not verified · <ResendVerificationButton />
+              </>
+            )}
           </p>
         </div>
         <form action={signOutAction}>

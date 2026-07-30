@@ -1,13 +1,29 @@
-﻿// app/(auth)/login/page.tsx
+// app/(auth)/login/page.tsx
 // Sprint 14C - Login page wired to signInAction.
+// Sprint R1.0.1 - Now surfaces ?error= from a failed Google OAuth redirect
+// (signInWithGoogleAction / /auth/callback both redirect here with a real
+// error message on failure) - previously that query param was silently
+// dropped and a failed Google sign-in looked like nothing happened at all.
 "use client";
 
-import { useActionState } from "react";
+import { Suspense, useActionState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signInAction, type ActionState } from "@/app/(auth)/actions/auth.actions";
 import GoogleButton from "@/components/auth/GoogleButton";
 
 const initialState: ActionState = {};
+
+function OAuthError() {
+  const searchParams = useSearchParams();
+  const error = searchParams.get("error");
+  if (!error) return null;
+  return (
+    <p className="mb-4 rounded-lg border border-red-900 bg-red-950/40 p-3 text-sm text-red-400">
+      {error === "auth_callback_failed" ? "Sign-in link was invalid or expired. Please try again." : error}
+    </p>
+  );
+}
 
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(
@@ -21,6 +37,12 @@ export default function LoginPage() {
       <p className="mt-1 text-sm text-neutral-400">
         Sign in to your Algotraders24 account.
       </p>
+
+      <Suspense fallback={null}>
+        <div className="mt-4">
+          <OAuthError />
+        </div>
+      </Suspense>
 
       <GoogleButton />
 
@@ -77,4 +99,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
