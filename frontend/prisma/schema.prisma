@@ -366,3 +366,25 @@ model KnowledgeChunk {
   @@index([userId])
   @@index([deletedAt])
 }
+
+// Sprint L2.6 - Immutable, append-only record of every admin action (Phase 7:
+// Audit Logs). Deliberately has no `deletedAt`/soft-delete and no update path
+// anywhere in the app - an audit trail that could be edited or erased by the
+// same admins it records would defeat its purpose. Mirrors AgentActivity's
+// simple append-only shape. `targetId` is nullable for actions with no single
+// target (e.g. viewing a list); `metadata` carries the real before/after
+// values of a mutation, never a summary invented after the fact.
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String
+  action      String
+  targetType  String
+  targetId    String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([actorUserId])
+  @@index([action])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}

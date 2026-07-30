@@ -14,6 +14,11 @@ export interface DashboardNavItem {
   label: string;
   href: string;
   icon: string;
+  // Sprint L2.6 - only rendered for role === "admin" (see
+  // DashboardSidebar.tsx); the real gate is still server-side
+  // (requireRole in app/dashboard/admin/layout.tsx) - hiding the link is
+  // just discoverability, never the actual authorization boundary.
+  adminOnly?: boolean;
 }
 export const DASHBOARD_NAV: DashboardNavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "DB" },
@@ -29,4 +34,5 @@ export const DASHBOARD_NAV: DashboardNavItem[] = [
   { label: "Knowledge Base", href: "/dashboard/knowledge", icon: "KB" },
   { label: "Orders", href: "/dashboard/orders", icon: "OR" },
   { label: "Billing", href: "/dashboard/billing", icon: "BL" },
+  { label: "Admin", href: "/dashboard/admin", icon: "AD", adminOnly: true },
 ];

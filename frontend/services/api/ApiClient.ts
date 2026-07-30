@@ -158,6 +158,34 @@ export class ApiClient {
     return ApiClient.send<T>("PATCH", path, body, options);
   }
 
+  // Sprint L2.6 - DELETE with no body, added for admin moderation actions
+  // (e.g. soft-deleting a Knowledge document). Same non-retrying contract.
+  static async delete<T>(path: string, options: RequestOptions = {}): Promise<T> {
+    const started = Date.now();
+    try {
+      const res = await fetch(path, {
+        method: "DELETE",
+        signal: options.signal,
+        headers: { Accept: "application/json" },
+      });
+      const responseBody = (await res.json()) as ApiEnvelope<T>;
+      log(path, Date.now() - started);
+
+      if (!res.ok || responseBody.status === "error") {
+        const err = responseBody.status === "error" ? responseBody.error : undefined;
+        throw new ApiClientError(
+          err?.code ?? "HTTP_ERROR",
+          err?.message ?? `Request failed with ${res.status}`,
+          res.status,
+        );
+      }
+      return responseBody.data;
+    } catch (error) {
+      log(path, Date.now() - started, error);
+      throw error instanceof Error ? error : new ApiClientError("UNKNOWN", "Request failed", 500);
+    }
+  }
+
   private static async send<T>(
     method: "POST" | "PATCH",
     path: string,

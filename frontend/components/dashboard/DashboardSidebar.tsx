@@ -3,9 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { DASHBOARD_NAV } from "@/config/dashboard.config";
+import { useUserContext } from "@/context/UserContext";
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
+  const { user } = useUserContext();
+  // Sprint L2.6 - discoverability only; the real gate is server-side
+  // (requireRole in app/dashboard/admin/layout.tsx).
+  const items = DASHBOARD_NAV.filter((item) => !item.adminOnly || user?.role === "admin");
 
   return (
     <aside className="w-64 shrink-0 bg-[#0C1324] border-r border-[#1F2937] min-h-screen p-4 hidden md:block">
@@ -13,7 +18,7 @@ export default function DashboardSidebar() {
         Algotraders<span className="text-blue-500">24</span> AI
       </Link>
       <nav className="mt-4 space-y-1">
-        {DASHBOARD_NAV.map((item) => (
+        {items.map((item) => (
           <Link
             key={item.href}
             href={item.href}
