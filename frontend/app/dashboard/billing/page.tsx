@@ -7,10 +7,17 @@
 // the user is rejected server-side (PaymentRequiredClientError) and shown
 // as an honest message instead of a fake success. Cancel/Reactivate are
 // real, immediate DB writes wired into SubscriptionCard.
+// Sprint L2.7 - When Stripe/NOWPayments is actually configured, a paid
+// plan change now offers a real "Proceed to Checkout" / "Pay with Crypto"
+// action that redirects to the real provider - the honest "not connected"
+// message only shows when neither is configured. Also handles the
+// `?checkout=success|cancel` redirect Stripe/NOWPayments sends back.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import type { PlanId, PlanChangePreview } from "@/types/billing";
 import { billingEngine } from "@/services/billing/BillingEngine";
+import { BillingApi, type PaymentConfig } from "@/services/api/BillingApi";
 import { PLAN_LABELS } from "@/config/billing.config";
 import { pricingService } from "@/services/billing/PricingService";
 
@@ -31,6 +38,33 @@ export default function BillingPage() {
   const [preview, setPreview] = useState<PlanChangePreview | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(null);
+  const [checkoutBusy, setCheckoutBusy] = useState<"stripe" | "crypto" | null>(null);
+  const [checkoutNotice, setCheckoutNotice] = useState<"success" | "cancel" | null>(null);
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    BillingApi.getPaymentConfig()
+      .then(setPaymentConfig)
+      .catch(() => setPaymentConfig({ stripeConfigured: false, nowPaymentsConfigured: false }));
+  }, []);
+
+  // Sprint L2.7 - real redirect handling: Stripe/NOWPayments send the user
+  // back with ?checkout=success|cancel. On success, force-reload billing
+  // state (the webhook may have already landed) and clear the query param
+  // so a page refresh doesn't re-show the banner.
+  useEffect(() => {
+    const checkout = searchParams.get("checkout");
+    if (checkout === "success" || checkout === "cancel") {
+      setCheckoutNotice(checkout);
+      if (checkout === "success") setVersion((v) => v + 1);
+      router.replace(pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -116,6 +150,26 @@ export default function BillingPage() {
       setActionBusy(false);
     }
   }, [preview]);
+
+  const handleCheckout = useCallback(
+    async (provider: "stripe" | "crypto") => {
+      if (!preview) return;
+      setCheckoutBusy(provider);
+      setActionMessage(null);
+      try {
+        const cycle: "monthly" | "yearly" = subscription?.billingCycle ?? "monthly";
+        const url =
+          provider === "stripe"
+            ? await BillingApi.createCheckoutSession(preview.toPlanId, cycle)
+            : await BillingApi.createCryptoInvoice(preview.toPlanId, cycle);
+        window.location.href = url;
+      } catch (err) {
+        setActionMessage(err instanceof Error ? err.message : "Could not start checkout.");
+        setCheckoutBusy(null);
+      }
+    },
+    [preview, subscription],
+  );
 
   const handleCancel = useCallback(async () => {
     setActionMessage(null);
@@ -223,6 +277,23 @@ export default function BillingPage() {
             </p>
           </div>
 
+          {checkoutNotice && (
+            <div
+              className={`mb-5 rounded-xl border p-4 text-sm ${
+                checkoutNotice === "success"
+                  ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                  : "border-slate-700 bg-slate-900/60 text-slate-300"
+              }`}
+            >
+              {checkoutNotice === "success"
+                ? "Checkout completed. Your plan will update once the payment provider confirms the payment (this can take a few seconds)."
+                : "Checkout was canceled - no changes were made."}
+              <button onClick={() => setCheckoutNotice(null)} className="ml-3 text-xs font-medium underline">
+                Dismiss
+              </button>
+            </div>
+          )}
+
           {actionMessage && (
             <div className="mb-5 rounded-xl border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-200">
               {actionMessage}
@@ -238,10 +309,16 @@ export default function BillingPage() {
               {pricingService.formatPrice(Math.abs(preview.priceDelta))}/cycle.
 
               {preview.requiresPayment ? (
-                <p className="mt-2 text-amber-300">
-                  This change requires payment processing, which isn&apos;t connected yet.
-                  Contact support to complete it.
-                </p>
+                paymentConfig?.stripeConfigured || paymentConfig?.nowPaymentsConfigured ? (
+                  <p className="mt-2 text-slate-300">
+                    This plan requires payment - choose a real payment method below to complete it.
+                  </p>
+                ) : (
+                  <p className="mt-2 text-amber-300">
+                    This change requires payment processing, which isn&apos;t connected yet.
+                    Contact support to complete it.
+                  </p>
+                )
               ) : (
                 <p className="mt-2 text-slate-300">
                   This plan is free - confirming below switches you over immediately, no payment
@@ -249,7 +326,7 @@ export default function BillingPage() {
                 </p>
               )}
 
-              <div className="mt-3 flex items-center gap-3">
+              <div className="mt-3 flex flex-wrap items-center gap-3">
                 {!preview.requiresPayment && (
                   <button
                     onClick={handleConfirmChange}
@@ -257,6 +334,24 @@ export default function BillingPage() {
                     className="rounded-lg bg-sky-500 px-4 py-2 text-xs font-semibold text-white transition hover:bg-sky-400 disabled:opacity-50"
                   >
                     {actionBusy ? "Switching..." : `Confirm switch to ${PLAN_LABELS[preview.toPlanId]}`}
+                  </button>
+                )}
+                {preview.requiresPayment && paymentConfig?.stripeConfigured && (
+                  <button
+                    onClick={() => handleCheckout("stripe")}
+                    disabled={checkoutBusy !== null}
+                    className="rounded-lg bg-sky-500 px-4 py-2 text-xs font-semibold text-white transition hover:bg-sky-400 disabled:opacity-50"
+                  >
+                    {checkoutBusy === "stripe" ? "Redirecting..." : "Proceed to Checkout (Card)"}
+                  </button>
+                )}
+                {preview.requiresPayment && paymentConfig?.nowPaymentsConfigured && (
+                  <button
+                    onClick={() => handleCheckout("crypto")}
+                    disabled={checkoutBusy !== null}
+                    className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-200 transition hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    {checkoutBusy === "crypto" ? "Redirecting..." : "Pay with Crypto"}
                   </button>
                 )}
                 <button

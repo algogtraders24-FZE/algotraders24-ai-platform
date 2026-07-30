@@ -12,9 +12,14 @@
 // files are off-limits per the L2.5 brief. This service is built so a
 // future, explicitly-scoped sprint can call it from those pipelines
 // without any changes here.
+//
+// Sprint L2.7 - marketAnalysisRequests/searchRequests are now real,
+// period-scoped counts from RequestLogService (Phase 6), closing the gap
+// this file's own header used to describe as untracked.
 import type { Entitlement, Entitlements, PlanId } from "@/types/billing";
 import { PLAN_LIMITS, isPlanId } from "@/config/plan-limits";
 import { usageMeteringService } from "./UsageMeteringService";
+import { requestLogService } from "@/services/tracking/RequestLogService";
 
 const BYTES_PER_MB = 1024 * 1024;
 
@@ -33,7 +38,11 @@ export class EntitlementService {
   ): Promise<Entitlements> {
     const planId: PlanId = isPlanId(rawPlanId) ? rawPlanId : "free";
     const limits = PLAN_LIMITS[planId];
-    const usage = await usageMeteringService.getUsage(userId, periodStart, periodEnd);
+    const [usage, marketAnalysisRequests, searchRequests] = await Promise.all([
+      usageMeteringService.getUsage(userId, periodStart, periodEnd),
+      requestLogService.countForUser(userId, "market_analysis", periodStart, periodEnd),
+      requestLogService.countForUser(userId, "knowledge_search", periodStart, periodEnd),
+    ]);
     const storageMbUsed = Math.round((usage.storageBytes / BYTES_PER_MB) * 100) / 100;
 
     return {
@@ -44,8 +53,8 @@ export class EntitlementService {
       knowledgeDocuments: toEntitlement(usage.knowledgeDocuments, limits.maxKnowledgeDocuments),
       storageMb: toEntitlement(storageMbUsed, limits.storageLimit),
       conversations: { used: usage.conversations },
-      marketAnalysisRequests: { tracked: false },
-      searchRequests: { tracked: false },
+      marketAnalysisRequests: { used: marketAnalysisRequests },
+      searchRequests: { used: searchRequests },
       apiAccess: limits.apiAccess,
       prioritySupport: limits.prioritySupport,
       customBranding: limits.customBranding,

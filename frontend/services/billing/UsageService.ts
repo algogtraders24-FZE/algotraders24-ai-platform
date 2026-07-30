@@ -2,12 +2,10 @@
 // Sprint 13A — Subscription & Billing Foundation
 // Sprint L2.5 - Rewritten to wrap the real Entitlements object from
 // /api/private/billing/usage (see EntitlementService) instead of
-// MOCK_USAGE. Two of the six Phase 4 metrics (Market Analysis Requests,
-// Search Requests) have no durable per-request record anywhere in the
-// schema yet and would require editing the Market Intelligence/Knowledge
-// route files this sprint may not touch - they're surfaced with
-// `tracked: false` so the UI shows an honest "not yet tracked" state
-// instead of a fabricated number. See the L2.5 report.
+// MOCK_USAGE.
+// Sprint L2.7 - Market Analysis Requests and Search Requests are now real,
+// durable counts (RequestLogService, Phase 6) - previously surfaced as
+// `tracked: false`; now shown as ordinary usage rows like Conversations.
 import type { Entitlements, UsageMetric } from "@/types/billing";
 
 const EMPTY_ENTITLEMENTS: Entitlements = {
@@ -18,8 +16,8 @@ const EMPTY_ENTITLEMENTS: Entitlements = {
   knowledgeDocuments: { used: 0, limit: 0, remaining: 0, pct: 0, atLimit: false },
   storageMb: { used: 0, limit: 0, remaining: 0, pct: 0, atLimit: false },
   conversations: { used: 0 },
-  marketAnalysisRequests: { tracked: false },
-  searchRequests: { tracked: false },
+  marketAnalysisRequests: { used: 0 },
+  searchRequests: { used: 0 },
   apiAccess: false,
   prioritySupport: false,
   customBranding: false,
@@ -60,8 +58,8 @@ export class UsageService {
       { label: "Knowledge Documents", used: e.knowledgeDocuments.used, limit: e.knowledgeDocuments.limit, unit: "docs", tracked: true },
       { label: "Storage", used: e.storageMb.used, limit: e.storageMb.limit, unit: "MB", tracked: true },
       { label: "Conversations", used: e.conversations.used, limit: -1, unit: "conversations", tracked: true },
-      { label: "Market Analysis Requests", used: 0, limit: -1, unit: "requests", tracked: false },
-      { label: "Search Requests", used: 0, limit: -1, unit: "requests", tracked: false },
+      { label: "Market Analysis Requests (this cycle)", used: e.marketAnalysisRequests.used, limit: -1, unit: "requests", tracked: true },
+      { label: "Search Requests (this cycle)", used: e.searchRequests.used, limit: -1, unit: "requests", tracked: true },
     ];
   }
 

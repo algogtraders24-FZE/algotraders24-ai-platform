@@ -12,79 +12,91 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  authId        String?   @unique
-  email         String    @unique
-  name          String
-  role          String    @default("user")
-  planId        String    @default("free")
-  status        String    @default("active")
-  emailVerified Boolean   @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
+  id               String    @id @default(cuid())
+  authId           String?   @unique
+  email            String    @unique
+  name             String
+  role             String    @default("user")
+  planId           String    @default("free")
+  status           String    @default("active")
+  emailVerified    Boolean   @default(false)
+  // Sprint L2.7 - real Stripe Customer link (one customer per user, reused
+  // across checkout sessions/subscriptions). Null until the user's first
+  // real checkout - never fabricated.
+  stripeCustomerId String?   @unique
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
 
   @@index([authId])
   @@index([deletedAt])
 }
 
 model Plan {
-  id          String    @id
-  name        String
-  price       Float     @default(0)
-  interval    String    @default("month")
-  features    String[]  @default([])
-  isActive    Boolean   @default(true)
-  sortOrder   Int       @default(0)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
+  id        String    @id
+  name      String
+  price     Float     @default(0)
+  interval  String    @default("month")
+  features  String[]  @default([])
+  isActive  Boolean   @default(true)
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   @@index([deletedAt])
 }
 
 model Subscription {
-  id                 String    @id @default(cuid())
-  userId             String
-  planId             String
-  status             String    @default("active")
-  currentPeriodStart DateTime  @default(now())
-  currentPeriodEnd   DateTime
-  cancelAtPeriodEnd  Boolean   @default(false)
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  deletedAt          DateTime?
+  id                   String    @id @default(cuid())
+  userId               String
+  planId               String
+  status               String    @default("active")
+  currentPeriodStart   DateTime  @default(now())
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean   @default(false)
+  // Sprint L2.7 - real payment-provider linkage, populated only by a
+  // verified webhook event (checkout completion / IPN), never by the
+  // self-service or admin-override paths (those leave these null - "free"
+  // and admin-granted plans have no real provider behind them, and must
+  // never claim one).
+  provider             String?
+  stripeSubscriptionId String?   @unique
+  nowPaymentsInvoiceId String?   @unique
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  deletedAt            DateTime?
 
   @@index([userId])
   @@index([deletedAt])
 }
 
 model Product {
-  id                String    @id @default(cuid())
-  slug              String    @unique
-  name              String
-  shortDescription  String    @default("")
-  fullDescription   String    @default("")
-  category          String    @default("mt5-expert-advisors")
-  platform          String    @default("")
-  supportedPlatforms String[] @default([])
-  tags              String[]  @default([])
-  price             Float     @default(0)
-  currency          String    @default("USD")
-  images            String[]  @default([])
-  features          String[]  @default([])
-  specifications    Json      @default("[]")
-  faqs              Json      @default("[]")
-  version           String    @default("1.0.0")
-  releaseDate       String    @default("")
-  lastUpdated       String    @default("")
-  rating            Float     @default(0)
-  downloads         Int       @default(0)
-  featured          Boolean   @default(false)
-  status            String    @default("active")
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  deletedAt         DateTime?
+  id                 String    @id @default(cuid())
+  slug               String    @unique
+  name               String
+  shortDescription   String    @default("")
+  fullDescription    String    @default("")
+  category           String    @default("mt5-expert-advisors")
+  platform           String    @default("")
+  supportedPlatforms String[]  @default([])
+  tags               String[]  @default([])
+  price              Float     @default(0)
+  currency           String    @default("USD")
+  images             String[]  @default([])
+  features           String[]  @default([])
+  specifications     Json      @default("[]")
+  faqs               Json      @default("[]")
+  version            String    @default("1.0.0")
+  releaseDate        String    @default("")
+  lastUpdated        String    @default("")
+  rating             Float     @default(0)
+  downloads          Int       @default(0)
+  featured           Boolean   @default(false)
+  status             String    @default("active")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
 
   @@index([category])
   @@index([featured])
@@ -217,28 +229,28 @@ model Automation {
 }
 
 model Knowledge {
-  id              String    @id @default(cuid())
+  id              String           @id @default(cuid())
   userId          String
   title           String
-  description     String    @default("")
-  category        String    @default("general")
+  description     String           @default("")
+  category        String           @default("general")
   collectionId    String?
-  author          String    @default("")
-  tags            String[]  @default([])
-  provider        String    @default("gemini")
-  language        String    @default("en")
-  fileType        String    @default("md")
-  documentSize    Int       @default(0)
+  author          String           @default("")
+  tags            String[]         @default([])
+  provider        String           @default("gemini")
+  language        String           @default("en")
+  fileType        String           @default("md")
+  documentSize    Int              @default(0)
   source          String
-  chunkCount      Int       @default(0)
-  status          String    @default("processing")
-  embeddingStatus String    @default("pending")
+  chunkCount      Int              @default(0)
+  status          String           @default("processing")
+  embeddingStatus String           @default("pending")
   lastIndexed     DateTime?
-  retrievalCount  Int       @default(0)
-  popularity      Int       @default(0)
+  retrievalCount  Int              @default(0)
+  popularity      Int              @default(0)
   chunks          KnowledgeChunk[]
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
   deletedAt       DateTime?
 
   @@index([userId])
@@ -273,6 +285,7 @@ model Billing {
   @@index([userId])
   @@index([deletedAt])
 }
+
 // ── Sprint 14E: Automation (Workflow) dashboard models ──────────────
 // World B — dashboard-facing. Separate from the simple `Automation` model.
 
@@ -281,6 +294,7 @@ enum WorkflowTrigger {
   scheduled
   event
 }
+
 enum WorkflowStatus {
   active
   paused
@@ -348,6 +362,7 @@ model WorkflowQueueItem {
   @@index([userId])
   @@map("workflow_queue_items")
 }
+
 model KnowledgeChunk {
   id          String    @id @default(cuid())
   knowledgeId String
@@ -386,5 +401,22 @@ model AuditLog {
   @@index([actorUserId])
   @@index([action])
   @@index([targetType, targetId])
+  @@index([createdAt])
+}
+
+// Sprint L2.7 - Phase 6: durable, real per-request counters for the two
+// metrics L2.5/L2.6 disclosed as "not yet tracked" (no durable record
+// existed anywhere - AnalysisRun is in-memory only, and knowledge search
+// never logged an event). Append-only, immutable, no update path - a pure
+// event log. Written by a single additive, best-effort line at the end of
+// the two route files, never by the reasoning/embedding logic itself.
+model RequestLog {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String // "market_analysis" | "knowledge_search"
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([type])
   @@index([createdAt])
 }

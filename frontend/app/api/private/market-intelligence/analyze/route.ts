@@ -48,6 +48,7 @@ import { ConfidenceEngineService } from "@/services/ai/confidence/confidence-eng
 import { AlphaVantageProvider } from "@/lib/market-data/providers/alpha-vantage.provider";
 import { AlphaVantageNewsProvider } from "@/lib/market-data/providers/alpha-vantage-news.provider";
 import { systemClock } from "@/lib/market-data/cache";
+import { requestLogService } from "@/services/tracking/RequestLogService";
 
 const SUPPORTED_SYMBOLS = {
   EURUSD: "Euro (EUR/USD)",
@@ -111,6 +112,12 @@ export const POST = withContext(async (req, ctx) => {
     symbol,
     question,
   });
+
+  // Sprint L2.7 - Phase 6: durable request tracking, additive only. Never
+  // touches the orchestrator/pipeline itself; a failure here never fails
+  // the analysis response (best-effort, same convention as L2.2's
+  // retrievalCount increment).
+  await requestLogService.record(sessionUser.profile.id, "market_analysis").catch(() => {});
 
   switch (outcome.status) {
     case "completed":

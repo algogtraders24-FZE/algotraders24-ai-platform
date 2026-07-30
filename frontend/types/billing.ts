@@ -85,6 +85,10 @@ export interface Entitlement {
 // (in a future sprint, once authorized to touch those pipelines) any other
 // page would read to answer "is this user allowed to do X right now?". See
 // services/billing/EntitlementService.ts - the one place this is computed.
+// Sprint L2.7 - marketAnalysisRequests/searchRequests are now real counts
+// (RequestLogService), closing the gap L2.5/L2.6 disclosed as untracked -
+// no limit is defined for either yet, so they're informational like
+// `conversations`, not gated.
 export interface Entitlements {
   planId: PlanId;
   periodStart: string;
@@ -93,8 +97,8 @@ export interface Entitlements {
   knowledgeDocuments: Entitlement;
   storageMb: Entitlement;
   conversations: { used: number };
-  marketAnalysisRequests: { tracked: false };
-  searchRequests: { tracked: false };
+  marketAnalysisRequests: { used: number };
+  searchRequests: { used: number };
   apiAccess: boolean;
   prioritySupport: boolean;
   customBranding: boolean;

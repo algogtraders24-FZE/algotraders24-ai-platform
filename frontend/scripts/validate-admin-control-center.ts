@@ -172,12 +172,14 @@ async function main(): Promise<void> {
     await test("AdminAnalyticsService.getAnalytics: real totals include the synthetic message, untracked metrics disclosed", async () => {
       const analytics = await adminAnalyticsService.getAnalytics();
       assert.ok(analytics.totals.assistantMessages >= 1);
-      assert.deepEqual(analytics.untracked, ["marketAnalysisRequests", "searchRequests"]);
+      assert.deepEqual(analytics.untracked, []);
+      assert.ok(analytics.totals.marketAnalysisRequests >= 0);
+      assert.ok(analytics.totals.searchRequests >= 0);
     });
 
     await test("AdminHealthService.getReport: real database reachability + row counts", async () => {
       const report = await adminHealthService.getReport();
-      assert.equal(report.database.reachable, true, "database must be reachable for this script to have run at all");
+      assert.equal(report.subsystems.database.health, "operational", "database must be reachable for this script to have run at all");
       assert.ok(report.rowCounts.users >= 2);
     });
 

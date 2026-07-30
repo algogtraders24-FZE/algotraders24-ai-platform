@@ -2,8 +2,17 @@
 // Sprint 14E - Typed access to the billing/plan/subscription private API routes.
 // Sprint L2.5 - Added real usage/entitlements fetch and subscription
 // mutation actions (cancel/reactivate/change-plan).
+// Sprint L2.7 - Added real Stripe checkout / NOWPayments invoice creation
+// and a config-presence check (never exposes a key, only booleans) so the
+// UI can offer a real "Proceed to Checkout" action when a provider is
+// actually configured.
 import { ApiClient, type RequestOptions } from "./ApiClient";
 import type { Entitlements } from "@/types/billing";
+
+export interface PaymentConfig {
+  stripeConfigured: boolean;
+  nowPaymentsConfigured: boolean;
+}
 
 export interface ApiPlan {
   id: string;
@@ -112,6 +121,20 @@ export class BillingApi {
       options
     );
     return data.subscription;
+  }
+
+  static async getPaymentConfig(options: RequestOptions = {}): Promise<PaymentConfig> {
+    return ApiClient.get<PaymentConfig>("/api/private/billing/payment-config", { cacheTtlMs: 60_000, retries: 1, ...options });
+  }
+
+  static async createCheckoutSession(planId: string, cycle: "monthly" | "yearly", options: RequestOptions = {}): Promise<string> {
+    const data = await ApiClient.post<{ url: string }>("/api/private/billing/checkout", { planId, cycle }, options);
+    return data.url;
+  }
+
+  static async createCryptoInvoice(planId: string, cycle: "monthly" | "yearly", options: RequestOptions = {}): Promise<string> {
+    const data = await ApiClient.post<{ invoiceUrl: string }>("/api/private/billing/crypto-invoice", { planId, cycle }, options);
+    return data.invoiceUrl;
   }
 
   static invalidate(): void {

@@ -29,7 +29,7 @@ export default function AdminAnalyticsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
           <p className="text-xs uppercase tracking-wider text-slate-500">Users</p>
           <p className="mt-1 text-xl font-semibold text-white">{data.totals.users.toLocaleString()}</p>
@@ -51,6 +51,14 @@ export default function AdminAnalyticsPage() {
           <p className="mt-1 text-xl font-semibold text-white">
             {(data.totals.knowledgeStorageBytes / (1024 * 1024)).toFixed(1)} MB
           </p>
+        </div>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+          <p className="text-xs uppercase tracking-wider text-slate-500">Market Analysis Requests</p>
+          <p className="mt-1 text-xl font-semibold text-white">{data.totals.marketAnalysisRequests.toLocaleString()}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+          <p className="text-xs uppercase tracking-wider text-slate-500">Search Requests</p>
+          <p className="mt-1 text-xl font-semibold text-white">{data.totals.searchRequests.toLocaleString()}</p>
         </div>
       </div>
 

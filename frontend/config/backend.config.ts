@@ -21,37 +21,41 @@ export function getEnvironment(): Environment {
   return "development";
 }
 
-// Subsystems reported by /api/system/status
+// Subsystems reported by /api/system/status - Sprint L2.7 Phase 5. Each
+// one is backed by a real check in HealthService; none defaults to
+// "operational" without actually probing something.
 export const SUBSYSTEMS = [
   "database",
-  "aiProviders",
-  "automation",
-  "knowledge",
-  "agents",
-  "billing",
-  "publishing",
+  "aiProvider",
+  "vectorStore",
+  "paymentProvider",
+  "storage",
+  "backgroundJobs",
 ] as const;
 
 export type SubsystemKey = (typeof SUBSYSTEMS)[number];
 
 export const SUBSYSTEM_LABELS: Record<SubsystemKey, string> = {
   database: "Database",
-  aiProviders: "AI Providers",
-  automation: "Automation Engine",
-  knowledge: "Knowledge Base",
-  agents: "AI Agents",
-  billing: "Billing",
-  publishing: "Publishing Engine",
+  aiProvider: "AI Provider",
+  vectorStore: "Vector Store",
+  paymentProvider: "Payment Provider",
+  storage: "Storage",
+  backgroundJobs: "Background Jobs",
 };
 
 // Feature flags — everything future is OFF until wired.
+// Sprint L2.7 - Removed stripeEnabled/nowPaymentsEnabled/realAiProviders:
+// these were static booleans nothing ever flipped (payment flags were
+// hardcoded false forever; realAiProviders hardcoded true regardless of
+// whether a key was actually configured) - a real "is this configured"
+// answer now comes from the provider itself (StripeProvider.isConfigured(),
+// NowPaymentsProvider.isConfigured(), and a live GEMINI_API_KEY check in
+// HealthService), not a flag that could drift from reality.
 export const FEATURE_FLAGS = {
   databaseConnected: true,
   authEnabled: false,
-  stripeEnabled: false,
-  nowPaymentsEnabled: false,
   redisEnabled: false,
-  realAiProviders: true, // Gemini already live in frontend
 } as const;
 
 export type FeatureFlag = keyof typeof FEATURE_FLAGS;

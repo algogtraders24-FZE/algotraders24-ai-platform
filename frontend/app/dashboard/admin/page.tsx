@@ -52,8 +52,8 @@ export default function AdminOverviewPage() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Card
           label="Database"
-          value={health.database.reachable ? "Reachable" : "Unreachable"}
-          accent={health.database.reachable ? "#34d399" : "#f87171"}
+          value={health.subsystems.database.health === "operational" ? "Reachable" : "Unreachable"}
+          accent={health.subsystems.database.health === "operational" ? "#34d399" : "#f87171"}
         />
         <Card label="Total Users" value={analytics.totals.users.toLocaleString()} />
         <Card label="Conversations" value={analytics.totals.conversations.toLocaleString()} />

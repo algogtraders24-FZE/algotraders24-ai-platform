@@ -92,6 +92,14 @@ async function main(): Promise<void> {
       data: { userId: user.id, title: "Doc Deleted", source: "upload", documentSize: 999 * 1024 * 1024, deletedAt: new Date() },
     });
 
+    // Sprint L2.7 - 2 market_analysis + 1 knowledge_search inside the
+    // period, plus 1 of each outside the period (must not count).
+    await prisma.requestLog.create({ data: { userId: user.id, type: "market_analysis", createdAt: periodStart } });
+    await prisma.requestLog.create({ data: { userId: user.id, type: "market_analysis", createdAt: now } });
+    await prisma.requestLog.create({ data: { userId: user.id, type: "market_analysis", createdAt: beforePeriod } });
+    await prisma.requestLog.create({ data: { userId: user.id, type: "knowledge_search", createdAt: now } });
+    await prisma.requestLog.create({ data: { userId: user.id, type: "knowledge_search", createdAt: beforePeriod } });
+
     await test("aiMessages: counts only assistant-role messages within the given period", async () => {
       const e = await entitlementService.getEntitlements(user.id, "pro", periodStart, periodEnd);
       assert.equal(e.aiMessages.used, 3);
@@ -119,10 +127,10 @@ async function main(): Promise<void> {
       assert.equal(e.conversations.used, 1);
     });
 
-    await test("no-fabrication: unmeasured metrics are explicitly tracked:false, never a guessed number", async () => {
+    await test("marketAnalysisRequests/searchRequests: real, period-scoped counts (Sprint L2.7)", async () => {
       const e = await entitlementService.getEntitlements(user.id, "pro", periodStart, periodEnd);
-      assert.equal(e.marketAnalysisRequests.tracked, false);
-      assert.equal(e.searchRequests.tracked, false);
+      assert.equal(e.marketAnalysisRequests.used, 2);
+      assert.equal(e.searchRequests.used, 1);
     });
 
     await test("unknown planId falls back to 'free' rather than throwing or fabricating a plan", async () => {
@@ -199,6 +207,7 @@ async function main(): Promise<void> {
 
     await prisma.knowledge.deleteMany({ where: { id: { in: [docA.id, docB.id, docDeleted.id] } } });
   } finally {
+    await prisma.requestLog.deleteMany({ where: { userId: user.id } });
     await prisma.subscription.deleteMany({ where: { userId: user.id } });
     await prisma.knowledge.deleteMany({ where: { userId: user.id } });
     await prisma.conversation.deleteMany({ where: { id: conversation.id } }); // cascades Message rows
@@ -207,11 +216,12 @@ async function main(): Promise<void> {
     const leftoverMessages = await prisma.message.count({ where: { conversationId: conversation.id } });
     const leftoverKnowledge = await prisma.knowledge.count({ where: { userId: user.id } });
     const leftoverSub = await prisma.subscription.count({ where: { userId: user.id } });
-    if (leftoverMessages > 0 || leftoverKnowledge > 0 || leftoverSub > 0) {
+    const leftoverRequestLogs = await prisma.requestLog.count({ where: { userId: user.id } });
+    if (leftoverMessages > 0 || leftoverKnowledge > 0 || leftoverSub > 0 || leftoverRequestLogs > 0) {
       console.error("  WARNING: some validation rows were not cleaned up");
       failed += 1;
     } else {
-      console.log("  cleanup - all validation rows removed (user, conversation, messages, knowledge, subscription)");
+      console.log("  cleanup - all validation rows removed (user, conversation, messages, knowledge, subscription, request logs)");
     }
   }
 

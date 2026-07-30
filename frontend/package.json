@@ -29,7 +29,8 @@
     "validate:evidence-fusion": "tsx scripts/validate-evidence-fusion.ts",
     "validate:news-provider": "tsx scripts/validate-alpha-vantage-news-provider.ts",
     "validate:billing": "tsx scripts/validate-billing-entitlements.ts",
-    "validate:admin": "tsx scripts/validate-admin-control-center.ts"
+    "validate:admin": "tsx scripts/validate-admin-control-center.ts",
+    "validate:payments": "tsx scripts/validate-payment-infrastructure.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",
@@ -48,6 +49,7 @@
     "react-countup": "^6.5.3",
     "react-dom": "19.2.4",
     "react-intersection-observer": "^10.0.3",
+    "stripe": "^22.4.0",
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {

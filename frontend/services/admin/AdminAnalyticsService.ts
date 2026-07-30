@@ -4,12 +4,11 @@
 // users instead of one: every number is a real Prisma aggregate over
 // tables the AI Assistant/Knowledge pipelines already write as a side
 // effect of real work, with zero coupling to those pipeline files.
-// Market Analysis Requests and Search Requests have no durable per-request
-// record anywhere in the schema (AnalysisRun is in-memory only; knowledge
-// search never logs an event) - both are honestly reported as untracked
-// rather than estimated or invented, exactly as disclosed in the L2.5
-// report.
+// Sprint L2.7 - Market Analysis Requests and Search Requests are now real,
+// platform-wide totals from RequestLogService (Phase 6) - previously
+// disclosed as untracked (no durable per-request record existed anywhere).
 import { prisma } from "@/lib/prisma";
+import { requestLogService } from "@/services/tracking/RequestLogService";
 
 export interface DailyCount {
   date: string; // YYYY-MM-DD
@@ -29,6 +28,8 @@ export interface AdminAnalytics {
     assistantMessages: number;
     knowledgeDocuments: number;
     knowledgeStorageBytes: number;
+    marketAnalysisRequests: number;
+    searchRequests: number;
   };
   assistantMessagesByDay: DailyCount[]; // last 30 days
   topUsersByAssistantMessages: TopUserRow[];
@@ -43,7 +44,7 @@ export class AdminAnalyticsService {
     const windowStart = new Date(now.getTime() - 29 * DAY_MS);
     windowStart.setHours(0, 0, 0, 0);
 
-    const [users, conversations, assistantMessages, knowledgeAgg, recentMessages] = await Promise.all([
+    const [users, conversations, assistantMessages, knowledgeAgg, recentMessages, marketAnalysisRequests, searchRequests] = await Promise.all([
       prisma.user.count({ where: { deletedAt: null } }),
       prisma.conversation.count({ where: { deletedAt: null } }),
       prisma.message.count({ where: { role: "assistant", deletedAt: null } }),
@@ -56,6 +57,8 @@ export class AdminAnalyticsService {
         where: { role: "assistant", deletedAt: null, createdAt: { gte: windowStart } },
         select: { createdAt: true, userId: true },
       }),
+      requestLogService.countAll("market_analysis"),
+      requestLogService.countAll("knowledge_search"),
     ]);
 
     const byDay = new Map<string, number>();
@@ -84,6 +87,8 @@ export class AdminAnalyticsService {
         assistantMessages,
         knowledgeDocuments: knowledgeAgg._count._all,
         knowledgeStorageBytes: knowledgeAgg._sum.documentSize ?? 0,
+        marketAnalysisRequests,
+        searchRequests,
       },
       assistantMessagesByDay: [...byDay.entries()].map(([date, count]) => ({ date, count })),
       topUsersByAssistantMessages: topEntries.map(([userId, count]) => ({
@@ -91,7 +96,7 @@ export class AdminAnalyticsService {
         email: emailById.get(userId) ?? "unknown",
         assistantMessages: count,
       })),
-      untracked: ["marketAnalysisRequests", "searchRequests"],
+      untracked: [],
     };
   }
 }

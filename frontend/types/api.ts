@@ -17,6 +17,7 @@ export type HttpStatusCode =
   | 422
   | 429
   | 500
+  | 502
   | 503;
 
 export interface ApiError {

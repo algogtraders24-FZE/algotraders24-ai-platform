@@ -29,14 +29,17 @@ export interface SubsystemStatus {
   detail: string;
 }
 
+// Sprint L2.7 - Phase 5: replaced the old ad hoc subsystem list
+// (automation/knowledge/agents/billing/publishing - all hardcoded
+// "operational" regardless of real state, see the L2.7 audit) with the 6
+// categories the brief actually asks for, each backed by a real check.
 export interface SystemStatusReport {
   database: SubsystemStatus;
-  aiProviders: SubsystemStatus;
-  automation: SubsystemStatus;
-  knowledge: SubsystemStatus;
-  agents: SubsystemStatus;
-  billing: SubsystemStatus;
-  publishing: SubsystemStatus;
+  aiProvider: SubsystemStatus;
+  vectorStore: SubsystemStatus;
+  paymentProvider: SubsystemStatus;
+  storage: SubsystemStatus;
+  backgroundJobs: SubsystemStatus;
   overallHealth: ServiceHealth;
   timestamp: string;
 }

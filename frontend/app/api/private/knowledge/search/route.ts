@@ -15,6 +15,7 @@ import { RepositoryFactory } from "@/repositories/RepositoryFactory";
 import { prisma } from "@/lib/prisma";
 import { GeminiEmbeddingProvider } from "@/lib/ai";
 import { AIProviderError } from "@/lib/ai";
+import { requestLogService } from "@/services/tracking/RequestLogService";
 
 const MAX_TOP_K = 20;
 const DEFAULT_TOP_K = 5;
@@ -100,6 +101,11 @@ export const POST = withContext(async (req, ctx) => {
         })
         .catch(() => {});
     }
+
+    // Sprint L2.7 - Phase 6: durable request tracking, additive only. Same
+    // best-effort convention as the retrievalCount increment above - never
+    // fails the search itself.
+    await requestLogService.record(sessionUser.profile.id, "knowledge_search").catch(() => {});
 
     return ApiResponse.success(
       {
