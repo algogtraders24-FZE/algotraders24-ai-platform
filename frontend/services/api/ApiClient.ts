@@ -148,10 +148,26 @@ export class ApiClient {
   // No caching (POST results aren't idempotent-cacheable by URL) and no
   // retry by default (a search that failed once shouldn't silently repeat).
   static async post<T>(path: string, body: unknown, options: RequestOptions = {}): Promise<T> {
+    return ApiClient.send<T>("POST", path, body, options);
+  }
+
+  // Sprint L2.5 - JSON PATCH, added for real subscription mutations
+  // (cancel/reactivate/change-plan). Same non-caching, non-retrying
+  // contract as post() - a mutation is never safe to silently repeat.
+  static async patch<T>(path: string, body: unknown, options: RequestOptions = {}): Promise<T> {
+    return ApiClient.send<T>("PATCH", path, body, options);
+  }
+
+  private static async send<T>(
+    method: "POST" | "PATCH",
+    path: string,
+    body: unknown,
+    options: RequestOptions,
+  ): Promise<T> {
     const started = Date.now();
     try {
       const res = await fetch(path, {
-        method: "POST",
+        method,
         signal: options.signal,
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify(body),

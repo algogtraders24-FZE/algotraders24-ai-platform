@@ -2,8 +2,11 @@
 // app/dashboard/billing/page.tsx
 // Sprint 13A - Subscription & Billing Foundation
 // Sprint 14E - Data now loads from the database via BillingEngine.load().
-// Markup, components, layout and styling are unchanged; only the data source
-// and the loading/error handling around it are new.
+// Sprint L2.5 - Usage is now real (EntitlementService). Plan changes are
+// real for transitions to a $0 plan; anything that would require charging
+// the user is rejected server-side (PaymentRequiredClientError) and shown
+// as an honest message instead of a fake success. Cancel/Reactivate are
+// real, immediate DB writes wired into SubscriptionCard.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PlanId, PlanChangePreview } from "@/types/billing";
@@ -22,9 +25,12 @@ import InvoiceHistory from "@/components/billing/InvoiceHistory";
 
 export default function BillingPage() {
   const [ready, setReady] = useState(false);
+  const [version, setVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [preview, setPreview] = useState<PlanChangePreview | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -54,37 +60,39 @@ export default function BillingPage() {
 
   const retry = useCallback(() => setReloadKey((k) => k + 1), []);
 
-  const metrics = useMemo(
-    () => (ready ? billingEngine.getMetrics() : null),
-    [ready]
-  );
-  const subscription = useMemo(
-    () => (ready ? billingEngine.subscription.get() : null),
-    [ready]
-  );
-  const usageMetrics = useMemo(
-    () => (ready ? billingEngine.usage.getMetrics() : []),
-    [ready]
-  );
-  const invoices = useMemo(
-    () => (ready ? billingEngine.getInvoices() : []),
-    [ready]
-  );
-  const plans = useMemo(
-    () => (ready ? billingEngine.plans.getActive() : []),
-    [ready]
-  );
-  const paymentMethods = useMemo(
-    () => (ready ? billingEngine.getPaymentMethods() : []),
-    [ready]
-  );
-  const upgradeOptions = useMemo(
-    () => (ready ? billingEngine.getUpgradeOptions() : []),
-    [ready]
-  );
+  // Sprint L2.5 - `version` intentionally isn't read inside these callbacks;
+  // it exists purely to invalidate memoization after a real mutation
+  // (cancel/reactivate/change-plan) updates billingEngine's internal state
+  // without a full page reload. Referencing it satisfies exhaustive-deps
+  // without pretending the callback body depends on its value.
+  const metrics = useMemo(() => {
+    void version;
+    return ready ? billingEngine.getMetrics() : null;
+  }, [ready, version]);
+  const subscription = useMemo(() => {
+    void version;
+    return ready ? billingEngine.subscription.get() : null;
+  }, [ready, version]);
+  const usageMetrics = useMemo(() => {
+    void version;
+    return ready ? billingEngine.usage.getMetrics() : [];
+  }, [ready, version]);
+  const invoices = useMemo(() => {
+    void version;
+    return ready ? billingEngine.getInvoices() : [];
+  }, [ready, version]);
+  const plans = useMemo(() => {
+    void version;
+    return ready ? billingEngine.plans.getActive() : [];
+  }, [ready, version]);
+  const upgradeOptions = useMemo(() => {
+    void version;
+    return ready ? billingEngine.getUpgradeOptions() : [];
+  }, [ready, version]);
 
   const handleSelectPlan = useCallback(
     (planId: PlanId) => {
+      setActionMessage(null);
       if (!subscription || planId === subscription.planId) {
         setPreview(null);
         return;
@@ -93,6 +101,41 @@ export default function BillingPage() {
     },
     [subscription]
   );
+
+  const handleConfirmChange = useCallback(async () => {
+    if (!preview || preview.requiresPayment) return;
+    setActionBusy(true);
+    setActionMessage(null);
+    try {
+      await billingEngine.changePlan(preview.toPlanId);
+      setPreview(null);
+      setVersion((v) => v + 1);
+    } catch (err) {
+      setActionMessage(err instanceof Error ? err.message : "Could not change plan.");
+    } finally {
+      setActionBusy(false);
+    }
+  }, [preview]);
+
+  const handleCancel = useCallback(async () => {
+    setActionMessage(null);
+    try {
+      await billingEngine.cancelSubscription();
+      setVersion((v) => v + 1);
+    } catch (err) {
+      setActionMessage(err instanceof Error ? err.message : "Could not cancel subscription.");
+    }
+  }, []);
+
+  const handleReactivate = useCallback(async () => {
+    setActionMessage(null);
+    try {
+      await billingEngine.reactivateSubscription();
+      setVersion((v) => v + 1);
+    } catch (err) {
+      setActionMessage(err instanceof Error ? err.message : "Could not reactivate subscription.");
+    }
+  }, []);
 
   if (error) {
     return (
@@ -160,13 +203,17 @@ export default function BillingPage() {
         <UpgradeBanner nextPlan={nextPlan} onUpgrade={handleSelectPlan} />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <SubscriptionCard subscription={subscription} />
+          <SubscriptionCard
+            subscription={subscription}
+            onCancel={handleCancel}
+            onReactivate={handleReactivate}
+          />
           <div className="lg:col-span-2">
             <UsageCard metrics={usageMetrics} />
           </div>
         </div>
 
-        <PaymentMethods methods={paymentMethods} />
+        <PaymentMethods />
 
         <section>
           <div className="mb-5">
@@ -176,38 +223,49 @@ export default function BillingPage() {
             </p>
           </div>
 
+          {actionMessage && (
+            <div className="mb-5 rounded-xl border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-200">
+              {actionMessage}
+            </div>
+          )}
+
           {preview && preview.direction !== "same" && (
             <div className="mb-5 rounded-xl border border-sky-400/30 bg-sky-500/10 p-4 text-sm text-slate-200">
-              <span className="font-semibold capitalize">
-                {preview.direction}
-              </span>{" "}
-              from {PLAN_LABELS[preview.fromPlanId]} to{" "}
-              <span className="font-semibold">
-                {PLAN_LABELS[preview.toPlanId]}
-              </span>{" "}
-              -{" "}
+              <span className="font-semibold capitalize">{preview.direction}</span> from{" "}
+              {PLAN_LABELS[preview.fromPlanId]} to{" "}
+              <span className="font-semibold">{PLAN_LABELS[preview.toPlanId]}</span> -{" "}
               {preview.priceDelta >= 0 ? "+" : "-"}
-              {pricingService.formatPrice(Math.abs(preview.priceDelta))}/cycle
-              {preview.prorationCredit > 0 && (
-                <>
-                  {" "}
-                  · proration credit{" "}
-                  {pricingService.formatPrice(preview.prorationCredit)}
-                </>
+              {pricingService.formatPrice(Math.abs(preview.priceDelta))}/cycle.
+
+              {preview.requiresPayment ? (
+                <p className="mt-2 text-amber-300">
+                  This change requires payment processing, which isn&apos;t connected yet.
+                  Contact support to complete it.
+                </p>
+              ) : (
+                <p className="mt-2 text-slate-300">
+                  This plan is free - confirming below switches you over immediately, no payment
+                  required.
+                </p>
               )}
-              . Effective{" "}
-              {new Date(preview.effectiveDate).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })}
-              .
-              <button
-                onClick={() => setPreview(null)}
-                className="ml-3 text-xs font-medium text-sky-400 hover:text-sky-300"
-              >
-                Dismiss
-              </button>
+
+              <div className="mt-3 flex items-center gap-3">
+                {!preview.requiresPayment && (
+                  <button
+                    onClick={handleConfirmChange}
+                    disabled={actionBusy}
+                    className="rounded-lg bg-sky-500 px-4 py-2 text-xs font-semibold text-white transition hover:bg-sky-400 disabled:opacity-50"
+                  >
+                    {actionBusy ? "Switching..." : `Confirm switch to ${PLAN_LABELS[preview.toPlanId]}`}
+                  </button>
+                )}
+                <button
+                  onClick={() => setPreview(null)}
+                  className="text-xs font-medium text-sky-400 hover:text-sky-300"
+                >
+                  Dismiss
+                </button>
+              </div>
             </div>
           )}
 

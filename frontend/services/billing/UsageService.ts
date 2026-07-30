@@ -1,20 +1,44 @@
-﻿// services/billing/UsageService.ts
+// services/billing/UsageService.ts
 // Sprint 13A — Subscription & Billing Foundation
-// Usage overview + derived usage metrics.
+// Sprint L2.5 - Rewritten to wrap the real Entitlements object from
+// /api/private/billing/usage (see EntitlementService) instead of
+// MOCK_USAGE. Two of the six Phase 4 metrics (Market Analysis Requests,
+// Search Requests) have no durable per-request record anywhere in the
+// schema yet and would require editing the Market Intelligence/Knowledge
+// route files this sprint may not touch - they're surfaced with
+// `tracked: false` so the UI shows an honest "not yet tracked" state
+// instead of a fabricated number. See the L2.5 report.
+import type { Entitlements, UsageMetric } from "@/types/billing";
 
-import type { UsageOverview, UsageMetric } from "@/types/billing";
-import { MOCK_USAGE } from "@/data/mock-billing";
-import { USAGE_THRESHOLDS } from "@/config/billing.config";
+const EMPTY_ENTITLEMENTS: Entitlements = {
+  planId: "free",
+  periodStart: new Date(0).toISOString(),
+  periodEnd: new Date(0).toISOString(),
+  aiMessages: { used: 0, limit: 0, remaining: 0, pct: 0, atLimit: false },
+  knowledgeDocuments: { used: 0, limit: 0, remaining: 0, pct: 0, atLimit: false },
+  storageMb: { used: 0, limit: 0, remaining: 0, pct: 0, atLimit: false },
+  conversations: { used: 0 },
+  marketAnalysisRequests: { tracked: false },
+  searchRequests: { tracked: false },
+  apiAccess: false,
+  prioritySupport: false,
+  customBranding: false,
+  teamMembers: 1,
+};
 
 export class UsageService {
-  private usage: UsageOverview;
+  private entitlements: Entitlements;
 
-  constructor(usage: UsageOverview = MOCK_USAGE) {
-    this.usage = usage;
+  constructor(entitlements: Entitlements = EMPTY_ENTITLEMENTS) {
+    this.entitlements = entitlements;
   }
 
-  get(): UsageOverview {
-    return { ...this.usage };
+  hydrate(entitlements: Entitlements): void {
+    this.entitlements = entitlements;
+  }
+
+  get(): Entitlements {
+    return this.entitlements;
   }
 
   pct(used: number, limit: number): number {
@@ -24,37 +48,41 @@ export class UsageService {
 
   level(used: number, limit: number): "ok" | "warning" | "critical" {
     const p = this.pct(used, limit);
-    if (p >= USAGE_THRESHOLDS.critical) return "critical";
-    if (p >= USAGE_THRESHOLDS.warning) return "warning";
+    if (p >= 90) return "critical";
+    if (p >= 75) return "warning";
     return "ok";
   }
 
   getMetrics(): UsageMetric[] {
-    const u = this.usage;
+    const e = this.entitlements;
     return [
-      { label: "AI Credits", used: u.aiCreditsUsed, limit: u.aiCreditsLimit, unit: "credits" },
-      { label: "AI Agents", used: u.agentsUsed, limit: u.agentsLimit, unit: "agents" },
-      { label: "Automations", used: u.automationsUsed, limit: u.automationsLimit, unit: "automations" },
-      { label: "Knowledge Docs", used: u.knowledgeDocsUsed, limit: u.knowledgeDocsLimit, unit: "docs" },
-      { label: "Storage", used: u.storageUsedMb, limit: u.storageLimitMb, unit: "MB" },
-      { label: "API Calls", used: u.apiCallsUsed, limit: u.apiCallsLimit, unit: "calls" },
+      { label: "AI Messages (this cycle)", used: e.aiMessages.used, limit: e.aiMessages.limit, unit: "messages", tracked: true },
+      { label: "Knowledge Documents", used: e.knowledgeDocuments.used, limit: e.knowledgeDocuments.limit, unit: "docs", tracked: true },
+      { label: "Storage", used: e.storageMb.used, limit: e.storageMb.limit, unit: "MB", tracked: true },
+      { label: "Conversations", used: e.conversations.used, limit: -1, unit: "conversations", tracked: true },
+      { label: "Market Analysis Requests", used: 0, limit: -1, unit: "requests", tracked: false },
+      { label: "Search Requests", used: 0, limit: -1, unit: "requests", tracked: false },
     ];
   }
 
   getCreditsRemaining(): number {
-    return Math.max(0, this.usage.aiCreditsLimit - this.usage.aiCreditsUsed);
+    return this.entitlements.aiMessages.remaining;
   }
 
-  getApiUsagePct(): number {
-    return this.pct(this.usage.apiCallsUsed, this.usage.apiCallsLimit);
+  getCreditsTotal(): number {
+    return this.entitlements.aiMessages.limit;
   }
 
   getStorageUsedMb(): number {
-    return this.usage.storageUsedMb;
+    return this.entitlements.storageMb.used;
   }
 
   getStorageLimitMb(): number {
-    return this.usage.storageLimitMb;
+    return this.entitlements.storageMb.limit;
+  }
+
+  getConversationCount(): number {
+    return this.entitlements.conversations.used;
   }
 }
 

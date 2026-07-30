@@ -1,21 +1,34 @@
 // services/billing/SubscriptionManager.ts
 // Sprint 13A — Subscription & Billing Foundation
-// Subscription state + plan-change preview logic (mock, no persistence).
-
-import type {
-  Subscription,
-  PlanId,
-  PlanChangePreview,
-  BillingCycle,
-} from "@/types/billing";
-import { MOCK_SUBSCRIPTION } from "@/data/mock-billing";
+// Sprint L2.5 - Removed the fabricated 50%-flat proration credit and the
+// mock applyChange() that mutated in-memory state without persisting
+// anything. Plan changes are now real, server-side mutations (see
+// SubscriptionActionService + the Billing page's action handlers) -
+// this class is read/preview-only. previewChange() now reports
+// `requiresPayment` (true whenever the target plan isn't $0) instead of a
+// guessed proration number no payment processor backs.
+import type { Subscription, PlanId, PlanChangePreview } from "@/types/billing";
 import { planService } from "./PlanService";
 import { pricingService } from "./PricingService";
+
+const EMPTY_SUBSCRIPTION: Subscription = {
+  id: "",
+  userId: "",
+  planId: "free",
+  status: "active",
+  billingCycle: "monthly",
+  currentPrice: 0,
+  startedAt: new Date(0).toISOString(),
+  renewalDate: new Date(0).toISOString(),
+  canceledAt: null,
+  trialEndsAt: null,
+  cancelAtPeriodEnd: false,
+};
 
 export class SubscriptionManager {
   private subscription: Subscription;
 
-  constructor(subscription: Subscription = MOCK_SUBSCRIPTION) {
+  constructor(subscription: Subscription = EMPTY_SUBSCRIPTION) {
     this.subscription = { ...subscription };
   }
 
@@ -47,18 +60,8 @@ export class SubscriptionManager {
     const direction: PlanChangePreview["direction"] =
       rank < 0 ? "upgrade" : rank > 0 ? "downgrade" : "same";
 
-    const priceDelta = pricingService.getPriceDelta(
-      fromPlanId,
-      toPlanId,
-      cycle
-    );
-
-    // Simple mock proration: unused portion of current cycle credited on upgrade
-    const prorationCredit =
-      direction === "upgrade"
-        ? Math.round(pricingService.getPrice(fromPlanId, cycle) * 0.5 * 100) /
-          100
-        : 0;
+    const priceDelta = pricingService.getPriceDelta(fromPlanId, toPlanId, cycle);
+    const targetPrice = pricingService.getPrice(toPlanId, cycle);
 
     return {
       fromPlanId,
@@ -66,21 +69,8 @@ export class SubscriptionManager {
       direction,
       priceDelta,
       effectiveDate: this.subscription.renewalDate,
-      prorationCredit,
+      requiresPayment: targetPrice > 0,
     };
-  }
-
-  // Mock mutation — returns a new subscription object, does not persist.
-  applyChange(toPlanId: PlanId, cycle?: BillingCycle): Subscription {
-    const nextCycle = cycle ?? this.subscription.billingCycle;
-    const price = pricingService.getPrice(toPlanId, nextCycle);
-    const updated: Subscription = {
-      ...this.subscription,
-      planId: toPlanId,
-      billingCycle: nextCycle,
-      currentPrice: price,
-    };
-    return updated;
   }
 }
 

@@ -1,15 +1,17 @@
 // services/billing/PlanService.ts
 // Sprint 13A — Subscription & Billing Foundation
 // Repository + query layer over plan data.
+// Sprint L2.5 - Default is an honest empty list, not fabricated plan data;
+// the Billing page never reads before hydrate() resolves (see its `ready`
+// gate), so this default is inert in practice.
 
 import type { Plan, PlanId } from "@/types/billing";
-import { MOCK_PLANS } from "@/data/mock-billing";
 import { PLAN_ORDER } from "@/config/billing.config";
 
 export class PlanService {
   private plans: Plan[];
 
-  constructor(plans: Plan[] = MOCK_PLANS) {
+  constructor(plans: Plan[] = []) {
     this.plans = plans;
   }
 

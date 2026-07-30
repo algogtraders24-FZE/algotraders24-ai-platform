@@ -10,6 +10,7 @@ export type HttpStatusCode =
   | 204
   | 400
   | 401
+  | 402
   | 403
   | 404
   | 409

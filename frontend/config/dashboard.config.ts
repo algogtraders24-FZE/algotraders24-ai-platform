@@ -5,6 +5,11 @@
 // (app/dashboard/payments/page.tsx) that existed but had no navigation
 // entry at all, making it undiscoverable. Every remaining href below was
 // verified against the actual app/ directory.
+// Sprint L2.5 - Removed the Payments entry: that page was a fully mock,
+// orphaned duplicate of the real Billing dashboard's invoice history
+// (different Invoice type, static data/invoices.ts, never wired to the
+// real Plan/Subscription/Billing tables) - see the L2.5 audit. Invoices
+// now live only in Billing, where they're real.
 export interface DashboardNavItem {
   label: string;
   href: string;
@@ -23,6 +28,5 @@ export const DASHBOARD_NAV: DashboardNavItem[] = [
   { label: "AI Agents", href: "/dashboard/agents", icon: "AG" },
   { label: "Knowledge Base", href: "/dashboard/knowledge", icon: "KB" },
   { label: "Orders", href: "/dashboard/orders", icon: "OR" },
-  { label: "Payments", href: "/dashboard/payments", icon: "PY" },
   { label: "Billing", href: "/dashboard/billing", icon: "BL" },
 ];

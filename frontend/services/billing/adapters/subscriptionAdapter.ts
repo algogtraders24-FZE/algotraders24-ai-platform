@@ -1,8 +1,11 @@
 // services/billing/adapters/subscriptionAdapter.ts
 // Sprint 14E - Maps the database Subscription row onto the UI Subscription type.
-// Period, status, plan and cancellation come from the database. Billing cycle,
-// provider and price are derived; provider-specific fields (trial, autoRenew)
-// become real when Stripe lands in Sprint 15A.
+// Period, status, plan and cancellation come from the database. Billing
+// cycle and price are derived from real plan/period data.
+// Sprint L2.5 - Removed the hardcoded `provider: "mock"` field (no real
+// provider is connected - see the L2.5 audit; showing "mock" as if it were
+// a fact was itself a small fabrication) and the `autoRenew` derivation
+// alias in favor of exposing the real `cancelAtPeriodEnd` column directly.
 import type {
   Subscription,
   SubscriptionStatus,
@@ -52,8 +55,7 @@ export function toSubscription(
     renewalDate: row.currentPeriodEnd,
     canceledAt: status === "canceled" ? row.updatedAt : null,
     trialEndsAt: null,
-    provider: "mock",
-    autoRenew: !row.cancelAtPeriodEnd,
+    cancelAtPeriodEnd: row.cancelAtPeriodEnd,
   };
 }
 
@@ -77,7 +79,6 @@ export function fallbackSubscription(
     renewalDate: renewal.toISOString(),
     canceledAt: null,
     trialEndsAt: null,
-    provider: "mock",
-    autoRenew: true,
+    cancelAtPeriodEnd: false,
   };
 }

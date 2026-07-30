@@ -27,6 +27,21 @@ function UsageBar({ metric }: { metric: UsageMetric }) {
     return () => clearTimeout(t);
   }, [pct]);
 
+  // Sprint L2.5 - a metric with no real instrumentation yet (see
+  // UsageService/EntitlementService) is disclosed honestly, never shown as
+  // a fabricated 0-of-something bar.
+  if (!metric.tracked) {
+    return (
+      <div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-slate-300">{metric.label}</span>
+          <span className="text-xs text-slate-600">Not yet tracked</span>
+        </div>
+        <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-white/5" />
+      </div>
+    );
+  }
+
   const limitLabel =
     metric.limit < 0 ? "∞" : metric.limit.toLocaleString();
 

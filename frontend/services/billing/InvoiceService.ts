@@ -1,14 +1,15 @@
 // services/billing/InvoiceService.ts
 // Sprint 13A — Subscription & Billing Foundation
 // Query layer over invoice history.
+// Sprint L2.5 - Default is an honest empty list; see PlanService for why
+// that's safe (the Billing page never reads before hydrate() resolves).
 
 import type { Invoice, InvoiceStatus } from "@/types/billing";
-import { MOCK_INVOICES } from "@/data/mock-billing";
 
 export class InvoiceService {
   private invoices: Invoice[];
 
-  constructor(invoices: Invoice[] = MOCK_INVOICES) {
+  constructor(invoices: Invoice[] = []) {
     this.invoices = invoices;
   }
 

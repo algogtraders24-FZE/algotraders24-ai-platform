@@ -8,7 +8,6 @@ import type {
   SubscriptionStatus,
   InvoiceStatus,
   BillingCycle,
-  PaymentMethodType,
 } from "@/types/billing";
 
 export const PLAN_IDS: PlanId[] = ["free", "pro", "elite", "enterprise"];
@@ -73,12 +72,6 @@ export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   failed: "Failed",
 };
 
-export const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
-  card: "Card",
-  crypto: "Crypto",
-  paypal: "PayPal",
-};
-
 export const PLAN_STATUS_LABELS: Record<PlanStatus, string> = {
   active: "Active",
   deprecated: "Deprecated",
@@ -106,9 +99,6 @@ export const USAGE_THRESHOLDS = {
   warning: 75,
   critical: 90,
 } as const;
-
-// Mock user for this build (no auth yet)
-export const MOCK_USER_ID = "u1";
 
 // Feature comparison rows for PlanComparison table
 export const COMPARISON_ROWS: { key: string; label: string; type: "number" | "boolean" | "storage" }[] = [

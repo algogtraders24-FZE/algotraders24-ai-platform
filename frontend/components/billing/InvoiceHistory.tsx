@@ -71,9 +71,18 @@ export default function InvoiceHistory({ invoices }: Props) {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <a href={inv.downloadUrl} className="text-xs font-medium text-sky-400 transition hover:text-sky-300">
-                      Download
-                    </a>
+                    {inv.downloadAvailable ? (
+                      <button className="text-xs font-medium text-sky-400 transition hover:text-sky-300">
+                        Download
+                      </button>
+                    ) : (
+                      <span
+                        className="text-xs text-slate-600"
+                        title="Receipt download requires payment provider integration, which is not yet connected."
+                      >
+                        Unavailable
+                      </span>
+                    )}
                   </td>
                 </tr>
               );

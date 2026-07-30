@@ -1,8 +1,12 @@
 // services/billing/adapters/invoiceAdapter.ts
 // Sprint 14E - Maps database Billing rows onto the UI Invoice domain type.
 // The Billing table stores the payment record (planId, status, amount).
-// Presentation fields (number, currency, period, download URL) are derived;
-// a real provider-backed invoice model arrives with Stripe in Sprint 15A.
+// Presentation fields (number, currency, period) are derived from real data.
+// Sprint L2.5 - Removed the hardcoded `provider: "mock"` field and the
+// fake `downloadUrl: "#"` (no receipt/PDF generation exists - no payment
+// provider is connected, see the L2.5 audit). `downloadAvailable: false`
+// lets the UI disable the download action honestly instead of rendering a
+// dead link that looks functional.
 import type { Invoice, InvoiceStatus, PlanId } from "@/types/billing";
 import type { ApiBillingRecord } from "@/services/api/BillingApi";
 import { CURRENCY } from "@/config/billing.config";
@@ -43,8 +47,7 @@ export function toInvoice(row: ApiBillingRecord, userId: string): Invoice {
     paidAt: status === "paid" ? row.updatedAt : null,
     periodStart: periodStart.toISOString(),
     periodEnd: periodEnd.toISOString(),
-    provider: "mock",
-    downloadUrl: "#",
+    downloadAvailable: false,
   };
 }
 

@@ -63,7 +63,7 @@ export default function BillingMetrics({ metrics }: Props) {
     metrics.storageLimitMb > 0
       ? Math.round((metrics.storageUsedMb / metrics.storageLimitMb) * 100)
       : 0;
-  const api = useCountUp(metrics.apiUsagePct);
+  const conversations = useCountUp(metrics.conversationCount);
   const invoices = useCountUp(metrics.invoiceCount);
   const renewal = new Date(metrics.renewalDate).toLocaleDateString("en-US", {
     month: "short",
@@ -89,7 +89,9 @@ export default function BillingMetrics({ metrics }: Props) {
       </StatCard>
 
       <StatCard label="Renewal Date">
-        <span className="text-xl">{renewal}</span>
+        <span className="text-xl">
+          {metrics.cancelAtPeriodEnd ? "Cancels " + renewal : renewal}
+        </span>
       </StatCard>
 
       <StatCard label="Storage Used">
@@ -99,7 +101,7 @@ export default function BillingMetrics({ metrics }: Props) {
         </span>
       </StatCard>
 
-      <StatCard label="API Usage">{Math.round(api)}%</StatCard>
+      <StatCard label="Conversations">{Math.round(conversations)}</StatCard>
 
       <StatCard label="Invoices">{Math.round(invoices)}</StatCard>
 
