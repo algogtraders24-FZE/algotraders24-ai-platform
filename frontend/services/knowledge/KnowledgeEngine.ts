@@ -1,18 +1,24 @@
 // services/knowledge/KnowledgeEngine.ts
-// Public facade for the knowledge base. Implements the future RAG pipeline
-// entry (query -> retrieve -> context) and exposes metrics + related docs.
+// Public facade for the knowledge base.
+// Sprint L2.2 - buildKnowledgeContext() is now async (retrieve() calls the
+// real search route). getCollections() now comes from
+// KnowledgeDocumentService (the real, DB-backed list already loaded for
+// the page) instead of the deleted KnowledgeCollectionService, which
+// returned hardcoded mock collections - that discrepancy meant the
+// "Collections" metric on the dashboard was fake even though the
+// collections shown elsewhere on the same page were real. avgRetrievalMs
+// and aiReferences are no longer fabricated constants (42ms, mockRetrievals
+// .length) - see the field comments below.
 
 import type { KnowledgeDocument, KnowledgeContext, KnowledgeMetrics } from "@/types/knowledge";
-import { getDocuments } from "./KnowledgeDocumentService";
-import { getCollections } from "./KnowledgeCollectionService";
-import { retrieve, getRetrievalHistory } from "./KnowledgeRetriever";
+import { getDocuments, getCollections } from "./KnowledgeDocumentService";
+import { retrieve, getRetrievalHistory, getAverageLatencyMs } from "./KnowledgeRetriever";
 import { buildContext } from "./KnowledgeContextBuilder";
 import { getUsedCategories } from "./KnowledgeManager";
-import { mockRetrievals } from "@/data/mock-knowledge";
 
-/** Future RAG entry: retrieve relevant docs and build a context block. */
-export function buildKnowledgeContext(query: string): KnowledgeContext {
-  const results = retrieve(query);
+/** Real RAG entry: retrieve relevant docs and build a context block. */
+export async function buildKnowledgeContext(query: string): Promise<KnowledgeContext> {
+  const results = await retrieve(query);
   return buildContext(query, results);
 }
 
@@ -28,8 +34,15 @@ export function getMetrics(): KnowledgeMetrics {
     indexedDocuments: indexed,
     searchesToday: getRetrievalHistory().length,
     knowledgeHealth: health,
-    avgRetrievalMs: 42, // mock latency
-    aiReferences: mockRetrievals.length,
+    // Real average of this session's actual search round-trips - 0 until
+    // a real search has run, never a hardcoded placeholder.
+    avgRetrievalMs: getAverageLatencyMs(),
+    // Sum of each document's real retrievalCount (a genuine Prisma column,
+    // incremented by the real search route on every hit) - reflects
+    // actual dashboard-search retrievals. Does not yet include AI
+    // Assistant chat retrievals, which are a separate, untouched route
+    // this sprint deliberately didn't modify - see the L2.2 report.
+    aiReferences: docs.reduce((sum, d) => sum + d.retrievalCount, 0),
   };
 }
 

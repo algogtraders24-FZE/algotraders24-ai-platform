@@ -1,8 +1,14 @@
 // components/knowledge/KnowledgeSources.tsx
+// Sprint L2.2 - "SEO Articles" removed: it was listed as an active
+// ingestion source but no such automated pipeline exists anywhere in this
+// codebase (SEO Articles is only ever a category *label* a user can pick
+// for a manually-uploaded document - a real but unrelated fact, not
+// evidence of a real source). "Vector Database" flipped from "planned" to
+// "active": pgvector storage is now genuinely wired (services/knowledge/
+// IngestionService.ts -> RepositoryFactory.vectors()).
 const SOURCES = [
   { name: "Manual Upload", status: "active" },
-  { name: "SEO Articles", status: "active" },
-  { name: "Vector Database", status: "planned" },
+  { name: "Vector Database", status: "active" },
   { name: "Web Crawler", status: "planned" },
   { name: "Google Drive", status: "planned" },
   { name: "Notion", status: "planned" },

@@ -13,8 +13,66 @@
 // a local archive/unarchive/delete action to the linked server
 // conversation (PATCH/DELETE /api/private/conversations/[id]).
 // Request/response contracts (AssistantRequest/AssistantResponse) preserved.
+//
+// Sprint L2.4 - sendMessage() itself is UNTOUCHED: publishing,
+// trading-copilot, and agents all call it expecting one blocking JSON
+// response, and the chat route's default behavior (stream !== true) still
+// returns exactly that shape. sendMessageStreaming() below is new and used
+// only by the dashboard Assistant page. It has two real, distinct
+// backends, never one fabricating the other's data:
+//   - A message that mentions a supported market symbol (today: EUR/USD)
+//     together with analysis-intent language is routed to the real
+//     Sprint L2.1 pipeline (/api/private/market-intelligence/analyze),
+//     returning a genuine MarketAnalysisResult (confidence/risk/evidence
+//     all real, deterministic, never invented here).
+//   - Everything else streams from the same RAG chat route as before,
+//     just with {stream: true} to get progressive tokens plus real
+//     sources instead of one blocking JSON blob.
 import type { AssistantRequest, AssistantResponse } from "@/types/assistant";
 import type { Message } from "@/types/message";
+import type { MarketAnalysisResult } from "@/types/market-analysis-orchestration";
+
+export interface ChatSource {
+  knowledgeId: string;
+  title: string;
+  chunkId: string;
+  chunkIndex: number;
+  similarity: number;
+  snippet: string;
+}
+
+export interface StreamChatResult {
+  kind: "chat";
+  fullText: string;
+  ragApplied: boolean;
+  sources: ChatSource[];
+  serverConversationId?: string;
+}
+
+export interface MarketAnalysisChatResult {
+  kind: "market-analysis";
+  result: MarketAnalysisResult;
+}
+
+export type SendStreamingResult = StreamChatResult | MarketAnalysisChatResult;
+
+// Sprint L2.4 - a deliberately simple, disclosed heuristic: real NLP
+// intent classification is out of scope for this sprint, and the only
+// symbol genuinely wired to the real pipeline today is EUR/USD (see
+// lib/market-data/providers/alpha-vantage.provider.ts). Requiring BOTH a
+// symbol mention AND analysis-intent language reduces false positives
+// (e.g. "what does euro mean" alone won't trigger it) without pretending
+// to understand free text the way a real classifier would.
+const SYMBOL_PATTERN = /\b(eur\s*\/?\s*usd|eurusd|euro)\b/i;
+const ANALYSIS_INTENT_PATTERN =
+  /\b(analy[sz]e|analysis|outlook|forecast|trend|view on|think about|opinion|should i|buy|sell|price|bullish|bearish)\b/i;
+
+export function detectSupportedMarketSymbol(message: string): "EURUSD" | null {
+  if (SYMBOL_PATTERN.test(message) && ANALYSIS_INTENT_PATTERN.test(message)) {
+    return "EURUSD";
+  }
+  return null;
+}
 
 export function createUserMessage(content: string): Message {
   return {
@@ -65,6 +123,92 @@ export async function sendMessage(
     serverConversationId:
       typeof json.data.conversationId === "string" ? json.data.conversationId : undefined,
   };
+}
+
+// Sprint L2.4 - streaming counterpart to sendMessage(), used only by the
+// dashboard Assistant page. onToken fires as each real chunk of text
+// arrives from Gemini (never a fabricated/simulated typing effect -
+// there's a real network chunk behind every call). `signal` allows the
+// caller to implement Stop Generation via a real AbortController.
+export async function sendMessageStreaming(
+  req: AssistantRequest,
+  onToken: (text: string) => void,
+  signal?: AbortSignal,
+): Promise<SendStreamingResult> {
+  const symbol = detectSupportedMarketSymbol(req.message);
+
+  if (symbol) {
+    const res = await fetch("/api/private/market-intelligence/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbol, question: req.message }),
+      signal,
+    });
+    const json = (await res.json().catch(() => null)) as {
+      status?: string;
+      data?: { result?: MarketAnalysisResult };
+      error?: { message?: string };
+    } | null;
+
+    if (!res.ok || !json || json.status !== "ok" || !json.data?.result) {
+      throw new Error(json?.error?.message || "The market analysis could not be completed");
+    }
+    return { kind: "market-analysis", result: json.data.result };
+  }
+
+  const res = await fetch("/api/private/knowledge/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query: req.message,
+      useSearch: true,
+      stream: true,
+      ...(req.serverConversationId ? { conversationId: req.serverConversationId } : {}),
+    }),
+    signal,
+  });
+
+  if (!res.ok || !res.body) {
+    const json = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+    throw new Error(json?.error?.message || "The assistant could not respond");
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let fullText = "";
+  let ragApplied = false;
+  let sources: ChatSource[] = [];
+  let serverConversationId: string | undefined;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? ""; // last, possibly-incomplete line stays buffered
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const event = JSON.parse(line) as
+        | { type: "token"; text: string }
+        | { type: "done"; conversationId?: string; ragApplied?: boolean; sources?: ChatSource[] }
+        | { type: "error"; message: string };
+
+      if (event.type === "token") {
+        fullText += event.text;
+        onToken(event.text);
+      } else if (event.type === "done") {
+        ragApplied = event.ragApplied ?? false;
+        sources = event.sources ?? [];
+        serverConversationId = event.conversationId;
+      } else if (event.type === "error") {
+        throw new Error(event.message);
+      }
+    }
+  }
+
+  return { kind: "chat", fullText, ragApplied, sources, serverConversationId };
 }
 
 // Sprint 15C.6 - best-effort read of a server conversation's history.

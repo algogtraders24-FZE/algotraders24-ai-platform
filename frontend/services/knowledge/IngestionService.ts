@@ -48,7 +48,6 @@ export class IngestionService {
     const text = this.assertNonEmpty(params.text, "text");
 
     const chunkRepo = RepositoryFactory.knowledgeChunks();
-    const vectorRepo = RepositoryFactory.vectors();
 
     // Idempotency: re-ingesting a document replaces its chunks entirely.
     await chunkRepo.softDeleteByKnowledge(knowledgeId);
@@ -56,12 +55,7 @@ export class IngestionService {
     // Deterministic chunking.
     const chunks = chunkText(text, params.chunkOptions);
     if (chunks.length === 0) {
-      return {
-        knowledgeId,
-        chunksCreated: 0,
-        embeddingsStored: 0,
-        embeddingsFailed: 0,
-      };
+      return { knowledgeId, chunksCreated: 0, embeddingsStored: 0, embeddingsFailed: 0 };
     }
 
     // Persist structured chunk records atomically.
@@ -76,12 +70,40 @@ export class IngestionService {
       })),
     );
 
-    // Embed + store vectors sequentially (outside any transaction).
-    // A failure on one chunk leaves that chunk without an embedding; search
-    // skips it (embedding IS NOT NULL). Re-ingest fixes partial state.
+    const { stored, failed } = await this.embedAndStore(created);
+    return { knowledgeId, chunksCreated: created.length, embeddingsStored: stored, embeddingsFailed: failed };
+  }
+
+  /**
+   * Sprint L2.2 - re-embeds a document's EXISTING chunks, without
+   * re-parsing or re-chunking the source text. Useful when embedding
+   * failed partially/fully on the original ingest (e.g. the provider was
+   * unavailable) - the real chunk content is already stored and correct;
+   * only the vectors need regenerating. Reuses the same embed-and-store
+   * loop as ingest() via embedAndStore(), so there is exactly one place
+   * that talks to the embedding provider and the vector store.
+   */
+  async reembed(knowledgeId: string): Promise<IngestResult> {
+    const id = this.assertNonEmpty(knowledgeId, "knowledgeId");
+    const chunkRepo = RepositoryFactory.knowledgeChunks();
+    const chunks = await chunkRepo.findByKnowledge(id);
+
+    if (chunks.length === 0) {
+      return { knowledgeId: id, chunksCreated: 0, embeddingsStored: 0, embeddingsFailed: 0 };
+    }
+
+    const { stored, failed } = await this.embedAndStore(chunks);
+    return { knowledgeId: id, chunksCreated: chunks.length, embeddingsStored: stored, embeddingsFailed: failed };
+  }
+
+  // Embed + store vectors sequentially (outside any transaction). A failure
+  // on one chunk leaves that chunk without an embedding; search skips it
+  // (embedding IS NOT NULL). Re-running ingest/reembed fixes partial state.
+  private async embedAndStore(chunks: { id: string; content: string }[]): Promise<{ stored: number; failed: number }> {
+    const vectorRepo = RepositoryFactory.vectors();
     let stored = 0;
     let failed = 0;
-    for (const chunk of created) {
+    for (const chunk of chunks) {
       try {
         const result = await this.embedder.embed({ text: chunk.content });
         await vectorRepo.storeEmbedding(chunk.id, result.embedding);
@@ -90,13 +112,7 @@ export class IngestionService {
         failed += 1;
       }
     }
-
-    return {
-      knowledgeId,
-      chunksCreated: created.length,
-      embeddingsStored: stored,
-      embeddingsFailed: failed,
-    };
+    return { stored, failed };
   }
 }
 

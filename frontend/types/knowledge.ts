@@ -50,6 +50,12 @@ export interface SearchResult {
   document: KnowledgeDocument;
   score: number; // 0–100
   snippet: string;
+  /** Sprint L2.2 - real citation data from the vector search, so a result
+   * can be traced to the exact chunk it came from rather than just "this
+   * document, somewhere." Never invented - both fields come directly from
+   * the real /api/private/knowledge/search response. */
+  chunkId: string;
+  chunkIndex: number;
 }
 
 export interface KnowledgeMetrics {

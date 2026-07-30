@@ -1,10 +1,15 @@
 // services/knowledge/KnowledgeManager.ts
-// Manages the document library: listing, filtering, upload, and re-index.
+// Manages the document library: listing, filtering, and re-index.
+// Sprint L2.2 - Upload is no longer here: it's a real, server-side flow
+// now (services/api/KnowledgeApi.uploadDocument -> app/api/private/
+// knowledge/upload/route.ts), not a client-side function that fabricates
+// a document object. reindex() calls the real re-embed route instead of
+// the removed simulated KnowledgeIndexer.
 
 import type { KnowledgeDocument } from "@/types/knowledge";
 import { KNOWLEDGE_CATEGORIES } from "@/config/knowledge.config";
-import { getDocuments, getByCategory, addDocument, setStatus } from "./KnowledgeDocumentService";
-import { indexDocument } from "./KnowledgeIndexer";
+import { getDocuments, getByCategory } from "./KnowledgeDocumentService";
+import { KnowledgeApi } from "@/services/api/KnowledgeApi";
 
 export function listDocuments(): KnowledgeDocument[] {
   return getDocuments();
@@ -19,35 +24,7 @@ export function getUsedCategories(): string[] {
   return KNOWLEDGE_CATEGORIES.filter((c) => used.has(c));
 }
 
-/** Simulated upload — creates a pending document from minimal input. */
-export function uploadDocument(title: string, category: string, collection: string): KnowledgeDocument {
-  const now = new Date().toISOString();
-  const doc: KnowledgeDocument = {
-    id: `doc-${Date.now()}`,
-    title,
-    description: "Uploaded document awaiting indexing.",
-    category,
-    collection,
-    author: "You",
-    tags: [],
-    provider: "gemini",
-    language: "en",
-    fileType: "md",
-    documentSize: 0,
-    createdAt: now,
-    updatedAt: now,
-    lastIndexed: null,
-    status: "pending",
-    embeddingStatus: "pending",
-    retrievalCount: 0,
-    popularity: 0,
-  };
-  addDocument(doc);
-  return doc;
-}
-
 export async function reindex(id: string): Promise<boolean> {
-  setStatus(id, "processing");
-  const result = await indexDocument(id);
-  return Boolean(result?.indexed);
+  const result = await KnowledgeApi.reindex(id);
+  return result.status === "indexed";
 }

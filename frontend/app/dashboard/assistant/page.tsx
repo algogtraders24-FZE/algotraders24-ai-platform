@@ -1,10 +1,10 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { StoredConversation } from "@/types/conversation-metadata";
 import {
   createUserMessage,
-  sendMessage,
+  sendMessageStreaming,
   loadServerMessages,
   archiveServerConversation,
   deleteServerConversation,
@@ -15,12 +15,20 @@ import ConversationSidebar from "@/components/ai/ConversationSidebar";
 import ChatWindow from "@/components/ai/ChatWindow";
 import ChatInput from "@/components/ai/ChatInput";
 import PromptSuggestions from "@/components/ai/PromptSuggestions";
+import type { DisplayMessage } from "@/components/ai/MessageBubble";
 
 export default function AssistantPage() {
   const [list, setList] = useState<StoredConversation[]>([]);
   const [active, setActive] = useState<StoredConversation | null>(null);
   const [thinking, setThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Sprint L2.4 - the in-progress assistant reply. Never persisted on every
+  // token (that would hammer localStorage); it exists only to render
+  // progressive text, and becomes one real, single mgr.addMessage() call
+  // once the stream finishes, is stopped, or fails.
+  const [streamingDraft, setStreamingDraft] = useState<DisplayMessage | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const draftRef = useRef<string>("");
 
   const refresh = async () => setList(await mgr.loadRecent());
 
@@ -87,25 +95,93 @@ export default function AssistantPage() {
     conv = await mgr.addMessage(conv, createUserMessage(text));
     setActive(conv);
     await refresh();
+
     setThinking(true);
+    draftRef.current = "";
+    const draftId = `m-${Date.now()}-draft`;
+    const draftCreatedAt = new Date().toISOString();
+    setStreamingDraft({ id: draftId, role: "assistant", content: "", createdAt: draftCreatedAt });
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
-      const res = await sendMessage({
-        conversationId: conv.id,
-        message: text,
-        serverConversationId: conv.serverConversationId,
-      });
-      if (res.serverConversationId && res.serverConversationId !== conv.serverConversationId) {
+      const res = await sendMessageStreaming(
+        { conversationId: conv.id, message: text, serverConversationId: conv.serverConversationId },
+        (chunk) => {
+          setThinking(false);
+          draftRef.current += chunk;
+          setStreamingDraft((d) => (d ? { ...d, content: draftRef.current } : d));
+        },
+        controller.signal,
+      );
+
+      const finalMessage: DisplayMessage =
+        res.kind === "market-analysis"
+          ? {
+              id: draftId,
+              role: "assistant",
+              content: res.result.summary,
+              createdAt: draftCreatedAt,
+              marketAnalysis: res.result,
+            }
+          : {
+              id: draftId,
+              role: "assistant",
+              content: res.fullText,
+              createdAt: draftCreatedAt,
+              sources: res.sources,
+            };
+
+      if (res.kind === "chat" && res.serverConversationId && res.serverConversationId !== conv.serverConversationId) {
         conv = await mgr.setServerConversationId(conv, res.serverConversationId);
       }
-      conv = await mgr.addMessage(conv, res.message);
+      conv = await mgr.addMessage(conv, finalMessage);
       setActive(conv);
       await refresh();
-    } catch {
-      setError("Something went wrong. Try again.");
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        // Honest partial result: whatever real text actually streamed
+        // before Stop was pressed, never discarded and never pretended to
+        // be a complete answer.
+        if (draftRef.current.trim().length > 0) {
+          const partial: DisplayMessage = {
+            id: draftId,
+            role: "assistant",
+            content: draftRef.current,
+            createdAt: draftCreatedAt,
+          };
+          conv = await mgr.addMessage(conv, partial);
+          setActive(conv);
+          await refresh();
+        }
+      } else {
+        setError("Something went wrong. Try again.");
+      }
     } finally {
       setThinking(false);
+      setStreamingDraft(null);
+      abortControllerRef.current = null;
     }
   };
+
+  const handleStop = () => abortControllerRef.current?.abort();
+
+  const handleRetry = () => {
+    const lastUser = [...(active?.messages ?? [])].reverse().find((m) => m.role === "user");
+    if (lastUser) void handleSend(lastUser.content);
+  };
+
+  const handleCopy = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+    } catch {
+      // best-effort - clipboard permission may be denied
+    }
+  };
+
+  const messages: DisplayMessage[] = [...(active?.messages ?? []), ...(streamingDraft ? [streamingDraft] : [])];
+  const isGenerating = thinking || streamingDraft !== null;
 
   return (
     <div className="flex h-[calc(100vh-2rem)] overflow-hidden rounded-xl border border-slate-800 bg-slate-950 text-slate-100">
@@ -142,13 +218,20 @@ export default function AssistantPage() {
           <p className="text-xs text-slate-500">Persistent - Gemini 2.5 Flash</p>
         </header>
 
-        <ChatWindow messages={active?.messages ?? []} thinking={thinking} error={error} />
+        <ChatWindow
+          messages={messages}
+          thinking={thinking}
+          error={error}
+          streamingId={streamingDraft?.id ?? null}
+          onCopy={handleCopy}
+          onRetry={handleRetry}
+        />
 
         <div className="px-4 py-2">
           <PromptSuggestions onPick={handleSend} />
         </div>
 
-        <ChatInput onSend={handleSend} disabled={thinking} />
+        <ChatInput onSend={handleSend} onStop={handleStop} isGenerating={isGenerating} />
       </div>
     </div>
   );

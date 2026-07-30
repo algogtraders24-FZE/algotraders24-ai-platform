@@ -1,8 +1,23 @@
 // components/ai/ConversationSidebar.tsx
+// Sprint L2.4 - added a real relative timestamp per conversation
+// (StoredConversation.updatedAt already existed, just wasn't shown).
+// Active-conversation highlight and sorting were already real; unchanged.
 "use client";
 
 import { useState } from "react";
 import type { StoredConversation } from "@/types/conversation-metadata";
+
+function formatRelativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d`;
+  return new Date(iso).toLocaleDateString();
+}
 
 interface Props {
   conversations: StoredConversation[];
@@ -54,6 +69,7 @@ export default function ConversationSidebar({
               <button onClick={() => onSelect(c.id)} className="flex-1 truncate text-left">
                 {c.pinned ? "📌 " : ""}{c.title}
               </button>
+              <span className="shrink-0 text-[10px] text-slate-600">{formatRelativeTime(c.updatedAt)}</span>
             </div>
             <div className="mt-1 hidden gap-2 text-[10px] text-slate-500 group-hover:flex">
               <button onClick={() => onRename(c.id, prompt("Rename:", c.title) ?? c.title)} className="hover:text-slate-200">Rename</button>

@@ -1,10 +1,15 @@
+// components/dashboard/QuickActions.tsx
+// Sprint L2.3 - 2 of the previous 4 actions ("My Downloads", "Support")
+// pointed at routes that don't exist (/dashboard/downloads, /contact -
+// confirmed via filesystem search). Replaced with the platform's actual
+// real capabilities, all verified to resolve to a real page.
 import Link from "next/link";
 
 const ACTIONS = [
+  { label: "Ask AI Assistant", href: "/dashboard/assistant", icon: "🤖" },
+  { label: "Upload Document", href: "/dashboard/knowledge", icon: "📄" },
+  { label: "Market Intelligence", href: "/dashboard/market-intelligence", icon: "📊" },
   { label: "Browse Products", href: "/products", icon: "📦" },
-  { label: "My Downloads", href: "/dashboard/downloads", icon: "⬇️" },
-  { label: "My Licenses", href: "/dashboard/licenses", icon: "🔑" },
-  { label: "Support", href: "/contact", icon: "💬" },
 ];
 
 export default function QuickActions() {

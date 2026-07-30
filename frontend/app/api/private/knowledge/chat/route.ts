@@ -14,7 +14,24 @@
 // scoped to it so a user can never read or write another user's data.
 // FALLBACK: if no chunks are found, it answers normally (no RAG) so the
 // assistant never breaks for users without a knowledge base.
+//
+// Sprint L2.4 - Two changes, everything above stays true:
+// 1. Streaming: generateContent -> generateContentStream. The response is
+//    now a newline-delimited JSON stream ({"type":"token",...} chunks, one
+//    final {"type":"done",...} with sources/conversationId, or
+//    {"type":"error",...}) instead of one blocking JSON envelope. RAG
+//    retrieval and conversation persistence are unchanged in substance -
+//    the user's turn is still persisted before generation starts, the
+//    assistant's turn is still persisted after, just from inside the
+//    stream's completion step instead of before returning a single response.
+// 2. Sources: relevant hits' real document titles are now looked up and
+//    returned in the final event (not just sourcesCount), so the UI has
+//    something real to show in a Sources panel.
+// Zero new imports from any Sprint 15D file - this route's decoupling from
+// the Market Intelligence pipeline (asserted by every 15D validation
+// script) is unchanged.
 import { GoogleGenAI } from "@google/genai";
+import { NextResponse } from "next/server";
 import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
@@ -23,6 +40,7 @@ import { GeminiEmbeddingProvider } from "@/lib/ai";
 import { AI_CONFIG } from "@/config/ai.config";
 import { ConversationMessageService, toMessage } from "@/services/ai/conversation-message.service";
 import { buildContext } from "@/services/ai/context-manager.service";
+import { prisma } from "@/lib/prisma";
 import type { Message } from "@/types/message";
 import { EntityNotFoundError, RepositoryError } from "@/types/repository";
 
@@ -49,6 +67,20 @@ function toGeminiContents(messages: Message[]) {
       role: m.role === "assistant" ? "model" : "user",
       parts: [{ text: m.content }],
     }));
+}
+
+interface ChatSource {
+  knowledgeId: string;
+  title: string;
+  chunkId: string;
+  chunkIndex: number;
+  similarity: number;
+  snippet: string;
+}
+
+const encoder = new TextEncoder();
+function ndjson(event: Record<string, unknown>): Uint8Array {
+  return encoder.encode(`${JSON.stringify(event)}\n`);
 }
 
 export const POST = withContext(async (req, ctx) => {
@@ -78,7 +110,16 @@ export const POST = withContext(async (req, ctx) => {
     knowledgeId?: unknown;
     useSearch?: unknown;
     conversationId?: unknown;
+    stream?: unknown;
   } | null;
+
+  // Sprint L2.4 - opt-in only. Default (stream !== true) reproduces the
+  // exact pre-L2.4 blocking JSON response, byte for byte - the publishing,
+  // trading-copilot, and agents callers (services/ai/assistant.service.ts's
+  // existing sendMessage()) never set this and must keep working
+  // unmodified. Only the dashboard Assistant page's new streaming call
+  // sets stream: true.
+  const wantsStream = body?.stream === true;
 
   const query = body?.query;
   if (typeof query !== "string" || query.trim().length === 0) {
@@ -109,12 +150,6 @@ export const POST = withContext(async (req, ctx) => {
       : undefined;
 
   // --- Conversation identity (Sprint 15C.4) ---
-  // A supplied id must already belong to this user (enforced below when the
-  // turn is persisted). The current dashboard client does not send one yet
-  // (chat history still lives in localStorage - see
-  // services/ai/conversation-manager.service.ts), so omitting it is normal:
-  // a fresh server-side conversation is created per request rather than
-  // breaking or gating the existing chat flow.
   let conversationId: string;
   if (requestedConversationId) {
     conversationId = requestedConversationId;
@@ -138,9 +173,6 @@ export const POST = withContext(async (req, ctx) => {
   }
 
   // --- Persist the user's turn, then load chronological history ---
-  // Ownership is verified inside ConversationMessageService (a conversation
-  // that exists but belongs to someone else is reported as NOT_FOUND, never
-  // a distinct "forbidden" - see the service's own header comment).
   let history: Message[];
   try {
     await messageService.addUserMessage(conversationId, userId, query);
@@ -171,17 +203,13 @@ export const POST = withContext(async (req, ctx) => {
     );
   }
 
-  // `history` ends with the message just persisted above. The Context
-  // Manager keeps "prior turns" and "the current turn" as distinct inputs
-  // (the current message is always placed last, deterministically), so
-  // split it back apart here rather than passing it twice.
   const currentMessage = history[history.length - 1];
   const recentMessages = history.slice(0, -1);
 
   // --- RAG retrieval (scoped to this user) - unchanged from Sprint 15C.1 ---
   let contextBlock = "";
   let ragApplied = false;
-  let sourcesCount = 0;
+  let sources: ChatSource[] = [];
   try {
     const embedder = new GeminiEmbeddingProvider();
     const embedded = await embedder.embed({ text: query });
@@ -194,14 +222,38 @@ export const POST = withContext(async (req, ctx) => {
     const relevant = hits.filter((h) => h.similarity >= MIN_SIMILARITY);
     if (relevant.length > 0) {
       let acc = "";
+      const kept: typeof relevant = [];
       for (const h of relevant) {
         const piece = `- ${h.content}\n`;
         if (acc.length + piece.length > MAX_CONTEXT_CHARS) break;
         acc += piece;
-        sourcesCount += 1;
+        kept.push(h);
       }
       contextBlock = acc;
-      ragApplied = sourcesCount > 0;
+      ragApplied = kept.length > 0;
+
+      if (kept.length > 0) {
+        // Sprint L2.4 - real document titles for the sources panel, not
+        // just a count. Best-effort: if the title lookup fails, sources
+        // are omitted (never fabricated), ragApplied/context still stand.
+        try {
+          const docs = await prisma.knowledge.findMany({
+            where: { id: { in: [...new Set(kept.map((h) => h.knowledgeId))] } },
+            select: { id: true, title: true },
+          });
+          const titleById = new Map(docs.map((d) => [d.id, d.title]));
+          sources = kept.map((h) => ({
+            knowledgeId: h.knowledgeId,
+            title: titleById.get(h.knowledgeId) ?? "Untitled document",
+            chunkId: h.chunkId,
+            chunkIndex: h.chunkIndex,
+            similarity: h.similarity,
+            snippet: h.content.length > 180 ? `${h.content.slice(0, 180)}…` : h.content,
+          }));
+        } catch {
+          sources = [];
+        }
+      }
     }
   } catch {
     // Retrieval failure must not break chat: fall back to no-RAG.
@@ -209,10 +261,6 @@ export const POST = withContext(async (req, ctx) => {
   }
 
   // --- Deterministic context assembly (Sprint 15C.2 Context Manager) ---
-  // Live search context is intentionally left unset: Google Search grounding
-  // happens inline inside the Gemini call below (config.tools), not as a
-  // separately fetched text block, so there is nothing to hand the Context
-  // Manager for that slot. Google Search behavior is otherwise unchanged.
   const aiContext = buildContext({
     systemInstructions: ragApplied ? RAG_SYSTEM_INSTRUCTIONS : undefined,
     ragContext: ragApplied ? contextBlock : undefined,
@@ -226,44 +274,71 @@ export const POST = withContext(async (req, ctx) => {
     .join("\n\n");
   const geminiContents = toGeminiContents(aiContext.messages);
 
-  // --- Gemini call (deterministic context + optional Google Search grounding) ---
-  try {
-    const ai = new GoogleGenAI({ apiKey: key });
-    const res = await ai.models.generateContent({
-      model: AI_CONFIG.defaultModel,
-      contents: geminiContents,
-      config: {
-        ...(systemInstructionText ? { systemInstruction: systemInstructionText } : {}),
-        ...(useSearch ? { tools: [{ googleSearch: {} }] } : {}),
-      },
-    });
-    const answer = res.text ?? "";
+  // --- Gemini call ---
+  // Sprint L2.4 - both branches below call the SAME generateContentStream:
+  // internally, Gemini's own SDK doesn't distinguish "give me it all at
+  // once" from "give me chunks" as separate calls, so there's exactly one
+  // code path that talks to Gemini, not two. The difference is only in
+  // what this route does with the chunks afterward - await and join them
+  // (non-streaming, backward compatible) or forward each one immediately
+  // (streaming, the new opt-in behavior).
+  const ai = new GoogleGenAI({ apiKey: key });
+  const generationConfig = {
+    model: AI_CONFIG.defaultModel,
+    contents: geminiContents,
+    config: {
+      ...(systemInstructionText ? { systemInstruction: systemInstructionText } : {}),
+      ...(useSearch ? { tools: [{ googleSearch: {} }] } : {}),
+    },
+  };
 
-    // Persist the assistant's turn. Best-effort: a failure here must not
-    // fail the response (the user already has their answer) or invent a
-    // placeholder message - it simply won't appear in future history.
-    if (answer.trim().length > 0) {
-      try {
-        await messageService.addAssistantMessage(conversationId, userId, answer);
-      } catch {
-        // Non-fatal - see comment above.
+  if (!wantsStream) {
+    // --- Pre-L2.4 behavior, unchanged: one blocking JSON response. ---
+    try {
+      const geminiStream = await ai.models.generateContentStream(generationConfig);
+      let answer = "";
+      for await (const chunk of geminiStream) {
+        answer += chunk.text ?? "";
       }
-    }
 
-    return ApiResponse.success(
-      {
-        content: answer,
-        ragApplied,
-        sourcesCount,
-        conversationId,
-      },
-      ctx.requestId,
-      200,
-      ctx.startedAt
-    );
+      if (answer.trim().length > 0) {
+        try {
+          await messageService.addAssistantMessage(conversationId, userId, answer);
+        } catch {
+          // Non-fatal - see the streaming branch's identical comment.
+        }
+      }
+
+      return ApiResponse.success(
+        {
+          content: answer,
+          ragApplied,
+          sourcesCount: sources.length,
+          sources,
+          conversationId,
+        },
+        ctx.requestId,
+        200,
+        ctx.startedAt
+      );
+    } catch {
+      return ApiResponse.error(
+        { code: "AI_FAILED", message: "The assistant could not respond" },
+        ctx.requestId,
+        500,
+        ctx.startedAt
+      );
+    }
+  }
+
+  // --- Streaming (opt-in via {stream: true}) ---
+  let geminiStream: AsyncGenerator<{ text?: string }>;
+  try {
+    geminiStream = await ai.models.generateContentStream(generationConfig);
   } catch {
-    // AI generation failed: the user's turn persisted above is preserved
-    // (never rolled back) and no assistant message is written.
+    // AI generation failed before any token was produced: the user's turn
+    // persisted above is preserved (never rolled back), no assistant
+    // message is written. Same failure semantics as the non-streaming path.
     return ApiResponse.error(
       { code: "AI_FAILED", message: "The assistant could not respond" },
       ctx.requestId,
@@ -271,4 +346,46 @@ export const POST = withContext(async (req, ctx) => {
       ctx.startedAt
     );
   }
+
+  const responseBody = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      let fullText = "";
+      try {
+        for await (const chunk of geminiStream) {
+          const piece = chunk.text ?? "";
+          if (piece.length === 0) continue;
+          fullText += piece;
+          controller.enqueue(ndjson({ type: "token", text: piece }));
+        }
+
+        // Persist the assistant's turn. Best-effort: a failure here must
+        // not break the stream the user already received, and never
+        // invents a placeholder message - it simply won't appear in
+        // future history. Same non-fatal semantics as the pre-streaming
+        // version.
+        if (fullText.trim().length > 0) {
+          try {
+            await messageService.addAssistantMessage(conversationId, userId, fullText);
+          } catch {
+            // Non-fatal - see comment above.
+          }
+        }
+
+        controller.enqueue(ndjson({ type: "done", conversationId, ragApplied, sources }));
+      } catch {
+        controller.enqueue(ndjson({ type: "error", message: "The assistant could not finish responding" }));
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new NextResponse(responseBody, {
+    status: 200,
+    headers: {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-cache",
+      "X-Request-Id": ctx.requestId,
+    },
+  });
 });

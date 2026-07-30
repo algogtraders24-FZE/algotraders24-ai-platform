@@ -143,4 +143,35 @@ export class ApiClient {
       ? lastError
       : new ApiClientError("UNKNOWN", "Request failed", 500);
   }
+
+  // Sprint L2.2 - JSON POST, added for the real knowledge search route.
+  // No caching (POST results aren't idempotent-cacheable by URL) and no
+  // retry by default (a search that failed once shouldn't silently repeat).
+  static async post<T>(path: string, body: unknown, options: RequestOptions = {}): Promise<T> {
+    const started = Date.now();
+    try {
+      const res = await fetch(path, {
+        method: "POST",
+        signal: options.signal,
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const responseBody = (await res.json()) as ApiEnvelope<T>;
+      log(path, Date.now() - started);
+
+      if (!res.ok || responseBody.status === "error") {
+        const err = responseBody.status === "error" ? responseBody.error : undefined;
+        throw new ApiClientError(
+          err?.code ?? "HTTP_ERROR",
+          err?.message ?? `Request failed with ${res.status}`,
+          res.status,
+        );
+      }
+      return responseBody.data;
+    } catch (error) {
+      log(path, Date.now() - started, error);
+      throw error instanceof Error ? error : new ApiClientError("UNKNOWN", "Request failed", 500);
+    }
+  }
 }

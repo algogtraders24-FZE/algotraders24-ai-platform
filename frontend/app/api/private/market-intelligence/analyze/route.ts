@@ -25,6 +25,15 @@
 // (lib/market-data/providers/alpha-vantage.provider.ts), which only
 // protects anything if the same provider instance survives across
 // requests on a warm server process.
+//
+// Sprint L2.4 - added an optional `question` field, backward compatible:
+// the standalone Market Intelligence page still sends only `symbol` and
+// gets the same canned question as before. The AI Assistant (Sprint L2.4)
+// sends the user's actual message here when it detects an explicit market
+// analysis request, so Gemini's restatement addresses what was actually
+// asked instead of always the same generic outlook question. This route
+// itself gains no new coupling - still the same orchestrator, same
+// pipeline, same symbol scope.
 import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
@@ -73,7 +82,7 @@ export const POST = withContext(async (req, ctx) => {
     );
   }
 
-  const body = (await req.json().catch(() => null)) as { symbol?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { symbol?: unknown; question?: unknown } | null;
   if (!isSupportedSymbol(body?.symbol)) {
     return ApiResponse.error(
       {
@@ -88,10 +97,19 @@ export const POST = withContext(async (req, ctx) => {
   const symbol = body.symbol;
   const label = SUPPORTED_SYMBOLS[symbol];
 
+  const MAX_QUESTION_CHARS = 500;
+  let question = `What is the current market outlook for ${label}, based on the available evidence?`;
+  if (body?.question !== undefined) {
+    if (typeof body.question !== "string" || body.question.trim().length === 0) {
+      return ApiResponse.error({ code: "VALIDATION", message: "question must be a non-empty string" }, ctx.requestId, 400, ctx.startedAt);
+    }
+    question = body.question.trim().slice(0, MAX_QUESTION_CHARS);
+  }
+
   const outcome = await orchestrator.analyze({
     userId: sessionUser.profile.id,
     symbol,
-    question: `What is the current market outlook for ${label}, based on the available evidence?`,
+    question,
   });
 
   switch (outcome.status) {

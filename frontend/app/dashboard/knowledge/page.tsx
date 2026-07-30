@@ -1,15 +1,19 @@
 "use client";
 // app/dashboard/knowledge/page.tsx
-// Sprint 14E - Documents and collections now load from PostgreSQL via
-// KnowledgeDocumentService.load(). Markup, components and styling unchanged;
-// only the data source and the surrounding loading/error handling are new.
+// Sprint 14E - Documents and collections load from PostgreSQL via
+// KnowledgeDocumentService.load().
+// Sprint L2.2 - Upload, search, and re-index are now real. onUpload calls
+// KnowledgeApi.uploadDocument() (real file -> real parse -> real
+// IngestionService) and force-reloads the document list from the server
+// afterward, instead of hand-patching a local fake record. onSearch is
+// async (searchKnowledge now calls the real vector search route).
+// onReindex calls the real re-embed route.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { KnowledgeDocument } from "@/types/knowledge";
 import {
   listDocuments,
   filterByCategory,
   getUsedCategories,
-  uploadDocument,
   reindex,
 } from "@/services/knowledge/KnowledgeManager";
 import { getMetrics, getRelatedDocuments } from "@/services/knowledge/KnowledgeEngine";
@@ -20,6 +24,7 @@ import {
   getCollections,
   load as loadKnowledge,
 } from "@/services/knowledge/KnowledgeDocumentService";
+import { KnowledgeApi } from "@/services/api/KnowledgeApi";
 
 import KnowledgeMetrics from "@/components/knowledge/KnowledgeMetrics";
 import KnowledgeSearch from "@/components/knowledge/KnowledgeSearch";
@@ -40,6 +45,9 @@ export default function KnowledgePage() {
   const [category, setCategory] = useState("all");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
+
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -101,18 +109,42 @@ export default function KnowledgePage() {
   const active = activeId ? getDocumentById(activeId) ?? null : null;
   const related = active ? getRelatedDocuments(active) : [];
 
+  const onSearch = useCallback(async (query: string) => {
+    const results = await searchKnowledge(query);
+    setTick((t) => t + 1); // refresh metrics (searchesToday, avgRetrievalMs)
+    return results;
+  }, []);
+
   const onUpload = useCallback(
-    (title: string, cat: string, col: string) => {
-      const doc = uploadDocument(title, cat, col);
-      setActiveId(doc.id);
-      refresh();
+    async (file: File, uploadCategory: string, collectionId?: string) => {
+      setUploading(true);
+      setUploadError(null);
+      try {
+        const result = await KnowledgeApi.uploadDocument({ file, category: uploadCategory, collectionId });
+        await loadKnowledge({ force: true });
+        setDocs([...listDocuments()]);
+        setActiveId(result.document.id);
+        setTick((t) => t + 1);
+        if (result.document.status === "failed") {
+          setUploadError(
+            result.chunksCreated === 0
+              ? "The document was uploaded but produced no indexable text."
+              : "The document was uploaded but embedding failed for every chunk - the embedding provider may be unavailable.",
+          );
+        }
+      } catch (err) {
+        setUploadError(err instanceof Error ? err.message : "Upload failed");
+      } finally {
+        setUploading(false);
+      }
     },
-    [refresh]
+    [],
   );
 
   const onReindex = useCallback(
     async (id: string) => {
       await reindex(id);
+      await loadKnowledge({ force: true });
       refresh();
     },
     [refresh]
@@ -178,7 +210,7 @@ export default function KnowledgePage() {
         </header>
 
         <KnowledgeMetrics metrics={metrics} />
-        <KnowledgeSearch onSearch={searchKnowledge} onOpen={setActiveId} />
+        <KnowledgeSearch onSearch={onSearch} onOpen={setActiveId} />
         <KnowledgeCategories
           categories={categories}
           active={category}
@@ -199,7 +231,7 @@ export default function KnowledgePage() {
               retrievals={history}
               onReindex={onReindex}
             />
-            <KnowledgeUploader onUpload={onUpload} />
+            <KnowledgeUploader collections={collections} uploading={uploading} error={uploadError} onUpload={onUpload} />
           </div>
         </div>
 

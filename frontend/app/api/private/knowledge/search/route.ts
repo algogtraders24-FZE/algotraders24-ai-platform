@@ -3,10 +3,16 @@
 // knowledge chunks. Embeds the query, then cosine-searches pgvector.
 // SECURITY: results are ALWAYS scoped to the session user's id; the userId
 // is taken from the verified session and never from the request body.
+// Sprint L2.2 - increments the real Knowledge.retrievalCount column for
+// every document that appears in results, so "AI References"/retrieval
+// counts shown on the dashboard reflect genuine search hits instead of
+// a field that existed in the schema but nothing ever wrote to. Best
+// effort: a failure here never fails the search itself.
 import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { RepositoryFactory } from "@/repositories/RepositoryFactory";
+import { prisma } from "@/lib/prisma";
 import { GeminiEmbeddingProvider } from "@/lib/ai";
 import { AIProviderError } from "@/lib/ai";
 
@@ -81,6 +87,19 @@ export const POST = withContext(async (req, ctx) => {
       userId: sessionUser.profile.id, // session-derived, never from body
       knowledgeId,
     });
+
+    const hitKnowledgeIds = [...new Set(results.map((r) => r.knowledgeId))];
+    if (hitKnowledgeIds.length > 0) {
+      // Awaited (not fire-and-forget: a serverless runtime can freeze the
+      // process the instant the response is sent, dropping an
+      // unawaited promise) but never allowed to fail the search itself.
+      await prisma.knowledge
+        .updateMany({
+          where: { id: { in: hitKnowledgeIds }, userId: sessionUser.profile.id },
+          data: { retrievalCount: { increment: 1 } },
+        })
+        .catch(() => {});
+    }
 
     return ApiResponse.success(
       {

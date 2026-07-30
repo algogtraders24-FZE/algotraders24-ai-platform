@@ -1,13 +1,14 @@
 // services/knowledge/KnowledgeDocumentService.ts
 // Sprint 14E - Backed by PostgreSQL. Documents and collections are loaded once
 // via load(); every existing accessor stays synchronous, so callers are
-// unchanged. Local mutations (upload, status change) update the in-memory view
-// optimistically; persistence of those mutations lands with the RAG sprint.
-import type {
-  KnowledgeDocument,
-  KnowledgeCollection,
-  DocumentStatus,
-} from "@/types/knowledge";
+// unchanged.
+// Sprint L2.2 - removed addDocument()/setStatus(), the optimistic
+// in-memory mutations this file's own header used to promise "land with
+// the RAG sprint" - they now do: upload and re-index both happen for real
+// server-side (KnowledgeApi.uploadDocument / KnowledgeApi.reindex), and
+// callers refresh this list via load({force: true}) afterward instead of
+// hand-patching a local copy.
+import type { KnowledgeDocument, KnowledgeCollection } from "@/types/knowledge";
 import { KnowledgeApi } from "@/services/api/KnowledgeApi";
 
 let documents: KnowledgeDocument[] = [];
@@ -58,16 +59,4 @@ export function getByCategory(category: string): KnowledgeDocument[] {
 
 export function getByCollection(collection: string): KnowledgeDocument[] {
   return documents.filter((d) => d.collection === collection);
-}
-
-export function addDocument(doc: KnowledgeDocument): void {
-  documents = [doc, ...documents];
-}
-
-export function setStatus(
-  id: string,
-  status: DocumentStatus
-): KnowledgeDocument | undefined {
-  documents = documents.map((d) => (d.id === id ? { ...d, status } : d));
-  return getDocumentById(id);
 }
