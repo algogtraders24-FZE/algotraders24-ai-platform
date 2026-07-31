@@ -8,9 +8,9 @@
 import DashboardStatCard from "@/components/dashboard/DashboardStatCard";
 import QuickActions from "@/components/dashboard/QuickActions";
 import RecentActivity from "@/components/dashboard/RecentActivity";
+import NewUserOnboarding from "@/components/dashboard/NewUserOnboarding";
 import { dashboardService } from "@/services/dashboard.service";
 import { requireUser } from "@/lib/auth/protectedRoute";
-import { signOutAction } from "@/app/(auth)/actions/auth.actions";
 import { PLAN_LABELS } from "@/config/billing.config";
 import type { PlanId } from "@/types/billing";
 import ResendVerificationButton from "@/components/auth/ResendVerificationButton";
@@ -23,6 +23,16 @@ export default async function DashboardHome() {
     dashboardService.getOverview(user.id),
     dashboardService.getRecentActivity(user.id),
   ]);
+
+  // Best available real signal for "hasn't used the product yet" - no
+  // conversations and no documents. Deliberately not schema-backed (see
+  // dashboard.service.ts's disclosed gap on tracked analyses); this sprint
+  // doesn't add new persistence, so it's inferred from existing counts.
+  const isNewUser = overview.totalConversations === 0 && overview.totalDocuments === 0;
+
+  if (isNewUser) {
+    return <NewUserOnboarding name={user.name} email={user.email} emailVerified={user.emailVerified} />;
+  }
 
   const stats = [
     { label: "Conversations", value: overview.totalConversations },
@@ -40,30 +50,20 @@ export default async function DashboardHome() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">
-            Welcome back, {user.name} &#128075;
-          </h1>
-          <p className="text-gray-400 mt-1">Here&apos;s your account overview.</p>
-          <p className="text-xs text-gray-500 mt-1">
-            {user.email}
-            {!user.emailVerified && (
-              <>
-                {" "}
-                · email not verified · <ResendVerificationButton />
-              </>
-            )}
-          </p>
-        </div>
-        <form action={signOutAction}>
-          <button
-            type="submit"
-            className="rounded-lg border border-neutral-700 px-4 py-2 text-sm text-neutral-300 transition hover:bg-neutral-800"
-          >
-            Sign out
-          </button>
-        </form>
+      <div>
+        <h1 className="text-2xl font-bold">
+          Welcome back, {user.name} &#128075;
+        </h1>
+        <p className="text-gray-400 mt-1">Here&apos;s your account overview.</p>
+        <p className="text-xs text-gray-500 mt-1">
+          {user.email}
+          {!user.emailVerified && (
+            <>
+              {" "}
+              · email not verified · <ResendVerificationButton />
+            </>
+          )}
+        </p>
       </div>
 
       <div className="flex flex-wrap gap-6 rounded-2xl bg-[#0C1324] border border-[#1F2937] p-6">

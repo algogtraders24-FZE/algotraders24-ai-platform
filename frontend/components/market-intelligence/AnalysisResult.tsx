@@ -10,6 +10,17 @@ import type { MarketAnalysisResult } from "@/types/market-analysis-orchestration
 import type { ExplanationLine } from "@/types/explainable-analysis";
 import type { RiskLevel } from "@/types/risk";
 import type { ConfidenceLevel } from "@/types/confidence-intelligence";
+import InfoTooltip from "@/components/ui/InfoTooltip";
+
+const GUIDANCE = {
+  risk: "The worst (highest) result found across 8 risk categories - market, event, liquidity, volatility, execution, evidence conflict, data quality, and uncertainty. It's always the worst category, never an average, so one high-risk category can't be hidden by the rest.",
+  confidence:
+    "How strongly the collected evidence supports this analysis, scored 0-100 across 7 categories - evidence quality, quantity, agreement, source diversity, data freshness, coverage, and unknown factors. It measures evidence strength, not a probability of the trade being correct.",
+  evidence:
+    "Each line is tied to a real, named data source used by the pipeline. A category with nothing to point to shows \"None available\" rather than a filled-in guess.",
+  explainable:
+    "This narrative is assembled by template from the structured data on this page - no free-text AI generation. Every sentence traces back to a real, already-computed field.",
+} as const;
 
 function formatLabel(value: string): string {
   return value.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -39,7 +50,10 @@ function LevelCard({
   const tone = title === "Risk" ? RISK_TONE[level as RiskLevel] : CONFIDENCE_TONE[level as ConfidenceLevel];
   return (
     <div className="rounded-card border border-border bg-ink-2 p-6">
-      <p className="text-sm font-semibold uppercase tracking-[0.2em] text-text-3">{title}</p>
+      <p className="flex items-center text-sm font-semibold uppercase tracking-[0.2em] text-text-3">
+        {title}
+        <InfoTooltip label={title} text={title === "Risk" ? GUIDANCE.risk : GUIDANCE.confidence} />
+      </p>
       <div className="mt-3 flex items-baseline gap-3">
         <span className={`inline-block rounded-control border px-3 py-1 text-sm font-semibold capitalize ${tone}`}>
           {level}
@@ -50,10 +64,13 @@ function LevelCard({
   );
 }
 
-function Section({ title, text }: { title: string; text: string }) {
+function Section({ title, text, tooltip }: { title: string; text: string; tooltip?: string }) {
   return (
     <div>
-      <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-gold">{title}</h3>
+      <h3 className="flex items-center text-sm font-semibold uppercase tracking-[0.14em] text-gold">
+        {title}
+        {tooltip && <InfoTooltip label={title} text={tooltip} />}
+      </h3>
       <p className="mt-2 text-sm leading-6 text-text-2">{text}</p>
     </div>
   );
@@ -72,7 +89,10 @@ function EvidenceColumn({
   const label = tone === "gold" ? "text-gold" : "text-signal-down";
   return (
     <div className={`rounded-card border-l-2 ${border} border-y border-r border-border bg-ink-2 p-5`}>
-      <p className={`text-xs font-semibold uppercase tracking-[0.14em] ${label}`}>{title}</p>
+      <p className={`flex items-center text-xs font-semibold uppercase tracking-[0.14em] ${label}`}>
+        {title}
+        <InfoTooltip label={title} text={GUIDANCE.evidence} />
+      </p>
       {lines.length === 0 ? (
         <p className="mt-2 text-sm text-text-3">None available.</p>
       ) : (
@@ -157,7 +177,7 @@ export default function AnalysisResult({ result }: { result: MarketAnalysisResul
         <LevelCard title="Confidence" level={confidence.overallLevel} score={confidence.overallScore} />
       </div>
 
-      <Section title="Executive Summary" text={explainable.executiveSummary} />
+      <Section title="Executive Summary" text={explainable.executiveSummary} tooltip={GUIDANCE.explainable} />
       <Section title="Market Thesis" text={explainable.marketThesis} />
 
       <div className="grid gap-4 sm:grid-cols-2">

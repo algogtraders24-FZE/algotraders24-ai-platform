@@ -222,7 +222,7 @@ export default function KnowledgePage() {
             <h2 className="text-sm font-semibold text-slate-300">
               Document Library
             </h2>
-            <KnowledgeGrid docs={visible} onOpen={setActiveId} />
+            <KnowledgeGrid docs={visible} onOpen={setActiveId} totalCount={docs.length} />
           </div>
           <div className="space-y-4">
             <KnowledgeDetails

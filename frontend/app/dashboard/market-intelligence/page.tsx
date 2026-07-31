@@ -110,6 +110,17 @@ export default function MarketIntelligencePage() {
         </div>
 
         <div className="mt-8">
+          {run.status === "idle" && (
+            <div className="rounded-card border border-dashed border-border bg-ink-2/50 p-6 text-sm text-text-2">
+              <p className="font-semibold text-text">No analysis yet</p>
+              <p className="mt-1">
+                Click <span className="text-text">Run Analysis</span> on Euro above to generate your first
+                evidence-backed market analysis - it runs the real pipeline against live data, so it takes a few
+                seconds.
+              </p>
+            </div>
+          )}
+
           {run.status === "loading" && (
             <div className="rounded-card border border-border bg-ink-2 p-6 text-sm text-text-2">
               Running the deterministic pipeline against live market data — this takes a few seconds.

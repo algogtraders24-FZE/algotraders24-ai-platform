@@ -14,13 +14,21 @@ import GoogleButton from "@/components/auth/GoogleButton";
 
 const initialState: ActionState = {};
 
+// Sprint R1.1 - Only a fixed set of known codes get a specific message;
+// anything else (including a raw provider error string previously dumped
+// verbatim onto the page) falls back to one generic message rather than
+// rendering arbitrary query-param content.
+const OAUTH_ERROR_MESSAGES: Record<string, string> = {
+  auth_callback_failed: "Sign-in link was invalid or expired. Please try again.",
+};
+
 function OAuthError() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
   if (!error) return null;
   return (
     <p className="mb-4 rounded-lg border border-red-900 bg-red-950/40 p-3 text-sm text-red-400">
-      {error === "auth_callback_failed" ? "Sign-in link was invalid or expired. Please try again." : error}
+      {OAUTH_ERROR_MESSAGES[error] ?? "Sign-in failed. Please try again."}
     </p>
   );
 }

@@ -30,6 +30,14 @@ export default function InvoiceHistory({ invoices }: Props) {
         <span className="text-xs text-slate-500">{invoices.length} total</span>
       </div>
 
+      {invoices.length === 0 ? (
+        <div className="px-6 py-10 text-center">
+          <p className="text-sm text-slate-400">No invoices yet.</p>
+          <p className="mt-1 text-xs text-slate-600">
+            Your billing history will appear here after your first payment.
+          </p>
+        </div>
+      ) : (
       <div className="overflow-x-auto">
         <table className="w-full min-w-[600px] text-sm">
           <thead>
@@ -90,6 +98,7 @@ export default function InvoiceHistory({ invoices }: Props) {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }

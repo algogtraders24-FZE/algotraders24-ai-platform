@@ -24,7 +24,14 @@ export default function SignupPage() {
 
       {state.success ? (
         <div className="mt-6 rounded-lg border border-emerald-800 bg-emerald-950/40 p-4 text-sm text-emerald-300">
-          {state.message}
+          <p className="font-semibold">Check your inbox</p>
+          <p className="mt-1 text-emerald-300/90">{state.message}</p>
+          <Link
+            href="/login"
+            className="mt-4 inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-500"
+          >
+            Go to sign in
+          </Link>
         </div>
       ) : (
         <>
