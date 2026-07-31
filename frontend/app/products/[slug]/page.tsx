@@ -12,6 +12,7 @@ import ProductSpecifications from "@/components/product/ProductSpecifications";
 import SupportedPlatforms from "@/components/product/SupportedPlatforms";
 import ProductCTA from "@/components/product/ProductCTA";
 import RelatedProducts from "@/components/product/RelatedProducts";
+import ProductViewTracker from "@/components/product/ProductViewTracker";
 import { ProductCatalogue } from "@/services/products/ProductCatalogue";
 
 export const revalidate = 300;
@@ -39,6 +40,7 @@ export default async function ProductDetailPage({
 
   return (
     <main className="min-h-screen bg-[#050816] text-white">
+      <ProductViewTracker slug={product.slug} />
       <Navbar />
 
       <ProductHero product={product} />

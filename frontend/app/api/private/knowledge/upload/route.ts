@@ -15,6 +15,7 @@ import { prisma } from "@/lib/prisma";
 import { IngestionService } from "@/services/knowledge/IngestionService";
 import { extractText, resolveExtension, UnsupportedFileTypeError, FileParseError } from "@/lib/knowledge/extractText";
 import { AIProviderError } from "@/lib/ai";
+import { analyticsEventService } from "@/services/analytics/AnalyticsEventService";
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024; // 15 MB raw file
 const MAX_TEXT_LENGTH = 100_000; // matches ingest/route.ts's own cap
@@ -130,6 +131,13 @@ export const POST = withContext(async (req, ctx) => {
         lastIndexed: indexed ? new Date() : null,
       },
     });
+
+    // Sprint R1.2 - Phase 2: real "knowledge_upload" event, additive and
+    // best-effort. Fires whenever the file itself was successfully
+    // uploaded, regardless of whether embedding also succeeded - the
+    // upload is the real action being observed here, not the indexing
+    // outcome.
+    await analyticsEventService.record(userId, "knowledge_upload").catch(() => {});
 
     return ApiResponse.success(
       {

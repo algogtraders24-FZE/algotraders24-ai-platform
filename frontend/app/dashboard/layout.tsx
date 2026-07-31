@@ -3,6 +3,7 @@
 // provides the real user to client components, and renders a logout control.
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import FeedbackWidget from "@/components/dashboard/FeedbackWidget";
 import { requireUser } from "@/lib/auth/protectedRoute";
 import { UserProvider, type CurrentUser } from "@/context/UserContext";
 
@@ -35,6 +36,7 @@ export default async function DashboardLayout({
           <div className="flex-1 p-6">{children}</div>
         </div>
       </div>
+      <FeedbackWidget />
     </UserProvider>
   );
 }

@@ -18,6 +18,7 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import type { PlanId, PlanChangePreview } from "@/types/billing";
 import { billingEngine } from "@/services/billing/BillingEngine";
 import { BillingApi, type PaymentConfig } from "@/services/api/BillingApi";
+import { AnalyticsApi } from "@/services/api/AnalyticsApi";
 import { PLAN_LABELS } from "@/config/billing.config";
 import { pricingService } from "@/services/billing/PricingService";
 
@@ -131,6 +132,10 @@ export default function BillingPage() {
         setPreview(null);
         return;
       }
+      // Sprint R1.2 - Phase 2: real "subscription_click" event - the single
+      // entry point both PricingTable and UpgradeBanner funnel through, so
+      // one call here covers every real click, fire-and-forget.
+      AnalyticsApi.report("subscription_click", { planId });
       setPreview(billingEngine.previewPlanChange(planId));
     },
     [subscription]

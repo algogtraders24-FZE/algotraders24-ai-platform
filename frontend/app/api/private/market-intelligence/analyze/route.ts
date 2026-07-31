@@ -49,6 +49,7 @@ import { AlphaVantageProvider } from "@/lib/market-data/providers/alpha-vantage.
 import { AlphaVantageNewsProvider } from "@/lib/market-data/providers/alpha-vantage-news.provider";
 import { systemClock } from "@/lib/market-data/cache";
 import { requestLogService } from "@/services/tracking/RequestLogService";
+import { analyticsEventService } from "@/services/analytics/AnalyticsEventService";
 
 const SUPPORTED_SYMBOLS = {
   EURUSD: "Euro (EUR/USD)",
@@ -118,6 +119,10 @@ export const POST = withContext(async (req, ctx) => {
   // the analysis response (best-effort, same convention as L2.2's
   // retrievalCount increment).
   await requestLogService.record(sessionUser.profile.id, "market_analysis").catch(() => {});
+  // Sprint R1.2 - Phase 2: real "market_analysis" beta-analytics event,
+  // additive alongside the existing RequestLog write above - separate
+  // tables for separate purposes (usage metering vs. beta funnel/journey).
+  await analyticsEventService.record(sessionUser.profile.id, "market_analysis").catch(() => {});
 
   switch (outcome.status) {
     case "completed":

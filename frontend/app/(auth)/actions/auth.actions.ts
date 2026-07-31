@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { AuthService } from "@/services/auth/AuthService";
 import { SessionService } from "@/services/auth/SessionService";
+import { analyticsEventService } from "@/services/analytics/AnalyticsEventService";
 
 export interface ActionState {
   error?: string;
@@ -60,7 +61,13 @@ export async function signInAction(
   }
 
   // Ensure the Prisma profile exists / is linked on first login.
-  await SessionService.getSessionUser();
+  const sessionUser = await SessionService.getSessionUser();
+
+  // Sprint R1.2 - Phase 2: real "login" event, additive and best-effort -
+  // never blocks the redirect below.
+  if (sessionUser) {
+    await analyticsEventService.record(sessionUser.profile.id, "login").catch(() => {});
+  }
 
   revalidatePath("/dashboard");
   redirect("/dashboard");

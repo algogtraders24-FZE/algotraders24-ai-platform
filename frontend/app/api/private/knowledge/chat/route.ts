@@ -43,6 +43,7 @@ import { buildContext } from "@/services/ai/context-manager.service";
 import { prisma } from "@/lib/prisma";
 import type { Message } from "@/types/message";
 import { EntityNotFoundError, RepositoryError } from "@/types/repository";
+import { analyticsEventService } from "@/services/analytics/AnalyticsEventService";
 
 const RAG_TOP_K = 5;
 const MIN_SIMILARITY = 0.3; // ignore weak matches
@@ -309,6 +310,9 @@ export const POST = withContext(async (req, ctx) => {
         }
       }
 
+      // Sprint R1.2 - Phase 2: real "ai_chat" event, additive, best-effort.
+      await analyticsEventService.record(userId, "ai_chat").catch(() => {});
+
       return ApiResponse.success(
         {
           content: answer,
@@ -370,6 +374,9 @@ export const POST = withContext(async (req, ctx) => {
             // Non-fatal - see comment above.
           }
         }
+
+        // Sprint R1.2 - Phase 2: real "ai_chat" event, additive, best-effort.
+        await analyticsEventService.record(userId, "ai_chat").catch(() => {});
 
         controller.enqueue(ndjson({ type: "done", conversationId, ragApplied, sources }));
       } catch {

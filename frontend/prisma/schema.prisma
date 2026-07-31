@@ -420,3 +420,48 @@ model RequestLog {
   @@index([type])
   @@index([createdAt])
 }
+
+// Sprint R1.2 - Phase 1: real user feedback (Bug Report / Feature Request /
+// General Feedback), reviewable by an admin. Unlike AuditLog/RequestLog this
+// one does have an update path (status), since "admin can review feedback"
+// requires a real reviewed/resolved transition - but no delete path, and
+// no field here is ever synthesized (message is always the user's own text).
+model Feedback {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String // "bug" | "feature" | "general"
+  message   String
+  page      String    @default("") // route the feedback was submitted from, for admin triage
+  status    String    @default("open") // "open" | "reviewed" | "resolved"
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// Sprint R1.2 - Phase 2: internal beta analytics event log (explicitly not a
+// third-party analytics integration, per the sprint brief). Append-only, no
+// update/delete path - the same pure-event-log shape as RequestLog. userId is
+// nullable because "product_view" can happen on the public product page
+// before a visitor ever signs up; every other event type is always fired
+// with a real, session-derived userId (see the call sites - never a body-
+// supplied one). "First X" milestones (Phase 3's journey) are never a
+// separate flag on this table - they're derived by taking MIN(createdAt) per
+// user/type, so there's no separate "is this the first one" bookkeeping that
+// could ever drift out of sync with the raw event history.
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  type      String // "login" | "email_verified" | "ai_chat" | "knowledge_upload" | "market_analysis" | "subscription_click" | "product_view"
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([type])
+  @@index([userId, type])
+  @@index([createdAt])
+}

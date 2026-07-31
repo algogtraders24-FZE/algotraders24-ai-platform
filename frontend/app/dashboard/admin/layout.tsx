@@ -19,6 +19,9 @@ const ADMIN_NAV = [
   { label: "AI Usage Analytics", href: "/dashboard/admin/analytics" },
   { label: "System Health", href: "/dashboard/admin/health" },
   { label: "Audit Logs", href: "/dashboard/admin/audit-logs" },
+  // Sprint R1.2
+  { label: "Beta Overview", href: "/dashboard/admin/beta" },
+  { label: "Feedback", href: "/dashboard/admin/feedback" },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
