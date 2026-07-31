@@ -9,10 +9,10 @@ export default function ProductFeatures({ product }: { product: Product }) {
           {product.features.map((feature, i) => (
             <div
               key={i}
-              className="flex items-start gap-3 rounded-xl bg-[#0C1324] border border-[#1F2937] p-5"
+              className="flex items-start gap-3 rounded-xl bg-ink-2 border border-border p-5"
             >
-              <span className="text-blue-400 mt-0.5">✓</span>
-              <span className="text-gray-300">{feature}</span>
+              <span className="text-gold mt-0.5">✓</span>
+              <span className="text-text-2">{feature}</span>
             </div>
           ))}
         </div>

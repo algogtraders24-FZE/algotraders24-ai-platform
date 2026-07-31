@@ -1,5 +1,8 @@
 // components/knowledge/KnowledgeMetrics.tsx
+// Sprint D1.0 - Retrofitted onto Card + tokens (slate-800/900 -> ink-2/
+// border, slate-100/500 -> text/text-3).
 import type { KnowledgeMetrics as Metrics } from "@/types/knowledge";
+import Card from "@/components/ui/Card";
 
 export default function KnowledgeMetrics({ metrics }: { metrics: Metrics }) {
   const cards: [string, string | number][] = [
@@ -15,10 +18,10 @@ export default function KnowledgeMetrics({ metrics }: { metrics: Metrics }) {
   return (
     <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
       {cards.map(([label, value]) => (
-        <div key={label} className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-          <p className="text-xs text-slate-500">{label}</p>
-          <p className="mt-1 text-2xl font-bold text-slate-100">{value}</p>
-        </div>
+        <Card key={label} padding="sm">
+          <p className="text-xs text-text-3">{label}</p>
+          <p className="mt-1 text-2xl font-bold text-text">{value}</p>
+        </Card>
       ))}
     </div>
   );

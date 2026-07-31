@@ -4,16 +4,16 @@ import ConfidenceBadge from "./ConfidenceBadge";
 import RiskBadge from "./RiskBadge";
 
 const DIR: Record<Signal["direction"], string> = {
-  BUY: "text-emerald-400",
-  SELL: "text-red-400",
-  WAIT: "text-slate-400",
+  BUY: "text-success",
+  SELL: "text-danger",
+  WAIT: "text-text-2",
 };
 
 export default function SignalTable({ signals }: { signals: Signal[] }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-800">
+    <div className="overflow-x-auto rounded-xl border border-border">
       <table className="w-full text-sm">
-        <thead className="bg-slate-900/60 text-left text-xs uppercase text-slate-500">
+        <thead className="bg-ink-2 text-left text-xs uppercase text-text-3">
           <tr>
             <th className="px-4 py-3">Market</th>
             <th className="px-4 py-3">Signal</th>
@@ -23,15 +23,15 @@ export default function SignalTable({ signals }: { signals: Signal[] }) {
             <th className="px-4 py-3">Status</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-800">
+        <tbody className="divide-y divide-border">
           {signals.map((s) => (
-            <tr key={s.id} className="hover:bg-slate-900/40">
-              <td className="px-4 py-3 font-medium text-slate-100">{s.symbol}</td>
+            <tr key={s.id} className="hover:bg-ink-2">
+              <td className="px-4 py-3 font-medium text-text">{s.symbol}</td>
               <td className={`px-4 py-3 font-semibold ${DIR[s.direction]}`}>{s.direction}</td>
-              <td className="px-4 py-3 text-slate-400">{s.timeframe}</td>
+              <td className="px-4 py-3 text-text-2">{s.timeframe}</td>
               <td className="px-4 py-3"><ConfidenceBadge score={s.confidence} /></td>
               <td className="px-4 py-3"><RiskBadge level={s.riskLevel} /></td>
-              <td className="px-4 py-3 capitalize text-slate-400">{s.status}</td>
+              <td className="px-4 py-3 capitalize text-text-2">{s.status}</td>
             </tr>
           ))}
         </tbody>

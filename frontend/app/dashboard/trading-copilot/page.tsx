@@ -42,7 +42,7 @@ export default function TradingCopilotPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6 text-slate-100">
+    <div className="min-h-screen bg-ink p-6 text-text">
       <div className="mx-auto max-w-6xl space-y-5">
         <TradingCopilotHeader symbol={symbol} onSymbolChange={setSymbol} onAnalyze={onAnalyze} loading={loading} />
 

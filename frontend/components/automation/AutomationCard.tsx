@@ -14,31 +14,31 @@ interface Props {
 
 export default function AutomationCard({ workflow, onRun, onToggle }: Props) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+    <div className="rounded-xl border border-border bg-ink-2 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-slate-100">{workflow.name}</h3>
-          <p className="mt-1 text-xs text-slate-500">{workflow.description}</p>
+          <h3 className="text-sm font-semibold text-text">{workflow.name}</h3>
+          <p className="mt-1 text-xs text-text-3">{workflow.description}</p>
         </div>
         <AutomationStatus status={workflow.status} />
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
-        <span className="rounded bg-slate-800/60 px-2 py-0.5 capitalize">{workflow.trigger}</span>
-        {workflow.schedule && <span className="rounded bg-slate-800/60 px-2 py-0.5">{workflow.schedule}</span>}
-        <span className="rounded bg-slate-800/60 px-2 py-0.5">{workflow.steps.length} steps</span>
+      <div className="mt-3 flex flex-wrap gap-2 text-xs text-text-3">
+        <span className="rounded bg-ink-3 px-2 py-0.5 capitalize">{workflow.trigger}</span>
+        {workflow.schedule && <span className="rounded bg-ink-3 px-2 py-0.5">{workflow.schedule}</span>}
+        <span className="rounded bg-ink-3 px-2 py-0.5">{workflow.steps.length} steps</span>
       </div>
 
       <div className="mt-4 flex gap-2">
         <button
           onClick={() => onRun(workflow.id)}
-          className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500"
+          className="rounded-lg bg-gold px-3 py-1.5 text-xs font-semibold text-ink hover:brightness-110"
         >
           Run now
         </button>
         <button
           onClick={() => onToggle(workflow.id)}
-          className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 hover:border-slate-600"
+          className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-2 hover:border-border"
         >
           {workflow.status === "active" ? "Pause" : "Activate"}
         </button>

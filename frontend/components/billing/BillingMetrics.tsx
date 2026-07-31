@@ -1,7 +1,12 @@
-﻿"use client";
+"use client";
 // components/billing/BillingMetrics.tsx
 // Sprint 13A — Subscription & Billing Foundation
-
+// Sprint D1.0 - Retrofitted onto Card + tokens (bg-white/5 backdrop-blur
+// "glass" chrome, a third visual language distinct from both the homepage
+// and the rest of the dashboard, and slate-400/500 text -> ink-2/text-2/
+// text-3). Per-plan/status accent colors (PLAN_COLORS,
+// SUBSCRIPTION_STATUS_COLORS) are left as-is - real product-tier/status
+// branding data, not chrome.
 import { useEffect, useState } from "react";
 import type { BillingMetrics as Metrics } from "@/types/billing";
 import {
@@ -11,6 +16,7 @@ import {
   SUBSCRIPTION_STATUS_COLORS,
 } from "@/config/billing.config";
 import { pricingService } from "@/services/billing/PricingService";
+import Card from "@/components/ui/Card";
 
 interface Props {
   metrics: Metrics;
@@ -43,17 +49,17 @@ function StatCard({
   accent?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur transition hover:border-white/20 hover:bg-white/[0.07]">
-      <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
+    <Card padding="sm" className="transition hover:border-gold/30">
+      <p className="text-xs font-medium uppercase tracking-wider text-text-3">
         {label}
       </p>
       <div
-        className="mt-2 text-2xl font-semibold text-white"
+        className="mt-2 text-2xl font-semibold text-text"
         style={accent ? { color: accent } : undefined}
       >
         {children}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -83,7 +89,7 @@ export default function BillingMetrics({ metrics }: Props) {
 
       <StatCard label="Credits Remaining">
         {Math.round(credits).toLocaleString()}
-        <span className="ml-1 text-sm text-slate-500">
+        <span className="ml-1 text-sm text-text-3">
           / {metrics.creditsTotal.toLocaleString()}
         </span>
       </StatCard>
@@ -96,7 +102,7 @@ export default function BillingMetrics({ metrics }: Props) {
 
       <StatCard label="Storage Used">
         {storagePct}%
-        <span className="ml-1 text-sm text-slate-500">
+        <span className="ml-1 text-sm text-text-3">
           {metrics.storageUsedMb.toLocaleString()} MB
         </span>
       </StatCard>

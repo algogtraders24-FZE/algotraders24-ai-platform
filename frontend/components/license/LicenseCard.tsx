@@ -9,19 +9,19 @@ function maskKey(key: string): string {
 
 export default function LicenseCard({ license }: { license: License }) {
   return (
-    <div className="rounded-2xl bg-[#0C1324] border border-[#1F2937] p-6 hover:border-blue-500 transition">
+    <div className="rounded-2xl bg-ink-2 border border-border p-6 hover:border-gold transition">
       <div className="flex items-center justify-between mb-4">
-        <span className="font-mono text-sm text-gray-300">{maskKey(license.key)}</span>
+        <span className="font-mono text-sm text-text-2">{maskKey(license.key)}</span>
         <LicenseStatus status={license.status} />
       </div>
-      <div className="text-sm text-gray-400 space-y-1">
-        <div>Type: <span className="text-white capitalize">{license.type}</span></div>
-        <div>Activations: <span className="text-white">{license.activations}/{license.maxActivations}</span></div>
-        <div>Expires: <span className="text-white">{license.expiresAt ?? "Lifetime"}</span></div>
+      <div className="text-sm text-text-2 space-y-1">
+        <div>Type: <span className="text-text capitalize">{license.type}</span></div>
+        <div>Activations: <span className="text-text">{license.activations}/{license.maxActivations}</span></div>
+        <div>Expires: <span className="text-text">{license.expiresAt ?? "Lifetime"}</span></div>
       </div>
       <Link
         href={`/dashboard/licenses/${license.id}`}
-        className="inline-block mt-4 text-blue-400 text-sm hover:underline"
+        className="inline-block mt-4 text-gold text-sm hover:underline"
       >
         View details →
       </Link>

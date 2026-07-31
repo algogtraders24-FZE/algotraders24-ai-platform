@@ -83,52 +83,52 @@ export default function AutomationPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6 text-slate-100">
+    <div className="min-h-screen bg-ink p-6 text-text">
       <div className="mx-auto max-w-6xl space-y-6">
         <header>
           <h1 className="text-2xl font-bold">AI Automation Engine</h1>
-          <p className="text-xs text-slate-500">Workflows, scheduler, and queue</p>
+          <p className="text-xs text-text-3">Workflows, scheduler, and queue</p>
         </header>
 
         {loading ? (
-          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-8 text-center text-sm text-slate-500">
+          <div className="rounded-xl border border-border bg-ink-2 p-8 text-center text-sm text-text-3">
             Loading automations...
           </div>
         ) : error ? (
-          <div className="rounded-xl border border-red-900/50 bg-red-950/30 p-8 text-center text-sm text-red-400">
+          <div className="rounded-xl border border-danger/50 bg-danger/30 p-8 text-center text-sm text-danger">
             {error}
           </div>
         ) : (
           <>
             <section className="grid grid-cols-2 gap-4 md:grid-cols-5">
               {metricCards.map(([label, value]) => (
-                <div key={label} className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-                  <p className="text-xs text-slate-500">{label}</p>
-                  <p className="mt-1 text-2xl font-bold text-slate-100">{value}</p>
+                <div key={label} className="rounded-xl border border-border bg-ink-2 p-4">
+                  <p className="text-xs text-text-3">{label}</p>
+                  <p className="mt-1 text-2xl font-bold text-text">{value}</p>
                 </div>
               ))}
             </section>
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
               <div className="space-y-4 lg:col-span-2">
-                <h2 className="text-sm font-semibold text-slate-300">Workflows</h2>
+                <h2 className="text-sm font-semibold text-text-2">Workflows</h2>
                 <WorkflowList workflows={workflows} onRun={onRun} onToggle={onToggle} />
               </div>
               <div>
-                <h2 className="mb-4 text-sm font-semibold text-slate-300">Details</h2>
+                <h2 className="mb-4 text-sm font-semibold text-text-2">Details</h2>
                 <WorkflowEditor workflow={active} />
               </div>
             </div>
 
             <section>
-              <h2 className="mb-3 text-sm font-semibold text-slate-300">Queue</h2>
-              <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+              <h2 className="mb-3 text-sm font-semibold text-text-2">Queue</h2>
+              <div className="rounded-xl border border-border bg-ink-2 p-4">
                 {queue.length === 0 ? (
-                  <p className="text-xs text-slate-600">Queue is empty.</p>
+                  <p className="text-xs text-text-3">Queue is empty.</p>
                 ) : (
                   queue.map((q) => (
                     <div key={q.id} className="flex items-center justify-between py-1 text-sm">
-                      <span className="text-slate-200">{q.workflowName}</span>
+                      <span className="text-text">{q.workflowName}</span>
                       <AutomationStatus status={q.status} />
                     </div>
                   ))
@@ -137,7 +137,7 @@ export default function AutomationPage() {
             </section>
 
             <section>
-              <h2 className="mb-3 text-sm font-semibold text-slate-300">Execution History</h2>
+              <h2 className="mb-3 text-sm font-semibold text-text-2">Execution History</h2>
               <AutomationHistory runs={runs} />
             </section>
           </>

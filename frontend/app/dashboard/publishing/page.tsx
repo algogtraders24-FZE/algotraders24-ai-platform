@@ -39,37 +39,37 @@ export default function PublishingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6 text-slate-100">
+    <div className="min-h-screen bg-ink p-6 text-text">
       <div className="mx-auto max-w-6xl space-y-6">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold">AI Publishing & SEO</h1>
-            <p className="text-xs text-slate-500">Automated market research - mock data</p>
+            <p className="text-xs text-text-3">Automated market research - mock data</p>
           </div>
           <button
             onClick={generateDraft}
             disabled={loading || !active}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+            className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-ink hover:brightness-110 disabled:opacity-50"
           >
             {loading ? "Generating..." : "Generate AI Draft"}
           </button>
         </header>
 
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-            <p className="text-xs text-slate-500">Published</p>
-            <p className="mt-1 text-2xl font-bold text-slate-100">{published.length}</p>
+          <div className="rounded-xl border border-border bg-ink-2 p-4">
+            <p className="text-xs text-text-3">Published</p>
+            <p className="mt-1 text-2xl font-bold text-text">{published.length}</p>
           </div>
           <SEOScoreCard score={avgSeo} />
-          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-            <p className="text-xs text-slate-500">Total Articles</p>
-            <p className="mt-1 text-2xl font-bold text-slate-100">{articles.length}</p>
+          <div className="rounded-xl border border-border bg-ink-2 p-4">
+            <p className="text-xs text-text-3">Total Articles</p>
+            <p className="mt-1 text-2xl font-bold text-text">{articles.length}</p>
           </div>
         </section>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="space-y-3 lg:col-span-1">
-            <h2 className="text-sm font-semibold text-slate-300">Todays Articles</h2>
+            <h2 className="text-sm font-semibold text-text-2">Todays Articles</h2>
             {articles.map((a) => (
               <ArticleCard key={a.id} article={a} onOpen={setActiveId} />
             ))}
@@ -82,7 +82,7 @@ export default function PublishingPage() {
         </div>
 
         <section>
-          <h2 className="mb-3 text-sm font-semibold text-slate-300">Publishing Queue</h2>
+          <h2 className="mb-3 text-sm font-semibold text-text-2">Publishing Queue</h2>
           <PublishingQueue articles={articles} />
         </section>
       </div>

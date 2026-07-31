@@ -4,9 +4,9 @@ import ImpactBadge from "./ImpactBadge";
 
 export default function EconomicCalendar({ events }: { events: EconomicEvent[] }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-800">
+    <div className="overflow-x-auto rounded-xl border border-border">
       <table className="w-full text-sm">
-        <thead className="bg-slate-900/60 text-left text-xs uppercase text-slate-500">
+        <thead className="bg-ink-2 text-left text-xs uppercase text-text-3">
           <tr>
             <th className="px-4 py-3">Event</th>
             <th className="px-4 py-3">Currency</th>
@@ -15,14 +15,14 @@ export default function EconomicCalendar({ events }: { events: EconomicEvent[] }
             <th className="px-4 py-3">Previous</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-800">
+        <tbody className="divide-y divide-border">
           {events.map((e) => (
-            <tr key={e.id} className="hover:bg-slate-900/40">
-              <td className="px-4 py-3 font-medium text-slate-100">{e.title}</td>
-              <td className="px-4 py-3 text-slate-400">{e.currency}</td>
+            <tr key={e.id} className="hover:bg-ink-2">
+              <td className="px-4 py-3 font-medium text-text">{e.title}</td>
+              <td className="px-4 py-3 text-text-2">{e.currency}</td>
               <td className="px-4 py-3"><ImpactBadge level={e.impact} /></td>
-              <td className="px-4 py-3 text-slate-400">{e.forecast ?? "—"}</td>
-              <td className="px-4 py-3 text-slate-400">{e.previous ?? "—"}</td>
+              <td className="px-4 py-3 text-text-2">{e.forecast ?? "—"}</td>
+              <td className="px-4 py-3 text-text-2">{e.previous ?? "—"}</td>
             </tr>
           ))}
         </tbody>

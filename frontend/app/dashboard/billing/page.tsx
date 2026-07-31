@@ -20,6 +20,9 @@ import { billingEngine } from "@/services/billing/BillingEngine";
 import { BillingApi, type PaymentConfig } from "@/services/api/BillingApi";
 import { AnalyticsApi } from "@/services/api/AnalyticsApi";
 import { PLAN_LABELS } from "@/config/billing.config";
+import Alert from "@/components/ui/Alert";
+import Button from "@/components/ui/Button";
+import Skeleton from "@/components/ui/Skeleton";
 import { pricingService } from "@/services/billing/PricingService";
 
 import BillingMetrics from "@/components/billing/BillingMetrics";
@@ -198,18 +201,14 @@ export default function BillingPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-950 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-ink px-4 py-8 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
-          <div className="rounded-xl border border-red-400/30 bg-red-500/10 p-6 text-sm text-slate-200">
-            <p className="font-semibold text-red-300">Could not load billing</p>
-            <p className="mt-1 text-slate-400">{error}</p>
-            <button
-              onClick={retry}
-              className="mt-4 rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-800"
-            >
+          <Alert tone="danger" title="Could not load billing">
+            <p>{error}</p>
+            <Button variant="secondary" onClick={retry} className="mt-4">
               Retry
-            </button>
-          </div>
+            </Button>
+          </Alert>
         </div>
       </div>
     );
@@ -217,26 +216,23 @@ export default function BillingPage() {
 
   if (!ready || !metrics || !subscription) {
     return (
-      <div className="min-h-screen bg-slate-950 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-ink px-4 py-8 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl space-y-8">
           <header>
-            <h1 className="text-2xl font-bold text-white sm:text-3xl">
+            <h1 className="text-2xl font-bold text-text sm:text-3xl">
               Subscription &amp; Billing
             </h1>
-            <p className="mt-1 text-sm text-slate-400">
+            <p className="mt-1 text-sm text-text-2">
               Manage your plan, usage, invoices, and payment methods.
             </p>
           </header>
           <div className="grid grid-cols-2 gap-6 lg:grid-cols-4">
             {[0, 1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-28 animate-pulse rounded-xl border border-slate-800 bg-slate-900"
-              />
+              <Skeleton key={i} className="h-28" />
             ))}
           </div>
-          <div className="h-40 animate-pulse rounded-xl border border-slate-800 bg-slate-900" />
-          <div className="h-64 animate-pulse rounded-xl border border-slate-800 bg-slate-900" />
+          <Skeleton className="h-40" />
+          <Skeleton className="h-64" />
         </div>
       </div>
     );
@@ -246,13 +242,13 @@ export default function BillingPage() {
   const nextPlan = upgradeOptions[0] ?? null;
 
   return (
-    <div className="min-h-screen bg-slate-950 px-4 py-8 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-ink px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-8">
         <header>
-          <h1 className="text-2xl font-bold text-white sm:text-3xl">
+          <h1 className="text-2xl font-bold text-text sm:text-3xl">
             Subscription &amp; Billing
           </h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 text-sm text-text-2">
             Manage your plan, usage, invoices, and payment methods.
           </p>
         </header>
@@ -276,56 +272,50 @@ export default function BillingPage() {
 
         <section>
           <div className="mb-5">
-            <h2 className="text-xl font-semibold text-white">Plans &amp; Pricing</h2>
-            <p className="mt-1 text-sm text-slate-400">
+            <h2 className="text-xl font-semibold text-text">Plans &amp; Pricing</h2>
+            <p className="mt-1 text-sm text-text-2">
               Compare tiers and choose the plan that fits your workflow.
             </p>
           </div>
 
           {checkoutNotice && (
-            <div
-              className={`mb-5 rounded-xl border p-4 text-sm ${
-                checkoutNotice === "success"
-                  ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
-                  : "border-slate-700 bg-slate-900/60 text-slate-300"
-              }`}
-            >
+            <Alert tone={checkoutNotice === "success" ? "success" : "info"} className="mb-5">
               {checkoutNotice === "success"
                 ? "Checkout completed. Your plan will update once the payment provider confirms the payment (this can take a few seconds)."
                 : "Checkout was canceled - no changes were made."}
               <button onClick={() => setCheckoutNotice(null)} className="ml-3 text-xs font-medium underline">
                 Dismiss
               </button>
-            </div>
+            </Alert>
           )}
 
           {actionMessage && (
-            <div className="mb-5 rounded-xl border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-200">
+            <Alert tone="danger" className="mb-5">
               {actionMessage}
-            </div>
+            </Alert>
           )}
 
           {preview && preview.direction !== "same" && (
-            <div className="mb-5 rounded-xl border border-sky-400/30 bg-sky-500/10 p-4 text-sm text-slate-200">
-              <span className="font-semibold capitalize">{preview.direction}</span> from{" "}
+            <div className="mb-5 rounded-card border border-info/30 bg-info/10 p-4 text-sm text-text-2">
+              <span className="font-semibold capitalize text-text">{preview.direction}</span> from{" "}
               {PLAN_LABELS[preview.fromPlanId]} to{" "}
-              <span className="font-semibold">{PLAN_LABELS[preview.toPlanId]}</span> -{" "}
+              <span className="font-semibold text-text">{PLAN_LABELS[preview.toPlanId]}</span> -{" "}
               {preview.priceDelta >= 0 ? "+" : "-"}
               {pricingService.formatPrice(Math.abs(preview.priceDelta))}/cycle.
 
               {preview.requiresPayment ? (
                 paymentConfig?.stripeConfigured || paymentConfig?.nowPaymentsConfigured ? (
-                  <p className="mt-2 text-slate-300">
+                  <p className="mt-2 text-text-2">
                     This plan requires payment - choose a real payment method below to complete it.
                   </p>
                 ) : (
-                  <p className="mt-2 text-amber-300">
+                  <p className="mt-2 text-warning">
                     This change requires payment processing, which isn&apos;t connected yet.
                     Contact support to complete it.
                   </p>
                 )
               ) : (
-                <p className="mt-2 text-slate-300">
+                <p className="mt-2 text-text-2">
                   This plan is free - confirming below switches you over immediately, no payment
                   required.
                 </p>
@@ -333,35 +323,23 @@ export default function BillingPage() {
 
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 {!preview.requiresPayment && (
-                  <button
-                    onClick={handleConfirmChange}
-                    disabled={actionBusy}
-                    className="rounded-lg bg-sky-500 px-4 py-2 text-xs font-semibold text-white transition hover:bg-sky-400 disabled:opacity-50"
-                  >
+                  <Button size="sm" onClick={handleConfirmChange} loading={actionBusy}>
                     {actionBusy ? "Switching..." : `Confirm switch to ${PLAN_LABELS[preview.toPlanId]}`}
-                  </button>
+                  </Button>
                 )}
                 {preview.requiresPayment && paymentConfig?.stripeConfigured && (
-                  <button
-                    onClick={() => handleCheckout("stripe")}
-                    disabled={checkoutBusy !== null}
-                    className="rounded-lg bg-sky-500 px-4 py-2 text-xs font-semibold text-white transition hover:bg-sky-400 disabled:opacity-50"
-                  >
+                  <Button size="sm" onClick={() => handleCheckout("stripe")} loading={checkoutBusy === "stripe"} disabled={checkoutBusy !== null}>
                     {checkoutBusy === "stripe" ? "Redirecting..." : "Proceed to Checkout (Card)"}
-                  </button>
+                  </Button>
                 )}
                 {preview.requiresPayment && paymentConfig?.nowPaymentsConfigured && (
-                  <button
-                    onClick={() => handleCheckout("crypto")}
-                    disabled={checkoutBusy !== null}
-                    className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-200 transition hover:bg-slate-800 disabled:opacity-50"
-                  >
+                  <Button size="sm" variant="secondary" onClick={() => handleCheckout("crypto")} loading={checkoutBusy === "crypto"} disabled={checkoutBusy !== null}>
                     {checkoutBusy === "crypto" ? "Redirecting..." : "Pay with Crypto"}
-                  </button>
+                  </Button>
                 )}
                 <button
                   onClick={() => setPreview(null)}
-                  className="text-xs font-medium text-sky-400 hover:text-sky-300"
+                  className="text-xs font-medium text-gold hover:text-gold-strong"
                 >
                   Dismiss
                 </button>
@@ -377,7 +355,7 @@ export default function BillingPage() {
         </section>
 
         <section>
-          <h2 className="mb-5 text-xl font-semibold text-white">
+          <h2 className="mb-5 text-xl font-semibold text-text">
             Plan Comparison
           </h2>
           <PlanComparison plans={plans} currentPlanId={currentPlanId} />

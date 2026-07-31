@@ -1,19 +1,18 @@
-﻿"use client";
+"use client";
 // components/billing/UsageCard.tsx
 // Sprint 13A — Subscription & Billing Foundation
-
+// Sprint D1.0 - Retrofitted onto Card + tokens. LEVEL_COLORS now reference
+// the real CSS custom properties (--info/--warning/--danger) instead of a
+// separate hardcoded hex triplet that happened to look similar.
 import { useEffect, useState } from "react";
 import type { UsageMetric } from "@/types/billing";
 import { usageService } from "@/services/billing/UsageService";
-
-interface Props {
-  metrics: UsageMetric[];
-}
+import Card from "@/components/ui/Card";
 
 const LEVEL_COLORS: Record<"ok" | "warning" | "critical", string> = {
-  ok: "#38bdf8",
-  warning: "#fbbf24",
-  critical: "#f87171",
+  ok: "var(--info)",
+  warning: "var(--warning)",
+  critical: "var(--danger)",
 };
 
 function UsageBar({ metric }: { metric: UsageMetric }) {
@@ -27,17 +26,16 @@ function UsageBar({ metric }: { metric: UsageMetric }) {
     return () => clearTimeout(t);
   }, [pct]);
 
-  // Sprint L2.5 - a metric with no real instrumentation yet (see
-  // UsageService/EntitlementService) is disclosed honestly, never shown as
-  // a fabricated 0-of-something bar.
+  // Sprint L2.5 - a metric with no real instrumentation yet is disclosed
+  // honestly, never shown as a fabricated 0-of-something bar.
   if (!metric.tracked) {
     return (
       <div>
         <div className="flex items-center justify-between text-sm">
-          <span className="text-slate-300">{metric.label}</span>
-          <span className="text-xs text-slate-600">Not yet tracked</span>
+          <span className="text-text-2">{metric.label}</span>
+          <span className="text-xs text-text-3">Not yet tracked</span>
         </div>
-        <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-white/5" />
+        <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-ink-3" />
       </div>
     );
   }
@@ -48,13 +46,13 @@ function UsageBar({ metric }: { metric: UsageMetric }) {
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between text-sm">
-        <span className="text-slate-300">{metric.label}</span>
-        <span className="text-slate-400">
+        <span className="text-text-2">{metric.label}</span>
+        <span className="text-text-3">
           {metric.used.toLocaleString()}
-          <span className="text-slate-600"> / {limitLabel} {metric.unit}</span>
+          <span className="text-text-3"> / {limitLabel} {metric.unit}</span>
         </span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+      <div className="h-2 w-full overflow-hidden rounded-full bg-ink-3">
         <div
           className="h-full rounded-full transition-all duration-700 ease-out"
           style={{ width: width + "%", backgroundColor: color }}
@@ -64,15 +62,15 @@ function UsageBar({ metric }: { metric: UsageMetric }) {
   );
 }
 
-export default function UsageCard({ metrics }: Props) {
+export default function UsageCard({ metrics }: { metrics: UsageMetric[] }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur">
-      <h3 className="mb-5 text-lg font-semibold text-white">Usage Overview</h3>
+    <Card>
+      <h3 className="mb-5 text-lg font-semibold text-text">Usage Overview</h3>
       <div className="space-y-4">
         {metrics.map((m) => (
           <UsageBar key={m.label} metric={m} />
         ))}
       </div>
-    </div>
+    </Card>
   );
 }

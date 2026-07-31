@@ -1,7 +1,8 @@
-﻿"use client";
+"use client";
 // components/billing/PricingTable.tsx
 // Sprint 13A — Subscription & Billing Foundation
-
+// Sprint D1.0 - Retrofitted onto tokens (bg-sky-500 active toggle -> gold,
+// bg-white/5 chrome -> ink-2/border).
 import { useState } from "react";
 import type { Plan, BillingCycle, PlanId } from "@/types/billing";
 import { BILLING_CYCLE_LABELS, YEARLY_DISCOUNT_PCT } from "@/config/billing.config";
@@ -25,20 +26,20 @@ export default function PricingTable({
   return (
     <div>
       <div className="mb-6 flex items-center justify-center">
-        <div className="inline-flex rounded-xl border border-white/10 bg-white/5 p-1">
+        <div className="inline-flex rounded-control border border-border bg-ink-2 p-1">
           {cycles.map((c) => (
             <button
               key={c}
               onClick={() => setCycle(c)}
-              className={`relative rounded-lg px-4 py-2 text-sm font-medium transition ${
+              className={`relative rounded-control px-4 py-2 text-sm font-medium transition ${
                 cycle === c
-                  ? "bg-sky-500 text-white shadow"
-                  : "text-slate-400 hover:text-white"
+                  ? "bg-gold text-ink shadow"
+                  : "text-text-3 hover:text-text"
               }`}
             >
               {BILLING_CYCLE_LABELS[c]}
               {c === "yearly" && (
-                <span className="ml-2 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                <span className="ml-2 rounded-full bg-success/20 px-2 py-0.5 text-[10px] font-semibold text-success">
                   -{YEARLY_DISCOUNT_PCT}%
                 </span>
               )}

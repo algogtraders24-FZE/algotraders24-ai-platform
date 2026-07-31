@@ -6,13 +6,13 @@ import type { WorkflowStatus, RunStatus } from "@/types/automation";
 type AnyStatus = WorkflowStatus | RunStatus;
 
 const MAP: Record<AnyStatus, string> = {
-  active: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  paused: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  draft: "bg-slate-500/15 text-slate-400 border-slate-500/30",
-  queued: "bg-slate-500/15 text-slate-400 border-slate-500/30",
-  running: "bg-indigo-500/15 text-indigo-400 border-indigo-500/30",
-  success: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  failed: "bg-red-500/15 text-red-400 border-red-500/30",
+  active: "bg-success/15 text-success border-success/30",
+  paused: "bg-warning/15 text-warning border-warning/30",
+  draft: "bg-ink-4 text-text-2 border-border",
+  queued: "bg-ink-4 text-text-2 border-border",
+  running: "bg-gold/15 text-gold border-gold/30",
+  success: "bg-success/15 text-success border-success/30",
+  failed: "bg-danger/15 text-danger border-danger/30",
 };
 
 export default function AutomationStatus({ status }: { status: AnyStatus }) {

@@ -2,21 +2,21 @@
 import type { RiskAnalysis } from "@/types/risk-analysis";
 
 const QUALITY: Record<RiskAnalysis["tradeQuality"], string> = {
-  low: "text-red-400",
-  medium: "text-amber-400",
-  high: "text-emerald-400",
-  premium: "text-indigo-400",
+  low: "text-danger",
+  medium: "text-warning",
+  high: "text-success",
+  premium: "text-gold",
 };
 
 export default function RiskCard({ risk }: { risk: RiskAnalysis }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-      <p className="mb-3 text-sm font-semibold text-slate-300">Risk</p>
+    <div className="rounded-xl border border-border bg-ink-2 p-4">
+      <p className="mb-3 text-sm font-semibold text-text-2">Risk</p>
       <div className="space-y-2 text-xs">
-        <div className="flex justify-between"><span className="text-slate-500">Risk %</span><span className="text-slate-200">{risk.riskPercent}%</span></div>
-        <div className="flex justify-between"><span className="text-slate-500">Risk/Reward</span><span className="text-slate-200">{risk.riskRewardRatio}</span></div>
-        <div className="flex justify-between"><span className="text-slate-500">Suggested Lot</span><span className="text-slate-200">{risk.suggestedLotSize}</span></div>
-        <div className="flex justify-between"><span className="text-slate-500">Quality</span><span className={`font-semibold capitalize ${QUALITY[risk.tradeQuality]}`}>{risk.tradeQuality}</span></div>
+        <div className="flex justify-between"><span className="text-text-3">Risk %</span><span className="text-text">{risk.riskPercent}%</span></div>
+        <div className="flex justify-between"><span className="text-text-3">Risk/Reward</span><span className="text-text">{risk.riskRewardRatio}</span></div>
+        <div className="flex justify-between"><span className="text-text-3">Suggested Lot</span><span className="text-text">{risk.suggestedLotSize}</span></div>
+        <div className="flex justify-between"><span className="text-text-3">Quality</span><span className={`font-semibold capitalize ${QUALITY[risk.tradeQuality]}`}>{risk.tradeQuality}</span></div>
       </div>
     </div>
   );

@@ -10,9 +10,9 @@ import type { AdminAnalytics } from "@/services/admin/AdminAnalyticsService";
 
 function Card({ label, value, accent }: { label: string; value: React.ReactNode; accent?: string }) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-      <p className="text-xs font-medium uppercase tracking-wider text-slate-500">{label}</p>
-      <div className="mt-2 text-2xl font-semibold text-white" style={accent ? { color: accent } : undefined}>
+    <div className="rounded-2xl border border-border bg-ink-2 p-5">
+      <p className="text-xs font-medium uppercase tracking-wider text-text-3">{label}</p>
+      <div className="mt-2 text-2xl font-semibold text-text" style={accent ? { color: accent } : undefined}>
         {value}
       </div>
     </div>
@@ -34,14 +34,14 @@ export default function AdminOverviewPage() {
   }, []);
 
   if (error) {
-    return <p className="rounded-xl border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-200">{error}</p>;
+    return <p className="rounded-xl border border-danger/30 bg-danger/10 p-4 text-sm text-danger">{error}</p>;
   }
 
   if (!health || !analytics) {
     return (
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="h-24 animate-pulse rounded-2xl border border-slate-800 bg-slate-900" />
+          <div key={i} className="h-24 animate-pulse rounded-2xl border border-border bg-ink-2" />
         ))}
       </div>
     );
@@ -72,10 +72,10 @@ export default function AdminOverviewPage() {
           <Link
             key={link.href}
             href={link.href}
-            className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 transition hover:border-indigo-500/40 hover:bg-slate-900"
+            className="rounded-xl border border-border bg-ink-2 p-4 transition hover:border-gold/40 hover:bg-ink-2"
           >
-            <p className="font-semibold text-slate-200">{link.label}</p>
-            <p className="mt-1 text-xs text-slate-500">{link.desc}</p>
+            <p className="font-semibold text-text">{link.label}</p>
+            <p className="mt-1 text-xs text-text-3">{link.desc}</p>
           </Link>
         ))}
       </div>

@@ -41,8 +41,8 @@ export default function ConversationSidebar({
   );
 
   return (
-    <aside className="flex w-64 flex-col border-r border-slate-800 bg-slate-950">
-      <button onClick={onNew} className="m-3 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500">
+    <aside className="flex w-64 flex-col border-r border-border bg-ink">
+      <button onClick={onNew} className="m-3 rounded-lg bg-gold px-3 py-2 text-sm font-semibold text-ink hover:brightness-110">
         + New Chat
       </button>
 
@@ -50,10 +50,10 @@ export default function ConversationSidebar({
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="Search..."
-        className="mx-3 mb-2 rounded-lg border border-slate-800 bg-slate-900 px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-indigo-500/50"
+        className="mx-3 mb-2 rounded-lg border border-border bg-ink-2 px-3 py-1.5 text-sm text-text outline-none focus:border-gold/50"
       />
 
-      <button onClick={() => setShowArchived((v) => !v)} className="mx-3 mb-2 text-left text-xs text-slate-500 hover:text-slate-300">
+      <button onClick={() => setShowArchived((v) => !v)} className="mx-3 mb-2 text-left text-xs text-text-3 hover:text-text-2">
         {showArchived ? "← Back to chats" : "View archived"}
       </button>
 
@@ -62,24 +62,24 @@ export default function ConversationSidebar({
           <div
             key={c.id}
             className={`group rounded-lg px-3 py-2 text-sm transition ${
-              c.id === activeId ? "bg-slate-800 text-slate-100" : "text-slate-400 hover:bg-slate-900"
+              c.id === activeId ? "bg-ink-3 text-text" : "text-text-2 hover:bg-ink-2"
             }`}
           >
             <div className="flex items-center gap-2">
               <button onClick={() => onSelect(c.id)} className="flex-1 truncate text-left">
                 {c.pinned ? "📌 " : ""}{c.title}
               </button>
-              <span className="shrink-0 text-[10px] text-slate-600">{formatRelativeTime(c.updatedAt)}</span>
+              <span className="shrink-0 text-[10px] text-text-3">{formatRelativeTime(c.updatedAt)}</span>
             </div>
-            <div className="mt-1 hidden gap-2 text-[10px] text-slate-500 group-hover:flex">
-              <button onClick={() => onRename(c.id, prompt("Rename:", c.title) ?? c.title)} className="hover:text-slate-200">Rename</button>
-              <button onClick={() => onPin(c.id, !c.pinned)} className="hover:text-slate-200">{c.pinned ? "Unpin" : "Pin"}</button>
-              <button onClick={() => onArchive(c.id, !c.archived)} className="hover:text-slate-200">{c.archived ? "Restore" : "Archive"}</button>
-              <button onClick={() => onDelete(c.id)} className="hover:text-red-400">Delete</button>
+            <div className="mt-1 hidden gap-2 text-[10px] text-text-3 group-hover:flex">
+              <button onClick={() => onRename(c.id, prompt("Rename:", c.title) ?? c.title)} className="hover:text-text">Rename</button>
+              <button onClick={() => onPin(c.id, !c.pinned)} className="hover:text-text">{c.pinned ? "Unpin" : "Pin"}</button>
+              <button onClick={() => onArchive(c.id, !c.archived)} className="hover:text-text">{c.archived ? "Restore" : "Archive"}</button>
+              <button onClick={() => onDelete(c.id)} className="hover:text-danger">Delete</button>
             </div>
           </div>
         ))}
-        {filtered.length === 0 && <p className="px-3 text-xs text-slate-600">No conversations.</p>}
+        {filtered.length === 0 && <p className="px-3 text-xs text-text-3">No conversations.</p>}
       </nav>
     </aside>
   );

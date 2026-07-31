@@ -2,10 +2,10 @@
 import type { ArticleStatus } from "@/types/article";
 
 const MAP: Record<ArticleStatus, string> = {
-  draft: "bg-slate-500/15 text-slate-400 border-slate-500/30",
-  scheduled: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  published: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  failed: "bg-red-500/15 text-red-400 border-red-500/30",
+  draft: "bg-ink-4 text-text-2 border-border",
+  scheduled: "bg-warning/15 text-warning border-warning/30",
+  published: "bg-success/15 text-success border-success/30",
+  failed: "bg-danger/15 text-danger border-danger/30",
 };
 
 export default function PublishingStatus({ status }: { status: ArticleStatus }) {

@@ -96,14 +96,14 @@ export default function AgentsPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-950 p-6 text-slate-100">
+      <div className="min-h-screen bg-ink p-6 text-text">
         <div className="mx-auto max-w-6xl">
-          <div className="rounded-2xl border border-red-400/30 bg-red-500/10 p-6 text-sm">
-            <p className="font-semibold text-red-300">Could not load agents</p>
-            <p className="mt-1 text-slate-400">{error}</p>
+          <div className="rounded-2xl border border-danger/30 bg-danger/10 p-6 text-sm">
+            <p className="font-semibold text-danger">Could not load agents</p>
+            <p className="mt-1 text-text-2">{error}</p>
             <button
               onClick={retry}
-              className="mt-4 rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-800"
+              className="mt-4 rounded-lg border border-border px-4 py-2 text-sm font-medium text-text transition hover:bg-ink-3"
             >
               Retry
             </button>
@@ -115,11 +115,11 @@ export default function AgentsPage() {
 
   if (!ready || !metrics) {
     return (
-      <div className="min-h-screen bg-slate-950 p-6 text-slate-100">
+      <div className="min-h-screen bg-ink p-6 text-text">
         <div className="mx-auto max-w-6xl space-y-6">
-          <header className="rounded-2xl border border-slate-800 bg-gradient-to-r from-indigo-600/20 to-purple-600/10 p-6">
+          <header className="rounded-2xl border border-border bg-gradient-to-r from-gold/20 to-gold/10 p-6">
             <h1 className="text-2xl font-bold">AI Agent Framework</h1>
-            <p className="mt-1 text-sm text-slate-400">
+            <p className="mt-1 text-sm text-text-2">
               Central intelligence layer - autonomous agents
             </p>
           </header>
@@ -127,13 +127,13 @@ export default function AgentsPage() {
             {[0, 1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="h-24 animate-pulse rounded-xl border border-slate-800 bg-slate-900"
+                className="h-24 animate-pulse rounded-xl border border-border bg-ink-2"
               />
             ))}
           </div>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <div className="h-96 animate-pulse rounded-xl border border-slate-800 bg-slate-900 lg:col-span-2" />
-            <div className="h-96 animate-pulse rounded-xl border border-slate-800 bg-slate-900" />
+            <div className="h-96 animate-pulse rounded-xl border border-border bg-ink-2 lg:col-span-2" />
+            <div className="h-96 animate-pulse rounded-xl border border-border bg-ink-2" />
           </div>
         </div>
       </div>
@@ -141,11 +141,11 @@ export default function AgentsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6 text-slate-100">
+    <div className="min-h-screen bg-ink p-6 text-text">
       <div className="mx-auto max-w-6xl space-y-6">
-        <header className="rounded-2xl border border-slate-800 bg-gradient-to-r from-indigo-600/20 to-purple-600/10 p-6">
+        <header className="rounded-2xl border border-border bg-gradient-to-r from-gold/20 to-gold/10 p-6">
           <h1 className="text-2xl font-bold">AI Agent Framework</h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 text-sm text-text-2">
             Central intelligence layer - autonomous agents
           </p>
         </header>
@@ -154,7 +154,7 @@ export default function AgentsPage() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
-            <h2 className="mb-4 text-sm font-semibold text-slate-300">Agents</h2>
+            <h2 className="mb-4 text-sm font-semibold text-text-2">Agents</h2>
             <AgentGrid
               agents={agents}
               onOpen={onOpen}
@@ -163,7 +163,7 @@ export default function AgentsPage() {
             />
           </div>
           <div>
-            <h2 className="mb-4 text-sm font-semibold text-slate-300">Details</h2>
+            <h2 className="mb-4 text-sm font-semibold text-text-2">Details</h2>
             <AgentDetails
               agent={active}
               tasks={tasks}

@@ -1,14 +1,16 @@
 // components/knowledge/KnowledgeUploader.tsx
-// Sprint L2.2 - Real file upload. Previously a title-only text field whose
-// submit handler was explicitly commented "Simulated upload" - this is a
-// real <input type="file">, real client-side validation (file chosen,
-// size, extension), and real server errors surfaced verbatim rather than
-// hidden behind a fake success state.
+// Sprint L2.2 - Real file upload with real client-side validation and real
+// server errors surfaced verbatim.
+// Sprint D1.0 - Retrofitted onto Card/Select/Button + tokens (indigo-600
+// button/slate chrome -> gold/ink).
 "use client";
 
 import { useState } from "react";
 import { KNOWLEDGE_CATEGORIES } from "@/config/knowledge.config";
 import type { KnowledgeCollection } from "@/types/knowledge";
+import Card from "@/components/ui/Card";
+import Select from "@/components/ui/Select";
+import Button from "@/components/ui/Button";
 
 const ACCEPTED = ".pdf,.docx,.txt,.md,.markdown";
 const MAX_BYTES = 15 * 1024 * 1024;
@@ -47,52 +49,38 @@ export default function KnowledgeUploader({ collections, uploading, error, onUpl
   };
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-      <p className="mb-3 text-sm font-semibold text-slate-300">Upload Document</p>
+    <Card padding="sm">
+      <p className="mb-3 text-sm font-semibold text-text-2">Upload Document</p>
       <div className="space-y-2">
         <input
           type="file"
           accept={ACCEPTED}
           onChange={handleFileChange}
           disabled={uploading}
-          className="block w-full text-xs text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-800 file:px-3 file:py-2 file:text-xs file:font-medium file:text-slate-200 hover:file:bg-slate-700 disabled:opacity-50"
+          className="block w-full text-xs text-text-3 file:mr-3 file:rounded-control file:border-0 file:bg-ink-3 file:px-3 file:py-2 file:text-xs file:font-medium file:text-text-2 hover:file:bg-ink-4 disabled:opacity-50"
         />
-        <p className="text-[10px] text-slate-600">PDF, DOCX, TXT, or Markdown — up to 15MB.</p>
+        <p className="text-[10px] text-text-3">PDF, DOCX, TXT, or Markdown — up to 15MB.</p>
 
         <div className="grid grid-cols-2 gap-2">
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            disabled={uploading}
-            className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-indigo-500/50"
-          >
+          <Select value={category} onChange={(e) => setCategory(e.target.value)} disabled={uploading}>
             {KNOWLEDGE_CATEGORIES.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
-          </select>
-          <select
-            value={collectionId}
-            onChange={(e) => setCollectionId(e.target.value)}
-            disabled={uploading}
-            className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-indigo-500/50"
-          >
+          </Select>
+          <Select value={collectionId} onChange={(e) => setCollectionId(e.target.value)} disabled={uploading}>
             <option value="">No collection</option>
             {collections.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
-          </select>
+          </Select>
         </div>
 
-        {(localError || error) && <p className="text-xs text-red-400">{localError ?? error}</p>}
+        {(localError || error) && <p className="text-xs text-danger">{localError ?? error}</p>}
 
-        <button
-          onClick={submit}
-          disabled={uploading}
-          className="w-full rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
-        >
+        <Button onClick={submit} loading={uploading} fullWidth>
           {uploading ? "Uploading & indexing…" : "Upload & Index"}
-        </button>
+        </Button>
       </div>
-    </div>
+    </Card>
   );
 }

@@ -4,6 +4,10 @@
 // baseline anywhere to compute that from. Dropped rather than replaced
 // with a differently-shaped fake number: this card now shows exactly what
 // it can honestly show, a real current count.
+// Sprint D1.0 - Retrofitted onto the Card primitive/token system
+// (bg-[#0C1324]/border-[#1F2937] -> Card's ink-2/border).
+import Card from "@/components/ui/Card";
+
 export interface DashboardStat {
   label: string;
   value: string | number;
@@ -11,9 +15,9 @@ export interface DashboardStat {
 
 export default function DashboardStatCard({ stat }: { stat: DashboardStat }) {
   return (
-    <div className="rounded-2xl bg-[#0C1324] border border-[#1F2937] p-6">
-      <div className="text-gray-400 text-sm">{stat.label}</div>
-      <div className="text-3xl font-bold mt-2">{stat.value}</div>
-    </div>
+    <Card>
+      <div className="text-text-3 text-sm">{stat.label}</div>
+      <div className="text-3xl font-bold mt-2 text-text">{stat.value}</div>
+    </Card>
   );
 }

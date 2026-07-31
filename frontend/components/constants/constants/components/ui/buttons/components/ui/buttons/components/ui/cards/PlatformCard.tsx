@@ -16,7 +16,7 @@ subtitle
 
 return(
 
-<div className="rounded-2xl border border-white/10 bg-white/5 p-8 hover:border-blue-500 transition">
+<div className="rounded-2xl border border-border bg-ink-2 p-8 hover:border-gold transition">
 
 <h3 className="text-2xl font-bold">
 
@@ -24,7 +24,7 @@ return(
 
 </h3>
 
-<p className="text-blue-400 mt-3">
+<p className="text-gold mt-3">
 
 {subtitle}
 

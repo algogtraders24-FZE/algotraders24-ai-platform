@@ -1,10 +1,7 @@
 // app/(auth)/reset-password/page.tsx
-// Sprint R1.0.1 - The page that was missing entirely: forgotPasswordAction
-// could send a real reset email, but nothing ever collected the new
-// password after the user clicked the link. Reached via
-// /auth/callback?redirectTo=/reset-password (see AuthService.forgotPassword),
-// which exchanges the recovery code for a session before landing here -
-// resetPasswordAction then requires that session to actually be active.
+// Sprint R1.0.1 - Reached via /auth/callback?redirectTo=/reset-password
+// after the recovery code is exchanged for a session.
+// Sprint D1.0 - Retrofitted onto Card/Input/Button/Alert + tokens.
 "use client";
 
 import { useActionState } from "react";
@@ -13,6 +10,10 @@ import {
   resetPasswordAction,
   type ActionState,
 } from "@/app/(auth)/actions/auth.actions";
+import Card from "@/components/ui/Card";
+import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
+import Alert from "@/components/ui/Alert";
 
 const initialState: ActionState = {};
 
@@ -23,71 +24,49 @@ export default function ResetPasswordPage() {
   );
 
   return (
-    <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-8 shadow-xl">
-      <h1 className="text-2xl font-semibold text-white">Set a new password</h1>
-      <p className="mt-1 text-sm text-neutral-400">
+    <Card padding="lg" raised>
+      <h1 className="text-2xl font-semibold text-text">Set a new password</h1>
+      <p className="mt-1 text-sm text-text-2">
         Choose a new password for your account.
       </p>
 
       <form action={formAction} className="mt-6 space-y-4">
         <div>
-          <label className="block text-sm font-medium text-neutral-300">
-            New password
-          </label>
-          <input
-            type="password"
-            name="password"
-            required
-            minLength={8}
-            autoComplete="new-password"
-            className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white outline-none focus:border-emerald-500"
-          />
-          <p className="mt-1 text-xs text-neutral-500">At least 8 characters.</p>
+          <label className="block text-sm font-medium text-text-2">New password</label>
+          <Input type="password" name="password" required minLength={8} autoComplete="new-password" className="mt-1" />
+          <p className="mt-1 text-xs text-text-3">At least 8 characters.</p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-neutral-300">
-            Confirm new password
-          </label>
-          <input
-            type="password"
-            name="confirmPassword"
-            required
-            minLength={8}
-            autoComplete="new-password"
-            className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white outline-none focus:border-emerald-500"
-          />
+          <label className="block text-sm font-medium text-text-2">Confirm new password</label>
+          <Input type="password" name="confirmPassword" required minLength={8} autoComplete="new-password" className="mt-1" />
         </div>
 
         {state.error ? (
-          <div className="rounded-lg border border-red-900 bg-red-950/40 p-3 text-sm text-red-400">
+          <Alert tone="danger">
             {state.error}
             {state.error.toLowerCase().includes("expired") && (
               <>
                 {" "}
-                <Link href="/forgot-password" className="underline hover:text-red-300">
+                <Link href="/forgot-password" className="underline hover:text-text">
                   Request a new link
                 </Link>
                 .
               </>
             )}
-          </div>
+          </Alert>
         ) : null}
 
-        <button
-          type="submit"
-          disabled={pending}
-          className="w-full rounded-lg bg-emerald-600 px-4 py-2 font-medium text-white transition hover:bg-emerald-500 disabled:opacity-50"
-        >
+        <Button type="submit" loading={pending} fullWidth>
           {pending ? "Updating..." : "Update password"}
-        </button>
+        </Button>
       </form>
 
       <div className="mt-4 text-center text-sm">
-        <Link href="/login" className="text-emerald-400 hover:text-emerald-300">
+        <Link href="/login" className="text-gold hover:text-gold-strong">
           Back to sign in
         </Link>
       </div>
-    </div>
+    </Card>
   );
 }

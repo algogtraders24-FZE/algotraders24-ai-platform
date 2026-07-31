@@ -7,18 +7,18 @@ interface ProductCardProps {
 
 export default function ProductCard({ product }: ProductCardProps) {
   return (
-    <div className="rounded-2xl bg-[#111827] border border-[#1F2937] p-6 flex flex-col hover:border-blue-500 transition duration-300">
+    <div className="rounded-2xl bg-ink-3 border border-border p-6 flex flex-col hover:border-gold transition duration-300">
       {/* Top: platform tag + status/featured badge */}
       <div className="flex items-center justify-between mb-4">
-        <span className="text-xs font-semibold bg-blue-600/20 text-blue-400 px-3 py-1 rounded-full">
+        <span className="text-xs font-semibold bg-gold/20 text-gold px-3 py-1 rounded-full">
           {product.platform}
         </span>
         {product.featured ? (
-          <span className="text-xs font-semibold bg-purple-600/20 text-purple-400 px-3 py-1 rounded-full">
+          <span className="text-xs font-semibold bg-gold/20 text-gold px-3 py-1 rounded-full">
             Featured
           </span>
         ) : product.status === "beta" ? (
-          <span className="text-xs font-semibold bg-yellow-600/20 text-yellow-400 px-3 py-1 rounded-full">
+          <span className="text-xs font-semibold bg-warning/20 text-warning px-3 py-1 rounded-full">
             Beta
           </span>
         ) : null}
@@ -28,13 +28,13 @@ export default function ProductCard({ product }: ProductCardProps) {
       <h3 className="text-xl font-bold mb-2">{product.name}</h3>
 
       {/* Short description */}
-      <p className="text-gray-400 text-sm flex-grow">
+      <p className="text-text-2 text-sm flex-grow">
         {product.shortDescription}
       </p>
 
       {/* Rating + downloads */}
-      <div className="flex items-center gap-4 mt-4 text-sm text-gray-400">
-        <span className="text-yellow-400">★ {product.rating.toFixed(1)}</span>
+      <div className="flex items-center gap-4 mt-4 text-sm text-text-2">
+        <span className="text-warning">★ {product.rating.toFixed(1)}</span>
         <span>{product.downloads.toLocaleString()} downloads</span>
       </div>
 
@@ -42,13 +42,13 @@ export default function ProductCard({ product }: ProductCardProps) {
       <div className="flex items-center justify-between mt-6">
         <span className="text-2xl font-bold">
           ${product.price}
-          <span className="text-sm text-gray-400 font-normal ml-1">
+          <span className="text-sm text-text-2 font-normal ml-1">
             {product.currency}
           </span>
         </span>
         <Link
           href={`/products/${product.slug}`}
-          className="bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-xl font-semibold transition"
+          className="bg-gold hover:brightness-110 px-5 py-2 rounded-xl font-semibold transition"
         >
           View
         </Link>

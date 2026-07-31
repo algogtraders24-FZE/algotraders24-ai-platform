@@ -16,8 +16,8 @@ export default function NewsFilter({ value, onChange }: Props) {
         onClick={() => onChange("all")}
         className={`rounded-lg border px-3 py-1.5 text-xs font-medium capitalize transition ${
           value === "all"
-            ? "border-indigo-500/40 bg-indigo-500/15 text-indigo-300"
-            : "border-slate-800 text-slate-400 hover:border-slate-700"
+            ? "border-gold/40 bg-gold/15 text-gold"
+            : "border-border text-text-2 hover:border-border"
         }`}
       >
         All
@@ -28,8 +28,8 @@ export default function NewsFilter({ value, onChange }: Props) {
           onClick={() => onChange(c)}
           className={`rounded-lg border px-3 py-1.5 text-xs font-medium capitalize transition ${
             value === c
-              ? "border-indigo-500/40 bg-indigo-500/15 text-indigo-300"
-              : "border-slate-800 text-slate-400 hover:border-slate-700"
+              ? "border-gold/40 bg-gold/15 text-gold"
+              : "border-border text-text-2 hover:border-border"
           }`}
         >
           {c}

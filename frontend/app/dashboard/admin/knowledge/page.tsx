@@ -61,39 +61,39 @@ export default function AdminKnowledgePage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-white">Knowledge Documents ({total})</h2>
+      <h2 className="text-lg font-semibold text-text">Knowledge Documents ({total})</h2>
 
       {stats && (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-            <p className="text-xs uppercase tracking-wider text-slate-500">Total Documents</p>
-            <p className="mt-1 text-xl font-semibold text-white">{stats.totalDocuments.toLocaleString()}</p>
+          <div className="rounded-2xl border border-border bg-ink-2 p-4">
+            <p className="text-xs uppercase tracking-wider text-text-3">Total Documents</p>
+            <p className="mt-1 text-xl font-semibold text-text">{stats.totalDocuments.toLocaleString()}</p>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-            <p className="text-xs uppercase tracking-wider text-slate-500">Total Storage</p>
-            <p className="mt-1 text-xl font-semibold text-white">{formatBytes(stats.totalStorageBytes)}</p>
+          <div className="rounded-2xl border border-border bg-ink-2 p-4">
+            <p className="text-xs uppercase tracking-wider text-text-3">Total Storage</p>
+            <p className="mt-1 text-xl font-semibold text-text">{formatBytes(stats.totalStorageBytes)}</p>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-            <p className="text-xs uppercase tracking-wider text-slate-500">By Status</p>
-            <p className="mt-1 text-xs text-slate-400">
+          <div className="rounded-2xl border border-border bg-ink-2 p-4">
+            <p className="text-xs uppercase tracking-wider text-text-3">By Status</p>
+            <p className="mt-1 text-xs text-text-2">
               {Object.entries(stats.byStatus).map(([k, v]) => `${k}: ${v}`).join(" · ") || "none"}
             </p>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-            <p className="text-xs uppercase tracking-wider text-slate-500">By Embedding Status</p>
-            <p className="mt-1 text-xs text-slate-400">
+          <div className="rounded-2xl border border-border bg-ink-2 p-4">
+            <p className="text-xs uppercase tracking-wider text-text-3">By Embedding Status</p>
+            <p className="mt-1 text-xs text-text-2">
               {Object.entries(stats.byEmbeddingStatus).map(([k, v]) => `${k}: ${v}`).join(" · ") || "none"}
             </p>
           </div>
         </div>
       )}
 
-      {error && <p className="rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
+      {error && <p className="rounded-xl border border-danger/30 bg-danger/10 p-3 text-sm text-danger">{error}</p>}
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/40">
+      <div className="overflow-x-auto rounded-2xl border border-border bg-ink-2">
         <table className="w-full min-w-[820px] text-sm">
           <thead>
-            <tr className="border-b border-slate-800 text-left text-xs uppercase tracking-wider text-slate-500">
+            <tr className="border-b border-border text-left text-xs uppercase tracking-wider text-text-3">
               <th className="px-4 py-3 font-medium">Title</th>
               <th className="px-4 py-3 font-medium">Owner</th>
               <th className="px-4 py-3 font-medium">Status</th>
@@ -106,20 +106,20 @@ export default function AdminKnowledgePage() {
           <tbody>
             {!loading &&
               rows.map((r) => (
-                <tr key={r.id} className="border-b border-slate-800/60 last:border-0">
-                  <td className="px-4 py-3 text-slate-200">{r.title}</td>
-                  <td className="px-4 py-3 text-slate-500">{r.ownerEmail}</td>
-                  <td className="px-4 py-3 text-slate-400">
+                <tr key={r.id} className="border-b border-border last:border-0">
+                  <td className="px-4 py-3 text-text">{r.title}</td>
+                  <td className="px-4 py-3 text-text-3">{r.ownerEmail}</td>
+                  <td className="px-4 py-3 text-text-2">
                     {r.status} / {r.embeddingStatus}
                   </td>
-                  <td className="px-4 py-3 text-slate-400">{r.chunkCount}</td>
-                  <td className="px-4 py-3 text-slate-400">{formatBytes(r.documentSize)}</td>
-                  <td className="px-4 py-3 text-slate-400">{r.retrievalCount}</td>
+                  <td className="px-4 py-3 text-text-2">{r.chunkCount}</td>
+                  <td className="px-4 py-3 text-text-2">{formatBytes(r.documentSize)}</td>
+                  <td className="px-4 py-3 text-text-2">{r.retrievalCount}</td>
                   <td className="px-4 py-3 text-right">
                     <button
                       onClick={() => remove(r.id)}
                       disabled={busyId === r.id}
-                      className="rounded-lg border border-slate-700 px-2.5 py-1 text-xs text-slate-300 transition hover:border-red-400/40 hover:text-red-300 disabled:opacity-40"
+                      className="rounded-lg border border-border px-2.5 py-1 text-xs text-text-2 transition hover:border-danger/40 hover:text-danger disabled:opacity-40"
                     >
                       Delete
                     </button>
@@ -128,11 +128,11 @@ export default function AdminKnowledgePage() {
               ))}
           </tbody>
         </table>
-        {loading && <div className="h-40 animate-pulse bg-slate-900" />}
-        {!loading && rows.length === 0 && <p className="p-6 text-center text-sm text-slate-600">No documents found.</p>}
+        {loading && <div className="h-40 animate-pulse bg-ink-2" />}
+        {!loading && rows.length === 0 && <p className="p-6 text-center text-sm text-text-3">No documents found.</p>}
       </div>
 
-      <div className="flex items-center justify-between text-sm text-slate-500">
+      <div className="flex items-center justify-between text-sm text-text-3">
         <span>
           Page {page} of {totalPages}
         </span>
@@ -140,14 +140,14 @@ export default function AdminKnowledgePage() {
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1}
-            className="rounded-lg border border-slate-800 px-3 py-1 disabled:opacity-40"
+            className="rounded-lg border border-border px-3 py-1 disabled:opacity-40"
           >
             Previous
           </button>
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page >= totalPages}
-            className="rounded-lg border border-slate-800 px-3 py-1 disabled:opacity-40"
+            className="rounded-lg border border-border px-3 py-1 disabled:opacity-40"
           >
             Next
           </button>

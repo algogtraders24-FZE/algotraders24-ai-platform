@@ -24,11 +24,11 @@ export default function NewsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6 text-slate-100">
+    <div className="min-h-screen bg-ink p-6 text-text">
       <div className="mx-auto max-w-6xl">
         <header className="mb-6">
           <h1 className="text-2xl font-bold">AI Financial News</h1>
-          <p className="text-sm text-slate-500">AI-analyzed headlines & economic calendar · mock data</p>
+          <p className="text-sm text-text-3">AI-analyzed headlines & economic calendar · mock data</p>
         </header>
 
         <div className="mb-6">
@@ -44,12 +44,12 @@ export default function NewsPage() {
             <NewsCard key={n.id} article={n} />
           ))}
           {filtered.length === 0 && (
-            <p className="col-span-full text-sm text-slate-500">No news matches the filter.</p>
+            <p className="col-span-full text-sm text-text-3">No news matches the filter.</p>
           )}
         </section>
 
         <section>
-          <h2 className="mb-3 text-sm font-semibold text-slate-300">High Impact Economic Events</h2>
+          <h2 className="mb-3 text-sm font-semibold text-text-2">High Impact Economic Events</h2>
           <EconomicCalendar events={events} />
         </section>
       </div>

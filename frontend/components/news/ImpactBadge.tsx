@@ -2,9 +2,9 @@
 import type { ImpactLevel } from "@/types/news-impact";
 
 const MAP: Record<ImpactLevel, string> = {
-  low: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  medium: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  high: "bg-red-500/15 text-red-400 border-red-500/30",
+  low: "bg-success/15 text-success border-success/30",
+  medium: "bg-warning/15 text-warning border-warning/30",
+  high: "bg-danger/15 text-danger border-danger/30",
 };
 
 export default function ImpactBadge({ level }: { level: ImpactLevel }) {

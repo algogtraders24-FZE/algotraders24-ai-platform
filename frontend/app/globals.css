@@ -29,6 +29,18 @@
   --border: #232b38;
   --signal-up: #3fb27f;
   --signal-down: #d1594a;
+
+  /* Sprint D1.0 - semantic UI-state aliases over the same physical colors
+     above. Never a second palette: --success/--warning/--danger/--info are
+     literally --signal-up/--warn/--signal-down/--steel by another name, so
+     a status badge and a market-direction badge always agree visually.
+     Added because "signal-up"/"signal-down" read oddly for a form-
+     validation error or a saved-successfully toast, which have nothing to
+     do with market direction. */
+  --success: var(--signal-up);
+  --warning: var(--warn);
+  --danger: var(--signal-down);
+  --info: var(--steel);
 }
 
 @theme inline {
@@ -49,6 +61,10 @@
   --color-border: var(--border);
   --color-signal-up: var(--signal-up);
   --color-signal-down: var(--signal-down);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
 
   /* --font-sans/--font-mono are fed by next/font in app/layout.tsx via the
      --font-geist-sans/--font-geist-mono variables - previously dead (no

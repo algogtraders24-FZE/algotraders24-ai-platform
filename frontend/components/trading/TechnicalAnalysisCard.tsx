@@ -10,13 +10,13 @@ export default function TechnicalAnalysisCard({ indicators }: { indicators: Tech
     ["Trend Strength", `${indicators.trendStrength}/100`],
   ];
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-      <p className="mb-3 text-sm font-semibold text-slate-300">Technical Analysis</p>
+    <div className="rounded-xl border border-border bg-ink-2 p-4">
+      <p className="mb-3 text-sm font-semibold text-text-2">Technical Analysis</p>
       <div className="space-y-2">
         {rows.map(([k, v]) => (
           <div key={k} className="flex justify-between text-xs">
-            <span className="text-slate-500">{k}</span>
-            <span className="font-medium text-slate-200">{v}</span>
+            <span className="text-text-3">{k}</span>
+            <span className="font-medium text-text">{v}</span>
           </div>
         ))}
       </div>

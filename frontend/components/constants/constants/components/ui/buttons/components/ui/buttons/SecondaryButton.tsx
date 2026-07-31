@@ -10,7 +10,7 @@ return(
 
 <button
 
-className="px-8 py-4 rounded-xl border border-white/20 hover:border-blue-500 transition"
+className="px-8 py-4 rounded-xl border border-border hover:border-gold transition"
 
 >
 

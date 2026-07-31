@@ -184,7 +184,7 @@ export default function AssistantPage() {
   const isGenerating = thinking || streamingDraft !== null;
 
   return (
-    <div className="flex h-[calc(100vh-2rem)] overflow-hidden rounded-xl border border-slate-800 bg-slate-950 text-slate-100">
+    <div className="flex h-[calc(100vh-2rem)] overflow-hidden rounded-xl border border-border bg-ink text-text">
       <ConversationSidebar
         conversations={list}
         activeId={active?.id ?? null}
@@ -213,9 +213,9 @@ export default function AssistantPage() {
       />
 
       <div className="flex flex-1 flex-col">
-        <header className="border-b border-slate-800 px-4 py-3">
+        <header className="border-b border-border px-4 py-3">
           <h1 className="text-lg font-bold">AI Strategy Assistant</h1>
-          <p className="text-xs text-slate-500">Persistent - Gemini 2.5 Flash</p>
+          <p className="text-xs text-text-3">Persistent - Gemini 2.5 Flash</p>
         </header>
 
         <ChatWindow

@@ -29,7 +29,7 @@ export default async function DashboardLayout({
 
   return (
     <UserProvider initialUser={currentUser}>
-      <div className="min-h-screen bg-[#050816] text-white flex">
+      <div className="min-h-screen bg-ink text-text flex">
         <DashboardSidebar />
         <div className="flex-1 flex flex-col">
           <DashboardHeader userName={currentUser.name} />

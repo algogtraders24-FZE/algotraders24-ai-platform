@@ -1,11 +1,14 @@
 // components/knowledge/KnowledgeSearch.tsx
-// Sprint L2.2 - onSearch is now async (the real vector search route) - a
-// real loading state and a real per-search error message replace what was
-// previously an instant, synchronous mock call.
+// Sprint L2.2 - onSearch is now async (the real vector search route).
+// Sprint D1.0 - Retrofitted onto Card/Input/Button + tokens (indigo-600
+// button/indigo-400 score -> gold, slate chrome -> ink/text).
 "use client";
 
 import { useState } from "react";
 import type { SearchResult } from "@/types/knowledge";
+import Card from "@/components/ui/Card";
+import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
 
 interface Props {
   onSearch: (query: string) => Promise<SearchResult[]>;
@@ -37,25 +40,21 @@ export default function KnowledgeSearch({ onSearch, onOpen }: Props) {
   };
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+    <Card padding="sm">
       <div className="flex gap-2">
-        <input
+        <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && run()}
           placeholder="Search the knowledge base..."
-          className="flex-1 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-indigo-500/50"
+          className="flex-1"
         />
-        <button
-          onClick={run}
-          disabled={loading}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
-        >
+        <Button onClick={run} loading={loading}>
           {loading ? "Searching…" : "Search"}
-        </button>
+        </Button>
       </div>
 
-      {error && <p className="mt-3 text-xs text-red-400">{error}</p>}
+      {error && <p className="mt-3 text-xs text-danger">{error}</p>}
 
       {searched && !error && (
         <div className="mt-3 space-y-2">
@@ -63,19 +62,19 @@ export default function KnowledgeSearch({ onSearch, onOpen }: Props) {
             <button
               key={r.chunkId}
               onClick={() => onOpen(r.document.id)}
-              className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-left hover:border-slate-700"
+              className="flex w-full items-center justify-between gap-3 rounded-control border border-border bg-ink px-3 py-2 text-left transition hover:border-gold/40"
             >
               <div className="min-w-0">
-                <p className="text-sm text-slate-200">{r.document.title}</p>
-                <p className="truncate text-xs text-slate-500">{r.snippet}</p>
-                <p className="mt-0.5 font-mono text-[10px] text-slate-600">chunk #{r.chunkIndex}</p>
+                <p className="text-sm text-text">{r.document.title}</p>
+                <p className="truncate text-xs text-text-3">{r.snippet}</p>
+                <p className="mt-0.5 font-mono text-[10px] text-text-3">chunk #{r.chunkIndex}</p>
               </div>
-              <span className="shrink-0 text-xs font-semibold text-indigo-400">{r.score}%</span>
+              <span className="shrink-0 text-xs font-semibold text-gold">{r.score}%</span>
             </button>
           ))}
-          {results.length === 0 && <p className="text-xs text-slate-600">No matching documents.</p>}
+          {results.length === 0 && <p className="text-xs text-text-3">No matching documents.</p>}
         </div>
       )}
-    </div>
+    </Card>
   );
 }

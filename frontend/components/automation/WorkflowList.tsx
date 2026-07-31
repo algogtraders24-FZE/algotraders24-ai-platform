@@ -18,7 +18,7 @@ export default function WorkflowList({ workflows, onRun, onToggle }: Props) {
       {workflows.map((w) => (
         <AutomationCard key={w.id} workflow={w} onRun={onRun} onToggle={onToggle} />
       ))}
-      {workflows.length === 0 && <p className="text-sm text-slate-500">No workflows yet.</p>}
+      {workflows.length === 0 && <p className="text-sm text-text-3">No workflows yet.</p>}
     </div>
   );
 }

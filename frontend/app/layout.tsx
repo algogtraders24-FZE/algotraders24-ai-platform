@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Source_Serif_4 } from "next/font/google";
+import { ToastProvider } from "@/components/ui/Toast";
 import "./globals.css";
 
 // Sprint H1.3 - Activates the fonts globals.css already referenced but
@@ -112,7 +113,7 @@ export default function RootLayout({
         <a href="#main-content" className="skip-link">
           Skip to main content
         </a>
-        {children}
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );

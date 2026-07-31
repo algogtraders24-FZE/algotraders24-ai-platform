@@ -1,5 +1,7 @@
-﻿// components/auth/GoogleButton.tsx
+// components/auth/GoogleButton.tsx
 // Sprint 14C+ - "Continue with Google" button. Submits the Google OAuth action.
+// Sprint D1.0 - Retrofitted onto the token system (border-neutral-700/
+// bg-neutral-950/hover:bg-neutral-800 -> border/ink-2/ink-3).
 import { signInWithGoogleAction } from "@/app/(auth)/actions/auth.actions";
 
 export default function GoogleButton() {
@@ -7,7 +9,7 @@ export default function GoogleButton() {
     <form action={signInWithGoogleAction}>
       <button
         type="submit"
-        className="flex w-full items-center justify-center gap-2 rounded-lg border border-neutral-700 bg-neutral-950 px-4 py-2 font-medium text-white transition hover:bg-neutral-800"
+        className="flex w-full items-center justify-center gap-2 rounded-control border border-border bg-ink-2 px-4 py-2 font-medium text-text transition hover:bg-ink-3"
       >
         <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z" />

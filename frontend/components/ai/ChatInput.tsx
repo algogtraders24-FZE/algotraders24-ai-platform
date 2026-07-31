@@ -24,7 +24,7 @@ export default function ChatInput({ onSend, onStop, isGenerating }: Props) {
   };
 
   return (
-    <div className="flex items-end gap-2 border-t border-slate-800 p-3">
+    <div className="flex items-end gap-2 border-t border-border p-3">
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -36,12 +36,12 @@ export default function ChatInput({ onSend, onStop, isGenerating }: Props) {
         }}
         rows={1}
         placeholder="Ask about a market, concept, or strategy..."
-        className="flex-1 resize-none rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-indigo-500/50"
+        className="flex-1 resize-none rounded-xl border border-border bg-ink px-3 py-2.5 text-sm text-text outline-none focus:border-gold/50"
       />
       {isGenerating ? (
         <button
           onClick={onStop}
-          className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:border-red-500/50 hover:text-red-300"
+          className="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-text transition hover:border-danger/50 hover:text-danger"
         >
           Stop
         </button>
@@ -49,7 +49,7 @@ export default function ChatInput({ onSend, onStop, isGenerating }: Props) {
         <button
           onClick={submit}
           disabled={!text.trim()}
-          className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-40"
+          className="rounded-xl bg-gold px-4 py-2.5 text-sm font-semibold text-ink transition hover:brightness-110 disabled:opacity-40"
         >
           Send
         </button>

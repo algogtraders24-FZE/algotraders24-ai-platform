@@ -1,5 +1,6 @@
-﻿// app/(auth)/forgot-password/page.tsx
+// app/(auth)/forgot-password/page.tsx
 // Sprint 14C - Forgot password page wired to forgotPasswordAction.
+// Sprint D1.0 - Retrofitted onto Card/Input/Button/Alert + tokens.
 "use client";
 
 import { useActionState } from "react";
@@ -8,6 +9,10 @@ import {
   forgotPasswordAction,
   type ActionState,
 } from "@/app/(auth)/actions/auth.actions";
+import Card from "@/components/ui/Card";
+import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
+import Alert from "@/components/ui/Alert";
 
 const initialState: ActionState = {};
 
@@ -18,50 +23,36 @@ export default function ForgotPasswordPage() {
   );
 
   return (
-    <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-8 shadow-xl">
-      <h1 className="text-2xl font-semibold text-white">Reset password</h1>
-      <p className="mt-1 text-sm text-neutral-400">
+    <Card padding="lg" raised>
+      <h1 className="text-2xl font-semibold text-text">Reset password</h1>
+      <p className="mt-1 text-sm text-text-2">
         Enter your email and we&apos;ll send you a reset link.
       </p>
 
       {state.success ? (
-        <div className="mt-6 rounded-lg border border-emerald-800 bg-emerald-950/40 p-4 text-sm text-emerald-300">
+        <Alert tone="success" className="mt-6">
           {state.message}
-        </div>
+        </Alert>
       ) : (
         <form action={formAction} className="mt-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-neutral-300">
-              Email
-            </label>
-            <input
-              type="email"
-              name="email"
-              required
-              autoComplete="email"
-              className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white outline-none focus:border-emerald-500"
-            />
+            <label className="block text-sm font-medium text-text-2">Email</label>
+            <Input type="email" name="email" required autoComplete="email" className="mt-1" />
           </div>
 
-          {state.error ? (
-            <p className="text-sm text-red-400">{state.error}</p>
-          ) : null}
+          {state.error ? <p className="text-sm text-danger">{state.error}</p> : null}
 
-          <button
-            type="submit"
-            disabled={pending}
-            className="w-full rounded-lg bg-emerald-600 px-4 py-2 font-medium text-white transition hover:bg-emerald-500 disabled:opacity-50"
-          >
+          <Button type="submit" loading={pending} fullWidth>
             {pending ? "Sending..." : "Send reset link"}
-          </button>
+          </Button>
         </form>
       )}
 
       <div className="mt-4 text-center text-sm">
-        <Link href="/login" className="text-emerald-400 hover:text-emerald-300">
+        <Link href="/login" className="text-gold hover:text-gold-strong">
           Back to sign in
         </Link>
       </div>
-    </div>
+    </Card>
   );
 }

@@ -9,7 +9,7 @@ export default function SupportedPlatforms({ product }: { product: Product }) {
           {product.supportedPlatforms.map((platform, i) => (
             <span
               key={i}
-              className="rounded-xl bg-[#0C1324] border border-[#1F2937] px-5 py-3 font-medium"
+              className="rounded-xl bg-ink-2 border border-border px-5 py-3 font-medium"
             >
               {platform}
             </span>

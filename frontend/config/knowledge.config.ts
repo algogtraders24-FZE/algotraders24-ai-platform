@@ -23,11 +23,13 @@ export const KNOWLEDGE_COLLECTIONS = [
   "Market Analysis", "Customer Support", "Product Manuals", "Developer Docs",
 ] as const;
 
-/** Status badge colors reused across knowledge components. */
+/** Status badge colors reused across knowledge components.
+ * Sprint D1.1 - token-based (success/info/warning/danger/neutral), matching
+ * the Badge primitive's tones, replacing raw emerald/indigo/amber/red/slate. */
 export const DOC_STATUS_STYLES: Record<DocumentStatus, string> = {
-  indexed: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  processing: "bg-indigo-500/15 text-indigo-400 border-indigo-500/30",
-  pending: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  failed: "bg-red-500/15 text-red-400 border-red-500/30",
-  archived: "bg-slate-500/15 text-slate-400 border-slate-500/30",
+  indexed: "bg-success/10 text-success border-success/30",
+  processing: "bg-info/10 text-info border-info/30",
+  pending: "bg-warning/10 text-warning border-warning/30",
+  failed: "bg-danger/10 text-danger border-danger/30",
+  archived: "bg-ink-3 text-text-2 border-border",
 };

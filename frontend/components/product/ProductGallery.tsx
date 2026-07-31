@@ -10,9 +10,9 @@ export default function ProductGallery({ product }: { product: Product }) {
   return (
     <section className="px-6 mb-16">
       <div className="max-w-7xl mx-auto">
-        <div className="rounded-2xl bg-[#0C1324] border border-[#1F2937] aspect-video flex items-center justify-center overflow-hidden">
+        <div className="rounded-2xl bg-ink-2 border border-border aspect-video flex items-center justify-center overflow-hidden">
           {/* Image (falls back to gradient if not found) */}
-          <div className="w-full h-full bg-gradient-to-br from-blue-600/20 to-purple-600/20 flex items-center justify-center text-gray-500">
+          <div className="w-full h-full bg-gradient-to-br from-gold/20 to-gold/20 flex items-center justify-center text-text-3">
             {product.name} — Preview {active + 1}
           </div>
         </div>
@@ -24,8 +24,8 @@ export default function ProductGallery({ product }: { product: Product }) {
                 key={i}
                 onClick={() => setActive(i)}
                 className={`w-20 h-14 rounded-lg border transition ${
-                  active === i ? "border-blue-500" : "border-[#1F2937] hover:border-blue-500"
-                } bg-[#0C1324]`}
+                  active === i ? "border-gold" : "border-border hover:border-gold"
+                } bg-ink-2`}
               />
             ))}
           </div>

@@ -14,6 +14,7 @@ import { requireUser } from "@/lib/auth/protectedRoute";
 import { PLAN_LABELS } from "@/config/billing.config";
 import type { PlanId } from "@/types/billing";
 import ResendVerificationButton from "@/components/auth/ResendVerificationButton";
+import Card from "@/components/ui/Card";
 
 export default async function DashboardHome() {
   const sessionUser = await requireUser();
@@ -51,11 +52,11 @@ export default async function DashboardHome() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold">
+        <h1 className="text-2xl font-bold text-text">
           Welcome back, {user.name} &#128075;
         </h1>
-        <p className="text-gray-400 mt-1">Here&apos;s your account overview.</p>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-text-2 mt-1">Here&apos;s your account overview.</p>
+        <p className="text-xs text-text-3 mt-1">
           {user.email}
           {!user.emailVerified && (
             <>
@@ -66,16 +67,16 @@ export default async function DashboardHome() {
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-6 rounded-2xl bg-[#0C1324] border border-[#1F2937] p-6">
+      <Card className="flex flex-wrap gap-6">
         <div>
-          <p className="text-xs text-gray-500">Plan</p>
-          <p className="mt-1 text-sm font-semibold">{planLabel}</p>
+          <p className="text-xs text-text-3">Plan</p>
+          <p className="mt-1 text-sm font-semibold text-text">{planLabel}</p>
         </div>
-        <div className="border-l border-[#1F2937] pl-6">
-          <p className="text-xs text-gray-500">Joined</p>
-          <p className="mt-1 text-sm font-semibold">{joinedDate}</p>
+        <div className="border-l border-border pl-6">
+          <p className="text-xs text-text-3">Joined</p>
+          <p className="mt-1 text-sm font-semibold text-text">{joinedDate}</p>
         </div>
-      </div>
+      </Card>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat) => (

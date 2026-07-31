@@ -1,11 +1,16 @@
 "use client";
 // app/dashboard/admin/feedback/page.tsx
 // Sprint R1.2 - Phase 1: admin review of real, user-submitted Feedback.
-// Same paginated/filterable list shape as the Audit Logs page, plus a
-// real status transition (open -> reviewed -> resolved).
+// Sprint D1.0 - Retrofitted onto Card/Badge/Button/Select/Alert + tokens.
 import { useCallback, useEffect, useState } from "react";
 import { AdminApi } from "@/services/api/AdminApi";
 import type { AdminFeedbackEntry, FeedbackStatus } from "@/services/admin/AdminFeedbackService";
+import Card from "@/components/ui/Card";
+import Badge, { type BadgeTone } from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import Select from "@/components/ui/Select";
+import Alert from "@/components/ui/Alert";
+import Skeleton from "@/components/ui/Skeleton";
 
 const PAGE_SIZE = 20;
 const STATUSES: FeedbackStatus[] = ["open", "reviewed", "resolved"];
@@ -17,10 +22,10 @@ const TYPE_LABELS: Record<string, string> = {
   general: "General Feedback",
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  open: "text-amber-400",
-  reviewed: "text-sky-400",
-  resolved: "text-emerald-400",
+const STATUS_TONE: Record<string, BadgeTone> = {
+  open: "warning",
+  reviewed: "info",
+  resolved: "success",
 };
 
 export default function AdminFeedbackPage() {
@@ -68,15 +73,14 @@ export default function AdminFeedbackPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-white">Feedback ({total})</h2>
+        <h2 className="text-lg font-semibold text-text">Feedback ({total})</h2>
         <div className="flex gap-2">
-          <select
+          <Select
             value={type}
             onChange={(e) => {
               setPage(1);
               setType(e.target.value);
             }}
-            className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-1.5 text-sm text-slate-300"
           >
             <option value="">All types</option>
             {TYPES.map((t) => (
@@ -84,14 +88,13 @@ export default function AdminFeedbackPage() {
                 {TYPE_LABELS[t]}
               </option>
             ))}
-          </select>
-          <select
+          </Select>
+          <Select
             value={status}
             onChange={(e) => {
               setPage(1);
               setStatus(e.target.value);
             }}
-            className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-1.5 text-sm text-slate-300"
           >
             <option value="">All statuses</option>
             {STATUSES.map((s) => (
@@ -99,70 +102,55 @@ export default function AdminFeedbackPage() {
                 {s}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 
-      {error && <p className="rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
+      {error && <Alert tone="danger">{error}</Alert>}
 
       <div className="space-y-3">
+        {loading && <Skeleton className="h-40" />}
         {!loading &&
           items.map((f) => (
-            <div key={f.id} className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+            <Card key={f.id} padding="sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-xs">
-                  <span className="rounded-full border border-slate-700 px-2 py-0.5 font-medium text-slate-300">
-                    {TYPE_LABELS[f.type] ?? f.type}
-                  </span>
-                  <span className={`font-semibold ${STATUS_COLORS[f.status] ?? "text-slate-400"}`}>{f.status}</span>
-                  <span className="text-slate-600">{new Date(f.createdAt).toLocaleString()}</span>
+                  <Badge>{TYPE_LABELS[f.type] ?? f.type}</Badge>
+                  <Badge tone={STATUS_TONE[f.status] ?? "neutral"}>{f.status}</Badge>
+                  <span className="text-text-3">{new Date(f.createdAt).toLocaleString()}</span>
                 </div>
                 <div className="flex gap-2">
                   {STATUSES.filter((s) => s !== f.status).map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => changeStatus(f.id, s)}
-                      disabled={busyId === f.id}
-                      className="rounded-lg border border-slate-700 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-800 disabled:opacity-40"
-                    >
+                    <Button key={s} size="sm" variant="secondary" onClick={() => changeStatus(f.id, s)} disabled={busyId === f.id}>
                       Mark {s}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
-              <p className="mt-3 text-sm text-slate-200">{f.message}</p>
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-3 text-sm text-text">{f.message}</p>
+              <p className="mt-2 text-xs text-text-3">
                 {f.userName} ({f.userEmail}) {f.page ? `· ${f.page}` : ""}
               </p>
-            </div>
+            </Card>
           ))}
-        {loading && <div className="h-40 animate-pulse rounded-2xl bg-slate-900" />}
         {!loading && items.length === 0 && (
-          <p className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 text-center text-sm text-slate-600">
+          <p className="rounded-card border border-border bg-ink-2 p-6 text-center text-sm text-text-3">
             No feedback submissions found.
           </p>
         )}
       </div>
 
-      <div className="flex items-center justify-between text-sm text-slate-500">
+      <div className="flex items-center justify-between text-sm text-text-3">
         <span>
           Page {page} of {totalPages}
         </span>
         <div className="flex gap-2">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1}
-            className="rounded-lg border border-slate-800 px-3 py-1 disabled:opacity-40"
-          >
+          <Button size="sm" variant="secondary" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
             Previous
-          </button>
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages}
-            className="rounded-lg border border-slate-800 px-3 py-1 disabled:opacity-40"
-          >
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
             Next
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -39,7 +39,7 @@ export default async function ProductDetailPage({
   );
 
   return (
-    <main className="min-h-screen bg-[#050816] text-white">
+    <main className="min-h-screen bg-ink text-text">
       <ProductViewTracker slug={product.slug} />
       <Navbar />
 
@@ -50,7 +50,7 @@ export default async function ProductDetailPage({
       <section className="px-6 mb-16">
         <div className="max-w-7xl mx-auto">
           <h2 className="text-2xl md:text-3xl font-bold mb-4">Overview</h2>
-          <p className="text-gray-400 leading-8 max-w-3xl">
+          <p className="text-text-2 leading-8 max-w-3xl">
             {product.fullDescription}
           </p>
         </div>
@@ -63,16 +63,16 @@ export default async function ProductDetailPage({
       {/* Version info */}
       <section className="px-6 mb-16">
         <div className="max-w-7xl mx-auto grid sm:grid-cols-3 gap-4">
-          <div className="rounded-xl bg-[#0C1324] border border-[#1F2937] p-5">
-            <div className="text-gray-400 text-sm">Version</div>
+          <div className="rounded-xl bg-ink-2 border border-border p-5">
+            <div className="text-text-2 text-sm">Version</div>
             <div className="font-semibold mt-1">v{product.version}</div>
           </div>
-          <div className="rounded-xl bg-[#0C1324] border border-[#1F2937] p-5">
-            <div className="text-gray-400 text-sm">Released</div>
+          <div className="rounded-xl bg-ink-2 border border-border p-5">
+            <div className="text-text-2 text-sm">Released</div>
             <div className="font-semibold mt-1">{product.releaseDate}</div>
           </div>
-          <div className="rounded-xl bg-[#0C1324] border border-[#1F2937] p-5">
-            <div className="text-gray-400 text-sm">Last Updated</div>
+          <div className="rounded-xl bg-ink-2 border border-border p-5">
+            <div className="text-text-2 text-sm">Last Updated</div>
             <div className="font-semibold mt-1">{product.lastUpdated}</div>
           </div>
         </div>
@@ -87,10 +87,10 @@ export default async function ProductDetailPage({
               {product.faqs.map((faq, i) => (
                 <div
                   key={i}
-                  className="rounded-xl bg-[#0C1324] border border-[#1F2937] p-6"
+                  className="rounded-xl bg-ink-2 border border-border p-6"
                 >
                   <div className="font-semibold">{faq.question}</div>
-                  <div className="text-gray-400 mt-2">{faq.answer}</div>
+                  <div className="text-text-2 mt-2">{faq.answer}</div>
                 </div>
               ))}
             </div>

@@ -54,14 +54,14 @@ export default function AdminSubscriptionsPage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-white">Subscriptions ({total})</h2>
+      <h2 className="text-lg font-semibold text-text">Subscriptions ({total})</h2>
 
-      {error && <p className="rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
+      {error && <p className="rounded-xl border border-danger/30 bg-danger/10 p-3 text-sm text-danger">{error}</p>}
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/40">
+      <div className="overflow-x-auto rounded-2xl border border-border bg-ink-2">
         <table className="w-full min-w-[820px] text-sm">
           <thead>
-            <tr className="border-b border-slate-800 text-left text-xs uppercase tracking-wider text-slate-500">
+            <tr className="border-b border-border text-left text-xs uppercase tracking-wider text-text-3">
               <th className="px-4 py-3 font-medium">User</th>
               <th className="px-4 py-3 font-medium">Plan</th>
               <th className="px-4 py-3 font-medium">Status</th>
@@ -73,18 +73,18 @@ export default function AdminSubscriptionsPage() {
           <tbody>
             {!loading &&
               rows.map((r) => (
-                <tr key={r.userId} className="border-b border-slate-800/60 last:border-0">
+                <tr key={r.userId} className="border-b border-border last:border-0">
                   <td className="px-4 py-3">
-                    <div className="text-slate-200">{r.userName}</div>
-                    <div className="text-xs text-slate-500">{r.userEmail}</div>
+                    <div className="text-text">{r.userName}</div>
+                    <div className="text-xs text-text-3">{r.userEmail}</div>
                   </td>
-                  <td className="px-4 py-3 text-slate-300">{r.planName}</td>
-                  <td className="px-4 py-3 text-slate-400">{r.status}</td>
-                  <td className="px-4 py-3 text-slate-500">
+                  <td className="px-4 py-3 text-text-2">{r.planName}</td>
+                  <td className="px-4 py-3 text-text-2">{r.status}</td>
+                  <td className="px-4 py-3 text-text-3">
                     {r.currentPeriodEnd ? new Date(r.currentPeriodEnd).toLocaleDateString() : "-"}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={r.cancelAtPeriodEnd ? "text-amber-400" : "text-slate-600"}>
+                    <span className={r.cancelAtPeriodEnd ? "text-warning" : "text-text-3"}>
                       {r.cancelAtPeriodEnd ? "Yes" : "No"}
                     </span>
                   </td>
@@ -98,7 +98,7 @@ export default function AdminSubscriptionsPage() {
                           e.target.value = "";
                           if (planId) run(r.userId, () => AdminApi.overridePlan(r.userId, planId));
                         }}
-                        className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-300 disabled:opacity-40"
+                        className="rounded-lg border border-border bg-ink px-2 py-1 text-xs text-text-2 disabled:opacity-40"
                       >
                         <option value="" disabled>
                           Override plan...
@@ -118,7 +118,7 @@ export default function AdminSubscriptionsPage() {
                           )
                         }
                         disabled={busyId === r.userId || !r.subscriptionId}
-                        className="rounded-lg border border-slate-700 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-slate-800 disabled:opacity-40"
+                        className="rounded-lg border border-border px-2.5 py-1 text-xs text-text-2 transition hover:bg-ink-3 disabled:opacity-40"
                       >
                         {r.cancelAtPeriodEnd ? "Reactivate" : "Cancel"}
                       </button>
@@ -128,11 +128,11 @@ export default function AdminSubscriptionsPage() {
               ))}
           </tbody>
         </table>
-        {loading && <div className="h-40 animate-pulse bg-slate-900" />}
-        {!loading && rows.length === 0 && <p className="p-6 text-center text-sm text-slate-600">No subscriptions found.</p>}
+        {loading && <div className="h-40 animate-pulse bg-ink-2" />}
+        {!loading && rows.length === 0 && <p className="p-6 text-center text-sm text-text-3">No subscriptions found.</p>}
       </div>
 
-      <div className="flex items-center justify-between text-sm text-slate-500">
+      <div className="flex items-center justify-between text-sm text-text-3">
         <span>
           Page {page} of {totalPages}
         </span>
@@ -140,14 +140,14 @@ export default function AdminSubscriptionsPage() {
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1}
-            className="rounded-lg border border-slate-800 px-3 py-1 disabled:opacity-40"
+            className="rounded-lg border border-border px-3 py-1 disabled:opacity-40"
           >
             Previous
           </button>
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page >= totalPages}
-            className="rounded-lg border border-slate-800 px-3 py-1 disabled:opacity-40"
+            className="rounded-lg border border-border px-3 py-1 disabled:opacity-40"
           >
             Next
           </button>

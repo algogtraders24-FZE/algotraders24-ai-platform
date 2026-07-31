@@ -1,21 +1,28 @@
 "use client";
 // app/dashboard/admin/beta/page.tsx
 // Sprint R1.2 - Phase 4: Admin Beta Overview. Every number comes from
-// AdminBetaService (see its header for exactly which table backs each
-// stat) - nothing here is a placeholder or illustrative figure.
+// AdminBetaService - nothing here is a placeholder or illustrative figure.
+// Sprint D1.0 - Retrofitted onto Card/Input/Button/Alert/Skeleton + tokens
+// (slate chrome -> ink/border/text; indigo/emerald progress bars -> gold/
+// success).
 import { useCallback, useEffect, useState } from "react";
 import { AdminApi } from "@/services/api/AdminApi";
 import type { AdminUserSummary } from "@/services/admin/AdminUserService";
 import type { BetaOverview, JourneyEvent } from "@/services/admin/AdminBetaService";
 import UserJourneyTimeline from "@/components/admin/UserJourneyTimeline";
+import Card from "@/components/ui/Card";
+import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
+import Alert from "@/components/ui/Alert";
+import Skeleton from "@/components/ui/Skeleton";
 
 function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
-      <p className="text-xs uppercase tracking-wider text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-bold text-white">{value}</p>
-      {sub && <p className="mt-1 text-xs text-slate-500">{sub}</p>}
-    </div>
+    <Card padding="sm" className="p-5">
+      <p className="text-xs uppercase tracking-wider text-text-3">{label}</p>
+      <p className="mt-2 text-2xl font-bold text-text">{value}</p>
+      {sub && <p className="mt-1 text-xs text-text-3">{sub}</p>}
+    </Card>
   );
 }
 
@@ -66,16 +73,16 @@ export default function AdminBetaPage() {
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-3">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="h-24 animate-pulse rounded-2xl bg-slate-900" />
+            <Skeleton key={i} className="h-24" />
           ))}
         </div>
-        <div className="h-64 animate-pulse rounded-2xl bg-slate-900" />
+        <Skeleton className="h-64" />
       </div>
     );
   }
 
   if (error || !overview) {
-    return <p className="rounded-xl border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-200">{error ?? "No data"}</p>;
+    return <Alert tone="danger">{error ?? "No data"}</Alert>;
   }
 
   return (
@@ -95,50 +102,50 @@ export default function AdminBetaPage() {
       </div>
 
       <section>
-        <h2 className="mb-3 text-lg font-semibold text-white">Most Used Features</h2>
-        <div className="space-y-2 rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
-          {overview.mostUsedFeatures.length === 0 && <p className="text-sm text-slate-600">No events recorded yet.</p>}
+        <h2 className="mb-3 text-lg font-semibold text-text">Most Used Features</h2>
+        <Card padding="sm" className="space-y-2 p-5">
+          {overview.mostUsedFeatures.length === 0 && <p className="text-sm text-text-3">No events recorded yet.</p>}
           {overview.mostUsedFeatures.map((f) => {
             const max = overview.mostUsedFeatures[0]?.count || 1;
             return (
               <div key={f.type} className="flex items-center gap-3 text-sm">
-                <span className="w-40 shrink-0 text-slate-300">{f.label}</span>
-                <div className="h-2 flex-1 rounded-full bg-slate-800">
-                  <div className="h-2 rounded-full bg-indigo-500" style={{ width: `${(f.count / max) * 100}%` }} />
+                <span className="w-40 shrink-0 text-text-2">{f.label}</span>
+                <div className="h-2 flex-1 rounded-full bg-ink-3">
+                  <div className="h-2 rounded-full bg-gold" style={{ width: `${(f.count / max) * 100}%` }} />
                 </div>
-                <span className="w-10 shrink-0 text-right text-slate-500">{f.count}</span>
+                <span className="w-10 shrink-0 text-right text-text-3">{f.count}</span>
               </div>
             );
           })}
-        </div>
+        </Card>
       </section>
 
       <section>
-        <h2 className="mb-3 text-lg font-semibold text-white">Drop-off Points</h2>
-        <div className="space-y-3 rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+        <h2 className="mb-3 text-lg font-semibold text-text">Drop-off Points</h2>
+        <Card padding="sm" className="space-y-3 p-5">
           {overview.dropOff.map((stage) => (
             <div key={stage.key} className="flex items-center gap-3 text-sm">
-              <span className="w-40 shrink-0 text-slate-300">{stage.label}</span>
-              <div className="h-2 flex-1 rounded-full bg-slate-800">
-                <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${stage.percentOfTotal}%` }} />
+              <span className="w-40 shrink-0 text-text-2">{stage.label}</span>
+              <div className="h-2 flex-1 rounded-full bg-ink-3">
+                <div className="h-2 rounded-full bg-success" style={{ width: `${stage.percentOfTotal}%` }} />
               </div>
-              <span className="w-24 shrink-0 text-right text-slate-500">
+              <span className="w-24 shrink-0 text-right text-text-3">
                 {stage.count} ({stage.percentOfTotal}%)
               </span>
             </div>
           ))}
-          <p className="pt-2 text-xs text-slate-600">
+          <p className="pt-2 text-xs text-text-3">
             &quot;First Login&quot; and &quot;First Analysis&quot; are tracked from this sprint forward only - users who
             reached those milestones earlier won&apos;t be reflected yet.
           </p>
-        </div>
+        </Card>
       </section>
 
       <section>
-        <h2 className="mb-3 text-lg font-semibold text-white">User Journey</h2>
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+        <h2 className="mb-3 text-lg font-semibold text-text">User Journey</h2>
+        <Card padding="sm" className="p-5">
           <div className="flex gap-2">
-            <input
+            <Input
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -146,11 +153,11 @@ export default function AdminBetaPage() {
               }}
               onKeyDown={(e) => e.key === "Enter" && search()}
               placeholder="Search by name or email..."
-              className="w-72 rounded-lg border border-slate-800 bg-slate-950 px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-indigo-500/50"
+              className="w-72"
             />
-            <button onClick={search} className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800">
+            <Button variant="secondary" onClick={search}>
               Search
-            </button>
+            </Button>
           </div>
 
           {results.length > 0 && (
@@ -159,24 +166,24 @@ export default function AdminBetaPage() {
                 <button
                   key={u.id}
                   onClick={() => selectUser(u)}
-                  className="block w-full rounded-lg px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-800"
+                  className="block w-full rounded-control px-3 py-2 text-left text-sm text-text-2 transition hover:bg-ink-3"
                 >
-                  {u.name} <span className="text-slate-500">({u.email})</span>
+                  {u.name} <span className="text-text-3">({u.email})</span>
                 </button>
               ))}
             </div>
           )}
 
           {selectedUser && (
-            <div className="mt-5 border-t border-slate-800 pt-5">
-              <p className="mb-4 text-sm text-slate-400">
-                Journey for <span className="font-medium text-slate-200">{selectedUser.name}</span> ({selectedUser.email})
+            <div className="mt-5 border-t border-border pt-5">
+              <p className="mb-4 text-sm text-text-2">
+                Journey for <span className="font-medium text-text">{selectedUser.name}</span> ({selectedUser.email})
               </p>
-              {journeyLoading && <div className="h-40 animate-pulse rounded-xl bg-slate-900" />}
+              {journeyLoading && <Skeleton className="h-40" />}
               {!journeyLoading && journey && <UserJourneyTimeline journey={journey} />}
             </div>
           )}
-        </div>
+        </Card>
       </section>
     </div>
   );

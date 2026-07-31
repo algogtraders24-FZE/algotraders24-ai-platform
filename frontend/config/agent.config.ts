@@ -24,11 +24,13 @@ export const AGENT_TYPES: AgentType[] = [
 
 export const AGENT_STATUSES: AgentStatus[] = ["running", "idle", "busy", "offline", "paused"];
 
-/** Status badge colors reused across agent components. */
+/** Status badge colors reused across agent components.
+ * Sprint D1.1 - token-based (success/info/neutral/warning/danger), matching
+ * the Badge primitive's tones, replacing raw emerald/indigo/slate/amber/red. */
 export const STATUS_STYLES: Record<AgentStatus, string> = {
-  running: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  busy: "bg-indigo-500/15 text-indigo-400 border-indigo-500/30",
-  idle: "bg-slate-500/15 text-slate-400 border-slate-500/30",
-  paused: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  offline: "bg-red-500/15 text-red-400 border-red-500/30",
+  running: "bg-success/10 text-success border-success/30",
+  busy: "bg-info/10 text-info border-info/30",
+  idle: "bg-ink-3 text-text-2 border-border",
+  paused: "bg-warning/10 text-warning border-warning/30",
+  offline: "bg-danger/10 text-danger border-danger/30",
 };

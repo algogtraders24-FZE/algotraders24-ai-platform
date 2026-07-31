@@ -37,14 +37,14 @@ export default function MessageBubble({ message, isStreaming, isLastAssistant, o
       <div className="max-w-[85%]">
         <div
           className={`rounded-2xl px-4 py-3 text-sm leading-6 whitespace-pre-wrap ${
-            isUser ? "bg-indigo-600 text-white" : "border border-slate-800 bg-slate-900/60 text-slate-200"
+            isUser ? "bg-gold text-ink" : "border border-border bg-ink-2 text-ink"
           }`}
         >
           {message.content}
           {isStreaming && (
             <span
               aria-hidden="true"
-              className="ml-0.5 inline-block h-4 w-1.5 align-middle bg-slate-400 animate-pulse"
+              className="ml-0.5 inline-block h-4 w-1.5 align-middle bg-text-3 animate-pulse"
             />
           )}
         </div>
@@ -52,23 +52,23 @@ export default function MessageBubble({ message, isStreaming, isLastAssistant, o
         {!isUser && !isStreaming && message.sources && <SourcesPanel sources={message.sources} />}
 
         {!isUser && !isStreaming && message.marketAnalysis && (
-          <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/60 p-5">
+          <div className="mt-4 rounded-2xl border border-border bg-ink p-5">
             <AnalysisResult result={message.marketAnalysis} />
           </div>
         )}
 
-        <div className={`mt-1 flex items-center gap-3 text-[10px] text-slate-600 ${isUser ? "justify-end" : "justify-start"}`}>
+        <div className={`mt-1 flex items-center gap-3 text-[10px] text-text-3 ${isUser ? "justify-end" : "justify-start"}`}>
           <span>{time}</span>
           {!isUser && !isStreaming && (
             <button
               onClick={() => onCopy(message.content)}
-              className="opacity-0 transition group-hover:opacity-100 hover:text-slate-300"
+              className="opacity-0 transition group-hover:opacity-100 hover:text-text-2"
             >
               Copy
             </button>
           )}
           {!isUser && !isStreaming && isLastAssistant && (
-            <button onClick={onRetry} className="opacity-0 transition group-hover:opacity-100 hover:text-slate-300">
+            <button onClick={onRetry} className="opacity-0 transition group-hover:opacity-100 hover:text-text-2">
               Retry
             </button>
           )}

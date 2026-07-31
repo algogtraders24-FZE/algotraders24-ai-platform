@@ -1,11 +1,16 @@
 "use client";
 // app/dashboard/admin/audit-logs/page.tsx
 // Sprint L2.6 - Phase 7: real, paginated, filterable audit log list. Every
-// row is a real AuditLog record written by an admin route in this sprint -
-// there is no path in the app that fabricates or edits one.
+// row is a real AuditLog record written by an admin route.
+// Sprint D1.0 - Retrofitted onto Table/Select/Button/Alert + tokens.
 import { useCallback, useEffect, useState } from "react";
 import { AdminApi } from "@/services/api/AdminApi";
 import type { AuditLogEntry } from "@/services/admin/AuditLogService";
+import { Table, Thead, Th, Tbody, Tr, Td } from "@/components/ui/Table";
+import Select from "@/components/ui/Select";
+import Button from "@/components/ui/Button";
+import Alert from "@/components/ui/Alert";
+import Skeleton from "@/components/ui/Skeleton";
 
 const PAGE_SIZE = 25;
 const ACTIONS = [
@@ -48,14 +53,13 @@ export default function AdminAuditLogsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-white">Audit Logs ({total})</h2>
-        <select
+        <h2 className="text-lg font-semibold text-text">Audit Logs ({total})</h2>
+        <Select
           value={action}
           onChange={(e) => {
             setPage(1);
             setAction(e.target.value);
           }}
-          className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-1.5 text-sm text-slate-300"
         >
           <option value="">All actions</option>
           {ACTIONS.map((a) => (
@@ -63,63 +67,53 @@ export default function AdminAuditLogsPage() {
               {a}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
-      {error && <p className="rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
+      {error && <Alert tone="danger">{error}</Alert>}
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/40">
-        <table className="w-full min-w-[720px] text-sm">
-          <thead>
-            <tr className="border-b border-slate-800 text-left text-xs uppercase tracking-wider text-slate-500">
-              <th className="px-4 py-3 font-medium">When</th>
-              <th className="px-4 py-3 font-medium">Actor</th>
-              <th className="px-4 py-3 font-medium">Action</th>
-              <th className="px-4 py-3 font-medium">Target</th>
-              <th className="px-4 py-3 font-medium">Details</th>
+      {loading ? (
+        <Skeleton className="h-40" />
+      ) : (
+        <Table className="min-w-[720px]">
+          <Thead>
+            <tr>
+              <Th>When</Th>
+              <Th>Actor</Th>
+              <Th>Action</Th>
+              <Th>Target</Th>
+              <Th>Details</Th>
             </tr>
-          </thead>
-          <tbody>
-            {!loading &&
-              items.map((entry) => (
-                <tr key={entry.id} className="border-b border-slate-800/60 last:border-0 align-top">
-                  <td className="px-4 py-3 text-slate-500">{new Date(entry.createdAt).toLocaleString()}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-slate-400">{entry.actorUserId}</td>
-                  <td className="px-4 py-3 text-slate-300">{entry.action}</td>
-                  <td className="px-4 py-3 text-slate-400">
-                    {entry.targetType}
-                    {entry.targetId ? ` · ${entry.targetId}` : ""}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs text-slate-500">
-                    {entry.metadata ? JSON.stringify(entry.metadata) : "-"}
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-        {loading && <div className="h-40 animate-pulse bg-slate-900" />}
-        {!loading && items.length === 0 && <p className="p-6 text-center text-sm text-slate-600">No audit log entries found.</p>}
-      </div>
+          </Thead>
+          <Tbody>
+            {items.map((entry) => (
+              <Tr key={entry.id} className="align-top">
+                <Td className="text-text-3">{new Date(entry.createdAt).toLocaleString()}</Td>
+                <Td className="font-mono text-xs text-text-3">{entry.actorUserId}</Td>
+                <Td className="text-text-2">{entry.action}</Td>
+                <Td>
+                  {entry.targetType}
+                  {entry.targetId ? ` · ${entry.targetId}` : ""}
+                </Td>
+                <Td className="font-mono text-xs text-text-3">{entry.metadata ? JSON.stringify(entry.metadata) : "-"}</Td>
+              </Tr>
+            ))}
+          </Tbody>
+        </Table>
+      )}
+      {!loading && items.length === 0 && <p className="p-6 text-center text-sm text-text-3">No audit log entries found.</p>}
 
-      <div className="flex items-center justify-between text-sm text-slate-500">
+      <div className="flex items-center justify-between text-sm text-text-3">
         <span>
           Page {page} of {totalPages}
         </span>
         <div className="flex gap-2">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1}
-            className="rounded-lg border border-slate-800 px-3 py-1 disabled:opacity-40"
-          >
+          <Button size="sm" variant="secondary" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
             Previous
-          </button>
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages}
-            className="rounded-lg border border-slate-800 px-3 py-1 disabled:opacity-40"
-          >
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
             Next
-          </button>
+          </Button>
         </div>
       </div>
     </div>
