@@ -6,6 +6,7 @@ import ExplainableIntelligence from "@/sections/ExplainableIntelligence";
 import InteractiveAnalysisDemo from "@/sections/InteractiveAnalysisDemo";
 import AssistantPreview from "@/sections/AssistantPreview";
 import PlatformModules from "@/sections/PlatformModules";
+import DashboardShowcase from "@/sections/DashboardShowcase";
 import WhyChoose from "@/sections/WhyChoose";
 import Pricing from "@/sections/Pricing";
 import EnterpriseTrust from "@/sections/EnterpriseTrust";
@@ -45,6 +46,7 @@ export default function Home() {
       <InteractiveAnalysisDemo />
       <AssistantPreview />
       <PlatformModules />
+      <DashboardShowcase />
       <WhyChoose />
       <EnterpriseTrust />
       <Pricing />
