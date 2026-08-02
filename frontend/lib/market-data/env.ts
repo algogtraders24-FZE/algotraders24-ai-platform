@@ -15,3 +15,19 @@ export function loadAlphaVantageEnv(): AlphaVantageEnv | null {
   if (!apiKey || apiKey.trim().length === 0) return null;
   return { apiKey };
 }
+
+// Sprint D2.2 - Twelve Data becomes the primary market-data provider. Same
+// optional-at-the-platform-level contract as Alpha Vantage above: returns
+// null (never throws) when the key is absent, so the central MarketDataService
+// can fall back to a secondary provider rather than hard-failing. Read from
+// the server environment only - this key must NEVER be exposed through a
+// NEXT_PUBLIC_* variable.
+export interface TwelveDataEnv {
+  apiKey: string;
+}
+
+export function loadTwelveDataEnv(): TwelveDataEnv | null {
+  const apiKey = process.env.TWELVEDATA_API_KEY;
+  if (!apiKey || apiKey.trim().length === 0) return null;
+  return { apiKey };
+}
