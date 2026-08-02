@@ -4,37 +4,57 @@
 // borrowed trust: the strip earns credibility from the platform's own
 // architecture, not from claims about who else uses it. Server Component:
 // static content, no interactivity needed.
-import { Repeat2, Link2, ShieldAlert } from "lucide-react";
+//
+// Sprint D2.1 (Phase 4) - extended to five trust pillars, each still an
+// architecture-true property (no invented guarantee). A requested sixth
+// pillar, "Privacy First", was deliberately NOT added: there is no privacy
+// policy or data-handling statement anywhere in the codebase to substantiate
+// it, and fabricating one would violate the same no-invention standard this
+// strip exists to demonstrate. It can be added the moment a real privacy
+// stance is documented.
+import { Repeat2, Link2, ShieldAlert, Eye, Boxes } from "lucide-react";
 
-const PRINCIPLES = [
+const PILLARS = [
   {
-    icon: Repeat2,
-    title: "Deterministic by design",
-    description: "The same evidence produces the same analysis, every time — no randomness dressed up as insight.",
+    icon: Eye,
+    title: "Explainable AI",
+    description: "The model only restates a computed result in plain language — it never adds a fact or conclusion of its own.",
   },
   {
     icon: Link2,
-    title: "Evidence-linked",
-    description: "Every claim traces back to a real, attributed source — never asserted without something behind it.",
+    title: "Evidence-Based",
+    description: "Every claim carries an attributed source and timestamp — no step outputs an assertion with nothing behind it.",
   },
   {
     icon: ShieldAlert,
-    title: "Risk, never hidden",
-    description: "Every analysis discloses its own limitations and uncertainty, not just a number that sounds confident.",
+    title: "Risk-Aware",
+    description: "Risk is assessed across eight categories and reported as the worst — never blended into one reassuring number.",
+  },
+  {
+    icon: Repeat2,
+    title: "Deterministic",
+    description: "The same evidence produces the same analysis, every time — re-running verifies it, never reshuffles it.",
+  },
+  {
+    icon: Boxes,
+    title: "Enterprise Architecture",
+    description: "One orchestrated pipeline of named services, in the same order every run — built to be audited, not trusted on faith.",
   },
 ] as const;
 
 export default function TrustStrip() {
   return (
     <section className="border-y border-border bg-ink-2 py-14 text-text">
-      <div className="mx-auto max-w-6xl px-6">
-        <div className="grid gap-8 sm:grid-cols-3">
-          {PRINCIPLES.map((principle) => (
-            <div key={principle.title} className="flex items-start gap-4">
-              <principle.icon className="mt-1 h-5 w-5 shrink-0 text-gold" aria-hidden="true" />
+      <div className="mx-auto max-w-7xl px-6">
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
+          {PILLARS.map((pillar) => (
+            <div key={pillar.title} className="flex flex-col gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-control border border-gold/30 bg-gold/10">
+                <pillar.icon className="h-5 w-5 text-gold" aria-hidden="true" />
+              </span>
               <div>
-                <h3 className="text-sm font-semibold text-text">{principle.title}</h3>
-                <p className="mt-1 text-sm leading-6 text-text-2">{principle.description}</p>
+                <h3 className="text-sm font-semibold text-text">{pillar.title}</h3>
+                <p className="mt-1.5 text-sm leading-6 text-text-2">{pillar.description}</p>
               </div>
             </div>
           ))}
