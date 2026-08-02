@@ -11,6 +11,24 @@
 // animation investment. Plays once, never replays on scroll back up, and
 // respects prefers-reduced-motion by showing every stage immediately.
 import { useEffect, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
+
+// Sprint D2.1 (Phase 5) - the seven real services behind the five-stage
+// flow above, folded in from the former standalone ArchitectureVisualization
+// section as an on-demand disclosure. The homepage no longer explains the
+// same pipeline three times in a row; the deep technical trace is here for
+// the evaluator who wants it, one click away, without adding scroll length
+// for everyone else. Each file path is real (verified against services/ai
+// and lib/market-data), not illustrative.
+const TECH_STAGES = [
+  { file: "lib/market-data/providers/alpha-vantage.provider.ts", title: "Market data ingestion", description: "Real-time price and news data pulled from external providers, normalized into a common evidence shape." },
+  { file: "services/ai/evidence-fusion.service.ts", title: "Evidence fusion", description: "Evidence from every source is deduplicated and merged before ranking ever begins." },
+  { file: "services/ai/evidence/evidence-ranking.service.ts", title: "Evidence ranking", description: "Remaining evidence is scored and ordered by relevance and source reliability." },
+  { file: "services/ai/reasoning/reasoning-engine.service.ts", title: "Reasoning", description: "Each item is classified as supporting, opposing, or unresolved — disagreement is surfaced, not smoothed over." },
+  { file: "services/ai/risk/risk-engine.service.ts", title: "Risk assessment", description: "Assessed across eight distinct categories, every time — never collapsed into one score." },
+  { file: "services/ai/confidence/confidence-engine.service.ts", title: "Confidence scoring", description: "Scored from how much real evidence exists and how well it agrees, not invented to sound authoritative." },
+  { file: "services/ai/explainable/explainable-analysis.service.ts", title: "Explainable output", description: "Everything above is composed into one transparent, human-readable analysis — nothing hidden behind a verdict." },
+] as const;
 
 const STAGES = [
   {
@@ -104,6 +122,27 @@ export default function ExplainableIntelligence() {
             );
           })}
         </ol>
+
+        <details className="group mx-auto mt-12 max-w-3xl overflow-hidden rounded-card border border-border bg-ink-2 transition-colors open:border-gold/40">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-4 text-sm font-medium text-text-2 transition-colors hover:text-text [&::-webkit-details-marker]:hidden">
+            <span>For technical evaluators — the exact seven services, in order</span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-gold transition-transform duration-300 group-open:rotate-180" aria-hidden="true" />
+          </summary>
+          <ol className="space-y-4 border-t border-border px-6 py-6">
+            {TECH_STAGES.map((stage, index) => (
+              <li key={stage.file} className="flex gap-4">
+                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-gold/40 bg-gold/10 font-mono text-[10px] text-gold-strong">
+                  {index + 1}
+                </span>
+                <div>
+                  <p className="font-mono text-xs text-text-3">{stage.file}</p>
+                  <p className="mt-0.5 text-sm font-semibold text-text">{stage.title}</p>
+                  <p className="mt-0.5 text-sm leading-6 text-text-2">{stage.description}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </details>
       </div>
     </section>
   );
