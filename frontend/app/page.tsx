@@ -11,6 +11,7 @@ import Pricing from "@/sections/Pricing";
 import EnterpriseTrust from "@/sections/EnterpriseTrust";
 import Platforms from "@/sections/Platforms";
 import FeaturedProducts from "@/sections/FeaturedProducts";
+import FAQ from "@/sections/FAQ";
 import CTA from "@/sections/CTA";
 import Footer from "@/sections/Footer";
 
@@ -49,6 +50,7 @@ export default function Home() {
       <Pricing />
       <Platforms />
       <FeaturedProducts />
+      <FAQ />
       <CTA />
       <Footer />
     </main>

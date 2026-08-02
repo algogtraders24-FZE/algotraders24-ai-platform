@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Urbanist } from "next/font/google";
 import { ToastProvider } from "@/components/ui/Toast";
 import "./globals.css";
@@ -32,15 +32,28 @@ const urbanist = Urbanist({
 // Sprint H1.6 - completes launch metadata: canonical URL, Open Graph,
 // Twitter Card, and robots. SITE_URL matches the real domain already used
 // elsewhere in this codebase (services/ai/publishing/seo.service.ts,
-// prisma/seed.ts demo accounts), not invented for this sprint. No OG/Twitter
-// image is set - there's no real, designed social-preview asset in
-// public/ yet, and fabricating one would violate the no-invented-content
-// rule; a real 1200x630 image is a follow-up design task, flagged in the
-// H1.6 report as a launch blocker.
+// prisma/seed.ts demo accounts), not invented for this sprint.
+// Sprint D2.1 (Phase 10) - the previously-missing social/brand metadata is
+// now complete: a real 1200x630 Open Graph/Twitter card built from the
+// OFFICIAL brand lockup (public/og-image.png), a themeColor via the viewport
+// export, and a JSON-LD Organization logo pointing at the official logo asset
+// (public/brand/logo-512.png). Nothing here is invented - every asset is the
+// approved Brand Identity v1.0 artwork.
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://algotraders24.ai";
 const TITLE = "Algotraders24 AI — AI Trading Intelligence Platform";
 const DESCRIPTION =
   "Deterministic, evidence-based market analysis explained in plain language. Explainable AI intelligence for retail traders, professionals, brokers, and institutions.";
+const OG_IMAGE = {
+  url: "/og-image.png",
+  width: 1200,
+  height: 630,
+  alt: "Algotraders24 AI — AI Trading Intelligence Platform",
+};
+const LOGO_URL = "/brand/logo-512.png";
+
+export const viewport: Viewport = {
+  themeColor: "#0b0f19",
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -59,11 +72,13 @@ export const metadata: Metadata = {
     siteName: "Algotraders24 AI",
     type: "website",
     locale: "en_US",
+    images: [OG_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
     title: TITLE,
     description: DESCRIPTION,
+    images: [OG_IMAGE.url],
   },
   robots: {
     index: true,
@@ -77,9 +92,11 @@ export const metadata: Metadata = {
 
 // Sprint H1.6 - minimal, honest structured data: only facts already true
 // elsewhere in the codebase (name, real domain, the same description used
-// in metadata above). No logo (no real asset), no sameAs (no confirmed
-// social profiles), no address/founding date/SearchAction - all would be
-// invented.
+// in metadata above). No sameAs (no confirmed social profiles), no address/
+// founding date/SearchAction - all would be invented.
+// Sprint D2.1 (Phase 10) - the Organization logo is now populated: a real,
+// official Brand Identity v1.0 asset finally exists in public/, so the one
+// field H1.6 had to leave out can be filled honestly.
 const structuredData = {
   "@context": "https://schema.org",
   "@graph": [
@@ -88,6 +105,7 @@ const structuredData = {
       name: "Algotraders24 AI",
       url: SITE_URL,
       description: DESCRIPTION,
+      logo: `${SITE_URL}${LOGO_URL}`,
     },
     {
       "@type": "WebSite",
