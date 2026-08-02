@@ -8,6 +8,10 @@ export type MarketDataErrorKind =
   | "auth"
   | "rate_limit"
   | "http_error"
+  // Sprint D2.2 (Phase 4) - a provider call exceeded its time budget. Kept
+  // distinct from http_error so the reliability layer and consumers can treat
+  // "too slow" separately from "the server answered with an error".
+  | "timeout"
   | "invalid_response"
   | "unknown";
 

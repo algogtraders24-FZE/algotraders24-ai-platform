@@ -22,6 +22,7 @@ import type {
   MarketContextResult,
 } from "@/types/market-data-provider";
 import { MarketDataProviderError, type MarketDataErrorKind } from "@/lib/market-data/errors";
+import { withReliability, type ReliabilityOptions } from "@/lib/market-data/reliability";
 import { TtlCache, systemClock, type Clock } from "@/lib/market-data/cache";
 import { TwelveDataProvider } from "@/lib/market-data/providers/twelve-data.provider";
 import { AlphaVantageProvider } from "@/lib/market-data/providers/alpha-vantage.provider";
@@ -34,6 +35,8 @@ export interface MarketDataServiceOptions {
   providers?: MarketDataProvider[];
   cacheTtlMs?: number;
   clock?: Clock;
+  /** Per-provider-call resilience (timeout/retry/backoff). See lib/market-data/reliability.ts. */
+  reliability?: ReliabilityOptions;
 }
 
 export class MarketDataService implements MarketDataProvider {
@@ -41,6 +44,7 @@ export class MarketDataService implements MarketDataProvider {
   private readonly providers: MarketDataProvider[];
   private readonly cache: TtlCache<MarketContextResult>;
   private readonly clock: Clock;
+  private readonly reliability: ReliabilityOptions;
 
   constructor(options: MarketDataServiceOptions = {}) {
     // Priority order is the provider-priority contract: Twelve Data first,
@@ -49,6 +53,7 @@ export class MarketDataService implements MarketDataProvider {
     this.providers = options.providers ?? [new TwelveDataProvider(), new AlphaVantageProvider()];
     this.clock = options.clock ?? systemClock;
     this.cache = new TtlCache<MarketContextResult>(options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS, this.clock);
+    this.reliability = options.reliability ?? {};
   }
 
   /** True when at least one provider is ready to serve - the service is usable if any vendor is configured. */
@@ -99,12 +104,15 @@ export class MarketDataService implements MarketDataProvider {
     throw this.aggregateError(request.symbol, errors);
   }
 
-  // Single seam where a provider call happens. Phase 4 wraps this body with
-  // timeout/retry/backoff; keeping every provider call funnelled through here
-  // means that resilience is added in exactly one place, for every provider,
-  // without touching the selection/fallback loop above.
+  // Single seam where a provider call happens. Sprint D2.2 Phase 4: every
+  // call is wrapped with a per-attempt timeout and bounded exponential-backoff
+  // retry on transient errors (http_error/timeout). A non-transient failure
+  // (rate_limit/auth/unsupported/invalid) fails fast here so the selection
+  // loop above can fall back to the next provider immediately. Resilience thus
+  // lives in exactly one place, for every provider, without touching the
+  // selection/fallback loop.
   private async attempt(provider: MarketDataProvider, request: MarketContextRequest): Promise<MarketContextResult> {
-    return provider.getMarketContext(request);
+    return withReliability(() => provider.getMarketContext(request), provider.name, this.reliability);
   }
 
   private aggregateError(symbol: string, errors: MarketDataProviderError[]): MarketDataProviderError {
