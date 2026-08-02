@@ -19,11 +19,13 @@
 import type {
   MarketDataProvider,
   SnapshotProvider,
+  TimeSeriesProvider,
   MarketContextRequest,
   MarketContextResult,
 } from "@/types/market-data-provider";
-import { isSnapshotProvider } from "@/types/market-data-provider";
+import { isSnapshotProvider, isTimeSeriesProvider } from "@/types/market-data-provider";
 import type { MarketSnapshot } from "@/types/market-snapshot";
+import type { Candle, TimeSeriesRequest } from "@/types/market-candle";
 import { MarketDataProviderError, type MarketDataErrorKind } from "@/lib/market-data/errors";
 import { withReliability, type ReliabilityOptions } from "@/lib/market-data/reliability";
 import { TtlCache, systemClock, type Clock } from "@/lib/market-data/cache";
@@ -42,7 +44,7 @@ export interface MarketDataServiceOptions {
   reliability?: ReliabilityOptions;
 }
 
-export class MarketDataService implements MarketDataProvider, SnapshotProvider {
+export class MarketDataService implements MarketDataProvider, SnapshotProvider, TimeSeriesProvider {
   readonly name = SERVICE_NAME;
   private readonly providers: MarketDataProvider[];
   private readonly cache: TtlCache<MarketContextResult>;
@@ -133,6 +135,34 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider {
         const snapshot = await withReliability(() => provider.getSnapshot(request), provider.name, this.reliability);
         this.snapshotCache.set(request.symbol, snapshot);
         return snapshot;
+      } catch (error) {
+        if (error instanceof MarketDataProviderError) {
+          errors.push(error);
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw this.aggregateError(request.symbol, errors);
+  }
+
+  /**
+   * Returns historical OHLC candles (oldest-first) for the indicator engine,
+   * routed only to time-series-capable providers with the same priority order,
+   * per-call reliability, and fallback. Candles are not cached at the service
+   * level (the providers cache them on a longer TTL); this keeps one source of
+   * truth for candle freshness. Throws an aggregate error if none can serve it.
+   */
+  async getTimeSeries(request: TimeSeriesRequest): Promise<Candle[]> {
+    const errors: MarketDataProviderError[] = [];
+    for (const provider of this.providers) {
+      if (!isTimeSeriesProvider(provider)) continue;
+      if (!provider.isConfigured()) {
+        errors.push(new MarketDataProviderError("unconfigured", `${provider.name} is not configured`, provider.name));
+        continue;
+      }
+      try {
+        return await withReliability(() => provider.getTimeSeries(request), provider.name, this.reliability);
       } catch (error) {
         if (error instanceof MarketDataProviderError) {
           errors.push(error);

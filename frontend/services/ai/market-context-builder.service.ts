@@ -135,6 +135,38 @@ export class MarketContextBuilderService {
     return prompt.length > MAX_PROMPT_CHARS ? prompt.slice(0, MAX_PROMPT_CHARS) : prompt;
   }
 
+  // Generic restate-only explanation of ANY already-computed structured
+  // context (e.g. { snapshot, technical, risk }). Same translator contract as
+  // buildPrompt: Gemini may not add a value not present in the JSON. Used by
+  // the Trading Copilot flow (snapshot + TechnicalContext + RiskContext).
+  private buildStructuredPrompt(structured: unknown): string {
+    const lines: string[] = [
+      "You are a market-data explainer. You are given a fully-computed, structured market analysis as JSON (a live snapshot plus computed technical indicators and a risk context).",
+      "Your only task is to explain it in clear, natural language for a trader - you are a translator, not an analyst.",
+      "Do not add any price, percentage, indicator value, or conclusion that is not explicitly present in the JSON.",
+      "Do not give buy/sell advice or invent support/resistance or trade setups. Where a value is null/absent, say the data is insufficient rather than estimating.",
+      "Keep it concise (4-6 sentences).",
+      "Structured analysis:",
+      JSON.stringify(structured, null, 2),
+    ];
+    const prompt = lines.join("\n");
+    return prompt.length > MAX_PROMPT_CHARS ? prompt.slice(0, MAX_PROMPT_CHARS) : prompt;
+  }
+
+  async explainStructured(
+    structured: unknown,
+  ): Promise<{ status: "completed"; explanation: string } | { status: "ai-failed"; message: string }> {
+    const prompt = this.buildStructuredPrompt(structured);
+    try {
+      const completion = await this.getAI().complete(prompt);
+      if (completion.content.trim().length === 0) return { status: "ai-failed", message: "The AI returned an empty response." };
+      return { status: "completed", explanation: completion.content };
+    } catch (error) {
+      const message = error instanceof AIProviderError ? error.message : "The AI explanation could not be completed.";
+      return { status: "ai-failed", message };
+    }
+  }
+
   /**
    * Full flow for one symbol. Never throws for an expected failure: a missing
    * provider, a provider error, or an AI failure each return an explicit

@@ -72,6 +72,22 @@ export function isSnapshotProvider(value: MarketDataProvider): value is MarketDa
   return typeof (value as Partial<SnapshotProvider>).getSnapshot === "function";
 }
 
+// Sprint D2.2 (Phase 7) - an additive capability for providers that can return
+// historical OHLC candles (the input to the real indicator engine). Separate
+// from MarketDataProvider/SnapshotProvider so a quote-only provider is never
+// forced to fake a series. Candles are returned OLDEST-first.
+import type { Candle, TimeSeriesRequest } from "./market-candle";
+
+export interface TimeSeriesProvider {
+  readonly name: string;
+  isConfigured(): boolean;
+  getTimeSeries(request: TimeSeriesRequest): Promise<Candle[]>;
+}
+
+export function isTimeSeriesProvider(value: MarketDataProvider): value is MarketDataProvider & TimeSeriesProvider {
+  return typeof (value as Partial<TimeSeriesProvider>).getTimeSeries === "function";
+}
+
 export class MarketDataProviderUnavailableError extends Error {
   constructor(providerName: string) {
     super(`Market data provider "${providerName}" is not configured`);

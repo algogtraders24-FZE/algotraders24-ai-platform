@@ -26,12 +26,14 @@
 import type {
   MarketDataProvider,
   SnapshotProvider,
+  TimeSeriesProvider,
   MarketContextRequest,
   MarketContextResult,
   MarketEvidenceItem,
 } from "@/types/market-data-provider";
 import type { MarketCategory } from "@/types/market";
 import type { MarketSnapshot, MarketStatus } from "@/types/market-snapshot";
+import type { Candle, TimeSeriesRequest } from "@/types/market-candle";
 import { getMarket } from "../market-registry";
 import { loadTwelveDataEnv, type TwelveDataEnv } from "../env";
 import { MarketDataProviderError } from "../errors";
@@ -39,7 +41,11 @@ import { TtlCache, systemClock, type Clock } from "../cache";
 
 const PROVIDER_NAME = "twelve-data";
 const BASE_URL = "https://api.twelvedata.com/quote";
+const TIMESERIES_URL = "https://api.twelvedata.com/time_series";
 const DEFAULT_CACHE_TTL_MS = 60_000;
+const DEFAULT_CANDLE_CACHE_TTL_MS = 5 * 60_000;
+const DEFAULT_INTERVAL = "1day";
+const DEFAULT_OUTPUT_SIZE = 100;
 
 // Platform canonical symbol -> Twelve Data symbol + presentation metadata.
 // assetClass/quoteCurrency are used for honest formatting and (from Phase 5/6)
@@ -108,8 +114,17 @@ export type TwelveDataFetch = (url: string) => Promise<FetchLikeResponse>;
 
 export interface TwelveDataProviderOptions {
   cacheTtlMs?: number;
+  candleCacheTtlMs?: number;
   clock?: Clock;
   fetchImpl?: TwelveDataFetch;
+}
+
+// Minimal shape of Twelve Data's documented /time_series response.
+interface TwelveDataTimeSeriesResponse {
+  values?: Array<{ datetime?: string; open?: string; high?: string; low?: string; close?: string; volume?: string }>;
+  status?: string;
+  code?: number;
+  message?: string;
 }
 
 function toFiniteNumber(value: string | undefined): number | undefined {
@@ -126,10 +141,13 @@ function fmt(n: number): string {
   return Number.parseFloat(n.toPrecision(12)).toString();
 }
 
-export class TwelveDataProvider implements MarketDataProvider, SnapshotProvider {
+export class TwelveDataProvider implements MarketDataProvider, SnapshotProvider, TimeSeriesProvider {
   readonly name = PROVIDER_NAME;
   private readonly env: TwelveDataEnv | null;
   private readonly cache: TtlCache<ParsedQuote>;
+  // Historical candles move slower than a live quote and cost more of the API
+  // budget, so they get their own longer-lived cache keyed by symbol+interval+size.
+  private readonly candleCache: TtlCache<Candle[]>;
   private readonly clock: Clock;
   private readonly fetchImpl: TwelveDataFetch;
 
@@ -137,6 +155,7 @@ export class TwelveDataProvider implements MarketDataProvider, SnapshotProvider 
     this.env = loadTwelveDataEnv();
     this.clock = options.clock ?? systemClock;
     this.cache = new TtlCache<ParsedQuote>(options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS, this.clock);
+    this.candleCache = new TtlCache<Candle[]>(options.candleCacheTtlMs ?? DEFAULT_CANDLE_CACHE_TTL_MS, this.clock);
     this.fetchImpl = options.fetchImpl ?? (fetch as unknown as TwelveDataFetch);
   }
 
@@ -249,6 +268,70 @@ export class TwelveDataProvider implements MarketDataProvider, SnapshotProvider 
       provider: PROVIDER_NAME,
       retrievedAt,
     };
+  }
+
+  // Sprint D2.2 Phase 7 - historical candles for the real indicator engine.
+  // Returned OLDEST-first. Cached per symbol+interval+size on a longer TTL
+  // than the live quote. An empty/insufficient series is returned as-is (the
+  // caller decides "insufficient data"); only genuine vendor errors throw.
+  async getTimeSeries(request: TimeSeriesRequest): Promise<Candle[]> {
+    if (!this.env) {
+      throw new MarketDataProviderError("unconfigured", `${PROVIDER_NAME} is not configured (missing TWELVEDATA_API_KEY)`, PROVIDER_NAME);
+    }
+    const spec = this.resolveSymbol(request.symbol);
+    const interval = request.interval ?? DEFAULT_INTERVAL;
+    const size = request.outputSize ?? DEFAULT_OUTPUT_SIZE;
+    const cacheKey = `${spec.td}|${interval}|${size}`;
+
+    let candles = this.candleCache.get(cacheKey);
+    if (!candles) {
+      candles = await this.fetchTimeSeries(spec.td, interval, size, this.env.apiKey);
+      this.candleCache.set(cacheKey, candles);
+    }
+    return candles;
+  }
+
+  private async fetchTimeSeries(tdSymbol: string, interval: string, size: number, apiKey: string): Promise<Candle[]> {
+    const url = `${TIMESERIES_URL}?symbol=${encodeURIComponent(tdSymbol)}&interval=${encodeURIComponent(interval)}&outputsize=${size}&apikey=${encodeURIComponent(apiKey)}`;
+
+    let res: FetchLikeResponse;
+    try {
+      res = await this.fetchImpl(url);
+    } catch {
+      throw new MarketDataProviderError("http_error", "Failed to reach Twelve Data", PROVIDER_NAME);
+    }
+    if (!res.ok && res.status !== 200) {
+      const kind = res.status === 401 || res.status === 403 ? "auth" : res.status === 429 ? "rate_limit" : "http_error";
+      throw new MarketDataProviderError(kind, `Twelve Data returned HTTP ${res.status}`, PROVIDER_NAME);
+    }
+
+    let body: TwelveDataTimeSeriesResponse;
+    try {
+      body = (await res.json()) as TwelveDataTimeSeriesResponse;
+    } catch {
+      throw new MarketDataProviderError("invalid_response", "Twelve Data response was not valid JSON", PROVIDER_NAME);
+    }
+    if (body.status === "error" || typeof body.code === "number") {
+      const code = body.code ?? 0;
+      const kind =
+        code === 401 || code === 403 ? "auth" : code === 429 ? "rate_limit" : code === 404 || code === 400 ? "invalid_response" : "unknown";
+      throw new MarketDataProviderError(kind, `Twelve Data error (${code}): ${body.message ?? "unknown error"}`, PROVIDER_NAME);
+    }
+
+    const rows = body.values ?? [];
+    // Vendor returns newest-first; parse and reverse to oldest-first. A row
+    // missing any OHLC value is dropped rather than zero-filled.
+    const parsed: Candle[] = [];
+    for (const row of rows) {
+      const open = toFiniteNumber(row.open);
+      const high = toFiniteNumber(row.high);
+      const low = toFiniteNumber(row.low);
+      const close = toFiniteNumber(row.close);
+      if (open === undefined || high === undefined || low === undefined || close === undefined || !row.datetime) continue;
+      parsed.push({ datetime: row.datetime, open, high, low, close, volume: toFiniteNumber(row.volume) });
+    }
+    parsed.reverse();
+    return parsed;
   }
 
   private async fetchQuote(tdSymbol: string, apiKey: string): Promise<ParsedQuote> {
