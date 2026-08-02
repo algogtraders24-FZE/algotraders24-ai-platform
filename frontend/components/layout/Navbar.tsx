@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
+import BrandLogo from "@/components/brand/BrandLogo";
 
 const SCROLL_THRESHOLD = 80;
 
@@ -29,8 +30,9 @@ export default function Navbar() {
       }`}
     >
       <nav className="max-w-7xl mx-auto flex items-center justify-between h-20 px-6">
-        <Link href="/" className="text-xl font-semibold text-text">
-          Algotraders<span className="text-gold">24</span> AI
+        <Link href="/" aria-label="Algotraders24 AI home" className="flex items-center">
+          <BrandLogo variant="full" size="sm" withDescriptor={false} className="hidden sm:inline-flex" />
+          <BrandLogo variant="icon" className="h-7 sm:hidden" />
         </Link>
 
         <div className="hidden md:flex items-center gap-8 text-sm text-text-2">

@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Source_Serif_4 } from "next/font/google";
+import { Geist, Geist_Mono, Urbanist } from "next/font/google";
 import { ToastProvider } from "@/components/ui/Toast";
 import "./globals.css";
 
-// Sprint H1.3 - Activates the fonts globals.css already referenced but
-// never loaded (--font-geist-sans/--font-geist-mono were dead variables,
-// silently falling back to a hardcoded Arial override in globals.css).
-// Source_Serif_4 is new: the approved display face (H1.2A), reserved for
-// H1 headlines only - see the type hierarchy rule in the design system.
+// Geist (sans/mono) power body + code. Urbanist is the official Brand
+// Identity v1.0 primary typeface for all headers and logotype structures
+// (globals.css maps --font-display and the h1-h6 rule to it, and BrandLogo
+// renders the wordmark in it).
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -20,10 +19,10 @@ const geistMono = Geist_Mono({
   display: "swap",
 });
 
-const displaySerif = Source_Serif_4({
-  variable: "--font-serif-display",
+const urbanist = Urbanist({
+  variable: "--font-urbanist",
   subsets: ["latin"],
-  weight: ["500", "600"],
+  weight: ["500", "600", "700", "800"],
   display: "swap",
 });
 
@@ -104,7 +103,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${displaySerif.variable}`}>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${urbanist.variable}`}>
       <body>
         <script
           type="application/ld+json"

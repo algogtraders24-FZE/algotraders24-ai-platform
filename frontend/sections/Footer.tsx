@@ -5,6 +5,7 @@
 // that don't exist), and no fabricated statistics, testimonials, or trust
 // indicators - the risk disclosure line is real, plain text, not a link.
 import Link from "next/link";
+import BrandLogo from "@/components/brand/BrandLogo";
 
 export default function Footer() {
   return (
@@ -12,9 +13,7 @@ export default function Footer() {
       <div className="mx-auto max-w-7xl px-6">
         <div className="grid gap-10 md:grid-cols-3">
           <div>
-            <h3 className="text-lg font-semibold">
-              Algotraders<span className="text-gold">24</span> AI
-            </h3>
+            <BrandLogo variant="full" size="sm" withDescriptor={false} />
             <p className="mt-4 max-w-sm text-sm leading-6 text-text-2">
               An AI Trading Intelligence Platform — deterministic, evidence-based market analysis, explained in
               plain language.

@@ -4,29 +4,28 @@
   --background: #ffffff;
   --foreground: #171717;
 
-  /* Algotraders24 AI design system (Sprint H1.2A, approved).
-     Dark-committed for this transitional phase: every other section of the
-     homepage/dashboard is still hardcoded dark (see H1.3 report) - a real
-     light/dark toggle needs every section migrated together, not just the
-     ones this sprint touches, so these are plain values here rather than
-     branched under a prefers-color-scheme query. */
-  --ink: #0a0e15;
-  --ink-2: #131a25;
-  --ink-3: #1b2330;
-  --ink-4: #232b38;
-  --text: #eceff3;
-  --text-2: #9aa3b2;
-  /* Sprint H1.6 accessibility fix: the original #6e7686 measured ~4.2:1 on
-     --ink and ~3.8:1 on --ink-2 - below the 4.5:1 WCAG AA floor for the
-     small/regular text it's used for (footer copyright, file-path labels,
-     etc). Lightened to clear 4.5:1 on both backgrounds while staying
-     visibly quieter than --text-2. */
-  --text-3: #8894a3;
-  --gold: #c99a44;
-  --gold-strong: #e0b564;
-  --steel: #8fa9c2;
+  /* Algotraders24 AI — Official Brand Identity v1.0 palette.
+     Source of truth: the Brand Identity & Asset Package.
+       Metallic Gold  #D4AF37
+       Deep Black     #0B0F19
+       Pure White     #FFFFFF
+       Slate Accent   #94A3B8
+     --ink is the official Deep Black; --ink-2/3/4 and --border are derived,
+     slightly-lifted shades of it for panels/surfaces/hovers. Dark-committed
+     brand surface (the brand is a dark, gold-on-black identity). */
+  --ink: #0b0f19;
+  --ink-2: #131826;
+  --ink-3: #1c2434;
+  --ink-4: #283246;
+  --text: #ffffff; /* Pure White */
+  --text-2: #94a3b8; /* Slate Accent (official) */
+  /* Derived tertiary slate - a step below --text-2, kept ≥4.5:1 on --ink. */
+  --text-3: #7b889b;
+  --gold: #d4af37; /* Metallic Gold (official) */
+  --gold-strong: #e7c86b; /* lighter gold tint for gradient highlight / hovers */
+  --steel: #94a3b8; /* Slate Accent (official) */
   --warn: #d89552;
-  --border: #232b38;
+  --border: #232b3d;
   --signal-up: #3fb27f;
   --signal-down: #d1594a;
 
@@ -66,13 +65,12 @@
   --color-danger: var(--danger);
   --color-info: var(--info);
 
-  /* --font-sans/--font-mono are fed by next/font in app/layout.tsx via the
-     --font-geist-sans/--font-geist-mono variables - previously dead (no
-     font was ever loaded), now real. --font-display is new: a serif
-     reserved for H1 headlines only, per the approved type hierarchy. */
+  /* --font-sans/--font-mono are fed by next/font in app/layout.tsx.
+     Brand Identity v1.0: Urbanist is the official primary typeface for all
+     headers and logotype, so --font-display (headings) now points to it. */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --font-display: var(--font-serif-display);
+  --font-display: var(--font-urbanist);
 
   /* Semantic radius scale (approved system) - additive alongside
      Tailwind's own default xs/sm/md/lg/xl/2xl/3xl scale, never replacing it. */
@@ -100,6 +98,11 @@ body {
   color: var(--text);
 }
 
+/* Brand Identity v1.0: Urbanist for all headers and logotype structures. */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-urbanist), var(--font-geist-sans), system-ui, sans-serif;
+}
+
 /* Approved glass-surface recipe (H1.2A): nav bar and one dashboard overlay
    panel type only - never a standard content card. Plain CSS class rather
    than a Tailwind @utility, so it needs no v4-specific at-rule support. */
@@ -110,7 +113,7 @@ body {
      pipeline was found (Sprint H1.3 verification) to silently collapse
      color-mix() with a custom-property operand down to the opaque
      variable itself, defeating the intended transparency. */
-  background: rgba(10, 14, 21, 0.88);
+  background: rgba(11, 15, 25, 0.88);
   border: 1px solid var(--border);
 }
 

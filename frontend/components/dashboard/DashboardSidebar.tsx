@@ -7,6 +7,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { DASHBOARD_NAV } from "@/config/dashboard.config";
 import { useUserContext } from "@/context/UserContext";
+import BrandLogo from "@/components/brand/BrandLogo";
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
@@ -17,8 +18,8 @@ export default function DashboardSidebar() {
 
   return (
     <aside className="w-64 shrink-0 bg-ink-2 border-r border-border min-h-screen p-4 hidden md:block">
-      <Link href="/" className="block text-lg font-bold px-3 py-4 text-text">
-        Algotraders<span className="text-gold">24</span> AI
+      <Link href="/" aria-label="Algotraders24 AI home" className="block px-3 py-4">
+        <BrandLogo variant="full" size="sm" withDescriptor={false} />
       </Link>
       <nav className="mt-4 space-y-1">
         {items.map((item) => (
