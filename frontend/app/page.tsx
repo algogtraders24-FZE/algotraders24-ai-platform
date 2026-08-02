@@ -6,6 +6,7 @@ import WhyTraditionalTradingFails from "@/sections/WhyTraditionalTradingFails";
 import ExplainableIntelligence from "@/sections/ExplainableIntelligence";
 import InteractiveAnalysisDemo from "@/sections/InteractiveAnalysisDemo";
 import AssistantPreview from "@/sections/AssistantPreview";
+import PlatformModules from "@/sections/PlatformModules";
 import EnterpriseTrust from "@/sections/EnterpriseTrust";
 import Platforms from "@/sections/Platforms";
 import FeaturedProducts from "@/sections/FeaturedProducts";
@@ -42,6 +43,7 @@ export default function Home() {
       <ExplainableIntelligence />
       <InteractiveAnalysisDemo />
       <AssistantPreview />
+      <PlatformModules />
       <EnterpriseTrust />
       <Platforms />
       <FeaturedProducts />
