@@ -18,9 +18,12 @@
 // MarketSnapshot model is Phase 6.
 import type {
   MarketDataProvider,
+  SnapshotProvider,
   MarketContextRequest,
   MarketContextResult,
 } from "@/types/market-data-provider";
+import { isSnapshotProvider } from "@/types/market-data-provider";
+import type { MarketSnapshot } from "@/types/market-snapshot";
 import { MarketDataProviderError, type MarketDataErrorKind } from "@/lib/market-data/errors";
 import { withReliability, type ReliabilityOptions } from "@/lib/market-data/reliability";
 import { TtlCache, systemClock, type Clock } from "@/lib/market-data/cache";
@@ -39,10 +42,11 @@ export interface MarketDataServiceOptions {
   reliability?: ReliabilityOptions;
 }
 
-export class MarketDataService implements MarketDataProvider {
+export class MarketDataService implements MarketDataProvider, SnapshotProvider {
   readonly name = SERVICE_NAME;
   private readonly providers: MarketDataProvider[];
   private readonly cache: TtlCache<MarketContextResult>;
+  private readonly snapshotCache: TtlCache<MarketSnapshot>;
   private readonly clock: Clock;
   private readonly reliability: ReliabilityOptions;
 
@@ -52,7 +56,9 @@ export class MarketDataService implements MarketDataProvider {
     // (e.g. tests inject fakes) but the default encodes the documented policy.
     this.providers = options.providers ?? [new TwelveDataProvider(), new AlphaVantageProvider()];
     this.clock = options.clock ?? systemClock;
-    this.cache = new TtlCache<MarketContextResult>(options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS, this.clock);
+    const ttl = options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
+    this.cache = new TtlCache<MarketContextResult>(ttl, this.clock);
+    this.snapshotCache = new TtlCache<MarketSnapshot>(ttl, this.clock);
     this.reliability = options.reliability ?? {};
   }
 
@@ -101,6 +107,40 @@ export class MarketDataService implements MarketDataProvider {
       }
     }
 
+    throw this.aggregateError(request.symbol, errors);
+  }
+
+  /**
+   * Returns the canonical MarketSnapshot for a symbol. Same priority-order
+   * selection, per-call reliability, and fallback as getMarketContext, but
+   * only providers that actually implement SnapshotProvider are eligible - a
+   * spot-only provider (Alpha Vantage) is skipped rather than forced to
+   * fabricate OHLC. If no snapshot-capable provider can serve the symbol, a
+   * single aggregate error is thrown.
+   */
+  async getSnapshot(request: MarketContextRequest): Promise<MarketSnapshot> {
+    const cached = this.snapshotCache.get(request.symbol);
+    if (cached) return cached;
+
+    const errors: MarketDataProviderError[] = [];
+    for (const provider of this.providers) {
+      if (!isSnapshotProvider(provider)) continue; // capability, not an error worth reporting
+      if (!provider.isConfigured()) {
+        errors.push(new MarketDataProviderError("unconfigured", `${provider.name} is not configured`, provider.name));
+        continue;
+      }
+      try {
+        const snapshot = await withReliability(() => provider.getSnapshot(request), provider.name, this.reliability);
+        this.snapshotCache.set(request.symbol, snapshot);
+        return snapshot;
+      } catch (error) {
+        if (error instanceof MarketDataProviderError) {
+          errors.push(error);
+          continue;
+        }
+        throw error;
+      }
+    }
     throw this.aggregateError(request.symbol, errors);
   }
 

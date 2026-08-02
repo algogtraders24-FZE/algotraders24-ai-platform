@@ -25,11 +25,14 @@
 // error cause - only generic, key-free messages leave this layer.
 import type {
   MarketDataProvider,
+  SnapshotProvider,
   MarketContextRequest,
   MarketContextResult,
   MarketEvidenceItem,
 } from "@/types/market-data-provider";
 import type { MarketCategory } from "@/types/market";
+import type { MarketSnapshot, MarketStatus } from "@/types/market-snapshot";
+import { getMarket } from "../market-registry";
 import { loadTwelveDataEnv, type TwelveDataEnv } from "../env";
 import { MarketDataProviderError } from "../errors";
 import { TtlCache, systemClock, type Clock } from "../cache";
@@ -123,7 +126,7 @@ function fmt(n: number): string {
   return Number.parseFloat(n.toPrecision(12)).toString();
 }
 
-export class TwelveDataProvider implements MarketDataProvider {
+export class TwelveDataProvider implements MarketDataProvider, SnapshotProvider {
   readonly name = PROVIDER_NAME;
   private readonly env: TwelveDataEnv | null;
   private readonly cache: TtlCache<ParsedQuote>;
@@ -158,7 +161,10 @@ export class TwelveDataProvider implements MarketDataProvider {
     return spec;
   }
 
-  async getMarketContext(request: MarketContextRequest): Promise<MarketContextResult> {
+  // Shared cache+fetch used by both getMarketContext (evidence view) and
+  // getSnapshot (structured view) so a single vendor call serves both and the
+  // 60s TTL cache is honoured across them.
+  private async getParsedQuote(spec: SymbolSpec): Promise<ParsedQuote> {
     if (!this.env) {
       throw new MarketDataProviderError(
         "unconfigured",
@@ -166,13 +172,17 @@ export class TwelveDataProvider implements MarketDataProvider {
         PROVIDER_NAME,
       );
     }
-    const spec = this.resolveSymbol(request.symbol);
-
     let quote = this.cache.get(spec.td);
     if (!quote) {
       quote = await this.fetchQuote(spec.td, this.env.apiKey);
       this.cache.set(spec.td, quote);
     }
+    return quote;
+  }
+
+  async getMarketContext(request: MarketContextRequest): Promise<MarketContextResult> {
+    const spec = this.resolveSymbol(request.symbol);
+    const quote = await this.getParsedQuote(spec);
 
     const retrievedAt = new Date(this.clock.now()).toISOString();
     // The provider's own reading time when known (may be older than
@@ -206,6 +216,38 @@ export class TwelveDataProvider implements MarketDataProvider {
       // trend/volatility/liquidity/riskLevel/sentiment/technicalSummary/
       // headlines: intentionally omitted - a raw quote has no opinion on any
       // of them, and inventing one would fabricate market data.
+    };
+  }
+
+  // Sprint D2.2 Phase 6 - the structured, canonical view. Maps the SAME parsed
+  // quote used for evidence into the shared MarketSnapshot model. assetClass
+  // and human name come from the provider-independent market registry; every
+  // other field is copied straight from the vendor value or left undefined -
+  // never a guessed default.
+  async getSnapshot(request: MarketContextRequest): Promise<MarketSnapshot> {
+    const spec = this.resolveSymbol(request.symbol);
+    const quote = await this.getParsedQuote(spec);
+    const retrievedAt = new Date(this.clock.now()).toISOString();
+    const marketStatus: MarketStatus =
+      quote.marketOpen === true ? "open" : quote.marketOpen === false ? "closed" : "unknown";
+
+    return {
+      symbol: request.symbol,
+      name: getMarket(request.symbol)?.name,
+      assetClass: spec.assetClass,
+      price: quote.close,
+      ohlc:
+        quote.open !== undefined && quote.high !== undefined && quote.low !== undefined
+          ? { open: quote.open, high: quote.high, low: quote.low, close: quote.close }
+          : undefined,
+      changePercent: quote.changePercent,
+      volume: quote.volume,
+      quoteCurrency: spec.quoteCurrency,
+      timestamp: quote.providerTimestamp ?? retrievedAt,
+      timezone: "UTC",
+      marketStatus,
+      provider: PROVIDER_NAME,
+      retrievedAt,
     };
   }
 

@@ -53,6 +53,25 @@ export interface MarketDataProvider {
   getMarketContext(request: MarketContextRequest): Promise<MarketContextResult>;
 }
 
+// Sprint D2.2 (Phase 6) - an OPTIONAL, additive capability on top of
+// MarketDataProvider: a provider that can also return the richer, structured,
+// canonical MarketSnapshot (OHLC, volume, market status). Kept separate from
+// MarketDataProvider so a spot-only provider (e.g. the Alpha Vantage
+// exchange-rate adapter) stays a valid MarketDataProvider without being forced
+// to fabricate OHLC it does not have. The central service detects this
+// capability at runtime and only routes getSnapshot() to providers that have it.
+import type { MarketSnapshot } from "./market-snapshot";
+
+export interface SnapshotProvider {
+  readonly name: string;
+  isConfigured(): boolean;
+  getSnapshot(request: MarketContextRequest): Promise<MarketSnapshot>;
+}
+
+export function isSnapshotProvider(value: MarketDataProvider): value is MarketDataProvider & SnapshotProvider {
+  return typeof (value as Partial<SnapshotProvider>).getSnapshot === "function";
+}
+
 export class MarketDataProviderUnavailableError extends Error {
   constructor(providerName: string) {
     super(`Market data provider "${providerName}" is not configured`);
