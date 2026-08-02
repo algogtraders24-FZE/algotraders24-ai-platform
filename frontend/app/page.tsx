@@ -2,11 +2,11 @@ import Navbar from "@/components/layout/Navbar";
 import Hero from "@/sections/Hero";
 import TrustStrip from "@/sections/TrustStrip";
 import PlatformOverview from "@/sections/PlatformOverview";
-import WhyTraditionalTradingFails from "@/sections/WhyTraditionalTradingFails";
 import ExplainableIntelligence from "@/sections/ExplainableIntelligence";
 import InteractiveAnalysisDemo from "@/sections/InteractiveAnalysisDemo";
 import AssistantPreview from "@/sections/AssistantPreview";
 import PlatformModules from "@/sections/PlatformModules";
+import WhyChoose from "@/sections/WhyChoose";
 import EnterpriseTrust from "@/sections/EnterpriseTrust";
 import Platforms from "@/sections/Platforms";
 import FeaturedProducts from "@/sections/FeaturedProducts";
@@ -39,11 +39,11 @@ export default function Home() {
       <Hero />
       <TrustStrip />
       <PlatformOverview />
-      <WhyTraditionalTradingFails />
       <ExplainableIntelligence />
       <InteractiveAnalysisDemo />
       <AssistantPreview />
       <PlatformModules />
+      <WhyChoose />
       <EnterpriseTrust />
       <Platforms />
       <FeaturedProducts />
