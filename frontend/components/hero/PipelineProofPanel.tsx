@@ -36,8 +36,10 @@ export default function PipelineProofPanel() {
   }, []);
 
   return (
-    <div className="w-full max-w-md rounded-panel glass-surface p-8">
-      <h2 className="text-lg font-semibold">How every analysis is built</h2>
+    // Sprint D2.1 - the outer panel chrome now lives in Hero's app-window
+    // frame; this component renders only the content that sits inside it.
+    <div className="w-full">
+      <h2 className="text-base font-semibold">How every analysis is built</h2>
       <p className="mt-1 text-sm text-text-3">The same deterministic process, every time.</p>
 
       <ol className="mt-6 space-y-3">

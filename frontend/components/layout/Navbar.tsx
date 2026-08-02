@@ -31,8 +31,17 @@ export default function Navbar() {
     >
       <nav className="max-w-7xl mx-auto flex items-center justify-between h-20 px-6">
         <Link href="/" aria-label="Algotraders24 AI home" className="flex items-center">
-          <BrandLogo variant="full" size="sm" withDescriptor={false} className="hidden sm:inline-flex" />
-          <BrandLogo variant="icon" className="h-7 sm:hidden" />
+          {/* Wrap in visibility spans rather than passing `hidden`/`sm:*`
+              display classes to BrandLogo, whose root is already inline-flex
+              — passing a conflicting `hidden` there loses to that base class
+              in Tailwind's source order and leaks the full logo onto mobile
+              (both marks showing). The wrapper span owns display state. */}
+          <span className="hidden sm:inline-flex">
+            <BrandLogo variant="full" size="sm" withDescriptor={false} />
+          </span>
+          <span className="sm:hidden">
+            <BrandLogo variant="icon" className="h-7" />
+          </span>
         </Link>
 
         <div className="hidden md:flex items-center gap-8 text-sm text-text-2">

@@ -27,6 +27,7 @@ export default function Hero() {
         aria-hidden="true"
         className="pointer-events-none absolute -bottom-56 -left-32 h-[28rem] w-[28rem] rounded-full bg-steel/10 blur-3xl"
       />
+      <div aria-hidden="true" className="hero-grid pointer-events-none absolute inset-0" />
 
       <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-6 md:grid-cols-2">
         {/* Left side */}
@@ -58,17 +59,38 @@ export default function Hero() {
               Ask the AI Assistant
             </Link>
             <Link
-              href="/products"
+              href="/signup"
               className="rounded-control border border-border px-8 py-4 font-semibold text-text transition hover:border-gold"
             >
-              Explore Products
+              Start Free
             </Link>
           </div>
+
+          <p className="hero-fade mt-4 text-sm text-text-3" style={{ animationDelay: "300ms" }}>
+            Free plan included — explainable analysis from day one.
+          </p>
         </div>
 
-        {/* Right side: the real pipeline, not a fake output */}
+        {/* Right side: the real pipeline, framed as the product screen it
+            actually drives — an app-window chrome around the honest pipeline
+            preview (no fabricated dashboard, no invented market output). */}
         <div className="hero-fade flex justify-center" style={{ animationDelay: "320ms" }}>
-          <PipelineProofPanel />
+          <div className="w-full max-w-md overflow-hidden rounded-panel border border-border bg-ink-2/70 shadow-raised backdrop-blur">
+            <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+              <span aria-hidden="true" className="flex gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-steel/40" />
+                <span className="h-2.5 w-2.5 rounded-full bg-steel/40" />
+                <span className="h-2.5 w-2.5 rounded-full bg-gold/50" />
+              </span>
+              <span className="text-xs font-medium text-text-2">Market Intelligence</span>
+              <span className="ml-auto rounded-control border border-gold/30 bg-gold/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-gold">
+                Preview
+              </span>
+            </div>
+            <div className="p-6">
+              <PipelineProofPanel />
+            </div>
+          </div>
         </div>
       </div>
     </section>

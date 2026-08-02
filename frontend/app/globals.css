@@ -164,6 +164,18 @@ h1, h2, h3, h4, h5, h6 {
   animation: fade-rise 350ms ease-out both;
 }
 
+/* Sprint D2.1 - a faint, enterprise "AI grid" behind the Hero. Purely
+   decorative (aria-hidden in the component): a low-contrast dot lattice,
+   radially masked so it fades to nothing toward the edges and never
+   competes with the content. Deliberately restrained - no glow trails, no
+   animated particles, nothing crypto-flashy. */
+.hero-grid {
+  background-image: radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.09) 1px, transparent 0);
+  background-size: 34px 34px;
+  -webkit-mask-image: radial-gradient(ellipse 78% 62% at 50% 0%, #000 28%, transparent 76%);
+  mask-image: radial-gradient(ellipse 78% 62% at 50% 0%, #000 28%, transparent 76%);
+}
+
 /* Sprint H1.7 - a brief, one-shot glow on Architecture Visualization's
    stage marker the instant it lights up: data genuinely does arrive at
    that stage at that moment, so the pulse marks a real event in the
