@@ -16,6 +16,7 @@ import GlobalSymbolSelector from "@/components/workspace/GlobalSymbolSelector";
 import ProviderStatus from "@/components/workspace/ProviderStatus";
 import WorkspaceHeader from "@/components/workspace/WorkspaceHeader";
 import WorkspaceSection from "@/components/workspace/WorkspaceSection";
+import MarketRibbon from "@/components/workspace/MarketRibbon";
 
 export default function WorkspacePage() {
   return (
@@ -33,8 +34,8 @@ export default function WorkspacePage() {
           </div>
         </div>
 
-        {/* Market Ribbon — Phase 4 (live prices from the D2.2 service) */}
-        <WorkspaceSection title="Market Ribbon" subtitle="Live prices across markets" minHeight={64} pending="Live ribbon arrives in Phase 4." />
+        {/* Market Ribbon — live prices from the D2.2 service (Phase 4) */}
+        <MarketRibbon />
 
         {/* Workspace Header — live now */}
         <WorkspaceHeader />
