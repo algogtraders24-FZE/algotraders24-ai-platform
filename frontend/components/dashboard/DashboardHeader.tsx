@@ -11,11 +11,17 @@
 // its internal redirect() still runs the same as before.
 import { signOutAction } from "@/app/(auth)/actions/auth.actions";
 import Dropdown from "@/components/ui/Dropdown";
+import MobileNav from "@/components/dashboard/MobileNav";
 
 export default function DashboardHeader({ userName }: { userName: string }) {
   return (
     <header className="flex items-center justify-between border-b border-border px-6 py-4">
-      <div className="text-sm text-text-3">Dashboard</div>
+      {/* Sprint D2.3 (P3): MobileNav is the only dashboard navigation on < md,
+          where the sidebar is hidden. It sits before the breadcrumb label. */}
+      <div className="flex items-center gap-3">
+        <MobileNav />
+        <span className="text-sm text-text-3">Dashboard</span>
+      </div>
       <Dropdown
         trigger={
           <span className="flex items-center gap-3">
