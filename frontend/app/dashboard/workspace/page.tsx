@@ -17,6 +17,8 @@ import WorkspaceSection from "@/components/workspace/WorkspaceSection";
 import MarketRibbon from "@/components/workspace/MarketRibbon";
 import AdvancedChart from "@/components/workspace/tradingview/AdvancedChart";
 import IntelligencePanel from "@/components/workspace/IntelligencePanel";
+import ProfileSwitcher from "@/components/workspace/ProfileSwitcher";
+import FavoriteMarkets from "@/components/workspace/FavoriteMarkets";
 
 export default function WorkspacePage() {
   return (
@@ -34,6 +36,13 @@ export default function WorkspacePage() {
           </div>
         </div>
 
+        {/* Workspace Profiles + Favorites (Phase 7) — presentation-only personalization:
+            profile changes only the chart's display interval, never the active symbol. */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <ProfileSwitcher />
+          <FavoriteMarkets />
+        </div>
+
         {/* Market Ribbon — live prices from the D2.2 service (Phase 4) */}
         <MarketRibbon />
 
@@ -41,7 +50,12 @@ export default function WorkspacePage() {
         <WorkspaceHeader />
 
         {/* Supporting chart — TradingView (visualization only; supports the AI, never leads) */}
-        <WorkspaceSection title="Chart" subtitle="Price context — a supporting visualization, not the headline">
+        <WorkspaceSection
+          id="chart"
+          collapsible
+          title="Chart"
+          subtitle="Price context — a supporting visualization, not the headline"
+        >
           <AdvancedChart />
         </WorkspaceSection>
 
@@ -60,8 +74,22 @@ export default function WorkspacePage() {
 
         {/* Assistant + Research */}
         <div className="grid gap-4 lg:grid-cols-2">
-          <WorkspaceSection title="AI Assistant" subtitle="Ask about the active symbol" minHeight={160} pending="Embedded assistant arrives later in D2.3." />
-          <WorkspaceSection title="Research" subtitle="Multi-symbol & saved analyses" minHeight={160} pending="Research workspace arrives in D2.4." />
+          <WorkspaceSection
+            id="assistant"
+            collapsible
+            title="AI Assistant"
+            subtitle="Ask about the active symbol"
+            minHeight={160}
+            pending="Embedded assistant arrives later in D2.3."
+          />
+          <WorkspaceSection
+            id="research"
+            collapsible
+            title="Research"
+            subtitle="Multi-symbol & saved analyses"
+            minHeight={160}
+            pending="Research workspace arrives in D2.4."
+          />
         </div>
       </div>
     </WorkspaceProvider>

@@ -15,6 +15,12 @@
 // below it). CHART_RESERVE_HEIGHT is CHART_HEIGHT plus room for the required
 // TradingView attribution line, so the pre-mount placeholder and the mounted
 // widget are the same height at every breakpoint (no layout shift).
+//
+// Sprint D2.3 (Phase 7) - the widget's own display interval comes from the
+// active Workspace Profile (WorkspaceContext.chartInterval, see
+// PROFILE_INTERVAL in types/workspace-preferences.ts). This is a TradingView
+// widget-config value only - it is never sent to the AI Intelligence
+// pipeline, which has no timeframe parameter to personalize.
 import { useWorkspace } from "@/context/WorkspaceContext";
 import TradingViewWidget from "./TradingViewWidget";
 
@@ -36,13 +42,13 @@ const TV_SYMBOL: Record<string, string> = {
 };
 
 export default function AdvancedChart() {
-  const { symbol } = useWorkspace();
+  const { symbol, chartInterval } = useWorkspace();
   const tvSymbol = TV_SYMBOL[symbol] ?? "FX:EURUSD";
 
   const config = {
     autosize: true,
     symbol: tvSymbol,
-    interval: "D",
+    interval: chartInterval,
     timezone: "Etc/UTC",
     theme: "dark",
     style: "1",
@@ -59,7 +65,7 @@ export default function AdvancedChart() {
 
   return (
     <TradingViewWidget
-      key={tvSymbol}
+      key={`${tvSymbol}:${chartInterval}`}
       scriptSrc={ADVANCED_CHART_SRC}
       config={config}
       heightClassName={CHART_HEIGHT}

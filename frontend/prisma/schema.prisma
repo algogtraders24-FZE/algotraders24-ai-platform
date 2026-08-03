@@ -465,3 +465,29 @@ model AnalyticsEvent {
   @@index([userId, type])
   @@index([createdAt])
 }
+
+// Sprint D2.3 - Phase 7: Workspace Profiles. Presentation-layer preferences
+// only - never read by the AI Intelligence pipeline (TradingCopilotService /
+// CopilotAnalysis take no input from this table). One row per user
+// (upserted on first workspace visit). `chartInterval` drives the
+// TradingView widget's own display interval only, not any analysis
+// timeframe - the real pipeline has no timeframe parameter to personalize.
+// `sidebarCollapsed`/`theme` are forward-ready fields with no UI consumer
+// yet (mirrors this sprint's own "theme preference (future-ready)" scoping).
+model WorkspacePreference {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  profile          String    @default("default") // "default" | "scalper" | "day_trader" | "swing_trader" | "investor"
+  symbol           String? // last/default active symbol; null = fall back to market-registry default
+  chartInterval    String    @default("D") // TradingView widget interval code
+  favoriteMarkets  String[]  @default([]) // ordered canonical symbols, registry-validated
+  collapsedPanels  String[]  @default([]) // subset of the workspace's collapsible panel ids
+  sidebarCollapsed Boolean   @default(false)
+  theme            String    @default("dark")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  @@index([userId])
+  @@index([deletedAt])
+}
