@@ -1,12 +1,10 @@
 "use client";
 
 // app/dashboard/workspace/page.tsx
-// Sprint D2.3 (Phase 2) - the Intelligence Workspace scaffold. A new, dedicated
-// route (existing module pages are untouched). It establishes the final layout
-// order and the shared symbol state; later phases fill each region:
+// Sprint D2.3 - the Intelligence Workspace. A new, dedicated route (existing
+// module pages are untouched). Final layout order:
 //   Market Ribbon (P4) → Workspace Header → TradingView Chart (P5) →
-//   AI Intelligence (P6, the CENTER) → Technical Indicators (P6) →
-//   Evidence (P6) → Assistant → Research (D2.4).
+//   AI Intelligence (P6, the CENTER) → Assistant → Research (D2.4).
 // Positioning is enforced structurally: the AI Intelligence panel carries the
 // `emphasis` treatment; the chart is a supporting panel above it, never the
 // headline. The Global Symbol Selector drives every panel through
@@ -18,6 +16,7 @@ import WorkspaceHeader from "@/components/workspace/WorkspaceHeader";
 import WorkspaceSection from "@/components/workspace/WorkspaceSection";
 import MarketRibbon from "@/components/workspace/MarketRibbon";
 import AdvancedChart from "@/components/workspace/tradingview/AdvancedChart";
+import IntelligencePanel from "@/components/workspace/IntelligencePanel";
 
 export default function WorkspacePage() {
   return (
@@ -46,20 +45,18 @@ export default function WorkspacePage() {
           <AdvancedChart />
         </WorkspaceSection>
 
-        {/* AI Intelligence — the CENTER of the workspace (Phase 6) */}
+        {/* AI Intelligence — the CENTER of the workspace (Phase 6). One unified
+            panel: market status, confidence, risk, structure, key levels,
+            evidence and timestamp all live here, sourced from the real D2.2
+            pipeline — no separate "Technical Indicators" / "Evidence" panels,
+            to keep the acceptance rule "zero duplicated intelligence". */}
         <WorkspaceSection
           title="AI Intelligence"
           subtitle="Trend · confidence · risk · key levels · market structure"
           emphasis
-          minHeight={220}
-          pending="Structured Market Intelligence output arrives in Phase 6."
-        />
-
-        {/* Technical indicators + evidence — Phase 6 (real engine from D2.2) */}
-        <div className="grid gap-4 lg:grid-cols-2">
-          <WorkspaceSection title="Technical Indicators" subtitle="Real RSI / EMA / MACD / ATR / Bollinger" minHeight={180} pending="Wired to the real indicator engine in Phase 6." />
-          <WorkspaceSection title="Evidence" subtitle="Sourced, timestamped" minHeight={180} pending="Evidence panel arrives in Phase 6." />
-        </div>
+        >
+          <IntelligencePanel />
+        </WorkspaceSection>
 
         {/* Assistant + Research */}
         <div className="grid gap-4 lg:grid-cols-2">

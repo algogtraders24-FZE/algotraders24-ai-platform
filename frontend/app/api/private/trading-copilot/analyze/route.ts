@@ -14,6 +14,7 @@ import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { TradingCopilotService } from "@/services/ai/trading-copilot.service";
+import { buildIntelligencePanelData } from "@/services/ai/intelligence-panel.service";
 import { isEnabledMarket, listEnabledMarkets } from "@/lib/market-data/market-registry";
 
 const copilot = new TradingCopilotService();
@@ -37,7 +38,15 @@ export const POST = withContext(async (req, ctx) => {
   const outcome = await copilot.analyze({ symbol: body.symbol });
   switch (outcome.status) {
     case "completed":
-      return ApiResponse.success({ analysis: outcome.analysis }, ctx.requestId, 200, ctx.startedAt);
+      // `panel` is a same-request projection of `analysis` (Sprint D2.3 P6) - the
+      // Intelligence Workspace's AI Intelligence panel reads it. Additive field,
+      // no second analysis: existing consumers of `analysis` are unaffected.
+      return ApiResponse.success(
+        { analysis: outcome.analysis, panel: buildIntelligencePanelData(outcome.analysis) },
+        ctx.requestId,
+        200,
+        ctx.startedAt,
+      );
     case "provider-unavailable":
       return ApiResponse.error({ code: "PROVIDER_UNAVAILABLE", message: outcome.reason }, ctx.requestId, 503, ctx.startedAt);
     case "provider-error":
