@@ -1,16 +1,21 @@
 "use client";
 
 // components/workspace/tradingview/TradingViewWidget.tsx
-// Sprint D2.3 (Phase 5) - the single reusable TradingView wrapper. No page
-// embeds TradingView directly; they compose this. Two rules are enforced here:
+// Sprint D2.3 (Phase 5, height tuned in a later pass) - the single reusable
+// TradingView wrapper. No page embeds TradingView directly; they compose
+// this. Two rules are enforced here:
 //   1. LAZY: the (heavy) TradingView embed script is only injected once the
 //      widget scrolls near the viewport (IntersectionObserver), never on
 //      initial page load.
 //   2. ATTRIBUTION: the official TradingView copyright link is always rendered
 //      inside the container, as required by their embed terms.
-// A stable outer min-height reserves space so the async widget never shifts
-// layout (CLS-safe). Callers remount on symbol change via a React `key`, so
-// this effect stays simple (inject once per mount).
+// Height is responsive (Tailwind classes, not a single inline px value) so
+// callers can give the chart more room on desktop without wasting space on
+// small screens. `reserveClassName` must be `heightClassName` plus room for
+// the attribution line below the chart, so the pre-mount placeholder is the
+// same height as the mounted widget at every breakpoint (CLS-safe). Callers
+// remount on symbol change via a React `key`, so this effect stays simple
+// (inject once per mount).
 import { useEffect, useRef, useState } from "react";
 
 export interface TradingViewWidgetProps {
@@ -18,10 +23,13 @@ export interface TradingViewWidgetProps {
   scriptSrc: string;
   /** Widget configuration object (serialized into the script body). */
   config: Record<string, unknown>;
-  height?: number;
+  /** Responsive Tailwind height classes for the chart itself, e.g. "h-[320px] sm:h-[420px] lg:h-[500px]". */
+  heightClassName: string;
+  /** Responsive Tailwind height classes for the outer reserved placeholder — `heightClassName` plus room for the attribution line, so mounting never shifts the layout. */
+  reserveClassName: string;
 }
 
-export default function TradingViewWidget({ scriptSrc, config, height = 400 }: TradingViewWidgetProps) {
+export default function TradingViewWidget({ scriptSrc, config, heightClassName, reserveClassName }: TradingViewWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
 
@@ -56,8 +64,7 @@ export default function TradingViewWidget({ scriptSrc, config, height = 400 }: T
     container.className = "tradingview-widget-container";
 
     const widget = document.createElement("div");
-    widget.className = "tradingview-widget-container__widget";
-    widget.style.height = `${height}px`;
+    widget.className = `tradingview-widget-container__widget ${heightClassName}`;
 
     // Required TradingView attribution — must be preserved.
     const copyright = document.createElement("div");
@@ -85,5 +92,5 @@ export default function TradingViewWidget({ scriptSrc, config, height = 400 }: T
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
-  return <div ref={containerRef} style={{ minHeight: height + 28 }} className="w-full" />;
+  return <div ref={containerRef} className={`w-full ${reserveClassName}`} />;
 }

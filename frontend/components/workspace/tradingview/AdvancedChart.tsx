@@ -8,10 +8,19 @@
 // so the chart never becomes a second, competing source of truth. Themed to
 // Design System D1.1 (ink background, steel grid). Remounts via `key` when the
 // symbol changes so the wrapper re-injects cleanly.
+//
+// Height is responsive: ~320px on mobile, ~420px on tablet, ~500px on desktop
+// (comfortable viewing without letting the chart out-grow its supporting
+// role — the AI Intelligence panel stays the visually dominant element right
+// below it). CHART_RESERVE_HEIGHT is CHART_HEIGHT plus room for the required
+// TradingView attribution line, so the pre-mount placeholder and the mounted
+// widget are the same height at every breakpoint (no layout shift).
 import { useWorkspace } from "@/context/WorkspaceContext";
 import TradingViewWidget from "./TradingViewWidget";
 
 const ADVANCED_CHART_SRC = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+const CHART_HEIGHT = "h-[320px] sm:h-[420px] lg:h-[500px]";
+const CHART_RESERVE_HEIGHT = "h-[348px] sm:h-[448px] lg:h-[528px]";
 
 // Canonical platform symbol -> TradingView symbol. Only the enabled markets are
 // mapped; an unmapped symbol falls back to EUR/USD rather than rendering a
@@ -48,5 +57,13 @@ export default function AdvancedChart() {
     support_host: "https://www.tradingview.com",
   };
 
-  return <TradingViewWidget key={tvSymbol} scriptSrc={ADVANCED_CHART_SRC} config={config} height={420} />;
+  return (
+    <TradingViewWidget
+      key={tvSymbol}
+      scriptSrc={ADVANCED_CHART_SRC}
+      config={config}
+      heightClassName={CHART_HEIGHT}
+      reserveClassName={CHART_RESERVE_HEIGHT}
+    />
+  );
 }
