@@ -102,6 +102,42 @@ provider mapping is wired.
 | Fallback | Primary failure falls through to secondary provider |
 | Concurrent requests | 10 concurrent → 8 ok, 2 gracefully rate-limited, no crash |
 
+## Troubleshooting
+
+**A provider reports `unconfigured` even though the key is set in `.env.local`.**
+Symptom: an analysis fails with e.g. `No provider could serve "BTCUSD"
+(twelve-data: unconfigured)` while `TWELVEDATA_API_KEY` is clearly present in
+`.env.local`.
+
+Cause: Next.js reads `.env.local` **once, at server startup**. A dev server
+that was already running when the key was added (or changed) keeps serving with
+its original, keyless environment — so `loadTwelveDataEnv()` returns `null` and
+the provider is `unconfigured`. This is an operational/stale-process issue, not
+a code bug.
+
+Fix (local): **restart the dev server** (`npm run dev`) after editing any
+`.env*` file. To confirm the running process actually has the key, check that
+`process.env.TWELVEDATA_API_KEY` is a non-empty string in a server context. A
+correctly-started server loads all of `TWELVEDATA_API_KEY`,
+`ALPHA_VANTAGE_API_KEY`, and `GEMINI_API_KEY` and serves EURUSD / XAUUSD /
+BTCUSD via Twelve Data.
+
+**On production / a deployed site this is almost always the cause.**
+`.env.local` is git-ignored and is **never deployed** — it only exists on the
+local machine. A deployed server reads its environment from the **hosting
+platform's** configuration, not from any committed file. If a live deployment
+reports `unconfigured`, the fix is:
+
+1. Add the server-only variables to the hosting platform's Environment
+   Variables (e.g. Vercel → Project → Settings → Environment Variables):
+   `TWELVEDATA_API_KEY`, `ALPHA_VANTAGE_API_KEY`, `GEMINI_API_KEY`, and the rest
+   of `.env.example`. **Never** prefix any of them with `NEXT_PUBLIC_`.
+2. **Redeploy** — env changes take effect on the next deployment/restart, the
+   same "read once at startup" rule as local.
+
+Because env vars load at process start, no code change can make a process that
+lacks the key start using it — the key must be present in that environment.
+
 **Known limitation / future work:** concurrent *identical* requests are not yet
 coalesced (each hits the provider before the cache populates). In-flight request
 de-duplication and a shared (Redis) cache are natural next steps for multi-
