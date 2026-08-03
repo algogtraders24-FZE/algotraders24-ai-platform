@@ -22,6 +22,9 @@ export interface DashboardNavItem {
 }
 export const DASHBOARD_NAV: DashboardNavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "DB" },
+  // Sprint D2.3 - the Intelligence Workspace (new premium experience). Placed
+  // right after Dashboard so it is the first destination after the overview.
+  { label: "Workspace", href: "/dashboard/workspace", icon: "WS" },
   { label: "Licenses", href: "/dashboard/licenses", icon: "LC" },
   { label: "AI Signals", href: "/dashboard/signals", icon: "SG" },
   { label: "Market Intel", href: "/dashboard/market-intelligence", icon: "MI" },
