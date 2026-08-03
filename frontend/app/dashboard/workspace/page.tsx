@@ -17,6 +17,7 @@ import ProviderStatus from "@/components/workspace/ProviderStatus";
 import WorkspaceHeader from "@/components/workspace/WorkspaceHeader";
 import WorkspaceSection from "@/components/workspace/WorkspaceSection";
 import MarketRibbon from "@/components/workspace/MarketRibbon";
+import AdvancedChart from "@/components/workspace/tradingview/AdvancedChart";
 
 export default function WorkspacePage() {
   return (
@@ -40,8 +41,10 @@ export default function WorkspacePage() {
         {/* Workspace Header — live now */}
         <WorkspaceHeader />
 
-        {/* Supporting chart — Phase 5 (TradingView, supports the AI, never leads) */}
-        <WorkspaceSection title="Chart" subtitle="Price context (supporting)" minHeight={260} pending="TradingView chart arrives in Phase 5." />
+        {/* Supporting chart — TradingView (visualization only; supports the AI, never leads) */}
+        <WorkspaceSection title="Chart" subtitle="Price context — a supporting visualization, not the headline">
+          <AdvancedChart />
+        </WorkspaceSection>
 
         {/* AI Intelligence — the CENTER of the workspace (Phase 6) */}
         <WorkspaceSection
