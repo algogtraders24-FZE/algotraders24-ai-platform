@@ -38,12 +38,11 @@ export default function WorkspaceHeader() {
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
 
   useEffect(() => {
-    let active = true;
+    const controller = new AbortController();
     setState("loading");
-    fetch(`/api/private/market-data/snapshot?symbol=${encodeURIComponent(symbol)}`)
+    fetch(`/api/private/market-data/snapshot?symbol=${encodeURIComponent(symbol)}`, { signal: controller.signal })
       .then((r) => r.json())
       .then((j) => {
-        if (!active) return;
         if (j?.status === "ok" && j.data?.snapshot) {
           setSnapshot(j.data.snapshot as MarketSnapshot);
           setState("ready");
@@ -51,9 +50,12 @@ export default function WorkspaceHeader() {
           setState("error");
         }
       })
-      .catch(() => active && setState("error"));
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setState("error");
+      });
     return () => {
-      active = false;
+      controller.abort();
     };
   }, [symbol]);
 

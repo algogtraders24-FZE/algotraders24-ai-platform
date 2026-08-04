@@ -8,11 +8,9 @@
 import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
-import { MarketDataService } from "@/services/market-data/market-data.service";
+import { marketData } from "@/services/market-data/shared-instance";
 import { MarketDataProviderError } from "@/lib/market-data/errors";
 import { isEnabledMarket, listEnabledMarkets } from "@/lib/market-data/market-registry";
-
-const marketData = new MarketDataService();
 
 export const GET = withContext(async (req, ctx) => {
   const sessionUser = await getUserOrNull();

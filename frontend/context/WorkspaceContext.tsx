@@ -80,11 +80,11 @@ export function WorkspaceProvider({ children, initialSymbol }: { children: React
   const symbolExplicitlySet = useRef(false);
 
   useEffect(() => {
-    let active = true;
-    fetch(PREFERENCES_ENDPOINT)
+    const controller = new AbortController();
+    fetch(PREFERENCES_ENDPOINT, { signal: controller.signal })
       .then((r) => r.json())
       .then((j) => {
-        if (!active || j?.status !== "ok") return;
+        if (j?.status !== "ok") return;
         const data = j.data as WorkspacePreferencesData;
         // A user-initiated symbol change that lands before this fetch resolves wins - never overwrite it.
         if (!symbolExplicitlySet.current && data.symbol && isKnownMarket(data.symbol)) {
@@ -95,12 +95,15 @@ export function WorkspaceProvider({ children, initialSymbol }: { children: React
         setFavorites(data.favoriteMarkets);
         setCollapsedPanels(data.collapsedPanels);
       })
-      .catch((err) => console.error("Failed to load workspace preferences", err))
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        console.error("Failed to load workspace preferences", err);
+      })
       .finally(() => {
-        if (active) setPreferencesLoaded(true);
+        if (!controller.signal.aborted) setPreferencesLoaded(true);
       });
     return () => {
-      active = false;
+      controller.abort();
     };
   }, []);
 

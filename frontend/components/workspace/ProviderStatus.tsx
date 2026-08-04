@@ -25,16 +25,19 @@ export default function ProviderStatus() {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    let active = true;
-    fetch("/api/private/market-data/status")
+    const controller = new AbortController();
+    fetch("/api/private/market-data/status", { signal: controller.signal })
       .then((r) => r.json())
       .then((j) => {
-        if (active && j?.status === "ok" && j.data) setStatus(j.data as StatusData);
-        else if (active) setFailed(true);
+        if (j?.status === "ok" && j.data) setStatus(j.data as StatusData);
+        else setFailed(true);
       })
-      .catch(() => active && setFailed(true));
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setFailed(true);
+      });
     return () => {
-      active = false;
+      controller.abort();
     };
   }, []);
 

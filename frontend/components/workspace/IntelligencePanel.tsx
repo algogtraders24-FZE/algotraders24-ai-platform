@@ -99,16 +99,16 @@ export default function IntelligencePanel() {
   const [state, setState] = useState<LoadState>("loading");
 
   useEffect(() => {
-    let active = true;
+    const controller = new AbortController();
     setState("loading");
     fetch("/api/private/trading-copilot/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ symbol }),
+      signal: controller.signal,
     })
       .then((r) => r.json())
       .then((j) => {
-        if (!active) return;
         if (j?.status === "ok" && j.data?.panel) {
           setData(j.data.panel as IntelligencePanelData);
           setState("ready");
@@ -118,9 +118,12 @@ export default function IntelligencePanel() {
           setState("error");
         }
       })
-      .catch(() => active && setState("error"));
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setState("error");
+      });
     return () => {
-      active = false;
+      controller.abort();
     };
   }, [symbol]);
 

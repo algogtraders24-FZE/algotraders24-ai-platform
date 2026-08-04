@@ -9,17 +9,16 @@
 import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
-import { MarketDataService } from "@/services/market-data/market-data.service";
+import { marketData } from "@/services/market-data/shared-instance";
 import { MarketDataProviderError } from "@/lib/market-data/errors";
 import { isEnabledMarket } from "@/lib/market-data/market-registry";
 
-// A longer cache TTL than the default is deliberate for the ribbon: it polls
-// several symbols on an interval, and Twelve Data's free tier allows only a
-// handful of requests per minute. A 90s cache keeps repeat polls off the
-// provider entirely, so the ribbon stays within budget after the first load.
-// This is route-level configuration (an option the service already exposes),
-// not a change to the market-data infrastructure.
-const marketData = new MarketDataService({ cacheTtlMs: 90_000 });
+// The shared cache TTL (default 60s, MARKET_CACHE_TTL_MS-overridable - see
+// services/market-data/shared-instance.ts) keeps repeat polls off the
+// provider between ticks, since Twelve Data's free tier allows only a
+// handful of requests per minute. Sprint D2.3 (Phase 9): this instance is
+// shared with /api/private/market-data/snapshot too, so the same symbol
+// fetched from either route hits the upstream provider once.
 const MAX_SYMBOLS = 12;
 
 export const GET = withContext(async (req, ctx) => {

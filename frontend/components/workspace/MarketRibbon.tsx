@@ -40,8 +40,10 @@ interface Snap {
   changePercent?: number;
 }
 
-// Gentle poll: the batch route caches for 90s, so this mostly hits cache and
-// stays within the provider's free-tier per-minute budget.
+// Gentle poll: the batch route's shared cache (see
+// services/market-data/shared-instance.ts) absorbs repeat polls, so this
+// mostly hits cache and stays within the provider's free-tier per-minute
+// budget.
 const POLL_MS = 90_000;
 
 export default function MarketRibbon() {
@@ -51,26 +53,30 @@ export default function MarketRibbon() {
 
   useEffect(() => {
     const liveSymbols = ITEMS.filter((i) => i.live).map((i) => i.symbol);
-    let active = true;
+    let controller = new AbortController();
     const load = async () => {
+      controller = new AbortController();
       try {
-        const res = await fetch(`/api/private/market-data/snapshots?symbols=${liveSymbols.join(",")}`);
+        const res = await fetch(`/api/private/market-data/snapshots?symbols=${liveSymbols.join(",")}`, {
+          signal: controller.signal,
+        });
         const json = await res.json();
-        if (active && json?.status === "ok" && Array.isArray(json.data?.snapshots)) {
+        if (json?.status === "ok" && Array.isArray(json.data?.snapshots)) {
           const map: Record<string, Snap> = {};
           for (const s of json.data.snapshots) map[s.symbol] = s;
           setData(map);
         }
-      } catch {
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
         /* keep last-known values on a transient failure */
       } finally {
-        if (active) setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
     load();
     const id = setInterval(load, POLL_MS);
     return () => {
-      active = false;
+      controller.abort();
       clearInterval(id);
     };
   }, []);
