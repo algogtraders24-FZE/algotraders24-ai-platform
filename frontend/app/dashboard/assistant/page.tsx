@@ -8,6 +8,7 @@ import {
   loadServerMessages,
   archiveServerConversation,
   deleteServerConversation,
+  detectSupportedMarketSymbol,
 } from "@/services/ai/assistant.service";
 import * as mgr from "@/services/ai/conversation-manager.service";
 import { getConversations } from "@/services/ai/conversation.service";
@@ -27,6 +28,12 @@ export default function AssistantPage() {
   // progressive text, and becomes one real, single mgr.addMessage() call
   // once the stream finishes, is stopped, or fails.
   const [streamingDraft, setStreamingDraft] = useState<DisplayMessage | null>(null);
+  // Sprint D2.3.S2 - real progress signals, never fabricated: `stage` mirrors
+  // the chat route's NDJSON stage events, `showElapsed` is true only while
+  // on the blocking market-analysis path (which has no stages to report, so
+  // a ticking elapsed-time counter is the honest alternative to static dots).
+  const [stage, setStage] = useState<string | null>(null);
+  const [showElapsed, setShowElapsed] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const draftRef = useRef<string>("");
 
@@ -50,7 +57,7 @@ export default function AssistantPage() {
       try {
         const serverList = await getConversations({ cacheTtlMs: 0 });
         if (serverList.length > 0) {
-          const recovered = await mgr.reconcileServerConversations(serverList, loadServerMessages);
+          const recovered = await mgr.reconcileServerConversations(serverList);
           if (recovered.length > 0) await refresh();
         }
       } catch {
@@ -97,6 +104,8 @@ export default function AssistantPage() {
     await refresh();
 
     setThinking(true);
+    setStage(null);
+    setShowElapsed(detectSupportedMarketSymbol(text) !== null);
     draftRef.current = "";
     const draftId = `m-${Date.now()}-draft`;
     const draftCreatedAt = new Date().toISOString();
@@ -114,6 +123,7 @@ export default function AssistantPage() {
           setStreamingDraft((d) => (d ? { ...d, content: draftRef.current } : d));
         },
         controller.signal,
+        (s) => setStage(s),
       );
 
       const finalMessage: DisplayMessage =
@@ -161,6 +171,8 @@ export default function AssistantPage() {
     } finally {
       setThinking(false);
       setStreamingDraft(null);
+      setStage(null);
+      setShowElapsed(false);
       abortControllerRef.current = null;
     }
   };
@@ -225,6 +237,8 @@ export default function AssistantPage() {
           streamingId={streamingDraft?.id ?? null}
           onCopy={handleCopy}
           onRetry={handleRetry}
+          stage={stage}
+          showElapsed={showElapsed}
         />
 
         <div className="px-4 py-2">

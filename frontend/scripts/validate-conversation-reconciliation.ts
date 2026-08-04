@@ -5,12 +5,21 @@
 // app/dashboard/assistant/page.tsx's mount effect). No test framework
 // exists in this project; run via `npm run validate:reconciliation`.
 //
+// Sprint D2.3.S2 - reconcileServerConversations no longer takes a
+// message-fetcher and no longer fetches anything: it was sequentially
+// awaiting a full message-history fetch for every unknown server
+// conversation on every Assistant page mount (Master Audit D2.3.F: up to
+// 28s per conversation). It now creates local stubs with messages: []
+// from data already in the server list, and the existing hydrateFromServer
+// effect in page.tsx lazy-loads real content only when a conversation is
+// actually selected. Part 1's assertions below were updated to match: they
+// check identity/ownership/idempotency, not message content, since content
+// is no longer part of what reconciliation itself produces.
+//
 // Part 1 runs under plain Node (tsx), no browser, no fetch mocking needed:
 // services/storage/local-storage.ts falls back to an in-memory Map
 // whenever `window` is undefined (same mechanism validate-client
-// -conversation-identity.ts relies on), and reconcileServerConversations
-// takes its server list and a message-fetcher as plain arguments/callback
-// rather than calling fetch itself - so the real function is exercised
+// -conversation-identity.ts relies on) - the real function is exercised
 // directly with synthetic data, no stubbing required.
 //
 // Part 2 is one DB-backed, self-cleaning check (real Postgres) confirming
@@ -68,17 +77,20 @@ async function main(): Promise<void> {
   // Part 1: reconciliation algorithm (pure local, in-memory storage)
   // ---------------------------------------------------------------------
 
-  await test("1/4: empty localStorage + server conversations -> all recovered", async () => {
+  await test("1/4: empty localStorage + server conversations -> all recovered as unfetched stubs", async () => {
     await wipeLocal();
     const serverList = [serverConv({ id: "srv-1", title: "First" }), serverConv({ id: "srv-2", title: "Second" })];
-    const fetchMessages = async (id: string) => [msg("user", `hello from ${id}`, 1)];
 
-    const recovered = await mgr.reconcileServerConversations(serverList, fetchMessages);
+    const recovered = await mgr.reconcileServerConversations(serverList);
     assert.equal(recovered.length, 2);
     const local = await mgr.loadRecent();
     assert.equal(local.length, 2);
-    assert.ok(local.some((c) => c.serverConversationId === "srv-1" && c.messages.length === 1));
-    assert.ok(local.some((c) => c.serverConversationId === "srv-2" && c.messages.length === 1));
+    // Sprint D2.3.S2 - messages are intentionally NOT fetched during
+    // reconciliation; they lazy-load on selection instead (see
+    // hydrateFromServer + page.tsx). A stub with real identity but no
+    // content yet is the correct, fast outcome here.
+    assert.ok(local.some((c) => c.serverConversationId === "srv-1" && c.messages.length === 0));
+    assert.ok(local.some((c) => c.serverConversationId === "srv-2" && c.messages.length === 0));
   });
 
   await test("2/10: an already-linked local conversation is never duplicated or replaced", async () => {
@@ -87,11 +99,8 @@ async function main(): Promise<void> {
     const withMessage = await mgr.addMessage(linked, msg("user", "already have this", 5));
 
     const serverList = [serverConv({ id: "srv-A", title: "Server-side title drifted", updatedAt: "2099-01-01T00:00:00.000Z" })];
-    const fetchMessages = async () => {
-      throw new Error("must not be called for an already-known conversation");
-    };
 
-    const recovered = await mgr.reconcileServerConversations(serverList, fetchMessages);
+    const recovered = await mgr.reconcileServerConversations(serverList);
     assert.equal(recovered.length, 0);
 
     const local = await mgr.loadRecent();
@@ -107,7 +116,7 @@ async function main(): Promise<void> {
     const unsynced = await mgr.addMessage(await mgr.createConversation("Draft"), msg("user", "never sent", 9));
 
     const serverList = [serverConv({ id: "srv-unrelated", title: "Something else entirely" })];
-    await mgr.reconcileServerConversations(serverList, async () => []);
+    await mgr.reconcileServerConversations(serverList);
 
     const local = await mgr.loadRecent();
     const stillThere = local.find((c) => c.id === unsynced.id);
@@ -119,16 +128,15 @@ async function main(): Promise<void> {
   await test("5/6: localStorage loss then a second 'device' both recover the same server identity", async () => {
     await wipeLocal();
     const serverList = [serverConv({ id: "srv-cross-device", title: "Cross-device chat" })];
-    const fetchMessages = async () => [msg("assistant", "restored", 1)];
 
     // "Device 1": fresh empty storage recovers it.
-    const firstRun = await mgr.reconcileServerConversations(serverList, fetchMessages);
+    const firstRun = await mgr.reconcileServerConversations(serverList);
     assert.equal(firstRun.length, 1);
     assert.equal(firstRun[0].serverConversationId, "srv-cross-device");
 
     // Simulate a second device: wipe local storage again, reconcile again.
     await wipeLocal();
-    const secondRun = await mgr.reconcileServerConversations(serverList, fetchMessages);
+    const secondRun = await mgr.reconcileServerConversations(serverList);
     assert.equal(secondRun.length, 1);
     assert.equal(
       secondRun[0].serverConversationId,
@@ -140,7 +148,7 @@ async function main(): Promise<void> {
   await test("7: an archived server conversation is recovered and marked archived locally", async () => {
     await wipeLocal();
     const serverList = [serverConv({ id: "srv-archived", title: "Old chat", archived: true })];
-    const recovered = await mgr.reconcileServerConversations(serverList, async () => []);
+    const recovered = await mgr.reconcileServerConversations(serverList);
     assert.equal(recovered.length, 1);
     assert.equal(recovered[0].archived, true);
   });
@@ -151,7 +159,7 @@ async function main(): Promise<void> {
     // (see repositories/PrismaConversationRepository.ts's findByUser), so a
     // deleted conversation never appears in the list this function receives.
     const serverList = [serverConv({ id: "srv-active-only", title: "Still active" })];
-    const recovered = await mgr.reconcileServerConversations(serverList, async () => []);
+    const recovered = await mgr.reconcileServerConversations(serverList);
     assert.equal(recovered.length, 1);
     assert.ok(!recovered.some((c) => c.serverConversationId === "srv-deleted-and-absent"));
   });
@@ -164,11 +172,10 @@ async function main(): Promise<void> {
   await test("9: reconciliation is idempotent - running it twice creates nothing new the second time", async () => {
     await wipeLocal();
     const serverList = [serverConv({ id: "srv-idempotent" })];
-    const fetchMessages = async () => [msg("user", "once", 1)];
 
-    const first = await mgr.reconcileServerConversations(serverList, fetchMessages);
+    const first = await mgr.reconcileServerConversations(serverList);
     assert.equal(first.length, 1);
-    const second = await mgr.reconcileServerConversations(serverList, fetchMessages);
+    const second = await mgr.reconcileServerConversations(serverList);
     assert.equal(second.length, 0, "second run must recover nothing - already known");
 
     const local = await mgr.loadRecent();

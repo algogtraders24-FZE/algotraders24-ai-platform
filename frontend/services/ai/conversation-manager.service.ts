@@ -94,12 +94,18 @@ export async function hydrateFromServer(
 // /api/private/conversations already excludes them, so `serverConversations`
 // is expected to be exactly that (already-filtered) list. Never calls the
 // chat endpoint, so recovery itself can never create a new server
-// conversation. `fetchMessages` is injected (matches hydrateFromServer's
-// separation - this module stays network-free) so callers can pass
-// assistant.service.ts's loadServerMessages, which already never throws.
+// conversation.
+//
+// Sprint D2.3.S2 - stubs are created with messages: [] and NO fetch call at
+// all (previously fetched full message history for every unknown
+// conversation here, sequentially - the audit's 21.8s/28.4s findings).
+// Real content loads lazily the moment a conversation is actually selected,
+// via the existing hydrateFromServer() + the "no local messages yet" effect
+// in app/dashboard/assistant/page.tsx - unchanged, already handles this
+// case. Reconciliation itself is now a single in-memory pass over data the
+// caller already has (the server list), zero extra network calls.
 export async function reconcileServerConversations(
   serverConversations: readonly ConversationListItem[],
-  fetchMessages: (serverConversationId: string) => Promise<Message[]>,
 ): Promise<StoredConversation[]> {
   const local = await loadRecent();
   const knownServerIds = new Set(
@@ -112,11 +118,10 @@ export async function reconcileServerConversations(
   for (const server of serverConversations) {
     if (knownServerIds.has(server.id)) continue; // already known - never overwrite, never duplicate
 
-    const messages = await fetchMessages(server.id);
     const conv: StoredConversation = {
       id: `conv-${Date.now()}-${recovered.length}`,
       title: server.title,
-      messages,
+      messages: [],
       createdAt: server.createdAt,
       updatedAt: server.updatedAt,
       pinned: false,

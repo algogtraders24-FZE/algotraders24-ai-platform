@@ -11,6 +11,13 @@ import type { DisplayMessage } from "./MessageBubble";
 import MessageBubble from "./MessageBubble";
 import ThinkingIndicator from "./ThinkingIndicator";
 
+// Sprint D2.3.S2 - maps the chat route's real stage names to short display
+// text. Falls back to the raw stage string for any future stage this map
+// doesn't know about yet, so a new server-side stage never renders blank.
+const STAGE_LABEL: Record<string, string> = {
+  generating: "Generating response",
+};
+
 interface Props {
   messages: DisplayMessage[];
   thinking: boolean;
@@ -18,9 +25,13 @@ interface Props {
   streamingId?: string | null;
   onCopy: (content: string) => void;
   onRetry: () => void;
+  /** Sprint D2.3.S2 - real stage label from the streaming chat route, or null before the first stage arrives. */
+  stage?: string | null;
+  /** Sprint D2.3.S2 - true while on the blocking market-analysis path, which has no stage events to report. */
+  showElapsed?: boolean;
 }
 
-export default function ChatWindow({ messages, thinking, error, streamingId, onCopy, onRetry }: Props) {
+export default function ChatWindow({ messages, thinking, error, streamingId, onCopy, onRetry, stage, showElapsed }: Props) {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -56,7 +67,12 @@ export default function ChatWindow({ messages, thinking, error, streamingId, onC
           onRetry={onRetry}
         />
       ))}
-      {thinking && <ThinkingIndicator />}
+      {thinking && (
+        <ThinkingIndicator
+          label={showElapsed ? "Analyzing" : stage ? STAGE_LABEL[stage] ?? stage : null}
+          showElapsed={showElapsed}
+        />
+      )}
       {error && <p className="text-center text-xs text-danger">{error}</p>}
       <div ref={endRef} />
     </div>

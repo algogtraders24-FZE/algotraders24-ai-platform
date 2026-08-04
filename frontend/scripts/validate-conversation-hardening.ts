@@ -21,11 +21,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { prisma } from "../lib/prisma";
 import { RepositoryFactory } from "../repositories/RepositoryFactory";
-import { ConversationMessageService, toMessage } from "../services/ai/conversation-message.service";
+import { ConversationMessageService } from "../services/ai/conversation-message.service";
 import { ConversationService } from "../services/ai/conversation-lifecycle.service";
 import { reconcileServerConversations, loadRecent } from "../services/ai/conversation-manager.service";
 import { EntityNotFoundError } from "../types/repository";
-import type { Message } from "../types/message";
 
 const RUN_TAG = `sprint15c10-${Date.now()}`;
 const messages = new ConversationMessageService();
@@ -119,24 +118,16 @@ async function main(): Promise<void> {
       assert.ok(!realList.some((c) => c.id === convA.id), "sanity: deleted conversation must not be in the real list fed to reconciliation");
       assert.ok(realList.some((c) => c.id === convASecond.id), "sanity: the still-active conversation must be in the real list");
 
-      const fetchMessages = async (id: string): Promise<Message[]> => {
-        const rows = await messages.getMessages(id, userA.id);
-        return rows.map(toMessage);
-      };
-      const recovered = await reconcileServerConversations(realList, fetchMessages);
+      const recovered = await reconcileServerConversations(realList);
       assert.ok(!recovered.some((c) => c.serverConversationId === convA.id), "the deleted conversation must never be recovered");
       assert.ok(recovered.some((c) => c.serverConversationId === convASecond.id), "the still-active conversation must be recovered");
     });
 
     await test("full chain 8/9: reconciliation against the same real list a second time is idempotent (no duplicates)", async () => {
       const realList = await RepositoryFactory.conversations().findByUser(userA.id);
-      const fetchMessages = async (id: string): Promise<Message[]> => {
-        const rows = await messages.getMessages(id, userA.id);
-        return rows.map(toMessage);
-      };
       // The previous test already recovered convASecond; running again
       // against the same real list must recover nothing new at all.
-      const secondRun = await reconcileServerConversations(realList, fetchMessages);
+      const secondRun = await reconcileServerConversations(realList);
       assert.equal(secondRun.length, 0, "already-recovered conversation must not be recovered again");
     });
 
@@ -191,11 +182,7 @@ async function main(): Promise<void> {
       const listForA = await RepositoryFactory.conversations().findByUser(userA.id);
       assert.ok(!listForA.some((c) => c.id === convB.id), "findByUser must already be scoped to the requesting user");
 
-      const fetchMessagesAsA = async (id: string): Promise<Message[]> => {
-        const rows = await messages.getMessages(id, userA.id);
-        return rows.map(toMessage);
-      };
-      const recovered = await reconcileServerConversations(listForA, fetchMessagesAsA);
+      const recovered = await reconcileServerConversations(listForA);
       assert.ok(!recovered.some((c) => c.serverConversationId === convB.id));
     });
 

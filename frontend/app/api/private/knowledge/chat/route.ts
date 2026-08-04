@@ -355,6 +355,14 @@ export const POST = withContext(async (req, ctx) => {
     async start(controller) {
       let fullText = "";
       try {
+        // Sprint D2.3.S2 - a real, honestly-timed progress signal (Master
+        // Audit D2.3.F: 60+ second responses with only static "thinking"
+        // dots). RAG retrieval above already completed by this point (it's
+        // shared with the non-streaming branch), so the only genuine stage
+        // boundary left to report is "the slow part - generation - is
+        // starting now", which is also where most of the wait actually
+        // lives (Gemini + optional Search grounding).
+        controller.enqueue(ndjson({ type: "stage", stage: "generating" }));
         for await (const chunk of geminiStream) {
           const piece = chunk.text ?? "";
           if (piece.length === 0) continue;

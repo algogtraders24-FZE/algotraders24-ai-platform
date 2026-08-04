@@ -74,6 +74,44 @@ export function detectSupportedMarketSymbol(message: string): "EURUSD" | null {
   return null;
 }
 
+// Sprint D2.3.S2 - same disclosed-heuristic spirit as detectSupportedMarketSymbol
+// above, not real intent classification. Every chat message previously forced
+// Google Search grounding on regardless of content, which is the dominant cost
+// in a 60+ second response (Master Audit D2.3.F) - a purely conceptual
+// question ("explain smart money concepts") gets zero benefit from live
+// search but pays its full latency. Errs toward enabling search when unsure:
+// reuses ANALYSIS_INTENT_PATTERN's market-condition language plus a handful
+// of explicit freshness words, so any plausibly time-sensitive question still
+// gets grounded.
+//
+// needsLiveInfo(message) is the ONLY public decision point - both callers
+// below go through it, never a caller-local .includes()/regex check. This
+// keeps the door open to swapping the heuristic for something smarter (e.g.
+// a real classifier) later without touching sendMessage/sendMessageStreaming
+// at all - same reasoning as detectSupportedMarketSymbol's own comment above.
+const LIVE_INFO_PATTERN = /\b(today|now|currently|latest|recent|update|happening|news)\b/i;
+
+function matchedLiveInfoKeywords(message: string): string[] {
+  const found: string[] = [];
+  const analysisMatch = message.match(ANALYSIS_INTENT_PATTERN);
+  if (analysisMatch) found.push(analysisMatch[0].toLowerCase());
+  const freshnessMatch = message.match(LIVE_INFO_PATTERN);
+  if (freshnessMatch) found.push(freshnessMatch[0].toLowerCase());
+  return found;
+}
+
+export function needsLiveInfo(message: string): boolean {
+  const matched = matchedLiveInfoKeywords(message);
+  const result = matched.length > 0;
+  // Dev-only diagnostic - never runs in production, never shown in the chat
+  // UI. Exists so "why did/didn't this question trigger search?" is a
+  // console log away instead of a guess.
+  if (process.env.NODE_ENV !== "production") {
+    console.debug("[assistant] needsLiveInfo", { result, matched, message });
+  }
+  return result;
+}
+
 export function createUserMessage(content: string): Message {
   return {
     id: `m-${Date.now()}`,
@@ -100,7 +138,7 @@ export async function sendMessage(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       query: req.message,
-      useSearch: true,
+      useSearch: needsLiveInfo(req.message),
       ...(req.serverConversationId ? { conversationId: req.serverConversationId } : {}),
     }),
   });
@@ -130,10 +168,16 @@ export async function sendMessage(
 // arrives from Gemini (never a fabricated/simulated typing effect -
 // there's a real network chunk behind every call). `signal` allows the
 // caller to implement Stop Generation via a real AbortController.
+// Sprint D2.3.S2 - onStage forwards the route's real "stage" NDJSON events
+// (currently just "generating", emitted once the slow Gemini call starts)
+// so the caller can show something truthful instead of static dots. Never
+// fires for the market-analysis branch below (that endpoint doesn't stream
+// stages - see the plan's out-of-scope note on the pipeline itself).
 export async function sendMessageStreaming(
   req: AssistantRequest,
   onToken: (text: string) => void,
   signal?: AbortSignal,
+  onStage?: (stage: string) => void,
 ): Promise<SendStreamingResult> {
   const symbol = detectSupportedMarketSymbol(req.message);
 
@@ -161,7 +205,7 @@ export async function sendMessageStreaming(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       query: req.message,
-      useSearch: true,
+      useSearch: needsLiveInfo(req.message),
       stream: true,
       ...(req.serverConversationId ? { conversationId: req.serverConversationId } : {}),
     }),
@@ -191,11 +235,14 @@ export async function sendMessageStreaming(
     for (const line of lines) {
       if (!line.trim()) continue;
       const event = JSON.parse(line) as
+        | { type: "stage"; stage: string }
         | { type: "token"; text: string }
         | { type: "done"; conversationId?: string; ragApplied?: boolean; sources?: ChatSource[] }
         | { type: "error"; message: string };
 
-      if (event.type === "token") {
+      if (event.type === "stage") {
+        onStage?.(event.stage);
+      } else if (event.type === "token") {
         fullText += event.text;
         onToken(event.text);
       } else if (event.type === "done") {
