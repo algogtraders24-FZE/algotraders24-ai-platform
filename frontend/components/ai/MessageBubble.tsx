@@ -37,7 +37,7 @@ export default function MessageBubble({ message, isStreaming, isLastAssistant, o
       <div className="max-w-[85%]">
         <div
           className={`rounded-2xl px-4 py-3 text-sm leading-6 whitespace-pre-wrap ${
-            isUser ? "bg-gold text-ink" : "border border-border bg-ink-2 text-ink"
+            isUser ? "bg-gold text-ink" : "border border-border bg-ink-2 text-text"
           }`}
         >
           {message.content}
