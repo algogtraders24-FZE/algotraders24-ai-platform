@@ -491,3 +491,56 @@ model WorkspacePreference {
   @@index([userId])
   @@index([deletedAt])
 }
+
+// Sprint D2.3.S1 - Publishing Activation. Real, DB-backed article state:
+// before this, the Publishing dashboard rendered hardcoded mock data with no
+// persistence and no working Publish/Schedule actions (Master Audit D2.3.F,
+// Critical finding #1). Website-channel scope only for this pass - no
+// Telegram/Twitter/LinkedIn/newsletter/RSS dispatch (see
+// services/ai/publishing/publisher.service.ts's SUPPORTED_CHANNELS, which
+// stays a reference list for a future multi-channel pass; runJob() there
+// remains a documented placeholder). `history` is an append-only log
+// (create/generate/edit/schedule/publish/delete), same lightweight pattern
+// WorkflowRun.log already uses in this schema - this is what makes the
+// audit's "History" finding real rather than another status flag.
+enum ArticleStatus {
+  draft
+  scheduled
+  published
+  failed
+}
+
+// Architectural constraint (not yet full version-history, deliberately -
+// see services/publishing/article.service.ts's update()): once `status` is
+// `published`, this row is read-only - the service layer rejects further
+// edits rather than letting a published article silently change under a
+// reader who already saw it. Revising means duplicateAsDraft() (a new row),
+// never an in-place edit. If a full version-history table is ever needed
+// (e.g. to show a diff between revisions), this is the seam to add it at -
+// the read-only guarantee above means today's single-row model is already
+// a safe foundation for that, not a shortcut that would need undoing.
+model Article {
+  id           String        @id @default(cuid())
+  userId       String
+  title        String
+  category     String
+  summary      String        @default("")
+  sections     Json          @default("[]") // ArticleSection[]
+  disclaimer   String        @default("This is not financial advice. Trading involves risk.")
+  seo          Json          @default("{}") // SeoMetadata (title/metaDescription/keywords/slug/canonicalUrl/openGraph/twitter/score)
+  slug         String
+  status       ArticleStatus @default(draft)
+  sourceType   String        @default("manual") // "ai" | "manual" | "imported" | "research"
+  scheduledFor DateTime?
+  publishedAt  DateTime?
+  history      Json          @default("[]") // { action, actor, timestamp, metadata? }[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+
+  @@unique([userId, slug])
+  @@index([userId])
+  @@index([userId, status])
+  @@index([deletedAt])
+  @@map("articles")
+}

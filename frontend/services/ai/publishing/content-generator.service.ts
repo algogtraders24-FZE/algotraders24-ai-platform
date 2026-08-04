@@ -13,7 +13,7 @@ export const generatorMeta: FeatureMeta = {
 
 const DISCLAIMER = "This is not financial advice. Trading involves risk.";
 
-const CATEGORY_TITLES: Record<ContentCategory, string> = {
+export const CATEGORY_TITLES: Record<ContentCategory, string> = {
   "technical-analysis": "Technical Analysis",
   "fundamental-analysis": "Fundamental Analysis",
   "market-outlook": "Market Outlook",
@@ -42,6 +42,8 @@ export function generateArticle(category: ContentCategory, keywords: string[]): 
     disclaimer: DISCLAIMER,
     seo: buildSeo(title, keywords),
     status: "draft",
+    sourceType: "manual",
+    history: [],
     createdAt: new Date().toISOString(),
     scheduledFor: null,
     publishedAt: null,
