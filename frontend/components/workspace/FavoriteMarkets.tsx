@@ -40,7 +40,7 @@ export default function FavoriteMarkets() {
               aria-label={`Move ${fav} up`}
               disabled={i === 0}
               onClick={() => reorderFavorite(fav, "up")}
-              className="text-text-3 hover:text-text disabled:opacity-30"
+              className="text-xs leading-none text-text-3 hover:text-text disabled:opacity-30"
             >
               ↑
             </button>
@@ -49,7 +49,7 @@ export default function FavoriteMarkets() {
               aria-label={`Move ${fav} down`}
               disabled={i === favorites.length - 1}
               onClick={() => reorderFavorite(fav, "down")}
-              className="text-text-3 hover:text-text disabled:opacity-30"
+              className="text-xs leading-none text-text-3 hover:text-text disabled:opacity-30"
             >
               ↓
             </button>
@@ -57,7 +57,7 @@ export default function FavoriteMarkets() {
               type="button"
               aria-label={`Unpin ${fav}`}
               onClick={() => toggleFavorite(fav)}
-              className="text-gold hover:text-gold-strong"
+              className="text-xs leading-none text-gold hover:text-gold-strong"
             >
               ×
             </button>

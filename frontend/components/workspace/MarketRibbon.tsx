@@ -10,6 +10,7 @@
 // load. Horizontally scrollable so it never breaks the layout on small screens.
 import { useEffect, useState } from "react";
 import { useWorkspace } from "@/context/WorkspaceContext";
+import Skeleton from "@/components/ui/Skeleton";
 
 interface RibbonItem {
   symbol: string;
@@ -94,23 +95,23 @@ export default function MarketRibbon() {
             >
               <span className={`text-xs font-semibold ${isActive ? "text-gold" : "text-text"}`}>{item.label}</span>
               {!item.live ? (
-                <span className="text-[11px] text-text-3">pending</span>
+                <span className="text-xs text-text-3">pending</span>
               ) : loading && !snap ? (
-                <span className="text-[11px] text-text-3">…</span>
+                <Skeleton className="h-3.5 w-14" />
               ) : snap?.ok && snap.price !== undefined ? (
                 <span className="flex items-baseline gap-1.5">
                   <span className="font-mono text-sm text-text">
                     {snap.price.toLocaleString(undefined, { maximumFractionDigits: 5 })}
                   </span>
                   {snap.changePercent !== undefined && (
-                    <span className={`font-mono text-[11px] ${up ? "text-signal-up" : "text-signal-down"}`}>
+                    <span className={`font-mono text-xs ${up ? "text-signal-up" : "text-signal-down"}`}>
                       {up ? "+" : ""}
                       {snap.changePercent.toFixed(2)}%
                     </span>
                   )}
                 </span>
               ) : (
-                <span className="text-[11px] text-text-3">unavailable</span>
+                <span className="text-xs text-text-3">unavailable</span>
               )}
             </button>
           );

@@ -17,6 +17,7 @@ import { useWorkspace } from "@/context/WorkspaceContext";
 import Badge, { type BadgeTone } from "@/components/ui/Badge";
 import Skeleton from "@/components/ui/Skeleton";
 import EmptyState from "@/components/ui/EmptyState";
+import StatField from "@/components/workspace/StatField";
 import type { IntelligencePanelData, MarketStatusLabel, RiskBand } from "@/types/intelligence-panel";
 import type { ConfidenceBand } from "@/types/technical-context";
 
@@ -163,23 +164,23 @@ export default function IntelligencePanel() {
     <div className="space-y-5">
       {/* 1-3: Market Status / AI Confidence / Risk Level */}
       <div className="grid gap-3 sm:grid-cols-3">
-        <StatCard label="Market Status">
+        <StatField label="Market Status">
           <Badge tone={STATUS_TONE[data.marketStatus]} className="text-sm">
             {STATUS_LABEL[data.marketStatus]}
           </Badge>
-        </StatCard>
-        <StatCard label="AI Confidence">
+        </StatField>
+        <StatField label="AI Confidence">
           <div className="flex items-center gap-2">
             <span className="font-mono text-lg text-text">{data.confidence.percent}%</span>
             <Badge tone={CONFIDENCE_TONE[data.confidence.band]}>{CONFIDENCE_LABEL[data.confidence.band]}</Badge>
           </div>
-        </StatCard>
-        <StatCard label="Risk Level">
+        </StatField>
+        <StatField label="Risk Level">
           <Badge tone={RISK_TONE[data.risk.band]} className="text-sm">
             {RISK_LABEL[data.risk.band]}
           </Badge>
           {data.risk.explanation && <p className="mt-1.5 text-xs text-text-3">{data.risk.explanation}</p>}
-        </StatCard>
+        </StatField>
       </div>
 
       {/* 4: Market Structure */}
@@ -187,10 +188,9 @@ export default function IntelligencePanel() {
         <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-3">Market Structure</h3>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {structuredEntries.map((f) => (
-            <div key={f.label} className="rounded-control border border-border bg-ink px-3 py-2">
-              <p className="text-[10px] font-medium uppercase tracking-wider text-text-3">{f.label}</p>
-              <p className="mt-0.5 text-sm text-text">{f.value}</p>
-            </div>
+            <StatField key={f.label} label={f.label}>
+              {f.value}
+            </StatField>
           ))}
         </div>
       </div>
@@ -202,10 +202,9 @@ export default function IntelligencePanel() {
           {KEY_LEVEL_FIELDS.map((f) => {
             const value = data.keyLevels[f.key];
             return (
-              <div key={f.key} className="rounded-control border border-dashed border-border bg-ink px-3 py-2">
-                <p className="text-[10px] font-medium uppercase tracking-wider text-text-3">{f.label}</p>
-                <p className="mt-0.5 font-mono text-sm text-text-3">{value !== undefined ? value : "Not available"}</p>
-              </div>
+              <StatField key={f.key} label={f.label} dashed>
+                <span className="font-mono text-text-3">{value !== undefined ? value : "Not available"}</span>
+              </StatField>
             );
           })}
         </div>
@@ -246,15 +245,6 @@ export default function IntelligencePanel() {
           Freshness <span className="font-mono text-text-2">{freshness(data.dataFreshnessMs)}</span>
         </span>
       </div>
-    </div>
-  );
-}
-
-function StatCard({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-control border border-border bg-ink px-4 py-3">
-      <p className="text-[10px] font-medium uppercase tracking-wider text-text-3">{label}</p>
-      <div className="mt-1.5">{children}</div>
     </div>
   );
 }

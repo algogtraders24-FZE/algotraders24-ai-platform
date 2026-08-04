@@ -39,7 +39,7 @@ export default function InfoTooltip({ label, text }: { label: string; text: stri
       {open && (
         <span
           role="tooltip"
-          className="absolute left-1/2 top-full z-20 mt-2 w-64 -translate-x-1/2 rounded-card border border-border bg-ink-2 p-3 text-left text-xs font-normal normal-case leading-5 tracking-normal text-text-2 shadow-lg"
+          className="absolute left-1/2 top-full z-20 mt-2 w-64 -translate-x-1/2 rounded-card border border-border bg-ink-2 p-3 text-left text-xs font-normal normal-case leading-5 tracking-normal text-text-2 shadow-floating"
         >
           {text}
         </span>

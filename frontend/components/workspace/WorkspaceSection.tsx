@@ -71,7 +71,7 @@ export default function WorkspaceSection({
               onClick={() => togglePanel(id)}
               aria-expanded={!collapsed}
               aria-label={collapsed ? `Expand ${title}` : `Collapse ${title}`}
-              className="rounded-control p-1 text-text-3 transition hover:bg-ink-3 hover:text-text"
+              className="rounded-control p-1 text-sm leading-none text-text-3 transition hover:bg-ink-3 hover:text-text"
             >
               {collapsed ? "▸" : "▾"}
             </button>

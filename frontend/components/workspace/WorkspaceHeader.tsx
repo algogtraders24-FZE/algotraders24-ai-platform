@@ -8,6 +8,9 @@
 // read-only snapshot endpoint, re-fetching whenever the symbol changes.
 import { useEffect, useState } from "react";
 import { useWorkspace } from "@/context/WorkspaceContext";
+import Badge from "@/components/ui/Badge";
+import Skeleton from "@/components/ui/Skeleton";
+import StatField from "@/components/workspace/StatField";
 import type { MarketSnapshot } from "@/types/market-snapshot";
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -63,30 +66,21 @@ export default function WorkspaceHeader() {
         <span className="text-sm text-text-3">{name}</span>
       </div>
 
-      <span
-        className={`inline-flex items-center gap-1.5 rounded-control border px-2.5 py-1 text-xs font-semibold ${
-          live ? "border-signal-up/30 bg-signal-up/10 text-signal-up" : "border-border bg-ink text-text-3"
-        }`}
-      >
-        <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${live ? "bg-signal-up" : "bg-text-3"}`} />
-        {state === "loading" ? "Loading" : live ? "Live" : snapshot ? "Closed" : "Unavailable"}
-      </span>
+      {state === "loading" ? (
+        <Skeleton className="h-5 w-16" />
+      ) : (
+        <Badge tone={live ? "success" : "neutral"} className="gap-1.5">
+          <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${live ? "bg-signal-up" : "bg-text-3"}`} />
+          {live ? "Live" : snapshot ? "Closed" : "Unavailable"}
+        </Badge>
+      )}
 
-      <Field label="Price">
+      <StatField bare label="Price">
         {snapshot ? `${snapshot.price.toLocaleString(undefined, { maximumFractionDigits: 5 })} ${snapshot.quoteCurrency}` : "—"}
-      </Field>
-      <Field label="Provider">{snapshot ? (PROVIDER_LABELS[snapshot.provider] ?? snapshot.provider) : "—"}</Field>
-      <Field label="Updated">{snapshot ? utcTime(snapshot.timestamp) : "—"}</Field>
-      <Field label="Workspace">{assetClass ? (ASSET_LABELS[assetClass] ?? assetClass) : "—"}</Field>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <p className="text-[10px] font-medium uppercase tracking-wider text-text-3">{label}</p>
-      <p className="mt-0.5 font-mono text-sm text-text">{children}</p>
+      </StatField>
+      <StatField bare label="Provider">{snapshot ? (PROVIDER_LABELS[snapshot.provider] ?? snapshot.provider) : "—"}</StatField>
+      <StatField bare label="Updated">{snapshot ? utcTime(snapshot.timestamp) : "—"}</StatField>
+      <StatField bare label="Workspace">{assetClass ? (ASSET_LABELS[assetClass] ?? assetClass) : "—"}</StatField>
     </div>
   );
 }
