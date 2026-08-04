@@ -31,14 +31,23 @@ import { withReliability, type ReliabilityOptions } from "@/lib/market-data/reli
 import { TtlCache, systemClock, type Clock } from "@/lib/market-data/cache";
 import { TwelveDataProvider } from "@/lib/market-data/providers/twelve-data.provider";
 import { AlphaVantageProvider } from "@/lib/market-data/providers/alpha-vantage.provider";
+import { ProviderHealthMonitor, type ProviderHealthSnapshot } from "@/lib/market-data/health-monitor";
+import { logger } from "@/services/backend/Logger";
 
 const SERVICE_NAME = "market-data";
 const DEFAULT_CACHE_TTL_MS = 30_000;
+// Sprint D2.3.S3 - how far past its normal TTL a cache entry can still be
+// served as a last-resort fallback when every provider fails. Distinct from
+// DEFAULT_CACHE_TTL_MS: that's "how long is this fresh", this is "how stale
+// is still better than a hard failure".
+const DEFAULT_STALE_FALLBACK_MS = 5 * 60_000;
 
 export interface MarketDataServiceOptions {
   /** Providers in priority order. Default: [Twelve Data (primary), Alpha Vantage (fallback)]. */
   providers?: MarketDataProvider[];
   cacheTtlMs?: number;
+  /** Sprint D2.3.S3 - grace window past cacheTtlMs a stale entry may still be served when every provider fails. */
+  staleFallbackMs?: number;
   clock?: Clock;
   /** Per-provider-call resilience (timeout/retry/backoff). See lib/market-data/reliability.ts. */
   reliability?: ReliabilityOptions;
@@ -51,6 +60,10 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
   private readonly snapshotCache: TtlCache<MarketSnapshot>;
   private readonly clock: Clock;
   private readonly reliability: ReliabilityOptions;
+  private readonly cacheTtlMs: number;
+  private readonly staleFallbackMs: number;
+  private readonly health = new ProviderHealthMonitor();
+  private readonly log = logger.child("market-data");
 
   constructor(options: MarketDataServiceOptions = {}) {
     // Priority order is the provider-priority contract: Twelve Data first,
@@ -58,10 +71,11 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
     // (e.g. tests inject fakes) but the default encodes the documented policy.
     this.providers = options.providers ?? [new TwelveDataProvider(), new AlphaVantageProvider()];
     this.clock = options.clock ?? systemClock;
-    const ttl = options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
-    this.cache = new TtlCache<MarketContextResult>(ttl, this.clock);
-    this.snapshotCache = new TtlCache<MarketSnapshot>(ttl, this.clock);
+    this.cacheTtlMs = options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
+    this.cache = new TtlCache<MarketContextResult>(this.cacheTtlMs, this.clock);
+    this.snapshotCache = new TtlCache<MarketSnapshot>(this.cacheTtlMs, this.clock);
     this.reliability = options.reliability ?? {};
+    this.staleFallbackMs = options.staleFallbackMs ?? DEFAULT_STALE_FALLBACK_MS;
   }
 
   /** True when at least one provider is ready to serve - the service is usable if any vendor is configured. */
@@ -72,6 +86,16 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
   /** Names of currently-configured providers, in priority order - for diagnostics/health, never exposes keys. */
   configuredProviders(): string[] {
     return this.providers.filter((p) => p.isConfigured()).map((p) => p.name);
+  }
+
+  /** Sprint D2.3.S3 - per-provider health state (healthy/degraded/rate_limited/offline), from real recorded outcomes only. */
+  healthReport(): ProviderHealthSnapshot[] {
+    return this.health.allSnapshots();
+  }
+
+  /** Sprint D2.3.S3 - whether any snapshot cache entry exists for a symbol, regardless of freshness. Diagnostic only, for the failure DTO's `cached` flag - never exposes the value itself. */
+  hasCacheEntry(symbol: string): boolean {
+    return this.snapshotCache.has(symbol);
   }
 
   /**
@@ -87,8 +111,8 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
    * hide behind "fallback".
    */
   async getMarketContext(request: MarketContextRequest): Promise<MarketContextResult> {
-    const cached = this.cache.get(request.symbol);
-    if (cached) return cached;
+    const fresh = this.cache.getStale(request.symbol, this.cacheTtlMs);
+    if (fresh) return { ...fresh.value, cached: true, cacheAgeMs: fresh.ageMs };
 
     const errors: MarketDataProviderError[] = [];
     for (const provider of this.providers) {
@@ -97,7 +121,7 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
         continue;
       }
       try {
-        const result = await this.attempt(provider, request);
+        const result = await this.recordedAttempt(provider, request.symbol, () => this.attempt(provider, request));
         this.cache.set(request.symbol, result);
         return result;
       } catch (error) {
@@ -109,6 +133,16 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
       }
     }
 
+    // Sprint D2.3.S3 - last resort before a hard failure: a stale-but-in-
+    // grace-window cache entry, honestly stamped as such. Never presented as
+    // live - callers (routes/UI) are expected to check `cached`.
+    const stale = this.cache.getStale(request.symbol, this.staleFallbackMs);
+    if (stale) {
+      this.log.warn("stale-cache-fallback served", { symbol: request.symbol, ageMs: stale.ageMs });
+      return { ...stale.value, cached: true, cacheAgeMs: stale.ageMs };
+    }
+
+    this.log.error("all providers failed", { symbol: request.symbol, attempted: errors.map((e) => `${e.provider}:${e.kind}`) });
     throw this.aggregateError(request.symbol, errors);
   }
 
@@ -121,8 +155,8 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
    * single aggregate error is thrown.
    */
   async getSnapshot(request: MarketContextRequest): Promise<MarketSnapshot> {
-    const cached = this.snapshotCache.get(request.symbol);
-    if (cached) return cached;
+    const fresh = this.snapshotCache.getStale(request.symbol, this.cacheTtlMs);
+    if (fresh) return { ...fresh.value, cached: true, cacheAgeMs: fresh.ageMs };
 
     const errors: MarketDataProviderError[] = [];
     for (const provider of this.providers) {
@@ -132,7 +166,9 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
         continue;
       }
       try {
-        const snapshot = await withReliability(() => provider.getSnapshot(request), provider.name, this.reliability);
+        const snapshot = await this.recordedAttempt(provider, request.symbol, () =>
+          withReliability(() => provider.getSnapshot(request), provider.name, this.reliability),
+        );
         this.snapshotCache.set(request.symbol, snapshot);
         return snapshot;
       } catch (error) {
@@ -143,6 +179,14 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
         throw error;
       }
     }
+
+    const stale = this.snapshotCache.getStale(request.symbol, this.staleFallbackMs);
+    if (stale) {
+      this.log.warn("stale-cache-fallback served", { symbol: request.symbol, ageMs: stale.ageMs });
+      return { ...stale.value, cached: true, cacheAgeMs: stale.ageMs };
+    }
+
+    this.log.error("all providers failed", { symbol: request.symbol, attempted: errors.map((e) => `${e.provider}:${e.kind}`) });
     throw this.aggregateError(request.symbol, errors);
   }
 
@@ -162,7 +206,9 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
         continue;
       }
       try {
-        return await withReliability(() => provider.getTimeSeries(request), provider.name, this.reliability);
+        return await this.recordedAttempt(provider, request.symbol, () =>
+          withReliability(() => provider.getTimeSeries(request), provider.name, this.reliability),
+        );
       } catch (error) {
         if (error instanceof MarketDataProviderError) {
           errors.push(error);
@@ -171,18 +217,48 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
         throw error;
       }
     }
+    // Sprint D2.3.S3 - candles are deliberately NOT part of the stale-cache-
+    // fallback resilience path: they aren't cached at this service level at
+    // all (see the method comment above), so there is nothing to fall back
+    // to here. This is a documented non-goal, not an oversight.
+    this.log.error("all providers failed", { symbol: request.symbol, attempted: errors.map((e) => `${e.provider}:${e.kind}`) });
     throw this.aggregateError(request.symbol, errors);
   }
 
-  // Single seam where a provider call happens. Sprint D2.2 Phase 4: every
-  // call is wrapped with a per-attempt timeout and bounded exponential-backoff
-  // retry on transient errors (http_error/timeout). A non-transient failure
-  // (rate_limit/auth/unsupported/invalid) fails fast here so the selection
-  // loop above can fall back to the next provider immediately. Resilience thus
-  // lives in exactly one place, for every provider, without touching the
-  // selection/fallback loop.
+  // Single seam where a MarketContext provider call happens. Sprint D2.2
+  // Phase 4: every call is wrapped with a per-attempt timeout and bounded
+  // exponential-backoff retry (Sprint D2.3.S3: now including transient
+  // rate-limit/429 responses, not just http_error/timeout - see
+  // lib/market-data/reliability.ts). A non-retryable failure (auth/
+  // unsupported_symbol/invalid_response/unconfigured) fails fast here so the
+  // selection loop above can fall back to the next provider immediately.
+  // Resilience thus lives in exactly one place, for every provider, without
+  // touching the selection/fallback loop.
   private async attempt(provider: MarketDataProvider, request: MarketContextRequest): Promise<MarketContextResult> {
     return withReliability(() => provider.getMarketContext(request), provider.name, this.reliability);
+  }
+
+  // Sprint D2.3.S3 - shared timing/health/logging wrapper around a single
+  // provider call, used by all three public methods so recording behavior
+  // lives in exactly one place. Never changes what op() returns or throws -
+  // purely observes it.
+  private async recordedAttempt<T>(provider: MarketDataProvider, symbol: string, op: () => Promise<T>): Promise<T> {
+    const startedAt = this.clock.now();
+    try {
+      const result = await op();
+      const latencyMs = this.clock.now() - startedAt;
+      this.health.recordSuccess(provider.name, latencyMs);
+      this.log.info("provider attempt succeeded", { provider: provider.name, symbol, latencyMs });
+      return result;
+    } catch (error) {
+      const latencyMs = this.clock.now() - startedAt;
+      if (error instanceof MarketDataProviderError) {
+        this.health.recordFailure(provider.name, error.kind);
+        const fallback = this.providers[this.providers.indexOf(provider) + 1]?.name ?? "none";
+        this.log.warn("provider attempt failed", { provider: provider.name, symbol, kind: error.kind, fallback, latencyMs });
+      }
+      throw error;
+    }
   }
 
   private aggregateError(symbol: string, errors: MarketDataProviderError[]): MarketDataProviderError {

@@ -36,8 +36,12 @@ export interface CopilotAnalysis {
 
 export type CopilotOutcome =
   | { status: "completed"; analysis: CopilotAnalysis }
-  | { status: "provider-unavailable"; symbol: string; reason: string }
-  | { status: "provider-error"; symbol: string; reason: string };
+  // Sprint D2.3.S3 - `cause` retains the original typed MarketDataProviderError
+  // so the route layer can build the standardized error DTO
+  // (lib/market-data/error-dto.ts) every other market-data-facing route
+  // returns, instead of only a pre-formatted message string.
+  | { status: "provider-unavailable"; symbol: string; reason: string; cause: MarketDataProviderError }
+  | { status: "provider-error"; symbol: string; reason: string; cause: MarketDataProviderError };
 
 export interface CopilotAnalyzeRequest {
   symbol: string;
@@ -63,7 +67,7 @@ export class TradingCopilotService {
     } catch (error) {
       if (error instanceof MarketDataProviderError) {
         const status = error.kind === "unconfigured" ? "provider-unavailable" : "provider-error";
-        return { status, symbol, reason: error.message };
+        return { status, symbol, reason: error.message, cause: error };
       }
       throw error;
     }

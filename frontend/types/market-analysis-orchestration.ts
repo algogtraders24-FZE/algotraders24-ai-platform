@@ -18,6 +18,7 @@ import type { RiskProfile } from "./risk-intelligence";
 import type { ConfidenceProfile } from "./confidence-intelligence";
 import type { ExplainableAnalysis } from "./explainable-analysis";
 import type { AnalysisRun } from "./analysis-run";
+import type { MarketDataProviderError } from "@/lib/market-data/errors";
 
 export interface MarketAnalysisRequest {
   userId: string;
@@ -38,7 +39,12 @@ export interface MarketAnalysisResult {
 
 export type MarketAnalysisOutcome =
   | { status: "completed"; run: AnalysisRun; result: MarketAnalysisResult }
-  | { status: "provider-unavailable"; run: AnalysisRun; reason: string }
-  | { status: "provider-error"; run: AnalysisRun; reason: string }
+  // Sprint D2.3.S3 - `cause` retains the original typed MarketDataProviderError
+  // from one layer down (MarketIntelligenceOutcome), when one exists, so the
+  // route can build the same standardized error DTO
+  // (lib/market-data/error-dto.ts) every other market-data-facing route
+  // returns, instead of only a pre-formatted message string.
+  | { status: "provider-unavailable"; run: AnalysisRun; reason: string; provider: string }
+  | { status: "provider-error"; run: AnalysisRun; reason: string; provider: string; cause?: MarketDataProviderError }
   | { status: "invalid-request"; message: string }
   | { status: "ai-failed"; run: AnalysisRun; message: string };

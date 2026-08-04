@@ -12,6 +12,7 @@ import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { marketData } from "@/services/market-data/shared-instance";
 import { MarketDataProviderError } from "@/lib/market-data/errors";
 import { isEnabledMarket } from "@/lib/market-data/market-registry";
+import { reasonForKind, type MarketDataFailureReason } from "@/lib/market-data/error-dto";
 
 // The shared cache TTL (default 60s, MARKET_CACHE_TTL_MS-overridable - see
 // services/market-data/shared-instance.ts) keeps repeat polls off the
@@ -35,8 +36,8 @@ export const GET = withContext(async (req, ctx) => {
     .slice(0, MAX_SYMBOLS);
 
   const results: Array<
-    | { symbol: string; ok: true; price: number; changePercent?: number; marketStatus: string; provider: string }
-    | { symbol: string; ok: false; kind: string }
+    | { symbol: string; ok: true; price: number; changePercent?: number; marketStatus: string; provider: string; cached?: boolean }
+    | { symbol: string; ok: false; kind: string; reason: MarketDataFailureReason }
   > = [];
 
   for (const symbol of symbols) {
@@ -49,9 +50,15 @@ export const GET = withContext(async (req, ctx) => {
         changePercent: s.changePercent,
         marketStatus: s.marketStatus,
         provider: s.provider,
+        cached: s.cached,
       });
     } catch (error) {
-      results.push({ symbol, ok: false, kind: error instanceof MarketDataProviderError ? error.kind : "unknown" });
+      // Sprint D2.3.S3 - `reason` mirrors the same vocabulary every other
+      // market-data route uses (lib/market-data/error-dto.ts), so a batch
+      // item's failure format is never a third, different shape. `kind` is
+      // kept alongside for any existing consumer reading the raw value.
+      const kind = error instanceof MarketDataProviderError ? error.kind : "unknown";
+      results.push({ symbol, ok: false, kind, reason: error instanceof MarketDataProviderError ? reasonForKind(kind) : "unknown" });
     }
   }
 

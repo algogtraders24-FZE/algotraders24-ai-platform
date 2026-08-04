@@ -30,7 +30,8 @@
     "validate:news-provider": "tsx scripts/validate-alpha-vantage-news-provider.ts",
     "validate:billing": "tsx scripts/validate-billing-entitlements.ts",
     "validate:admin": "tsx scripts/validate-admin-control-center.ts",
-    "validate:payments": "tsx scripts/validate-payment-infrastructure.ts"
+    "validate:payments": "tsx scripts/validate-payment-infrastructure.ts",
+    "validate:market-data-resilience": "tsx scripts/validate-market-data-resilience.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",

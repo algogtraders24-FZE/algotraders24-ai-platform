@@ -16,10 +16,23 @@
 import { MarketDataService } from "./market-data.service";
 
 const DEFAULT_CACHE_TTL_MS = 60_000;
+// Sprint D2.3.S3 - grace window past the cache TTL a stale snapshot may still
+// be served (honestly stamped `cached: true`) when every provider fails, so
+// a brief provider outage doesn't immediately turn into a hard failure for a
+// symbol that had a real, recent quote moments ago.
+const DEFAULT_STALE_FALLBACK_MS = 5 * 60_000;
 
 function resolveCacheTtlMs(): number {
   const raw = Number(process.env.MARKET_CACHE_TTL_MS);
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_CACHE_TTL_MS;
 }
 
-export const marketData = new MarketDataService({ cacheTtlMs: resolveCacheTtlMs() });
+function resolveStaleFallbackMs(): number {
+  const raw = Number(process.env.MARKET_STALE_FALLBACK_MS);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_STALE_FALLBACK_MS;
+}
+
+export const marketData = new MarketDataService({
+  cacheTtlMs: resolveCacheTtlMs(),
+  staleFallbackMs: resolveStaleFallbackMs(),
+});

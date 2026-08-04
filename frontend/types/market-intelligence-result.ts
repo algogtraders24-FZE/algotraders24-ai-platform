@@ -24,6 +24,7 @@ import type { EvidenceBundle } from "./evidence";
 import type { ReasoningResult } from "./reasoning";
 import type { RiskProfile } from "./risk-intelligence";
 import type { ConfidenceProfile } from "./confidence-intelligence";
+import type { MarketDataProviderError } from "@/lib/market-data/errors";
 
 export interface MarketIntelligenceRequest {
   symbol: MarketSymbol;
@@ -59,4 +60,9 @@ export interface MarketIntelligenceResult {
 export type MarketIntelligenceOutcome =
   | { status: "completed"; result: MarketIntelligenceResult }
   | { status: "provider-unavailable"; symbol: MarketSymbol; provider: string; reason: string }
-  | { status: "provider-error"; symbol: MarketSymbol; provider: string; reason: string };
+  // Sprint D2.3.S3 - `cause` retains the original typed MarketDataProviderError
+  // (when one exists - the "no provider injected" branch has none) so the
+  // route layer can build the same standardized error DTO
+  // (lib/market-data/error-dto.ts) every other market-data-facing route
+  // returns, instead of only having a pre-formatted message string.
+  | { status: "provider-error"; symbol: MarketSymbol; provider: string; reason: string; cause?: MarketDataProviderError };

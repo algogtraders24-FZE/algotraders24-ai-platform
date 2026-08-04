@@ -71,9 +71,13 @@ export default function WorkspaceHeader() {
       {state === "loading" ? (
         <Skeleton className="h-5 w-16" />
       ) : (
-        <Badge tone={live ? "success" : "neutral"} className="gap-1.5">
-          <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${live ? "bg-signal-up" : "bg-text-3"}`} />
-          {live ? "Live" : snapshot ? "Closed" : "Unavailable"}
+        <Badge tone={live ? "success" : snapshot?.cached ? "warning" : "neutral"} className="gap-1.5">
+          <span
+            aria-hidden="true"
+            className={`h-1.5 w-1.5 rounded-full ${live ? "bg-signal-up" : snapshot?.cached ? "bg-warn" : "bg-text-3"}`}
+          />
+          {/* Sprint D2.3.S3 - snapshot.cached means this was served from the resilience stale-cache fallback (services/market-data/market-data.service.ts), not a live provider call this request. Never presented as Live. */}
+          {live ? "Live" : snapshot?.cached ? "Stale" : snapshot ? "Closed" : "Unavailable"}
         </Badge>
       )}
 

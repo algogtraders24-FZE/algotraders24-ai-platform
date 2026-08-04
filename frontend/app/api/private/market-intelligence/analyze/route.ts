@@ -7,29 +7,25 @@
 // "provider-unavailable" by design. This route is the one place that
 // intentionally opts in to live market data.
 //
-// Sprint D2.3.S3 - swapped the price provider from AlphaVantageProvider to
-// TwelveDataProvider (the same vendor-independent-layer primary the
-// Workspace/Trading Copilot pages already use, Sprint D2.2). Alpha
-// Vantage's currency-exchange-rate endpoint only ever served EURUSD on the
-// configured key/tier - Twelve Data's /quote endpoint maps EURUSD, GBPUSD,
-// USDJPY, XAUUSD, XAGUSD, BTCUSD, and ETHUSD (lib/market-data/providers/
-// twelve-data.provider.ts's SYMBOL_MAP), so Gold/Silver/BTC/ETH move from
-// PENDING to SUPPORTED here too. News evidence (AlphaVantageNewsProvider)
-// is untouched - it queries by topic, not by ticker, so it was never
-// symbol-restricted.
+// Sprint D2.3.S3 - swapped the price provider from a bare TwelveDataProvider
+// to the shared MarketDataService instance (services/market-data/shared-
+// instance.ts) - the same singleton the Workspace/Trading Copilot routes
+// already use. MarketDataService implements the same MarketDataProvider
+// interface (documented drop-in), so this is a zero-adapter swap that adds
+// three things for free: Alpha Vantage as an automatic fallback when Twelve
+// Data fails (Objective 1), the Provider Health Monitor recording real
+// traffic from this route too (Objective 2, and it now shares a monitor
+// with every other market-data-facing route since it's the same instance),
+// and a stale-cache fallback before a hard failure (Objective 5). SOL/XRP
+// join the already-added GBPUSD/USDJPY/XAUUSD/XAGUSD/BTCUSD, matching Twelve
+// Data's SYMBOL_MAP (lib/market-data/providers/twelve-data.provider.ts).
+// News evidence (AlphaVantageNewsProvider) is untouched - it queries by
+// topic, not by ticker, so it was never symbol-restricted.
 //
-// Symbol scope is locked to what TwelveDataProvider actually maps
-// (lib/market-data/providers/twelve-data.provider.ts's SYMBOL_MAP).
-// Rejecting anything outside that here, before it ever reaches the
-// pipeline, keeps the failure a clear 400 instead of a confusing round
-// trip through five engines to reach the same "unsupported_symbol"
-// provider error.
-//
-// Services are constructed once at module scope, not per-request: Twelve
-// Data's own provider has a 60s in-memory TTL cache
-// (lib/market-data/providers/twelve-data.provider.ts), which only
-// protects anything if the same provider instance survives across
-// requests on a warm server process.
+// Symbol scope is locked to what Twelve Data actually maps. Rejecting
+// anything outside that here, before it ever reaches the pipeline, keeps
+// the failure a clear 400 instead of a confusing round trip through five
+// engines to reach the same "unsupported_symbol" provider error.
 //
 // Sprint L2.4 - added an optional `question` field, backward compatible:
 // the standalone Market Intelligence page still sends only `symbol` and
@@ -50,11 +46,12 @@ import { EvidenceFusionService } from "@/services/ai/evidence-fusion.service";
 import { ReasoningEngineService } from "@/services/ai/reasoning/reasoning-engine.service";
 import { RiskEngineService } from "@/services/ai/risk/risk-engine.service";
 import { ConfidenceEngineService } from "@/services/ai/confidence/confidence-engine.service";
-import { TwelveDataProvider } from "@/lib/market-data/providers/twelve-data.provider";
+import { marketData } from "@/services/market-data/shared-instance";
 import { AlphaVantageNewsProvider } from "@/lib/market-data/providers/alpha-vantage-news.provider";
 import { systemClock } from "@/lib/market-data/cache";
 import { requestLogService } from "@/services/tracking/RequestLogService";
 import { analyticsEventService } from "@/services/analytics/AnalyticsEventService";
+import { toMarketDataErrorDTO, statusCodeForReason, reasonForKind, type MarketDataErrorDTO } from "@/lib/market-data/error-dto";
 
 const SUPPORTED_SYMBOLS = {
   EURUSD: "Euro (EUR/USD)",
@@ -64,6 +61,8 @@ const SUPPORTED_SYMBOLS = {
   XAGUSD: "Silver (XAG/USD)",
   BTCUSD: "Bitcoin (BTC/USD)",
   ETHUSD: "Ethereum (ETH/USD)",
+  SOLUSD: "Solana (SOL/USD)",
+  XRPUSD: "XRP (XRP/USD)",
 } as const;
 type SupportedSymbol = keyof typeof SUPPORTED_SYMBOLS;
 
@@ -72,7 +71,7 @@ function isSupportedSymbol(value: unknown): value is SupportedSymbol {
 }
 
 const pipeline = new MarketIntelligencePipelineService(
-  new TwelveDataProvider(),
+  marketData,
   new EvidenceCollectorService(),
   new EvidenceRankingService(),
   new ReasoningEngineService(),
@@ -140,20 +139,36 @@ export const POST = withContext(async (req, ctx) => {
       return ApiResponse.success({ result: outcome.result }, ctx.requestId, 200, ctx.startedAt);
     case "invalid-request":
       return ApiResponse.error({ code: "VALIDATION", message: outcome.message }, ctx.requestId, 400, ctx.startedAt);
-    case "provider-unavailable":
+    case "provider-unavailable": {
+      // Sprint D2.3.S3 - no MarketDataProviderError exists for this branch
+      // (it fires before any provider call is even attempted), so the DTO is
+      // built directly rather than via toMarketDataErrorDTO - same shape,
+      // honestly reflecting "nothing was configured to try".
+      const details: MarketDataErrorDTO = {
+        success: false,
+        reason: "unconfigured",
+        provider: outcome.provider,
+        cached: false,
+        timestamp: new Date().toISOString(),
+      };
       return ApiResponse.error(
-        { code: "PROVIDER_UNAVAILABLE", message: outcome.reason },
+        { code: "PROVIDER_UNAVAILABLE", message: outcome.reason, details: details as unknown as Record<string, unknown> },
         ctx.requestId,
         503,
         ctx.startedAt,
       );
-    case "provider-error":
+    }
+    case "provider-error": {
+      const cached = marketData.hasCacheEntry(symbol);
+      const details = outcome.cause ? toMarketDataErrorDTO(outcome.cause, { cached }) : undefined;
+      const status = outcome.cause ? statusCodeForReason(reasonForKind(outcome.cause.kind)) : 502;
       return ApiResponse.error(
-        { code: "PROVIDER_ERROR", message: outcome.reason },
+        { code: "PROVIDER_ERROR", message: outcome.reason, details: details as unknown as Record<string, unknown> | undefined },
         ctx.requestId,
-        503,
+        status,
         ctx.startedAt,
       );
+    }
     case "ai-failed":
       return ApiResponse.error({ code: "AI_FAILED", message: outcome.message }, ctx.requestId, 500, ctx.startedAt);
   }

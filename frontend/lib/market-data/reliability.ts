@@ -6,19 +6,24 @@
 // seam - so resilience is added once, for every provider, without changing the
 // selection/fallback logic.
 //
-// Retry policy is deliberately narrow: only "http_error" and "timeout" are
-// retried (a flaky network or a slow response may succeed on a second try).
-// "rate_limit", "auth", "unsupported_symbol", "invalid_response", and
-// "unconfigured" are NOT retried - hammering a rate-limited or misconfigured
-// provider only wastes budget and time. Those fail fast so the service can
-// fall back to the next provider immediately (graceful fallback).
+// Retry policy: "http_error", "timeout", and (Sprint D2.3.S3) "rate_limit"
+// are retried - a flaky network, a slow response, or a transient 429 may
+// succeed on a second try within the same bounded backoff budget. Only
+// after that budget is exhausted does the service's fallback loop move to
+// the next provider. "auth", "unsupported_symbol", "invalid_response", and
+// "unconfigured" are NEVER retried - hammering a misconfigured or
+// permanently-rejecting provider only wastes budget and time; those fail
+// fast so the service can fall back to the next provider immediately.
 //
 // All errors leaving this layer are already-normalized MarketDataProviderError
 // values - a timeout becomes MarketDataProviderError("timeout", ...), never a
 // raw AbortError or a bare Promise rejection.
 import { MarketDataProviderError, type MarketDataErrorKind } from "./errors";
+import { logger } from "@/services/backend/Logger";
 
-const RETRYABLE_KINDS: ReadonlySet<MarketDataErrorKind> = new Set(["http_error", "timeout"]);
+const log = logger.child("market-data:reliability");
+
+const RETRYABLE_KINDS: ReadonlySet<MarketDataErrorKind> = new Set(["http_error", "timeout", "rate_limit"]);
 
 export function isRetryableKind(kind: MarketDataErrorKind): boolean {
   return RETRYABLE_KINDS.has(kind);
@@ -93,7 +98,9 @@ export async function withReliability<T>(
       if (!canRetry) throw error;
       // Exponential backoff with full jitter, capped at maxDelayMs.
       const ceiling = Math.min(maxDelayMs, baseDelayMs * 2 ** attempt);
-      await sleep(Math.floor(random() * ceiling));
+      const delayMs = Math.floor(random() * ceiling);
+      log.debug("retrying after transient failure", { provider, kind: error.kind, attempt, delayMs });
+      await sleep(delayMs);
     }
   }
   // Unreachable in practice (the loop either returns or throws), but keeps the

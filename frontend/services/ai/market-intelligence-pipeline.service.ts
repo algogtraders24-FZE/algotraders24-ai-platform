@@ -129,7 +129,7 @@ export class MarketIntelligencePipelineService {
         return { status: "provider-unavailable", symbol: request.symbol, provider: providerName, reason: error.message };
       }
       if (error instanceof MarketDataProviderError) {
-        return { status: "provider-error", symbol: request.symbol, provider: providerName, reason: error.message };
+        return { status: "provider-error", symbol: request.symbol, provider: providerName, reason: error.message, cause: error };
       }
       throw error;
     }

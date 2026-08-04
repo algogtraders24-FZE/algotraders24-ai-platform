@@ -111,11 +111,17 @@ export class MarketAnalysisOrchestrationService {
     const intelligenceOutcome = await this.intelligencePipeline.run({ symbol: validated.symbol });
     if (intelligenceOutcome.status === "provider-unavailable") {
       const updated = await this.analysisRuns.markUnavailable(run.id, validated.userId, intelligenceOutcome.reason);
-      return { status: "provider-unavailable", run: updated ?? run, reason: intelligenceOutcome.reason };
+      return { status: "provider-unavailable", run: updated ?? run, reason: intelligenceOutcome.reason, provider: intelligenceOutcome.provider };
     }
     if (intelligenceOutcome.status === "provider-error") {
       const updated = await this.analysisRuns.markFailed(run.id, validated.userId, intelligenceOutcome.reason);
-      return { status: "provider-error", run: updated ?? run, reason: intelligenceOutcome.reason };
+      return {
+        status: "provider-error",
+        run: updated ?? run,
+        reason: intelligenceOutcome.reason,
+        provider: intelligenceOutcome.provider,
+        cause: intelligenceOutcome.cause,
+      };
     }
 
     const intelligence = intelligenceOutcome.result;

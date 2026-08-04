@@ -16,8 +16,16 @@ import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { TradingCopilotService } from "@/services/ai/trading-copilot.service";
 import { buildIntelligencePanelData } from "@/services/ai/intelligence-panel.service";
 import { isEnabledMarket, listEnabledMarkets } from "@/lib/market-data/market-registry";
+import { marketData } from "@/services/market-data/shared-instance";
+import { toMarketDataErrorDTO, statusCodeForReason, reasonForKind } from "@/lib/market-data/error-dto";
 
-const copilot = new TradingCopilotService();
+// Sprint D2.3.S3 - explicitly inject the shared MarketDataService instance
+// (services/market-data/shared-instance.ts) instead of relying on
+// TradingCopilotService's own default `new MarketDataService()`. Otherwise
+// this route's cache/health data would live on a second, disconnected
+// instance that never agrees with what marketData.hasCacheEntry() below
+// (or the Provider Health Monitor) actually observed.
+const copilot = new TradingCopilotService(marketData);
 
 export const POST = withContext(async (req, ctx) => {
   const sessionUser = await getUserOrNull();
@@ -48,8 +56,21 @@ export const POST = withContext(async (req, ctx) => {
         ctx.startedAt,
       );
     case "provider-unavailable":
-      return ApiResponse.error({ code: "PROVIDER_UNAVAILABLE", message: outcome.reason }, ctx.requestId, 503, ctx.startedAt);
-    case "provider-error":
-      return ApiResponse.error({ code: "PROVIDER_ERROR", message: outcome.reason }, ctx.requestId, 503, ctx.startedAt);
+    case "provider-error": {
+      // Sprint D2.3.S3 - standardized failure DTO, same shape every other
+      // market-data-facing route returns (lib/market-data/error-dto.ts).
+      const cached = marketData.hasCacheEntry(outcome.symbol);
+      const details = toMarketDataErrorDTO(outcome.cause, { cached });
+      return ApiResponse.error(
+        {
+          code: outcome.status === "provider-unavailable" ? "PROVIDER_UNAVAILABLE" : "PROVIDER_ERROR",
+          message: outcome.reason,
+          details: details as unknown as Record<string, unknown>,
+        },
+        ctx.requestId,
+        statusCodeForReason(reasonForKind(outcome.cause.kind)),
+        ctx.startedAt,
+      );
+    }
   }
 });

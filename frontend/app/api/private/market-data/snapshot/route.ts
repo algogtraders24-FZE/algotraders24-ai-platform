@@ -11,6 +11,7 @@ import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { marketData } from "@/services/market-data/shared-instance";
 import { MarketDataProviderError } from "@/lib/market-data/errors";
 import { isEnabledMarket, listEnabledMarkets } from "@/lib/market-data/market-registry";
+import { toMarketDataErrorDTO, statusCodeForReason } from "@/lib/market-data/error-dto";
 
 export const GET = withContext(async (req, ctx) => {
   const sessionUser = await getUserOrNull();
@@ -33,8 +34,16 @@ export const GET = withContext(async (req, ctx) => {
     return ApiResponse.success({ snapshot }, ctx.requestId, 200, ctx.startedAt);
   } catch (error) {
     if (error instanceof MarketDataProviderError) {
-      const status = error.kind === "unconfigured" ? 503 : 502;
-      return ApiResponse.error({ code: "PROVIDER_ERROR", message: error.message }, ctx.requestId, status, ctx.startedAt);
+      // Sprint D2.3.S3 - standardized failure DTO (lib/market-data/error-dto.ts)
+      // at `error.details`, so every market-data-facing route returns the
+      // same shape. The site-wide ApiResponse envelope is unchanged.
+      const dto = toMarketDataErrorDTO(error, { cached: marketData.hasCacheEntry(symbol) });
+      return ApiResponse.error(
+        { code: dto.reason.toUpperCase(), message: error.message, details: dto as unknown as Record<string, unknown> },
+        ctx.requestId,
+        statusCodeForReason(dto.reason),
+        ctx.startedAt,
+      );
     }
     throw error;
   }

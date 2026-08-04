@@ -78,8 +78,11 @@ value not present in the structured context.
 ## Enabled markets
 
 Forex (EURUSD, GBPUSD, USDJPY), commodities (XAUUSD, XAGUSD), crypto (BTCUSD,
-ETHUSD). Indices/stocks are modelled in the registry but disabled until a
-provider mapping is wired.
+ETHUSD, SOLUSD, XRPUSD — Sprint D2.3.S3, live-verified against Twelve Data's
+`/quote` endpoint before being added). Indices/stocks are modelled in the
+registry but disabled until a provider mapping is wired. Alpha Vantage has no
+crypto mapping (it's an FX-only endpoint) - a crypto symbol correctly produces
+`unsupported_symbol` there, which the fallback loop tolerates cleanly.
 
 ## No-fabrication rules
 
@@ -95,12 +98,45 @@ provider mapping is wired.
 | --- | --- |
 | Invalid symbol | Typed `unsupported_symbol`; aggregate error lists attempts |
 | Missing provider | `unconfigured`; service reports honestly, no crash |
-| Rate limit | Not retried; fast fallback to next provider (or graceful reject) |
+| Rate limit (Sprint D2.3.S3) | Retried in-place with backoff (same budget as timeout/http_error), then falls back to the next provider if still failing |
 | Timeout | Per-attempt timeout → typed `timeout` → fallback |
-| Retry | Transient `http_error`/`timeout` retried with backoff (verified 3 attempts) |
+| Retry | Transient `http_error`/`timeout`/`rate_limit` retried with backoff (verified 3 attempts) |
 | Cache | Per-provider + service TTL caches serve repeat reads |
 | Fallback | Primary failure falls through to secondary provider |
+| Stale-cache fallback (Sprint D2.3.S3) | Both providers fail + a cache entry exists within `MARKET_STALE_FALLBACK_MS` (default 5min) → served with `cached: true`, never presented as live |
 | Concurrent requests | 10 concurrent → 8 ok, 2 gracefully rate-limited, no crash |
+
+## Reliability & resilience (Sprint D2.3.S3)
+
+- **Provider Health Monitor** (`lib/market-data/health-monitor.ts`): a small
+  in-memory rolling window (last 20 outcomes) per provider, classified into
+  `healthy | degraded | rate_limited | offline`. Owned by the shared
+  `MarketDataService` instance (`services/market-data/shared-instance.ts`) so
+  every route's real traffic feeds the same monitor. Resets on server
+  restart - a live signal, not a historical record. Exposed via
+  `GET /api/private/market-data/health` (full detail) and folded into
+  `GET /api/private/market-data/status`'s `primaryState` field (drives the
+  Workspace `ProviderStatus` dot color).
+- **Standardized error DTO** (`lib/market-data/error-dto.ts`): every
+  market-data-facing route (`snapshot`, `snapshots`, `market-intelligence/
+  analyze`, `trading-copilot/analyze`) returns the same failure shape at
+  `error.details`: `{ success: false, reason, provider, retryAfter?, cached,
+  timestamp }`. `reason` is a small public vocabulary (`unconfigured`,
+  `unsupported_symbol`, `auth_error`, `rate_limited`, `provider_error`,
+  `timeout`, `invalid_response`, `unknown`), mapped from the internal
+  `MarketDataErrorKind` - that internal contract is unchanged.
+- **Stale-cache fallback**: distinct from ordinary caching. When every
+  configured provider fails, `MarketDataService` checks the cache one more
+  time and accepts an entry up to `staleFallbackMs` old (default 5 minutes,
+  `MARKET_STALE_FALLBACK_MS`-overridable) rather than failing immediately.
+  Always honestly stamped `cached: true` / `cacheAgeMs` on the response -
+  `WorkspaceHeader` shows "Stale" instead of "Live" when this happens.
+- **Startup validation** (`instrumentation.ts`, project root): runs once
+  when a new server instance starts, before it serves any request. Logs
+  (via `logger.child("startup")`) whether `TWELVEDATA_API_KEY`/
+  `ALPHA_VANTAGE_API_KEY` are present - `error` if both are missing, `warn`
+  per missing key otherwise, `info` when both are configured. Never logs a
+  value, only presence/absence.
 
 ## Troubleshooting
 

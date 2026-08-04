@@ -65,6 +65,11 @@ const SYMBOL_MAP: Record<string, SymbolSpec> = {
   XAGUSD: { td: "XAG/USD", quoteCurrency: "USD", assetClass: "commodities" },
   BTCUSD: { td: "BTC/USD", quoteCurrency: "USD", assetClass: "crypto" },
   ETHUSD: { td: "ETH/USD", quoteCurrency: "USD", assetClass: "crypto" },
+  // Sprint D2.3.S3 - live-verified against Twelve Data's /quote endpoint with
+  // the configured key (both returned a real, parseable close price) before
+  // being added here - never added on assumption alone.
+  SOLUSD: { td: "SOL/USD", quoteCurrency: "USD", assetClass: "crypto" },
+  XRPUSD: { td: "XRP/USD", quoteCurrency: "USD", assetClass: "crypto" },
 };
 
 /** Structured, provider-neutral quote parsed from Twelve Data. Never leaves this file in Phase 2. */

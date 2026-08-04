@@ -16,6 +16,12 @@ interface CacheEntry<T> {
   expiresAt: number;
 }
 
+/** A `getStale` read: the value plus how old it actually is, in ms. */
+export interface StaleRead<T> {
+  value: T;
+  ageMs: number;
+}
+
 export class TtlCache<T> {
   private readonly store = new Map<string, CacheEntry<T>>();
 
@@ -40,5 +46,23 @@ export class TtlCache<T> {
 
   clear(): void {
     this.store.clear();
+  }
+
+  // Sprint D2.3.S3 - resilience fallback. Peeks an entry regardless of
+  // whether it has passed its normal TTL, as long as it is no older than
+  // maxAgeMs. Never evicts (a caller deciding not to use a stale value must
+  // not destroy it for a later caller that might). Returns undefined if the
+  // key is absent entirely or older than maxAgeMs - the caller (not this
+  // cache) decides what "too old to use" means for its situation.
+  getStale(key: string, maxAgeMs: number): StaleRead<T> | undefined {
+    const entry = this.store.get(key);
+    if (!entry) return undefined;
+    const ageMs = this.clock.now() - (entry.expiresAt - this.ttlMs);
+    return ageMs <= maxAgeMs ? { value: entry.value, ageMs } : undefined;
+  }
+
+  /** True if any entry exists for key, regardless of freshness - diagnostic only (e.g. the failure DTO's `cached` flag). */
+  has(key: string): boolean {
+    return this.store.has(key);
   }
 }

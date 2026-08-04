@@ -37,4 +37,8 @@ export interface MarketSnapshot {
   marketStatus: MarketStatus;
   provider: string;
   retrievedAt: string;
+  /** Sprint D2.3.S3 - true only when this response was served from MarketDataService's own cache (fresh hit or a resilience stale-fallback) rather than a live provider call this request. Absent/false means live. */
+  cached?: boolean;
+  /** Sprint D2.3.S3 - age of the cached value in ms, only present when cached === true. */
+  cacheAgeMs?: number;
 }

@@ -42,6 +42,8 @@ const DEFINITIONS: readonly MarketDefinition[] = [
   // Crypto
   { symbol: "BTCUSD", name: "Bitcoin / US Dollar", assetClass: "crypto", baseCurrency: "BTC", quoteCurrency: "USD", enabled: true },
   { symbol: "ETHUSD", name: "Ethereum / US Dollar", assetClass: "crypto", baseCurrency: "ETH", quoteCurrency: "USD", enabled: true },
+  { symbol: "SOLUSD", name: "Solana / US Dollar", assetClass: "crypto", baseCurrency: "SOL", quoteCurrency: "USD", enabled: true },
+  { symbol: "XRPUSD", name: "XRP / US Dollar", assetClass: "crypto", baseCurrency: "XRP", quoteCurrency: "USD", enabled: true },
   // Indices (modelled, not yet enabled - no provider mapping wired)
   { symbol: "SPX", name: "S&P 500 Index", assetClass: "indices", baseCurrency: "SPX", quoteCurrency: "USD", enabled: false },
   { symbol: "NDX", name: "Nasdaq 100 Index", assetClass: "indices", baseCurrency: "NDX", quoteCurrency: "USD", enabled: false },
