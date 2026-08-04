@@ -182,10 +182,6 @@ export class MarketAnalysisOrchestrationService {
         "Do not change the stated risk level, confidence level, or any evidence claim. " +
         "If a section below states that something is unavailable or could not be determined, say so plainly - never invent a substitute or perform new analysis to fill the gap.",
     );
-    // Sprint D2.3.S4 - communication policy: how to phrase what's below, on
-    // top of (never in place of) the "never invent a fact" rule already
-    // stated above.
-    lines.push(AI_COMMUNICATION_POLICY);
     lines.push(`User question: ${request.question}`);
     lines.push(`Symbol: ${explainable.symbol}`);
     lines.push(`Executive summary: ${explainable.executiveSummary}`);
@@ -218,6 +214,19 @@ export class MarketAnalysisOrchestrationService {
       "Restate the analysis above naturally and completely - never perform new reasoning, " +
         "never invent a price, direction, headline, or conclusion not already stated above.",
     );
+    // Sprint D2.3.S4 - communication policy (how to phrase the above, never
+    // in place of the "never invent a fact" rule already stated). Pushed
+    // LAST, after every evidence/summary section and the pre-existing
+    // "never invent" reminder above: those are the highest-priority
+    // instructions this method has always sent, and an earlier version of
+    // this change placed the policy text near the top instead, which pushed
+    // large evidence bundles past MAX_PROMPT_CHARS and silently truncated
+    // the "never invent" reminder off the end - caught by
+    // validate-alpha-vantage-provider.ts's G3 test. Wording policy is real
+    // but strictly lower-priority than data-fabrication safety, so it's the
+    // one that yields first if a genuinely huge evidence bundle still hits
+    // the length cap.
+    lines.push(AI_COMMUNICATION_POLICY);
 
     const prompt = lines.join("\n");
     return prompt.length > MAX_PROMPT_CHARS ? prompt.slice(0, MAX_PROMPT_CHARS) : prompt;

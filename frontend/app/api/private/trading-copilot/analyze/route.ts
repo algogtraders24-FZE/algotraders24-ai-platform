@@ -14,6 +14,7 @@ import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { TradingCopilotService } from "@/services/ai/trading-copilot.service";
+import { MarketContextBuilderService } from "@/services/ai/market-context-builder.service";
 import { buildIntelligencePanelData } from "@/services/ai/intelligence-panel.service";
 import { isEnabledMarket, listEnabledMarkets } from "@/lib/market-data/market-registry";
 import { marketData } from "@/services/market-data/shared-instance";
@@ -25,7 +26,15 @@ import { toMarketDataErrorDTO, statusCodeForReason, reasonForKind } from "@/lib/
 // this route's cache/health data would live on a second, disconnected
 // instance that never agrees with what marketData.hasCacheEntry() below
 // (or the Provider Health Monitor) actually observed.
-const copilot = new TradingCopilotService(marketData);
+//
+// Sprint D2.3 Final Audit - the same gap existed one level deeper:
+// TradingCopilotService's third constructor argument
+// (MarketContextBuilderService) still defaulted to its own disconnected
+// `new MarketDataService()`. Currently harmless (the only method actually
+// called on it, explainStructured(), never touches that dependency), but a
+// latent trap if a future change ever calls a method that does - explicitly
+// wiring the shared instance here closes it the same way as the first arg.
+const copilot = new TradingCopilotService(marketData, undefined, new MarketContextBuilderService(marketData));
 
 export const POST = withContext(async (req, ctx) => {
   const sessionUser = await getUserOrNull();

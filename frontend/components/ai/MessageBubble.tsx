@@ -14,6 +14,7 @@ import type { ChatSource } from "@/services/ai/assistant.service";
 import type { MarketAnalysisResult } from "@/types/market-analysis-orchestration";
 import SourcesPanel from "./SourcesPanel";
 import AnalysisResult from "@/components/market-intelligence/AnalysisResult";
+import Disclaimer from "@/components/ui/Disclaimer";
 
 export type DisplayMessage = Message & {
   sources?: ChatSource[];
@@ -56,6 +57,15 @@ export default function MessageBubble({ message, isStreaming, isLastAssistant, o
             <AnalysisResult result={message.marketAnalysis} />
           </div>
         )}
+
+        {/* Sprint D2.3 Final Audit - every other assistant reply (free-text
+            chat, RAG-grounded or plain) had no disclaimer at all - only the
+            deterministic market-analysis branch above did (via
+            AnalysisResult's own <Disclaimer />, so it's deliberately not
+            duplicated here). This was the one AI-output surface the S4
+            sprint's own stated rule ("shown wherever an AI-generated...
+            evidence-backed reply is presented") didn't actually reach. */}
+        {!isUser && !isStreaming && !message.marketAnalysis && <Disclaimer className="mt-2 border-t-0 pt-0" />}
 
         <div className={`mt-1 flex items-center gap-3 text-[10px] text-text-3 ${isUser ? "justify-end" : "justify-start"}`}>
           <span>{time}</span>

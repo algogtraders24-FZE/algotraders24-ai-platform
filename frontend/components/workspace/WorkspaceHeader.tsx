@@ -60,6 +60,19 @@ export default function WorkspaceHeader() {
   }, [symbol]);
 
   const live = snapshot?.marketStatus === "open";
+  // Sprint D2.3 Final Audit - snapshot.cached is true for BOTH a routine
+  // fresh cache hit (served within the service's normal TTL, the healthy
+  // fast path - services/market-data/market-data.service.ts) and a genuine
+  // S3 resilience stale-fallback (served only after every provider failed).
+  // Badging every cache hit "Stale" was misleading: a closed-market symbol
+  // viewed twice within the same TTL window would flip from "Closed" to a
+  // false "Stale" with nothing having actually failed. STALE_THRESHOLD_MS is
+  // comfortably above the service's default 60s TTL (with margin for timing
+  // jitter) and well under the 5-minute stale-fallback grace window, so it
+  // reliably separates the two cases without the client needing to know the
+  // server's exact configured TTL.
+  const STALE_THRESHOLD_MS = 90_000;
+  const isStale = snapshot?.cached === true && (snapshot.cacheAgeMs ?? 0) > STALE_THRESHOLD_MS;
 
   return (
     <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-panel border border-border bg-ink-2 px-5 py-4">
@@ -71,13 +84,13 @@ export default function WorkspaceHeader() {
       {state === "loading" ? (
         <Skeleton className="h-5 w-16" />
       ) : (
-        <Badge tone={live ? "success" : snapshot?.cached ? "warning" : "neutral"} className="gap-1.5">
+        <Badge tone={live ? "success" : isStale ? "warning" : "neutral"} className="gap-1.5">
           <span
             aria-hidden="true"
-            className={`h-1.5 w-1.5 rounded-full ${live ? "bg-signal-up" : snapshot?.cached ? "bg-warn" : "bg-text-3"}`}
+            className={`h-1.5 w-1.5 rounded-full ${live ? "bg-signal-up" : isStale ? "bg-warn" : "bg-text-3"}`}
           />
-          {/* Sprint D2.3.S3 - snapshot.cached means this was served from the resilience stale-cache fallback (services/market-data/market-data.service.ts), not a live provider call this request. Never presented as Live. */}
-          {live ? "Live" : snapshot?.cached ? "Stale" : snapshot ? "Closed" : "Unavailable"}
+          {/* Sprint D2.3.S3/Final Audit - "Stale" only for a genuine resilience fallback (isStale, above), never for an ordinary fresh cache hit on a closed market. */}
+          {live ? "Live" : isStale ? "Stale" : snapshot ? "Closed" : "Unavailable"}
         </Badge>
       )}
 

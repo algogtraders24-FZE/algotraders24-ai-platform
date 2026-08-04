@@ -372,7 +372,19 @@ export const POST = withContext(async (req, ctx) => {
         // starting now", which is also where most of the wait actually
         // lives (Gemini + optional Search grounding).
         controller.enqueue(ndjson({ type: "stage", stage: "generating" }));
+        // Sprint D2.3 Final Audit - honor the client's Stop button. Before
+        // this, aborting the client fetch() never actually stopped this
+        // loop: it kept pulling tokens from Gemini to completion (wasted
+        // generation cost) and then persisted the FULL text even though the
+        // user explicitly stopped partway through - so a later hydration
+        // from the server (a different device, or localStorage cleared)
+        // would silently show the complete answer the user never saw and
+        // chose to cut off. req.signal fires when the underlying client
+        // connection is aborted; breaking here persists only what was
+        // actually generated, the same honest-partial-result contract the
+        // client already applies to its own copy.
         for await (const chunk of geminiStream) {
+          if (req.signal.aborted) break;
           const piece = chunk.text ?? "";
           if (piece.length === 0) continue;
           fullText += piece;
@@ -395,9 +407,22 @@ export const POST = withContext(async (req, ctx) => {
         // Sprint R1.2 - Phase 2: real "ai_chat" event, additive, best-effort.
         await analyticsEventService.record(userId, "ai_chat").catch(() => {});
 
-        controller.enqueue(ndjson({ type: "done", conversationId, ragApplied, sources }));
+        // Best-effort enqueue: if the client already disconnected, the
+        // underlying stream may reject a further write - that's expected
+        // once the user has stopped watching, never a real failure.
+        if (!req.signal.aborted) {
+          try {
+            controller.enqueue(ndjson({ type: "done", conversationId, ragApplied, sources }));
+          } catch {
+            // Client gone - nothing left to notify.
+          }
+        }
       } catch {
-        controller.enqueue(ndjson({ type: "error", message: "The assistant could not finish responding" }));
+        try {
+          controller.enqueue(ndjson({ type: "error", message: "The assistant could not finish responding" }));
+        } catch {
+          // Client gone - nothing left to notify.
+        }
       } finally {
         controller.close();
       }
