@@ -57,19 +57,33 @@ export interface MarketAnalysisChatResult {
 export type SendStreamingResult = StreamChatResult | MarketAnalysisChatResult;
 
 // Sprint L2.4 - a deliberately simple, disclosed heuristic: real NLP
-// intent classification is out of scope for this sprint, and the only
-// symbol genuinely wired to the real pipeline today is EUR/USD (see
-// lib/market-data/providers/alpha-vantage.provider.ts). Requiring BOTH a
+// intent classification is out of scope for this sprint. Requiring BOTH a
 // symbol mention AND analysis-intent language reduces false positives
 // (e.g. "what does euro mean" alone won't trigger it) without pretending
 // to understand free text the way a real classifier would.
-const SYMBOL_PATTERN = /\b(eur\s*\/?\s*usd|eurusd|euro)\b/i;
+//
+// Sprint D2.3.S3 - expanded from EURUSD-only to every symbol the analyze
+// route now actually serves (Twelve Data's SYMBOL_MAP), so "Analyze Gold"
+// routes to the real deterministic pipeline instead of silently falling
+// through to generic RAG chat. Order matters: checked most-specific-first
+// so "gold" can't shadow a longer phrase, though none currently overlap.
+type AnalysisSymbol = "EURUSD" | "GBPUSD" | "USDJPY" | "XAUUSD" | "XAGUSD" | "BTCUSD" | "ETHUSD";
+const SYMBOL_PATTERNS: ReadonlyArray<[RegExp, AnalysisSymbol]> = [
+  [/\b(eur\s*\/?\s*usd|eurusd|euro)\b/i, "EURUSD"],
+  [/\b(gbp\s*\/?\s*usd|gbpusd|british pound|sterling)\b/i, "GBPUSD"],
+  [/\b(usd\s*\/?\s*jpy|usdjpy|japanese yen)\b/i, "USDJPY"],
+  [/\b(xau\s*\/?\s*usd|xauusd|gold)\b/i, "XAUUSD"],
+  [/\b(xag\s*\/?\s*usd|xagusd|silver)\b/i, "XAGUSD"],
+  [/\b(btc\s*\/?\s*usd|btcusd|bitcoin)\b/i, "BTCUSD"],
+  [/\b(eth\s*\/?\s*usd|ethusd|ethereum)\b/i, "ETHUSD"],
+];
 const ANALYSIS_INTENT_PATTERN =
   /\b(analy[sz]e|analysis|outlook|forecast|trend|view on|think about|opinion|should i|buy|sell|price|bullish|bearish)\b/i;
 
-export function detectSupportedMarketSymbol(message: string): "EURUSD" | null {
-  if (SYMBOL_PATTERN.test(message) && ANALYSIS_INTENT_PATTERN.test(message)) {
-    return "EURUSD";
+export function detectSupportedMarketSymbol(message: string): AnalysisSymbol | null {
+  if (!ANALYSIS_INTENT_PATTERN.test(message)) return null;
+  for (const [pattern, symbol] of SYMBOL_PATTERNS) {
+    if (pattern.test(message)) return symbol;
   }
   return null;
 }

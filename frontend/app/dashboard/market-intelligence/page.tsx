@@ -7,25 +7,25 @@
 // legacy mock service - this now calls the real
 // /api/private/market-intelligence/analyze route, which runs the actual
 // evidence -> reasoning -> risk -> confidence -> explainable-analysis
-// pipeline against live Alpha Vantage data.
+// pipeline against live market data.
 //
-// EUR/USD is the only symbol wired to a working "Run Analysis" button:
-// live testing during this sprint confirmed it's the one market the
-// configured Alpha Vantage key actually serves through the
-// currency-exchange-rate endpoint. Gold and Silver were the originally
-// planned symbols and the pipeline code fully supports them - the current
-// key/tier just doesn't (see lib/market-data/providers/alpha-vantage.
-// provider.ts's header for the evidence). They're shown, not hidden, but
-// honestly marked pending rather than given a button that would always
-// fail - the same standard the homepage has held itself to since H1.3.
+// Sprint D2.3.S3 - the analyze route's price provider moved from Alpha
+// Vantage (EURUSD only, on the configured key/tier) to Twelve Data, which
+// maps EURUSD, GBPUSD, USDJPY, XAUUSD, XAGUSD, BTCUSD, and ETHUSD (see the
+// route's header). All seven are real "Run Analysis" buttons now - there is
+// no PENDING_MARKETS list left, because nothing here is pending anymore.
 import { useState } from "react";
 import type { MarketAnalysisResult } from "@/types/market-analysis-orchestration";
 import AnalysisResult from "@/components/market-intelligence/AnalysisResult";
 
-const AVAILABLE_MARKETS = [{ symbol: "EURUSD", label: "Euro", pair: "EUR/USD" }] as const;
-const PENDING_MARKETS = [
-  { label: "Gold", pair: "XAU/USD" },
-  { label: "Silver", pair: "XAG/USD" },
+const AVAILABLE_MARKETS = [
+  { symbol: "EURUSD", label: "Euro", pair: "EUR/USD" },
+  { symbol: "GBPUSD", label: "British Pound", pair: "GBP/USD" },
+  { symbol: "USDJPY", label: "US Dollar / Yen", pair: "USD/JPY" },
+  { symbol: "XAUUSD", label: "Gold", pair: "XAU/USD" },
+  { symbol: "XAGUSD", label: "Silver", pair: "XAG/USD" },
+  { symbol: "BTCUSD", label: "Bitcoin", pair: "BTC/USD" },
+  { symbol: "ETHUSD", label: "Ethereum", pair: "ETH/USD" },
 ] as const;
 type Symbol = (typeof AVAILABLE_MARKETS)[number]["symbol"];
 
@@ -97,16 +97,6 @@ export default function MarketIntelligencePage() {
               </div>
             );
           })}
-
-          {PENDING_MARKETS.map((market) => (
-            <div key={market.pair} className="rounded-card border border-border bg-ink-2 p-6 opacity-60">
-              <p className="text-lg font-semibold">{market.label}</p>
-              <p className="mt-1 font-mono text-xs text-text-3">{market.pair}</p>
-              <span className="mt-4 inline-block rounded-control border border-border px-3 py-1 text-xs font-medium text-text-3">
-                Pending data source
-              </span>
-            </div>
-          ))}
         </div>
 
         <div className="mt-8">
@@ -114,7 +104,7 @@ export default function MarketIntelligencePage() {
             <div className="rounded-card border border-dashed border-border bg-ink-2/50 p-6 text-sm text-text-2">
               <p className="font-semibold text-text">No analysis yet</p>
               <p className="mt-1">
-                Click <span className="text-text">Run Analysis</span> on Euro above to generate your first
+                Click <span className="text-text">Run Analysis</span> on any market above to generate your first
                 evidence-backed market analysis - it runs the real pipeline against live data, so it takes a few
                 seconds.
               </p>

@@ -1,28 +1,33 @@
 // app/api/private/market-intelligence/analyze/route.ts
 // Sprint L2.1 - First production caller of the Sprint 15D deterministic
 // pipeline. Constructs MarketAnalysisOrchestrationService with a REAL,
-// configured AlphaVantageProvider + AlphaVantageNewsProvider injected -
-// every other caller in this codebase (and this class's own constructor
-// default) deliberately leaves that null, which makes every analysis
-// resolve to "provider-unavailable" by design. This route is the one place
-// that intentionally opts in to live market data.
+// configured price provider + AlphaVantageNewsProvider injected - every
+// other caller in this codebase (and this class's own constructor default)
+// deliberately leaves that null, which makes every analysis resolve to
+// "provider-unavailable" by design. This route is the one place that
+// intentionally opts in to live market data.
 //
-// Symbol scope is locked to what AlphaVantageProvider actually maps
-// (lib/market-data/providers/alpha-vantage.provider.ts's SYMBOL_MAP).
+// Sprint D2.3.S3 - swapped the price provider from AlphaVantageProvider to
+// TwelveDataProvider (the same vendor-independent-layer primary the
+// Workspace/Trading Copilot pages already use, Sprint D2.2). Alpha
+// Vantage's currency-exchange-rate endpoint only ever served EURUSD on the
+// configured key/tier - Twelve Data's /quote endpoint maps EURUSD, GBPUSD,
+// USDJPY, XAUUSD, XAGUSD, BTCUSD, and ETHUSD (lib/market-data/providers/
+// twelve-data.provider.ts's SYMBOL_MAP), so Gold/Silver/BTC/ETH move from
+// PENDING to SUPPORTED here too. News evidence (AlphaVantageNewsProvider)
+// is untouched - it queries by topic, not by ticker, so it was never
+// symbol-restricted.
+//
+// Symbol scope is locked to what TwelveDataProvider actually maps
+// (lib/market-data/providers/twelve-data.provider.ts's SYMBOL_MAP).
 // Rejecting anything outside that here, before it ever reaches the
 // pipeline, keeps the failure a clear 400 instead of a confusing round
 // trip through five engines to reach the same "unsupported_symbol"
 // provider error.
 //
-// Sprint L2.1 live testing found the configured ALPHA_VANTAGE_API_KEY
-// genuinely serves EURUSD but rejects XAUUSD/XAGUSD ("Invalid API call") -
-// see the provider file's header for the full evidence. EURUSD is
-// SUPPORTED (works end to end); XAUUSD/XAGUSD are listed as PENDING so the
-// dashboard can show them honestly rather than omit or fake them.
-//
-// Services are constructed once at module scope, not per-request: Alpha
-// Vantage's own provider has a 60s in-memory TTL cache
-// (lib/market-data/providers/alpha-vantage.provider.ts), which only
+// Services are constructed once at module scope, not per-request: Twelve
+// Data's own provider has a 60s in-memory TTL cache
+// (lib/market-data/providers/twelve-data.provider.ts), which only
 // protects anything if the same provider instance survives across
 // requests on a warm server process.
 //
@@ -45,7 +50,7 @@ import { EvidenceFusionService } from "@/services/ai/evidence-fusion.service";
 import { ReasoningEngineService } from "@/services/ai/reasoning/reasoning-engine.service";
 import { RiskEngineService } from "@/services/ai/risk/risk-engine.service";
 import { ConfidenceEngineService } from "@/services/ai/confidence/confidence-engine.service";
-import { AlphaVantageProvider } from "@/lib/market-data/providers/alpha-vantage.provider";
+import { TwelveDataProvider } from "@/lib/market-data/providers/twelve-data.provider";
 import { AlphaVantageNewsProvider } from "@/lib/market-data/providers/alpha-vantage-news.provider";
 import { systemClock } from "@/lib/market-data/cache";
 import { requestLogService } from "@/services/tracking/RequestLogService";
@@ -53,6 +58,12 @@ import { analyticsEventService } from "@/services/analytics/AnalyticsEventServic
 
 const SUPPORTED_SYMBOLS = {
   EURUSD: "Euro (EUR/USD)",
+  GBPUSD: "British Pound (GBP/USD)",
+  USDJPY: "US Dollar / Japanese Yen (USD/JPY)",
+  XAUUSD: "Gold (XAU/USD)",
+  XAGUSD: "Silver (XAG/USD)",
+  BTCUSD: "Bitcoin (BTC/USD)",
+  ETHUSD: "Ethereum (ETH/USD)",
 } as const;
 type SupportedSymbol = keyof typeof SUPPORTED_SYMBOLS;
 
@@ -61,7 +72,7 @@ function isSupportedSymbol(value: unknown): value is SupportedSymbol {
 }
 
 const pipeline = new MarketIntelligencePipelineService(
-  new AlphaVantageProvider(),
+  new TwelveDataProvider(),
   new EvidenceCollectorService(),
   new EvidenceRankingService(),
   new ReasoningEngineService(),
