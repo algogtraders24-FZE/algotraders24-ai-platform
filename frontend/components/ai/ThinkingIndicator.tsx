@@ -29,7 +29,7 @@ export default function ThinkingIndicator({ speed = 1, label, showElapsed = fals
     return () => clearInterval(id);
   }, [showElapsed]);
 
-  const text = showElapsed ? `${label ?? "Working"}… ${elapsedSeconds}s` : label;
+  const text = showElapsed ? `${label ?? "Analyzing"}… ${elapsedSeconds}s` : label;
 
   return (
     <div className="flex justify-start">

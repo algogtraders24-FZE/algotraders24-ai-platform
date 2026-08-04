@@ -10,7 +10,8 @@
 import type { ReactNode } from "react";
 
 export interface StatFieldProps {
-  label: string;
+  /** Sprint D2.3.S4 - widened from string to ReactNode so a label can carry an inline InfoTooltip (e.g. an educational-term definition); every existing string caller remains valid. */
+  label: ReactNode;
   dashed?: boolean;
   bare?: boolean;
   className?: string;

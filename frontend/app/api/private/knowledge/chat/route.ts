@@ -40,6 +40,7 @@ import { GeminiEmbeddingProvider } from "@/lib/ai";
 import { AI_CONFIG } from "@/config/ai.config";
 import { ConversationMessageService, toMessage } from "@/services/ai/conversation-message.service";
 import { buildContext } from "@/services/ai/context-manager.service";
+import { AI_COMMUNICATION_POLICY } from "@/lib/ai/response-policy";
 import { prisma } from "@/lib/prisma";
 import type { Message } from "@/types/message";
 import { EntityNotFoundError, RepositoryError } from "@/types/repository";
@@ -262,8 +263,16 @@ export const POST = withContext(async (req, ctx) => {
   }
 
   // --- Deterministic context assembly (Sprint 15C.2 Context Manager) ---
+  // Sprint D2.3.S4 - the communication policy is now always-on: previously
+  // this route only sent a system instruction when RAG hits were found, so
+  // most chat turns (any question with no matching knowledge chunk) had zero
+  // wording policy applied. RAG_SYSTEM_INSTRUCTIONS still layers on top only
+  // when RAG actually applies.
+  const systemInstructions = ragApplied
+    ? `${AI_COMMUNICATION_POLICY}\n\n${RAG_SYSTEM_INSTRUCTIONS}`
+    : AI_COMMUNICATION_POLICY;
   const aiContext = buildContext({
-    systemInstructions: ragApplied ? RAG_SYSTEM_INSTRUCTIONS : undefined,
+    systemInstructions,
     ragContext: ragApplied ? contextBlock : undefined,
     recentMessages,
     userMessage: currentMessage,

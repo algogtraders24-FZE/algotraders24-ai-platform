@@ -16,6 +16,7 @@
 // price series and are intentionally NOT fabricated from one quote - they are
 // a future extension once a /time_series feed is wired.
 import { createAIService, AIProviderError, type AIService } from "@/lib/ai";
+import { AI_COMMUNICATION_POLICY } from "@/lib/ai/response-policy";
 import { MarketDataService } from "@/services/market-data/market-data.service";
 import { MarketDataProviderError } from "@/lib/market-data/errors";
 import type { SnapshotProvider } from "@/types/market-data-provider";
@@ -128,6 +129,7 @@ export class MarketContextBuilderService {
       "Your only task is to explain it in clear, natural language for a trader - you are a translator, not an analyst.",
       "Do not add any price, percentage, direction, indicator, or conclusion that is not explicitly present in the JSON.",
       "Do not give buy/sell advice. If a field is absent, do not invent it. Keep it concise (3-5 sentences).",
+      AI_COMMUNICATION_POLICY,
       "Structured market context:",
       JSON.stringify(context, null, 2),
     ];
@@ -146,6 +148,7 @@ export class MarketContextBuilderService {
       "Do not add any price, percentage, indicator value, or conclusion that is not explicitly present in the JSON.",
       "Do not give buy/sell advice or invent support/resistance or trade setups. Where a value is null/absent, say the data is insufficient rather than estimating.",
       "Keep it concise (4-6 sentences).",
+      AI_COMMUNICATION_POLICY,
       "Structured analysis:",
       JSON.stringify(structured, null, 2),
     ];

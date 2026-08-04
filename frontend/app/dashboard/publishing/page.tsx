@@ -79,7 +79,11 @@ export default function PublishingPage() {
     setActionError(null);
     try {
       const title = CATEGORY_TITLES[category];
-      const prompt = `Write a short professional market research article titled "${title}". Cover overview, key levels, and outlook. Under 200 words. Add a one-line risk disclaimer.`;
+      // Sprint D2.3.S4 - sendMessage() posts to /api/private/knowledge/chat,
+      // which now always applies AI_COMMUNICATION_POLICY as a system
+      // instruction (see that route) - this line is a Publishing-specific
+      // reinforcement on top of that, not a duplicate of the full policy.
+      const prompt = `Write a short professional market research article titled "${title}". Cover overview, key levels, and outlook. Under 200 words. Use hedged, evidence-based language (e.g. "current evidence favors a bullish scenario"), never a directive like "Buy Gold". Add a one-line risk disclaimer.`;
       const aiRes = await sendMessage({ conversationId: "publishing", message: prompt });
 
       const res = await fetch("/api/private/publishing/articles", {
@@ -165,7 +169,7 @@ export default function PublishingPage() {
               disabled={generating}
               className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-ink hover:brightness-110 disabled:opacity-50"
             >
-              {generating ? "Generating..." : "Generate AI Draft"}
+              {generating ? "Generating…" : "Generate AI Draft"}
             </button>
           </div>
         </header>

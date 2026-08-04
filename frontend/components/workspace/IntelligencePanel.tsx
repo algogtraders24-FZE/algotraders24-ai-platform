@@ -17,9 +17,12 @@ import { useWorkspace } from "@/context/WorkspaceContext";
 import Badge, { type BadgeTone } from "@/components/ui/Badge";
 import Skeleton from "@/components/ui/Skeleton";
 import EmptyState from "@/components/ui/EmptyState";
+import InfoTooltip from "@/components/ui/InfoTooltip";
+import Disclaimer from "@/components/ui/Disclaimer";
 import StatField from "@/components/workspace/StatField";
 import type { IntelligencePanelData, MarketStatusLabel, RiskBand } from "@/types/intelligence-panel";
 import type { ConfidenceBand } from "@/types/technical-context";
+import { LIQUIDITY_DEFINITION } from "@/data/educational-terms";
 
 type LoadState = "loading" | "ready" | "unavailable" | "error";
 
@@ -163,6 +166,18 @@ export default function IntelligencePanel() {
     { label: "Bias", value: data.structure.bias ? DIRECTION_LABEL[data.structure.bias] : "Insufficient data" },
   ];
 
+  // Sprint D2.3.S4 - "Based on: ..." is derived only from factors genuinely
+  // present on this response (never a fixed, possibly-fabricated list) -
+  // describes what the analysis actually considered, not a trade-success
+  // probability.
+  const confidenceBasis = [
+    data.structure.trend && "Trend",
+    data.structure.momentum && "Momentum",
+    data.structure.volatility && "Volatility",
+    (data.structure.trend || data.structure.momentum || data.structure.bias) && "Market Structure",
+    data.evidence.length > 0 && "Evidence",
+  ].filter((v): v is string => Boolean(v));
+
   return (
     <div className="space-y-5">
       {/* 1-3: Market Status / AI Confidence / Risk Level */}
@@ -177,12 +192,19 @@ export default function IntelligencePanel() {
             <span className="font-mono text-lg text-text">{data.confidence.percent}%</span>
             <Badge tone={CONFIDENCE_TONE[data.confidence.band]}>{CONFIDENCE_LABEL[data.confidence.band]}</Badge>
           </div>
+          {/* Sprint D2.3.S4 - describes what the analysis considered (analysis certainty), never a probability the trade will succeed. */}
+          {confidenceBasis.length > 0 && (
+            <p className="mt-1.5 text-xs text-text-3">Based on: {confidenceBasis.join(", ")}</p>
+          )}
         </StatField>
         <StatField label="Risk Level">
           <Badge tone={RISK_TONE[data.risk.band]} className="text-sm">
             {RISK_LABEL[data.risk.band]}
           </Badge>
-          {data.risk.explanation && <p className="mt-1.5 text-xs text-text-3">{data.risk.explanation}</p>}
+          {/* Sprint D2.3.S4 - risk context is never silently omitted, even when the engine produced no specific notes. */}
+          <p className="mt-1.5 text-xs text-text-3">
+            {data.risk.explanation || "No specific risk factors were flagged for this analysis."}
+          </p>
         </StatField>
       </div>
 
@@ -191,7 +213,19 @@ export default function IntelligencePanel() {
         <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-3">Market Structure</h3>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {structuredEntries.map((f) => (
-            <StatField key={f.label} label={f.label}>
+            <StatField
+              key={f.label}
+              label={
+                f.label === "Liquidity" ? (
+                  <span className="inline-flex items-center">
+                    {f.label}
+                    <InfoTooltip label={f.label} text={LIQUIDITY_DEFINITION.definition} />
+                  </span>
+                ) : (
+                  f.label
+                )
+              }
+            >
               {f.value}
             </StatField>
           ))}
@@ -248,6 +282,8 @@ export default function IntelligencePanel() {
           Freshness <span className="font-mono text-text-2">{freshness(data.dataFreshnessMs)}</span>
         </span>
       </div>
+
+      <Disclaimer className="border-t-0 pt-0" />
     </div>
   );
 }

@@ -12,6 +12,7 @@
 import { useState } from "react";
 import type { CopilotAnalysis } from "@/services/ai/trading-copilot.service";
 import { listEnabledMarkets } from "@/lib/market-data/market-registry";
+import Disclaimer from "@/components/ui/Disclaimer";
 
 const MARKETS = listEnabledMarkets();
 
@@ -229,6 +230,8 @@ function Result({ analysis }: { analysis: CopilotAnalysis }) {
           ))}
         </div>
       </section>
+
+      <Disclaimer />
     </div>
   );
 }

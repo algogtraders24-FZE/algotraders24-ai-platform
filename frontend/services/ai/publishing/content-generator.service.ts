@@ -3,6 +3,9 @@ import type { Article, ArticleSection } from "@/types/article";
 import type { ContentCategory } from "@/types/content-category";
 import type { FeatureMeta } from "@/types/feature-meta";
 import { buildSeo } from "./seo.service";
+// Sprint D2.3.S4 - single-source disclaimer text, shared with
+// components/ui/Disclaimer.tsx - no more independently-authored strings.
+import { AI_DISCLAIMER_TEXT } from "@/lib/ai/disclaimer";
 
 export const generatorMeta: FeatureMeta = {
   featureId: "content-generator",
@@ -10,8 +13,6 @@ export const generatorMeta: FeatureMeta = {
   estimatedCost: 3,
   dailyUsageWeight: 3,
 };
-
-const DISCLAIMER = "This is not financial advice. Trading involves risk.";
 
 export const CATEGORY_TITLES: Record<ContentCategory, string> = {
   "technical-analysis": "Technical Analysis",
@@ -39,7 +40,7 @@ export function generateArticle(category: ContentCategory, keywords: string[]): 
     category,
     summary: `${title}: overview, key levels, and outlook.`,
     sections,
-    disclaimer: DISCLAIMER,
+    disclaimer: AI_DISCLAIMER_TEXT,
     seo: buildSeo(title, keywords),
     status: "draft",
     sourceType: "manual",

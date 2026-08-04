@@ -9,6 +9,7 @@
 import { useState } from "react";
 import type { Article } from "@/types/article";
 import PublishingStatus from "./PublishingStatus";
+import Disclaimer from "@/components/ui/Disclaimer";
 
 interface Props {
   article: Article | null;
@@ -91,7 +92,8 @@ export default function ArticlePreview({ article, onPublish, onSchedule, onDupli
         ))}
       </div>
 
-      <p className="mt-4 border-t border-border pt-3 text-xs text-text-3">{article.disclaimer}</p>
+      {/* Sprint D2.3.S4 - article.disclaimer is the persisted, historical value (equal to AI_DISCLAIMER_TEXT for every article, since content-generator.service.ts now sources it from the same constant) - passed through for fidelity rather than re-deriving it. */}
+      <Disclaimer text={article.disclaimer} className="mt-4" />
 
       {canAct && (
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">

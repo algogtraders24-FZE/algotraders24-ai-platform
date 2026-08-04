@@ -11,6 +11,7 @@ import type { ExplanationLine } from "@/types/explainable-analysis";
 import type { RiskLevel } from "@/types/risk";
 import type { ConfidenceLevel } from "@/types/confidence-intelligence";
 import InfoTooltip from "@/components/ui/InfoTooltip";
+import Disclaimer from "@/components/ui/Disclaimer";
 
 const GUIDANCE = {
   risk: "The worst (highest) result found across 8 risk categories - market, event, liquidity, volatility, execution, evidence conflict, data quality, and uncertainty. It's always the worst category, never an average, so one high-risk category can't be hidden by the rest.",
@@ -174,7 +175,7 @@ export default function AnalysisResult({ result }: { result: MarketAnalysisResul
 
       <div className="grid gap-4 sm:grid-cols-2">
         <LevelCard title="Risk" level={risk.overallLevel} />
-        <LevelCard title="Confidence" level={confidence.overallLevel} score={confidence.overallScore} />
+        <LevelCard title="AI Confidence" level={confidence.overallLevel} score={confidence.overallScore} />
       </div>
 
       <Section title="Executive Summary" text={explainable.executiveSummary} tooltip={GUIDANCE.explainable} />
@@ -217,6 +218,8 @@ export default function AnalysisResult({ result }: { result: MarketAnalysisResul
         Pipeline {explainable.metadata.sourcePipelineVersion} · Generated{" "}
         {new Date(explainable.metadata.generatedAt).toLocaleString()}
       </p>
+
+      <Disclaimer />
     </div>
   );
 }

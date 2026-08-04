@@ -33,6 +33,7 @@
 // the same locked rule against fabricated/unexpectedly-live market data in
 // a default code path) this file already had before this sprint.
 import { createAIService, AIProviderError, type AIService } from "@/lib/ai";
+import { AI_COMMUNICATION_POLICY } from "@/lib/ai/response-policy";
 import { resolvePromptRouting, type ResolvedPromptRouting } from "./prompts/resolve-routing.service";
 import { MarketIntelligencePipelineService } from "./market-intelligence-pipeline.service";
 import { ExplainableAnalysisService } from "./explainable/explainable-analysis.service";
@@ -181,6 +182,10 @@ export class MarketAnalysisOrchestrationService {
         "Do not change the stated risk level, confidence level, or any evidence claim. " +
         "If a section below states that something is unavailable or could not be determined, say so plainly - never invent a substitute or perform new analysis to fill the gap.",
     );
+    // Sprint D2.3.S4 - communication policy: how to phrase what's below, on
+    // top of (never in place of) the "never invent a fact" rule already
+    // stated above.
+    lines.push(AI_COMMUNICATION_POLICY);
     lines.push(`User question: ${request.question}`);
     lines.push(`Symbol: ${explainable.symbol}`);
     lines.push(`Executive summary: ${explainable.executiveSummary}`);
