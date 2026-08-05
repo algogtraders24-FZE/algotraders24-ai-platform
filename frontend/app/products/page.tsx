@@ -2,6 +2,12 @@
 // Sprint 14E - Server Component. The catalogue now comes from PostgreSQL via
 // ProductCatalogue; filtering stays client-side in ProductsClient.
 // Markup, layout and styling are unchanged.
+//
+// Sprint D2.4.A1 - ProductsClient now reads useSearchParams() (for the new
+// Footer's ?category= links), which requires a Suspense boundary around it
+// in the App Router - without one, reading search params during static
+// rendering is an error, not just a warning.
+import { Suspense } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
 import ProductsClient from "./ProductsClient";
@@ -31,7 +37,9 @@ export default async function ProductsPage() {
         </div>
       </section>
 
-      <ProductsClient products={products} />
+      <Suspense fallback={null}>
+        <ProductsClient products={products} />
+      </Suspense>
 
       <Footer />
     </main>

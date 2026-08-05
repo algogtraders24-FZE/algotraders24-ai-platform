@@ -3,6 +3,7 @@ import Hero from "@/sections/Hero";
 import TrustStrip from "@/sections/TrustStrip";
 import PlatformOverview from "@/sections/PlatformOverview";
 import ExplainableIntelligence from "@/sections/ExplainableIntelligence";
+import LiveIntelligencePreview from "@/sections/LiveIntelligencePreview";
 import InteractiveAnalysisDemo from "@/sections/InteractiveAnalysisDemo";
 import AssistantPreview from "@/sections/AssistantPreview";
 import PlatformModules from "@/sections/PlatformModules";
@@ -35,6 +36,17 @@ import Footer from "@/sections/Footer";
 // on-demand disclosure inside ExplainableIntelligence, so the main scroll
 // explains the flow once (ExplainableIntelligence) and proves it once,
 // interactively (InteractiveAnalysisDemo).
+//
+// Sprint D2.4.A1 - resequenced to the approved IA flow: Platform (Overview +
+// Modules) -> Products -> AI Intelligence (Explainable Intelligence + the
+// new Live Intelligence Preview + the interactive demo) -> Pricing, with
+// Hero/TrustStrip as the opener and WhyChoose/EnterpriseTrust/FAQ/CTA as the
+// closer. FAQ now shows only the top 5 of 7 items, linking to the full
+// canonical list at /resources/faq (same source array, sliced - never a
+// second, independently maintained copy). Deep-dive content that used to
+// live only here (the 7-service technical trace, the full dashboard
+// screenshot showcase) also now has a dedicated home under /platform/* -
+// this page keeps a shorter version, not a duplicate of the full one.
 export default function Home() {
   return (
     <main id="main-content" className="min-h-screen bg-ink text-text">
@@ -42,17 +54,18 @@ export default function Home() {
       <Hero />
       <TrustStrip />
       <PlatformOverview />
+      <PlatformModules />
+      <FeaturedProducts />
       <ExplainableIntelligence />
+      <LiveIntelligencePreview />
       <InteractiveAnalysisDemo />
       <AssistantPreview />
-      <PlatformModules />
       <DashboardShowcase />
       <WhyChoose />
       <EnterpriseTrust />
       <Pricing />
       <Platforms />
-      <FeaturedProducts />
-      <FAQ />
+      <FAQ limit={5} />
       <CTA />
       <Footer />
     </main>

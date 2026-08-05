@@ -7,6 +7,12 @@
 // payment processing delegated to Stripe/NOWPayments — without inventing a
 // privacy guarantee the codebase can't yet point to. Native <details>
 // accordions: accessible and fully functional with zero JavaScript.
+//
+// Sprint D2.4.A1 - optional `limit` prop so the homepage can show the top 5
+// with a "View All FAQs" link to the full 7-item canonical version at
+// /resources/faq, without maintaining two separate FAQ arrays that could
+// drift out of sync.
+import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 
 const FAQS = [
@@ -40,7 +46,8 @@ const FAQS = [
   },
 ] as const;
 
-export default function FAQ() {
+export default function FAQ({ limit }: { limit?: number } = {}) {
+  const items = limit ? FAQS.slice(0, limit) : FAQS;
   return (
     <section className="bg-ink py-16 text-text md:py-24">
       <div className="mx-auto max-w-3xl px-6">
@@ -51,7 +58,7 @@ export default function FAQ() {
         </div>
 
         <div className="mt-14 space-y-3">
-          {FAQS.map((item) => (
+          {items.map((item) => (
             <details
               key={item.q}
               className="group overflow-hidden rounded-card border border-border bg-ink-2 transition-colors open:border-gold/40"
@@ -67,6 +74,14 @@ export default function FAQ() {
             </details>
           ))}
         </div>
+
+        {limit && items.length < FAQS.length && (
+          <div className="mt-8 text-center">
+            <Link href="/resources/faq" className="text-sm font-semibold text-gold transition-colors hover:text-gold-strong">
+              View All FAQs →
+            </Link>
+          </div>
+        )}
       </div>
     </section>
   );
