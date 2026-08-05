@@ -1,11 +1,15 @@
 // app/solutions/page.tsx
 // Sprint D2.4.A1 - Retail Traders and Professional Traders ship as real
 // pages per the user's Phase-1 amendment; Prop Firms, Hedge Funds, and
-// Brokers remain honestly labeled upcoming (no real audience-specific
+// Institutions remain honestly labeled upcoming (no real audience-specific
 // content exists for them yet) rather than each getting a fabricated page.
+//
+// Sprint D2.4.A4 - "Brokers" relabeled "Institutions" to match the footer's
+// expanded Solutions taxonomy - same coming-soon audience, one consistent
+// name across the site.
 import type { Metadata } from "next";
 import Link from "next/link";
-import { User, Briefcase, Building2, Landmark, Network } from "lucide-react";
+import { User, Briefcase, Building2, Landmark } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
@@ -24,8 +28,8 @@ const LIVE: { title: string; description: string; href: string; icon: LucideIcon
 
 const UPCOMING: { title: string; icon: LucideIcon }[] = [
   { title: "Prop Firms", icon: Building2 },
-  { title: "Hedge Funds", icon: Landmark },
-  { title: "Brokers", icon: Network },
+  { title: "Hedge Funds", icon: Briefcase },
+  { title: "Institutions", icon: Landmark },
 ];
 
 export default function SolutionsHubPage() {

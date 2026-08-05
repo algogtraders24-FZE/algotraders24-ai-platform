@@ -6,6 +6,11 @@
 // page.tsx use, so the numbers here can never drift from the real product -
 // this is a shorter view of the same data, not a re-typed summary. The full
 // tier/feature breakdown stays at /pricing, unchanged.
+//
+// Sprint D2.4.A3 - shows all 4 real plans (Free/Pro/Elite/Enterprise), not
+// a trimmed 3-plan version: dropping the real Elite tier from the homepage
+// to match a simpler mockup would misrepresent the actual pricing, which
+// this component exists specifically to avoid.
 import Link from "next/link";
 import { PLAN_IDS, PLAN_LABELS, CURRENCY } from "@/config/billing.config";
 import { PLAN_LIMITS } from "@/config/plan-limits";
@@ -53,7 +58,7 @@ export default function PricingTeaser() {
             href="/pricing"
             className="rounded-control border border-border px-8 py-4 font-semibold text-text transition hover:border-gold"
           >
-            View Full Pricing
+            Compare Plans →
           </Link>
         </div>
       </div>

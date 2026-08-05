@@ -115,7 +115,7 @@ export default async function FeaturedProducts() {
             href="/products"
             className="inline-block rounded-control border border-border px-8 py-4 font-semibold text-text transition hover:border-gold"
           >
-            View All Products
+            View All Products →
           </Link>
         </div>
       </div>
