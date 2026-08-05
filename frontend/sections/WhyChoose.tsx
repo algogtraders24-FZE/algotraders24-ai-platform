@@ -7,6 +7,13 @@
 // property of the real architecture (traceable to the pipeline described
 // elsewhere on this page and in services/ai) - no exaggeration, no invented
 // capability. Server Component: static content, no interactivity needed.
+//
+// Sprint D2.4.A2 - optional `compact` prop so the homepage can show the top
+// 3 of 6 each with a "See the full comparison" link, while /company/vision
+// renders this same component with the full 6-and-6 list - one source of
+// truth, no content dropped, just fewer items visible by default on the
+// homepage.
+import Link from "next/link";
 import { X, Check } from "lucide-react";
 
 const TRADITIONAL = [
@@ -27,7 +34,10 @@ const PLATFORM = [
   { label: "Institutional Architecture", detail: "Deterministic, named services, in the same order on every run." },
 ] as const;
 
-export default function WhyChoose() {
+export default function WhyChoose({ compact }: { compact?: boolean } = {}) {
+  const traditional = compact ? TRADITIONAL.slice(0, 3) : TRADITIONAL;
+  const platform = compact ? PLATFORM.slice(0, 3) : PLATFORM;
+
   return (
     <section className="bg-ink-2 py-16 text-text md:py-24">
       <div className="mx-auto max-w-6xl px-6">
@@ -44,7 +54,7 @@ export default function WhyChoose() {
           <div className="rounded-panel border border-border bg-ink p-8">
             <h3 className="text-xl font-semibold text-text-2">Traditional Trading</h3>
             <ul className="mt-6 space-y-5">
-              {TRADITIONAL.map((item) => (
+              {traditional.map((item) => (
                 <li key={item.label} className="flex gap-3">
                   <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-signal-down/40 bg-signal-down/10">
                     <X className="h-3.5 w-3.5 text-signal-down" aria-hidden="true" />
@@ -65,7 +75,7 @@ export default function WhyChoose() {
             </span>
             <h3 className="text-xl font-semibold">Algotraders24 AI</h3>
             <ul className="mt-6 space-y-5">
-              {PLATFORM.map((item) => (
+              {platform.map((item) => (
                 <li key={item.label} className="flex gap-3">
                   <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-gold/40 bg-gold/10">
                     <Check className="h-3.5 w-3.5 text-gold" aria-hidden="true" />
@@ -87,6 +97,14 @@ export default function WhyChoose() {
             VS
           </span>
         </div>
+
+        {compact && (
+          <div className="mt-8 text-center">
+            <Link href="/company/vision" className="text-sm font-semibold text-gold transition-colors hover:text-gold-strong">
+              See the full comparison →
+            </Link>
+          </div>
+        )}
       </div>
     </section>
   );

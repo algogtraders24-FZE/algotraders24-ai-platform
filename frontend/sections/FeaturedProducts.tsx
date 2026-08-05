@@ -7,6 +7,10 @@
 // layer, product logic, and card contents are untouched - only the framing
 // copy and visual styling (old blue/purple theme -> the H1.3 token system,
 // for consistency with every other section) changed.
+//
+// Sprint D2.4.A2 - homepage compression trimmed the shown count from 6 to 3;
+// the full catalogue (this same query, unsliced) is one click away at
+// /products, so nothing here was removed, only shown more sparingly.
 import Link from "next/link";
 import { ProductCatalogue } from "@/services/products/ProductCatalogue";
 import type { Product } from "@/types/product";
@@ -39,7 +43,7 @@ export const revalidate = 300;
 
 export default async function FeaturedProducts() {
   const all = await ProductCatalogue.getFeatured();
-  const products = all.slice(0, 6);
+  const products = all.slice(0, 3);
 
   return (
     <section className="bg-ink py-16 text-text md:py-24">

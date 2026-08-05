@@ -1,15 +1,22 @@
 // app/platform/market-intelligence/page.tsx
 // Sprint D2.4.A1 - assembled from sections/ExplainableIntelligence.tsx's
 // 5-stage flow + 7-service technical trace and sections/InteractiveAnalysisDemo.tsx's
-// description, per the approved D2.4.A1 IA plan. The homepage's own copy of
-// ExplainableIntelligence is shortened separately (see app/page.tsx) - this
-// page carries the full depth that used to live only on the homepage.
+// description, per the approved D2.4.A1 IA plan.
+//
+// Sprint D2.4.A2 - homepage compression moved the actual interactive demo
+// component here (it now embeds <InteractiveAnalysisDemo /> for real,
+// replacing the old "the Workspace's interactive demo..." placeholder text
+// that pointed at content that, at the time, only existed on the homepage).
+// ExplainableIntelligence's homepage copy is now a static teaser (see
+// sections/ExplainableIntelligence.tsx) - this page still carries the full
+// 5-stage + 7-service depth.
 import type { Metadata } from "next";
 import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
 import PageHero from "@/components/marketing/PageHero";
 import PlatformCTA from "@/components/marketing/PlatformCTA";
+import InteractiveAnalysisDemo from "@/sections/InteractiveAnalysisDemo";
 
 export const metadata: Metadata = {
   title: "Market Intelligence",
@@ -57,15 +64,7 @@ export default function MarketIntelligencePlatformPage() {
         </ol>
       </section>
 
-      <section className="px-6 py-4">
-        <div className="mx-auto max-w-3xl rounded-card border border-border bg-ink-2 p-6">
-          <p className="text-sm font-semibold text-text">See it in action</p>
-          <p className="mt-2 text-sm leading-6 text-text-2">
-            The Workspace&apos;s interactive demo lets you click through each stage and see exactly what it produces —
-            the same fields a live analysis returns. Sample content only, never a live market claim.
-          </p>
-        </div>
-      </section>
+      <InteractiveAnalysisDemo />
 
       <section className="px-6 py-8">
         <div className="mx-auto max-w-3xl">

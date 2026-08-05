@@ -13,6 +13,11 @@
 // is an editorial choice, not a fabrication - it remains fully available
 // inside the dashboard.
 //
+// Sprint D2.4.A2 - homepage compression dropped the per-card description
+// paragraph (icon + title chips only now). Every description is preserved,
+// unabridged, on the /platform hub page's now nine-module grid - this is a
+// shorter view of the same list, not a smaller list.
+//
 // Server Component: static content + links, no interactivity needed.
 import Link from "next/link";
 import {
@@ -24,59 +29,18 @@ import {
   Bot,
   BookOpen,
   PenLine,
-  ArrowUpRight,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-const MODULES: { title: string; description: string; href: string; icon: LucideIcon }[] = [
-  {
-    title: "AI Assistant",
-    description: "Ask in plain language and get an answer grounded in real, attributed evidence — not open-ended chat.",
-    href: "/dashboard/assistant",
-    icon: MessagesSquare,
-  },
-  {
-    title: "Market Intelligence",
-    description: "Run the full deterministic pipeline on a market — evidence, reasoning, risk, and confidence in one explainable result.",
-    href: "/dashboard/market-intelligence",
-    icon: BarChart3,
-  },
-  {
-    title: "AI News",
-    description: "Market news, an economic calendar, and headline-impact summaries — context you can trace, not just a feed.",
-    href: "/dashboard/news",
-    icon: Newspaper,
-  },
-  {
-    title: "Trading Copilot",
-    description: "A guided market read — bias, confidence, technical view, and a structured setup, each with its reasoning shown.",
-    href: "/dashboard/trading-copilot",
-    icon: Compass,
-  },
-  {
-    title: "Automation",
-    description: "Compose workflows that run research and monitoring on a schedule, with a full, inspectable run history.",
-    href: "/dashboard/automation",
-    icon: Workflow,
-  },
-  {
-    title: "AI Agents",
-    description: "Configure focused agents with their own tasks and memory, all working from the same evidence layer.",
-    href: "/dashboard/agents",
-    icon: Bot,
-  },
-  {
-    title: "Knowledge Base",
-    description: "A retrieval-augmented knowledge layer the Assistant draws on for grounded, sourced answers.",
-    href: "/dashboard/knowledge",
-    icon: BookOpen,
-  },
-  {
-    title: "Publishing",
-    description: "Turn a finished analysis into a scored, scheduled, publishable write-up — analysis made shareable.",
-    href: "/dashboard/publishing",
-    icon: PenLine,
-  },
+const MODULES: { title: string; href: string; icon: LucideIcon }[] = [
+  { title: "AI Assistant", href: "/dashboard/assistant", icon: MessagesSquare },
+  { title: "Market Intelligence", href: "/dashboard/market-intelligence", icon: BarChart3 },
+  { title: "AI News", href: "/dashboard/news", icon: Newspaper },
+  { title: "Trading Copilot", href: "/dashboard/trading-copilot", icon: Compass },
+  { title: "Automation", href: "/dashboard/automation", icon: Workflow },
+  { title: "AI Agents", href: "/dashboard/agents", icon: Bot },
+  { title: "Knowledge Base", href: "/dashboard/knowledge", icon: BookOpen },
+  { title: "Publishing", href: "/dashboard/publishing", icon: PenLine },
 ];
 
 export default function PlatformModules() {
@@ -91,26 +55,25 @@ export default function PlatformModules() {
           </p>
         </div>
 
-        <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-10 flex flex-wrap justify-center gap-3">
           {MODULES.map((module) => (
             <Link
               key={module.href}
               href={module.href}
-              className="group flex flex-col rounded-card border border-border bg-ink-2 p-6 transition-all duration-300 hover:-translate-y-1 hover:border-gold hover:shadow-raised"
+              className="group flex items-center gap-2.5 rounded-control border border-border bg-ink-2 px-4 py-2.5 text-sm font-medium text-text transition-colors hover:border-gold"
             >
-              <div className="flex items-center justify-between">
-                <span className="flex h-11 w-11 items-center justify-center rounded-control border border-gold/30 bg-gold/10">
-                  <module.icon className="h-5 w-5 text-gold" aria-hidden="true" />
-                </span>
-                <ArrowUpRight
-                  className="h-4 w-4 text-text-3 transition-colors group-hover:text-gold"
-                  aria-hidden="true"
-                />
-              </div>
-              <h3 className="mt-5 text-lg font-semibold">{module.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-text-2">{module.description}</p>
+              <span className="flex h-7 w-7 items-center justify-center rounded-control border border-gold/30 bg-gold/10">
+                <module.icon className="h-3.5 w-3.5 text-gold" aria-hidden="true" />
+              </span>
+              {module.title}
             </Link>
           ))}
+        </div>
+
+        <div className="mt-8 text-center">
+          <Link href="/platform" className="text-sm font-semibold text-gold transition-colors hover:text-gold-strong">
+            Explore the Platform →
+          </Link>
         </div>
       </div>
     </section>

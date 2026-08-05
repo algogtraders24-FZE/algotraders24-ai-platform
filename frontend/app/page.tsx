@@ -4,13 +4,10 @@ import TrustStrip from "@/sections/TrustStrip";
 import PlatformOverview from "@/sections/PlatformOverview";
 import ExplainableIntelligence from "@/sections/ExplainableIntelligence";
 import LiveIntelligencePreview from "@/sections/LiveIntelligencePreview";
-import InteractiveAnalysisDemo from "@/sections/InteractiveAnalysisDemo";
-import AssistantPreview from "@/sections/AssistantPreview";
 import PlatformModules from "@/sections/PlatformModules";
 import DashboardShowcase from "@/sections/DashboardShowcase";
 import WhyChoose from "@/sections/WhyChoose";
-import Pricing from "@/sections/Pricing";
-import EnterpriseTrust from "@/sections/EnterpriseTrust";
+import PricingTeaser from "@/sections/PricingTeaser";
 import Platforms from "@/sections/Platforms";
 import FeaturedProducts from "@/sections/FeaturedProducts";
 import FAQ from "@/sections/FAQ";
@@ -41,12 +38,42 @@ import Footer from "@/sections/Footer";
 // Modules) -> Products -> AI Intelligence (Explainable Intelligence + the
 // new Live Intelligence Preview + the interactive demo) -> Pricing, with
 // Hero/TrustStrip as the opener and WhyChoose/EnterpriseTrust/FAQ/CTA as the
-// closer. FAQ now shows only the top 5 of 7 items, linking to the full
-// canonical list at /resources/faq (same source array, sliced - never a
-// second, independently maintained copy). Deep-dive content that used to
-// live only here (the 7-service technical trace, the full dashboard
-// screenshot showcase) also now has a dedicated home under /platform/* -
-// this page keeps a shorter version, not a duplicate of the full one.
+// closer.
+//
+// Sprint D2.4.A2 - Homepage Compression & Conversion Optimization. Target:
+// a first-time visitor understands "AI Trading Intelligence Platform" on
+// screen one (Hero), the core capabilities by screen two (TrustStrip +
+// compact PlatformOverview), and can reach Start Free or Products within
+// 2-3 scrolls - everything past that is optional depth, not required
+// reading. Every section below was shortened, not deleted: the full detail
+// each one used to carry now lives on a real dedicated page, one click away
+// via that section's "Learn More" link.
+//   - PlatformOverview: click-to-expand detail text removed (kept verbatim
+//     or exceeded in depth on each /platform/* leaf page).
+//   - PlatformModules: per-card descriptions removed (full descriptions now
+//     on the enriched /platform hub, all nine modules).
+//   - ExplainableIntelligence: animated 5-card reveal + tech-trace
+//     collapsible replaced with a static 5-label strip (full depth now on
+//     /platform/market-intelligence).
+//   - InteractiveAnalysisDemo removed entirely - it's now really embedded on
+//     /platform/market-intelligence instead of just being described there.
+//   - AssistantPreview removed entirely - its sample conversation is
+//     verbatim on /platform/assistant, which also gained the real
+//     assistant.png screenshot this section's sibling, DashboardShowcase,
+//     used to show.
+//   - DashboardShowcase: down to one screenshot + one line (full callout
+//     list + both screenshots preserved across /platform/workspace and
+//     /platform/assistant).
+//   - WhyChoose: compact (top 3 of 6 each side); full 6-and-6 comparison now
+//     embedded on /company/vision.
+//   - EnterpriseTrust removed entirely - already verbatim on
+//     /company/vision since D2.4.A1; dead file deleted.
+//   - Pricing replaced with PricingTeaser (compact, same real config data);
+//     full tier/feature breakdown unchanged at /pricing.
+//   - Platforms: compact chip strip; full descriptive grid now also on
+//     /products.
+//   - FeaturedProducts: 6 cards -> 3; full catalogue at /products.
+//   - FAQ: 5 -> 3; full 7 unchanged at /resources/faq.
 export default function Home() {
   return (
     <main id="main-content" className="min-h-screen bg-ink text-text">
@@ -58,14 +85,11 @@ export default function Home() {
       <FeaturedProducts />
       <ExplainableIntelligence />
       <LiveIntelligencePreview />
-      <InteractiveAnalysisDemo />
-      <AssistantPreview />
       <DashboardShowcase />
-      <WhyChoose />
-      <EnterpriseTrust />
-      <Pricing />
-      <Platforms />
-      <FAQ limit={5} />
+      <WhyChoose compact />
+      <PricingTeaser />
+      <Platforms compact />
+      <FAQ limit={3} />
       <CTA />
       <Footer />
     </main>

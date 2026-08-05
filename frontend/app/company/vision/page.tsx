@@ -6,10 +6,15 @@
 // would itself be a small fabrication. Assembled from
 // sections/EnterpriseTrust.tsx's properties and sections/WhyChoose.tsx's
 // comparison framing, both already-published homepage content.
+//
+// Sprint D2.4.A2 - now also embeds the full <WhyChoose /> component (its
+// homepage copy shrank to a 3-item compact teaser). This is the real,
+// unabridged 6-and-6 comparison, not a re-typed summary of it.
 import type { Metadata } from "next";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
 import PageHero from "@/components/marketing/PageHero";
+import WhyChoose from "@/sections/WhyChoose";
 
 export const metadata: Metadata = {
   title: "Vision",
@@ -44,6 +49,8 @@ export default function VisionPage() {
           ))}
         </div>
       </section>
+
+      <WhyChoose />
 
       <section className="px-6 py-8">
         <div className="mx-auto max-w-3xl text-center">

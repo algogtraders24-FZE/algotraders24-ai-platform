@@ -7,9 +7,14 @@
 // Footer's ?category= links), which requires a Suspense boundary around it
 // in the App Router - without one, reading search params during static
 // rendering is an error, not just a warning.
+//
+// Sprint D2.4.A2 - now also renders the full <Platforms /> grid (unabridged
+// descriptions). The homepage's copy shrank to a compact chip strip linking
+// here, so this is where the full "which ecosystem" detail now lives.
 import { Suspense } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
+import Platforms from "@/sections/Platforms";
 import ProductsClient from "./ProductsClient";
 import { ProductCatalogue } from "@/services/products/ProductCatalogue";
 
@@ -40,6 +45,8 @@ export default async function ProductsPage() {
       <Suspense fallback={null}>
         <ProductsClient products={products} />
       </Suspense>
+
+      <Platforms />
 
       <Footer />
     </main>

@@ -6,6 +6,12 @@
 // its real name as text - no invented artwork standing in for a brand mark.
 // Restyled onto the H1.3 token system for consistency with the rest of the
 // page. Server Component: static content, no interactivity needed.
+//
+// Sprint D2.4.A2 - optional `compact` prop so the homepage can show a single
+// row of icon+name chips linking to /products, while /products itself
+// renders this same component in full (unabridged descriptions) - one
+// source of truth, nothing dropped.
+import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { Bot, LineChart, Workflow, Activity, Coins, Landmark } from "lucide-react";
 import RevealOnScroll from "@/components/motion/RevealOnScroll";
@@ -49,7 +55,40 @@ const platforms: { title: string; subtitle: string; description: string; icon: L
   },
 ];
 
-export default function Platforms() {
+export default function Platforms({ compact }: { compact?: boolean } = {}) {
+  if (compact) {
+    return (
+      <section className="bg-ink-2 py-16 text-text md:py-24">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold">Supported Platforms</p>
+            <h2 className="mt-4 font-display text-4xl font-medium md:text-5xl">
+              One AI platform. Multiple trading ecosystems.
+            </h2>
+          </div>
+
+          <div className="mt-10 flex flex-wrap justify-center gap-3">
+            {platforms.map((platform) => (
+              <span
+                key={platform.title}
+                className="flex items-center gap-2 rounded-control border border-border bg-ink px-4 py-2.5 text-sm font-medium text-text"
+              >
+                <platform.icon className="h-4 w-4 text-gold" aria-hidden="true" />
+                {platform.title}
+              </span>
+            ))}
+          </div>
+
+          <div className="mt-8 text-center">
+            <Link href="/products" className="text-sm font-semibold text-gold transition-colors hover:text-gold-strong">
+              Browse products by platform →
+            </Link>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="bg-ink-2 py-16 text-text md:py-24">
       <div className="max-w-7xl mx-auto px-6">

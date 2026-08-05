@@ -1,5 +1,3 @@
-"use client";
-
 // sections/PlatformOverview.tsx
 // Sprint H1.4 Phase 2, upgraded in H1.5 - "What is Algotraders24 AI?" Four
 // real capabilities, each labeled honestly: the AI Assistant and Knowledge
@@ -10,12 +8,16 @@
 // overclaimed as already powering every dashboard page. No marketing
 // exaggeration, no invented features.
 //
-// H1.5: each card expands on click to reveal one more real, technical
-// sentence about HOW that capability actually works - a genuine second
-// layer of information, not decoration. A small client component only
-// because that expand/collapse state is the interactivity itself.
-import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+// Sprint D2.4.A2 - homepage compression. The H1.5 click-to-expand "How it
+// works" detail sentence for each card is dropped here, not deleted: every
+// one of those four sentences is already covered (verbatim or in full
+// technical depth) on that capability's dedicated /platform/* page - the
+// Assistant and Knowledge Base pages quote them exactly, and the Market
+// Intelligence page's 5-stage + 7-service breakdown covers both the Market
+// Intelligence and Explainable Analysis detail sentences in far more depth.
+// This is now a static Server Component (no useState/expand interaction
+// needed) with a real "Learn More" link per card instead.
+import Link from "next/link";
 import RevealOnScroll from "@/components/motion/RevealOnScroll";
 
 const CAPABILITIES = [
@@ -23,39 +25,33 @@ const CAPABILITIES = [
     status: "Available today",
     title: "AI Assistant",
     description:
-      "A conversational interface grounded in real evidence, not a generic chatbot. Ask a question in plain language and get an answer backed by the same reasoning the platform uses everywhere else.",
-    detail:
-      "Every response is generated from the Knowledge Base's retrieval layer, not from open-ended completion alone — the Assistant only draws on what's actually indexed.",
+      "A conversational interface grounded in real evidence, not a generic chatbot — ask a question in plain language, get an answer backed by real reasoning.",
+    href: "/platform/assistant",
   },
   {
     status: "Available today",
     title: "Knowledge Base",
     description:
-      "A searchable, retrieval-augmented knowledge layer the Assistant draws on for grounded answers - built on real documents, not improvised from memory.",
-    detail:
-      "Documents are chunked, embedded, and retrieved with vector similarity search — the same store the Assistant queries before it answers anything.",
+      "A searchable, retrieval-augmented knowledge layer the Assistant draws on for grounded answers — built on real documents, not improvised from memory.",
+    href: "/platform/knowledge-base",
   },
   {
     status: "Engineered pipeline",
     title: "Market Intelligence",
     description:
-      "Price and news evidence is collected, deduplicated, and reasoned about through a deterministic pipeline - evidence in, reasoning out, never a black-box prediction.",
-    detail:
-      "Runs through Evidence Collection, Fusion, and Ranking before any reasoning happens — the same pipeline shown in full below.",
+      "Price and news evidence is collected, deduplicated, and reasoned about through a deterministic pipeline — evidence in, reasoning out, never a black-box prediction.",
+    href: "/platform/market-intelligence",
   },
   {
     status: "Engineered pipeline",
     title: "Explainable Analysis",
     description:
-      "Every analysis carries its supporting evidence, opposing evidence, stated limitations, a confidence score, and a risk level - nothing hidden behind a single number.",
-    detail:
-      "Combines the Reasoning, Risk, and Confidence engines into one explainable output — each engine scored and disclosed separately, never averaged into one score.",
+      "Every analysis carries its supporting evidence, opposing evidence, stated limitations, a confidence score, and a risk level — nothing hidden behind a single number.",
+    href: "/platform/market-intelligence",
   },
 ] as const;
 
 export default function PlatformOverview() {
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
-
   return (
     <section className="bg-ink py-16 text-text md:py-24">
       <div className="mx-auto max-w-7xl px-6">
@@ -68,45 +64,26 @@ export default function PlatformOverview() {
         </div>
 
         <RevealOnScroll>
-        <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {CAPABILITIES.map((capability, index) => {
-            const open = openIndex === index;
-            return (
+          <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {CAPABILITIES.map((capability) => (
               <div
                 key={capability.title}
-                className={`rounded-card border bg-ink-2 p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-raised ${open ? "border-gold" : "border-border hover:border-gold"}`}
+                className="flex flex-col rounded-card border border-border bg-ink-2 p-8 transition-all duration-300 hover:-translate-y-1 hover:border-gold hover:shadow-raised"
               >
-                <span className="inline-block rounded-control border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-medium text-gold">
+                <span className="inline-block w-fit rounded-control border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-medium text-gold">
                   {capability.status}
                 </span>
                 <h3 className="mt-5 text-xl font-semibold">{capability.title}</h3>
                 <p className="mt-3 text-sm leading-6 text-text-2">{capability.description}</p>
-
-                <button
-                  type="button"
-                  onClick={() => setOpenIndex(open ? null : index)}
-                  aria-expanded={open}
-                  aria-controls={`capability-detail-${index}`}
-                  className="mt-5 flex items-center gap-1.5 text-sm font-medium text-gold transition-colors hover:text-gold-strong"
+                <Link
+                  href={capability.href}
+                  className="mt-5 text-sm font-semibold text-gold transition-colors hover:text-gold-strong"
                 >
-                  {open ? "Show less" : "How it works"}
-                  <ChevronDown
-                    className={`h-4 w-4 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
-                    aria-hidden="true"
-                  />
-                </button>
-
-                <div
-                  id={`capability-detail-${index}`}
-                  aria-hidden={!open}
-                  className={`grid transition-all duration-300 ease-out ${open ? "mt-3 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
-                >
-                  <p className="overflow-hidden text-sm leading-6 text-text-2">{capability.detail}</p>
-                </div>
+                  Learn More →
+                </Link>
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
         </RevealOnScroll>
       </div>
     </section>

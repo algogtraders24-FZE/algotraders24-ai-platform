@@ -1,8 +1,15 @@
 // app/platform/page.tsx
 // Sprint D2.4.A1 - the Platform nav dropdown's landing page. Card grid
-// mirrors sections/PlatformModules.tsx's pattern for the 6 modules that
+// mirrors sections/PlatformModules.tsx's pattern for the modules that
 // have a dedicated marketing page (Research redirects to Assistant - see
-// that route - so it isn't a 7th card here).
+// that route - so it isn't a separate card here).
+//
+// Sprint D2.4.A2 - homepage compression shortened sections/PlatformModules.tsx
+// to icon+title chips, so this hub now carries the full nine-module
+// descriptions that used to live only on the homepage. Four of the nine
+// (AI News, Trading Copilot, Automation, AI Agents) have no dedicated
+// marketing page yet, so their cards link straight to the real dashboard
+// route, same as the homepage always did for them.
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
@@ -11,6 +18,9 @@ import {
   Compass,
   PenLine,
   BookOpen,
+  Newspaper,
+  Workflow,
+  Bot,
   ArrowUpRight,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -20,7 +30,7 @@ import PageHero from "@/components/marketing/PageHero";
 
 export const metadata: Metadata = {
   title: "Platform",
-  description: "The six modules of the Algotraders24 AI platform, all reasoning from the same deterministic evidence layer.",
+  description: "Every module of the Algotraders24 AI platform, all reasoning from the same deterministic evidence layer.",
   alternates: { canonical: "/platform" },
 };
 
@@ -55,6 +65,30 @@ const MODULES: { title: string; description: string; href: string; icon: LucideI
     href: "/platform/knowledge-base",
     icon: BookOpen,
   },
+  {
+    title: "AI News",
+    description: "Market news, an economic calendar, and headline-impact summaries — context you can trace, not just a feed.",
+    href: "/dashboard/news",
+    icon: Newspaper,
+  },
+  {
+    title: "Trading Copilot",
+    description: "A guided market read — bias, confidence, technical view, and a structured setup, each with its reasoning shown.",
+    href: "/dashboard/trading-copilot",
+    icon: Compass,
+  },
+  {
+    title: "Automation",
+    description: "Compose workflows that run research and monitoring on a schedule, with a full, inspectable run history.",
+    href: "/dashboard/automation",
+    icon: Workflow,
+  },
+  {
+    title: "AI Agents",
+    description: "Configure focused agents with their own tasks and memory, all working from the same evidence layer.",
+    href: "/dashboard/agents",
+    icon: Bot,
+  },
 ];
 
 export default function PlatformHubPage() {
@@ -64,7 +98,7 @@ export default function PlatformHubPage() {
       <PageHero
         eyebrow="Platform"
         title="One platform, every part of the workflow"
-        subtitle="Six modules on one shared foundation — every module reasons over the same evidence, the same way."
+        subtitle="Every module reasons over the same shared evidence layer, the same way."
       />
       <section className="px-6 py-16">
         <div className="mx-auto grid max-w-6xl gap-6 sm:grid-cols-2 lg:grid-cols-3">

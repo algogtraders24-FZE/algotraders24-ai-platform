@@ -7,10 +7,13 @@
 // decision (what to expose publicly, rate limiting) outside this IA
 // sprint's stated "no backend changes" boundary, not something to rush in
 // silently. This ships the demo-state option instead, reusing the exact
-// "Illustrative example" disclosure pattern already established twice in
-// this codebase (sections/AssistantPreview.tsx, sections/
-// InteractiveAnalysisDemo.tsx) - same honesty standard, same visual
-// language, so it reads as one consistent site, not a bolted-on widget.
+// "Illustrative example" disclosure pattern already established elsewhere
+// in this codebase - same honesty standard, same visual language, so it
+// reads as one consistent site, not a bolted-on widget.
+//
+// Sprint D2.4.A2 - homepage compression trimmed the explanatory note under
+// the snapshot card down to one clause; the full sentence (and the rest of
+// the deterministic pipeline's depth) lives at /platform/market-intelligence.
 import Link from "next/link";
 
 const SNAPSHOT = {
@@ -19,7 +22,7 @@ const SNAPSHOT = {
   changePercent: "+0.13%",
   risk: { level: "High", tone: "border-signal-down/30 bg-signal-down/10 text-signal-down" },
   confidence: { level: "Low", score: 20, tone: "border-signal-down/30 bg-signal-down/10 text-signal-down" },
-  note: "Reported honestly because most evidence types weren't available for this run — the pipeline never rounds up to sound more certain than the evidence supports.",
+  note: "Reported honestly — the pipeline never rounds up to sound more certain than the evidence supports.",
 };
 
 export default function LiveIntelligencePreview() {

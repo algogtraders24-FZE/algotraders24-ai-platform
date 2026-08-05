@@ -2,7 +2,15 @@
 // Sprint D2.4.A1 - assembled (not new copy) from sections/PlatformOverview.tsx's
 // "AI Assistant" card and sections/AssistantPreview.tsx's illustrative panel,
 // both already-shipped homepage content, per the approved D2.4.A1 IA plan.
+//
+// Sprint D2.4.A2 - homepage compression removed sections/AssistantPreview.tsx
+// entirely (its sample conversation is preserved verbatim below, so nothing
+// was lost) and dropped the assistant.png screenshot from
+// sections/DashboardShowcase.tsx's homepage teaser. That real, unedited
+// screenshot is added here instead - it's a better fit next to the Assistant
+// pitch than paired with the Market Intelligence shot on /platform/workspace.
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
@@ -66,6 +74,25 @@ export default function AssistantPlatformPage() {
           </Link>{" "}
           for how the evidence layer they share is built.
         </p>
+      </section>
+
+      <section className="px-6 py-8">
+        <div className="mx-auto max-w-5xl overflow-hidden rounded-panel border border-border bg-ink-2 shadow-raised">
+          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+            <span className="text-xs font-medium text-text-2">AI Assistant</span>
+            <span className="ml-auto rounded-control border border-gold/30 bg-gold/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-gold">
+              Live screenshot
+            </span>
+          </div>
+          <Image
+            src="/showcase/assistant.png"
+            alt="The AI Assistant workspace — grounded, evidence-based answers with quick prompts for markets and concepts."
+            width={1440}
+            height={840}
+            className="h-auto w-full"
+            sizes="(max-width: 1024px) 100vw, 90vw"
+          />
+        </div>
       </section>
 
       <PlatformCTA dashboardHref="/dashboard/assistant" dashboardLabel="Open the AI Assistant" />
