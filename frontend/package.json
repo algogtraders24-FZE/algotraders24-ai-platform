@@ -35,7 +35,8 @@
     "validate:ai-response-compliance": "tsx scripts/validate-ai-response-compliance.ts",
     "validate:intelligence-memory": "tsx scripts/validate-intelligence-analysis-memory.ts",
     "validate:market-state": "tsx scripts/validate-market-state.ts",
-    "validate:regime-engine": "tsx scripts/validate-regime-engine.ts"
+    "validate:regime-engine": "tsx scripts/validate-regime-engine.ts",
+    "validate:hypothesis-engine": "tsx scripts/validate-hypothesis-engine.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",
