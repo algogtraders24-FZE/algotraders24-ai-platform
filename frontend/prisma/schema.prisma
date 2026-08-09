@@ -544,3 +544,96 @@ model Article {
   @@index([deletedAt])
   @@map("articles")
 }
+
+// Sprint D2.5.1 - Persistent Analysis & Outcome Foundation (Intelligence
+// Engine V2, phase 1). Deliberately distinct from the existing, in-memory-
+// only `AnalysisRun` domain type (services/ai/analysis-run.service.ts,
+// types/analysis-run.ts) - that one tracks a single orchestration API call
+// (pending/completed/unavailable/failed) and is NOT being replaced or
+// touched here. This model is the new, durable Intelligence Memory record:
+// it persists a completed deterministic analysis snapshot so it can later
+// be compared against what actually happened in the market. Named
+// `IntelligenceAnalysisRun`/`IntelligenceAnalysisOutcome` (not bare
+// `AnalysisRun`/`AnalysisOutcome`) specifically to avoid the exact kind of
+// name collision this codebase has repeatedly flagged and avoided
+// elsewhere (types/market-analysis.ts vs types/market-analysis-
+// orchestration.ts; types/market-intelligence.ts vs types/market-
+// intelligence-result.ts).
+//
+// `analysisResult` stores the real, deterministic `MarketIntelligenceResult`
+// (evidence + reasoning + risk + confidence - zero AI-authored content) as
+// JSON - never the Gemini-touched `MarketAnalysisResult.summary`, per the
+// sprint's rule that no LLM output may create or modify these facts.
+// `regimeAtTime` is always null in D2.5.1: no Regime Engine exists yet
+// (confirmed by the D2.5.0 audit) - typed as Json, not a real Regime shape,
+// so a future sprint can populate it without a breaking schema change.
+enum IntelligenceAnalysisRunEvaluationStatus {
+  pending
+  evaluated
+}
+
+model IntelligenceAnalysisRun {
+  id               String    @id @default(cuid())
+  userId           String
+  symbol           String
+  timeframe        String
+  // Real value from MarketIntelligenceResult.metadata.pipelineVersion (e.g.
+  // "15D.12.0") when analysisResult is present; null when it isn't - never
+  // invented.
+  pipelineVersion  String?
+  // The real, deterministic MarketIntelligenceResult snapshot (JSON). Null
+  // only when genuinely unavailable (e.g. a provider-unavailable run) -
+  // never a fabricated placeholder.
+  analysisResult   Json?
+  // Always null in D2.5.1 - see header comment. Reserved for a future
+  // Regime Engine's real output.
+  regimeAtTime     Json?
+  evaluationStatus IntelligenceAnalysisRunEvaluationStatus @default(pending)
+  createdAt        DateTime  @default(now())
+  deletedAt        DateTime?
+
+  outcomes IntelligenceAnalysisOutcome[]
+
+  @@index([userId])
+  @@index([symbol])
+  @@index([evaluationStatus])
+  @@index([deletedAt])
+  @@map("intelligence_analysis_runs")
+}
+
+enum IntelligenceAnalysisOutcomeStatus {
+  pending
+  validated
+  invalidated
+  inconclusive
+}
+
+// D2.5.1 has no Hypothesis Engine, so there is never a falsifiable
+// directional claim to validate or invalidate against yet - see
+// services/intelligence/memory/outcome-evaluator.service.ts for why
+// "validated"/"invalidated" are structurally unreachable this sprint even
+// though the enum already includes them for forward compatibility.
+model IntelligenceAnalysisOutcome {
+  id                 String    @id @default(cuid())
+  analysisRunId      String
+  // Always null in D2.5.1 - no Hypothesis Engine exists yet.
+  hypothesisId       String?
+  evaluatedAt        DateTime?
+  status             IntelligenceAnalysisOutcomeStatus @default(pending)
+  // Real, computed only when a price-type evidence item at analysis time
+  // AND a real current snapshot are both available - never estimated.
+  actualPriceMovePct Float?
+  // Always null in D2.5.1 - no Regime Engine exists yet.
+  actualRegimeAfter  Json?
+  // Required, human-readable: always states exactly why this status was
+  // assigned - never a bare score with no explanation.
+  evaluationBasis    String
+  createdAt          DateTime  @default(now())
+
+  analysisRun IntelligenceAnalysisRun @relation(fields: [analysisRunId], references: [id], onDelete: Cascade)
+
+  @@index([analysisRunId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("intelligence_analysis_outcomes")
+}

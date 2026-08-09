@@ -32,7 +32,8 @@
     "validate:admin": "tsx scripts/validate-admin-control-center.ts",
     "validate:payments": "tsx scripts/validate-payment-infrastructure.ts",
     "validate:market-data-resilience": "tsx scripts/validate-market-data-resilience.ts",
-    "validate:ai-response-compliance": "tsx scripts/validate-ai-response-compliance.ts"
+    "validate:ai-response-compliance": "tsx scripts/validate-ai-response-compliance.ts",
+    "validate:intelligence-memory": "tsx scripts/validate-intelligence-analysis-memory.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",
