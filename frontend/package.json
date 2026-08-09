@@ -33,7 +33,9 @@
     "validate:payments": "tsx scripts/validate-payment-infrastructure.ts",
     "validate:market-data-resilience": "tsx scripts/validate-market-data-resilience.ts",
     "validate:ai-response-compliance": "tsx scripts/validate-ai-response-compliance.ts",
-    "validate:intelligence-memory": "tsx scripts/validate-intelligence-analysis-memory.ts"
+    "validate:intelligence-memory": "tsx scripts/validate-intelligence-analysis-memory.ts",
+    "validate:market-state": "tsx scripts/validate-market-state.ts",
+    "validate:regime-engine": "tsx scripts/validate-regime-engine.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",
