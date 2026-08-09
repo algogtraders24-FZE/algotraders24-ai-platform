@@ -8,13 +8,17 @@
 //
 // Sprint H1.7 - "Premium Hero Experience": added a purely decorative
 // ambient glow (aria-hidden, no data implication) and extracted the proof
-// panel into components/hero/PipelineProofPanel.tsx, which adds one small,
-// honest motion touch (see that file's header) plus a real link to
-// /dashboard/market-intelligence, now that Sprint L2.1 wired it to a real
-// analysis. Hero itself stays a Server Component - only the one child that
-// needs interactivity is client-side.
+// panel into components/hero/PipelineProofPanel.tsx.
+//
+// Sprint D2.4.A5 - Visual Identity & Product Showcase. The single proof
+// panel is replaced with HeroDashboardPreview: a real, unedited product
+// screenshot as the centerpiece with two small floating proof cards - the
+// "wow moment" the sprint asked for, built entirely from assets that
+// already existed (no new screenshots were fabricated or invented). Hero
+// itself stays a Server Component - only the preview composition needs
+// interactivity (the auto-cycling pipeline card, the float animation).
 import Link from "next/link";
-import PipelineProofPanel from "@/components/hero/PipelineProofPanel";
+import HeroDashboardPreview from "@/components/hero/HeroDashboardPreview";
 
 export default function Hero() {
   return (
@@ -71,26 +75,11 @@ export default function Hero() {
           </p>
         </div>
 
-        {/* Right side: the real pipeline, framed as the product screen it
-            actually drives — an app-window chrome around the honest pipeline
-            preview (no fabricated dashboard, no invented market output). */}
+        {/* Right side: a real, unedited product screenshot with two small
+            floating proof cards - no fabricated dashboard, no invented
+            market output. */}
         <div className="hero-fade flex justify-center" style={{ animationDelay: "320ms" }}>
-          <div className="w-full max-w-md overflow-hidden rounded-panel border border-border bg-ink-2/70 shadow-raised backdrop-blur">
-            <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-              <span aria-hidden="true" className="flex gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-steel/40" />
-                <span className="h-2.5 w-2.5 rounded-full bg-steel/40" />
-                <span className="h-2.5 w-2.5 rounded-full bg-gold/50" />
-              </span>
-              <span className="text-xs font-medium text-text-2">Market Intelligence</span>
-              <span className="ml-auto rounded-control border border-gold/30 bg-gold/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-gold">
-                Preview
-              </span>
-            </div>
-            <div className="p-6">
-              <PipelineProofPanel />
-            </div>
-          </div>
+          <HeroDashboardPreview />
         </div>
       </div>
     </section>

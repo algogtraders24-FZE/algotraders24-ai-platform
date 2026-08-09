@@ -3,15 +3,14 @@
 // ProductCatalogue; filtering stays client-side in ProductsClient.
 // Markup, layout and styling are unchanged.
 //
-// Sprint D2.4.A1 - ProductsClient now reads useSearchParams() (for the new
-// Footer's ?category= links), which requires a Suspense boundary around it
-// in the App Router - without one, reading search params during static
-// rendering is an error, not just a warning.
-//
 // Sprint D2.4.A2 - now also renders the full <Platforms /> grid (unabridged
 // descriptions). The homepage's copy shrank to a compact chip strip linking
 // here, so this is where the full "which ecosystem" detail now lives.
-import { Suspense } from "react";
+//
+// Sprint D2.4.A5 - the Suspense boundary this page needed around
+// ProductsClient for useSearchParams() is gone: see ProductsClient.tsx's
+// header comment for why (a real, reproducible bug where a direct page
+// load rendered nothing past the hero).
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
 import Platforms from "@/sections/Platforms";
@@ -42,9 +41,7 @@ export default async function ProductsPage() {
         </div>
       </section>
 
-      <Suspense fallback={null}>
-        <ProductsClient products={products} />
-      </Suspense>
+      <ProductsClient products={products} />
 
       <Platforms />
 

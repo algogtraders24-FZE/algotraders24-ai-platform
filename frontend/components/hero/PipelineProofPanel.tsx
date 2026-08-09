@@ -11,6 +11,14 @@
 // takes visual precedence over the auto-cycle. Respects
 // prefers-reduced-motion by disabling the cycle entirely and leaving the
 // static hover/focus behavior as the only interaction.
+//
+// Sprint D2.4.A5 - optional `compact` prop for its new second home as a
+// small floating card in HeroDashboardPreview: heading, per-stage detail
+// tooltips, and the closing link all drop out, leaving just the five-pill
+// auto-cycling row. Default (no prop) is the original full panel, still
+// used as the Hero's own dominant visual before this sprint... now unused
+// there but kept as the default shape in case another full-size use
+// appears.
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
@@ -24,7 +32,7 @@ const PIPELINE = [
 
 const CYCLE_MS = 2600;
 
-export default function PipelineProofPanel() {
+export default function PipelineProofPanel({ compact }: { compact?: boolean } = {}) {
   const [active, setActive] = useState(0);
 
   useEffect(() => {
@@ -34,6 +42,26 @@ export default function PipelineProofPanel() {
     }, CYCLE_MS);
     return () => window.clearInterval(id);
   }, []);
+
+  if (compact) {
+    return (
+      <div className="w-full">
+        <p className="text-xs font-semibold text-text-2">How every analysis is built</p>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {PIPELINE.map((stage, index) => (
+            <span
+              key={stage.label}
+              className={`rounded-control border px-2.5 py-1 text-[11px] font-medium transition-colors duration-500 ${
+                active === index ? "border-gold bg-ink-3 text-text" : "border-border bg-ink text-text-3"
+              }`}
+            >
+              {stage.label}
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     // Sprint D2.1 - the outer panel chrome now lives in Hero's app-window

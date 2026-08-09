@@ -17,7 +17,7 @@
 // the homepage, not the full breadth, avoiding the repetition of two
 // homepage sections both listing "AI Assistant" and "Market Intelligence."
 import Link from "next/link";
-import { MessagesSquare, Compass, BarChart3, PenLine, BookOpen, Search } from "lucide-react";
+import { MessagesSquare, Compass, BarChart3, PenLine, BookOpen, Microscope } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import RevealOnScroll from "@/components/motion/RevealOnScroll";
 
@@ -56,7 +56,7 @@ const CAPABILITIES: { title: string; description: string; href: string; icon: Lu
     title: "Research",
     description: "Ask a question in plain language and get an answer backed by real reasoning.",
     href: "/platform/research",
-    icon: Search,
+    icon: Microscope,
   },
 ] as const;
 
