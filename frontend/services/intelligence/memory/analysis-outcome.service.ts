@@ -6,8 +6,15 @@
 // through this service that persists a status without an explicit reason,
 // by construction (see createOutcome's validation). This service never
 // decides what status to assign - that decision lives entirely in
-// outcome-evaluator.service.ts; this file only persists whatever it's
-// told, honestly.
+// outcome-evaluator.service.ts (D2.5.1) / hypothesis-outcome-evaluator
+// .service.ts (D2.5.4); this file only persists whatever it's told,
+// honestly.
+//
+// Sprint D2.5.4 - additively extended (every D2.5.1 field/behavior above
+// is unchanged): createOutcome()/toDomain() now also carry optional
+// `hypothesisType`/`regimeType` through, denormalized purely for
+// historical-validation segmentation. Passing neither behaves
+// byte-identical to D2.5.1.
 import { prisma } from "@/lib/prisma";
 import { RepositoryError } from "@/types/repository";
 import type {
@@ -18,6 +25,10 @@ import type {
 export interface CreateIntelligenceAnalysisOutcomeInput {
   analysisRunId: string;
   hypothesisId: string | null;
+  /** Sprint D2.5.4 - copy of the evaluated Hypothesis.type, for segmentation. Optional/absent persists null, matching D2.5.1. */
+  hypothesisType?: string | null;
+  /** Sprint D2.5.4 - copy of the evaluated Hypothesis.regimeContext.regimeType, for segmentation. Optional/absent persists null, matching D2.5.1. */
+  regimeType?: string | null;
   status: IntelligenceAnalysisOutcomeStatus;
   evaluatedAt: string | null;
   actualPriceMovePct: number | null;
@@ -41,6 +52,8 @@ interface AnalysisOutcomeRow {
   id: string;
   analysisRunId: string;
   hypothesisId: string | null;
+  hypothesisType: string | null;
+  regimeType: string | null;
   evaluatedAt: Date | null;
   status: string;
   actualPriceMovePct: number | null;
@@ -54,6 +67,8 @@ function toDomain(row: AnalysisOutcomeRow): IntelligenceAnalysisOutcome {
     id: row.id,
     analysisRunId: row.analysisRunId,
     hypothesisId: row.hypothesisId,
+    hypothesisType: row.hypothesisType,
+    regimeType: row.regimeType,
     evaluatedAt: row.evaluatedAt ? row.evaluatedAt.toISOString() : null,
     status: row.status as IntelligenceAnalysisOutcomeStatus,
     actualPriceMovePct: row.actualPriceMovePct,
@@ -75,6 +90,8 @@ export class IntelligenceAnalysisOutcomeService {
         data: {
           analysisRunId,
           hypothesisId: input.hypothesisId,
+          hypothesisType: input.hypothesisType ?? null,
+          regimeType: input.regimeType ?? null,
           status: input.status,
           evaluatedAt: input.evaluatedAt ? new Date(input.evaluatedAt) : null,
           actualPriceMovePct: input.actualPriceMovePct,

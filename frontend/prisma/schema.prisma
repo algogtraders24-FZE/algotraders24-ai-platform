@@ -567,30 +567,45 @@ model Article {
 // `regimeAtTime` is always null in D2.5.1: no Regime Engine exists yet
 // (confirmed by the D2.5.0 audit) - typed as Json, not a real Regime shape,
 // so a future sprint can populate it without a breaking schema change.
+//
+// Sprint D2.5.4 - added `hypothesisSnapshot` (additive, nullable): the
+// real, complete D2.5.2/D2.5.3 MarketState + Regime + Hypothesis[] as they
+// existed AT CREATION TIME, stored as JSON (types/intelligence-hypothesis-
+// snapshot.ts#HypothesisSnapshot). This is the "creation-time snapshot"
+// the D2.5.4 evaluator reads from - it never recalculates the original
+// hypothesis from today's market state. `regimeAtTime` above stays
+// untouched/still-always-null; the richer snapshot lives in this new,
+// separate column rather than repurposing that one, so its own
+// documented meaning ("reserved for a future Regime Engine's raw output")
+// isn't redefined out from under it.
 enum IntelligenceAnalysisRunEvaluationStatus {
   pending
   evaluated
 }
 
 model IntelligenceAnalysisRun {
-  id               String    @id @default(cuid())
-  userId           String
-  symbol           String
-  timeframe        String
+  id                 String    @id @default(cuid())
+  userId             String
+  symbol             String
+  timeframe          String
   // Real value from MarketIntelligenceResult.metadata.pipelineVersion (e.g.
   // "15D.12.0") when analysisResult is present; null when it isn't - never
   // invented.
-  pipelineVersion  String?
+  pipelineVersion    String?
   // The real, deterministic MarketIntelligenceResult snapshot (JSON). Null
   // only when genuinely unavailable (e.g. a provider-unavailable run) -
   // never a fabricated placeholder.
-  analysisResult   Json?
+  analysisResult     Json?
   // Always null in D2.5.1 - see header comment. Reserved for a future
   // Regime Engine's real output.
-  regimeAtTime     Json?
-  evaluationStatus IntelligenceAnalysisRunEvaluationStatus @default(pending)
-  createdAt        DateTime  @default(now())
-  deletedAt        DateTime?
+  regimeAtTime       Json?
+  // Sprint D2.5.4 - the real, complete MarketState + Regime + Hypothesis[]
+  // creation-time snapshot (HypothesisSnapshot). Null for runs created
+  // before D2.5.4, or any run with no real hypothesis to snapshot.
+  hypothesisSnapshot Json?
+  evaluationStatus   IntelligenceAnalysisRunEvaluationStatus @default(pending)
+  createdAt          DateTime  @default(now())
+  deletedAt          DateTime?
 
   outcomes IntelligenceAnalysisOutcome[]
 
@@ -608,16 +623,29 @@ enum IntelligenceAnalysisOutcomeStatus {
   inconclusive
 }
 
-// D2.5.1 has no Hypothesis Engine, so there is never a falsifiable
-// directional claim to validate or invalidate against yet - see
-// services/intelligence/memory/outcome-evaluator.service.ts for why
-// "validated"/"invalidated" are structurally unreachable this sprint even
-// though the enum already includes them for forward compatibility.
+// D2.5.1 had no Hypothesis Engine, so "validated"/"invalidated" were
+// structurally unreachable then - see services/intelligence/memory/
+// outcome-evaluator.service.ts (still true for that evaluator, which
+// remains unchanged). Sprint D2.5.4 adds a second, hypothesis-aware
+// evaluator (services/intelligence/hypothesis/hypothesis-outcome-
+// evaluator.service.ts) that DOES reach validated/invalidated for real,
+// once a hypothesisId/hypothesisType/regimeType are genuinely known.
 model IntelligenceAnalysisOutcome {
   id                 String    @id @default(cuid())
   analysisRunId      String
-  // Always null in D2.5.1 - no Hypothesis Engine exists yet.
+  // Real (matches a Hypothesis.id from the parent run's hypothesisSnapshot)
+  // as of D2.5.4, when the outcome evaluates a real hypothesis. Still null
+  // for outcomes produced by D2.5.1's original, hypothesis-unaware
+  // evaluator.
   hypothesisId       String?
+  // Sprint D2.5.4 - denormalized from the evaluated Hypothesis/Regime at
+  // evaluation time, purely for efficient historical-validation
+  // segmentation (services/intelligence/memory/historical-validation
+  // .service.ts) - never a second, independently-editable source of
+  // truth; always copied from the real hypothesisSnapshot, never entered
+  // separately.
+  hypothesisType     String?
+  regimeType         String?
   evaluatedAt        DateTime?
   status             IntelligenceAnalysisOutcomeStatus @default(pending)
   // Real, computed only when a price-type evidence item at analysis time
@@ -626,7 +654,9 @@ model IntelligenceAnalysisOutcome {
   // Always null in D2.5.1 - no Regime Engine exists yet.
   actualRegimeAfter  Json?
   // Required, human-readable: always states exactly why this status was
-  // assigned - never a bare score with no explanation.
+  // assigned - never a bare score with no explanation. As of D2.5.4, a
+  // JSON-serialized structured object for every non-"pending-from-
+  // creation" outcome - see HypothesisEvaluationBasis.
   evaluationBasis    String
   createdAt          DateTime  @default(now())
 
@@ -635,5 +665,7 @@ model IntelligenceAnalysisOutcome {
   @@index([analysisRunId])
   @@index([status])
   @@index([createdAt])
+  @@index([hypothesisType])
+  @@index([regimeType])
   @@map("intelligence_analysis_outcomes")
 }

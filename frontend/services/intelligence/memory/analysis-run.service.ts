@@ -16,11 +16,18 @@
 // unavailable/failed lifecycle in memory) - see
 // types/intelligence-analysis-run.ts's header for the full disambiguation.
 // That file is untouched by this sprint.
+//
+// Sprint D2.5.4 - additively extended (every D2.5.1 field/behavior above
+// is unchanged - see the full D2.5.1 regression suite, still 20/20): both
+// createAnalysisRun() and toDomain() now also carry an optional
+// `hypothesisSnapshot` through. Passing none behaves byte-identical to
+// D2.5.1.
 import { prisma } from "@/lib/prisma";
 import { RepositoryError } from "@/types/repository";
 import type { MarketSymbol } from "@/types/market";
 import type { SignalTimeframe } from "@/types/signal";
 import type { MarketIntelligenceResult } from "@/types/market-intelligence-result";
+import type { HypothesisSnapshot } from "@/types/intelligence-hypothesis-snapshot";
 import type {
   IntelligenceAnalysisRun,
   IntelligenceAnalysisRunEvaluationStatus,
@@ -32,6 +39,8 @@ export interface CreateIntelligenceAnalysisRunInput {
   timeframe: SignalTimeframe;
   /** Null only when genuinely no result exists for this run (e.g. a provider-unavailable analysis). Never fabricated. */
   analysisResult: MarketIntelligenceResult | null;
+  /** Sprint D2.5.4 - the real creation-time MarketState/Regime/Hypothesis[] snapshot. Optional/absent behaves identically to D2.5.1 (persists null). */
+  hypothesisSnapshot?: HypothesisSnapshot | null;
 }
 
 function assertNonEmpty(value: unknown, field: string): string {
@@ -58,6 +67,7 @@ interface AnalysisRunRow {
   pipelineVersion: string | null;
   analysisResult: unknown;
   regimeAtTime: unknown;
+  hypothesisSnapshot: unknown;
   evaluationStatus: string;
   createdAt: Date;
 }
@@ -71,6 +81,7 @@ function toDomain(row: AnalysisRunRow): IntelligenceAnalysisRun {
     pipelineVersion: row.pipelineVersion,
     analysisResult: (row.analysisResult as MarketIntelligenceResult | null) ?? null,
     regimeAtTime: row.regimeAtTime ?? null,
+    hypothesisSnapshot: (row.hypothesisSnapshot as HypothesisSnapshot | null) ?? null,
     evaluationStatus: row.evaluationStatus as IntelligenceAnalysisRunEvaluationStatus,
     createdAt: row.createdAt.toISOString(),
   };
@@ -97,6 +108,7 @@ export class IntelligenceAnalysisRunService {
           // structures cleanly - `?? null` keeps this an explicit, honest null.
           analysisResult: (input.analysisResult as object | null) ?? undefined,
           regimeAtTime: undefined, // always null in D2.5.1 - no Regime Engine yet
+          hypothesisSnapshot: (input.hypothesisSnapshot as object | null | undefined) ?? undefined,
         },
       });
       return toDomain(row as unknown as AnalysisRunRow);

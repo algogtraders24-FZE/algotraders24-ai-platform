@@ -17,9 +17,17 @@
 // never because a value was estimated and then hidden behind an "optional"
 // label. See services/intelligence/memory/analysis-run.service.ts for the
 // persistence boundary that enforces this.
+//
+// Sprint D2.5.4 - added `hypothesisSnapshot` (additive; every existing
+// field above is untouched). Real MarketState + Regime + Hypothesis[] as
+// they existed at creation time - see types/intelligence-hypothesis-
+// snapshot.ts. Null for runs created before D2.5.4, or any run with no
+// real hypothesis to snapshot. The D2.5.4 evaluator reads this instead of
+// ever recalculating the original hypothesis from today's market data.
 import type { MarketSymbol } from "./market";
 import type { SignalTimeframe } from "./signal";
 import type { MarketIntelligenceResult } from "./market-intelligence-result";
+import type { HypothesisSnapshot } from "./intelligence-hypothesis-snapshot";
 
 export type IntelligenceAnalysisRunEvaluationStatus = "pending" | "evaluated";
 
@@ -38,6 +46,8 @@ export interface IntelligenceAnalysisRun {
    * a future sprint can populate it without a breaking type change here.
    */
   regimeAtTime: unknown | null;
+  /** Sprint D2.5.4 - the real creation-time MarketState/Regime/Hypothesis[] snapshot. Null when none was captured. */
+  hypothesisSnapshot: HypothesisSnapshot | null;
   evaluationStatus: IntelligenceAnalysisRunEvaluationStatus;
   createdAt: string;
 }
