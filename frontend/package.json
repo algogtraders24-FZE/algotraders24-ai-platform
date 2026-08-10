@@ -39,7 +39,8 @@
     "validate:hypothesis-engine": "tsx scripts/validate-hypothesis-engine.ts",
     "validate:hypothesis-outcome": "tsx scripts/validate-hypothesis-outcome.ts",
     "validate:intelligence-score": "tsx scripts/validate-intelligence-score.ts",
-    "validate:decision-context": "tsx scripts/validate-decision-context.ts"
+    "validate:decision-context": "tsx scripts/validate-decision-context.ts",
+    "validate:intelligence-query-context": "tsx scripts/validate-intelligence-query-context.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",
