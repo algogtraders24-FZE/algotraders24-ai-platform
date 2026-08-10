@@ -37,7 +37,8 @@
     "validate:market-state": "tsx scripts/validate-market-state.ts",
     "validate:regime-engine": "tsx scripts/validate-regime-engine.ts",
     "validate:hypothesis-engine": "tsx scripts/validate-hypothesis-engine.ts",
-    "validate:hypothesis-outcome": "tsx scripts/validate-hypothesis-outcome.ts"
+    "validate:hypothesis-outcome": "tsx scripts/validate-hypothesis-outcome.ts",
+    "validate:intelligence-score": "tsx scripts/validate-intelligence-score.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",
