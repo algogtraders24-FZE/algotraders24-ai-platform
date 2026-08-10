@@ -44,6 +44,16 @@ import { BinanceProvider } from "@/lib/market-data/providers/binance.provider";
 import { AngelOneProvider } from "@/lib/market-data/providers/angel-one.provider";
 import { ProviderHealthMonitor, type ProviderHealthSnapshot } from "@/lib/market-data/health-monitor";
 import { logger } from "@/services/backend/Logger";
+// Sprint D2.6.4 - Provider Reliability, Smart Fallback & Cross-Provider
+// Data Integrity. orderProviders() is a pure function over this
+// service's OWN existing ProviderHealthMonitor snapshots (this.health,
+// unchanged) - no second health-tracking system. Opt-in via
+// `smartFallback` (default false, so every EXISTING caller/test that
+// constructs a MarketDataService directly is completely unaffected);
+// the real shared production singleton (services/market-data/shared-
+// instance.ts) explicitly turns it on.
+import { orderProviders } from "./provider-reliability.service";
+import type { MarketDataCapability } from "@/types/canonical-instrument";
 
 const SERVICE_NAME = "market-data";
 const DEFAULT_CACHE_TTL_MS = 30_000;
@@ -62,6 +72,8 @@ export interface MarketDataServiceOptions {
   clock?: Clock;
   /** Per-provider-call resilience (timeout/retry/backoff). See lib/market-data/reliability.ts. */
   reliability?: ReliabilityOptions;
+  /** Sprint D2.6.4 - when true, each fetch reorders the configured provider list by real recorded reliability (see provider-reliability.service.ts#orderProviders) before the existing selection loop runs. Default false - zero behavior change unless explicitly enabled. */
+  smartFallback?: boolean;
 }
 
 export class MarketDataService implements MarketDataProvider, SnapshotProvider, TimeSeriesProvider {
@@ -73,6 +85,7 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
   private readonly reliability: ReliabilityOptions;
   private readonly cacheTtlMs: number;
   private readonly staleFallbackMs: number;
+  private readonly smartFallback: boolean;
   private readonly health = new ProviderHealthMonitor();
   private readonly log = logger.child("market-data");
 
@@ -90,6 +103,17 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
     this.snapshotCache = new TtlCache<MarketSnapshot>(this.cacheTtlMs, this.clock);
     this.reliability = options.reliability ?? {};
     this.staleFallbackMs = options.staleFallbackMs ?? DEFAULT_STALE_FALLBACK_MS;
+    this.smartFallback = options.smartFallback ?? false;
+  }
+
+  // Sprint D2.6.4 - the single seam every fetch method reads its
+  // candidate provider list through. Returns `this.providers` completely
+  // UNCHANGED (same order, same array reference semantics) when
+  // smartFallback is off - the only way this ever alters existing
+  // behavior is by explicit opt-in.
+  private orderedProviders(symbol: string, capability: MarketDataCapability): MarketDataProvider[] {
+    if (!this.smartFallback) return this.providers;
+    return orderProviders({ providers: this.providers, symbol, capability, healthSnapshots: this.health.allSnapshots(), nowMs: this.clock.now() });
   }
 
   /** True when at least one provider is ready to serve - the service is usable if any vendor is configured. */
@@ -129,7 +153,7 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
     if (fresh) return { ...fresh.value, cached: true, cacheAgeMs: fresh.ageMs };
 
     const errors: MarketDataProviderError[] = [];
-    for (const provider of this.providers) {
+    for (const provider of this.orderedProviders(request.symbol, "quote")) {
       if (!provider.isConfigured()) {
         errors.push(new MarketDataProviderError("unconfigured", `${provider.name} is not configured`, provider.name));
         continue;
@@ -173,7 +197,7 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
     if (fresh) return { ...fresh.value, cached: true, cacheAgeMs: fresh.ageMs };
 
     const errors: MarketDataProviderError[] = [];
-    for (const provider of this.providers) {
+    for (const provider of this.orderedProviders(request.symbol, "quote")) {
       if (!isSnapshotProvider(provider)) continue; // capability, not an error worth reporting
       if (!provider.isConfigured()) {
         errors.push(new MarketDataProviderError("unconfigured", `${provider.name} is not configured`, provider.name));
@@ -218,7 +242,7 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
    */
   async getTimeSeries(request: TimeSeriesRequest): Promise<Candle[]> {
     const errors: MarketDataProviderError[] = [];
-    for (const provider of this.providers) {
+    for (const provider of this.orderedProviders(request.symbol, "candles")) {
       if (!isTimeSeriesProvider(provider)) continue;
       if (!provider.isConfigured()) {
         errors.push(new MarketDataProviderError("unconfigured", `${provider.name} is not configured`, provider.name));

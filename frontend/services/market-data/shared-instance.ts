@@ -35,4 +35,9 @@ function resolveStaleFallbackMs(): number {
 export const marketData = new MarketDataService({
   cacheTtlMs: resolveCacheTtlMs(),
   staleFallbackMs: resolveStaleFallbackMs(),
+  // Sprint D2.6.4 - the real production singleton opts into reliability-
+  // aware provider ordering (services/market-data/provider-reliability
+  // .service.ts#orderProviders). Every other MarketDataService constructed
+  // directly by a test (smartFallback defaults false) is unaffected.
+  smartFallback: true,
 });
