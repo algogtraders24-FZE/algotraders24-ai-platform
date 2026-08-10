@@ -31,7 +31,7 @@ export interface MarketSnapshot {
   changePercent?: number;
   volume?: number;
   quoteCurrency: string;
-  /** ISO 8601 UTC. The provider's own reading time when known, else retrievedAt. */
+  /** ISO 8601 UTC. The provider's own reading time when known, else retrievedAt - this IS the "source timestamp"; no separate field duplicates it. */
   timestamp: string;
   timezone: string;
   marketStatus: MarketStatus;
@@ -41,4 +41,8 @@ export interface MarketSnapshot {
   cached?: boolean;
   /** Sprint D2.3.S3 - age of the cached value in ms, only present when cached === true. */
   cacheAgeMs?: number;
+  /** Sprint D2.6.3 - the winning provider's own symbol/pair spelling for this instrument (e.g. "BTCUSDT" for canonical "BTCUSD" on Binance), when the provider reports one distinct from the canonical `symbol` above. Undefined, never guessed, for a provider that has no separate concept of it. */
+  providerSymbol?: string;
+  /** Sprint D2.6.3 - true only when MarketDataService's provider-priority loop had to move past at least one higher-priority, configured provider (a real failure, not merely "not configured") to obtain this snapshot. Absent/false means the top-priority provider answered directly. Never fabricated - set only from the router's own real attempt history. */
+  fallbackUsed?: boolean;
 }

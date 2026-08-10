@@ -16,7 +16,7 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
   const { logger } = await import("@/services/backend/Logger");
-  const { loadTwelveDataEnv, loadAlphaVantageEnv } = await import("@/lib/market-data/env");
+  const { loadTwelveDataEnv, loadAlphaVantageEnv, loadAngelOneEnv } = await import("@/lib/market-data/env");
   const startup = logger.child("startup");
 
   const twelveDataConfigured = loadTwelveDataEnv() !== null;
@@ -40,5 +40,20 @@ export async function register() {
   }
   if (twelveDataConfigured && alphaVantageConfigured) {
     startup.info("Market-data providers configured: twelve-data (primary), alpha-vantage (secondary).");
+  }
+
+  // Sprint D2.6.3 - Binance's public market-data endpoints need no
+  // credentials, so it is always available (never logged as
+  // "unconfigured" - see binance.provider.ts's header for why). Angel
+  // One genuinely depends on real credentials, so its presence/absence
+  // is worth the same startup visibility the two original providers get.
+  startup.info("Market-data provider available: binance (public endpoints, no credentials required).");
+  const angelOneConfigured = loadAngelOneEnv() !== null;
+  if (angelOneConfigured) {
+    startup.info("Market-data provider configured: angel-one (India/NSE instruments).");
+  } else {
+    startup.warn(
+      "Angel One credentials (API_KEY/CLIENT_CODE/PIN/TOTP_SECRET) are not fully set - India/NSE instruments (NIFTY 50, RELIANCE) will report Data Unavailable.",
+    );
   }
 }

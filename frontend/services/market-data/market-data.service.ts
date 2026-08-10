@@ -31,6 +31,17 @@ import { withReliability, type ReliabilityOptions } from "@/lib/market-data/reli
 import { TtlCache, systemClock, type Clock } from "@/lib/market-data/cache";
 import { TwelveDataProvider } from "@/lib/market-data/providers/twelve-data.provider";
 import { AlphaVantageProvider } from "@/lib/market-data/providers/alpha-vantage.provider";
+// Sprint D2.6.3 - Binance/Angel One appended to the DEFAULT provider
+// array (never inserted before the existing two, never replacing them).
+// This is a deliberate, backward-compatible priority choice: every
+// symbol Twelve Data/Alpha Vantage already served (EURUSD, XAUUSD, ...)
+// keeps its exact existing selection order and behavior. Only for the
+// new instruments these two adapters uniquely cover (BTCUSD/ETHUSD/
+// SOLUSD/XRPUSD get a 3rd real fallback via Binance; NIFTY50/RELIANCE
+// are served for the first time, via Angel One) does the array's extra
+// length matter at all.
+import { BinanceProvider } from "@/lib/market-data/providers/binance.provider";
+import { AngelOneProvider } from "@/lib/market-data/providers/angel-one.provider";
 import { ProviderHealthMonitor, type ProviderHealthSnapshot } from "@/lib/market-data/health-monitor";
 import { logger } from "@/services/backend/Logger";
 
@@ -43,7 +54,7 @@ const DEFAULT_CACHE_TTL_MS = 30_000;
 const DEFAULT_STALE_FALLBACK_MS = 5 * 60_000;
 
 export interface MarketDataServiceOptions {
-  /** Providers in priority order. Default: [Twelve Data (primary), Alpha Vantage (fallback)]. */
+  /** Providers in priority order. Default: [Twelve Data (primary), Alpha Vantage, Binance, Angel One (D2.6.3)]. */
   providers?: MarketDataProvider[];
   cacheTtlMs?: number;
   /** Sprint D2.3.S3 - grace window past cacheTtlMs a stale entry may still be served when every provider fails. */
@@ -67,9 +78,12 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
 
   constructor(options: MarketDataServiceOptions = {}) {
     // Priority order is the provider-priority contract: Twelve Data first,
-    // Alpha Vantage as the preserved fallback. Callers may override entirely
-    // (e.g. tests inject fakes) but the default encodes the documented policy.
-    this.providers = options.providers ?? [new TwelveDataProvider(), new AlphaVantageProvider()];
+    // Alpha Vantage as the preserved fallback, then Binance and Angel One
+    // (Sprint D2.6.3) appended - see the import comment above for why
+    // this ordering is deliberately backward-compatible. Callers may
+    // override entirely (e.g. tests inject fakes) but the default
+    // encodes the documented policy.
+    this.providers = options.providers ?? [new TwelveDataProvider(), new AlphaVantageProvider(), new BinanceProvider(), new AngelOneProvider()];
     this.clock = options.clock ?? systemClock;
     this.cacheTtlMs = options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
     this.cache = new TtlCache<MarketContextResult>(this.cacheTtlMs, this.clock);
@@ -169,8 +183,13 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
         const snapshot = await this.recordedAttempt(provider, request.symbol, () =>
           withReliability(() => provider.getSnapshot(request), provider.name, this.reliability),
         );
-        this.snapshotCache.set(request.symbol, snapshot);
-        return snapshot;
+        // Sprint D2.6.3 - fallbackUsed provenance: true only when a real
+        // failure (never a merely "unconfigured" skip) from an
+        // earlier-priority provider preceded this success.
+        const fallbackUsed = errors.some((e) => e.kind !== "unconfigured");
+        const withProvenance: MarketSnapshot = fallbackUsed ? { ...snapshot, fallbackUsed: true } : snapshot;
+        this.snapshotCache.set(request.symbol, withProvenance);
+        return withProvenance;
       } catch (error) {
         if (error instanceof MarketDataProviderError) {
           errors.push(error);
