@@ -31,6 +31,7 @@
 import type { AssistantRequest, AssistantResponse } from "@/types/assistant";
 import type { Message } from "@/types/message";
 import type { MarketAnalysisResult } from "@/types/market-analysis-orchestration";
+import type { VerifiedAnswerResponse } from "@/types/verified-answer-response";
 
 export interface ChatSource {
   knowledgeId: string;
@@ -47,6 +48,14 @@ export interface StreamChatResult {
   ragApplied: boolean;
   sources: ChatSource[];
   serverConversationId?: string;
+  // Sprint D2.6.10 - Trader Intelligence Workspace & Verified Answer
+  // Experience. Present only when the chat route's D2.6.5-D2.6.9
+  // intelligence pipeline actually resolved a real, presented answer for
+  // this turn - undefined for an ordinary support/knowledge-base
+  // question, exactly mirroring the server's own "resolved" gate. Never
+  // recomputed here - a direct passthrough of the server's verified
+  // response contract.
+  intelligence?: VerifiedAnswerResponse;
 }
 
 export interface MarketAnalysisChatResult {
@@ -238,6 +247,7 @@ export async function sendMessageStreaming(
   let ragApplied = false;
   let sources: ChatSource[] = [];
   let serverConversationId: string | undefined;
+  let intelligence: VerifiedAnswerResponse | undefined;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -251,7 +261,12 @@ export async function sendMessageStreaming(
       const event = JSON.parse(line) as
         | { type: "stage"; stage: string }
         | { type: "token"; text: string }
-        | { type: "done"; conversationId?: string; ragApplied?: boolean; sources?: ChatSource[] }
+        // Sprint D2.6.10 - `intelligence` is the raw wire shape the route
+        // sends: `{resolved: true, ...VerifiedAnswerResponse}` for a real
+        // presented answer, or `{resolved: false, reason?, dataFreshness?}`
+        // otherwise - only the resolved:true shape is ever surfaced to
+        // the caller as `intelligence` below.
+        | { type: "done"; conversationId?: string; ragApplied?: boolean; sources?: ChatSource[]; intelligence?: ({ resolved: true } & VerifiedAnswerResponse) | { resolved: false } }
         | { type: "error"; message: string };
 
       if (event.type === "stage") {
@@ -263,13 +278,14 @@ export async function sendMessageStreaming(
         ragApplied = event.ragApplied ?? false;
         sources = event.sources ?? [];
         serverConversationId = event.conversationId;
+        intelligence = event.intelligence?.resolved === true ? event.intelligence : undefined;
       } else if (event.type === "error") {
         throw new Error(event.message);
       }
     }
   }
 
-  return { kind: "chat", fullText, ragApplied, sources, serverConversationId };
+  return { kind: "chat", fullText, ragApplied, sources, serverConversationId, intelligence };
 }
 
 // Sprint 15C.6 - best-effort read of a server conversation's history.

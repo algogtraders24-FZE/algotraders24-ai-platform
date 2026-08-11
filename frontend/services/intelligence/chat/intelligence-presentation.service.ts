@@ -19,17 +19,27 @@
 // the chat-facing layer" boundary D2.6.5 established and D2.6.7/D2.6.8
 // each preserved in turn - this file, not the route, is now the layer
 // the route calls.
+//
+// Sprint D2.6.10 - Trader Intelligence Workspace & Verified Answer
+// Experience. present() now also builds the stable, trader-facing
+// VerifiedAnswerResponse (types/verified-answer-response.ts) - a pure
+// regrouping of the same envelope/decisionContext/marketData/presented
+// values already computed above, never a second computation. This is
+// what a future UI actually renders; the chat route no longer needs to
+// hand-assemble its own narrower summary.
 import type { ResolveChatIntelligenceInput } from "@/services/intelligence/chat/intelligence-chat-context.service";
 import { IntelligenceChatContextService } from "@/services/intelligence/chat/intelligence-chat-context.service";
 import { AIPresenterOrchestratorService } from "@/services/intelligence/chat/ai-presenter-orchestrator.service";
 import { DecisionContextService } from "@/services/intelligence/decision/decision-context.service";
 import { AuditTraceService } from "@/services/intelligence/audit/audit-trace.service";
+import { buildVerifiedAnswerResponse } from "@/services/intelligence/chat/verified-answer-response.service";
 import { marketData as sharedMarketData } from "@/services/market-data/shared-instance";
 import { computeReliability } from "@/services/market-data/provider-reliability.service";
 import type { VerifiedRealTimeIntelligenceContext, DataQualityAssessment, CrossProviderValidationSummary } from "@/types/real-time-intelligence";
 import type { IntelligenceEnvelope } from "@/types/intelligence-envelope";
 import type { PresenterOrchestrationResult } from "@/types/ai-presenter-orchestration";
 import type { AuditMarketDataProvenance } from "@/types/intelligence-audit-trace";
+import type { VerifiedAnswerResponse } from "@/types/verified-answer-response";
 
 export interface PresentIntelligenceInput extends ResolveChatIntelligenceInput {}
 
@@ -39,6 +49,8 @@ export interface PresentIntelligenceResult {
   presented?: PresenterOrchestrationResult;
   /** Present only when a trace was successfully persisted - best-effort, a write failure never breaks the response the trader already has. */
   auditTraceId?: string;
+  /** Present only when context.status === "resolved" - the stable, trader-facing contract a UI renders. */
+  verifiedAnswer?: VerifiedAnswerResponse;
 }
 
 export interface IntelligencePresentationDeps {
@@ -98,7 +110,16 @@ export class IntelligencePresentationService {
       // break the response the trader already has.
     }
 
-    return { context, presented, auditTraceId };
+    const verifiedAnswer = buildVerifiedAnswerResponse({
+      answer: presented.text,
+      envelope,
+      decisionContext,
+      dataQuality,
+      presentedBy: presented.presentedBy,
+      auditTraceId,
+    });
+
+    return { context, presented, auditTraceId, verifiedAnswer };
   }
 
   /**

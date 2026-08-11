@@ -256,33 +256,26 @@ export const POST = withContext(async (req, ctx) => {
   // Sprint D2.6.9 - the single call below now also writes a real,
   // immutable audit/provenance record for a resolved, presented answer
   // (best-effort - a write failure never breaks the response below).
-  const { context: intelligenceContext, presented, auditTraceId } = await intelligencePresentationService.present({ requestId: ctx.requestId, userId, message: query, conversationId });
+  const { context: intelligenceContext, presented, verifiedAnswer } = await intelligencePresentationService.present({ requestId: ctx.requestId, userId, message: query, conversationId });
 
+  // Sprint D2.6.10 - Trader Intelligence Workspace & Verified Answer
+  // Experience. `verifiedAnswer` (when present) IS the stable
+  // VerifiedAnswerResponse contract (types/verified-answer-response.ts) a
+  // future UI renders directly - it is spread into the wire payload
+  // alongside `resolved: true` rather than duplicated into a second,
+  // narrower summary object.
   interface ChatIntelligenceMeta {
     resolved: boolean;
-    symbol?: string;
-    timeframe?: string;
-    presentedBy?: string;
-    responseIntegrityStatus?: string;
-    dataFreshness?: string;
     reason?: string;
-    auditTraceId?: string;
+    dataFreshness?: string;
   }
 
   let intelligenceAnswer: string | undefined;
-  let intelligenceMeta: ChatIntelligenceMeta | undefined;
+  let intelligenceMeta: (ChatIntelligenceMeta & Partial<typeof verifiedAnswer>) | undefined;
 
-  if (intelligenceContext.status === "resolved" && intelligenceContext.envelope && presented) {
+  if (intelligenceContext.status === "resolved" && intelligenceContext.envelope && presented && verifiedAnswer) {
     intelligenceAnswer = presented.text;
-    intelligenceMeta = {
-      resolved: true,
-      symbol: intelligenceContext.envelope.symbol,
-      timeframe: intelligenceContext.envelope.timeframe,
-      presentedBy: presented.presentedBy,
-      responseIntegrityStatus: presented.fallbackUsed ? "failed-fallback-used" : "passed",
-      dataFreshness: intelligenceContext.dataQuality?.state ?? "unknown",
-      auditTraceId,
-    };
+    intelligenceMeta = { resolved: true, ...verifiedAnswer };
   } else if (intelligenceContext.status === "insufficient-data") {
     intelligenceAnswer =
       "I attempted to retrieve verified, real-time market data for this question but could not confirm it right now (the data source may be temporarily unavailable). Please try again shortly.";

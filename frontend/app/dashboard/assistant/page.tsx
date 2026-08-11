@@ -141,6 +141,7 @@ export default function AssistantPage() {
               content: res.fullText,
               createdAt: draftCreatedAt,
               sources: res.sources,
+              intelligence: res.intelligence,
             };
 
       if (res.kind === "chat" && res.serverConversationId && res.serverConversationId !== conv.serverConversationId) {

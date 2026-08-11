@@ -47,6 +47,7 @@
     "validate:indian-market-data": "tsx scripts/validate-indian-market-data.ts",
     "validate:conversation-continuity": "tsx scripts/validate-conversation-continuity.ts",
     "validate:ai-presenter-orchestration": "tsx scripts/validate-ai-presenter-orchestration.ts",
+    "validate:verified-intelligence-workspace": "tsx scripts/validate-verified-intelligence-workspace.ts",
     "validate:intelligence-audit": "tsx scripts/validate-intelligence-audit.ts"
   },
   "dependencies": {
