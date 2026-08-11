@@ -9,5 +9,7 @@ export { AIService } from "./ai.service";
 export { PlaceholderProvider } from "./providers/placeholder.provider";
 export { GeminiProvider } from "./providers/gemini.provider";
 export { GeminiEmbeddingProvider } from "./providers/gemini-embedding.provider";
-export { loadGeminiEnv, loadGeminiEmbeddingEnv } from "./env";
+export { ClaudeProvider } from "./providers/claude.provider";
+export { OpenAIProvider } from "./providers/openai.provider";
+export { loadGeminiEnv, loadGeminiEmbeddingEnv, loadAnthropicEnv, loadOpenAIEnv } from "./env";
 export { createAIService } from "./container";

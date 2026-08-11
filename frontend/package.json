@@ -45,7 +45,8 @@
     "validate:provider-reliability": "tsx scripts/validate-provider-reliability.ts",
     "validate:realtime-intelligence": "tsx scripts/validate-realtime-intelligence.ts",
     "validate:indian-market-data": "tsx scripts/validate-indian-market-data.ts",
-    "validate:conversation-continuity": "tsx scripts/validate-conversation-continuity.ts"
+    "validate:conversation-continuity": "tsx scripts/validate-conversation-continuity.ts",
+    "validate:ai-presenter-orchestration": "tsx scripts/validate-ai-presenter-orchestration.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",

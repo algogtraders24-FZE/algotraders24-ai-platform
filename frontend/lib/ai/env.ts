@@ -33,3 +33,37 @@ export function loadGeminiEmbeddingEnv(): GeminiEnv {
     model: process.env.GEMINI_EMBEDDING_MODEL ?? "gemini-embedding-001",
   };
 }
+
+// Sprint D2.6.8 - Verified AI Presenter, Multi-Model Fallback & Response
+// Integrity. Same "fail fast, fail loud" discipline as loadGeminiEnv() -
+// these are only ever called by ClaudeProvider/OpenAIProvider's own
+// constructors, which the presenter orchestrator only invokes after its
+// own env-var-presence availability check already passed (see
+// services/intelligence/chat/ai-presenter-orchestrator.service.ts) - so
+// this throwing on a genuinely missing key here is a defensive last
+// resort, never the normal "provider unavailable" path.
+export interface AnthropicEnv {
+  apiKey: string;
+  model: string;
+}
+
+export function loadAnthropicEnv(): AnthropicEnv {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey || apiKey.trim().length === 0) {
+    throw new Error("[ai] ANTHROPIC_API_KEY is missing. Set it in your environment (.env.local).");
+  }
+  return { apiKey, model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-5" };
+}
+
+export interface OpenAIEnv {
+  apiKey: string;
+  model: string;
+}
+
+export function loadOpenAIEnv(): OpenAIEnv {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey || apiKey.trim().length === 0) {
+    throw new Error("[ai] OPENAI_API_KEY is missing. Set it in your environment (.env.local).");
+  }
+  return { apiKey, model: process.env.OPENAI_MODEL ?? "gpt-4o" };
+}

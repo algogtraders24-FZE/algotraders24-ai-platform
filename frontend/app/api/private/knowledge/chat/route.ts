@@ -38,6 +38,14 @@
 // point: this file never imports a 15D/D2.5 internal engine directly, it
 // only calls the already-composed orchestrator and presenter/validator
 // boundary - see docs/architecture/D2.6.5-realtime-intelligence-spec.md.
+//
+// Sprint D2.6.8 - Verified AI Presenter, Multi-Model Fallback & Response
+// Integrity. The single presenter call below now goes through the
+// chat-facing presenter orchestrator (still services/intelligence/chat/*,
+// still the only new coupling point) instead of one hardcoded presenter
+// + one hardcoded fallback. The orchestrator tries multiple configured
+// language-model backends in priority order and always validates before
+// returning - see docs/architecture/D2.6.8-ai-presenter-reliability-spec.md.
 import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import { withContext } from "@/services/backend/Middleware";
@@ -54,9 +62,7 @@ import type { Message } from "@/types/message";
 import { EntityNotFoundError, RepositoryError } from "@/types/repository";
 import { analyticsEventService } from "@/services/analytics/AnalyticsEventService";
 import { IntelligenceChatContextService } from "@/services/intelligence/chat/intelligence-chat-context.service";
-import { GeminiIntelligencePresenter } from "@/services/intelligence/chat/gemini-intelligence-presenter.service";
-import { DeterministicSafeFallbackPresenter } from "@/services/intelligence/chat/deterministic-safe-fallback-presenter.service";
-import { presentSafely } from "@/services/intelligence/chat/ai-response-integrity.service";
+import { AIPresenterOrchestratorService } from "@/services/intelligence/chat/ai-presenter-orchestrator.service";
 
 const RAG_TOP_K = 5;
 const MIN_SIMILARITY = 0.3; // ignore weak matches
@@ -69,8 +75,7 @@ const RAG_SYSTEM_INSTRUCTIONS =
 
 const messageService = new ConversationMessageService();
 const chatIntelligenceService = new IntelligenceChatContextService();
-const geminiIntelligencePresenter = new GeminiIntelligencePresenter();
-const deterministicFallbackPresenter = new DeterministicSafeFallbackPresenter();
+const presenterOrchestrator = new AIPresenterOrchestratorService();
 
 // Gemini's chat format has no "system" turn in `contents`; Context Manager
 // system-role output is passed separately via config.systemInstruction
@@ -255,19 +260,14 @@ export const POST = withContext(async (req, ctx) => {
   let intelligenceMeta: ChatIntelligenceMeta | undefined;
 
   if (intelligenceContext.status === "resolved" && intelligenceContext.envelope) {
-    const presented = await presentSafely({
-      envelope: intelligenceContext.envelope,
-      userQuestion: query,
-      presenter: geminiIntelligencePresenter,
-      fallback: deterministicFallbackPresenter,
-    });
-    intelligenceAnswer = presented.result.text;
+    const presented = await presenterOrchestrator.present(intelligenceContext.envelope, query);
+    intelligenceAnswer = presented.text;
     intelligenceMeta = {
       resolved: true,
       symbol: intelligenceContext.envelope.symbol,
       timeframe: intelligenceContext.envelope.timeframe,
-      presentedBy: presented.result.presentedBy,
-      responseIntegrityStatus: presented.usedFallback ? "failed-fallback-used" : "passed",
+      presentedBy: presented.presentedBy,
+      responseIntegrityStatus: presented.fallbackUsed ? "failed-fallback-used" : "passed",
       dataFreshness: intelligenceContext.dataQuality?.state ?? "unknown",
     };
   } else if (intelligenceContext.status === "insufficient-data") {
