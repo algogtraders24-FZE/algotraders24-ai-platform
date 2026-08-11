@@ -43,7 +43,8 @@
     "validate:intelligence-query-context": "tsx scripts/validate-intelligence-query-context.ts",
     "validate:multi-provider-router": "tsx scripts/validate-multi-provider-router.ts",
     "validate:provider-reliability": "tsx scripts/validate-provider-reliability.ts",
-    "validate:realtime-intelligence": "tsx scripts/validate-realtime-intelligence.ts"
+    "validate:realtime-intelligence": "tsx scripts/validate-realtime-intelligence.ts",
+    "validate:indian-market-data": "tsx scripts/validate-indian-market-data.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",

@@ -8,20 +8,23 @@
 // *** LIVE VERIFICATION STATUS - READ BEFORE TRUSTING THIS FILE ***
 // This adapter's request/response shapes are built from Angel One
 // SmartAPI's own published documentation (loginByPassword, getLtpData,
-// getCandleData) - a real, stable, versioned public contract - but a
-// live authenticated call was DELIBERATELY NOT attempted this sprint.
-// Real credentials (API_KEY/CLIENT_CODE/PIN/TOTP_SECRET) exist in this
-// project's .env.local, but logging into a real brokerage account's API
-// session from an automated session - even for read-only market data -
-// is exactly the kind of external, hard-to-reverse action (a real login
-// event against a live financial account, subject to the broker's own
-// rate limits/session semantics) that this project's safety discipline
-// treats as needing the user's own explicit action, not a coding
-// agent's. This file is therefore tested ONLY against fake/injected
-// HTTP responses matching the documented contract - see
-// scripts/validate-multi-provider-router.ts. `isConfigured()` still
-// honestly reports whether real credentials exist; nothing here
-// fabricates a successful login or a live quote.
+// getCandleData) - a real, stable, versioned public contract.
+// D2.6.3-D2.6.5 deliberately never attempted a live authenticated call
+// (treated as an external, hard-to-reverse action against a real
+// brokerage account, reserved for the user's own explicit go-ahead).
+// Sprint D2.6.6 obtained that explicit go-ahead and ran a real,
+// authenticated live smoke test (scripts/validate-indian-market-data.ts,
+// gated behind RUN_LIVE_ANGEL_ONE_SMOKE_TEST=1, never on by default) on
+// 2026-08-11: authentication, NIFTY 50 quote, NIFTY Bank quote, a real
+// NSE equity (RELIANCE) quote, historical daily candles, and timestamp
+// freshness all PASSED against the real API using this project's own
+// real credentials - read-only, no order/execution call was ever made
+// or exists in this file. The main test suite still runs entirely
+// against fake/injected HTTP responses by default (no live network in
+// CI/regular regression runs) - see scripts/validate-multi-provider-router.ts
+// and scripts/validate-indian-market-data.ts. `isConfigured()` honestly
+// reports whether real credentials exist; nothing here fabricates a
+// successful login or a live quote when they don't.
 //
 // The symbol/token mapping IS live-verified (unauthenticated): Angel
 // One publishes a public instrument scrip master (no login required) at

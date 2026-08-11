@@ -49,6 +49,22 @@ const DEFINITIONS: readonly MarketDefinition[] = [
   { symbol: "NDX", name: "Nasdaq 100 Index", assetClass: "indices", baseCurrency: "NDX", quoteCurrency: "USD", enabled: false },
   // Stocks (modelled, not yet enabled)
   { symbol: "AAPL", name: "Apple Inc.", assetClass: "stocks", baseCurrency: "AAPL", quoteCurrency: "USD", enabled: false },
+  // Sprint D2.6.6 - India (NSE), via the D2.6.3 catalog's real, live-token-
+  // verified Angel One provider mappings (see lib/market-data/instrument-
+  // catalog.ts) - `enabled: true` because a configured provider genuinely
+  // serves these today, exactly the "data change here plus a provider
+  // mapping" extension this file's own header describes. This is the fix
+  // for the confirmed D2.6.6 audit gap: IntelligenceQueryService.resolveSymbol()
+  // (D2.6.2) checks isKnownMarket() against THIS registry, not the richer
+  // instrument-catalog.ts - without an entry here, a chat question
+  // mentioning "NIFTY" could never resolve a symbol at all, even though
+  // the instrument was already fully fetchable via MarketDataService.
+  { symbol: "NIFTY50", name: "NIFTY 50 Index", assetClass: "indices", baseCurrency: "NIFTY50", quoteCurrency: "INR", enabled: true },
+  { symbol: "BANKNIFTY", name: "NIFTY Bank Index", assetClass: "indices", baseCurrency: "BANKNIFTY", quoteCurrency: "INR", enabled: true },
+  { symbol: "RELIANCE", name: "Reliance Industries Ltd", assetClass: "stocks", baseCurrency: "RELIANCE", quoteCurrency: "INR", enabled: true },
+  { symbol: "TCS", name: "Tata Consultancy Services Ltd", assetClass: "stocks", baseCurrency: "TCS", quoteCurrency: "INR", enabled: true },
+  { symbol: "INFY", name: "Infosys Ltd", assetClass: "stocks", baseCurrency: "INFY", quoteCurrency: "INR", enabled: true },
+  { symbol: "HDFCBANK", name: "HDFC Bank Ltd", assetClass: "stocks", baseCurrency: "HDFCBANK", quoteCurrency: "INR", enabled: true },
 ];
 
 const BY_SYMBOL: ReadonlyMap<string, MarketDefinition> = new Map(DEFINITIONS.map((d) => [d.symbol, d]));

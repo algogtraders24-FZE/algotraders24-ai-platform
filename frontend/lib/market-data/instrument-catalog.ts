@@ -182,8 +182,9 @@ export const INSTRUMENT_CATALOG: readonly CanonicalInstrument[] = [
       // public, unauthenticated instrument scrip master (https://
       // margincalculator.angelbroking.com/OpenAPI_File/files/
       // OpenAPIScripMaster.json) - real token "99926000", exch_seg
-      // "NSE". Authenticated quote retrieval NOT live-verified this
-      // session - see angel-one.provider.ts's header for why.
+      // "NSE". Sprint D2.6.6 additionally ran a real, authenticated live
+      // quote fetch on 2026-08-11 (see angel-one.provider.ts's header) -
+      // this exact mapping was confirmed to return a real price.
       { provider: "angel-one", providerSymbol: "Nifty 50", providerInstrumentId: "99926000", supportedCapabilities: ["quote", "candles"], verified: true },
     ],
   },
@@ -200,9 +201,87 @@ export const INSTRUMENT_CATALOG: readonly CanonicalInstrument[] = [
     providerMappings: [
       // Symbol/token confirmed live 2026-08-10 against the same public
       // scrip master - real token "2885", symbol "RELIANCE-EQ", exch_seg
-      // "NSE". Authenticated quote retrieval NOT live-verified this
-      // session - see angel-one.provider.ts's header.
+      // "NSE". Sprint D2.6.6 additionally ran a real, authenticated live
+      // quote fetch on 2026-08-11 (see angel-one.provider.ts's header) -
+      // this exact mapping was confirmed to return a real price.
       { provider: "angel-one", providerSymbol: "RELIANCE-EQ", providerInstrumentId: "2885", supportedCapabilities: ["quote", "candles"], verified: true },
+    ],
+  },
+  {
+    id: "BANKNIFTY",
+    symbol: "BANK NIFTY",
+    displayName: "NIFTY Bank Index",
+    assetClass: "index",
+    marketCategory: "indices",
+    exchange: "NSE",
+    country: "IN",
+    currency: "INR",
+    aliases: ["banknifty", "bank nifty", "nifty bank"],
+    providerMappings: [
+      // Sprint D2.6.6 - symbol/token confirmed live 2026-08-11 against
+      // the same public, unauthenticated scrip master: real token
+      // "99926009", symbol "Nifty Bank" (instrumenttype "AMXIDX", the
+      // same cash-index convention already verified for NIFTY50's
+      // "99926000" - NOT the plain futures-style "BANKNIFTY"/26009
+      // entry the same file also contains, which is a different real
+      // instrument). This exact mapping was additionally confirmed via a
+      // real, authenticated live quote fetch on 2026-08-11 (see
+      // angel-one.provider.ts's header).
+      { provider: "angel-one", providerSymbol: "Nifty Bank", providerInstrumentId: "99926009", supportedCapabilities: ["quote", "candles"], verified: true },
+    ],
+  },
+  {
+    id: "TCS",
+    symbol: "TCS",
+    displayName: "Tata Consultancy Services Ltd",
+    assetClass: "equity",
+    marketCategory: "stocks",
+    exchange: "NSE",
+    country: "IN",
+    currency: "INR",
+    aliases: ["tata consultancy", "tata consultancy services", "tcs ltd"],
+    providerMappings: [
+      // Sprint D2.6.6 - symbol/token confirmed live 2026-08-11 against
+      // the same public scrip master - real token "11536", symbol
+      // "TCS-EQ", exch_seg "NSE". Authenticated quote retrieval NOT
+      // live-verified this session.
+      { provider: "angel-one", providerSymbol: "TCS-EQ", providerInstrumentId: "11536", supportedCapabilities: ["quote", "candles"], verified: true },
+    ],
+  },
+  {
+    id: "INFY",
+    symbol: "INFY",
+    displayName: "Infosys Ltd",
+    assetClass: "equity",
+    marketCategory: "stocks",
+    exchange: "NSE",
+    country: "IN",
+    currency: "INR",
+    aliases: ["infosys", "infosys ltd", "infosys limited"],
+    providerMappings: [
+      // Sprint D2.6.6 - symbol/token confirmed live 2026-08-11 against
+      // the same public scrip master - real token "1594", symbol
+      // "INFY-EQ", exch_seg "NSE". Authenticated quote retrieval NOT
+      // live-verified this session.
+      { provider: "angel-one", providerSymbol: "INFY-EQ", providerInstrumentId: "1594", supportedCapabilities: ["quote", "candles"], verified: true },
+    ],
+  },
+  {
+    id: "HDFCBANK",
+    symbol: "HDFCBANK",
+    displayName: "HDFC Bank Ltd",
+    assetClass: "equity",
+    marketCategory: "stocks",
+    exchange: "NSE",
+    country: "IN",
+    currency: "INR",
+    aliases: ["hdfc bank", "hdfc bank ltd"],
+    providerMappings: [
+      // Sprint D2.6.6 - symbol/token confirmed live 2026-08-11 against
+      // the same public scrip master - real token "1333", symbol
+      // "HDFCBANK-EQ", exch_seg "NSE". Authenticated quote retrieval NOT
+      // live-verified this session.
+      { provider: "angel-one", providerSymbol: "HDFCBANK-EQ", providerInstrumentId: "1333", supportedCapabilities: ["quote", "candles"], verified: true },
     ],
   },
 

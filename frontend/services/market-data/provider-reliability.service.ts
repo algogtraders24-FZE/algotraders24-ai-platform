@@ -15,6 +15,7 @@ import type { MarketDataProvider } from "@/types/market-data-provider";
 import type { MarketDataCapability } from "@/types/canonical-instrument";
 import type { ProviderHealthSnapshot } from "@/lib/market-data/health-monitor";
 import { getCanonicalInstrument } from "@/lib/market-data/instrument-catalog";
+import { providerSupportsInstrument } from "@/lib/market-data/provider-capabilities";
 import type { ProviderReliability, ProviderReliabilityState } from "@/types/provider-reliability";
 
 export const PROVIDER_RELIABILITY_VERSION = "1.0.0";
@@ -182,7 +183,19 @@ export function orderProviders(input: OrderProvidersInput): MarketDataProvider[]
       provider: provider.name,
       lastCheckedAt: new Date(input.nowMs).toISOString(),
     };
-    const available = !instrument || instrument.providerMappings.some((m) => m.provider === provider.name && m.supportedCapabilities.includes(input.capability));
+    // Sprint D2.6.6 - AND'd with the general provider-capability matrix
+    // (lib/market-data/provider-capabilities.ts#providerSupportsInstrument)
+    // additively: a provider with no registered profile is unaffected
+    // (falls through to `true`), so this can only ever further EXCLUDE a
+    // provider the catalog itself already excludes for every existing
+    // instrument - never grant one the catalog doesn't map. Makes rules
+    // like "never route an NSE instrument to Binance" an explicit,
+    // asserted fact rather than an emergent property of which catalog
+    // entries happen to omit which provider.
+    const available =
+      !instrument ||
+      (instrument.providerMappings.some((m) => m.provider === provider.name && m.supportedCapabilities.includes(input.capability)) &&
+        providerSupportsInstrument(provider.name, instrument));
     const reliability = computeReliability({ provider: provider.name, symbol: input.symbol, capability: input.capability, snapshot, available, nowMs: input.nowMs });
     return { provider, reliability, index };
   });

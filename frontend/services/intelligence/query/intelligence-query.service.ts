@@ -45,6 +45,18 @@ const SYMBOL_ALIASES: Record<string, MarketSymbol> = {
   sterling: "GBPUSD",
   cable: "GBPUSD",
   yen: "USDJPY",
+  // Sprint D2.6.6 - India (NSE). Note tokenize() only matches single
+  // words (see below) - "bank nifty" as two separate tokens cannot be
+  // distinguished from "nifty" alone, so "banknifty" (no space) is the
+  // reliable free-text form for BANKNIFTY; this is an explicit,
+  // documented limitation of the existing single-token alias design,
+  // not something this sprint redesigns. TCS/INFY/HDFCBANK/RELIANCE
+  // already resolve without an alias entry here because their raw
+  // uppercased token exactly equals their market-registry.ts symbol id.
+  nifty: "NIFTY50",
+  nifty50: "NIFTY50",
+  banknifty: "BANKNIFTY",
+  infosys: "INFY",
 };
 
 const TIMEFRAME_TOKENS: readonly SignalTimeframe[] = ["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"];
