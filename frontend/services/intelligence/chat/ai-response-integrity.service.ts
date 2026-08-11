@@ -32,7 +32,13 @@ import { listCanonicalInstruments } from "@/lib/market-data/instrument-catalog";
  * text ("...is never a probability of profit...") is never a false
  * positive.
  */
-const GUARANTEED_PROFIT_PATTERNS: RegExp[] = [
+// Sprint D2.6.9 - exported additively (zero behavior change to this
+// file's own D2.6.5 logic) so the new, deterministic response-claim
+// tracer (services/intelligence/audit/response-claim-tracer.service.ts)
+// can reuse the exact same extraction/matching rules rather than
+// duplicating them - "extend, never rebuild" applied to this file's own
+// internals, not just its public API.
+export const GUARANTEED_PROFIT_PATTERNS: RegExp[] = [
   /buy now/i,
   /sell now/i,
   /\d+%\s*win rate/i,
@@ -48,9 +54,9 @@ const GUARANTEED_PROFIT_PATTERNS: RegExp[] = [
   /100%\s*(chance|certain|sure)/i,
 ];
 
-const HISTORICAL_CLAIM_PATTERN = /\bhistorically\b|\bin the past\b|\bpreviously (worked|succeeded)\b|\d+%\s*(win|success) rate\b|\btrack record\b|\bhas worked before\b/i;
-const HIGH_CERTAINTY_PATTERN = /\bdefinitely\b|\bcertainly\b|\bwithout (a )?doubt\b|\bguaranteed to\b/i;
-const HEDGING_PATTERN = /\binsufficient\b|\bnot enough (data|information|evidence)\b|\blimited data\b|\bcannot determine\b|\bcan'?t determine\b|\bunable to (determine|assess)\b|\bnot (yet )?available\b|\bmissing (data|information)\b/i;
+export const HISTORICAL_CLAIM_PATTERN = /\bhistorically\b|\bin the past\b|\bpreviously (worked|succeeded)\b|\d+%\s*(win|success) rate\b|\btrack record\b|\bhas worked before\b/i;
+export const HIGH_CERTAINTY_PATTERN = /\bdefinitely\b|\bcertainly\b|\bwithout (a )?doubt\b|\bguaranteed to\b/i;
+export const HEDGING_PATTERN = /\binsufficient\b|\bnot enough (data|information|evidence)\b|\blimited data\b|\bcannot determine\b|\bcan'?t determine\b|\bunable to (determine|assess)\b|\bnot (yet )?available\b|\bmissing (data|information)\b/i;
 
 // Sprint §11 item 4 - a fixed, closed vocabulary. "Native" indicators are
 // the exact ones MarketState.technical (D2.5.2) can ever compute
@@ -58,8 +64,8 @@ const HEDGING_PATTERN = /\binsufficient\b|\bnot enough (data|information|evidenc
 // well-known technical indicators this platform has never computed - if a
 // presenter mentions one, it can only be an invented claim, since there is
 // no real field anywhere in the envelope it could have come from.
-const NATIVE_INDICATOR_NAMES = ["rsi", "ema", "macd", "bollinger", "atr", "volume"];
-const FOREIGN_INDICATOR_PATTERNS: RegExp[] = [
+export const NATIVE_INDICATOR_NAMES = ["rsi", "ema", "macd", "bollinger", "atr", "volume"];
+export const FOREIGN_INDICATOR_PATTERNS: RegExp[] = [
   /\bstochastic\b/i,
   /\badx\b/i,
   /\bichimoku\b/i,
@@ -73,21 +79,21 @@ const FOREIGN_INDICATOR_PATTERNS: RegExp[] = [
   /\bpivot point/i,
 ];
 
-const PRICE_CLAIM_RELATIVE_TOLERANCE = 0.01; // 1% - matches D2.6.4's own cross-provider tolerance precedent
-const PERCENT_CLAIM_ABSOLUTE_TOLERANCE = 2; // percentage points
+export const PRICE_CLAIM_RELATIVE_TOLERANCE = 0.01; // 1% - matches D2.6.4's own cross-provider tolerance precedent
+export const PERCENT_CLAIM_ABSOLUTE_TOLERANCE = 2; // percentage points
 
 /** ISO-8601 timestamps (e.g. evidence "as of"/"retrieved at" fields) embed a 4-digit year and other digit runs that are never themselves a market-fact claim - stripped before any numeric-claim extraction so "2026" from a real date is never flagged as an unsupported price. */
-function stripIsoTimestamps(text: string): string {
+export function stripIsoTimestamps(text: string): string {
   return text.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?/g, "");
 }
 
-function extractPercentClaims(text: string): number[] {
+export function extractPercentClaims(text: string): number[] {
   const matches = stripIsoTimestamps(text).match(/\d+(?:\.\d+)?%/g) ?? [];
   return matches.map((m) => Number(m.replace("%", "")));
 }
 
 /** Only "price-like" numbers - at least 4 digits, or a decimal with 2+ places - to avoid false-positiving on ordinary small integers (RSI period "14", "20 candles", "50" EMA period) that are structural vocabulary, never claims. */
-function extractPriceLikeClaims(text: string): number[] {
+export function extractPriceLikeClaims(text: string): number[] {
   const matches = stripIsoTimestamps(text).match(/\b\d{4,}(?:\.\d+)?\b|\b\d+\.\d{2,}\b/g) ?? [];
   return matches.map((m) => Number(m)).filter((n) => Number.isFinite(n));
 }
@@ -102,7 +108,7 @@ function extractPriceLikeClaims(text: string): number[] {
  * deterministic safe fallback presenter (which only ever echoes these
  * exact strings) always pass its own integrity check.
  */
-function allRealDecisionContextText(dc: IntelligenceDecisionContext): string[] {
+export function allRealDecisionContextText(dc: IntelligenceDecisionContext): string[] {
   return [
     ...dc.currentState.basis,
     ...dc.regimeContext.basis,
@@ -119,7 +125,7 @@ function allRealDecisionContextText(dc: IntelligenceDecisionContext): string[] {
   ];
 }
 
-function collectRealNumbers(dc: IntelligenceDecisionContext): number[] {
+export function collectRealNumbers(dc: IntelligenceDecisionContext): number[] {
   const values: number[] = [];
   for (const s of allRealDecisionContextText(dc)) {
     values.push(...extractPriceLikeClaims(s), ...extractPercentClaims(s));
@@ -127,19 +133,19 @@ function collectRealNumbers(dc: IntelligenceDecisionContext): number[] {
   return values;
 }
 
-function withinTolerance(claimed: number, real: number, relativeTolerance: number): boolean {
+export function withinTolerance(claimed: number, real: number, relativeTolerance: number): boolean {
   const denom = Math.max(Math.abs(claimed), Math.abs(real), 1e-9);
   return Math.abs(claimed - real) / denom <= relativeTolerance;
 }
 
-function allowedPercentValues(dc: IntelligenceDecisionContext): number[] {
+export function allowedPercentValues(dc: IntelligenceDecisionContext): number[] {
   const values: number[] = [dc.regimeContext.confidence];
   if (dc.intelligenceScore.overallScore !== undefined) values.push(dc.intelligenceScore.overallScore);
   if (dc.historicalContext.validatedRate !== undefined) values.push(dc.historicalContext.validatedRate * 100);
   return values;
 }
 
-function allowedPriceValues(dc: IntelligenceDecisionContext): number[] {
+export function allowedPriceValues(dc: IntelligenceDecisionContext): number[] {
   const values: number[] = [dc.currentState.price];
   if (dc.currentState.recentRange) values.push(dc.currentState.recentRange.high, dc.currentState.recentRange.low);
   if (dc.currentState.rsi14 !== undefined) values.push(dc.currentState.rsi14);

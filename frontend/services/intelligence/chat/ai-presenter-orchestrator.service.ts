@@ -115,7 +115,13 @@ export class AIPresenterOrchestratorService {
 
         const integrity = validateResponseIntegrity(candidate.text, envelope, decisionContext);
         if (!integrity.valid) {
-          attempts.push({ provider: slot.name, attempted: true, success: false, latencyMs, integrityPassed: false, failureCategory: "integrity-rejection", timestamp });
+          // Sprint D2.6.9 - the closed violation-kind vocabulary is safe,
+          // non-sensitive diagnostic metadata (never raw response text) -
+          // recorded here because it can never be reconstructed later:
+          // a rejected candidate's text is never surfaced or persisted
+          // anywhere else in this pipeline.
+          const integrityViolationKinds = integrity.violations.map((v) => v.kind);
+          attempts.push({ provider: slot.name, attempted: true, success: false, latencyMs, integrityPassed: false, integrityViolationKinds, failureCategory: "integrity-rejection", timestamp });
           continue;
         }
 

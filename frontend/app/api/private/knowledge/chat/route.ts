@@ -46,6 +46,16 @@
 // + one hardcoded fallback. The orchestrator tries multiple configured
 // language-model backends in priority order and always validates before
 // returning - see docs/architecture/D2.6.8-ai-presenter-reliability-spec.md.
+//
+// Sprint D2.6.9 - Verified Intelligence Audit, Explainability & Answer
+// Traceability. The chat-context resolution and presenter call below are
+// now composed inside one chat-facing entry point
+// (IntelligencePresentationService, still services/intelligence/chat/*,
+// still the only new coupling point) that additionally writes a real,
+// immutable audit/provenance record for every presented answer - see
+// docs/architecture/D2.6.9-intelligence-audit-explainability-spec.md.
+// This route still never imports any individual Sprint 15D/D2.5 internal
+// stage, nor any lower-level persistence boundary, directly.
 import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import { withContext } from "@/services/backend/Middleware";
@@ -61,8 +71,7 @@ import { prisma } from "@/lib/prisma";
 import type { Message } from "@/types/message";
 import { EntityNotFoundError, RepositoryError } from "@/types/repository";
 import { analyticsEventService } from "@/services/analytics/AnalyticsEventService";
-import { IntelligenceChatContextService } from "@/services/intelligence/chat/intelligence-chat-context.service";
-import { AIPresenterOrchestratorService } from "@/services/intelligence/chat/ai-presenter-orchestrator.service";
+import { IntelligencePresentationService } from "@/services/intelligence/chat/intelligence-presentation.service";
 
 const RAG_TOP_K = 5;
 const MIN_SIMILARITY = 0.3; // ignore weak matches
@@ -74,8 +83,7 @@ const RAG_SYSTEM_INSTRUCTIONS =
   "answer from general knowledge.";
 
 const messageService = new ConversationMessageService();
-const chatIntelligenceService = new IntelligenceChatContextService();
-const presenterOrchestrator = new AIPresenterOrchestratorService();
+const intelligencePresentationService = new IntelligencePresentationService();
 
 // Gemini's chat format has no "system" turn in `contents`; Context Manager
 // system-role output is passed separately via config.systemInstruction
@@ -244,7 +252,11 @@ export const POST = withContext(async (req, ctx) => {
   // genuine follow-up ("what are the risks?", "what would invalidate
   // this?") resolves against the right context - never against stale
   // market facts, since a fresh provider request always still runs.
-  const intelligenceContext = await chatIntelligenceService.resolve({ requestId: ctx.requestId, userId, message: query, conversationId });
+  //
+  // Sprint D2.6.9 - the single call below now also writes a real,
+  // immutable audit/provenance record for a resolved, presented answer
+  // (best-effort - a write failure never breaks the response below).
+  const { context: intelligenceContext, presented, auditTraceId } = await intelligencePresentationService.present({ requestId: ctx.requestId, userId, message: query, conversationId });
 
   interface ChatIntelligenceMeta {
     resolved: boolean;
@@ -254,13 +266,13 @@ export const POST = withContext(async (req, ctx) => {
     responseIntegrityStatus?: string;
     dataFreshness?: string;
     reason?: string;
+    auditTraceId?: string;
   }
 
   let intelligenceAnswer: string | undefined;
   let intelligenceMeta: ChatIntelligenceMeta | undefined;
 
-  if (intelligenceContext.status === "resolved" && intelligenceContext.envelope) {
-    const presented = await presenterOrchestrator.present(intelligenceContext.envelope, query);
+  if (intelligenceContext.status === "resolved" && intelligenceContext.envelope && presented) {
     intelligenceAnswer = presented.text;
     intelligenceMeta = {
       resolved: true,
@@ -269,6 +281,7 @@ export const POST = withContext(async (req, ctx) => {
       presentedBy: presented.presentedBy,
       responseIntegrityStatus: presented.fallbackUsed ? "failed-fallback-used" : "passed",
       dataFreshness: intelligenceContext.dataQuality?.state ?? "unknown",
+      auditTraceId,
     };
   } else if (intelligenceContext.status === "insufficient-data") {
     intelligenceAnswer =

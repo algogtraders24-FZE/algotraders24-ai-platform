@@ -4,6 +4,8 @@
 // Score component, never fed back into the deterministic engine. This is
 // observability about how a response was PRODUCED (which provider, did it
 // pass integrity, how long did it take), not a fact about the market.
+import type { ResponseIntegrityViolationKind } from "./ai-response-integrity";
+
 export const AI_PRESENTER_ORCHESTRATION_VERSION = "1.0.0";
 
 export type PresenterFailureCategory =
@@ -23,6 +25,14 @@ export interface PresenterAttempt {
   failureCategory?: PresenterFailureCategory;
   /** Undefined when the attempt never reached the integrity check at all (e.g. unavailable, or the provider call itself failed). */
   integrityPassed?: boolean;
+  /**
+   * Sprint D2.6.9 - present only when integrityPassed is false. The
+   * closed, safe ResponseIntegrityViolationKind vocabulary (never raw
+   * response text, never a sensitive error detail) - lets an audit trace
+   * honestly answer "if fallback was used, why?" without re-running
+   * integrity validation against text the orchestrator never surfaces.
+   */
+  integrityViolationKinds?: ResponseIntegrityViolationKind[];
   timestamp: string;
 }
 

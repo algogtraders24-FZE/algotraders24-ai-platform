@@ -674,3 +674,57 @@ model IntelligenceAnalysisOutcome {
   @@index([regimeType])
   @@map("intelligence_analysis_outcomes")
 }
+
+// Sprint D2.6.9 - Verified Intelligence Audit, Explainability & Answer
+// Traceability. The immutable, per-presented-answer audit record - see
+// types/intelligence-audit-trace.ts's header for the full contract this
+// mirrors. Created only for a resolved real-time intelligence turn whose
+// envelope was actually handed to the D2.6.8 AI Presenter Orchestrator;
+// never mutated after creation (services/intelligence/audit/audit-trace
+// .service.ts enforces create-only - no update method exists). userId is
+// denormalized and indexed, not FK-constrained to User, matching
+// IntelligenceAnalysisRun's own established convention above. No
+// deletedAt - historical immutability means a later re-analysis creates
+// a NEW row, it never soft-deletes or rewrites this one.
+model IntelligenceAuditTrace {
+  id                       String   @id @default(cuid())
+  userId                   String
+  conversationId           String?
+  // Loose reference (like PersistedConversationContext.lastAnalysisRunId)
+  // - not a hard FK, so this trace survives independently of the
+  // analysis run's own lifecycle.
+  analysisRunId            String?
+  symbol                   String
+  timeframe                String
+  queryType                String
+  completeness             String
+  decisionState            String
+  generatedAt              DateTime
+  intelligenceEngineVersion String
+  pipelineVersion          String
+  // Real AuditMarketDataProvenance (provider/freshness/reliability/cross-
+  // provider-validation) - never secrets, never a raw provider payload.
+  marketData               Json
+  // Full, immutable copies of the real envelope/decision-context at
+  // analysis time - see types/intelligence-audit-trace.ts's header for
+  // why this pair, and only this pair, is stored in full.
+  envelopeSnapshot         Json
+  decisionContextSnapshot  Json
+  relevanceBasis           Json
+  missingContext           Json
+  // Real AuditPresenterTrace (provider attempts, safe integrity-
+  // violation-kind vocabulary only, fallbackUsed) - never raw provider
+  // error text, never an API key.
+  presenterTrace           Json
+  integrityResult          Json
+  claimTrace               Json
+  responseGeneratedAt      DateTime
+  createdAt                DateTime @default(now())
+  version                  String
+
+  @@index([userId])
+  @@index([conversationId])
+  @@index([analysisRunId])
+  @@index([createdAt])
+  @@map("intelligence_audit_traces")
+}
