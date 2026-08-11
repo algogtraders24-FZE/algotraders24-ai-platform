@@ -113,6 +113,11 @@ model Conversation {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   deletedAt     DateTime?
+  /// Sprint D2.6.7 - persisted PersistedConversationContext (types/conversation-context.ts).
+  /// Null for a conversation with no resolved market-intelligence turn yet.
+  /// Context only - symbol/timeframe/analysis-run pointers, never a market
+  /// fact itself (see that type's own header for the honesty boundary).
+  intelligenceContext Json?
 
   messages Message[]
 

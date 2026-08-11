@@ -232,7 +232,14 @@ export const POST = withContext(async (req, ctx) => {
   // an already-verified context object, and a deterministic validator
   // rejects any paraphrase that smuggles in an unsupported claim (falling
   // back to a fully deterministic, still-real response instead).
-  const intelligenceContext = await chatIntelligenceService.resolve({ requestId: ctx.requestId, userId, message: query });
+  //
+  // Sprint D2.6.7 - passing conversationId lets the D2.6.7 continuity
+  // layer load/save persisted conversation context (which instrument/
+  // timeframe was last discussed, which analysis run/hypothesis) so a
+  // genuine follow-up ("what are the risks?", "what would invalidate
+  // this?") resolves against the right context - never against stale
+  // market facts, since a fresh provider request always still runs.
+  const intelligenceContext = await chatIntelligenceService.resolve({ requestId: ctx.requestId, userId, message: query, conversationId });
 
   interface ChatIntelligenceMeta {
     resolved: boolean;
