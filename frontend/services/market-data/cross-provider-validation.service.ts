@@ -138,3 +138,42 @@ export function compareSnapshots(input: CompareSnapshotsInput): CrossProviderCon
 
   return conflicts;
 }
+
+// Sprint D2.6.5 - Real-Time Intelligence Context + Trader Chat Integration.
+// Additive only (new export, zero change to compareSnapshots' own
+// behavior/signature). RealTimeIntelligenceService's optional
+// cross-provider-validation step (sprint §4) needs one aggregate status,
+// not a per-field conflict list, to report back to a trader-facing caller
+// - this is a pure summarizer over compareSnapshots' real output, it never
+// re-derives or re-judges anything itself.
+export type CrossProviderConflictSummaryStatus = "consistent" | "unresolved-conflict" | "stale" | "insufficient-data";
+
+export interface CrossProviderConflictSummary {
+  status: CrossProviderConflictSummaryStatus;
+  basis: string[];
+}
+
+/**
+ * Pure, deterministic. Precedence - a single unresolved-conflict field
+ * outweighs everything else (never hidden behind an otherwise-consistent
+ * majority); stale-provider next (the disagreement may just be staleness,
+ * not real disagreement, but is still not full confirmation); otherwise
+ * "consistent" only when every compared field was a real agreement.
+ * "insufficient-data" only when there was nothing to compare at all - see
+ * compareSnapshots' own "a field present on only one snapshot is never
+ * compared" rule.
+ */
+export function summarizeConflicts(conflicts: readonly CrossProviderConflict[]): CrossProviderConflictSummary {
+  if (conflicts.length === 0) {
+    return { status: "insufficient-data", basis: ["No comparable fields were found between the two snapshots"] };
+  }
+  const unresolved = conflicts.filter((c) => c.status === "unresolved-conflict");
+  if (unresolved.length > 0) {
+    return { status: "unresolved-conflict", basis: unresolved.flatMap((c) => c.basis) };
+  }
+  const stale = conflicts.filter((c) => c.status === "stale-provider");
+  if (stale.length > 0) {
+    return { status: "stale", basis: stale.flatMap((c) => c.basis) };
+  }
+  return { status: "consistent", basis: ["Every compared field was within the documented acceptable-difference tolerance, or an exact match"] };
+}

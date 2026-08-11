@@ -69,7 +69,12 @@ const TIMEFRAME_MS: Record<SignalTimeframe, number> = {
   "1w": 7 * 24 * 60 * 60_000,
 };
 
-const PROVIDER_INTERVAL: Record<SignalTimeframe, string> = {
+// Sprint D2.6.5 - exported (additive, zero behavior change) so
+// RealTimeIntelligenceService (services/intelligence/orchestration/
+// real-time-intelligence.service.ts) can reuse this exact SignalTimeframe
+// -> provider-interval mapping rather than maintaining a second copy that
+// could silently drift from this one.
+export const PROVIDER_INTERVAL: Record<SignalTimeframe, string> = {
   "1m": "1min",
   "5m": "5min",
   "15m": "15min",

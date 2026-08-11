@@ -27,9 +27,17 @@
 // 2. Sources: relevant hits' real document titles are now looked up and
 //    returned in the final event (not just sourcesCount), so the UI has
 //    something real to show in a Sources panel.
-// Zero new imports from any Sprint 15D file - this route's decoupling from
-// the Market Intelligence pipeline (asserted by every 15D validation
-// script) is unchanged.
+// Zero direct imports from any individual Sprint 15D internal analysis
+// stage - asserted by every 15D validation script - is unchanged.
+//
+// Sprint D2.6.5 - Real-Time Intelligence Context + Trader Chat
+// Integration. This route now delegates to the D2.6.5 chat-context layer
+// (services/intelligence/chat/*) for questions that resolve to a real,
+// known instrument - never guessed, never entered for an ordinary
+// support/knowledge-base question. That layer is the ONLY new coupling
+// point: this file never imports a 15D/D2.5 internal engine directly, it
+// only calls the already-composed orchestrator and presenter/validator
+// boundary - see docs/architecture/D2.6.5-realtime-intelligence-spec.md.
 import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import { withContext } from "@/services/backend/Middleware";
@@ -45,6 +53,10 @@ import { prisma } from "@/lib/prisma";
 import type { Message } from "@/types/message";
 import { EntityNotFoundError, RepositoryError } from "@/types/repository";
 import { analyticsEventService } from "@/services/analytics/AnalyticsEventService";
+import { IntelligenceChatContextService } from "@/services/intelligence/chat/intelligence-chat-context.service";
+import { GeminiIntelligencePresenter } from "@/services/intelligence/chat/gemini-intelligence-presenter.service";
+import { DeterministicSafeFallbackPresenter } from "@/services/intelligence/chat/deterministic-safe-fallback-presenter.service";
+import { presentSafely } from "@/services/intelligence/chat/ai-response-integrity.service";
 
 const RAG_TOP_K = 5;
 const MIN_SIMILARITY = 0.3; // ignore weak matches
@@ -56,6 +68,9 @@ const RAG_SYSTEM_INSTRUCTIONS =
   "answer from general knowledge.";
 
 const messageService = new ConversationMessageService();
+const chatIntelligenceService = new IntelligenceChatContextService();
+const geminiIntelligencePresenter = new GeminiIntelligencePresenter();
+const deterministicFallbackPresenter = new DeterministicSafeFallbackPresenter();
 
 // Gemini's chat format has no "system" turn in `contents`; Context Manager
 // system-role output is passed separately via config.systemInstruction
@@ -207,6 +222,91 @@ export const POST = withContext(async (req, ctx) => {
 
   const currentMessage = history[history.length - 1];
   const recentMessages = history.slice(0, -1);
+
+  // --- Sprint D2.6.5 - Real-Time Intelligence Context + Trader Chat
+  // Integration. Gated deterministically by the D2.6.5 chat-context layer
+  // itself: only entered when a real, known instrument actually resolves
+  // from this question - an ordinary support/knowledge-base question falls
+  // straight through to the unchanged RAG/Gemini flow below. When entered,
+  // the LLM never becomes the source of market facts - it only paraphrases
+  // an already-verified context object, and a deterministic validator
+  // rejects any paraphrase that smuggles in an unsupported claim (falling
+  // back to a fully deterministic, still-real response instead).
+  const intelligenceContext = await chatIntelligenceService.resolve({ requestId: ctx.requestId, userId, message: query });
+
+  interface ChatIntelligenceMeta {
+    resolved: boolean;
+    symbol?: string;
+    timeframe?: string;
+    presentedBy?: string;
+    responseIntegrityStatus?: string;
+    dataFreshness?: string;
+    reason?: string;
+  }
+
+  let intelligenceAnswer: string | undefined;
+  let intelligenceMeta: ChatIntelligenceMeta | undefined;
+
+  if (intelligenceContext.status === "resolved" && intelligenceContext.envelope) {
+    const presented = await presentSafely({
+      envelope: intelligenceContext.envelope,
+      userQuestion: query,
+      presenter: geminiIntelligencePresenter,
+      fallback: deterministicFallbackPresenter,
+    });
+    intelligenceAnswer = presented.result.text;
+    intelligenceMeta = {
+      resolved: true,
+      symbol: intelligenceContext.envelope.symbol,
+      timeframe: intelligenceContext.envelope.timeframe,
+      presentedBy: presented.result.presentedBy,
+      responseIntegrityStatus: presented.usedFallback ? "failed-fallback-used" : "passed",
+      dataFreshness: intelligenceContext.dataQuality?.state ?? "unknown",
+    };
+  } else if (intelligenceContext.status === "insufficient-data") {
+    intelligenceAnswer =
+      "I attempted to retrieve verified, real-time market data for this question but could not confirm it right now (the data source may be temporarily unavailable). Please try again shortly.";
+    intelligenceMeta = { resolved: false, reason: "insufficient-data", dataFreshness: intelligenceContext.dataQuality?.state ?? "unavailable" };
+  } else if (intelligenceContext.status === "clarification-required" && intelligenceContext.clarification?.reason === "ambiguous-symbol") {
+    intelligenceAnswer = intelligenceContext.clarification.message;
+    intelligenceMeta = { resolved: false, reason: "ambiguous-symbol" };
+  }
+  // Any other outcome (no real instrument resolved at all - the ordinary
+  // case for non-market questions) leaves intelligenceAnswer undefined and
+  // falls straight through to the existing knowledge-base/general chat
+  // flow below, completely unchanged.
+
+  if (intelligenceAnswer !== undefined) {
+    const finalAnswer = intelligenceAnswer;
+    try {
+      await messageService.addAssistantMessage(conversationId, userId, finalAnswer);
+    } catch {
+      // Non-fatal - matches every other assistant-message persistence in this route.
+    }
+    await analyticsEventService.record(userId, "ai_chat").catch(() => {});
+
+    if (!wantsStream) {
+      return ApiResponse.success(
+        { content: finalAnswer, ragApplied: false, sourcesCount: 0, sources: [], conversationId, intelligence: intelligenceMeta },
+        ctx.requestId,
+        200,
+        ctx.startedAt,
+      );
+    }
+
+    const intelligenceStreamBody = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(ndjson({ type: "stage", stage: "generating" }));
+        controller.enqueue(ndjson({ type: "token", text: finalAnswer }));
+        controller.enqueue(ndjson({ type: "done", conversationId, ragApplied: false, sources: [], intelligence: intelligenceMeta }));
+        controller.close();
+      },
+    });
+    return new NextResponse(intelligenceStreamBody, {
+      status: 200,
+      headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-cache", "X-Request-Id": ctx.requestId },
+    });
+  }
 
   // --- RAG retrieval (scoped to this user) - unchanged from Sprint 15C.1 ---
   let contextBlock = "";
