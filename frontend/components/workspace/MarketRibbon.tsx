@@ -11,6 +11,8 @@
 import { useEffect, useState } from "react";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import Skeleton from "@/components/ui/Skeleton";
+import { formatPrice, formatPercent } from "@/lib/financial-format";
+import { FIN_PRIMARY, FIN_SECONDARY, financialDirectionClass, directionFromChange } from "@/components/ui/financial-typography";
 
 interface RibbonItem {
   symbol: string;
@@ -94,7 +96,7 @@ export default function MarketRibbon() {
         {ITEMS.map((item) => {
           const snap = data[item.symbol];
           const isActive = item.symbol === active;
-          const up = (snap?.changePercent ?? 0) >= 0;
+          const direction = directionFromChange(snap?.changePercent);
           return (
             <button
               key={item.symbol}
@@ -113,14 +115,9 @@ export default function MarketRibbon() {
                 <Skeleton className="h-3.5 w-14" />
               ) : snap?.ok && snap.price !== undefined ? (
                 <span className="flex items-baseline gap-1.5">
-                  <span className="font-mono text-sm text-text">
-                    {snap.price.toLocaleString(undefined, { maximumFractionDigits: 5 })}
-                  </span>
+                  <span className={`${FIN_PRIMARY} text-sm`}>{formatPrice(snap.price, { maxDecimals: 5 })}</span>
                   {snap.changePercent !== undefined && (
-                    <span className={`font-mono text-xs ${up ? "text-signal-up" : "text-signal-down"}`}>
-                      {up ? "+" : ""}
-                      {snap.changePercent.toFixed(2)}%
-                    </span>
+                    <span className={`${FIN_SECONDARY} text-xs ${financialDirectionClass(direction)}`}>{formatPercent(snap.changePercent)}</span>
                   )}
                 </span>
               ) : (

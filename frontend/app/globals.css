@@ -103,6 +103,26 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-urbanist), var(--font-geist-sans), system-ui, sans-serif;
 }
 
+/* Sprint D2.7.1 - AT24 Financial Typography & Rendering Foundation. The
+   numeric-rendering contract for every financial value in the Workspace
+   (components/ui/financial-typography.ts's FIN_* constants apply this
+   class, never hand-rolled per component). tabular-nums keeps digit
+   widths fixed so a changing price never shifts its neighbors; the
+   OpenType "tnum" feature is the same instruction at the font-engine
+   level, for any future non-monospace numeric context (the native chart
+   engine's axis/tooltip labels - see types/chart-typography-contract.ts)
+   where Tailwind's own tabular-nums utility alone wouldn't be enough.
+   Deliberately does NOT set -webkit-font-smoothing: antialiased - the
+   sprint's own investigation (docs/architecture/D2.7.1-financial-
+   typography-spec.md §6) found no verifiable crispness gain from it on
+   this project's already-modern Geist Mono/mono-variable font stack, and
+   it can make text read thinner rather than clearer - never adopted on
+   the strength of assumption alone. */
+.fin-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
 /* Approved glass-surface recipe (H1.2A): nav bar and one dashboard overlay
    panel type only - never a standard content card. Plain CSS class rather
    than a Tailwind @utility, so it needs no v4-specific at-rule support. */

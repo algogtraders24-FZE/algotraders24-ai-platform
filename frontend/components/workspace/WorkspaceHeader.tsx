@@ -12,6 +12,7 @@ import Badge from "@/components/ui/Badge";
 import Skeleton from "@/components/ui/Skeleton";
 import StatField from "@/components/workspace/StatField";
 import type { MarketSnapshot } from "@/types/market-snapshot";
+import { formatPrice } from "@/lib/financial-format";
 
 const PROVIDER_LABELS: Record<string, string> = {
   "twelve-data": "TwelveData",
@@ -95,7 +96,13 @@ export default function WorkspaceHeader() {
       )}
 
       <StatField bare label="Price">
-        {snapshot ? `${snapshot.price.toLocaleString(undefined, { maximumFractionDigits: 5 })} ${snapshot.quoteCurrency}` : "—"}
+        {snapshot ? (
+          <span className="fin-num">
+            {formatPrice(snapshot.price, { maxDecimals: 5 })} {snapshot.quoteCurrency}
+          </span>
+        ) : (
+          "—"
+        )}
       </StatField>
       <StatField bare label="Provider">{snapshot ? (PROVIDER_LABELS[snapshot.provider] ?? snapshot.provider) : "—"}</StatField>
       <StatField bare label="Updated">{snapshot ? utcTime(snapshot.timestamp) : "—"}</StatField>

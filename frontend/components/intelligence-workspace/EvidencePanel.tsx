@@ -7,6 +7,7 @@
 // shown honestly - never folded into a fake single "overall" verdict.
 import type { EvidenceItem, EvidenceConflict } from "@/types/evidence";
 import { formatLabel } from "./format";
+import { FIN_TERTIARY } from "@/components/ui/financial-typography";
 
 function EvidenceColumn({ title, items, tone }: { title: string; items: EvidenceItem[]; tone: "up" | "down" }) {
   const border = tone === "up" ? "border-signal-up" : "border-signal-down";
@@ -21,7 +22,7 @@ function EvidenceColumn({ title, items, tone }: { title: string; items: Evidence
           {items.map((item) => (
             <li key={`${item.type}-${item.claim}`} className="text-sm leading-6 text-text-2">
               {item.claim}
-              <span className="ml-1.5 font-mono text-[11px] text-text-3">
+              <span className={`ml-1.5 ${FIN_TERTIARY} text-[11px]`}>
                 — {formatLabel(item.type)} · {item.source}
               </span>
             </li>

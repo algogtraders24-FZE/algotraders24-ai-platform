@@ -9,6 +9,7 @@
 // entirely when hypotheses.length === 0, never show an empty shell.
 import type { DecisionHypothesisContext, DecisionInvalidationItem } from "@/types/intelligence-decision-context";
 import { formatLabel } from "./format";
+import { formatQuantity } from "@/lib/financial-format";
 
 function HypothesisCard({ hypothesis, invalidation }: { hypothesis: DecisionHypothesisContext; invalidation?: DecisionInvalidationItem }) {
   return (
@@ -20,7 +21,7 @@ function HypothesisCard({ hypothesis, invalidation }: { hypothesis: DecisionHypo
         <div>
           <dt className="uppercase tracking-wider text-text-3">Prediction Window</dt>
           <dd className="mt-0.5 text-text-2">
-            {hypothesis.predictionWindow.candles} candles ({hypothesis.predictionWindow.timeframe})
+            <span className="fin-num font-mono">{formatQuantity(hypothesis.predictionWindow.candles)}</span> candles ({hypothesis.predictionWindow.timeframe})
           </dd>
         </div>
         <div>

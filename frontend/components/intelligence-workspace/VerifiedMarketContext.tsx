@@ -10,6 +10,8 @@ import type { VerifiedAnswerResponse } from "@/types/verified-answer-response";
 import Badge from "@/components/ui/Badge";
 import InfoTooltip from "@/components/ui/InfoTooltip";
 import { formatLabel, DATA_STATUS_TONE, regimeTone } from "./format";
+import { formatScore } from "@/lib/financial-format";
+import { FIN_PRIMARY } from "@/components/ui/financial-typography";
 
 export default function VerifiedMarketContext({ result }: { result: VerifiedAnswerResponse }) {
   const { marketContext, dataStatus, provider, fallbackUsed, intelligenceScore } = result;
@@ -54,9 +56,7 @@ export default function VerifiedMarketContext({ result }: { result: VerifiedAnsw
             text="A quality/completeness score for the available intelligence - NOT a probability of profit or trade success."
           />
         </span>
-        <span className="font-mono text-sm font-semibold text-gold">
-          {intelligenceScore.overallScore !== undefined ? `${intelligenceScore.overallScore}/100` : "Unavailable"}
-        </span>
+        <span className={`${FIN_PRIMARY} text-sm font-semibold text-gold`}>{formatScore(intelligenceScore.overallScore)}</span>
       </div>
     </div>
   );

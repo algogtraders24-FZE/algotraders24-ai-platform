@@ -8,6 +8,8 @@
 import { useState } from "react";
 import type { IntelligenceScore, IntelligenceScoreComponentKey } from "@/types/intelligence-score";
 import InfoTooltip from "@/components/ui/InfoTooltip";
+import { formatScore } from "@/lib/financial-format";
+import { FIN_PRIMARY } from "@/components/ui/financial-typography";
 
 const COMPONENT_LABELS: Record<IntelligenceScoreComponentKey, string> = {
   dataQuality: "Data Quality",
@@ -34,9 +36,7 @@ export default function IntelligenceScorePanel({ score }: { score: IntelligenceS
             text="This is an intelligence quality score, NOT a probability of profit or trade success. It measures how complete, consistent, and well-supported the available evidence is."
           />
         </p>
-        <span className="font-mono text-lg font-semibold text-gold">
-          {score.overallScore !== undefined ? `${score.overallScore}/100` : "Unavailable"}
-        </span>
+        <span className={`${FIN_PRIMARY} text-lg font-semibold text-gold`}>{formatScore(score.overallScore)}</span>
       </div>
 
       <button
@@ -54,9 +54,7 @@ export default function IntelligenceScorePanel({ score }: { score: IntelligenceS
             <div key={key} className="rounded-control border border-border bg-ink px-3 py-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-text-2">{COMPONENT_LABELS[key]}</span>
-                <span className="font-mono text-xs text-text">
-                  {component.dataAvailable ? `${component.score}/100` : "Unavailable"}
-                </span>
+                <span className="fin-num font-mono text-xs text-text">{component.dataAvailable ? formatScore(component.score) : "Unavailable"}</span>
               </div>
               {component.basis[0] && <p className="mt-1 text-[11px] leading-4 text-text-3">{component.basis[0]}</p>}
             </div>

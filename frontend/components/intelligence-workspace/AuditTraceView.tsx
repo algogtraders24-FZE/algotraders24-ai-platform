@@ -12,6 +12,8 @@ import { useEffect, useState } from "react";
 import type { IntelligenceAuditTrace } from "@/types/intelligence-audit-trace";
 import Badge from "@/components/ui/Badge";
 import { formatLabel, formatTimestamp } from "./format";
+import { formatDuration, formatScore } from "@/lib/financial-format";
+import { FIN_TERTIARY } from "@/components/ui/financial-typography";
 
 type LoadState =
   | { status: "loading" }
@@ -92,7 +94,7 @@ export default function AuditTraceView({ traceId }: { traceId: string }) {
             <li key={`${attempt.provider}-${attempt.timestamp}-${idx}`} className="flex items-center gap-2 text-xs text-text-2">
               <span className="w-20 shrink-0 text-text-3">{formatLabel(attempt.provider)}</span>
               <Badge tone={attempt.success ? "success" : "neutral"}>{attempt.attempted ? (attempt.success ? "Succeeded" : formatLabel(attempt.failureCategory ?? "failed")) : "Unavailable"}</Badge>
-              {attempt.latencyMs !== undefined && <span className="font-mono text-text-3">{attempt.latencyMs}ms</span>}
+              {attempt.latencyMs !== undefined && <span className={FIN_TERTIARY}>{formatDuration(attempt.latencyMs)}</span>}
             </li>
           ))}
         </ul>
@@ -109,7 +111,7 @@ export default function AuditTraceView({ traceId }: { traceId: string }) {
         <p className="text-[11px] uppercase tracking-wider text-text-3">Intelligence Snapshot</p>
         <p className="mt-1 text-xs text-text-2">
           Decision state: {formatLabel(trace.decisionState)} · Intelligence Score:{" "}
-          {trace.envelope.intelligenceScore.overallScore !== undefined ? `${trace.envelope.intelligenceScore.overallScore}/100` : "Unavailable"}
+          {formatScore(trace.envelope.intelligenceScore.overallScore)}
         </p>
       </div>
 

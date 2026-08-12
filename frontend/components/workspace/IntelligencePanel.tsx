@@ -23,6 +23,8 @@ import StatField from "@/components/workspace/StatField";
 import type { IntelligencePanelData, MarketStatusLabel, RiskBand } from "@/types/intelligence-panel";
 import type { ConfidenceBand } from "@/types/technical-context";
 import { LIQUIDITY_DEFINITION } from "@/data/educational-terms";
+import { formatPercent } from "@/lib/financial-format";
+import { FIN_PRIMARY } from "@/components/ui/financial-typography";
 
 type LoadState = "loading" | "ready" | "unavailable" | "error";
 
@@ -189,7 +191,7 @@ export default function IntelligencePanel() {
         </StatField>
         <StatField label="AI Confidence">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-lg text-text">{data.confidence.percent}%</span>
+            <span className={`${FIN_PRIMARY} text-lg`}>{formatPercent(data.confidence.percent, { signed: false })}</span>
             <Badge tone={CONFIDENCE_TONE[data.confidence.band]}>{CONFIDENCE_LABEL[data.confidence.band]}</Badge>
           </div>
           {/* Sprint D2.3.S4 - describes what the analysis considered (analysis certainty), never a probability the trade will succeed. */}

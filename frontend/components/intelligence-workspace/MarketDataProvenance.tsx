@@ -10,6 +10,7 @@
 import type { VerifiedAnswerResponse } from "@/types/verified-answer-response";
 import Badge from "@/components/ui/Badge";
 import { formatLabel, DATA_STATUS_TONE } from "./format";
+import { FIN_LABEL } from "@/components/ui/financial-typography";
 
 export default function MarketDataProvenance({ result }: { result: VerifiedAnswerResponse }) {
   const { provider, dataStatus, fallbackUsed } = result;
@@ -19,17 +20,17 @@ export default function MarketDataProvenance({ result }: { result: VerifiedAnswe
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold">Data Source</p>
       <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
         <div>
-          <dt className="text-[10px] uppercase tracking-wider text-text-3">Provider</dt>
+          <dt className={FIN_LABEL}>Provider</dt>
           <dd className="mt-0.5 text-text-2">{provider ? formatLabel(provider) : "Unavailable"}</dd>
         </div>
         <div>
-          <dt className="text-[10px] uppercase tracking-wider text-text-3">Status</dt>
+          <dt className={FIN_LABEL}>Status</dt>
           <dd className="mt-0.5">
             <Badge tone={DATA_STATUS_TONE[dataStatus]}>{formatLabel(dataStatus)}</Badge>
           </dd>
         </div>
         <div>
-          <dt className="text-[10px] uppercase tracking-wider text-text-3">Fallback</dt>
+          <dt className={FIN_LABEL}>Fallback</dt>
           <dd className="mt-0.5 text-text-2">{fallbackUsed ? "Used" : "Not used"}</dd>
         </div>
       </dl>
