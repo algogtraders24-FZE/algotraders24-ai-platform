@@ -4,11 +4,19 @@
 // Sprint D2.3 - the Intelligence Workspace. A new, dedicated route (existing
 // module pages are untouched). Final layout order:
 //   Market Ribbon (P4) → Workspace Header → TradingView Chart (P5) →
-//   AI Intelligence (P6, the CENTER) → Assistant → Research (D2.4).
+//   AI Intelligence (P6, the CENTER) → Assistant → Research.
 // Positioning is enforced structurally: the AI Intelligence panel carries the
 // `emphasis` treatment; the chart is a supporting panel above it, never the
 // headline. The Global Symbol Selector drives every panel through
 // WorkspaceContext.
+//
+// Sprint D2.6.11 - the AI Assistant and Research sections previously
+// rendered the stale D2.3/D2.4 "arrives later" placeholders (WorkspaceSection
+// `pending` text) - both are now wired to real, already-verified
+// intelligence: WorkspaceAssistant reuses the D2.6.5-D2.6.10 chat-facing
+// pipeline scoped to the active symbol, WorkspaceResearch reuses the same
+// VerifiedAnswerResponse/VerifiedAIAnswerCard contract as a read-only
+// snapshot. No production sprint-number text remains in this page.
 import { WorkspaceProvider } from "@/context/WorkspaceContext";
 import GlobalSymbolSelector from "@/components/workspace/GlobalSymbolSelector";
 import ProviderStatus from "@/components/workspace/ProviderStatus";
@@ -19,6 +27,8 @@ import AdvancedChart from "@/components/workspace/tradingview/AdvancedChart";
 import IntelligencePanel from "@/components/workspace/IntelligencePanel";
 import ProfileSwitcher from "@/components/workspace/ProfileSwitcher";
 import FavoriteMarkets from "@/components/workspace/FavoriteMarkets";
+import WorkspaceAssistant from "@/components/workspace/WorkspaceAssistant";
+import WorkspaceResearch from "@/components/workspace/WorkspaceResearch";
 
 export default function WorkspacePage() {
   return (
@@ -74,22 +84,12 @@ export default function WorkspacePage() {
 
         {/* Assistant + Research */}
         <div className="grid gap-4 lg:grid-cols-2">
-          <WorkspaceSection
-            id="assistant"
-            collapsible
-            title="AI Assistant"
-            subtitle="Ask about the active symbol"
-            minHeight={160}
-            pending="Embedded assistant arrives later in D2.3."
-          />
-          <WorkspaceSection
-            id="research"
-            collapsible
-            title="Research"
-            subtitle="Multi-symbol & saved analyses"
-            minHeight={160}
-            pending="Research workspace arrives in D2.4."
-          />
+          <WorkspaceSection id="assistant" collapsible title="AI Assistant" subtitle="Ask about the active symbol" minHeight={160}>
+            <WorkspaceAssistant />
+          </WorkspaceSection>
+          <WorkspaceSection id="research" collapsible title="Research" subtitle="Current market state & intelligence for the active symbol" minHeight={160}>
+            <WorkspaceResearch />
+          </WorkspaceSection>
         </div>
       </div>
     </WorkspaceProvider>

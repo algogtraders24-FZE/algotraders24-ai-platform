@@ -19,8 +19,15 @@ interface RibbonItem {
 }
 
 // Requested set (Phase 4). Crypto is served as USD (the platform's Twelve Data
-// mapping), shown here with the familiar pairing; NIFTY/BANKNIFTY have no
-// provider mapping yet and are honestly marked pending.
+// mapping), shown here with the familiar pairing.
+//
+// Sprint D2.6.11 - NIFTY/BANKNIFTY flip to live: this ribbon was its own
+// separate, stale symbol list (the exact "UI-only symbol object" class of
+// bug this sprint's audit was told to look for) - it used the wrong id
+// ("NIFTY" instead of the real catalog/registry id "NIFTY50") and marked
+// both pending from before D2.6.6 added real, live-verified Angel One
+// coverage for them. market-registry.ts (the single source of truth
+// isEnabledMarket() checks) has listed both enabled: true since D2.6.6.
 const ITEMS: RibbonItem[] = [
   { symbol: "EURUSD", label: "EUR/USD", live: true },
   { symbol: "GBPUSD", label: "GBP/USD", live: true },
@@ -29,8 +36,8 @@ const ITEMS: RibbonItem[] = [
   { symbol: "XAGUSD", label: "Silver", live: true },
   { symbol: "BTCUSD", label: "BTC/USD", live: true },
   { symbol: "ETHUSD", label: "ETH/USD", live: true },
-  { symbol: "NIFTY", label: "NIFTY", live: false },
-  { symbol: "BANKNIFTY", label: "BANK NIFTY", live: false },
+  { symbol: "NIFTY50", label: "NIFTY 50", live: true },
+  { symbol: "BANKNIFTY", label: "BANK NIFTY", live: true },
 ];
 
 interface Snap {

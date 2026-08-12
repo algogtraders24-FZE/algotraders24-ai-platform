@@ -141,6 +141,7 @@ export const POST = withContext(async (req, ctx) => {
     useSearch?: unknown;
     conversationId?: unknown;
     stream?: unknown;
+    symbol?: unknown;
   } | null;
 
   // Sprint L2.4 - opt-in only. Default (stream !== true) reproduces the
@@ -178,6 +179,17 @@ export const POST = withContext(async (req, ctx) => {
     typeof body?.conversationId === "string" && body.conversationId.trim().length > 0
       ? body.conversationId
       : undefined;
+
+  // Sprint D2.6.11 - optional, explicit "active instrument" bias for a
+  // caller that already knows which symbol the trader is looking at (e.g.
+  // the Workspace's AI Assistant panel, scoped to WorkspaceContext.symbol)
+  // rather than relying solely on the question text mentioning one.
+  // Resolution priority is unchanged from D2.6.2/D2.6.5: a symbol
+  // mentioned explicitly in the question text still wins over this value
+  // (services/intelligence/query/intelligence-query.service.ts's
+  // resolveSymbol()) - this can bias, never force, which instrument a
+  // question resolves against.
+  const requestedSymbol = typeof body?.symbol === "string" && body.symbol.trim().length > 0 ? body.symbol.trim() : undefined;
 
   // --- Conversation identity (Sprint 15C.4) ---
   let conversationId: string;
@@ -256,7 +268,7 @@ export const POST = withContext(async (req, ctx) => {
   // Sprint D2.6.9 - the single call below now also writes a real,
   // immutable audit/provenance record for a resolved, presented answer
   // (best-effort - a write failure never breaks the response below).
-  const { context: intelligenceContext, presented, verifiedAnswer } = await intelligencePresentationService.present({ requestId: ctx.requestId, userId, message: query, conversationId });
+  const { context: intelligenceContext, presented, verifiedAnswer } = await intelligencePresentationService.present({ requestId: ctx.requestId, userId, message: query, conversationId, symbol: requestedSymbol });
 
   // Sprint D2.6.10 - Trader Intelligence Workspace & Verified Answer
   // Experience. `verifiedAnswer` (when present) IS the stable

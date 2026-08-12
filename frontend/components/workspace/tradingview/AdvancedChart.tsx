@@ -21,30 +21,43 @@
 // PROFILE_INTERVAL in types/workspace-preferences.ts). This is a TradingView
 // widget-config value only - it is never sent to the AI Intelligence
 // pipeline, which has no timeframe parameter to personalize.
+//
+// Sprint D2.6.11 - Universal Instrument Workspace, Dynamic Chart Resolution
+// & Live Workspace Integration. The chart's own local 7-entry symbol map
+// (with a silent EUR/USD fallback for anything else) was the root cause of
+// "a searched/selected symbol appears active but the chart doesn't render
+// it" - it silently substituted a different instrument's chart instead of
+// erroring. Replaced with lib/market-data/chart-instrument-resolver.ts, the
+// ONE deterministic mapping layer covering every canonical instrument. An
+// unsupported instrument now renders an explicit, honest state instead of a
+// wrong chart. The `key` below still forces a full TradingViewWidget
+// remount on every symbol/interval change (React reconciliation, not a
+// timeout) - now driven by the resolved chart symbol so it's correct for
+// every instrument, not just the previous 7.
 import { useWorkspace } from "@/context/WorkspaceContext";
+import { resolveChartInstrument } from "@/lib/market-data/chart-instrument-resolver";
 import TradingViewWidget from "./TradingViewWidget";
 
 const ADVANCED_CHART_SRC = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
 const CHART_HEIGHT = "h-[320px] sm:h-[420px] lg:h-[500px]";
 const CHART_RESERVE_HEIGHT = "h-[348px] sm:h-[448px] lg:h-[528px]";
 
-// Canonical platform symbol -> TradingView symbol. Only the enabled markets are
-// mapped; an unmapped symbol falls back to EUR/USD rather than rendering a
-// broken chart.
-const TV_SYMBOL: Record<string, string> = {
-  EURUSD: "FX:EURUSD",
-  GBPUSD: "FX:GBPUSD",
-  USDJPY: "FX:USDJPY",
-  XAUUSD: "OANDA:XAUUSD",
-  XAGUSD: "OANDA:XAGUSD",
-  BTCUSD: "COINBASE:BTCUSD",
-  ETHUSD: "COINBASE:ETHUSD",
-};
-
 export default function AdvancedChart() {
   const { symbol, chartInterval } = useWorkspace();
-  const tvSymbol = TV_SYMBOL[symbol] ?? "FX:EURUSD";
+  const resolution = resolveChartInstrument(symbol);
 
+  if (!resolution.supported || !resolution.chartSymbol) {
+    return (
+      <div
+        className={`flex w-full flex-col items-center justify-center gap-1.5 rounded-panel border border-border bg-ink-2 px-4 text-center ${CHART_RESERVE_HEIGHT}`}
+      >
+        <p className="text-sm text-text-2">Chart visualization is unavailable for {resolution.displaySymbol}.</p>
+        {resolution.reason && <p className="text-xs text-text-3">{resolution.reason}</p>}
+      </div>
+    );
+  }
+
+  const tvSymbol = resolution.chartSymbol;
   const config = {
     autosize: true,
     symbol: tvSymbol,
