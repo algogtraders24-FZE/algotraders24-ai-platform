@@ -69,6 +69,7 @@ export function renderChart(params: RenderParams): void {
   drawCandles(ctx, candles, viewport, plotWidth, priceRow, colors);
   drawOverlays(ctx, indicatorSeries, viewport, plotWidth, priceRow);
   drawPriceAxis(ctx, priceTicks, viewport, plotWidth, priceRow, colors);
+  drawLatestPriceMarker(ctx, candles, viewport, plotWidth, priceRow, colors, priceTicks);
 
   for (const row of layout) {
     if (row.id === "price") continue;
@@ -138,6 +139,46 @@ function drawPriceAxis(ctx: CanvasRenderingContext2D, ticks: PriceAxisTick[], vi
     const y = row.top + priceToY(tick.price, viewport, row.height);
     ctx.fillText(tick.price.toFixed(tick.decimals), plotWidth + 6, y);
   }
+}
+
+// Sprint D2.7.4, Phase 9 - a professional-charting-platform staple, added
+// only after correctness verification confirmed the underlying data (the
+// last real candle's close) is trustworthy. A horizontal dashed line at
+// the latest close, colored gold (AT24's brand accent, distinct from the
+// grid/candle/indicator colors) with its real price value in the axis
+// gutter - never a second price source, always the exact same candles[]
+// the chart itself already renders.
+function drawLatestPriceMarker(
+  ctx: CanvasRenderingContext2D,
+  candles: ChartCandle[],
+  viewport: Viewport,
+  plotWidth: number,
+  row: PanelRow,
+  colors: ChartColors,
+  priceTicks: PriceAxisTick[],
+): void {
+  const latest = candles[candles.length - 1];
+  if (!latest) return;
+  const y = row.top + priceToY(latest.close, viewport, row.height);
+  if (y < row.top - 1 || y > row.top + row.height + 1) return; // off-panel (zoomed/panned away) - never draw a marker outside its own panel
+
+  ctx.strokeStyle = colors.gold;
+  ctx.setLineDash([4, 3]);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, y);
+  ctx.lineTo(plotWidth, y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  const decimals = priceTicks[0]?.decimals ?? 2;
+  ctx.fillStyle = colors.gold;
+  ctx.fillRect(plotWidth, y - 7, 58, 14);
+  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  ctx.fillStyle = colors.background;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(latest.close.toFixed(decimals), plotWidth + 4, y);
 }
 
 function drawTimeAxis(

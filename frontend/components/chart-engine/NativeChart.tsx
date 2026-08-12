@@ -34,7 +34,7 @@
 // real value at the hovered candle - never interpolated.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useWorkspace } from "@/context/WorkspaceContext";
-import { formatPrice, formatTimestamp, formatCompactVolume } from "@/lib/financial-format";
+import { formatPrice, formatTimestamp, formatCompactVolume, formatDuration } from "@/lib/financial-format";
 import { FIN_LABEL, FIN_PRIMARY, FIN_SECONDARY, FIN_TERTIARY, financialDirectionClass } from "@/components/ui/financial-typography";
 import { resolveChartInstrument } from "@/lib/market-data/chart-instrument-resolver";
 import { resolveChartColors } from "@/lib/chart-engine/canvas-colors";
@@ -52,7 +52,7 @@ import {
 import { classifyCandle } from "@/lib/chart-engine/candle-classifier";
 import { computeIndicatorSeries, valueAtIndex } from "@/lib/chart-engine/indicators/compute";
 import { DEFAULT_INDICATOR_CONFIGS } from "@/lib/chart-engine/indicators/panel-registry";
-import type { ChartCandle } from "@/types/chart-data";
+import type { ChartCandle, ChartSeries } from "@/types/chart-data";
 import type { CrosshairState, Viewport } from "@/lib/chart-engine/types";
 import type { SignalTimeframe } from "@/types/signal";
 import type { ChartPanelId, IndicatorSeries } from "@/lib/chart-engine/indicators/types";
@@ -67,10 +67,27 @@ const BASE_PANEL_HEIGHT = 380;
 const SUB_PANEL_HEIGHT = 110;
 const PAN_KEY_STEP_CANDLES = 5;
 
-export default function NativeChart() {
+export interface NativeChartProps {
+  /**
+   * Sprint D2.7.4 - timeframe/indicator selection is now OWNED by ChartPanel
+   * (controlled props here), not local state. Fixes a real Phase 11 bug:
+   * NativeChart previously held this in its own useState, which React
+   * destroys whenever ChartPanel's native/tradingview ternary unmounts it -
+   * so switching to TradingView and back silently reset the timeframe to
+   * "1h" and cleared every active indicator, violating "switching provider
+   * must preserve timeframe". Lifting the state to the parent (which never
+   * unmounts on a provider toggle) fixes this with zero new registry/state
+   * duplication - ChartPanel is the one existing place both chart
+   * providers are already composed.
+   */
+  timeframe: SignalTimeframe;
+  onTimeframeChange: (timeframe: SignalTimeframe) => void;
+  activeIndicatorKeys: ReadonlySet<string>;
+  onToggleIndicator: (key: string) => void;
+}
+
+export default function NativeChart({ timeframe, onTimeframeChange, activeIndicatorKeys, onToggleIndicator }: NativeChartProps) {
   const { symbol } = useWorkspace();
-  const [timeframe, setTimeframe] = useState<SignalTimeframe>("1h");
-  const [activeIndicatorKeys, setActiveIndicatorKeys] = useState<Set<string>>(new Set());
   const [isLive, setIsLive] = useState(true);
   const resolution = resolveChartInstrument(symbol);
   const result = useChartCandles(symbol, timeframe);
@@ -82,7 +99,17 @@ export default function NativeChart() {
   const dragRef = useRef<{ startX: number; startViewport: Viewport } | null>(null);
   const dimsRef = useRef({ width: 0, height: 0 });
   const rafRef = useRef<number | null>(null);
-  const lastKeyRef = useRef<string>("");
+  // Sprint D2.7.4 - tracks the symbol|timeframe key we last FIT REAL data
+  // for (never the key we merely started loading). Fixes a real D2.7.3 bug:
+  // the loading-state render used to stamp lastKeyRef with the new key
+  // immediately, so when real candles arrived moments later for that same
+  // key, the effect incorrectly took the "follow latest" branch against the
+  // 1-hour fitToData([]) PLACEHOLDER viewport instead of genuinely fitting
+  // the real data - producing an initial view whose span was always
+  // exactly 1 hour regardless of the requested timeframe (e.g. a "1d"
+  // chart with 300 daily candles would show almost none of them). See
+  // docs/architecture/D2.7.4-native-chart-verification-ux-spec.md's bug log.
+  const fittedKeyRef = useRef<string>("");
 
   const [hoveredIndex, setHoveredIndex] = useState<number>(-1);
 
@@ -159,14 +186,33 @@ export default function NativeChart() {
   // every charting platform's convention); a background poll's new
   // candles only shift the viewport when the user was already at the
   // right edge - a manual pan-back is NEVER forcibly overridden.
+  //
+  // Sprint D2.7.4 - fixed to key the "have we fit real data yet" check on
+  // fittedKeyRef (only ever stamped once candles.length > 0), not on every
+  // render including the empty loading-state one. Never runs fitToData/
+  // followLatest against a 0-candle placeholder as if it were a real
+  // "previous viewport" to follow from.
   useEffect(() => {
     const key = `${symbol}|${timeframe}`;
-    const symbolOrTimeframeChanged = lastKeyRef.current !== key;
-    lastKeyRef.current = key;
+
+    if (candles.length === 0) {
+      // Nothing real to fit yet - show the honest empty/placeholder
+      // viewport, but deliberately do NOT stamp fittedKeyRef, so the next
+      // render with real data for this same key still gets a genuine fit
+      // instead of "following" this placeholder.
+      viewportRef.current = fitToData(candles);
+      crosshairRef.current = null;
+      setHoveredIndex(-1);
+      setIsLive(true);
+      draw();
+      return;
+    }
 
     const previousViewport = viewportRef.current;
-    if (symbolOrTimeframeChanged || !previousViewport || candles.length === 0) {
+    const alreadyFittedForThisKey = fittedKeyRef.current === key;
+    if (!alreadyFittedForThisKey || !previousViewport) {
       viewportRef.current = fitToData(candles);
+      fittedKeyRef.current = key;
       crosshairRef.current = null;
       setHoveredIndex(-1);
       setIsLive(true);
@@ -274,15 +320,6 @@ export default function NativeChart() {
     applyViewport(followLatest(viewport, candles));
   }
 
-  function toggleIndicator(key: string) {
-    setActiveIndicatorKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
-
   // Sprint D2.7.3, Phase 4 - keyboard navigation: left/right pan by a few
   // candles, +/- zoom centered on the current view's midpoint. Only active
   // while the canvas itself has focus (tabIndex below), so it never
@@ -351,9 +388,9 @@ export default function NativeChart() {
       <ChartToolbar
         displaySymbol={resolution.displaySymbol}
         timeframe={timeframe}
-        onTimeframeChange={setTimeframe}
+        onTimeframeChange={onTimeframeChange}
         activeIndicatorKeys={activeIndicatorKeys}
-        onToggleIndicator={toggleIndicator}
+        onToggleIndicator={onToggleIndicator}
         onFit={handleFit}
         onGoLive={handleGoLive}
         isLive={isLive}
@@ -407,8 +444,23 @@ export default function NativeChart() {
           {result.series.rejectedCount} candle{result.series.rejectedCount === 1 ? "" : "s"} were excluded for failing data-integrity checks.
         </p>
       )}
+      {result.series && <ProvenanceDisclosure series={result.series} />}
     </div>
   );
+}
+
+// Sprint D2.7.4, Phase 9 - the provenance/freshness disclosure target the
+// sprint brief names explicitly. Every value here is real, read straight
+// off the already-fetched ChartSeries (D2.7.3's provider/fallbackUsed/
+// cached/cacheAgeMs/freshness fields) - never a second data source, never
+// a guess when a field is genuinely absent.
+function ProvenanceDisclosure({ series }: { series: ChartSeries }) {
+  const parts: string[] = [];
+  if (series.provider) parts.push(series.provider + (series.fallbackUsed ? " (fallback)" : ""));
+  if (series.cached) parts.push(`cached ${formatDuration(series.cacheAgeMs ?? 0)} ago`);
+  if (series.freshness) parts.push(series.freshness);
+  if (parts.length === 0) return null;
+  return <p className={FIN_TERTIARY}>{parts.join(" · ")}</p>;
 }
 
 function OhlcField({ label, value }: { label: string; value: number }) {

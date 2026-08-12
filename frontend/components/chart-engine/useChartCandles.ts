@@ -47,10 +47,17 @@ export function useChartCandles(symbol: string, timeframe: SignalTimeframe, outp
 
   useEffect(() => {
     let cancelled = false;
+    let fetchInFlight = false;
     const controller = new AbortController();
     setResult({ status: "loading" });
 
     async function fetchOnce(isBackgroundPoll: boolean) {
+      // Sprint D2.7.4, Phase 8 - never let a slow response cause overlapping
+      // requests: if the previous fetch (initial or a prior poll tick)
+      // hasn't resolved yet, skip this poll tick entirely rather than
+      // stacking a second in-flight request on top of it.
+      if (isBackgroundPoll && fetchInFlight) return;
+      fetchInFlight = true;
       try {
         const params = new URLSearchParams({ symbol, timeframe, outputSize: String(outputSize) });
         const res = await fetch(`/api/private/market-data/candles?${params.toString()}`, { signal: controller.signal });
@@ -72,6 +79,8 @@ export function useChartCandles(symbol: string, timeframe: SignalTimeframe, outp
       } catch (err) {
         if (cancelled || (err instanceof DOMException && err.name === "AbortError")) return;
         if (!isBackgroundPoll) setResult({ status: "error", message: "Chart data is temporarily unavailable." });
+      } finally {
+        fetchInFlight = false;
       }
     }
 
