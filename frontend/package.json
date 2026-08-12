@@ -51,7 +51,8 @@
     "validate:intelligence-audit": "tsx scripts/validate-intelligence-audit.ts",
     "validate:universal-workspace": "tsx scripts/validate-universal-workspace.ts",
     "validate:universal-instrument-discovery": "tsx scripts/validate-universal-instrument-discovery.ts",
-    "validate:financial-typography": "tsx scripts/validate-financial-typography.ts"
+    "validate:financial-typography": "tsx scripts/validate-financial-typography.ts",
+    "validate:native-chart-engine": "tsx scripts/validate-native-chart-engine.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",

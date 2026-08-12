@@ -117,3 +117,35 @@ export function formatDuration(ms: number): string {
   const seconds = Math.round((ms % 60_000) / 1000);
   return `${minutes}m ${seconds}s`;
 }
+
+const timestampFormatterCache = new Map<string, Intl.DateTimeFormat>();
+
+function timestampFormatter(granularity: "time" | "date" | "datetime"): Intl.DateTimeFormat {
+  let formatter = timestampFormatterCache.get(granularity);
+  if (!formatter) {
+    const options: Intl.DateTimeFormatOptions =
+      granularity === "time"
+        ? { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" }
+        : granularity === "date"
+          ? { month: "short", day: "2-digit", timeZone: "UTC" }
+          : { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" };
+    formatter = new Intl.DateTimeFormat("en-US", options);
+    timestampFormatterCache.set(granularity, formatter);
+  }
+  return formatter;
+}
+
+/**
+ * Sprint D2.7.2 - the "timestamp" formatter types/chart-typography-
+ * contract.ts (D2.7.1) already declared for the "time-scale" role but
+ * that D2.7.1 sprint deliberately built no chart consumer for. Real epoch
+ * milliseconds only, UTC (the same timezone convention every Candle.
+ * datetime and TradingView's own `timezone: "Etc/UTC"` config already
+ * use) - never a guessed/local timezone. `granularity` picks the display
+ * form: "time" (intraday axis ticks, e.g. "14:30"), "date" (daily+ axis
+ * ticks, e.g. "Aug 12"), "datetime" (crosshair/tooltip, e.g. "Aug 12,
+ * 14:30").
+ */
+export function formatTimestamp(epochMs: number, granularity: "time" | "date" | "datetime" = "datetime"): string {
+  return timestampFormatter(granularity).format(new Date(epochMs));
+}

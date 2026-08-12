@@ -23,7 +23,7 @@ import ProviderStatus from "@/components/workspace/ProviderStatus";
 import WorkspaceHeader from "@/components/workspace/WorkspaceHeader";
 import WorkspaceSection from "@/components/workspace/WorkspaceSection";
 import MarketRibbon from "@/components/workspace/MarketRibbon";
-import AdvancedChart from "@/components/workspace/tradingview/AdvancedChart";
+import ChartPanel from "@/components/chart-engine/ChartPanel";
 import IntelligencePanel from "@/components/workspace/IntelligencePanel";
 import ProfileSwitcher from "@/components/workspace/ProfileSwitcher";
 import FavoriteMarkets from "@/components/workspace/FavoriteMarkets";
@@ -59,14 +59,16 @@ export default function WorkspacePage() {
         {/* Workspace Header — live now */}
         <WorkspaceHeader />
 
-        {/* Supporting chart — TradingView (visualization only; supports the AI, never leads) */}
+        {/* Supporting chart — TradingView by default, or AT24's own native
+            engine (Sprint D2.7.2) via the explicit provider toggle inside
+            ChartPanel. Visualization only; supports the AI, never leads. */}
         <WorkspaceSection
           id="chart"
           collapsible
           title="Chart"
           subtitle="Price context — a supporting visualization, not the headline"
         >
-          <AdvancedChart />
+          <ChartPanel />
         </WorkspaceSection>
 
         {/* AI Intelligence — the CENTER of the workspace (Phase 6). One unified
