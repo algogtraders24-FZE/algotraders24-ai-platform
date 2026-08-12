@@ -41,3 +41,22 @@ export const DEFAULT_INDICATOR_CONFIGS: readonly IndicatorConfig[] = [
   { id: "macd", key: "macd-12-26-9", period: 12, fastPeriod: 12, slowPeriod: 26, signalPeriod: 9, color: "var(--gold)" },
   { id: "volume", key: "volume", period: 20, color: "var(--steel)" },
 ];
+
+// Sprint D2.7.5, Phase 4 - a static id->panel lookup so the toolbar's
+// Indicators menu can group entries into "Overlays" (drawn on the price
+// panel) vs "Panels" (their own sub-panel row) WITHOUT computing a real
+// IndicatorSeries first (that requires real candle data the menu doesn't
+// have). This mirrors - never duplicates the authority of -
+// compute.ts's per-id `panel:` assignment in its switch statement; a
+// dedicated regression test in validate-native-chart-workspace.ts computes
+// a real series for every DEFAULT_INDICATOR_CONFIGS entry and asserts its
+// actual `.panel` equals this table's entry for the same id, so the two can
+// never silently drift apart.
+export const INDICATOR_PANEL_ID: Record<IndicatorConfig["id"], ChartPanelId> = {
+  sma: "price",
+  ema: "price",
+  bollinger: "price",
+  rsi: "rsi",
+  macd: "macd",
+  volume: "volume",
+};

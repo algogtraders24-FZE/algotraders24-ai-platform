@@ -7,7 +7,9 @@
 // route is always a real SignalTimeframe.
 import { SIGNAL_TIMEFRAMES, type SignalTimeframe } from "@/types/signal";
 
-const LABELS: Record<SignalTimeframe, string> = {
+// Sprint D2.7.5 - exported so ChartHeader can display the same label
+// without hand-rolling a second copy of this presentation-only map.
+export const TIMEFRAME_LABELS: Record<SignalTimeframe, string> = {
   "1m": "1m",
   "5m": "5m",
   "15m": "15m",
@@ -36,7 +38,7 @@ export default function ChartTimeframeSelector({ value, onChange }: ChartTimefra
             value === tf ? "bg-gold text-ink" : "text-text-3 hover:bg-ink-4 hover:text-text"
           }`}
         >
-          {LABELS[tf]}
+          {TIMEFRAME_LABELS[tf]}
         </button>
       ))}
     </div>

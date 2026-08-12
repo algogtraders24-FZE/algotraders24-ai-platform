@@ -58,6 +58,7 @@ import type { SignalTimeframe } from "@/types/signal";
 import type { ChartPanelId, IndicatorSeries } from "@/lib/chart-engine/indicators/types";
 import { useChartCandles } from "./useChartCandles";
 import ChartToolbar from "./ChartToolbar";
+import ChartHeader from "./ChartHeader";
 
 const PRICE_AXIS_WIDTH = 64;
 const TIME_AXIS_HEIGHT = 22;
@@ -87,8 +88,18 @@ export interface NativeChartProps {
 }
 
 export default function NativeChart({ timeframe, onTimeframeChange, activeIndicatorKeys, onToggleIndicator }: NativeChartProps) {
-  const { symbol } = useWorkspace();
+  const { symbol, name } = useWorkspace();
   const [isLive, setIsLive] = useState(true);
+  // Sprint D2.7.5, Phase 9 - a CSS-driven focus mode (not the browser
+  // Fullscreen API): toggling this class alone naturally re-triggers the
+  // EXISTING ResizeObserver effect below (it observes containerRef's real
+  // box, whatever CSS makes that box be), so devicePixelRatio-correct
+  // resizing and redraw already work for free - no new resize/DPR logic
+  // needed. The browser Fullscreen API was deliberately avoided: it
+  // requires a transient user gesture in some browsers, can be blocked
+  // inside an embedded/iframed preview, and buys nothing here that a fixed
+  // full-viewport overlay doesn't already provide just as reliably.
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const resolution = resolveChartInstrument(symbol);
   const result = useChartCandles(symbol, timeframe);
 
@@ -320,6 +331,24 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
     applyViewport(followLatest(viewport, candles));
   }
 
+  function handleToggleFullscreen() {
+    setIsFullscreen((v) => !v);
+  }
+
+  // Sprint D2.7.5, Phase 9 - Escape always exits fullscreen, the one
+  // required global shortcut fullscreen UX needs. Scoped to `window` (not
+  // the canvas) so it works even when focus is elsewhere in the fullscreen
+  // header/toolbar, and only attached while actually fullscreen so it never
+  // steals Escape from the rest of the Workspace otherwise.
+  useEffect(() => {
+    if (!isFullscreen) return;
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") setIsFullscreen(false);
+    }
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [isFullscreen]);
+
   // Sprint D2.7.3, Phase 4 - keyboard navigation: left/right pan by a few
   // candles, +/- zoom centered on the current view's midpoint. Only active
   // while the canvas itself has focus (tabIndex below), so it never
@@ -384,7 +413,8 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
   const trend = hoveredCandle ? classifyCandle(hoveredCandle) : null;
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className={isFullscreen ? "fixed inset-0 z-50 flex flex-col gap-2 bg-ink p-4" : "flex flex-col gap-2"}>
+      <ChartHeader displaySymbol={resolution.displaySymbol} instrumentName={name} timeframe={timeframe} series={result.series} />
       <ChartToolbar
         displaySymbol={resolution.displaySymbol}
         timeframe={timeframe}
@@ -394,6 +424,8 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
         onFit={handleFit}
         onGoLive={handleGoLive}
         isLive={isLive}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={handleToggleFullscreen}
       />
 
       {result.status === "stale" && (
@@ -425,7 +457,11 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
         <span className={FIN_LABEL}>Native chart (beta)</span>
       )}
 
-      <div ref={containerRef} className="relative w-full" style={{ height: containerHeight }}>
+      <div
+        ref={containerRef}
+        className={isFullscreen ? "relative w-full min-h-0 flex-1" : "relative w-full"}
+        style={isFullscreen ? undefined : { height: containerHeight }}
+      >
         <canvas
           ref={canvasRef}
           tabIndex={0}

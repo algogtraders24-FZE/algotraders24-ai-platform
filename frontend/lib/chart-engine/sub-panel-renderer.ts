@@ -86,6 +86,21 @@ function drawPanelFrame(ctx: CanvasRenderingContext2D, row: PanelRow, plotWidth:
   ctx.fillText(label, 4, row.top + 2);
 }
 
+// Sprint D2.7.5, Phase 4 - the honest state Phase 4 explicitly asks for: a
+// centered notice inside an otherwise-empty sub-panel, drawn only when the
+// panel is genuinely empty because the SOURCE data lacks the field (never
+// because the panel legitimately has nothing to show for other reasons,
+// e.g. an indicator whose warm-up period hasn't been reached yet - that
+// case already renders as an honest gap in the line itself, no notice
+// needed). Never a fabricated bar/line - just a real, truthful label.
+function drawEmptyPanelNotice(ctx: CanvasRenderingContext2D, row: PanelRow, plotWidth: number, colors: ChartColors, text: string): void {
+  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  ctx.fillStyle = colors.textTertiary;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, plotWidth / 2, row.top + row.height / 2);
+}
+
 export function drawVolumePanel(
   ctx: CanvasRenderingContext2D,
   candles: ChartCandle[],
@@ -96,7 +111,14 @@ export function drawVolumePanel(
 ): void {
   drawPanelFrame(ctx, row, plotWidth, colors, "Volume");
   const visible = candles.filter((c) => c.time >= viewport.minTime && c.time <= viewport.maxTime && c.volume !== undefined);
-  if (visible.length === 0) return;
+  if (visible.length === 0) {
+    // Distinguish "this instrument's provider doesn't report volume" (a
+    // real, honest limitation worth surfacing) from "there simply are no
+    // candles loaded yet" (already covered by NativeChart's own
+    // loading/empty states - repeating a notice here would be redundant).
+    if (candles.length > 0) drawEmptyPanelNotice(ctx, row, plotWidth, colors, "No volume data for this instrument");
+    return;
+  }
   const maxVolume = Math.max(...visible.map((c) => c.volume as number));
   if (maxVolume <= 0) return;
   const panelVp = panelViewport(viewport, 0, maxVolume);

@@ -587,8 +587,15 @@ async function noFabricationTests(): Promise<void> {
   });
 
   await test("76: ChartToolbar's Indicators menu is driven entirely by DEFAULT_INDICATOR_CONFIGS - never a hardcoded duplicate list", () => {
+    // Sprint D2.7.5 grouped the menu into Overlays/Panels sections
+    // (OVERLAY_CONFIGS/PANEL_CONFIGS, each a real .filter() over
+    // DEFAULT_INDICATOR_CONFIGS, rendered by a shared IndicatorGroup
+    // helper's own `configs.map`) - the invariant this test guards
+    // (never a hardcoded duplicate indicator list) still holds, just
+    // expressed as two filtered derivations of the same real registry
+    // instead of one flat .map over it directly.
     const src = read("components/chart-engine/ChartToolbar.tsx");
-    assert.ok(src.includes("DEFAULT_INDICATOR_CONFIGS.map"));
+    assert.ok(src.includes("DEFAULT_INDICATOR_CONFIGS.filter"));
     assert.ok(!/"EMA20"|"RSI14"|"MACD"/.test(src));
   });
 
