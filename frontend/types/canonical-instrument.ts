@@ -68,4 +68,18 @@ export interface CanonicalInstrument {
   /** Deterministic search aliases (lowercase, hand-authored) - e.g. ["bitcoin", "btc"] for BTCUSD. Never auto-generated/guessed. */
   aliases: string[];
   providerMappings: ProviderMapping[];
+  /**
+   * Sprint D2.6.12 - Universal Instrument Discovery & Dynamic Provider
+   * Catalog. Present ONLY on an instrument registered at runtime by
+   * provider-backed discovery (never on the 16 hand-authored catalog
+   * entries above, which stay undefined here) - the honest, structural
+   * distinction between "we curated this" and "a provider told us this
+   * exists". `source` is the exact provider name that discovered it
+   * (never a guess); `discoveredAt` is the real ISO timestamp of that
+   * discovery call.
+   */
+  discovery?: {
+    source: string;
+    discoveredAt: string;
+  };
 }

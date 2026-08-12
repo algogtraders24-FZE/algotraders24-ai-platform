@@ -69,19 +69,29 @@ interface SymbolSpec {
   capabilities: MarketDataCapability[];
 }
 
-// Built once, at module load, from the catalog - never a second,
-// independently-maintained symbol table.
-const SYMBOL_MAP: Record<string, SymbolSpec> = Object.fromEntries(
-  mappingsForProvider(PROVIDER_NAME).map(({ instrument, mapping }) => [
-    instrument.id,
-    {
-      binance: mapping.providerSymbol,
-      quoteCurrency: instrument.currency ?? "USD",
-      assetClass: instrument.marketCategory ?? "crypto",
-      capabilities: mapping.supportedCapabilities,
-    },
-  ]),
-);
+// Sprint D2.6.12 - computed fresh on every call (not a load-time
+// constant) so an instrument registered at runtime by
+// UniversalInstrumentDiscoveryService (lib/market-data/instrument-
+// catalog.ts's additive DISCOVERED registry) becomes resolvable
+// immediately, with no server restart - still a single source of truth
+// (the catalog), never a second, independently-maintained symbol table.
+// Functionally identical output to the old load-time constant for every
+// pre-existing symbol (same mappingsForProvider() call, same shape) -
+// only the WHEN changed, confirmed by the unmodified pre-existing
+// provider test suite still passing byte-for-byte.
+function getSymbolMap(): Record<string, SymbolSpec> {
+  return Object.fromEntries(
+    mappingsForProvider(PROVIDER_NAME).map(({ instrument, mapping }) => [
+      instrument.id,
+      {
+        binance: mapping.providerSymbol,
+        quoteCurrency: instrument.currency ?? "USD",
+        assetClass: instrument.marketCategory ?? "crypto",
+        capabilities: mapping.supportedCapabilities,
+      },
+    ]),
+  );
+}
 
 /** Structured, provider-neutral quote parsed from Binance's /ticker/24hr. Never leaves this file. */
 export interface ParsedQuote {
@@ -165,9 +175,9 @@ export class BinanceProvider implements MarketDataProvider, SnapshotProvider, Ti
     return true;
   }
 
-  /** Canonical symbols this provider maps today - exposed so callers/registries can advertise coverage without reaching into SYMBOL_MAP. */
+  /** Canonical symbols this provider maps today (static + runtime-discovered) - exposed so callers/registries can advertise coverage without reaching into the symbol map directly. */
   supportedSymbols(): string[] {
-    return Object.keys(SYMBOL_MAP);
+    return Object.keys(getSymbolMap());
   }
 
   // Capability-checked before every request (sprint §7): a symbol mapped
@@ -176,11 +186,12 @@ export class BinanceProvider implements MarketDataProvider, SnapshotProvider, Ti
   // the same honest way as a symbol not mapped at all - never silently
   // attempted anyway.
   private resolveSymbol(symbol: string, requiredCapability: MarketDataCapability): SymbolSpec {
-    const spec = SYMBOL_MAP[symbol];
+    const symbolMap = getSymbolMap();
+    const spec = symbolMap[symbol];
     if (!spec) {
       throw new MarketDataProviderError(
         "unsupported_symbol",
-        `Symbol "${symbol}" is not mapped for ${PROVIDER_NAME} (supported: ${Object.keys(SYMBOL_MAP).join(", ")})`,
+        `Symbol "${symbol}" is not mapped for ${PROVIDER_NAME} (supported: ${Object.keys(symbolMap).join(", ")})`,
         PROVIDER_NAME,
       );
     }

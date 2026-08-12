@@ -309,18 +309,61 @@ export const INSTRUMENT_CATALOG: readonly CanonicalInstrument[] = [
 
 const BY_ID: ReadonlyMap<string, CanonicalInstrument> = new Map(INSTRUMENT_CATALOG.map((i) => [i.id, i]));
 
+// Sprint D2.6.12 - Universal Instrument Discovery & Dynamic Provider
+// Catalog. An additive, in-memory, server-side-only registry for
+// instruments found by live provider discovery (Binance exchangeInfo,
+// Angel One's scrip master, Twelve Data/Alpha Vantage symbol search) -
+// NOT a second symbol registry: it is read by the exact same
+// getCanonicalInstrument()/listCanonicalInstruments()/mappingsForProvider()
+// functions every existing caller (WorkspaceContext, chat resolution,
+// BinanceProvider, AngelOneProvider, InstrumentSearchService) already
+// uses, so a discovered instrument becomes resolvable platform-wide the
+// moment it is registered, with zero new lookup path anywhere else.
+//
+// A discovered id can NEVER collide with or overwrite a hand-authored
+// INSTRUMENT_CATALOG entry (registerDiscoveredInstrument() below is a
+// no-op for any id already present in BY_ID) - the static catalog is
+// always authoritative for the 16 instruments it curates. No database
+// writes happen here at all (see services/market-data/discovery/*'s own
+// header for why - in-memory + TTL-cached is sufficient and avoids any
+// "database explosion from uncontrolled duplicate instruments").
+const DISCOVERED: Map<string, CanonicalInstrument> = new Map();
+
+/**
+ * Registers a provider-discovered instrument so every existing catalog
+ * consumer can resolve it. Idempotent and additive only: a no-op when
+ * `id` is already a real, hand-authored catalog entry (never silently
+ * overwritten); a fresh discovery of an id already in DISCOVERED
+ * replaces that entry's providerMappings (a provider's own metadata for
+ * the same instrument may legitimately change between discovery runs -
+ * e.g. a re-issued Angel One token - never a merge with a DIFFERENT
+ * provider's earlier discovery of a similarly-named instrument, since
+ * `id` for a discovered instrument is always a deterministic,
+ * provider-scoped composite - see services/market-data/discovery/
+ * universal-instrument-discovery.service.ts's identity rules).
+ */
+export function registerDiscoveredInstrument(instrument: CanonicalInstrument): void {
+  if (BY_ID.has(instrument.id)) return;
+  DISCOVERED.set(instrument.id, instrument);
+}
+
+/** Test/dev-only reset of the discovery registry - never called from production code paths. */
+export function clearDiscoveredInstruments(): void {
+  DISCOVERED.clear();
+}
+
 export function getCanonicalInstrument(id: string): CanonicalInstrument | undefined {
-  return BY_ID.get(id);
+  return BY_ID.get(id) ?? DISCOVERED.get(id);
 }
 
 export function listCanonicalInstruments(): readonly CanonicalInstrument[] {
-  return INSTRUMENT_CATALOG;
+  return DISCOVERED.size === 0 ? INSTRUMENT_CATALOG : [...INSTRUMENT_CATALOG, ...DISCOVERED.values()];
 }
 
-/** All providerMappings for one provider across the whole catalog - what a new adapter (Binance, Angel One) reads as its own symbol table, single source of truth. */
+/** All providerMappings for one provider across the whole catalog (static + discovered) - what an adapter (Binance, Angel One) reads as its own symbol table, single source of truth. */
 export function mappingsForProvider(provider: string): { instrument: CanonicalInstrument; mapping: CanonicalInstrument["providerMappings"][number] }[] {
   const results: { instrument: CanonicalInstrument; mapping: CanonicalInstrument["providerMappings"][number] }[] = [];
-  for (const instrument of INSTRUMENT_CATALOG) {
+  for (const instrument of listCanonicalInstruments()) {
     for (const mapping of instrument.providerMappings) {
       if (mapping.provider === provider) results.push({ instrument, mapping });
     }

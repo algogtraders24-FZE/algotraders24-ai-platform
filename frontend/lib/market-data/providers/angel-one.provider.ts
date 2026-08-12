@@ -78,25 +78,29 @@ interface SymbolSpec {
   capabilities: MarketDataCapability[];
 }
 
-// Built once, at module load, directly from the catalog - this adapter
-// has no prior frozen symbol table to preserve (see the catalog file's
-// header for the reasoning). Angel One's `exchange` is derived from
-// each instrument's own `exchange` field; a mapping with no exchange
-// set is a real data gap, never guessed.
-const SYMBOL_MAP: Record<string, SymbolSpec> = Object.fromEntries(
-  mappingsForProvider(PROVIDER_NAME)
-    .filter(({ instrument, mapping }) => instrument.exchange && mapping.providerInstrumentId)
-    .map(({ instrument, mapping }) => [
-      instrument.id,
-      {
-        exchange: instrument.exchange as string,
-        tradingsymbol: mapping.providerSymbol,
-        symboltoken: mapping.providerInstrumentId as string,
-        assetClass: instrument.marketCategory ?? "indices",
-        capabilities: mapping.supportedCapabilities,
-      },
-    ]),
-);
+// Sprint D2.6.12 - computed fresh on every call (not a load-time
+// constant), same rationale as BinanceProvider's getSymbolMap(): an
+// instrument registered at runtime by UniversalInstrumentDiscoveryService
+// becomes resolvable immediately, no restart, still one source of truth
+// (the catalog). Angel One's `exchange` is derived from each instrument's
+// own `exchange` field; a mapping with no exchange set is a real data
+// gap, never guessed.
+function getSymbolMap(): Record<string, SymbolSpec> {
+  return Object.fromEntries(
+    mappingsForProvider(PROVIDER_NAME)
+      .filter(({ instrument, mapping }) => instrument.exchange && mapping.providerInstrumentId)
+      .map(({ instrument, mapping }) => [
+        instrument.id,
+        {
+          exchange: instrument.exchange as string,
+          tradingsymbol: mapping.providerSymbol,
+          symboltoken: mapping.providerInstrumentId as string,
+          assetClass: instrument.marketCategory ?? "indices",
+          capabilities: mapping.supportedCapabilities,
+        },
+      ]),
+  );
+}
 
 // SignalTimeframe -> Angel One's documented interval enum.
 const INTERVAL_MAP: Record<string, string> = {
@@ -199,15 +203,16 @@ export class AngelOneProvider implements MarketDataProvider, SnapshotProvider, T
   }
 
   supportedSymbols(): string[] {
-    return Object.keys(SYMBOL_MAP);
+    return Object.keys(getSymbolMap());
   }
 
   private resolveSymbol(symbol: string, requiredCapability: MarketDataCapability): SymbolSpec {
-    const spec = SYMBOL_MAP[symbol];
+    const symbolMap = getSymbolMap();
+    const spec = symbolMap[symbol];
     if (!spec) {
       throw new MarketDataProviderError(
         "unsupported_symbol",
-        `Symbol "${symbol}" is not mapped for ${PROVIDER_NAME} (supported: ${Object.keys(SYMBOL_MAP).join(", ")})`,
+        `Symbol "${symbol}" is not mapped for ${PROVIDER_NAME} (supported: ${Object.keys(symbolMap).join(", ")})`,
         PROVIDER_NAME,
       );
     }
