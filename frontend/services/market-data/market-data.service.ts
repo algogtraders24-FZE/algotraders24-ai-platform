@@ -25,7 +25,7 @@ import type {
 } from "@/types/market-data-provider";
 import { isSnapshotProvider, isTimeSeriesProvider } from "@/types/market-data-provider";
 import type { MarketSnapshot } from "@/types/market-snapshot";
-import type { Candle, TimeSeriesRequest } from "@/types/market-candle";
+import type { Candle, TimeSeriesRequest, TimeSeriesResult } from "@/types/market-candle";
 import { MarketDataProviderError, type MarketDataErrorKind } from "@/lib/market-data/errors";
 import { withReliability, type ReliabilityOptions } from "@/lib/market-data/reliability";
 import { TtlCache, systemClock, type Clock } from "@/lib/market-data/cache";
@@ -239,8 +239,29 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
    * per-call reliability, and fallback. Candles are not cached at the service
    * level (the providers cache them on a longer TTL); this keeps one source of
    * truth for candle freshness. Throws an aggregate error if none can serve it.
+   *
+   * Sprint D2.7.3 - a thin wrapper around getTimeSeriesWithProvenance() below,
+   * so every existing caller (RealTimeIntelligenceService, the hypothesis
+   * outcome evaluator, the trading-copilot service) keeps its exact existing
+   * signature/behavior/errors, byte-for-byte, while a new caller that wants
+   * provenance (the native chart's candles route) can ask for it without a
+   * second provider-selection loop.
    */
   async getTimeSeries(request: TimeSeriesRequest): Promise<Candle[]> {
+    const result = await this.getTimeSeriesWithProvenance(request);
+    return result.candles;
+  }
+
+  /**
+   * Sprint D2.7.3 - the SAME selection loop as getTimeSeries() (never a
+   * second/duplicated one, never a changed provider order), additionally
+   * reporting which provider actually served the candles and whether a
+   * higher-priority provider had to be skipped first - the identical
+   * `fallbackUsed` provenance rule getSnapshot() already established
+   * (D2.6.3): true only when a REAL failure (never a merely "unconfigured"
+   * skip) from an earlier-priority provider preceded this success.
+   */
+  async getTimeSeriesWithProvenance(request: TimeSeriesRequest): Promise<TimeSeriesResult> {
     const errors: MarketDataProviderError[] = [];
     for (const provider of this.orderedProviders(request.symbol, "candles")) {
       if (!isTimeSeriesProvider(provider)) continue;
@@ -249,9 +270,11 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
         continue;
       }
       try {
-        return await this.recordedAttempt(provider, request.symbol, () =>
+        const candles = await this.recordedAttempt(provider, request.symbol, () =>
           withReliability(() => provider.getTimeSeries(request), provider.name, this.reliability),
         );
+        const fallbackUsed = errors.some((e) => e.kind !== "unconfigured");
+        return { candles, provider: provider.name, fallbackUsed };
       } catch (error) {
         if (error instanceof MarketDataProviderError) {
           errors.push(error);

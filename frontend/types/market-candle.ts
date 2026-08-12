@@ -21,3 +21,19 @@ export interface TimeSeriesRequest {
   /** Number of candles requested. Default 100. */
   outputSize?: number;
 }
+
+/**
+ * Sprint D2.7.3 - the candle-fetch counterpart to MarketSnapshot's own
+ * provider/fallbackUsed provenance fields (D2.6.3). Returned by
+ * MarketDataService.getTimeSeriesWithProvenance() only - the plain
+ * getTimeSeries() callers (RealTimeIntelligenceService, the hypothesis
+ * outcome evaluator, trading-copilot) are unaffected and keep receiving a
+ * bare Candle[].
+ */
+export interface TimeSeriesResult {
+  candles: Candle[];
+  /** The real provider name (MarketDataProvider.name) that served these candles - never a guess. */
+  provider: string;
+  /** True only when a real failure (never a merely "unconfigured" skip) from an earlier-priority provider preceded this success - identical rule to MarketSnapshot.fallbackUsed. */
+  fallbackUsed: boolean;
+}

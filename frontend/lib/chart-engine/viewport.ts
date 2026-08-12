@@ -88,3 +88,46 @@ export function zoomViewport(viewport: Viewport, factor: number, anchorTime: num
   const maxTime = minTime + nextSpan;
   return { ...viewport, minTime, maxTime };
 }
+
+// Sprint D2.7.3, Phase 5 - the visible-range/live-edge model. A user is
+// considered "at the right edge" when the viewport's own right bound is
+// within one candle-step of the latest real candle - a small, deliberate
+// tolerance (not an exact equality check) so the D2.7.2 fitToData()
+// padding (which already puts the right edge a couple of candle-widths
+// past the last real candle) still counts as "at the edge" rather than
+// permanently reading as "manually panned away".
+const RIGHT_EDGE_TOLERANCE_CANDLES = 3;
+
+/**
+ * True when the viewport's right bound reaches at least close to the
+ * latest candle. Deliberately a one-sided check (`>=`, not a symmetric
+ * "within N candles either side"): a viewport whose right edge is well
+ * BEFORE the latest candle means real, newer data is sitting off-screen -
+ * the user has panned back and "follow latest" must not apply. A viewport
+ * whose right edge is AT or AFTER the latest candle (including
+ * fitToData()'s own padding past it) is always "at the edge", however far
+ * past - there is no newer data being hidden in that direction.
+ */
+export function isAtRightEdge(viewport: Viewport, candles: ChartCandle[]): boolean {
+  const latest = candles[candles.length - 1];
+  if (!latest) return true; // no data yet - nothing to have panned away from
+  const step = candleStepMs(candles);
+  return viewport.maxTime >= latest.time - step * RIGHT_EDGE_TOLERANCE_CANDLES;
+}
+
+/**
+ * Shifts the viewport (preserving its current span/zoom level) so its
+ * right edge follows the latest candle again - used only when the user
+ * was already at the right edge before new data arrived (see NativeChart's
+ * `useEffect` on `candles`). Never called when the user has manually
+ * panned backward - D2.7.3's own "do NOT forcibly move the viewport"
+ * requirement.
+ */
+export function followLatest(viewport: Viewport, candles: ChartCandle[]): Viewport {
+  const latest = candles[candles.length - 1];
+  if (!latest) return viewport;
+  const step = candleStepMs(candles);
+  const span = viewport.maxTime - viewport.minTime;
+  const maxTime = latest.time + step * DEFAULT_TIME_PADDING_CANDLES;
+  return { ...viewport, minTime: maxTime - span, maxTime };
+}
