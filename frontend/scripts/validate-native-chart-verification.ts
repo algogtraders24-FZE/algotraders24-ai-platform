@@ -769,9 +769,15 @@ async function performanceVerificationTests(): Promise<void> {
     assert.ok(Date.now() - t0 < 500);
   });
 
-  await test("no React setState is called directly from the pan/zoom/crosshair mouse handlers - only via the rAF-throttled scheduleHoverUpdate or the rarer applyViewport/isLive path, never per-pixel", () => {
+  await test("no React setState is called directly from the pan/zoom/crosshair pointer handler - only via the rAF-throttled scheduleHoverUpdate or the rarer applyViewport/isLive path, never per-pixel", () => {
+    // Sprint D2.7.7 migrated handleMouseMove/handleMouseUp to
+    // handlePointerMove/handlePointerUp (native Pointer Events, so
+    // setPointerCapture can fix a real "stuck dragging" bug the D2.7.7
+    // audit found) - the same invariant this test has always guarded
+    // (no setState per pointer tick) still holds, just against the new
+    // handler names.
     const src = read("components/chart-engine/NativeChart.tsx");
-    const moveHandler = src.slice(src.indexOf("function handleMouseMove"), src.indexOf("function handleMouseUp"));
+    const moveHandler = src.slice(src.indexOf("function handlePointerMove"), src.indexOf("function releasePointer"));
     assert.ok(!/\bsetHoveredIndex\(/.test(moveHandler.replace(/scheduleHoverUpdate/g, "")) || moveHandler.includes("scheduleHoverUpdate"));
     assert.ok(!moveHandler.includes("setIsLive("));
   });

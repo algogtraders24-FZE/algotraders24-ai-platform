@@ -386,9 +386,11 @@ async function crosshairTests(): Promise<void> {
     assert.equal(nearestCandleIndex(candles, viewport, x, plotWidth), nearestIndexByTime(candles, targetTime));
   });
 
-  await test("crosshair readout reads already-computed indicator values via valueAtIndex - never recomputes a series on mousemove (source check)", () => {
+  await test("crosshair readout reads already-computed indicator values via valueAtIndex - never recomputes a series on a pointer move (source check)", () => {
+    // Sprint D2.7.7 renamed handleMouseMove -> handlePointerMove (native
+    // Pointer Events migration) - same invariant, updated reference.
     const src = read("components/chart-engine/NativeChart.tsx");
-    const moveHandler = src.slice(src.indexOf("function handleMouseMove"), src.indexOf("function handleMouseUp"));
+    const moveHandler = src.slice(src.indexOf("function handlePointerMove"), src.indexOf("function releasePointer"));
     assert.ok(!moveHandler.includes("computeIndicatorSeries"));
   });
 
@@ -832,9 +834,11 @@ async function performanceTests(): Promise<void> {
     assert.ok(beforeComponent.includes("const PANEL_CONFIGS"));
   });
 
-  await test("no React setState is called directly from pan/zoom/crosshair mouse handlers - unaffected by this sprint's additions", () => {
+  await test("no React setState is called directly from pan/zoom/crosshair pointer handlers - unaffected by this sprint's additions", () => {
+    // Sprint D2.7.7 renamed handleMouseMove -> handlePointerMove (native
+    // Pointer Events migration) - same invariant, updated reference.
     const src = read("components/chart-engine/NativeChart.tsx");
-    const moveHandler = src.slice(src.indexOf("function handleMouseMove"), src.indexOf("function handleMouseUp"));
+    const moveHandler = src.slice(src.indexOf("function handlePointerMove"), src.indexOf("function releasePointer"));
     assert.ok(!moveHandler.includes("setIsLive("));
   });
 

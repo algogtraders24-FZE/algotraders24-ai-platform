@@ -375,9 +375,11 @@ async function crosshairTests(): Promise<void> {
     assert.equal(index, 100);
   });
 
-  await test("no React setState is called from the pan/zoom/crosshair mouse handlers - unaffected by this sprint's renderer-only changes", () => {
+  await test("no React setState is called from the pan/zoom/crosshair pointer handler - unaffected by this sprint's renderer-only changes", () => {
+    // Sprint D2.7.7 renamed handleMouseMove -> handlePointerMove (native
+    // Pointer Events migration) - same invariant, updated reference.
     const src = read("components/chart-engine/NativeChart.tsx");
-    const moveHandler = src.slice(src.indexOf("function handleMouseMove"), src.indexOf("function handleMouseUp"));
+    const moveHandler = src.slice(src.indexOf("function handlePointerMove"), src.indexOf("function releasePointer"));
     assert.ok(!moveHandler.includes("setIsLive("));
   });
 

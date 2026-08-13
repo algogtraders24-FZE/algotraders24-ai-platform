@@ -42,6 +42,7 @@ import { nearestCandleIndex } from "@/lib/chart-engine/crosshair";
 import { renderChart } from "@/lib/chart-engine/renderer";
 import {
   candleStepMs,
+  clampViewportToCandleBounds,
   fitToData,
   followLatest,
   isAtRightEdge,
@@ -110,6 +111,28 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
   const dragRef = useRef<{ startX: number; startViewport: Viewport } | null>(null);
   const dimsRef = useRef({ width: 0, height: 0 });
   const rafRef = useRef<number | null>(null);
+  // Sprint D2.7.7, Phase 9 - a SEPARATE rAF handle from `rafRef` (which
+  // throttles only the DOM hover-readout React state). This one coalesces
+  // the actual Canvas redraw itself during a high-frequency pointer stream
+  // (pan/pinch/hover) so a mouse/trackpad reporting faster than the
+  // display's refresh rate never triggers more real `draw()` calls than
+  // frames actually rendered. `draw()` always reads live refs at fire time,
+  // so simply skipping a re-schedule while one is already pending (rather
+  // than cancel-and-reschedule) is correct and slightly cheaper.
+  const drawRafRef = useRef<number | null>(null);
+  // Sprint D2.7.7, Phase 9 - mirrors the `isLive` React state so
+  // applyViewport can skip calling setIsLive entirely when the value hasn't
+  // actually changed, instead of invoking the state setter on every single
+  // pointer-move tick of a drag/zoom gesture ("no setState per pointer
+  // movement"). React's own bailout already avoids a re-render when the
+  // value is unchanged, but this avoids even the wasted setState call.
+  const isLiveRef = useRef(true);
+  // Sprint D2.7.7, Phase 7 - unified pointer tracking (mouse, touch, pen
+  // all deliver through the same Pointer Events API). Keyed by pointerId so
+  // a second touch point can be tracked independently for pinch-zoom
+  // without a second, parallel touch-event code path.
+  const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchRef = useRef<{ startDistance: number; startViewport: Viewport } | null>(null);
   // Sprint D2.7.4 - tracks the symbol|timeframe key we last FIT REAL data
   // for (never the key we merely started loading). Fixes a real D2.7.3 bug:
   // the loading-state render used to stamp lastKeyRef with the new key
@@ -246,15 +269,45 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
     });
   }
 
+  // Sprint D2.7.7, Phase 9 - see drawRafRef's own comment. Skips scheduling
+  // (rather than cancel+reschedule) when a frame is already pending, since
+  // `draw()` reads viewportRef/crosshairRef live at fire time - the pending
+  // frame always picks up whatever the latest pointer position produced.
+  function scheduleDraw() {
+    if (drawRafRef.current !== null) return;
+    drawRafRef.current = requestAnimationFrame(() => {
+      drawRafRef.current = null;
+      draw();
+    });
+  }
+
   function plotWidth() {
     return Math.max(0, dimsRef.current.width - PRICE_AXIS_WIDTH);
   }
 
-  function applyViewport(next: Viewport) {
+  function pointerDistance(a: { x: number; y: number }, b: { x: number; y: number }): number {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
+  // Sprint D2.7.7, Phase 2 - `coalesce` routes the redraw through the
+  // rAF-coalesced `scheduleDraw()` for high-frequency callers (pan/zoom/
+  // pinch pointer streams) instead of the immediate, synchronous `draw()`
+  // every other (rare, discrete) caller - Fit/Go-Live/keyboard nav - still
+  // uses, where instant visual feedback is preferable and there's no event-
+  // flooding risk. `isLiveRef` lets this skip the `setIsLive` state-setter
+  // call entirely on ticks where the live/not-live status hasn't actually
+  // changed, rather than invoking it unconditionally on every single
+  // pointer-move tick of a drag/zoom gesture.
+  function applyViewport(next: Viewport, coalesce = false) {
     const { minPrice, maxPrice } = priceRangeForWindow(candles, next.minTime, next.maxTime);
     viewportRef.current = { ...next, minPrice, maxPrice };
-    setIsLive(isAtRightEdge(viewportRef.current, candles));
-    draw();
+    const live = isAtRightEdge(viewportRef.current, candles);
+    if (live !== isLiveRef.current) {
+      isLiveRef.current = live;
+      setIsLive(live);
+    }
+    if (coalesce) scheduleDraw();
+    else draw();
   }
 
   function handleWheel(e: React.WheelEvent<HTMLCanvasElement>) {
@@ -266,26 +319,74 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
     const x = e.clientX - rect.left;
     const anchorTime = viewport.minTime + (x / plotWidth()) * (viewport.maxTime - viewport.minTime);
     const factor = e.deltaY < 0 ? ZOOM_IN_FACTOR : ZOOM_OUT_FACTOR;
-    applyViewport(zoomViewport(viewport, factor, anchorTime, candleStepMs(candles)));
+    const zoomed = zoomViewport(viewport, factor, anchorTime, candleStepMs(candles));
+    applyViewport(clampViewportToCandleBounds(zoomed, candles), true);
   }
 
-  function handleMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
-    if (!viewportRef.current) return;
-    dragRef.current = { startX: e.clientX, startViewport: viewportRef.current };
+  // Sprint D2.7.7, Phase 2/7 - migrated from Mouse Events to the unified
+  // Pointer Events API (mouse/touch/pen all deliver through this one model)
+  // for two genuine reasons found in the Phase 1 audit: (1) native mouse
+  // events have no capture mechanism, so a real drag that ends with the
+  // button released OUTSIDE the canvas (extremely common - a fast drag) NEVER
+  // fires the canvas's own mouseup at all, permanently leaving `dragRef` set
+  // and stuck-panning every subsequent hover; setPointerCapture below fixes
+  // this at the source. (2) Pointer Events fire for touch input too, giving
+  // real single-finger pan and (via activePointersRef tracking two points)
+  // pinch-zoom for free, with zero duplicate/parallel event-handling code.
+  function handlePointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current;
+    if (!canvas || !viewportRef.current) return;
+    canvas.setPointerCapture(e.pointerId);
+    const rect = canvas.getBoundingClientRect();
+    activePointersRef.current.set(e.pointerId, { x: e.clientX - rect.left, y: e.clientY - rect.top });
+
+    if (activePointersRef.current.size === 2) {
+      // A second finger just landed - this gesture is now a pinch, not a
+      // pan. Cancel any single-finger drag in progress and capture the
+      // real starting distance/viewport to zoom relative to.
+      dragRef.current = null;
+      const points = Array.from(activePointersRef.current.values());
+      const startDistance = pointerDistance(points[0], points[1]);
+      if (startDistance > 0) pinchRef.current = { startDistance, startViewport: viewportRef.current };
+    } else if (activePointersRef.current.size === 1) {
+      dragRef.current = { startX: e.clientX, startViewport: viewportRef.current };
+    }
   }
 
-  function handleMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {
+  function handlePointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+    if (activePointersRef.current.has(e.pointerId)) activePointersRef.current.set(e.pointerId, { x, y });
+
+    // Sprint D2.7.7, Phase 7 - two-finger pinch zoom, reusing the SAME
+    // zoomViewport already used by wheel/keyboard zoom - never a second
+    // zoom model. The anchor is the real midpoint between the two live
+    // touch points (converted to a time via the same ratio math handleWheel
+    // already uses), so the content between the fingers stays fixed, the
+    // standard pinch-zoom feel.
+    if (pinchRef.current && activePointersRef.current.size === 2) {
+      const points = Array.from(activePointersRef.current.values());
+      const distance = pointerDistance(points[0], points[1]);
+      const { startDistance, startViewport } = pinchRef.current;
+      if (distance > 0 && startDistance > 0) {
+        const factor = startDistance / distance; // fingers spreading (distance grows) -> factor<1 -> zoom in
+        const midX = (points[0].x + points[1].x) / 2;
+        const anchorTime = startViewport.minTime + (midX / Math.max(1, plotWidth())) * (startViewport.maxTime - startViewport.minTime);
+        const zoomed = zoomViewport(startViewport, factor, anchorTime, candleStepMs(candles));
+        applyViewport(clampViewportToCandleBounds(zoomed, candles), true);
+      }
+      return;
+    }
 
     if (dragRef.current) {
       const { startX, startViewport } = dragRef.current;
       const deltaPx = e.clientX - startX;
       const span = startViewport.maxTime - startViewport.minTime;
       const deltaMs = -(deltaPx / Math.max(1, plotWidth())) * span;
-      applyViewport(panViewport(startViewport, deltaMs));
+      const panned = clampViewportToCandleBounds(panViewport(startViewport, deltaMs), candles);
+      applyViewport(panned, true);
       return;
     }
 
@@ -293,25 +394,51 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
     if (!viewport || candles.length === 0 || x > plotWidth()) {
       crosshairRef.current = null;
       scheduleHoverUpdate(-1);
-      draw();
+      scheduleDraw();
       return;
     }
     const index = nearestCandleIndex(candles, viewport, x, plotWidth());
     if (index === -1) return;
     crosshairRef.current = { index, x, y };
     scheduleHoverUpdate(index);
-    draw();
+    scheduleDraw();
   }
 
-  function handleMouseUp() {
-    dragRef.current = null;
+  // Sprint D2.7.7, Phase 2 - shared pointerup/pointercancel cleanup. Both
+  // events mean this pointer is gone for good (cancel fires for e.g. a
+  // touch gesture the OS reinterprets as a system gesture mid-stream) -
+  // treated identically so neither path can leave stale drag/pinch state
+  // behind ("chart must never become permanently stuck in dragging mode").
+  function releasePointer(e: React.PointerEvent<HTMLCanvasElement>) {
+    activePointersRef.current.delete(e.pointerId);
+    if (activePointersRef.current.size < 2) pinchRef.current = null;
+    if (activePointersRef.current.size === 0) dragRef.current = null;
+    try {
+      canvasRef.current?.releasePointerCapture(e.pointerId);
+    } catch {
+      // already released (e.g. the browser released it implicitly on cancel) - never fatal
+    }
   }
 
-  function handleMouseLeave() {
-    dragRef.current = null;
+  function handlePointerUp(e: React.PointerEvent<HTMLCanvasElement>) {
+    releasePointer(e);
+  }
+
+  function handlePointerCancel(e: React.PointerEvent<HTMLCanvasElement>) {
+    releasePointer(e);
+  }
+
+  // Sprint D2.7.7 - unlike the old mouseleave-based handler, this does NOT
+  // clear an active drag: with real pointer capture in effect, `pointermove`
+  // keeps being delivered to the canvas even once the cursor visually exits
+  // its bounds (the correct, professional behavior - a fast drag shouldn't
+  // abruptly stop just because the cursor grazed past the chart's edge).
+  // Only the idle crosshair-hover state is cleared here.
+  function handlePointerLeave() {
+    if (dragRef.current || pinchRef.current) return;
     crosshairRef.current = null;
     scheduleHoverUpdate(-1);
-    draw();
+    scheduleDraw();
   }
 
   function handleDoubleClick() {
@@ -321,7 +448,9 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
   function handleFit() {
     if (candles.length === 0) return;
     viewportRef.current = fitToData(candles);
-    setIsLive(isAtRightEdge(viewportRef.current, candles));
+    const live = isAtRightEdge(viewportRef.current, candles);
+    isLiveRef.current = live;
+    setIsLive(live);
     draw();
   }
 
@@ -353,22 +482,43 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
   // candles, +/- zoom centered on the current view's midpoint. Only active
   // while the canvas itself has focus (tabIndex below), so it never
   // hijacks page-level scrolling/keyboard use elsewhere in the Workspace.
+  //
+  // Sprint D2.7.7, Phase 8 - Escape now cancels any transient interaction
+  // state (an in-progress drag/pinch, an active crosshair hover) - the one
+  // keyboard escape hatch Phase 8 explicitly asks for. Deliberately does
+  // NOT call stopPropagation: the separate window-level Escape listener
+  // (fullscreen exit, D2.7.5) still fires too if applicable, so a single
+  // Escape press correctly handles both scopes at once.
   function handleKeyDown(e: React.KeyboardEvent<HTMLCanvasElement>) {
+    if (e.key === "Escape") {
+      dragRef.current = null;
+      pinchRef.current = null;
+      activePointersRef.current.clear();
+      if (crosshairRef.current) {
+        crosshairRef.current = null;
+        scheduleHoverUpdate(-1);
+        draw();
+      }
+      return;
+    }
     const viewport = viewportRef.current;
     if (!viewport || candles.length === 0) return;
     const step = candleStepMs(candles);
     if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
       e.preventDefault();
       const direction = e.key === "ArrowLeft" ? -1 : 1;
-      applyViewport(panViewport(viewport, direction * step * PAN_KEY_STEP_CANDLES));
+      const panned = clampViewportToCandleBounds(panViewport(viewport, direction * step * PAN_KEY_STEP_CANDLES), candles);
+      applyViewport(panned, true);
     } else if (e.key === "+" || e.key === "=") {
       e.preventDefault();
       const mid = (viewport.minTime + viewport.maxTime) / 2;
-      applyViewport(zoomViewport(viewport, ZOOM_IN_FACTOR, mid, step));
+      const zoomed = clampViewportToCandleBounds(zoomViewport(viewport, ZOOM_IN_FACTOR, mid, step), candles);
+      applyViewport(zoomed, true);
     } else if (e.key === "-" || e.key === "_") {
       e.preventDefault();
       const mid = (viewport.minTime + viewport.maxTime) / 2;
-      applyViewport(zoomViewport(viewport, ZOOM_OUT_FACTOR, mid, step));
+      const zoomed = clampViewportToCandleBounds(zoomViewport(viewport, ZOOM_OUT_FACTOR, mid, step), candles);
+      applyViewport(zoomed, true);
     } else if (e.key === "Home") {
       e.preventDefault();
       handleFit();
@@ -381,7 +531,25 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
   useEffect(() => {
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      if (drawRafRef.current !== null) cancelAnimationFrame(drawRafRef.current);
     };
+  }, []);
+
+  // Sprint D2.7.7, Phase 2/7 - a belt-and-suspenders safety net against a
+  // "stuck dragging" chart: pointer capture (see handlePointerDown) already
+  // guarantees pointerup/pointercancel fire on the canvas regardless of
+  // where the cursor physically is, but a window blur (alt-tab, a native
+  // OS dialog stealing focus, devtools opening) can leave a pointer "down"
+  // without the browser ever delivering a pointerup/cancel event at all.
+  // Always-on (not only while dragging) since the check itself is free.
+  useEffect(() => {
+    function resetInteractionState() {
+      dragRef.current = null;
+      pinchRef.current = null;
+      activePointersRef.current.clear();
+    }
+    window.addEventListener("blur", resetInteractionState);
+    return () => window.removeEventListener("blur", resetInteractionState);
   }, []);
 
   const containerHeight = BASE_PANEL_HEIGHT + activePanels.length * SUB_PANEL_HEIGHT;
@@ -465,12 +633,23 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
         <canvas
           ref={canvasRef}
           tabIndex={0}
-          className="h-full w-full cursor-crosshair outline-none"
+          // Sprint D2.7.7, Phase 8 - `outline-none` previously opted this
+          // canvas OUT of the site-wide `:focus-visible` gold-ring rule
+          // (app/globals.css) every other focusable element already gets -
+          // a real, previously-invisible keyboard-focus gap. Removing it
+          // lets the SAME existing rule apply here too, no new CSS.
+          className="h-full w-full cursor-crosshair"
+          // Sprint D2.7.7, Phase 7 - tells the browser never to interpret a
+          // single- or two-finger touch on the canvas as a native
+          // scroll/pinch-zoom/navigation gesture, so our own pointer-event
+          // pan/pinch logic is the only thing handling touch input here.
+          style={{ touchAction: "none" }}
           onWheel={handleWheel}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseLeave}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+          onPointerLeave={handlePointerLeave}
           onDoubleClick={handleDoubleClick}
           onKeyDown={handleKeyDown}
         />

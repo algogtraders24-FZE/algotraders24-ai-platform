@@ -131,3 +131,43 @@ export function followLatest(viewport: Viewport, candles: ChartCandle[]): Viewpo
   const maxTime = latest.time + step * DEFAULT_TIME_PADDING_CANDLES;
   return { ...viewport, minTime: maxTime - span, maxTime };
 }
+
+/**
+ * Sprint D2.7.7, Phase 2 - keeps a panned/zoomed viewport from drifting into
+ * a permanently "candle-free" void ("panning must respect available candle
+ * bounds"). Deliberately NOT applied inside panViewport/zoomViewport
+ * themselves (both stay pure, unclamped, exactly as D2.7.2's own tests
+ * already lock in) - this is a separate, additive function the interaction
+ * layer (NativeChart.tsx) applies to the RESULT of a pan/zoom, the same
+ * "compose pure functions at the call site" pattern applyViewport already
+ * uses for priceRangeForWindow.
+ *
+ * The rule: the real data's oldest candle can never be pushed further than
+ * the viewport's OWN current span past the near edge, and likewise for the
+ * latest candle on the other side - i.e. panning back stops once the oldest
+ * candle would reach the RIGHT edge of the view, and panning forward stops
+ * once the latest candle would reach the LEFT edge. A real candle is always
+ * at least reachable at the boundary, never scrolled entirely out of a
+ * theoretically-infinite empty timeline. Span (zoom level) is always
+ * preserved when clamping - this only ever changes WHERE the user is
+ * allowed to look, never how zoomed in they are.
+ */
+export function clampViewportToCandleBounds(viewport: Viewport, candles: ChartCandle[]): Viewport {
+  if (candles.length === 0) return viewport;
+  const span = viewport.maxTime - viewport.minTime;
+  const earliest = candles[0].time;
+  const latest = candles[candles.length - 1].time;
+  const minAllowed = earliest - span;
+  const maxAllowed = latest + span;
+
+  let { minTime, maxTime } = viewport;
+  if (minTime < minAllowed) {
+    minTime = minAllowed;
+    maxTime = minAllowed + span;
+  }
+  if (maxTime > maxAllowed) {
+    maxTime = maxAllowed;
+    minTime = maxAllowed - span;
+  }
+  return { ...viewport, minTime, maxTime };
+}

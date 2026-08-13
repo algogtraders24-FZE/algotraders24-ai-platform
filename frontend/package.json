@@ -56,7 +56,8 @@
     "validate:native-chart-production": "tsx scripts/validate-native-chart-production.ts",
     "validate:native-chart-verification": "tsx scripts/validate-native-chart-verification.ts",
     "validate:native-chart-workspace": "tsx scripts/validate-native-chart-workspace.ts",
-    "validate:native-chart-professionalization": "tsx scripts/validate-native-chart-professionalization.ts"
+    "validate:native-chart-professionalization": "tsx scripts/validate-native-chart-professionalization.ts",
+    "validate:native-chart-interaction": "tsx scripts/validate-native-chart-interaction.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",
