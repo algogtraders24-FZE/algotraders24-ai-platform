@@ -410,13 +410,23 @@ async function main(): Promise<void> {
 
     // ==== Structural: protected trigger route auth model ====
     await test("structural: the trigger route requires admin OR a constant-time-compared cron secret - never an open endpoint", () => {
+      // Sprint D2.7.10 - isValidCronSecret/timingSafeEqual/the secret loader
+      // were extracted from this route into lib/intelligence/cron-auth.ts
+      // (so they're directly unit-testable without Next.js's request-scoped
+      // APIs - see scripts/validate-scheduler-wiring.ts). The route now
+      // delegates rather than inlining the check; assert the delegation and
+      // that the extracted module still upholds the same properties.
       const routePath = join(__dirname, "..", "app", "api", "private", "admin", "intelligence", "evaluate-outcomes", "route.ts");
       const content = readFileSync(routePath, "utf-8");
       assert.ok(content.includes("requireAdmin"), "route must gate the non-cron path on requireAdmin, matching every other /api/private/admin/* route");
-      assert.ok(content.includes("timingSafeEqual"), "the cron secret must be compared in constant time, never with a plain ===");
-      assert.ok(content.includes("loadIntelligenceEvaluationCronSecret"), "route must use the honest optional-secret loader, never a hardcoded secret");
-      assert.ok(!/===\s*configured|configured\s*===/.test(content), "must never plain-equality-compare the secret");
+      assert.ok(content.includes("isValidCronSecret") && content.includes("@/lib/intelligence/cron-auth"), "route must delegate cron-secret verification to the extracted module, never inline a second check");
       assert.ok(content.includes("MAX_USERS_CAP") && content.includes("PER_USER_LIMIT_CAP"), "batch size must be hard-capped regardless of caller-requested values");
+
+      const cronAuthPath = join(__dirname, "..", "lib", "intelligence", "cron-auth.ts");
+      const cronAuthContent = readFileSync(cronAuthPath, "utf-8");
+      assert.ok(cronAuthContent.includes("timingSafeEqual"), "the cron secret must be compared in constant time, never with a plain ===");
+      assert.ok(cronAuthContent.includes("loadIntelligenceEvaluationCronSecret"), "must use the honest optional-secret loader, never a hardcoded secret");
+      assert.ok(!/===\s*configured|configured\s*===/.test(cronAuthContent), "must never plain-equality-compare the secret");
     });
 
     await test("structural: the cron-secret path never reads a client-supplied userId (no impersonation vector)", () => {
