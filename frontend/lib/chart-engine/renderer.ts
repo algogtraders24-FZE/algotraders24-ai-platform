@@ -22,9 +22,9 @@ import { formatTimestamp } from "@/lib/financial-format";
 import type { ChartColors } from "./canvas-colors";
 import { canvasMonoFont } from "./canvas-typography";
 import { classifyCandle } from "./candle-classifier";
-import { priceToY, timeToX } from "./coordinate-system";
-import { computePriceTicks, type PriceAxisTick } from "./price-axis";
-import { computeTimeTicks, type TimeAxisTick } from "./time-axis";
+import { priceToY, timeToX, yToPrice } from "./coordinate-system";
+import { computePriceTicks, targetPriceTickCountForHeight, type PriceAxisTick } from "./price-axis";
+import { computeTimeTicks, targetTimeTickCountForWidth, type TimeAxisTick } from "./time-axis";
 import type { ChartDimensions, CrosshairState, Viewport } from "./types";
 import { candleStepMs } from "./viewport";
 import { computePanelLayout, type PanelRow } from "./panel-layout";
@@ -49,6 +49,14 @@ export interface RenderParams {
 const AXIS_FONT_SIZE = 11;
 const BODY_WIDTH_RATIO = 0.7;
 const MIN_BODY_WIDTH_PX = 1;
+// Sprint D2.7.6, Phase 4 - a real, previously-missing zoom-level cap.
+// Without it, zooming to the MIN_VISIBLE_CANDLES floor (viewport.ts) could
+// stretch a candle body past 100px - a comically oversized, unprofessional
+// block rather than a readable candlestick. 24px matches the visual weight
+// of every mainstream charting terminal's own maximum candle width.
+const MAX_BODY_WIDTH_PX = 24;
+const CROSSHAIR_PRICE_LABEL_WIDTH = 58;
+const CROSSHAIR_PRICE_LABEL_HEIGHT = 14;
 
 export function renderChart(params: RenderParams): void {
   const { ctx, dims, candles, viewport, timeframe, crosshair, colors, activePanels = [], indicatorSeries = [] } = params;
@@ -64,8 +72,22 @@ export function renderChart(params: RenderParams): void {
   const layout = computePanelLayout(activePanels, plotHeight);
   const priceRow = layout.find((r) => r.id === "price") ?? { id: "price" as const, top: 0, height: plotHeight };
 
-  const priceTicks = computePriceTicks(viewport);
+  // Sprint D2.7.6, Phase 5/6 - tick density now derives from the panel's
+  // real pixel space instead of a fixed constant, so labels never crowd on
+  // a short/narrow viewport and a wide desktop panel isn't under-labeled.
+  // Both helpers fall back to the original fixed counts when given a
+  // non-finite/zero dimension - never a behavior change for a degenerate size.
+  const priceTicks = computePriceTicks(viewport, targetPriceTickCountForHeight(priceRow.height));
+  const timeTicks = computeTimeTicks(candles, viewport, timeframe, targetTimeTickCountForWidth(plotWidth));
+
+  // Sprint D2.7.6, Phase 4 - vertical time-grid lines, drawn once behind
+  // every panel (never per-panel) since every panel shares the SAME time
+  // axis - keeps candles/bars visually aligned to the same time positions
+  // across the price panel and any active sub-panels. Horizontal price
+  // grid remains scoped to the price panel's own row, unchanged since D2.7.2.
   drawPriceGrid(ctx, priceTicks, viewport, plotWidth, priceRow, colors);
+  drawTimeGrid(ctx, timeTicks, viewport, plotWidth, plotHeight, colors);
+
   drawCandles(ctx, candles, viewport, plotWidth, priceRow, colors);
   drawOverlays(ctx, indicatorSeries, viewport, plotWidth, priceRow);
   drawPriceAxis(ctx, priceTicks, viewport, plotWidth, priceRow, colors);
@@ -79,11 +101,26 @@ export function renderChart(params: RenderParams): void {
     else if (row.id === "macd") drawMacdPanel(ctx, series, viewport, plotWidth, row, colors);
   }
 
-  const timeTicks = computeTimeTicks(candles, viewport, timeframe);
   drawTimeAxis(ctx, timeTicks, viewport, plotWidth, plotHeight, colors);
 
   if (crosshair && crosshair.index >= 0 && crosshair.index < candles.length) {
-    drawCrosshair(ctx, crosshair, candles[crosshair.index], viewport, plotWidth, plotHeight, colors);
+    drawCrosshair(ctx, crosshair, candles[crosshair.index], viewport, plotWidth, plotHeight, colors, priceRow, priceTicks);
+  }
+}
+
+// Sprint D2.7.6, Phase 4 - the vertical counterpart to drawPriceGrid,
+// previously entirely absent (only horizontal price gridlines existed).
+// Uses the SAME crisp-1px-line convention (integer-round + 0.5 offset) as
+// every other grid/axis line in this renderer.
+function drawTimeGrid(ctx: CanvasRenderingContext2D, ticks: TimeAxisTick[], viewport: Viewport, plotWidth: number, plotHeight: number, colors: ChartColors): void {
+  ctx.strokeStyle = colors.grid;
+  ctx.lineWidth = 1;
+  for (const tick of ticks) {
+    const x = Math.round(timeToX(tick.time, viewport, plotWidth)) + 0.5;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, plotHeight);
+    ctx.stroke();
   }
 }
 
@@ -103,7 +140,7 @@ function drawCandles(ctx: CanvasRenderingContext2D, candles: ChartCandle[], view
   if (candles.length === 0) return;
   const step = candleStepMs(candles);
   const pixelsPerMs = plotWidth / Math.max(1, viewport.maxTime - viewport.minTime);
-  const bodyWidth = Math.max(MIN_BODY_WIDTH_PX, step * pixelsPerMs * BODY_WIDTH_RATIO);
+  const bodyWidth = Math.min(MAX_BODY_WIDTH_PX, Math.max(MIN_BODY_WIDTH_PX, step * pixelsPerMs * BODY_WIDTH_RATIO));
 
   for (const candle of candles) {
     if (candle.time < viewport.minTime - step || candle.time > viewport.maxTime + step) continue;
@@ -208,6 +245,8 @@ function drawCrosshair(
   plotWidth: number,
   plotHeight: number,
   colors: ChartColors,
+  priceRow: PanelRow,
+  priceTicks: PriceAxisTick[],
 ): void {
   const x = timeToX(candle.time, viewport, plotWidth);
   const y = Math.max(0, Math.min(plotHeight, crosshair.y));
@@ -230,4 +269,23 @@ function drawCrosshair(
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   ctx.fillText(formatTimestamp(candle.time, "datetime"), x, plotHeight + 6);
+
+  // Sprint D2.7.6, Phase 7 - the crosshair's real price-axis label, a
+  // professional-charting staple this engine previously lacked entirely.
+  // Deliberately scoped to ONLY the price panel's own row: a y-position
+  // inside a sub-panel (Volume/RSI/MACD) has its own, DIFFERENT value scale
+  // (e.g. 0-100 for RSI) - a number derived from the main price Viewport
+  // there would be wrong/fabricated, so the label is simply omitted outside
+  // the price row rather than guessed. Styled in `textTertiary` (steel),
+  // never gold, so it's never confused with the latest-price marker.
+  if (y >= priceRow.top && y <= priceRow.top + priceRow.height) {
+    const price = yToPrice(y - priceRow.top, viewport, priceRow.height);
+    const decimals = priceTicks[0]?.decimals ?? 2;
+    ctx.fillStyle = colors.textTertiary;
+    ctx.fillRect(plotWidth, y - CROSSHAIR_PRICE_LABEL_HEIGHT / 2, CROSSHAIR_PRICE_LABEL_WIDTH, CROSSHAIR_PRICE_LABEL_HEIGHT);
+    ctx.fillStyle = colors.background;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(price.toFixed(decimals), plotWidth + 4, y);
+  }
 }

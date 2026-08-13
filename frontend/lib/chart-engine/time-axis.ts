@@ -27,6 +27,22 @@ export function timeAxisGranularity(timeframe: SignalTimeframe): "time" | "date"
   return INTRADAY_TIMEFRAMES.has(timeframe) ? "time" : "date";
 }
 
+// Sprint D2.7.6, Phase 6 - professionalization. The original fixed
+// TARGET_TICK_COUNT (6) was correct for a typical desktop plot width but
+// could crowd on a narrow (mobile-width) chart and under-label a very wide
+// one. MIN_TIME_TICK_SPACING_PX is a generous estimate for a short label
+// ("14:30"/"Aug 12" at 11px mono) plus breathing room.
+const MIN_TIME_TICK_SPACING_PX = 70;
+const MIN_TIME_TICK_COUNT = 2;
+const MAX_TIME_TICK_COUNT = 8;
+
+/** Derives a sensible tick count from the plot's real pixel width - never overlaps on narrow viewports, never under-labels a wide one. Callers pass the result into `computeTimeTicks`'s existing `targetCount` param; omitting it preserves the original fixed-6 behavior. */
+export function targetTimeTickCountForWidth(widthPx: number): number {
+  if (!Number.isFinite(widthPx) || widthPx <= 0) return TARGET_TICK_COUNT;
+  const count = Math.floor(widthPx / MIN_TIME_TICK_SPACING_PX);
+  return Math.min(MAX_TIME_TICK_COUNT, Math.max(MIN_TIME_TICK_COUNT, count));
+}
+
 /** Up to `targetCount` evenly spaced real candles from the visible window. Returns an empty array when nothing is visible (never fabricates a tick). */
 export function computeTimeTicks(
   candles: ChartCandle[],

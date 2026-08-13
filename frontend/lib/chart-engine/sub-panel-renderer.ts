@@ -13,6 +13,7 @@ import type { IndicatorSeries } from "./indicators/types";
 import { priceToY, timeToX } from "./coordinate-system";
 import { candleStepMs } from "./viewport";
 import { canvasMonoFont } from "./canvas-typography";
+import { formatCompactVolume } from "@/lib/financial-format";
 import type { ChartColors } from "./canvas-colors";
 import type { PanelRow } from "./panel-layout";
 import type { Viewport } from "./types";
@@ -134,6 +135,17 @@ export function drawVolumePanel(
     ctx.fillStyle = isUp ? colors.bullish : colors.bearish;
     ctx.fillRect(x - barWidth / 2, y, barWidth, bottom - y);
   }
+
+  // Sprint D2.7.6, Phase 9 - a real value-axis reference the Volume panel
+  // previously lacked entirely (bars with no numeric scale at all). The
+  // real max volume of the visible window, formatted with the SAME
+  // formatCompactVolume() every other volume figure on the platform uses -
+  // never a second/ad hoc volume formatter.
+  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  ctx.fillStyle = colors.textTertiary;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "top";
+  ctx.fillText(formatCompactVolume(maxVolume), plotWidth - 4, row.top + 2);
 }
 
 export function drawRsiPanel(
@@ -157,6 +169,19 @@ export function drawRsiPanel(
     ctx.stroke();
   }
   ctx.setLineDash([]);
+
+  // Sprint D2.7.6, Phase 9 - real numeric labels for the overbought/oversold
+  // reference lines above, previously drawn with no value at all (a trader
+  // had to already know 70/30 was the convention). Real, standard RSI
+  // levels - never an invented threshold.
+  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  ctx.fillStyle = colors.textTertiary;
+  ctx.textAlign = "right";
+  for (const level of [RSI_OVERSOLD, RSI_OVERBOUGHT]) {
+    const y = row.top + priceToY(level, panelVp, row.height);
+    ctx.textBaseline = level === RSI_OVERBOUGHT ? "bottom" : "top";
+    ctx.fillText(String(level), plotWidth - 4, y);
+  }
 
   if (!series) return;
   const line = series.lines[0];
@@ -182,6 +207,19 @@ export function drawMacdPanel(
   if (visibleValues.length === 0) return;
   const maxAbs = Math.max(1e-9, ...visibleValues.map((v) => Math.abs(v)));
   const panelVp = panelViewport(viewport, -maxAbs, maxAbs);
+
+  // Sprint D2.7.6, Phase 9 - a real zero reference line, previously implicit
+  // only via the histogram bars' own baseline (invisible whenever the
+  // histogram itself has no visible bars, e.g. only macd/signal lines are
+  // in view). Matches RSI's own dashed-reference-line convention.
+  const zeroLineY = row.top + priceToY(0, panelVp, row.height);
+  ctx.strokeStyle = colors.grid;
+  ctx.setLineDash([2, 2]);
+  ctx.beginPath();
+  ctx.moveTo(0, zeroLineY);
+  ctx.lineTo(plotWidth, zeroLineY);
+  ctx.stroke();
+  ctx.setLineDash([]);
 
   if (histogram) {
     const pixelsPerMs = plotWidth / Math.max(1, viewport.maxTime - viewport.minTime);

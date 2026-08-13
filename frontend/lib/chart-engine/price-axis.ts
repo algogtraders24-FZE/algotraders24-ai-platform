@@ -27,6 +27,24 @@ export interface PriceAxisTick {
   decimals: number;
 }
 
+// Sprint D2.7.6, Phase 5 - professionalization. The original fixed
+// TARGET_TICK_COUNT (5) was correct for a normal desktop panel height but
+// could crowd/overlap on a short panel (e.g. a collapsed sub-panel-heavy
+// mobile layout) and left wide-desktop panels under-labeled. Real available
+// vertical space now drives the count instead of a constant - MIN_TICK_
+// SPACING_PX is a generous estimate for one 11px mono label plus breathing
+// room, so labels never render closer together than they can be read.
+const MIN_PRICE_TICK_SPACING_PX = 40;
+const MIN_PRICE_TICK_COUNT = 2;
+const MAX_PRICE_TICK_COUNT = 8;
+
+/** Derives a sensible tick count from the price panel's real pixel height - never overlaps, never under-labels a tall panel. Callers pass the result into `computePriceTicks`'s existing `targetCount` param; omitting it preserves the original fixed-5 behavior for any caller that doesn't care. */
+export function targetPriceTickCountForHeight(heightPx: number): number {
+  if (!Number.isFinite(heightPx) || heightPx <= 0) return TARGET_TICK_COUNT;
+  const count = Math.floor(heightPx / MIN_PRICE_TICK_SPACING_PX);
+  return Math.min(MAX_PRICE_TICK_COUNT, Math.max(MIN_PRICE_TICK_COUNT, count));
+}
+
 /** Ticks for the visible price range. Returns an empty array for a degenerate/invalid viewport (never fabricates a tick from bad bounds). */
 export function computePriceTicks(viewport: Viewport, targetCount = TARGET_TICK_COUNT): PriceAxisTick[] {
   const { minPrice, maxPrice } = viewport;
