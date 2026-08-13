@@ -140,6 +140,32 @@ export class IntelligenceAnalysisRunService {
     return rows.map((row) => toDomain(row as unknown as AnalysisRunRow));
   }
 
+  /**
+   * Sprint D2.7.9 - Historical Validation Production Wiring. Distinct
+   * userIds that currently have at least one run awaiting evaluation,
+   * oldest-pending-run first, bounded by `limit`. Exists so a system-level
+   * trigger (scheduled or admin-invoked - see
+   * services/intelligence/orchestration/scheduled-outcome-evaluation
+   * .service.ts) can enumerate WHO to evaluate for, without ever trusting a
+   * client-supplied userId - this is the one legitimate place userId is
+   * server-derived rather than caller-supplied, matching this file's own
+   * documented ownership convention (userId is otherwise always
+   * caller/session-supplied, never trusted from client input). Uses the
+   * existing `evaluationStatus` index (@@index([evaluationStatus])) - no
+   * new index required, bounded by `limit` so this is never an unbounded
+   * table scan.
+   */
+  async listUserIdsWithPendingEvaluationRuns(limit = 50): Promise<string[]> {
+    const rows = await prisma.intelligenceAnalysisRun.findMany({
+      where: { evaluationStatus: "pending", deletedAt: null },
+      orderBy: { createdAt: "asc" },
+      distinct: ["userId"],
+      select: { userId: true },
+      take: limit,
+    });
+    return rows.map((row) => row.userId);
+  }
+
   /** Flips a run to "evaluated" once a conclusive (non-pending) outcome has been recorded for it. */
   async markEvaluated(id: string, userId: string): Promise<IntelligenceAnalysisRun | null> {
     const existing = await this.getAnalysisRun(id, userId);

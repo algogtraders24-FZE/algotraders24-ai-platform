@@ -37,6 +37,35 @@
 // in place. A future correction mechanism (for a genuine provider/data
 // error) would need its own explicit, traceable superseding-record design
 // - not built here, see the architecture doc §13.
+//
+// Sprint D2.7.9 - Historical Validation Production Wiring. This service now
+// has a real production caller (see services/intelligence/orchestration/
+// scheduled-outcome-evaluation.service.ts) that may run repeatedly
+// (scheduled trigger, retries, or a concurrent manual admin trigger). Two
+// idempotency gaps were found and fixed here, both additive - no existing
+// evaluation semantics, thresholds, or scoring changed:
+//   1. The no-hypothesisSnapshot branch never called markEvaluated(), so a
+//      pre-D2.5.4 (or snapshot-less) run would be re-picked-up and produce
+//      a fresh duplicate "inconclusive" outcome on every single trigger
+//      invocation, forever. Fixed by marking it evaluated once its one
+//      honest outcome is recorded (and by treating a re-entrant call that
+//      finds existing outcomes as already-done, not a reason to duplicate).
+//   2. In a multi-hypothesis run, if only some hypotheses had a closed
+//      prediction window, the run stayed "pending" (see the loop's own
+//      markEvaluated condition below) and got re-picked-up - re-evaluating
+//      EVERY hypothesis again, including ones already finalized as
+//      validated/invalidated, silently inflating sampleSize with
+//      duplicates. Fixed by looking up existing outcomes first and
+//      skipping (reusing) any hypothesis that already has a finalized
+//      (validated/invalidated) verdict - "pending"/"inconclusive" outcomes
+//      remain retryable on purpose (a transient provider failure, or a
+//      window that has since closed, deserves another real attempt).
+// A DB-level partial unique index (prisma/migrations/*_add_outcome_
+// idempotency_guard) is the concurrency backstop for the read-then-write
+// race this application-level check can't fully close on its own (two
+// evaluator invocations running at the same instant) - createOutcome()'s
+// unique-constraint violation is caught below and treated as "a concurrent
+// run already recorded this verdict", not a failure.
 import type { Clock } from "@/lib/market-data/cache";
 import { systemClock } from "@/lib/market-data/cache";
 import type { TimeSeriesProvider } from "@/types/market-data-provider";
@@ -111,6 +140,18 @@ export interface HypothesisEvaluationBasis {
 
 function candlesToMs(candles: number, timeframe: SignalTimeframe): number {
   return candles * TIMEFRAME_MS[timeframe];
+}
+
+// Sprint D2.7.9 - Prisma's unique-constraint violation code (P2002), duck-
+// typed rather than importing the generated client's error class, so this
+// file keeps depending only on the persistence services' own interfaces.
+// Thrown by createOutcome() when the DB-level partial unique index (see
+// prisma/migrations/*_add_outcome_idempotency_guard) rejects a second
+// finalized (validated/invalidated) outcome for the same (analysisRunId,
+// hypothesisId) - the concurrency backstop for a genuine race between two
+// evaluator invocations.
+function isUniqueConstraintViolation(cause: unknown): boolean {
+  return typeof cause === "object" && cause !== null && "code" in cause && (cause as { code?: unknown }).code === "P2002";
 }
 
 function evaluationDueAt(createdAt: string, window: PredictionWindow): Date {
@@ -275,7 +316,15 @@ export class HypothesisOutcomeEvaluatorService {
     return { status, actualPriceMovePct, evaluationBasis: JSON.stringify(basis) };
   }
 
-  /** Evaluates every hypothesis in a run's stored HypothesisSnapshot, appending one new IntelligenceAnalysisOutcome row per hypothesis - never updating an existing one. */
+  /**
+   * Evaluates every hypothesis in a run's stored HypothesisSnapshot,
+   * appending one new IntelligenceAnalysisOutcome row per hypothesis that
+   * doesn't already have a finalized (validated/invalidated) verdict -
+   * never updating an existing one, and never re-finalizing one that's
+   * already settled. See the D2.7.9 header comment for why this idempotency
+   * check exists: this method now has a real, possibly repeated/concurrent
+   * production caller.
+   */
   async evaluateAnalysisRun(
     analysisRunId: string,
     userId: string,
@@ -287,6 +336,17 @@ export class HypothesisOutcomeEvaluatorService {
     }
 
     if (!run.hypothesisSnapshot) {
+      // Idempotency: a run with no snapshot produces exactly one outcome,
+      // ever. If one already exists (a prior or concurrent invocation
+      // already handled this run), do not create a second - just make sure
+      // the run is flagged evaluated (fixes the pre-D2.7.9 bug where this
+      // branch never called markEvaluated, so such a run was re-picked-up
+      // and re-evaluated on every single trigger invocation, forever).
+      const existing = await this.outcomes.getOutcomesForRun(run.id);
+      if (existing.length > 0) {
+        await this.runs.markEvaluated(run.id, userId);
+        return existing;
+      }
       const basis: HypothesisEvaluationBasis = {
         source: "no-hypothesis-snapshot",
         ruleVersion: HYPOTHESIS_OUTCOME_EVALUATOR_RULE_VERSION,
@@ -303,14 +363,35 @@ export class HypothesisOutcomeEvaluatorService {
         actualRegimeAfter: null,
         evaluationBasis: JSON.stringify(basis),
       });
+      await this.runs.markEvaluated(run.id, userId);
       return [outcome];
     }
 
     const { marketState, hypotheses } = run.hypothesisSnapshot;
     if (hypotheses.length === 0) return []; // nothing to evaluate; no outcome fabricated
 
+    // Idempotency: a hypothesis that already has a finalized verdict from a
+    // prior invocation must never be re-evaluated or re-persisted - that
+    // would silently inflate sampleSize with duplicates of the same real
+    // event. "pending"/"inconclusive" outcomes remain retryable on purpose
+    // (see the D2.7.9 header comment).
+    const existingOutcomes = await this.outcomes.getOutcomesForRun(run.id);
+    const finalizedByHypothesisId = new Map<string, IntelligenceAnalysisOutcome>();
+    for (const o of existingOutcomes) {
+      if (o.hypothesisId && (o.status === "validated" || o.status === "invalidated")) {
+        finalizedByHypothesisId.set(o.hypothesisId, o);
+      }
+    }
+
     const results: IntelligenceAnalysisOutcome[] = [];
+    let anyStillPending = false;
     for (const hypothesis of hypotheses) {
+      const alreadyFinalized = finalizedByHypothesisId.get(hypothesis.id);
+      if (alreadyFinalized) {
+        results.push(alreadyFinalized);
+        continue;
+      }
+
       const evaluated = await this.evaluateHypothesis({
         hypothesis,
         marketStateAtCreation: marketState,
@@ -318,21 +399,60 @@ export class HypothesisOutcomeEvaluatorService {
         timeSeriesProvider: deps.timeSeriesProvider,
         clock: deps.clock,
       });
-      const outcome = await this.outcomes.createOutcome({
+
+      if (evaluated.status === "pending") {
+        // Matches the documented contract (D2.5.4 architecture spec §1): a
+        // hypothesis whose window hasn't closed produces NO outcome row
+        // yet - it is re-evaluated on a later call, never persisted as a
+        // transient row that would immediately be stale. Pre-D2.7.9 this
+        // branch DID persist a "pending" row on every call despite the
+        // spec saying otherwise - a real bug found during this sprint's
+        // audit: a 20-hour prediction window hit by a trigger every 15
+        // minutes would have accumulated ~80 duplicate rows before ever
+        // resolving. Fixed here; does not affect sampleSize (a "pending"
+        // status was never counted there either), but removes real,
+        // unbounded row growth.
+        anyStillPending = true;
+        continue;
+      }
+
+      const outcomeInput = {
         analysisRunId: run.id,
         hypothesisId: hypothesis.id,
         hypothesisType: hypothesis.type,
         regimeType: hypothesis.regimeContext.regimeType,
         status: evaluated.status,
-        evaluatedAt: evaluated.status === "pending" ? null : new Date((deps.clock ?? systemClock).now()).toISOString(),
+        evaluatedAt: new Date((deps.clock ?? systemClock).now()).toISOString(),
         actualPriceMovePct: evaluated.actualPriceMovePct,
         actualRegimeAfter: null, // no Regime Engine re-derivation in the outcome record itself - see architecture doc
         evaluationBasis: evaluated.evaluationBasis,
-      });
-      results.push(outcome);
+      };
+      try {
+        results.push(await this.outcomes.createOutcome(outcomeInput));
+      } catch (cause) {
+        // Concurrency backstop: the DB-level partial unique index (see
+        // prisma/migrations/*_add_outcome_idempotency_guard) rejects a
+        // second finalized outcome for the same (analysisRunId,
+        // hypothesisId) - a concurrent evaluator invocation won the race.
+        // Treat that as success (reuse its verdict), not a batch failure.
+        if (isUniqueConstraintViolation(cause) && (evaluated.status === "validated" || evaluated.status === "invalidated")) {
+          const refetched = await this.outcomes.getOutcomesForRun(run.id);
+          const winner = refetched.find(
+            (o) => o.hypothesisId === hypothesis.id && (o.status === "validated" || o.status === "invalidated"),
+          );
+          if (winner) {
+            results.push(winner);
+            continue;
+          }
+        }
+        throw cause;
+      }
     }
 
-    if (results.length > 0 && results.every((o) => o.status !== "pending")) {
+    // Evaluated only once every hypothesis has reached a real, conclusive
+    // (non-pending) state - if any hypothesis is still awaiting its window,
+    // the run correctly stays "pending" and will be re-picked-up later.
+    if (!anyStillPending) {
       await this.runs.markEvaluated(run.id, userId);
     }
     return results;

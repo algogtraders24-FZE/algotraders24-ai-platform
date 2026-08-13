@@ -675,6 +675,20 @@ model IntelligenceAnalysisOutcome {
   @@map("intelligence_analysis_outcomes")
 }
 
+// Sprint D2.7.9 - Historical Validation Production Wiring. A partial unique
+// index (NOT expressible as a Prisma `@@unique` here - Prisma has no WHERE
+// clause on indexes, so this is enforced only in the hand-written migration
+// prisma/migrations/*_add_outcome_idempotency_guard/migration.sql) exists on
+// intelligence_analysis_outcomes("analysisRunId", "hypothesisId") WHERE
+// "hypothesisId" IS NOT NULL AND "status" IN ('validated', 'invalidated').
+// This is the DB-level concurrency backstop for
+// HypothesisOutcomeEvaluatorService.evaluateAnalysisRun()'s idempotency
+// check: two concurrent evaluator invocations can no longer both persist a
+// finalized verdict for the same hypothesis. "pending"/"inconclusive"
+// outcomes are deliberately excluded from the constraint - they remain
+// retryable by design (a transient provider failure deserves another real
+// attempt on the next trigger run).
+
 // Sprint D2.6.9 - Verified Intelligence Audit, Explainability & Answer
 // Traceability. The immutable, per-presented-answer audit record - see
 // types/intelligence-audit-trace.ts's header for the full contract this
