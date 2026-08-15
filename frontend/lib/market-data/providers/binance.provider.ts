@@ -46,6 +46,8 @@ import type {
   MarketContextResult,
   MarketEvidenceItem,
 } from "@/types/market-data-provider";
+import type { MicrostructureProvider } from "@/types/microstructure-provider";
+import type { RawMicrostructureResult } from "@/types/microstructure";
 import type { MarketCategory } from "@/types/market";
 import type { MarketSnapshot, MarketStatus } from "@/types/market-snapshot";
 import type { Candle, TimeSeriesRequest } from "@/types/market-candle";
@@ -54,6 +56,8 @@ import { getMarket } from "../market-registry";
 import { mappingsForProvider } from "../instrument-catalog";
 import { MarketDataProviderError } from "../errors";
 import { TtlCache, systemClock, type Clock } from "../cache";
+import { toBidAskFields, toOrderBookLevelsField, toTradesField, toSequenceIdField } from "@/lib/microstructure/microstructure-validation";
+import { hasValue } from "@/lib/microstructure/microstructure-field";
 
 const PROVIDER_NAME = "binance";
 const BASE_URL = "https://api.binance.com/api/v3";
@@ -61,6 +65,13 @@ const DEFAULT_CACHE_TTL_MS = 30_000;
 const DEFAULT_CANDLE_CACHE_TTL_MS = 5 * 60_000;
 const DEFAULT_INTERVAL = "1d";
 const DEFAULT_LIMIT = 100;
+// Sprint D2.8.5 - order-book depth and recent-trade limits for the
+// microstructure adapter. REST-only (never a WebSocket - production
+// WebSocket infrastructure is an explicit non-goal of this sprint), live-
+// verified against GET /api/v3/depth and GET /api/v3/trades
+// in D2.8.3's runtime capability POC.
+const MICROSTRUCTURE_DEPTH_LIMIT = 10;
+const MICROSTRUCTURE_TRADE_LIMIT = 50;
 
 interface SymbolSpec {
   binance: string;
@@ -143,6 +154,22 @@ export interface BinanceProviderOptions {
 // takerBuyQuoteAssetVolume, ignore].
 type BinanceKlineRow = [number, string, string, string, string, string, number, string, number, string, string, string];
 
+// Sprint D2.8.5 - minimal shapes of Binance's documented GET /depth and GET
+// /trades responses, live-verified in D2.8.3's runtime capability POC -
+// only the fields this adapter actually reads.
+interface BinanceDepthResponse {
+  lastUpdateId?: number;
+  bids?: Array<[string, string]>;
+  asks?: Array<[string, string]>;
+}
+interface BinanceTradeResponse {
+  id?: number;
+  price?: string;
+  qty?: string;
+  time?: number;
+  isBuyerMaker?: boolean;
+}
+
 function toFiniteNumber(value: string | undefined): number | undefined {
   if (value === undefined) return undefined;
   const n = Number.parseFloat(value);
@@ -156,7 +183,7 @@ function fmt(n: number): string {
   return Number.parseFloat(n.toPrecision(12)).toString();
 }
 
-export class BinanceProvider implements MarketDataProvider, SnapshotProvider, TimeSeriesProvider {
+export class BinanceProvider implements MarketDataProvider, SnapshotProvider, TimeSeriesProvider, MicrostructureProvider {
   readonly name = PROVIDER_NAME;
   private readonly cache: TtlCache<ParsedQuote>;
   private readonly candleCache: TtlCache<Candle[]>;
@@ -290,6 +317,65 @@ export class BinanceProvider implements MarketDataProvider, SnapshotProvider, Ti
       this.candleCache.set(cacheKey, candles);
     }
     return candles;
+  }
+
+  /**
+   * Sprint D2.8.5 - raw microstructure evidence only (bid/ask, order-book
+   * levels, recent trades with aggressor side), never a derived value and
+   * never a trading decision - see lib/microstructure/microstructure-
+   * calculation.ts for where spread/depth/volume-delta are actually
+   * computed, over this method's output. REST-only (D2.8.3's WebSocket
+   * captures were throwaway research, never production infrastructure).
+   * Not cached (unlike getSnapshot/getTimeSeries above) - microstructure
+   * evidence is meant to be read close to real-time, and this sprint adds
+   * no scheduled/repeated caller that would benefit from a TTL.
+   */
+  async getMicrostructureSnapshot(request: MarketContextRequest): Promise<RawMicrostructureResult> {
+    const spec = this.resolveSymbol(request.symbol, "quote");
+    const [depth, trades] = await Promise.all([this.fetchDepth(spec.binance), this.fetchRecentTrades(spec.binance)]);
+    const retrievedAt = new Date(this.clock.now()).toISOString();
+
+    const bestBid = depth.bids?.[0]?.[0] !== undefined ? Number.parseFloat(depth.bids[0][0]) : undefined;
+    const bestAsk = depth.asks?.[0]?.[0] !== undefined ? Number.parseFloat(depth.asks[0][0]) : undefined;
+    const { bid, ask } = toBidAskFields(bestBid, bestAsk);
+    const bidLevels = toOrderBookLevelsField(depth.bids);
+    const askLevels = toOrderBookLevelsField(depth.asks);
+    const tradesField = toTradesField(trades, (raw) => {
+      const price = toFiniteNumber(raw.price);
+      const quantity = toFiniteNumber(raw.qty);
+      const timestamp = this.parseProviderTimestamp(raw.time);
+      if (price === undefined || quantity === undefined || !timestamp) return undefined;
+      // Binance's own documented meaning: isBuyerMaker === false means the
+      // BUY side was the taker/aggressor (the trade lifted the ask);
+      // isBuyerMaker === true means the SELL side was the aggressor (the
+      // trade hit the bid). Only ever mapped when the field is genuinely
+      // present - never guessed for a row that omits it.
+      const aggressorSide = raw.isBuyerMaker === undefined ? undefined : raw.isBuyerMaker ? "sell" : "buy";
+      return { price, quantity, timestamp, aggressorSide };
+    });
+    const sequenceId = toSequenceIdField(depth.lastUpdateId);
+
+    const latestTrade = hasValue(tradesField) ? tradesField.value[tradesField.value.length - 1] : undefined;
+
+    return {
+      symbol: request.symbol,
+      provider: PROVIDER_NAME,
+      assetClass: spec.assetClass,
+      timestamp: latestTrade?.timestamp ?? retrievedAt,
+      retrievedAt,
+      evidence: { bid, ask, bidLevels, askLevels, trades: tradesField, sequenceId },
+    };
+  }
+
+  private async fetchDepth(binanceSymbol: string): Promise<BinanceDepthResponse> {
+    const url = `${BASE_URL}/depth?symbol=${encodeURIComponent(binanceSymbol)}&limit=${MICROSTRUCTURE_DEPTH_LIMIT}`;
+    return this.request<BinanceDepthResponse>(url);
+  }
+
+  private async fetchRecentTrades(binanceSymbol: string): Promise<BinanceTradeResponse[]> {
+    const url = `${BASE_URL}/trades?symbol=${encodeURIComponent(binanceSymbol)}&limit=${MICROSTRUCTURE_TRADE_LIMIT}`;
+    const body = await this.request<BinanceTradeResponse[] | { code: number; msg: string }>(url);
+    return Array.isArray(body) ? body : [];
   }
 
   private async request<T>(url: string): Promise<T> {
