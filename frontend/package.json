@@ -62,7 +62,8 @@
     "validate:native-chart-interaction": "tsx scripts/validate-native-chart-interaction.ts",
     "validate:market-data-integrity": "tsx scripts/validate-market-data-integrity.ts",
     "validate:market-data-provider-audit": "tsx scripts/validate-market-data-provider-audit.ts",
-    "validate:microstructure-poc": "tsx scripts/validate-microstructure-poc.ts"
+    "validate:microstructure-poc": "tsx scripts/validate-microstructure-poc.ts",
+    "validate:dukascopy-audit": "tsx scripts/validate-dukascopy-capability-audit.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",
