@@ -26,6 +26,8 @@ export interface MarketSnapshot {
   price: number;
   bid?: number;
   ask?: number;
+  /** Sprint D2.8.1 - ask - bid, computed centrally by MarketDataService ONLY when both bid and ask are present and valid (ask >= bid). Never derived from price/candles, never a synthetic estimate. Absent whenever either side is absent. */
+  spread?: number;
   /** Session OHLC when the provider supplies it (spot-only providers omit it). */
   ohlc?: MarketSnapshotOHLC;
   changePercent?: number;

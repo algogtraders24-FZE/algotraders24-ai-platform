@@ -63,6 +63,17 @@ const DEFAULT_CACHE_TTL_MS = 30_000;
 // is still better than a hard failure".
 const DEFAULT_STALE_FALLBACK_MS = 5 * 60_000;
 
+// Sprint D2.8.1 - the ONLY place spread is ever computed. `ask - bid`, and
+// only when both are present and ask >= bid (the winning provider's own
+// getSnapshot() has already validated bid/ask individually - this is a
+// second, cheap sanity check against the pair, not a duplicate of that
+// validation). Never derived from price/candles, never a fallback/guess -
+// a snapshot with no valid bid/ask pair simply has no `spread` field.
+function withDerivedSpread(snapshot: MarketSnapshot): MarketSnapshot {
+  if (snapshot.bid === undefined || snapshot.ask === undefined || snapshot.ask < snapshot.bid) return snapshot;
+  return { ...snapshot, spread: snapshot.ask - snapshot.bid };
+}
+
 export interface MarketDataServiceOptions {
   /** Providers in priority order. Default: [Twelve Data (primary), Alpha Vantage, Binance, Angel One (D2.6.3)]. */
   providers?: MarketDataProvider[];
@@ -204,9 +215,14 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
         continue;
       }
       try {
-        const snapshot = await this.recordedAttempt(provider, request.symbol, () =>
+        const rawSnapshot = await this.recordedAttempt(provider, request.symbol, () =>
           withReliability(() => provider.getSnapshot(request), provider.name, this.reliability),
         );
+        // Sprint D2.8.1 - spread is a pure derivation of whatever bid/ask
+        // the winning provider actually supplied, computed in exactly one
+        // place so every current and future SnapshotProvider gets it for
+        // free without duplicating the calculation per-provider.
+        const snapshot = withDerivedSpread(rawSnapshot);
         // Sprint D2.6.3 - fallbackUsed provenance: true only when a real
         // failure (never a merely "unconfigured" skip) from an
         // earlier-priority provider preceded this success.

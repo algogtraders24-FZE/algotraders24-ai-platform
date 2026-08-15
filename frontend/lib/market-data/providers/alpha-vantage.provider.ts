@@ -30,9 +30,13 @@
 // Refreshed" timestamp are ever reported.
 import type {
   MarketDataProvider,
+  SnapshotProvider,
   MarketContextRequest,
   MarketContextResult,
 } from "@/types/market-data-provider";
+import type { MarketSnapshot } from "@/types/market-snapshot";
+import type { MarketCategory } from "@/types/market";
+import { getMarket } from "../market-registry";
 import { loadAlphaVantageEnv, type AlphaVantageEnv } from "../env";
 import { MarketDataProviderError } from "../errors";
 import { TtlCache, systemClock, type Clock } from "../cache";
@@ -50,6 +54,16 @@ const SYMBOL_MAP: Record<string, string> = {
   EURUSD: "EUR",
   XAUUSD: "XAU",
   XAGUSD: "XAG",
+};
+
+// Sprint D2.8.1 - asset class for the same canonical symbols above, needed
+// only by getSnapshot()'s MarketSnapshot.assetClass field. Kept as its own
+// map (rather than folding into SYMBOL_MAP) so normalizeSymbol()'s existing
+// string-only contract is untouched.
+const ASSET_CLASS_MAP: Record<string, MarketCategory> = {
+  EURUSD: "forex",
+  XAUUSD: "commodities",
+  XAGUSD: "commodities",
 };
 
 interface CachedQuote {
@@ -90,7 +104,7 @@ export interface AlphaVantageProviderOptions {
   fetchImpl?: AlphaVantageFetch;
 }
 
-export class AlphaVantageProvider implements MarketDataProvider {
+export class AlphaVantageProvider implements MarketDataProvider, SnapshotProvider {
   readonly name = PROVIDER_NAME;
   private readonly env: AlphaVantageEnv | null;
   private readonly cache: TtlCache<CachedQuote>;
@@ -118,6 +132,76 @@ export class AlphaVantageProvider implements MarketDataProvider {
       );
     }
     return providerSymbol;
+  }
+
+  // Sprint D2.8.1 - the structured, canonical view, mirroring Twelve Data's
+  // getSnapshot() shape/conventions. Alpha Vantage is spot-only (no OHLC/
+  // volume/market-open status), so those fields are correctly left
+  // undefined here - never fabricated. The one thing this provider offers
+  // that Twelve Data doesn't is a real bid/ask, which is why this method
+  // exists at all: to let that already-real data reach MarketSnapshot
+  // through the existing SnapshotProvider capability, instead of being
+  // stranded in getMarketContext()'s evidence array. bid/ask are only ever
+  // set when BOTH are finite, positive, and ask >= bid - an invalid or
+  // partial pair is rejected (left undefined), never normalized into a
+  // fake value.
+  async getSnapshot(request: MarketContextRequest): Promise<MarketSnapshot> {
+    if (!this.env) {
+      throw new MarketDataProviderError(
+        "unconfigured",
+        `${PROVIDER_NAME} is not configured (missing ALPHA_VANTAGE_API_KEY)`,
+        PROVIDER_NAME,
+      );
+    }
+    const providerSymbol = this.normalizeSymbol(request.symbol);
+    const assetClass = ASSET_CLASS_MAP[request.symbol];
+    if (!assetClass) {
+      // Cannot happen today (SYMBOL_MAP and ASSET_CLASS_MAP are kept in
+      // sync above), but this is the honest failure mode if they ever
+      // drift rather than silently guessing an asset class.
+      throw new MarketDataProviderError(
+        "unsupported_symbol",
+        `Symbol "${request.symbol}" has no asset-class mapping for ${PROVIDER_NAME}`,
+        PROVIDER_NAME,
+      );
+    }
+
+    let quote = this.cache.get(providerSymbol);
+    if (!quote) {
+      quote = await this.fetchQuote(providerSymbol, this.env.apiKey);
+      this.cache.set(providerSymbol, quote);
+    }
+
+    const retrievedAt = new Date(this.clock.now()).toISOString();
+    const validBidAsk =
+      quote.bid !== undefined &&
+      quote.ask !== undefined &&
+      Number.isFinite(quote.bid) &&
+      Number.isFinite(quote.ask) &&
+      quote.bid > 0 &&
+      quote.ask > 0 &&
+      quote.ask >= quote.bid;
+
+    return {
+      symbol: request.symbol,
+      name: getMarket(request.symbol)?.name,
+      assetClass,
+      price: quote.price,
+      bid: validBidAsk ? quote.bid : undefined,
+      ask: validBidAsk ? quote.ask : undefined,
+      // ohlc/volume/changePercent: never reported - the exchange-rate
+      // endpoint this provider calls has no session OHLC or volume, and
+      // fabricating them would violate the "no guessed values" contract.
+      quoteCurrency: "USD",
+      timestamp: quote.providerTimestamp ?? retrievedAt,
+      timezone: "UTC",
+      // Alpha Vantage's realtime-exchange-rate endpoint reports no
+      // open/closed signal - "unknown" is the honest value, not a guess.
+      marketStatus: "unknown",
+      provider: PROVIDER_NAME,
+      retrievedAt,
+      providerSymbol,
+    };
   }
 
   async getMarketContext(request: MarketContextRequest): Promise<MarketContextResult> {
