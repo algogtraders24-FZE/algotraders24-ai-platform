@@ -24,6 +24,7 @@
 // explicit "why ensemble voting is intentionally not used" section).
 import type { IntelligenceEnvelope, AIIntelligencePresenter } from "@/types/intelligence-envelope";
 import type { PresenterAttempt, PresenterFailureCategory, PresenterOrchestrationResult } from "@/types/ai-presenter-orchestration";
+import type { MicrostructureSnapshot } from "@/types/microstructure";
 import { DecisionContextService } from "@/services/intelligence/decision/decision-context.service";
 import { validateResponseIntegrity } from "@/services/intelligence/chat/ai-response-integrity.service";
 import { GeminiIntelligencePresenter } from "@/services/intelligence/chat/gemini-intelligence-presenter.service";
@@ -31,6 +32,12 @@ import { DeterministicSafeFallbackPresenter } from "@/services/intelligence/chat
 import { ClaudeProvider } from "@/lib/ai/providers/claude.provider";
 import { OpenAIProvider } from "@/lib/ai/providers/openai.provider";
 import { AIProviderError, type AIErrorKind } from "@/lib/ai/errors";
+// Sprint D2.8.8 - additive presentation-layer bridge. The locked
+// AIIntelligencePresenter.present(envelope, userQuestion) interface below
+// is never touched; this orchestrator (a D2.6.8 composition class, not
+// that interface) enriches the plain-string `userQuestion` it forwards to
+// each candidate presenter instead.
+import { buildPresenterQuestionWithMicrostructure } from "@/lib/microstructure/microstructure-presentation";
 
 export interface PresenterSlot {
   name: string;
@@ -91,8 +98,20 @@ export class AIPresenterOrchestratorService {
     this.clock = options.clock ?? { now: () => Date.now() };
   }
 
-  async present(envelope: IntelligenceEnvelope, userQuestion: string): Promise<PresenterOrchestrationResult> {
+  /**
+   * Sprint D2.8.8 - `microstructure` is an optional 3rd param (this method
+   * is this orchestrator's own, not the locked AIIntelligencePresenter
+   * interface), defaulting to undefined so every existing caller/test
+   * behaves byte-identically. When supplied, it is (a) folded into the
+   * `userQuestion` string every candidate presenter receives, framed as
+   * additional verified evidence with an explicit safety boundary (see
+   * buildMicrostructureLLMEvidenceBlock), and (b) passed to the integrity
+   * validator so a response that honestly cites real microstructure
+   * numbers is not misclassified as fabricated.
+   */
+  async present(envelope: IntelligenceEnvelope, userQuestion: string, microstructure?: MicrostructureSnapshot): Promise<PresenterOrchestrationResult> {
     const decisionContext = this.decisionContextService.build(envelope);
+    const presenterQuestion = buildPresenterQuestionWithMicrostructure(userQuestion, microstructure);
     const attempts: PresenterAttempt[] = [];
 
     for (const slot of this.slots) {
@@ -105,7 +124,7 @@ export class AIPresenterOrchestratorService {
       const startedAt = this.clock.now();
       try {
         const presenter = slot.createPresenter();
-        const candidate = await presenter.present(envelope, userQuestion);
+        const candidate = await presenter.present(envelope, presenterQuestion);
         const latencyMs = this.clock.now() - startedAt;
 
         if (candidate.text.trim().length === 0) {
@@ -113,7 +132,7 @@ export class AIPresenterOrchestratorService {
           continue;
         }
 
-        const integrity = validateResponseIntegrity(candidate.text, envelope, decisionContext);
+        const integrity = validateResponseIntegrity(candidate.text, envelope, decisionContext, microstructure);
         if (!integrity.valid) {
           // Sprint D2.6.9 - the closed violation-kind vocabulary is safe,
           // non-sensitive diagnostic metadata (never raw response text) -
@@ -143,7 +162,7 @@ export class AIPresenterOrchestratorService {
     // answer. The deterministic fallback restates only real, verified
     // facts (D2.6.5) and is itself always integrity-valid.
     const fallbackTimestamp = new Date(this.clock.now()).toISOString();
-    const fallbackResult = await this.fallback.present(envelope, userQuestion);
+    const fallbackResult = await this.fallback.present(envelope, presenterQuestion);
     attempts.push({ provider: this.fallback.name, attempted: true, success: true, integrityPassed: true, timestamp: fallbackTimestamp });
     return { text: fallbackResult.text, presentedBy: fallbackResult.presentedBy, envelopeGeneratedAt: fallbackResult.envelopeGeneratedAt, attempts, fallbackUsed: true };
   }

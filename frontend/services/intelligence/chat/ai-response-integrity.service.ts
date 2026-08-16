@@ -21,6 +21,8 @@ import type { ResponseIntegrityResult, ResponseIntegrityViolation } from "@/type
 import { AI_RESPONSE_INTEGRITY_VERSION } from "@/types/ai-response-integrity";
 import { DecisionContextService } from "@/services/intelligence/decision/decision-context.service";
 import { listCanonicalInstruments } from "@/lib/market-data/instrument-catalog";
+import type { MicrostructureSnapshot } from "@/types/microstructure";
+import { collectMicrostructureRealNumbers } from "@/lib/microstructure/microstructure-presentation";
 
 /**
  * Same prohibited-claim patterns D2.6.1's own regression suite checks
@@ -166,9 +168,9 @@ export function allowedPriceValues(dc: IntelligenceDecisionContext): number[] {
   return values;
 }
 
-function checkUnsupportedNumericClaims(text: string, dc: IntelligenceDecisionContext): ResponseIntegrityViolation[] {
+function checkUnsupportedNumericClaims(text: string, dc: IntelligenceDecisionContext, extraRealNumbers: number[] = []): ResponseIntegrityViolation[] {
   const violations: ResponseIntegrityViolation[] = [];
-  const realNumbers = collectRealNumbers(dc);
+  const realNumbers = [...collectRealNumbers(dc), ...extraRealNumbers];
   const allowedPercents = [...allowedPercentValues(dc), ...realNumbers];
   for (const claim of extractPercentClaims(text)) {
     const supported = allowedPercents.some((real) => Math.abs(claim - real) <= PERCENT_CLAIM_ABSOLUTE_TOLERANCE);
@@ -255,10 +257,29 @@ function checkContradictsConflictsOrInsufficiency(text: string, dc: Intelligence
   return violations;
 }
 
-/** Pure, deterministic. Identical (text, envelope) always produces an identical result. */
-export function validateResponseIntegrity(responseText: string, envelope: IntelligenceEnvelope, decisionContext: IntelligenceDecisionContext): ResponseIntegrityResult {
+/**
+ * Pure, deterministic. Identical (text, envelope, decisionContext,
+ * microstructure) always produces an identical result.
+ *
+ * Sprint D2.8.8 - optional 4th param, defaulting to undefined so every
+ * existing call site (unmodified) behaves byte-identically. When a real
+ * MicrostructureSnapshot is supplied, its own real "available"/"stale"
+ * numeric values (bid/ask/spread/depth/volume/etc.) are recognized as
+ * supported evidence by checkUnsupportedNumericClaims - otherwise a
+ * presenter response that honestly cites real microstructure evidence
+ * would be misclassified as an unsupported/fabricated numeric claim and
+ * incorrectly rejected into the deterministic fallback, which never
+ * mentions microstructure at all.
+ */
+export function validateResponseIntegrity(
+  responseText: string,
+  envelope: IntelligenceEnvelope,
+  decisionContext: IntelligenceDecisionContext,
+  microstructure?: MicrostructureSnapshot,
+): ResponseIntegrityResult {
+  const extraRealNumbers = microstructure ? collectMicrostructureRealNumbers(microstructure) : [];
   const violations: ResponseIntegrityViolation[] = [
-    ...checkUnsupportedNumericClaims(responseText, decisionContext),
+    ...checkUnsupportedNumericClaims(responseText, decisionContext, extraRealNumbers),
     ...checkUnsupportedSymbol(responseText, envelope.symbol),
     ...checkDirectionalAndProfitLanguage(responseText),
     ...checkUnsupportedIndicators(responseText, decisionContext),

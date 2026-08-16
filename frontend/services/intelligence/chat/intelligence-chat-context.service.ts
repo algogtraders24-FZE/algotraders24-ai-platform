@@ -40,6 +40,8 @@ export interface ResolveChatIntelligenceInput {
   /** Explicit override - wins over any persisted load for this call. */
   conversationContext?: ConversationIntelligenceContext;
   crossProviderValidation?: boolean;
+  /** Sprint D2.8.8 - pass-through of D2.8.7's own opt-in flag (RealTimeIntelligenceRequest.includeMicrostructure), mirroring crossProviderValidation's own pattern immediately above. Omit/false preserves this service's exact pre-D2.8.8 behavior. */
+  includeMicrostructure?: boolean;
   requestedAt?: string;
 }
 
@@ -68,6 +70,7 @@ export class IntelligenceChatContextService {
       timeframe: input.timeframe,
       conversationContext,
       crossProviderValidation: input.crossProviderValidation,
+      includeMicrostructure: input.includeMicrostructure,
       requestedAt: input.requestedAt,
     });
 

@@ -84,7 +84,10 @@ export class IntelligencePresentationService {
     const envelope: IntelligenceEnvelope = context.envelope;
     const dataQuality: DataQualityAssessment = context.dataQuality;
 
-    const presented = await this.presenterOrchestrator.present(envelope, input.message);
+    // Sprint D2.8.8 - additive: `context.microstructure` (D2.8.7) is
+    // undefined unless the caller opted in via `includeMicrostructure`, in
+    // which case behavior here is byte-identical to before this sprint.
+    const presented = await this.presenterOrchestrator.present(envelope, input.message, context.microstructure);
     const decisionContext = this.decisionContextService.build(envelope);
     const marketData = this.buildMarketDataProvenance(envelope, dataQuality, context.crossProviderValidation);
 
