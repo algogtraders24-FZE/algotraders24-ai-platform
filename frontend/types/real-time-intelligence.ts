@@ -16,6 +16,7 @@ import type { IntelligenceQuery } from "./intelligence-query";
 import type { IntelligenceQueryContext } from "./intelligence-query-context";
 import type { IntelligenceEnvelope } from "./intelligence-envelope";
 import type { FreshnessStatus } from "./provider-reliability";
+import type { MicrostructureSnapshot } from "./microstructure";
 
 /**
  * Five honest states a trader-facing real-time request must be able to
@@ -105,6 +106,22 @@ export interface VerifiedRealTimeIntelligenceContext {
   envelope?: IntelligenceEnvelope;
   dataQuality?: DataQualityAssessment;
   crossProviderValidation?: CrossProviderValidationSummary;
+  /**
+   * Sprint D2.8.7 - real, provider-attributed microstructure evidence
+   * (bid/ask, order-book depth, aggressor-mapped trades), reusing D2.8.5's
+   * MicrostructureSnapshot type verbatim - never a second, parallel
+   * representation. Present only when the caller opted in
+   * (`includeMicrostructure`) AND the resolved instrument's canonical
+   * provider mapping genuinely proves microstructure-capable-provider
+   * coverage for it (currently: Binance for BTCUSD/ETHUSD only - see
+   * RealTimeIntelligenceService.build()). Absent for every other
+   * instrument and whenever the fetch itself fails - never guessed, never
+   * substituted from a different venue. `MicrostructureSnapshot.provider`
+   * always identifies the exact venue this evidence came from (e.g.
+   * "binance") - it must never be presented as a generic/global market
+   * fact.
+   */
+  microstructure?: MicrostructureSnapshot;
   /** Set only when a real IntelligenceAnalysisRun was persisted (sprint §5) - never set on a clarification/insufficient-data result. */
   analysisRunId?: string;
   observability: RealTimeIntelligenceObservability;

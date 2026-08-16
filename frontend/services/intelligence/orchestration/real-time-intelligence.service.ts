@@ -33,6 +33,7 @@ import type {
   RealTimeIntelligenceObservability,
 } from "@/types/real-time-intelligence";
 import { REAL_TIME_INTELLIGENCE_ORCHESTRATION_VERSION } from "@/types/real-time-intelligence";
+import type { MicrostructureSnapshot } from "@/types/microstructure";
 import { IntelligenceQueryService, resolveSymbol } from "@/services/intelligence/query/intelligence-query.service";
 import { IntelligenceQueryContextService } from "@/services/intelligence/query/intelligence-query-context.service";
 import { AnalysisHistoryService } from "@/services/intelligence/query/analysis-history.service";
@@ -53,6 +54,12 @@ import { TwelveDataProvider } from "@/lib/market-data/providers/twelve-data.prov
 import { BinanceProvider } from "@/lib/market-data/providers/binance.provider";
 import { AngelOneProvider } from "@/lib/market-data/providers/angel-one.provider";
 import { systemClock, type Clock } from "@/lib/market-data/cache";
+// Sprint D2.8.7 - reuses D2.8.6's own production microstructure boundary
+// verbatim (never a second provider instance, never re-implemented
+// fetch/validation/calculation logic).
+import { binanceMicrostructureProvider, microstructureSnapshots } from "@/services/microstructure/shared-instance";
+import { MicrostructureSnapshotService } from "@/services/microstructure/microstructure-snapshot.service";
+import type { MarketContextRequest } from "@/types/market-data-provider";
 
 export const REAL_TIME_INTELLIGENCE_VERSION = "1.0.0";
 
@@ -97,6 +104,17 @@ export interface RealTimeIntelligenceRequest {
   conversationContext?: ConversationIntelligenceContext;
   /** Sprint §4 - opt-in only. A second real provider is never fetched by default; doing so on every request would double provider cost/latency for a capability the sprint itself calls "optional". */
   crossProviderValidation?: boolean;
+  /**
+   * Sprint D2.8.7 - opt-in only, mirroring `crossProviderValidation`'s own
+   * reasoning exactly: microstructure is additive evidence (Phase 11's own
+   * words), never a hard dependency for basic analysis, and fetching it on
+   * every single request would add real network cost/latency to symbols
+   * that never asked for it. Even when true, evidence is only ever
+   * attempted for an instrument whose canonical provider mapping proves
+   * real microstructure-provider coverage (Binance for BTCUSD/ETHUSD
+   * today) - never guessed for any other symbol.
+   */
+  includeMicrostructure?: boolean;
   /** Caller-supplied for determinism/testability - never Date.now() internally. */
   requestedAt?: string;
 }
@@ -114,6 +132,9 @@ export interface RealTimeIntelligenceDeps {
   analysisRunService?: IntelligenceAnalysisRunService;
   pipeline?: MarketIntelligencePipelineService;
   providerRegistry?: Record<string, () => LiveSnapshotProvider>;
+  /** Sprint D2.8.7 - defaults to D2.8.6's real production Binance microstructure provider/service; injectable only for deterministic testing. */
+  microstructureProvider?: MarketDataProvider;
+  microstructureService?: MicrostructureSnapshotService;
   clock?: Clock;
 }
 
@@ -163,6 +184,8 @@ export class RealTimeIntelligenceService {
   private readonly analysisRunService: IntelligenceAnalysisRunService;
   private readonly pipeline: MarketIntelligencePipelineService;
   private readonly providerRegistry: Record<string, () => LiveSnapshotProvider>;
+  private readonly microstructureProvider: MarketDataProvider;
+  private readonly microstructureService: MicrostructureSnapshotService;
   private readonly clock: Clock;
 
   constructor(deps: RealTimeIntelligenceDeps = {}) {
@@ -178,6 +201,8 @@ export class RealTimeIntelligenceService {
     this.analysisRunService = deps.analysisRunService ?? new IntelligenceAnalysisRunService();
     this.pipeline = deps.pipeline ?? new MarketIntelligencePipelineService(this.marketData);
     this.providerRegistry = deps.providerRegistry ?? REAL_PROVIDER_REGISTRY;
+    this.microstructureProvider = deps.microstructureProvider ?? binanceMicrostructureProvider;
+    this.microstructureService = deps.microstructureService ?? microstructureSnapshots;
     this.clock = deps.clock ?? systemClock;
   }
 
@@ -334,6 +359,15 @@ export class RealTimeIntelligenceService {
       crossProviderValidation = await this.runCrossProviderValidation(symbol, snapshot, nowMs);
     }
 
+    // Sprint D2.8.7 - opt-in, best-effort, never fatal to the rest of this
+    // response (Phase 11's own rule: microstructure is additive evidence,
+    // never a hard dependency). Reuses D2.8.5/D2.8.6's real pipeline
+    // verbatim - this method performs zero validation/calculation itself.
+    let microstructure: MicrostructureSnapshot | undefined;
+    if (request.includeMicrostructure) {
+      microstructure = await this.fetchMicrostructure(symbol);
+    }
+
     // ---- Persistence (sprint §5) - the exact hypothesis snapshot D2.5.4
     // needs, never just a final text response. Best-effort: a persistence
     // failure must never take down a response the trader already has. ----
@@ -359,6 +393,7 @@ export class RealTimeIntelligenceService {
       envelope,
       dataQuality,
       crossProviderValidation,
+      microstructure,
       analysisRunId,
       observability: observability({
         dataFreshness: dataQuality.state,
@@ -414,5 +449,27 @@ export class RealTimeIntelligenceService {
     const conflicts = compareSnapshots({ instrument: symbol, snapshotA: primary, snapshotB: secondary, nowMs });
     const summary = summarizeConflicts(conflicts);
     return { status: summary.status, providers: [primary.provider, secondary.provider], basis: summary.basis, generatedAt };
+  }
+
+  // Sprint D2.8.7 - the exact same "instrument safety" discipline
+  // runCrossProviderValidation above already uses for a different
+  // provider: only ever attempted when the canonical instrument's OWN
+  // real provider mapping proves this venue actually covers it (never a
+  // guessed symbol list maintained a second time in this file). Any
+  // failure - unsupported instrument, network error, invalid evidence -
+  // is caught here and returns undefined, exactly like the OHLC snapshot
+  // fetch above never lets a market-data failure crash the rest of this
+  // response.
+  private async fetchMicrostructure(symbol: MarketSymbol): Promise<MicrostructureSnapshot | undefined> {
+    const instrument = getCanonicalInstrument(symbol);
+    const binanceCapable = (instrument?.providerMappings ?? []).some((m) => m.provider === this.microstructureProvider.name && m.supportedCapabilities.includes("quote"));
+    if (!binanceCapable) return undefined;
+
+    const request: MarketContextRequest = { symbol };
+    try {
+      return await this.microstructureService.getSnapshot(this.microstructureProvider, request);
+    } catch {
+      return undefined;
+    }
   }
 }

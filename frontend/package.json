@@ -65,7 +65,8 @@
     "validate:microstructure-poc": "tsx scripts/validate-microstructure-poc.ts",
     "validate:dukascopy-audit": "tsx scripts/validate-dukascopy-capability-audit.ts",
     "validate:microstructure-foundation": "tsx scripts/validate-microstructure-foundation.ts",
-    "validate:microstructure-runtime": "tsx scripts/validate-microstructure-runtime.ts"
+    "validate:microstructure-runtime": "tsx scripts/validate-microstructure-runtime.ts",
+    "validate:microstructure-context-integration": "tsx scripts/validate-microstructure-context-integration.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",
