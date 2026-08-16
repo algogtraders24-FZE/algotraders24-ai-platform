@@ -268,7 +268,14 @@ export const POST = withContext(async (req, ctx) => {
   // Sprint D2.6.9 - the single call below now also writes a real,
   // immutable audit/provenance record for a resolved, presented answer
   // (best-effort - a write failure never breaks the response below).
-  const { context: intelligenceContext, presented, verifiedAnswer } = await intelligencePresentationService.present({ requestId: ctx.requestId, userId, message: query, conversationId, symbol: requestedSymbol });
+  // Sprint D2.8.9 - Production Microstructure Activation. Requested by
+  // default for every real-time intelligence turn - safe because
+  // RealTimeIntelligenceService.fetchMicrostructure() (D2.8.7/D2.8.9) only
+  // ever calls Binance when the resolved instrument's real canonical
+  // provider mapping proves coverage (BTCUSD/ETHUSD today); every other
+  // instrument short-circuits to `undefined` with zero network calls, and
+  // any Binance failure/timeout is caught and non-fatal to this response.
+  const { context: intelligenceContext, presented, verifiedAnswer } = await intelligencePresentationService.present({ requestId: ctx.requestId, userId, message: query, conversationId, symbol: requestedSymbol, includeMicrostructure: true });
 
   // Sprint D2.6.10 - Trader Intelligence Workspace & Verified Answer
   // Experience. `verifiedAnswer` (when present) IS the stable

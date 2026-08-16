@@ -49,6 +49,7 @@ import { assessFreshness } from "@/services/market-data/freshness-policy.service
 import { validateSnapshotIntegrity } from "@/services/market-data/market-snapshot-integrity.service";
 import { compareSnapshots, summarizeConflicts } from "@/services/market-data/cross-provider-validation.service";
 import { getCanonicalInstrument } from "@/lib/market-data/instrument-catalog";
+import { withReliability } from "@/lib/market-data/reliability";
 import { marketData as sharedMarketData } from "@/services/market-data/shared-instance";
 import { TwelveDataProvider } from "@/lib/market-data/providers/twelve-data.provider";
 import { BinanceProvider } from "@/lib/market-data/providers/binance.provider";
@@ -467,7 +468,18 @@ export class RealTimeIntelligenceService {
 
     const request: MarketContextRequest = { symbol };
     try {
-      return await this.microstructureService.getSnapshot(this.microstructureProvider, request);
+      // Sprint D2.8.9 - reuses D2.6.4/D2.2's own existing timeout primitive
+      // (the same one MarketDataService wraps every OHLC/quote provider
+      // call in) rather than leaving this call unbounded. D2.8.5's
+      // MicrostructureSnapshotService intentionally bypasses MarketDataService
+      // (it's a single-provider, no-fallback seam by design), so it never
+      // inherited that timeout protection on its own - without this, a
+      // hung Binance response could stall the whole chat request even
+      // though microstructure is meant to be a non-critical enhancement.
+      // retries: 0 - a retry would only add latency to a best-effort,
+      // additive fetch; a single bounded attempt is the correct trade-off
+      // here, unlike the OHLC path's own retried default.
+      return await withReliability(() => this.microstructureService.getSnapshot(this.microstructureProvider, request), this.microstructureProvider.name, { retries: 0 });
     } catch {
       return undefined;
     }
