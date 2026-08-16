@@ -40,7 +40,7 @@ export const MICROSTRUCTURE_CAPABILITY_REGISTRY: ProviderMicrostructureCapabilit
       HISTORICAL_TICKS: "not_verified",
       HISTORICAL_ORDER_BOOK: "unavailable",
     }),
-    evidenceSource: "D2.8.3 live runtime verification (real REST + WebSocket payloads for BTCUSDT/ETHUSDT) + D2.8.5's own live GET /depth and GET /trades calls in the Binance adapter",
+    evidenceSource: "D2.8.3 live runtime verification (real REST + WebSocket payloads for BTCUSDT/ETHUSDT) + D2.8.6's real end-to-end runtime call through the production BinanceProvider -> MicrostructureSnapshotService pipeline (npm run validate:microstructure-runtime), confirming real bid/ask/depth/aggressor-mapped trades for both instruments - not merely a fake-transport test",
   },
   {
     provider: "angel-one",
