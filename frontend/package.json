@@ -71,7 +71,8 @@
     "validate:microstructure-activation": "tsx scripts/validate-microstructure-activation.ts",
     "validate:microstructure-visualization": "tsx scripts/validate-microstructure-visualization.ts",
     "validate:microstructure-evidence-fusion": "tsx scripts/validate-microstructure-evidence-fusion.ts",
-    "validate:microstructure-evidence-explanation": "tsx scripts/validate-microstructure-evidence-explanation.ts"
+    "validate:microstructure-evidence-explanation": "tsx scripts/validate-microstructure-evidence-explanation.ts",
+    "validate:microstructure-production-wiring": "tsx scripts/validate-microstructure-production-wiring.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",

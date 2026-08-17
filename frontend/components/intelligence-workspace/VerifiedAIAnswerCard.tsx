@@ -18,6 +18,7 @@ import HypothesisPanel from "./HypothesisPanel";
 import IntelligenceScorePanel from "./IntelligenceScorePanel";
 import MarketDataProvenance from "./MarketDataProvenance";
 import AuditTraceView from "./AuditTraceView";
+import MicrostructureEvidenceSection from "./MicrostructureEvidenceSection";
 import { formatLabel, RISK_LEVEL_TONE } from "./format";
 
 function RiskSection({ risk }: { risk: VerifiedAnswerResponse["riskContext"] }) {
@@ -104,6 +105,12 @@ export default function VerifiedAIAnswerCard({ result }: { result: VerifiedAnswe
           {result.hypotheses.length > 0 && (
             <Section title="What Could Happen">
               <HypothesisPanel hypotheses={result.hypotheses} invalidationConditions={result.invalidationConditions} />
+            </Section>
+          )}
+
+          {result.microstructureEvidence && (
+            <Section title="Microstructure Evidence">
+              <MicrostructureEvidenceSection evidence={result.microstructureEvidence} />
             </Section>
           )}
 

@@ -23,11 +23,14 @@ export interface MicrostructurePanelProps {
   symbol: string;
   /**
    * Sprint D2.8.12, Phase 8 - optional. When a caller already knows the
-   * active hypothesis (no current caller does yet - see the D2.8.12 spec
-   * doc's known limitations), the panel additionally renders D2.8.11's own
-   * real evidence relationship (CONFIRMS/CONTRADICTS/NEUTRAL/
-   * INSUFFICIENT_EVIDENCE) - never recomputed here, read verbatim off the
-   * route's response. Omitted -> byte-identical to D2.8.10 behavior.
+   * active hypothesis, the panel additionally renders D2.8.11's own real
+   * evidence relationship (CONFIRMS/CONTRADICTS/NEUTRAL/INSUFFICIENT_EVIDENCE)
+   * - never recomputed here, read verbatim off the route's response.
+   * Omitted -> byte-identical to D2.8.10 behavior.
+   *
+   * Sprint D2.8.13 - now genuinely wired: NativeChart.tsx forwards the real
+   * hypothesis WorkspaceResearch already fetched for the same symbol (via
+   * WorkspaceContext.hypothesisType) - no second fetch, no new engine.
    */
   hypothesisType?: HypothesisType;
 }

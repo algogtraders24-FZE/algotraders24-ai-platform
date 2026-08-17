@@ -90,7 +90,12 @@ export interface NativeChartProps {
 }
 
 export default function NativeChart({ timeframe, onTimeframeChange, activeIndicatorKeys, onToggleIndicator }: NativeChartProps) {
-  const { symbol, name } = useWorkspace();
+  // Sprint D2.8.13 - `hypothesisType` is the real, already-fetched active
+  // hypothesis WorkspaceResearch found for this same symbol (D2.8.13's own
+  // WorkspaceContext addition) - reused here verbatim, never a second
+  // fetch/computation, so MicrostructurePanel can render D2.8.11/D2.8.12's
+  // real evidence relationship instead of only raw numbers.
+  const { symbol, name, hypothesisType } = useWorkspace();
   const [isLive, setIsLive] = useState(true);
   // Sprint D2.7.5, Phase 9 - a CSS-driven focus mode (not the browser
   // Fullscreen API): toggling this class alone naturally re-triggers the
@@ -584,7 +589,7 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
   return (
     <div className={isFullscreen ? "fixed inset-0 z-50 flex flex-col gap-2 bg-ink p-4" : "flex flex-col gap-2"}>
       <ChartHeader displaySymbol={resolution.displaySymbol} instrumentName={name} timeframe={timeframe} series={result.series} />
-      <MicrostructurePanel symbol={symbol} />
+      <MicrostructurePanel symbol={symbol} hypothesisType={hypothesisType} />
       <ChartToolbar
         displaySymbol={resolution.displaySymbol}
         timeframe={timeframe}

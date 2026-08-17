@@ -21,14 +21,15 @@
 // every OHLC/quote provider call with.
 //
 // Sprint D2.8.12, Phase 8 - an optional `hypothesisType` query param lets a
-// caller that already knows the current hypothesis (e.g. a future Workspace
-// component reading it from the Intelligence panel) also receive D2.8.11's
+// caller that already knows the current hypothesis also receive D2.8.11's
 // own real MicrostructureEvidenceAssessment (confirms/contradicts/neutral/
 // insufficient_evidence) alongside the raw snapshot - reusing
 // assessMicrostructureEvidence() verbatim, never a second interpretation
-// engine. No production caller supplies this param yet (see the D2.8.12
-// spec doc's "known limitations") - the plumbing exists and is tested so a
-// future caller can wire it in without touching this route again.
+// engine.
+//
+// Sprint D2.8.13 - now genuinely wired: NativeChart.tsx's MicrostructurePanel
+// forwards the real hypothesis WorkspaceResearch already fetched for the
+// same active symbol (via WorkspaceContext.hypothesisType).
 import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";

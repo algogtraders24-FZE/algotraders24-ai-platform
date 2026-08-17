@@ -243,9 +243,17 @@ async function main(): Promise<void> {
     const source = readFileSync(new URL("../app/api/private/knowledge/chat/route.ts", import.meta.url), "utf8");
     assert.ok(/intelligencePresentationService\.present\(\{[\s\S]*?includeMicrostructure:\s*true/.test(source), "the chat route must request microstructure by default");
   });
-  await test("1b: the Research panel route (ResearchSnapshotService, no AI presenter) is a SEPARATE, deliberately unactivated production caller", () => {
+  await test("1b: the Research panel route (ResearchSnapshotService) was activated in Sprint D2.8.13 - it is no longer a separate, unactivated caller", () => {
+    // Sprint D2.8.9 originally documented ResearchSnapshotService as a
+    // deliberately unactivated second caller ("a path with no evidence
+    // consumer"). Sprint D2.8.13 found and closed that gap: the Research
+    // panel now has a real evidence consumer (VerifiedAnswerResponse.
+    // microstructureEvidence -> MicrostructureEvidenceSection), so this
+    // premise is intentionally reversed here rather than left stale -
+    // see scripts/validate-microstructure-production-wiring.ts's own
+    // "structural" test for the current, load-bearing assertion.
     const source = readFileSync(new URL("../services/intelligence/chat/research-snapshot.service.ts", import.meta.url), "utf8");
-    assert.ok(!/includeMicrostructure/.test(source), "documents the deliberate decision not to activate microstructure on a path with no evidence consumer");
+    assert.ok(/includeMicrostructure:\s*true/.test(source), "D2.8.13 activated microstructure on this caller - this test's premise is deliberately reversed from D2.8.9's original");
   });
 
   // ---------------------------------------------------------------------

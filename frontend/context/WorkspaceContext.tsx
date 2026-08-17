@@ -24,6 +24,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { getMarket, isKnownMarket, listEnabledMarkets } from "@/lib/market-data/market-registry";
 import type { MarketCategory } from "@/types/market";
+import type { HypothesisType } from "@/types/intelligence-hypothesis";
 import {
   PROFILE_INTERVAL,
   type PanelId,
@@ -66,6 +67,22 @@ export interface WorkspaceContextValue {
   togglePanel: (id: PanelId) => void;
 
   preferencesLoaded: boolean;
+
+  /**
+   * Sprint D2.8.13 - the real, already-fetched active hypothesis direction
+   * for the active symbol, when known. Owned entirely by WorkspaceResearch
+   * (the one panel that already fetches a real VerifiedAnswerResponse via
+   * ResearchSnapshotService/DecisionContextService for this exact symbol) -
+   * this context field only stores what that panel found, never computes
+   * anything itself. Lets NativeChart's MicrostructurePanel render D2.8.11's
+   * real evidence relationship without running a second intelligence
+   * pipeline just to decorate a chart. Undefined until Research resolves,
+   * and reset to undefined by WorkspaceResearch at the start of every
+   * symbol-change fetch so a stale symbol's hypothesis is never shown
+   * against the new symbol's chart.
+   */
+  hypothesisType?: HypothesisType;
+  setHypothesisType: (type: HypothesisType | undefined) => void;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -77,6 +94,7 @@ export function WorkspaceProvider({ children, initialSymbol }: { children: React
   const [favorites, setFavorites] = useState<string[]>([]);
   const [collapsedPanels, setCollapsedPanels] = useState<PanelId[]>([]);
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  const [hypothesisType, setHypothesisType] = useState<HypothesisType | undefined>(undefined);
   const symbolExplicitlySet = useRef(false);
 
   useEffect(() => {
@@ -165,8 +183,10 @@ export function WorkspaceProvider({ children, initialSymbol }: { children: React
       collapsedPanels,
       togglePanel,
       preferencesLoaded,
+      hypothesisType,
+      setHypothesisType,
     };
-  }, [symbol, profile, chartInterval, favorites, collapsedPanels, preferencesLoaded]);
+  }, [symbol, profile, chartInterval, favorites, collapsedPanels, preferencesLoaded, hypothesisType]);
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 }

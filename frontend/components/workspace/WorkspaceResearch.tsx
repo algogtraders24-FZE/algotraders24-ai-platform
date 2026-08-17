@@ -34,7 +34,7 @@ interface ResearchApiData {
 }
 
 export default function WorkspaceResearch() {
-  const { symbol } = useWorkspace();
+  const { symbol, setHypothesisType } = useWorkspace();
   const [state, setState] = useState<LoadState>("loading");
   const [data, setData] = useState<ResearchApiData | null>(null);
 
@@ -42,12 +42,23 @@ export default function WorkspaceResearch() {
     const controller = new AbortController();
     setState("loading");
     setData(null);
+    // Sprint D2.8.13 - reset immediately on every symbol change so the
+    // NativeChart microstructure panel never shows a previous symbol's
+    // hypothesis direction while this one is in flight.
+    setHypothesisType(undefined);
     fetch(`/api/private/intelligence/research?symbol=${encodeURIComponent(symbol)}`, { signal: controller.signal })
       .then((r) => r.json())
       .then((j) => {
         if (j?.status === "ok" && j.data?.status) {
           setData(j.data as ResearchApiData);
           setState(j.data.status as LoadState);
+          // Sprint D2.8.13 - share the real, already-fetched hypothesis
+          // direction with the rest of the workspace (NativeChart's
+          // MicrostructurePanel) rather than making it fetch its own. May
+          // legitimately be undefined - not every regime generates a
+          // hypothesis (D2.5.3) - never guessed or defaulted.
+          const verifiedAnswer = (j.data as ResearchApiData).verifiedAnswer;
+          setHypothesisType(verifiedAnswer?.hypotheses[0]?.type);
         } else {
           setState("error");
         }
@@ -59,7 +70,7 @@ export default function WorkspaceResearch() {
     return () => {
       controller.abort();
     };
-  }, [symbol]);
+  }, [symbol, setHypothesisType]);
 
   if (state === "loading") {
     return (

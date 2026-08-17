@@ -59,6 +59,10 @@ export function buildVerifiedAnswerResponse(input: BuildVerifiedAnswerResponseIn
     riskContext: decisionContext.riskContext,
     historicalContext: decisionContext.historicalContext,
     missingInformation: decisionContext.missingInformation,
+    // Sprint D2.8.13 - pure passthrough of the already-computed D2.8.11
+    // assessment attached to decisionContext (D2.8.11's own optional
+    // field) - never a second computation, never fabricated when absent.
+    microstructureEvidence: decisionContext.microstructureEvidence,
     presentedBy: input.presentedBy,
     auditTraceId: input.auditTraceId,
     generatedAt: envelope.generatedAt,

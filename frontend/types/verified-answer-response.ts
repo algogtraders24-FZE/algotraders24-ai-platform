@@ -29,6 +29,7 @@ import type {
   DecisionMissingInformationItem,
 } from "./intelligence-decision-context";
 import type { DataQualityState } from "./real-time-intelligence";
+import type { MicrostructureEvidenceAssessment } from "./microstructure-evidence-assessment";
 
 export const VERIFIED_ANSWER_RESPONSE_VERSION = "1.0.0";
 
@@ -67,6 +68,14 @@ export interface VerifiedAnswerResponse {
   riskContext: DecisionRiskContext;
   historicalContext: DecisionHistoricalContext;
   missingInformation: DecisionMissingInformationItem[];
+  /**
+   * Sprint D2.8.13 - direct passthrough of D2.8.11's own
+   * IntelligenceDecisionContext.microstructureEvidence - never recomputed
+   * here. Present only when a real MicrostructureSnapshot was evaluated for
+   * this symbol (BTCUSD/ETHUSD today); absent, never fabricated, for every
+   * other instrument or when the underlying provider call failed.
+   */
+  microstructureEvidence?: MicrostructureEvidenceAssessment;
   /** Which presenter actually produced `answer` - "gemini"/"claude"/"openai"/"deterministic-fallback" (D2.6.8). Disclosed as presentation provenance only, never implied to be the source of the underlying market intelligence. */
   presentedBy: string;
   /** Present only when a real, immutable audit trace (D2.6.9) was successfully persisted for this answer - best-effort, never blocks the answer itself. */
