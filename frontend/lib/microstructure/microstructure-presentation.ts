@@ -20,6 +20,8 @@
 // presenter implementation is unmodified and remains unaware this ever
 // happens - it just receives a longer, still-plain-string userQuestion.
 import type { MicrostructureField, MicrostructureSnapshot } from "@/types/microstructure";
+import type { MicrostructureEvidenceAssessment } from "@/types/microstructure-evidence-assessment";
+import { formatMicrostructureEvidenceExplanation } from "./microstructure-evidence-explanation";
 
 function formatField(label: string, field: MicrostructureField<number>, unit = ""): string {
   if (field.state === "available" || field.state === "stale") {
@@ -110,10 +112,29 @@ export function buildMicrostructureLLMEvidenceBlock(snapshot: MicrostructureSnap
  * completely unchanged (byte-identical) when `microstructure` is absent -
  * every existing caller that never opts into microstructure sees zero
  * behavior change.
+ *
+ * Sprint D2.8.12 - `microstructureEvidence` is a new, additive, optional
+ * 3rd parameter: D2.8.11's own MicrostructureEvidenceAssessment
+ * (confirms/contradicts/neutral/insufficient_evidence vs. the active
+ * hypothesis), formatted via formatMicrostructureEvidenceExplanation()
+ * (pure, no recalculation) and appended right after the existing raw
+ * evidence block - closing the exact gap this sprint exists to close: the
+ * presenter previously only ever saw raw bid/ask/depth numbers, never the
+ * already-computed relationship, and had to (or worse, might not)
+ * correctly infer it itself. Omitted -> byte-identical to D2.8.8/9/10/11
+ * behavior.
  */
-export function buildPresenterQuestionWithMicrostructure(userQuestion: string, microstructure?: MicrostructureSnapshot): string {
+export function buildPresenterQuestionWithMicrostructure(
+  userQuestion: string,
+  microstructure?: MicrostructureSnapshot,
+  microstructureEvidence?: MicrostructureEvidenceAssessment,
+): string {
   if (!microstructure) return userQuestion;
-  return `${userQuestion}\n\n${buildMicrostructureLLMEvidenceBlock(microstructure)}`;
+  let result = `${userQuestion}\n\n${buildMicrostructureLLMEvidenceBlock(microstructure)}`;
+  if (microstructureEvidence) {
+    result += `\n\n${formatMicrostructureEvidenceExplanation(microstructureEvidence).join("\n")}`;
+  }
+  return result;
 }
 
 /**

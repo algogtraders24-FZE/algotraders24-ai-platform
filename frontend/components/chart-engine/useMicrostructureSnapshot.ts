@@ -13,16 +13,28 @@
 // polling, no duplicate provider requests" rule).
 import { useEffect, useState } from "react";
 import type { MicrostructureSnapshot } from "@/types/microstructure";
+import type { MicrostructureEvidenceAssessment } from "@/types/microstructure-evidence-assessment";
+import type { HypothesisType } from "@/types/intelligence-hypothesis";
 
 export type MicrostructureFetchStatus = "loading" | "supported" | "unsupported" | "error";
 
 export interface MicrostructureFetchResult {
   status: MicrostructureFetchStatus;
   snapshot?: MicrostructureSnapshot;
+  /** Sprint D2.8.12 - present only when a real `hypothesisType` was supplied and the route computed a real D2.8.11 assessment for it; never recomputed client-side. */
+  evidence?: MicrostructureEvidenceAssessment;
   message?: string;
 }
 
-export function useMicrostructureSnapshot(symbol: string | undefined): MicrostructureFetchResult {
+/**
+ * Sprint D2.8.12 - `hypothesisType` is a new, optional param: when a future
+ * caller already knows the active hypothesis (this hook itself never
+ * discovers one), it is forwarded to the route so the response also
+ * includes D2.8.11's real MicrostructureEvidenceAssessment. Omitted ->
+ * byte-identical to D2.8.10 behavior (no `evidence` field requested or
+ * returned).
+ */
+export function useMicrostructureSnapshot(symbol: string | undefined, hypothesisType?: HypothesisType): MicrostructureFetchResult {
   const [result, setResult] = useState<MicrostructureFetchResult>({ status: "loading" });
 
   useEffect(() => {
@@ -37,6 +49,7 @@ export function useMicrostructureSnapshot(symbol: string | undefined): Microstru
     async function fetchOnce() {
       try {
         const params = new URLSearchParams({ symbol: symbol as string });
+        if (hypothesisType) params.set("hypothesisType", hypothesisType);
         const res = await fetch(`/api/private/market-data/microstructure?${params.toString()}`, { signal: controller.signal });
         const json = await res.json();
         if (cancelled) return;
@@ -49,7 +62,7 @@ export function useMicrostructureSnapshot(symbol: string | undefined): Microstru
           setResult({ status: "unsupported" });
           return;
         }
-        setResult({ status: "supported", snapshot: json.data.snapshot as MicrostructureSnapshot });
+        setResult({ status: "supported", snapshot: json.data.snapshot as MicrostructureSnapshot, evidence: json.data.evidence as MicrostructureEvidenceAssessment | undefined });
       } catch (err) {
         if (cancelled || (err instanceof DOMException && err.name === "AbortError")) return;
         setResult({ status: "error", message: "Microstructure evidence is temporarily unavailable." });
@@ -62,7 +75,7 @@ export function useMicrostructureSnapshot(symbol: string | undefined): Microstru
       cancelled = true;
       controller.abort();
     };
-  }, [symbol]);
+  }, [symbol, hypothesisType]);
 
   return result;
 }

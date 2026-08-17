@@ -13,7 +13,9 @@ export type ResponseIntegrityViolationKind =
   | "unsupported-confidence-claim"
   | "guaranteed-profit-language"
   | "contradicts-unresolved-conflict"
-  | "contradicts-insufficient-data";
+  | "contradicts-insufficient-data"
+  /** Sprint D2.8.12 - a response converts real, evidence-based microstructure into a guaranteed directional/execution outcome (e.g. "guarantees BUY", "proves the next candle direction") or generalizes venue-specific evidence into a global-liquidity claim. */
+  | "microstructure-overclaim";
 
 export interface ResponseIntegrityViolation {
   kind: ResponseIntegrityViolationKind;

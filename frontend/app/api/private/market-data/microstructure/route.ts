@@ -19,14 +19,44 @@
 // Timeout: reuses D2.8.9's own fix (withReliability, retries: 0) rather than
 // leaving this call unbounded - the same primitive MarketDataService wraps
 // every OHLC/quote provider call with.
+//
+// Sprint D2.8.12, Phase 8 - an optional `hypothesisType` query param lets a
+// caller that already knows the current hypothesis (e.g. a future Workspace
+// component reading it from the Intelligence panel) also receive D2.8.11's
+// own real MicrostructureEvidenceAssessment (confirms/contradicts/neutral/
+// insufficient_evidence) alongside the raw snapshot - reusing
+// assessMicrostructureEvidence() verbatim, never a second interpretation
+// engine. No production caller supplies this param yet (see the D2.8.12
+// spec doc's "known limitations") - the plumbing exists and is tested so a
+// future caller can wire it in without touching this route again.
 import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { getCanonicalInstrument } from "@/lib/market-data/instrument-catalog";
 import { withReliability } from "@/lib/market-data/reliability";
 import { binanceMicrostructureProvider, microstructureSnapshots } from "@/services/microstructure/shared-instance";
+import { assessMicrostructureEvidence } from "@/services/intelligence/microstructure/microstructure-evidence-assessment.service";
 import { MarketDataProviderError } from "@/lib/market-data/errors";
 import { toMarketDataErrorDTO, statusCodeForReason } from "@/lib/market-data/error-dto";
+import type { HypothesisType } from "@/types/intelligence-hypothesis";
+
+// Sprint D2.8.12 - closed-list input validation only (never a second
+// HypothesisType definition) - matches the exact 9 literal values
+// types/intelligence-hypothesis.ts declares.
+const VALID_HYPOTHESIS_TYPES: readonly HypothesisType[] = [
+  "trend-continuation-bullish",
+  "trend-continuation-bearish",
+  "breakout-confirmation-bullish",
+  "breakout-confirmation-bearish",
+  "reversal-candidate-bullish",
+  "reversal-candidate-bearish",
+  "range-continuation",
+  "volatility-expansion",
+  "volatility-contraction",
+];
+function parseHypothesisType(value: string | null): HypothesisType | undefined {
+  return VALID_HYPOTHESIS_TYPES.find((t) => t === value);
+}
 
 export const GET = withContext(async (req, ctx) => {
   const sessionUser = await getUserOrNull();
@@ -34,10 +64,16 @@ export const GET = withContext(async (req, ctx) => {
     return ApiResponse.error({ code: "UNAUTHORIZED", message: "Authentication required" }, ctx.requestId, 401, ctx.startedAt);
   }
 
-  const symbol = new URL(req.url).searchParams.get("symbol");
+  const url = new URL(req.url);
+  const symbol = url.searchParams.get("symbol");
   if (typeof symbol !== "string" || symbol.trim().length === 0) {
     return ApiResponse.error({ code: "VALIDATION", message: "symbol query parameter is required" }, ctx.requestId, 400, ctx.startedAt);
   }
+  // Sprint D2.8.12 - optional; an unrecognized/omitted value is silently
+  // treated as "no hypothesis supplied" (undefined) rather than a 400 -
+  // this parameter is a pure enhancement, never a hard requirement to
+  // fetch the real microstructure snapshot below.
+  const hypothesisType = parseHypothesisType(url.searchParams.get("hypothesisType"));
 
   const instrument = getCanonicalInstrument(symbol);
   const binanceCapable = (instrument?.providerMappings ?? []).some(
@@ -55,7 +91,11 @@ export const GET = withContext(async (req, ctx) => {
       binanceMicrostructureProvider.name,
       { retries: 0 },
     );
-    return ApiResponse.success({ supported: true, snapshot }, ctx.requestId, 200, ctx.startedAt);
+    // Sprint D2.8.12 - reuses D2.8.11's own assessMicrostructureEvidence()
+    // verbatim; only computed when the caller supplied a real hypothesis
+    // type, and never a numeric input to anything else this route returns.
+    const evidence = hypothesisType ? assessMicrostructureEvidence(snapshot, { type: hypothesisType }, new Date().toISOString()) : undefined;
+    return ApiResponse.success({ supported: true, snapshot, evidence }, ctx.requestId, 200, ctx.startedAt);
   } catch (error) {
     if (error instanceof MarketDataProviderError) {
       // Never cached (D2.8.5's own deliberate "read close to real-time"

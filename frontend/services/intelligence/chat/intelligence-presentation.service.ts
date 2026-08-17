@@ -84,15 +84,23 @@ export class IntelligencePresentationService {
     const envelope: IntelligenceEnvelope = context.envelope;
     const dataQuality: DataQualityAssessment = context.dataQuality;
 
-    // Sprint D2.8.8 - additive: `context.microstructure` (D2.8.7) is
-    // undefined unless the caller opted in via `includeMicrostructure`, in
-    // which case behavior here is byte-identical to before this sprint.
-    const presented = await this.presenterOrchestrator.present(envelope, input.message, context.microstructure);
     // Sprint D2.8.11 - additive: populates decisionContext.microstructureEvidence
     // (confirms/contradicts/neutral/insufficient_evidence vs. the primary
     // hypothesis) only when context.microstructure is a real snapshot;
-    // byte-identical to before this sprint otherwise.
+    // byte-identical to before this sprint otherwise. Computed BEFORE the
+    // presenter call (Sprint D2.8.12 reorder) so the already-computed
+    // relationship - not just raw numbers - can be handed to the
+    // presenter, closing the D2.8.12 gap: the presenter previously only
+    // ever saw raw microstructure evidence and had no access to D2.8.11's
+    // own confirms/contradicts/neutral/insufficient_evidence conclusion.
     const decisionContext = this.decisionContextService.build(envelope, context.microstructure);
+    // Sprint D2.8.8 - additive: `context.microstructure` (D2.8.7) is
+    // undefined unless the caller opted in via `includeMicrostructure`.
+    // Sprint D2.8.12 - additive: `decisionContext.microstructureEvidence`
+    // (D2.8.11) is forwarded as a 4th argument so the presenter receives
+    // the already-computed relationship, never recalculating it itself.
+    // Both undefined -> byte-identical to pre-D2.8.12 behavior.
+    const presented = await this.presenterOrchestrator.present(envelope, input.message, context.microstructure, decisionContext.microstructureEvidence);
     const marketData = this.buildMarketDataProvenance(envelope, dataQuality, context.crossProviderValidation);
 
     let auditTraceId: string | undefined;

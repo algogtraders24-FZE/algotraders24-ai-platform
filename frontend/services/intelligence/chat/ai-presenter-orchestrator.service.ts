@@ -25,6 +25,7 @@
 import type { IntelligenceEnvelope, AIIntelligencePresenter } from "@/types/intelligence-envelope";
 import type { PresenterAttempt, PresenterFailureCategory, PresenterOrchestrationResult } from "@/types/ai-presenter-orchestration";
 import type { MicrostructureSnapshot } from "@/types/microstructure";
+import type { MicrostructureEvidenceAssessment } from "@/types/microstructure-evidence-assessment";
 import { DecisionContextService } from "@/services/intelligence/decision/decision-context.service";
 import { validateResponseIntegrity } from "@/services/intelligence/chat/ai-response-integrity.service";
 import { GeminiIntelligencePresenter } from "@/services/intelligence/chat/gemini-intelligence-presenter.service";
@@ -108,10 +109,24 @@ export class AIPresenterOrchestratorService {
    * buildMicrostructureLLMEvidenceBlock), and (b) passed to the integrity
    * validator so a response that honestly cites real microstructure
    * numbers is not misclassified as fabricated.
+   *
+   * Sprint D2.8.12 - `microstructureEvidence` is a new, additive, optional
+   * 4th param: D2.8.11's own MicrostructureEvidenceAssessment
+   * (confirms/contradicts/neutral/insufficient_evidence). Folded into the
+   * same `userQuestion` string (via buildPresenterQuestionWithMicrostructure's
+   * own new 3rd param) so every candidate presenter sees the already-
+   * computed relationship, not just raw numbers it would otherwise have to
+   * infer a direction from itself. This orchestrator performs no
+   * recalculation of its own - the assessment is D2.8.11's, unchanged.
    */
-  async present(envelope: IntelligenceEnvelope, userQuestion: string, microstructure?: MicrostructureSnapshot): Promise<PresenterOrchestrationResult> {
+  async present(
+    envelope: IntelligenceEnvelope,
+    userQuestion: string,
+    microstructure?: MicrostructureSnapshot,
+    microstructureEvidence?: MicrostructureEvidenceAssessment,
+  ): Promise<PresenterOrchestrationResult> {
     const decisionContext = this.decisionContextService.build(envelope);
-    const presenterQuestion = buildPresenterQuestionWithMicrostructure(userQuestion, microstructure);
+    const presenterQuestion = buildPresenterQuestionWithMicrostructure(userQuestion, microstructure, microstructureEvidence);
     const attempts: PresenterAttempt[] = [];
 
     for (const slot of this.slots) {

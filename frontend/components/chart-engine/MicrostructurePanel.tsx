@@ -17,13 +17,30 @@ import { FIN_LABEL, FIN_PRIMARY, FIN_SECONDARY, FIN_TERTIARY } from "@/component
 import StatField from "@/components/workspace/StatField";
 import { formatMicrostructureFieldForUI as fieldText } from "@/lib/microstructure/microstructure-panel-format";
 import { useMicrostructureSnapshot } from "./useMicrostructureSnapshot";
+import type { HypothesisType } from "@/types/intelligence-hypothesis";
 
 export interface MicrostructurePanelProps {
   symbol: string;
+  /**
+   * Sprint D2.8.12, Phase 8 - optional. When a caller already knows the
+   * active hypothesis (no current caller does yet - see the D2.8.12 spec
+   * doc's known limitations), the panel additionally renders D2.8.11's own
+   * real evidence relationship (CONFIRMS/CONTRADICTS/NEUTRAL/
+   * INSUFFICIENT_EVIDENCE) - never recomputed here, read verbatim off the
+   * route's response. Omitted -> byte-identical to D2.8.10 behavior.
+   */
+  hypothesisType?: HypothesisType;
 }
 
-export default function MicrostructurePanel({ symbol }: MicrostructurePanelProps) {
-  const result = useMicrostructureSnapshot(symbol);
+const RELATIONSHIP_LABEL: Record<string, string> = {
+  confirms: "CONFIRMS",
+  contradicts: "CONTRADICTS",
+  neutral: "NEUTRAL",
+  insufficient_evidence: "INSUFFICIENT_EVIDENCE",
+};
+
+export default function MicrostructurePanel({ symbol, hypothesisType }: MicrostructurePanelProps) {
+  const result = useMicrostructureSnapshot(symbol, hypothesisType);
 
   if (result.status === "loading") {
     return (
@@ -100,6 +117,40 @@ export default function MicrostructurePanel({ symbol }: MicrostructurePanelProps
           <span className={FIN_SECONDARY}>{fieldText(snapshot.derived.volumeDelta, (v) => formatCompactVolume(v))}</span>
         </StatField>
       </div>
+
+      {result.evidence && (
+        <div className="mt-2.5 border-t border-border pt-2.5">
+          <p className={FIN_LABEL}>Microstructure Evidence Relationship</p>
+          <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            {result.evidence.hypothesisDirection && result.evidence.hypothesisDirection !== "neutral" && (
+              <span className={FIN_TERTIARY}>Hypothesis: {result.evidence.hypothesisDirection.toUpperCase()}</span>
+            )}
+            <span
+              className={`${FIN_SECONDARY} ${
+                result.evidence.status === "confirms" ? "text-signal-up" : result.evidence.status === "contradicts" ? "text-signal-down" : ""
+              }`}
+            >
+              Relationship: {RELATIONSHIP_LABEL[result.evidence.status] ?? result.evidence.status}
+            </span>
+          </div>
+          {result.evidence.status === "insufficient_evidence" ? (
+            <p className={`${FIN_TERTIARY} mt-1`}>Microstructure evidence is insufficient to influence the current hypothesis. No directional confirmation is assigned.</p>
+          ) : result.evidence.status === "contradicts" ? (
+            <p className={`${FIN_TERTIARY} mt-1`}>Microstructure currently shows opposing pressure.</p>
+          ) : (
+            <ul className="mt-1 space-y-0.5">
+              {result.evidence.basis.map((line, i) => (
+                <li key={i} className={FIN_TERTIARY}>
+                  - {line}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className={`${FIN_TERTIARY} mt-1`}>
+            Source: {result.evidence.provider ?? "-"} · Scope: {result.evidence.provider ?? "This provider's"} venue evidence - not global market liquidity.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

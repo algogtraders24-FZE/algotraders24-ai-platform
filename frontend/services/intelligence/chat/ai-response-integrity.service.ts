@@ -217,6 +217,39 @@ function checkDirectionalAndProfitLanguage(text: string): ResponseIntegrityViola
   return violations;
 }
 
+/**
+ * Sprint D2.8.12, Phase 7 - closes a real gap GUARANTEED_PROFIT_PATTERNS
+ * above did not cover: that array only catches a guarantee tied to the
+ * words "profit/win/return/outcome" (e.g. "guaranteed profit"), so a
+ * microstructure-specific overclaim like "guarantees BUY" or "guarantees
+ * price will rise" - never containing those exact words - passed through
+ * unchecked. Also catches converting real, deterministic evidence into a
+ * certain future prediction ("proves the next candle direction") and
+ * generalizing venue-specific evidence into a global-liquidity claim
+ * (D2.8.2/D2.8.7-12's own permanent "never global liquidity" rule,
+ * enforced here as a real, checkable pattern rather than only a prompt
+ * instruction). Always checked, independent of whether this particular
+ * request had microstructure evidence at all - "confirms global market
+ * liquidity" is dishonest regardless.
+ */
+const MICROSTRUCTURE_OVERCLAIM_PATTERNS: RegExp[] = [
+  /\bguarantee(d|s)?\b[^.!?]{0,40}\b(rise|fall|drop|buy|sell|higher|lower|\bup\b|\bdown\b)\b/i,
+  /\bproves?\b[^.!?]{0,40}\b(direction|candle|next move|next price|will (rise|fall|go|move))\b/i,
+  /\b(confirms?|shows?|indicates?)\b[^.!?]{0,30}\bglobal\b[^.!?]{0,25}\b(liquidity|market depth|order flow)\b/i,
+  /\bglobal\b[^.!?]{0,25}\b(liquidity|order flow|market depth)\b[^.!?]{0,30}\b(confirms?|shows?|indicates?)\b/i,
+];
+
+function checkMicrostructureOverclaim(text: string): ResponseIntegrityViolation[] {
+  const violations: ResponseIntegrityViolation[] = [];
+  for (const pattern of MICROSTRUCTURE_OVERCLAIM_PATTERNS) {
+    const match = text.match(pattern);
+    if (match) {
+      violations.push({ kind: "microstructure-overclaim", description: `Response converts real evidence into a fabricated guarantee/prediction or a global-liquidity claim, matching /${pattern.source}/`, matchedText: match[0] });
+    }
+  }
+  return violations;
+}
+
 function checkUnsupportedIndicators(text: string, dc: IntelligenceDecisionContext): ResponseIntegrityViolation[] {
   const violations: ResponseIntegrityViolation[] = [];
   for (const pattern of FOREIGN_INDICATOR_PATTERNS) {
@@ -282,6 +315,7 @@ export function validateResponseIntegrity(
     ...checkUnsupportedNumericClaims(responseText, decisionContext, extraRealNumbers),
     ...checkUnsupportedSymbol(responseText, envelope.symbol),
     ...checkDirectionalAndProfitLanguage(responseText),
+    ...checkMicrostructureOverclaim(responseText),
     ...checkUnsupportedIndicators(responseText, decisionContext),
     ...checkHistoricalClaims(responseText, decisionContext),
     ...checkContradictsConflictsOrInsufficiency(responseText, decisionContext),
