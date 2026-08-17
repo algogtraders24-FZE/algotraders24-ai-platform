@@ -60,6 +60,7 @@ import type { ChartPanelId, IndicatorSeries } from "@/lib/chart-engine/indicator
 import { useChartCandles } from "./useChartCandles";
 import ChartToolbar from "./ChartToolbar";
 import ChartHeader from "./ChartHeader";
+import MicrostructurePanel from "./MicrostructurePanel";
 
 const PRICE_AXIS_WIDTH = 64;
 const TIME_AXIS_HEIGHT = 22;
@@ -583,6 +584,7 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
   return (
     <div className={isFullscreen ? "fixed inset-0 z-50 flex flex-col gap-2 bg-ink p-4" : "flex flex-col gap-2"}>
       <ChartHeader displaySymbol={resolution.displaySymbol} instrumentName={name} timeframe={timeframe} series={result.series} />
+      <MicrostructurePanel symbol={symbol} />
       <ChartToolbar
         displaySymbol={resolution.displaySymbol}
         timeframe={timeframe}
