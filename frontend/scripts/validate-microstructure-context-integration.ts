@@ -447,7 +447,7 @@ async function main(): Promise<void> {
   // ---------------------------------------------------------------------
   // 19: DecisionContext unavailable semantics preserved
   // ---------------------------------------------------------------------
-  await test("19: DecisionContext's existing honest liquidity/execution 'unmeasured' semantics are completely unaffected by this sprint", async () => {
+  await test("19: DecisionContext's liquidity-zone/execution-risk disclaimers remain permanent; the order-book disclaimer is now honestly capability-gated (D2.8.15)", async () => {
     const { svc } = buildOrchestrator();
     const ctx = await svc.build({ requestId: "r16", userId: "u1", question: "BTCUSD", symbol: "BTCUSD", includeMicrostructure: true });
     assert.ok(ctx.envelope);
@@ -456,13 +456,15 @@ async function main(): Promise<void> {
     const descriptions = dc.missingInformation.map((i) => i.description);
     assert.ok(descriptions.some((d) => /liquidity zone/i.test(d)));
     assert.ok(descriptions.some((d) => /execution risk/i.test(d)));
-    assert.ok(descriptions.some((d) => /liquidity risk.*order book/i.test(d)));
-    // D2.8.7: called with only an envelope (no microstructure argument),
-    // these permanent "unmeasured" disclaimers remain exactly as-is - this
-    // sprint's own scope never touched them. (D2.8.11 later gave build()
-    // an additive, opt-in 2nd parameter for a *separate*,
-    // microstructureEvidence field - verified not to affect this
-    // unconditional missingInformation list in that sprint's own tests.)
+    // Sprint D2.8.15 - "liquidity risk (order book depth)" was a stale,
+    // unconditional claim left over from before D2.8.5/D2.8.11 gave BTCUSD/
+    // ETHUSD real Binance depth/aggressor-flow evidence. It is now
+    // conditional on the instrument's real microstructure-provider
+    // capability (see decision-context.service.ts's buildMissingInformation())
+    // - BTCUSD is capable, so this disclaimer is correctly ABSENT here.
+    // scripts/validate-intelligence-data-sufficiency.ts covers the
+    // non-capable (EURUSD) case where it remains present.
+    assert.ok(!descriptions.some((d) => /liquidity risk.*order book/i.test(d)), "BTCUSD has real Binance microstructure capability - this disclaimer must not fabricate an unmeasured claim");
   });
 
   // ---------------------------------------------------------------------

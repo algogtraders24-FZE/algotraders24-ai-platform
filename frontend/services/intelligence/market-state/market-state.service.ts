@@ -19,6 +19,7 @@ import {
   bollinger,
   volumeMetrics,
 } from "@/lib/market-data/indicators";
+import { validateCandles } from "@/lib/market-data/candle-validation";
 import type { Candle } from "@/types/market-candle";
 import type { MarketSymbol } from "@/types/market";
 import type { SignalTimeframe } from "@/types/signal";
@@ -43,8 +44,12 @@ const ATR_PERIOD = 14;
 const BOLLINGER_PERIOD = 20;
 // EMA20/EMA50 are the exact pair the sprint brief's own worked example
 // uses ("EMA20 > EMA50, price above EMA20").
-const EMA_FAST_PERIOD = 20;
-const EMA_SLOW_PERIOD = 50;
+// Sprint D2.8.15 - exported (zero behavior change) so lib/market-data/
+// indicator-requirements.ts's candle-sufficiency model reads these exact
+// numbers back rather than duplicating them as a second, potentially-
+// drifting pair of literals.
+export const EMA_FAST_PERIOD = 20;
+export const EMA_SLOW_PERIOD = 50;
 // Number of PRECEDING candles (excluding the latest) whose high/low define
 // "the recent range" for breakout/breakdown detection. 20 bars is a
 // conventional, easily-justified swing window - documented, not tuned.
@@ -63,6 +68,8 @@ export interface AssembleMarketStateInput {
   snapshot: MarketSnapshot;
   /** Oldest-first, real candles from a TimeSeriesProvider. Never fabricated by this service. */
   candles: Candle[];
+  /** Sprint D2.8.15 - "now" for candle-validation's future-timestamp check. Defaults to Date.now(); overridable only for deterministic tests. */
+  nowMs?: number;
 }
 
 function computeTechnical(candleCloses: number[], candles: readonly Candle[]): MarketStateTechnical {
@@ -154,12 +161,21 @@ function computeDataQuality(technical: MarketStateTechnical): DataConfidence {
 
 export class MarketStateService {
   assemble(input: AssembleMarketStateInput): MarketState {
-    const candleCloses = closes(input.candles);
-    const technical = computeTechnical(candleCloses, input.candles);
+    // Sprint D2.8.15, Phase 3 - reject structurally malformed candles (bad
+    // OHLC, duplicate/out-of-order/future timestamps) BEFORE any indicator
+    // sees them, rather than let a provider glitch silently corrupt a
+    // computation. Every downstream computation below uses ONLY
+    // `validation.validCandles` - never the raw `input.candles` - so a
+    // rejected row can never leak into `technical`/`structure`.
+    const validation = validateCandles(input.candles, input.nowMs ?? Date.now());
+    const validCandles = validation.validCandles;
+
+    const candleCloses = closes(validCandles);
+    const technical = computeTechnical(candleCloses, validCandles);
     const latestPrice = input.snapshot.price;
 
     const trend = computeTrend(technical, latestPrice);
-    const recentRange = computeRecentRange(input.candles);
+    const recentRange = computeRecentRange(validCandles);
     const breakoutSignal = computeBreakoutSignal(recentRange, latestPrice);
     const { band: volatilityBand, atrPercent } = computeVolatility(technical.atr14, latestPrice);
 
@@ -180,6 +196,11 @@ export class MarketStateService {
       technical,
       structure,
       dataQuality: computeDataQuality(technical),
+      candleValidation: {
+        totalReceived: validation.totalReceived,
+        totalValid: validation.totalValid,
+        issues: validation.issues,
+      },
       generatedAt: new Date().toISOString(),
       pipelineVersion: INTELLIGENCE_ENGINE_VERSION,
     };

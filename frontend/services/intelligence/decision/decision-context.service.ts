@@ -22,6 +22,8 @@ import type { HistoricalValidation } from "@/types/intelligence-historical-valid
 import type { IntelligenceEnvelope } from "@/types/intelligence-envelope";
 import type { MicrostructureSnapshot } from "@/types/microstructure";
 import { assessMicrostructureEvidence } from "@/services/intelligence/microstructure/microstructure-evidence-assessment.service";
+import { getCanonicalInstrument } from "@/lib/market-data/instrument-catalog";
+import { binanceMicrostructureProvider } from "@/services/microstructure/shared-instance";
 import type {
   IntelligenceDecisionContext,
   DecisionCurrentState,
@@ -246,9 +248,29 @@ function buildMissingInformation(envelope: IntelligenceEnvelope): DecisionMissin
 
   // Permanent, structural non-implementations - never re-attempted, never penalized.
   items.push({ kind: "unsupported", description: "Liquidity zone data is not implemented in this Intelligence Engine version", affectedArea: "currentState.recentRange" });
-  items.push({ kind: "unsupported", description: "Buy/sell volume delta data is not implemented in this Intelligence Engine version", affectedArea: "currentState" });
   items.push({ kind: "unsupported", description: "Execution risk (spread/slippage/latency) is not integrated in this platform by design", affectedArea: "riskContext" });
-  items.push({ kind: "unsupported", description: "Liquidity risk (order book depth) has no data source in this platform", affectedArea: "riskContext" });
+
+  // Sprint D2.8.15 - volume delta / order-book depth ARE real, implemented
+  // evidence for instruments the microstructure provider genuinely covers
+  // (D2.8.5-D2.8.13, currently Binance-quote-capable symbols only) - these
+  // two disclaimers were stale unconditional claims left over from before
+  // that work shipped. The check below is the exact same structural,
+  // synchronous "does this instrument's catalog entry map to the
+  // microstructure provider's quote capability" test
+  // RealTimeIntelligenceService.fetchMicrostructure() already uses to
+  // decide whether to attempt a live fetch at all - reused here, not a
+  // second capability model. Deliberately NOT keyed off
+  // envelope.microstructureEvidence's presence: that reflects one
+  // caller's transient opt-in/fetch-success, not the instrument's
+  // permanent capability.
+  const instrument = getCanonicalInstrument(envelope.symbol);
+  const microstructureCapable = (instrument?.providerMappings ?? []).some(
+    (m) => m.provider === binanceMicrostructureProvider.name && m.supportedCapabilities.includes("quote"),
+  );
+  if (!microstructureCapable) {
+    items.push({ kind: "unsupported", description: "Buy/sell volume delta data has no provider coverage for this instrument", affectedArea: "currentState" });
+    items.push({ kind: "unsupported", description: "Liquidity risk (order book depth) has no provider coverage for this instrument", affectedArea: "riskContext" });
+  }
 
   // structure.trend is always a real object (MarketStateService returns
   // one with an honest "unavailable" basis even when EMA20/EMA50

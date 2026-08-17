@@ -29,6 +29,7 @@ import type { MarketSymbol } from "./market";
 import type { SignalTimeframe } from "./signal";
 import type { MarketSnapshot } from "./market-snapshot";
 import type { MACDResult, BollingerResult, VolumeMetrics } from "@/lib/market-data/indicators";
+import type { CandleValidationIssue } from "@/lib/market-data/candle-validation";
 import type { DataConfidence } from "./technical-context";
 
 export interface MarketStateTechnical {
@@ -108,6 +109,22 @@ export interface MarketStateStructure {
   choch?: boolean;
 }
 
+/**
+ * Sprint D2.8.15, Phase 3 - a real, honest summary of lib/market-data/
+ * candle-validation.ts's own result for the candle array this MarketState
+ * was built from. `issues` is never empty-but-hiding-something: a
+ * structurally-malformed candle is dropped from `technical`/`structure`'s
+ * own computation (never repaired/interpolated) and recorded here instead
+ * - so a caller can always tell "were there fewer real candles because the
+ * provider genuinely sent fewer, or because some of what it sent had to be
+ * rejected as malformed" (a real, previously-invisible distinction).
+ */
+export interface MarketStateCandleValidation {
+  totalReceived: number;
+  totalValid: number;
+  issues: CandleValidationIssue[];
+}
+
 export interface MarketState {
   symbol: MarketSymbol;
   timeframe: SignalTimeframe;
@@ -115,6 +132,8 @@ export interface MarketState {
   technical?: MarketStateTechnical;
   structure?: MarketStateStructure;
   dataQuality: DataConfidence;
+  /** Present whenever real candles were supplied to MarketStateService.assemble() - absent only for the theoretical zero-candle case. */
+  candleValidation?: MarketStateCandleValidation;
   generatedAt: string;
   /** e.g. "2.0.0" - the Intelligence Engine V2 component version, NOT MARKET_INTELLIGENCE_PIPELINE_VERSION (which stays "15D.12.0" and is unrelated - see docs/architecture/D2.5.2-market-state-regime-spec.md §10). */
   pipelineVersion: string;

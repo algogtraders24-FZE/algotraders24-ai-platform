@@ -8,6 +8,18 @@
 // (SMA ± k·population-stddev).
 import type { Candle } from "@/types/market-candle";
 
+// Sprint D2.8.15 - named, exported defaults (zero behavior change - these
+// were already the inline default parameter values below; naming them
+// lets lib/market-data/indicator-requirements.ts document the real
+// minimum-candle model by reading these exact numbers back, rather than
+// duplicating them as a second, potentially-drifting set of literals).
+export const RSI_PERIOD_DEFAULT = 14;
+export const ATR_PERIOD_DEFAULT = 14;
+export const BOLLINGER_PERIOD_DEFAULT = 20;
+export const MACD_FAST_DEFAULT = 12;
+export const MACD_SLOW_DEFAULT = 26;
+export const MACD_SIGNAL_DEFAULT = 9;
+
 export interface MACDResult {
   macd: number;
   signal: number;
@@ -54,7 +66,7 @@ export function ema(values: readonly number[], period: number): number | undefin
 }
 
 /** Wilder's RSI. Needs at least period+1 closes. */
-export function rsi(values: readonly number[], period = 14): number | undefined {
+export function rsi(values: readonly number[], period = RSI_PERIOD_DEFAULT): number | undefined {
   if (values.length < period + 1) return undefined;
   let gain = 0;
   let loss = 0;
@@ -78,7 +90,7 @@ export function rsi(values: readonly number[], period = 14): number | undefined 
 }
 
 /** Wilder's ATR over candles. Needs at least period+1 candles. */
-export function atr(candles: readonly Candle[], period = 14): number | undefined {
+export function atr(candles: readonly Candle[], period = ATR_PERIOD_DEFAULT): number | undefined {
   if (candles.length < period + 1) return undefined;
   const trueRanges: number[] = [];
   for (let i = 1; i < candles.length; i++) {
@@ -95,7 +107,7 @@ export function atr(candles: readonly Candle[], period = 14): number | undefined
 }
 
 /** MACD(fast,slow,signal). Needs at least slow+signal closes for a signal line. */
-export function macd(values: readonly number[], fast = 12, slow = 26, signal = 9): MACDResult | undefined {
+export function macd(values: readonly number[], fast = MACD_FAST_DEFAULT, slow = MACD_SLOW_DEFAULT, signal = MACD_SIGNAL_DEFAULT): MACDResult | undefined {
   const fastSeries = emaSeries(values, fast);
   const slowSeries = emaSeries(values, slow);
   if (!fastSeries || !slowSeries) return undefined;
@@ -112,7 +124,7 @@ export function macd(values: readonly number[], fast = 12, slow = 26, signal = 9
   return { macd: macdValue, signal: signalValue, histogram: macdValue - signalValue };
 }
 
-export function bollinger(values: readonly number[], period = 20, k = 2): BollingerResult | undefined {
+export function bollinger(values: readonly number[], period = BOLLINGER_PERIOD_DEFAULT, k = 2): BollingerResult | undefined {
   const middle = sma(values, period);
   if (middle === undefined) return undefined;
   const window = values.slice(values.length - period);
