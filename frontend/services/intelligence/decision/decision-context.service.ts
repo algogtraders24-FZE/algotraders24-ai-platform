@@ -20,6 +20,8 @@ import type { EvidenceBundle, EvidenceItem } from "@/types/evidence";
 import type { RiskProfile } from "@/types/risk-intelligence";
 import type { HistoricalValidation } from "@/types/intelligence-historical-validation";
 import type { IntelligenceEnvelope } from "@/types/intelligence-envelope";
+import type { MicrostructureSnapshot } from "@/types/microstructure";
+import { assessMicrostructureEvidence } from "@/services/intelligence/microstructure/microstructure-evidence-assessment.service";
 import type {
   IntelligenceDecisionContext,
   DecisionCurrentState,
@@ -297,8 +299,26 @@ function classifyState(envelope: IntelligenceEnvelope): { state: DecisionState; 
 }
 
 export class DecisionContextService {
-  /** Pure, deterministic: identical envelope -> byte-identical DecisionContext. No new clock read - generatedAt is reused verbatim from the envelope. */
-  build(envelope: IntelligenceEnvelope): IntelligenceDecisionContext {
+  /**
+   * Pure, deterministic: identical (envelope, microstructure) -> byte-
+   * identical DecisionContext. No new clock read - generatedAt is reused
+   * verbatim from the envelope.
+   *
+   * Sprint D2.8.11 - `microstructure` is a new, optional 2nd parameter,
+   * defaulting to undefined so every existing caller (unmodified) behaves
+   * byte-identically. When a real MicrostructureSnapshot is supplied,
+   * `microstructureEvidence` is populated via the new, additive
+   * assessMicrostructureEvidence() (services/intelligence/microstructure/
+   * microstructure-evidence-assessment.service.ts) - a deterministic
+   * comparison against the primary hypothesis's direction, never a second
+   * hypothesis engine and never a numeric input to intelligenceScore
+   * below. When omitted (the same "never attempted" case D2.8.8's own
+   * AIPresenterOrchestratorService.present() already treats identically to
+   * "attempted but unavailable"), `microstructureEvidence` is simply absent
+   * from the result - this analysis makes no assertion about microstructure
+   * either way.
+   */
+  build(envelope: IntelligenceEnvelope, microstructure?: MicrostructureSnapshot): IntelligenceDecisionContext {
     const currentState = buildCurrentState(envelope.marketState);
     const regimeContext = buildRegimeContext(envelope.regime);
     const primaryHypotheses = buildHypothesisContexts(envelope.hypotheses);
@@ -311,6 +331,12 @@ export class DecisionContextService {
     const monitoringItems = buildMonitoringItems(envelope.marketState, envelope.hypotheses, envelope.evidence, historicalContext);
     const missingInformation = buildMissingInformation(envelope);
     const { state, basis: stateBasis } = classifyState(envelope);
+    // Sprint D2.8.11 - only attempted when a real snapshot was supplied;
+    // the primary (first) hypothesis is what historicalContext/D2.5.4 also
+    // treats as "the" hypothesis for this symbol/timeframe/regime.
+    const microstructureEvidence = microstructure
+      ? assessMicrostructureEvidence(microstructure, primaryHypotheses[0], envelope.generatedAt)
+      : undefined;
 
     return {
       symbol: envelope.symbol,
@@ -324,6 +350,7 @@ export class DecisionContextService {
       unresolvedConflicts,
       riskContext,
       historicalContext,
+      microstructureEvidence,
       intelligenceScore: envelope.intelligenceScore,
       invalidationConditions,
       monitoringItems,

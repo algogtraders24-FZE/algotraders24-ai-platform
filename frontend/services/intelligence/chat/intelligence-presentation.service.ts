@@ -88,7 +88,11 @@ export class IntelligencePresentationService {
     // undefined unless the caller opted in via `includeMicrostructure`, in
     // which case behavior here is byte-identical to before this sprint.
     const presented = await this.presenterOrchestrator.present(envelope, input.message, context.microstructure);
-    const decisionContext = this.decisionContextService.build(envelope);
+    // Sprint D2.8.11 - additive: populates decisionContext.microstructureEvidence
+    // (confirms/contradicts/neutral/insufficient_evidence vs. the primary
+    // hypothesis) only when context.microstructure is a real snapshot;
+    // byte-identical to before this sprint otherwise.
+    const decisionContext = this.decisionContextService.build(envelope, context.microstructure);
     const marketData = this.buildMarketDataProvenance(envelope, dataQuality, context.crossProviderValidation);
 
     let auditTraceId: string | undefined;

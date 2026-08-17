@@ -33,6 +33,7 @@ import type { EvidenceItem, EvidenceConflict, EvidenceType } from "./evidence";
 import type { RiskCategory, RiskCategoryScore } from "./risk-intelligence";
 import type { RiskLevel } from "./risk";
 import type { IntelligenceScore } from "./intelligence-score";
+import type { MicrostructureEvidenceAssessment } from "./microstructure-evidence-assessment";
 
 /**
  * Deterministic, real-data-only summary of the current MarketState - no
@@ -180,6 +181,19 @@ export interface IntelligenceDecisionContext {
 
   riskContext: DecisionRiskContext;
   historicalContext: DecisionHistoricalContext;
+
+  /**
+   * Sprint D2.8.11 - a deterministic comparison of real, provider-attributed
+   * microstructure evidence (D2.8.5-D2.8.10, reused verbatim) against the
+   * primary hypothesis's direction. Present only when a microstructure
+   * snapshot was supplied to DecisionContextService.build() (opt-in,
+   * mirroring D2.8.7/D2.8.9's own additive posture) - absent (never a
+   * fabricated "insufficient_evidence" placeholder) when no snapshot was
+   * ever attempted. This is additional EVIDENCE ABOUT the hypothesis, never
+   * a replacement for it and never a numeric input to intelligenceScore
+   * below (D2.5.5's formula/weights are unmodified by this sprint).
+   */
+  microstructureEvidence?: MicrostructureEvidenceAssessment;
 
   /** D2.5.5's IntelligenceScore, reused verbatim - never recalculated, never reinterpreted as trade probability. */
   intelligenceScore: IntelligenceScore;

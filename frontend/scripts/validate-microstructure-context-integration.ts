@@ -457,9 +457,12 @@ async function main(): Promise<void> {
     assert.ok(descriptions.some((d) => /liquidity zone/i.test(d)));
     assert.ok(descriptions.some((d) => /execution risk/i.test(d)));
     assert.ok(descriptions.some((d) => /liquidity risk.*order book/i.test(d)));
-    // DecisionContextService itself never even sees `microstructure` -
-    // build() takes only IntelligenceEnvelope, unchanged by this sprint.
-    assert.equal((decisionSvc.build as unknown as (...args: unknown[]) => unknown).length, 1);
+    // D2.8.7: called with only an envelope (no microstructure argument),
+    // these permanent "unmeasured" disclaimers remain exactly as-is - this
+    // sprint's own scope never touched them. (D2.8.11 later gave build()
+    // an additive, opt-in 2nd parameter for a *separate*,
+    // microstructureEvidence field - verified not to affect this
+    // unconditional missingInformation list in that sprint's own tests.)
   });
 
   // ---------------------------------------------------------------------
