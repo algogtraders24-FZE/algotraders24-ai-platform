@@ -64,6 +64,7 @@
     "validate:market-regime-overview": "tsx scripts/validate-market-regime-overview.ts",
     "validate:workspace-header-symbol-switch": "tsx scripts/validate-workspace-header-symbol-switch.ts",
     "validate:d2.9.0-reliability": "tsx scripts/validate-d2.9.0-reliability.ts",
+    "validate:production-intelligence-truth": "tsx scripts/validate-production-intelligence-truth.ts",
     "validate:market-data-integrity": "tsx scripts/validate-market-data-integrity.ts",
     "validate:market-data-provider-audit": "tsx scripts/validate-market-data-provider-audit.ts",
     "validate:microstructure-poc": "tsx scripts/validate-microstructure-poc.ts",

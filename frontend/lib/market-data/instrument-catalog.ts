@@ -103,7 +103,19 @@ export const INSTRUMENT_CATALOG: readonly CanonicalInstrument[] = [
     currency: "USD",
     aliases: ["silver", "xag"],
     providerMappings: [
-      { provider: "twelve-data", providerSymbol: "XAG/USD", supportedCapabilities: ["quote", "candles"], verified: true },
+      // Sprint D2.9.1 - a real, live-confirmed discrepancy this catalog
+      // entry previously got wrong: this was marked verified:true, but a
+      // direct call against api.twelvedata.com/quote?symbol=XAG/USD (D2.9.0)
+      // returns a clean HTTP 404: "This symbol is available starting with
+      // the Grow or Venture plan." XAU/USD succeeds on the same key/call
+      // pattern - this is a genuine account-plan restriction specific to
+      // XAG, not a malformed mapping or a transient rate limit. The code
+      // path (symbol format, request shape) is correct and will work the
+      // moment a Grow/Venture-tier key is configured - honestly marked
+      // unverified (not working today), same discipline as the
+      // alpha-vantage mapping below, never silently left as a false
+      // verified:true.
+      { provider: "twelve-data", providerSymbol: "XAG/USD", supportedCapabilities: ["quote", "candles"], verified: false },
       // Same confirmed-unavailable status as XAUUSD above - see that entry's comment.
       { provider: "alpha-vantage", providerSymbol: "XAG", supportedCapabilities: ["quote"], verified: false },
     ],
