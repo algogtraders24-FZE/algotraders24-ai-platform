@@ -41,6 +41,12 @@ export default function WorkspaceHeader() {
   useEffect(() => {
     const controller = new AbortController();
     setState("loading");
+    // Sprint D2.8.16 - a real, live-reproduced bug: switching symbols (e.g.
+    // EURUSD -> BTCUSD) reset `state` to "loading" but never cleared
+    // `snapshot`, so the PREVIOUS symbol's price/provider/timestamp kept
+    // rendering under the NEW symbol's title until (if ever) the new fetch
+    // resolved - "BTCUSD" shown with EURUSD's stale $1.15744 "price".
+    setSnapshot(null);
     fetch(`/api/private/market-data/snapshot?symbol=${encodeURIComponent(symbol)}`, { signal: controller.signal })
       .then((r) => r.json())
       .then((j) => {
