@@ -4,14 +4,21 @@
 // Sprint D2.3 (Phase 6) - the AI Intelligence Panel: the workspace's primary,
 // visually-dominant decision surface (rendered inside the `emphasis`
 // WorkspaceSection in app/dashboard/workspace/page.tsx). Presentation layer
-// ONLY - every value here comes from IntelligencePanelData, itself a
-// same-request projection of the existing CopilotAnalysis (D2.2's real
-// snapshot + indicator + risk + confidence pipeline, unmodified). No indicator
+// ONLY - every value here comes from IntelligencePanelData. No indicator
 // math, no trend/bias classification, and no synthetic price levels happen in
-// this file - that logic lives once in services/ai/intelligence-panel.service.ts.
-// A field the engine did not produce renders "Not available" / "Insufficient
-// data", never a guess (Key Levels is always empty today - see
+// this file. A field the engine did not produce renders "Not available" /
+// "Insufficient data", never a guess (Key Levels is always empty today - see
 // types/intelligence-panel.ts for why).
+//
+// Sprint D2.8.16 - repointed from the legacy CopilotAnalysis-based
+// /api/private/trading-copilot/analyze to /api/private/intelligence/panel,
+// which projects the SAME VerifiedAnswerResponse the Research panel below
+// this one (WorkspaceResearch.tsx) already renders. A live, authenticated
+// walkthrough of production found the two panels disagreeing outright for
+// the same symbol at the same moment (this panel: "Bullish, 100% confidence,
+// RSI 64.1 computed"; Research: "Insufficient Data, 31/100, RSI14 could not
+// be computed") - two independent, never-unified engines answering the same
+// question differently on one screen. They now share one source of truth.
 import { useEffect, useState } from "react";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import Badge, { type BadgeTone } from "@/components/ui/Badge";
@@ -106,10 +113,7 @@ export default function IntelligencePanel() {
   useEffect(() => {
     const controller = new AbortController();
     setState("loading");
-    fetch("/api/private/trading-copilot/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ symbol }),
+    fetch(`/api/private/intelligence/panel?symbol=${encodeURIComponent(symbol)}`, {
       signal: controller.signal,
     })
       .then((r) => r.json())
