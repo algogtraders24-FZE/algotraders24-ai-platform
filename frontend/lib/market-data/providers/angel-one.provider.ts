@@ -115,6 +115,17 @@ const INTERVAL_MAP: Record<string, string> = {
 const DEFAULT_INTERVAL = "1d";
 const DEFAULT_OUTPUT_SIZE = 100;
 
+// Sprint D2.9.0 - real NSE trading-hours facts (09:15-15:30 IST, Mon-Fri),
+// used by candleWindow() below to size a real-history request correctly
+// instead of assuming 24/7 trading. See that method's own header comment
+// for the full root-cause story (D2.8.15's 18/100-candle finding).
+const NSE_TRADING_HOURS_PER_DAY = 6.25;
+const NSE_HOLIDAY_MARGIN_DAYS = 5;
+// Keeps the widened window comfortably inside SmartAPI's documented
+// historical-range limits for hourly-and-larger intervals even for a large
+// requested `size` - never requests an unbounded span.
+const MAX_CANDLE_WINDOW_CALENDAR_DAYS = 90;
+
 interface Session {
   jwtToken: string;
   obtainedAtMs: number;
@@ -395,12 +406,35 @@ export class AngelOneProvider implements MarketDataProvider, SnapshotProvider, T
     return candles;
   }
 
-  // Best-effort fromdate/todate window in the documented "YYYY-MM-DD
-  // HH:mm" IST-local format, sized generously for the requested candle
-  // count - unverified against a real response (see file header); a
-  // future sprint with live access should confirm this window actually
-  // yields exactly the requested count rather than trusting this
-  // estimate.
+  // Sprint D2.9.0 - root-caused a real bug found by D2.8.15: NIFTY50/
+  // BANKNIFTY's default hourly window returned only 18 of the 100
+  // requested candles. The PREVIOUS formula (`stepMs[interval] * size`)
+  // silently assumed 24/7 trading - "100 hours back" is only ~4.17
+  // CALENDAR days, and NSE trades ~6.25 real hours/day (09:15-15:30 IST),
+  // 5 days/week. A 4.17-day window that happens to include a weekend
+  // captures roughly 2-3 real trading days (~12.5-18.75 real hours) -
+  // exactly matching D2.8.15's observed 18/100. This was a genuine,
+  // fixable request-window bug, not a real data-availability ceiling:
+  // NSE has years of real intraday history for these highly-liquid
+  // instruments. This computes the CALENDAR span needed to contain
+  // `size` real NSE TRADING periods (converting via
+  // NSE_TRADING_HOURS_PER_DAY and the 5-of-7-day trading week, plus a
+  // fixed holiday margin) rather than `size` wall-clock periods. Still
+  // never invents data - the provider returns however many real candles
+  // genuinely exist in the (now correctly wide) range; a thinner-than-
+  // requested real result stays honestly thinner, per MarketStateService's
+  // own "insufficient data" contract.
+  //
+  // *** LIVE VERIFICATION STATUS *** - this formula is reasoned from NSE's
+  // publicly documented trading hours and D2.8.15's own measured 18/100
+  // data point, and MAX_CANDLE_WINDOW_CALENDAR_DAYS caps it well within
+  // SmartAPI's documented historical-range limits for hourly-and-larger
+  // intervals - but it was NOT re-verified with a live authenticated call
+  // in this sprint (no Angel One credentials were available in this
+  // environment - see the file header's existing live-verification
+  // precedent and RUN_LIVE_ANGEL_ONE_SMOKE_TEST gate). A future sprint
+  // with live access should confirm this window now yields materially
+  // more than 18 real candles for NIFTY50/BANKNIFTY, per that same gate.
   private candleWindow(interval: string, size: number): { fromdate: string; todate: string } {
     const stepMs: Record<string, number> = {
       ONE_MINUTE: 60_000,
@@ -411,9 +445,23 @@ export class AngelOneProvider implements MarketDataProvider, SnapshotProvider, T
       FOUR_HOUR: 4 * 60 * 60_000,
       ONE_DAY: 24 * 60 * 60_000,
     };
-    const spanMs = (stepMs[interval] ?? stepMs.ONE_DAY) * size;
+    const step = stepMs[interval] ?? stepMs.ONE_DAY;
     const to = new Date(this.clock.now());
-    const from = new Date(to.getTime() - spanMs);
+
+    let calendarDaysNeeded: number;
+    if (interval === "ONE_DAY") {
+      // `size` real trading days, converted to calendar days (NSE trades
+      // 5 of every 7 calendar days), plus a fixed margin for market
+      // holidays that fall inside the window.
+      calendarDaysNeeded = Math.ceil((size * 7) / 5) + NSE_HOLIDAY_MARGIN_DAYS;
+    } else {
+      const neededTradingMs = size * step;
+      const tradingDaysNeeded = Math.ceil(neededTradingMs / (NSE_TRADING_HOURS_PER_DAY * 60 * 60_000));
+      calendarDaysNeeded = Math.ceil((tradingDaysNeeded * 7) / 5) + NSE_HOLIDAY_MARGIN_DAYS;
+    }
+    calendarDaysNeeded = Math.min(calendarDaysNeeded, MAX_CANDLE_WINDOW_CALENDAR_DAYS);
+
+    const from = new Date(to.getTime() - calendarDaysNeeded * 24 * 60 * 60_000);
     const fmtDate = (d: Date) => d.toISOString().slice(0, 16).replace("T", " ");
     return { fromdate: fmtDate(from), todate: fmtDate(to) };
   }

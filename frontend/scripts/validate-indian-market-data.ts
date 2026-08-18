@@ -341,6 +341,54 @@ async function angelOneProviderTests(): Promise<void> {
       assert.equal(capturedInterval, "ONE_DAY");
     }));
 
+  // Sprint D2.9.0 - regression coverage for a real, root-caused bug: D2.8.15
+  // found NIFTY50/BANKNIFTY's default 100-candle hourly request returned
+  // only 18 real candles. Root cause: candleWindow()'s PREVIOUS formula
+  // assumed 24/7 trading ("100 hours back" = ~4.17 calendar days), which -
+  // especially spanning a weekend - contains only ~2-3 real NSE trading
+  // days (~12.5-18.75 real trading hours, matching the observed 18). Fixed
+  // to size the calendar window off real NSE trading hours (6.25h/day,
+  // 5-day week) instead. These tests inspect the REAL request the provider
+  // sends (fromdate/todate), proving the fix without needing live Angel One
+  // credentials (unavailable in this environment - see candleWindow()'s own
+  // header comment for the live-verification gap this leaves).
+  await test("Angel One: 100 hourly candles now requests a calendar window wide enough to plausibly contain 100 real NSE trading hours (previously only ~4.17 days)", () =>
+    withAngelOneEnv(async () => {
+      let capturedBody: { fromdate?: string; todate?: string } | undefined;
+      const fetchImpl: AngelOneFetch = async (url, init) => {
+        if (url.endsWith("/loginByPassword")) return loginOkResponse();
+        if (url.endsWith("/getCandleData")) {
+          capturedBody = JSON.parse(init.body) as { fromdate?: string; todate?: string };
+          return candleOkResponse([]);
+        }
+        throw new Error(`unexpected URL ${url}`);
+      };
+      const nowMs = Date.UTC(2026, 7, 18, 12, 0, 0); // a real Tuesday - deterministic, not a live "now"
+      const provider = new AngelOneProvider({ fetchImpl, clock: { now: () => nowMs } });
+      await provider.getTimeSeries({ symbol: "NIFTY50", interval: "1h", outputSize: 100 });
+      assert.ok(capturedBody?.fromdate && capturedBody?.todate, "must send a real fromdate/todate");
+      const spanCalendarDays = (nowMs - new Date(`${capturedBody!.fromdate}:00Z`).getTime()) / (24 * 60 * 60_000);
+      assert.ok(spanCalendarDays > 20, `expected a calendar window well over 20 days (real trading-hours-aware sizing), got ${spanCalendarDays.toFixed(2)}`);
+    }));
+
+  await test("Angel One: the widened window is still capped - never requests an unbounded historical span for a large size", () =>
+    withAngelOneEnv(async () => {
+      let capturedBody: { fromdate?: string; todate?: string } | undefined;
+      const fetchImpl: AngelOneFetch = async (url, init) => {
+        if (url.endsWith("/loginByPassword")) return loginOkResponse();
+        if (url.endsWith("/getCandleData")) {
+          capturedBody = JSON.parse(init.body) as { fromdate?: string; todate?: string };
+          return candleOkResponse([]);
+        }
+        throw new Error(`unexpected URL ${url}`);
+      };
+      const nowMs = Date.UTC(2026, 7, 18, 12, 0, 0);
+      const provider = new AngelOneProvider({ fetchImpl, clock: { now: () => nowMs } });
+      await provider.getTimeSeries({ symbol: "NIFTY50", interval: "1h", outputSize: 5000 });
+      const spanCalendarDays = (nowMs - new Date(`${capturedBody!.fromdate}:00Z`).getTime()) / (24 * 60 * 60_000);
+      assert.ok(spanCalendarDays <= 90, `expected the window capped at <=90 calendar days, got ${spanCalendarDays.toFixed(2)}`);
+    }));
+
   await test("Angel One: candle cache prevents a second network call for an identical request", () =>
     withAngelOneEnv(async () => {
       let candleCalls = 0;

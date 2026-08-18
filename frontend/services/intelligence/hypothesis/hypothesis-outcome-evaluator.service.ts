@@ -292,11 +292,28 @@ export class HypothesisOutcomeEvaluatorService {
         timestamp: candles[evalIdx].datetime,
         retrievedAt: candles[evalIdx].datetime,
       };
+      // Sprint D2.9.0 - a real, root-caused production bug: this call never
+      // passed `nowMs`, so assemble()'s D2.8.15 candle-validation defaulted
+      // to REAL wall-clock Date.now() instead of this evaluator's own
+      // point-in-time reference (`clock`, already used for the window-closed
+      // check above). For a genuinely historical evaluation boundary that is
+      // still in the real future when a test (or, in principle, any
+      // non-systemClock caller) injects a fixed clock, candles legitimately
+      // "in the past" relative to the evaluation boundary were wrongly
+      // rejected as "future timestamp" relative to real time - starving
+      // EMA50 of enough candles, making structure.trend.direction undefined,
+      // which then read as `invalidated` (undefined !== "up") instead of the
+      // correct `validated`. Threading clock.now() through as `nowMs` makes
+      // the future-timestamp check consistent with the SAME point-in-time
+      // this whole method already evaluates as of - never a second, looser
+      // validation policy, just the one D2.8.15 already built, given the
+      // right reference time.
       const evalMarketState = this.marketStateSvc.assemble({
         symbol: hypothesis.symbol,
         timeframe: window.timeframe,
         snapshot: historicalSnapshot,
         candles: historicalCandles,
+        nowMs: clock.now(),
       });
       const actual = readField(evalMarketState, cond.field);
       invalidationObserved = pointInTimeBreach(actual, cond);
