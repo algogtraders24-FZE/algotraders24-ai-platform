@@ -42,6 +42,17 @@ import { AlphaVantageProvider } from "@/lib/market-data/providers/alpha-vantage.
 // length matter at all.
 import { BinanceProvider } from "@/lib/market-data/providers/binance.provider";
 import { AngelOneProvider } from "@/lib/market-data/providers/angel-one.provider";
+// MT5 (Exness) live data bridge - appended LAST, same backward-
+// compatible "append, never insert before" rule as Binance/Angel One
+// above. Twelve Data/Alpha Vantage/Binance/Angel One keep their exact
+// existing priority and behavior for every symbol they already serve;
+// MT5 only matters where every earlier provider genuinely fails (XAGUSD
+// today - see mt5-bridge/README.md) or as one more resilience layer.
+// Absent (unconfigured) by default - isConfigured() is false until
+// MT5_BRIDGE_URL/MT5_BRIDGE_SECRET are actually set, so the platform's
+// behavior is completely unchanged for every deployment that hasn't set
+// up the bridge.
+import { Mt5Provider } from "@/lib/market-data/providers/mt5.provider";
 import { ProviderHealthMonitor, type ProviderHealthSnapshot } from "@/lib/market-data/health-monitor";
 import { logger } from "@/services/backend/Logger";
 // Sprint D2.6.4 - Provider Reliability, Smart Fallback & Cross-Provider
@@ -75,7 +86,7 @@ function withDerivedSpread(snapshot: MarketSnapshot): MarketSnapshot {
 }
 
 export interface MarketDataServiceOptions {
-  /** Providers in priority order. Default: [Twelve Data (primary), Alpha Vantage, Binance, Angel One (D2.6.3)]. */
+  /** Providers in priority order. Default: [Twelve Data (primary), Alpha Vantage, Binance, Angel One (D2.6.3), MT5 (user's own live-account bridge, unconfigured/absent unless MT5_BRIDGE_URL+MT5_BRIDGE_SECRET are set)]. */
   providers?: MarketDataProvider[];
   cacheTtlMs?: number;
   /** Sprint D2.3.S3 - grace window past cacheTtlMs a stale entry may still be served when every provider fails. */
@@ -108,7 +119,7 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
     // this ordering is deliberately backward-compatible. Callers may
     // override entirely (e.g. tests inject fakes) but the default
     // encodes the documented policy.
-    this.providers = options.providers ?? [new TwelveDataProvider(), new AlphaVantageProvider(), new BinanceProvider(), new AngelOneProvider()];
+    this.providers = options.providers ?? [new TwelveDataProvider(), new AlphaVantageProvider(), new BinanceProvider(), new AngelOneProvider(), new Mt5Provider()];
     this.clock = options.clock ?? systemClock;
     this.cacheTtlMs = options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
     this.cache = new TtlCache<MarketContextResult>(this.cacheTtlMs, this.clock);

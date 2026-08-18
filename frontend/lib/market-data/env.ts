@@ -67,3 +67,26 @@ export function loadAngelOneEnv(): AngelOneEnv | null {
 // see binance.provider.ts's header for the full explanation, including
 // why the project's malformed BINANCE_API_KEY/SEC_KEY env line is moot
 // for this capability.
+
+// MT5 (Exness) live data bridge - see mt5-bridge/README.md for the full
+// deployment story. Same optional-at-the-platform-level contract as every
+// other loader: returns null (never throws) when either half is absent,
+// so MarketDataService falls back to its other providers rather than
+// hard-failing. bridgeUrl must be the bridge's own HTTPS origin (e.g.
+// https://mt5.yourdomain.com) - never a plain-http URL in production,
+// since the secret travels in the Authorization header over this
+// connection.
+export interface Mt5BridgeEnv {
+  bridgeUrl: string;
+  secret: string;
+}
+
+export function loadMt5BridgeEnv(): Mt5BridgeEnv | null {
+  const bridgeUrl = process.env.MT5_BRIDGE_URL;
+  const secret = process.env.MT5_BRIDGE_SECRET;
+  if (!bridgeUrl?.trim() || !secret?.trim()) return null;
+  // Strip a trailing slash so callers can always do `${bridgeUrl}/quote`
+  // without producing a double slash - a pure normalization, never a
+  // guess about the real host.
+  return { bridgeUrl: bridgeUrl.trim().replace(/\/+$/, ""), secret: secret.trim() };
+}

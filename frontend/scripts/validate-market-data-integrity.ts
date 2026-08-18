@@ -413,11 +413,11 @@ async function main(): Promise<void> {
   // ---------------------------------------------------------------------
   // 16: existing provider selection order unchanged
   // ---------------------------------------------------------------------
-  await test("16: MarketDataService's default provider priority order (Twelve Data, Alpha Vantage, Binance, Angel One) is unchanged", () => {
+  await test("16: MarketDataService's default provider priority order (Twelve Data, Alpha Vantage, Binance, Angel One) is unchanged - MT5 is a legitimate append after them, never inserted before", () => {
     const source = readFileSync(new URL("../services/market-data/market-data.service.ts", import.meta.url), "utf8");
     assert.ok(
-      source.includes("options.providers ?? [new TwelveDataProvider(), new AlphaVantageProvider(), new BinanceProvider(), new AngelOneProvider()]"),
-      "the default provider array's order must not have been altered by this sprint",
+      source.includes("options.providers ?? [new TwelveDataProvider(), new AlphaVantageProvider(), new BinanceProvider(), new AngelOneProvider(), new Mt5Provider()]"),
+      "the pre-existing 4 providers must keep their exact relative order, with MT5 appended last",
     );
   });
 

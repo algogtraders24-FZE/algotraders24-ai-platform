@@ -118,6 +118,17 @@ export const INSTRUMENT_CATALOG: readonly CanonicalInstrument[] = [
       { provider: "twelve-data", providerSymbol: "XAG/USD", supportedCapabilities: ["quote", "candles"], verified: false },
       // Same confirmed-unavailable status as XAUUSD above - see that entry's comment.
       { provider: "alpha-vantage", providerSymbol: "XAG", supportedCapabilities: ["quote"], verified: false },
+      // MT5 (Exness) live data bridge - see mt5-bridge/README.md. Added
+      // specifically because XAGUSD is the one symbol genuinely
+      // unavailable at both providers above. providerSymbol is a
+      // placeholder ("XAGUSD") pending live confirmation: Exness (like
+      // most brokers) may suffix the real MT5 symbol name differently
+      // depending on account type (e.g. "XAGUSDm") - deliberately marked
+      // verified:false until a real GET /symbols call against the live
+      // bridge confirms the exact name, then this gets corrected (if
+      // needed) and flipped to verified:true in a follow-up commit. Never
+      // guessed as working before it's actually been checked.
+      { provider: "mt5", providerSymbol: "XAGUSD", supportedCapabilities: ["quote", "candles"], verified: false },
     ],
   },
 

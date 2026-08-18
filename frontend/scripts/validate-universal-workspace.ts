@@ -223,7 +223,13 @@ async function providerMappingTests(): Promise<void> {
   });
 
   await test("13: no instrument lists an unconfigured/nonexistent provider name", () => {
-    const knownProviders = new Set(["twelve-data", "alpha-vantage", "binance", "angel-one"]);
+    // "mt5" added: a real, registered MarketDataProvider (lib/market-data/
+    // providers/mt5.provider.ts, wired into MarketDataService's default
+    // provider array) - genuinely configured/absent depends on whether
+    // MT5_BRIDGE_URL/MT5_BRIDGE_SECRET are set at runtime, same as any
+    // other optional provider; this test checks the provider NAME is real,
+    // never whether it happens to be configured in this environment.
+    const knownProviders = new Set(["twelve-data", "alpha-vantage", "binance", "angel-one", "mt5"]);
     for (const instrument of listCanonicalInstruments()) {
       for (const mapping of instrument.providerMappings) {
         assert.ok(knownProviders.has(mapping.provider), `${instrument.id} lists unknown provider "${mapping.provider}"`);

@@ -26,20 +26,25 @@ async function main(): Promise<void> {
   // ---------------------------------------------------------------------
   // 1: no new provider adapter files were added
   // ---------------------------------------------------------------------
-  await test("1: lib/market-data/providers/ contains exactly the D2.8.1 baseline - no dxFeed/Databento/new adapter files", () => {
+  await test("1: lib/market-data/providers/ contains exactly the D2.8.1 baseline plus the intentional MT5 bridge addition - no dxFeed/Databento/other stray adapter files", () => {
     const files = readdirSync(new URL("../lib/market-data/providers/", import.meta.url)).sort();
-    const expected = ["alpha-vantage-news.provider.ts", "alpha-vantage.provider.ts", "angel-one.provider.ts", "binance.provider.ts", "twelve-data.provider.ts"];
-    assert.deepEqual(files, expected, "provider directory contents must be unchanged from D2.8.1");
+    // Updated for the MT5 (Exness) live data bridge - a legitimate new
+    // provider file, same as angel-one.provider.ts/binance.provider.ts
+    // were legitimate additions after this test was first written. The
+    // invariant this test protects is "no STRAY/unexpected file appears",
+    // not "the file count is frozen forever".
+    const expected = ["alpha-vantage-news.provider.ts", "alpha-vantage.provider.ts", "angel-one.provider.ts", "binance.provider.ts", "mt5.provider.ts", "twelve-data.provider.ts"];
+    assert.deepEqual(files, expected, "provider directory contents must be unchanged from D2.8.1 plus the intentional MT5 bridge addition");
   });
 
   // ---------------------------------------------------------------------
   // 2: MarketDataService's default provider array is unchanged
   // ---------------------------------------------------------------------
-  await test("2: MarketDataService's default provider priority order is unchanged from D2.8.1", () => {
+  await test("2: MarketDataService's default provider priority order for the D2.8.1 providers is unchanged (Twelve Data, Alpha Vantage, Binance, Angel One, in that exact order) - MT5 is a legitimate APPEND after them, never inserted before", () => {
     const source = readFileSync(new URL("../services/market-data/market-data.service.ts", import.meta.url), "utf8");
     assert.ok(
-      source.includes("options.providers ?? [new TwelveDataProvider(), new AlphaVantageProvider(), new BinanceProvider(), new AngelOneProvider()]"),
-      "the default provider array must not have been touched by this audit sprint",
+      source.includes("options.providers ?? [new TwelveDataProvider(), new AlphaVantageProvider(), new BinanceProvider(), new AngelOneProvider(), new Mt5Provider()]"),
+      "the D2.8.1 providers must keep their exact original relative order, with MT5 appended last",
     );
   });
 
