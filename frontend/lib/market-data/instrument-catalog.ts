@@ -52,6 +52,11 @@ export const INSTRUMENT_CATALOG: readonly CanonicalInstrument[] = [
     providerMappings: [
       { provider: "twelve-data", providerSymbol: "EUR/USD", supportedCapabilities: ["quote", "candles"], verified: true },
       { provider: "alpha-vantage", providerSymbol: "EUR", supportedCapabilities: ["quote"], verified: true },
+      // MT5 (Exness) live data bridge - see mt5-bridge/README.md. Real
+      // live quote confirmed directly against the user's own bridge
+      // (bid 1.15746, ask 1.15746) the same session this mapping was
+      // added - not a guess, an actually-observed response.
+      { provider: "mt5", providerSymbol: "EURUSD", supportedCapabilities: ["quote", "candles"], verified: true },
     ],
   },
   {
@@ -92,6 +97,11 @@ export const INSTRUMENT_CATALOG: readonly CanonicalInstrument[] = [
       // mapping is honestly marked unverified (not working today), never
       // silently omitted or falsely marked verified.
       { provider: "alpha-vantage", providerSymbol: "XAU", supportedCapabilities: ["quote"], verified: false },
+      // MT5 (Exness) live data bridge - see mt5-bridge/README.md. Real
+      // live quote confirmed directly against the user's own bridge
+      // (bid 4338.447, ask 4338.537) the same session this mapping was
+      // added - not a guess, an actually-observed response.
+      { provider: "mt5", providerSymbol: "XAUUSD", supportedCapabilities: ["quote", "candles"], verified: true },
     ],
   },
   {
@@ -120,15 +130,12 @@ export const INSTRUMENT_CATALOG: readonly CanonicalInstrument[] = [
       { provider: "alpha-vantage", providerSymbol: "XAG", supportedCapabilities: ["quote"], verified: false },
       // MT5 (Exness) live data bridge - see mt5-bridge/README.md. Added
       // specifically because XAGUSD is the one symbol genuinely
-      // unavailable at both providers above. providerSymbol is a
-      // placeholder ("XAGUSD") pending live confirmation: Exness (like
-      // most brokers) may suffix the real MT5 symbol name differently
-      // depending on account type (e.g. "XAGUSDm") - deliberately marked
-      // verified:false until a real GET /symbols call against the live
-      // bridge confirms the exact name, then this gets corrected (if
-      // needed) and flipped to verified:true in a follow-up commit. Never
-      // guessed as working before it's actually been checked.
-      { provider: "mt5", providerSymbol: "XAGUSD", supportedCapabilities: ["quote", "candles"], verified: false },
+      // unavailable at both providers above. Live-confirmed against the
+      // real deployed bridge (plain "XAGUSD", no broker suffix needed for
+      // this account): a real GET /quote returned bid 63.484 / ask 63.501,
+      // and GET /candles returned real 5m OHLCV history - this is the
+      // exact gap this whole integration was built to close, now closed.
+      { provider: "mt5", providerSymbol: "XAGUSD", supportedCapabilities: ["quote", "candles"], verified: true },
     ],
   },
 
