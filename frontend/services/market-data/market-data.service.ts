@@ -92,6 +92,7 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
   private readonly providers: MarketDataProvider[];
   private readonly cache: TtlCache<MarketContextResult>;
   private readonly snapshotCache: TtlCache<MarketSnapshot>;
+  private readonly timeSeriesCache: TtlCache<TimeSeriesResult>;
   private readonly clock: Clock;
   private readonly reliability: ReliabilityOptions;
   private readonly cacheTtlMs: number;
@@ -112,6 +113,7 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
     this.cacheTtlMs = options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
     this.cache = new TtlCache<MarketContextResult>(this.cacheTtlMs, this.clock);
     this.snapshotCache = new TtlCache<MarketSnapshot>(this.cacheTtlMs, this.clock);
+    this.timeSeriesCache = new TtlCache<TimeSeriesResult>(this.cacheTtlMs, this.clock);
     this.reliability = options.reliability ?? {};
     this.staleFallbackMs = options.staleFallbackMs ?? DEFAULT_STALE_FALLBACK_MS;
     this.smartFallback = options.smartFallback ?? false;
@@ -252,9 +254,8 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
   /**
    * Returns historical OHLC candles (oldest-first) for the indicator engine,
    * routed only to time-series-capable providers with the same priority order,
-   * per-call reliability, and fallback. Candles are not cached at the service
-   * level (the providers cache them on a longer TTL); this keeps one source of
-   * truth for candle freshness. Throws an aggregate error if none can serve it.
+   * per-call reliability, and fallback. Throws an aggregate error if none can
+   * serve it.
    *
    * Sprint D2.7.3 - a thin wrapper around getTimeSeriesWithProvenance() below,
    * so every existing caller (RealTimeIntelligenceService, the hypothesis
@@ -268,6 +269,13 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
     return result.candles;
   }
 
+  // Sprint D2.8.16 - a fresh-only cache key for candle requests, distinct
+  // per symbol/interval/outputSize so a 1h chart poll never collides with a
+  // 1day indicator fetch for the same symbol.
+  private timeSeriesCacheKey(request: TimeSeriesRequest): string {
+    return `${request.symbol}:${request.interval ?? "1day"}:${request.outputSize ?? 100}`;
+  }
+
   /**
    * Sprint D2.7.3 - the SAME selection loop as getTimeSeries() (never a
    * second/duplicated one, never a changed provider order), additionally
@@ -276,8 +284,26 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
    * `fallbackUsed` provenance rule getSnapshot() already established
    * (D2.6.3): true only when a REAL failure (never a merely "unconfigured"
    * skip) from an earlier-priority provider preceded this success.
+   *
+   * Sprint D2.8.16 - a real, reproduced production gap: this page's own
+   * chart/indicator/decision-context callers each independently call
+   * getTimeSeries for the same symbol within seconds of each other with zero
+   * de-duplication, and Alpha Vantage/Binance/Angel One do not implement
+   * TimeSeriesProvider for forex/commodity symbols (only Twelve Data does),
+   * so a single Twelve Data rate-limit response took down every candle-
+   * dependent panel on the Workspace page at once. Added the SAME fresh-only
+   * TtlCache pattern getSnapshot() already uses (cacheTtlMs, no stale-fallback
+   * extension) so repeated requests for the same symbol/interval/outputSize
+   * within one cache window are served without hitting the provider again.
+   * This does NOT reintroduce a stale-fallback path: a true all-providers-
+   * failed outcome still throws immediately, per the pre-existing documented
+   * non-goal below.
    */
   async getTimeSeriesWithProvenance(request: TimeSeriesRequest): Promise<TimeSeriesResult> {
+    const cacheKey = this.timeSeriesCacheKey(request);
+    const cached = this.timeSeriesCache.get(cacheKey);
+    if (cached) return { ...cached, fallbackUsed: cached.fallbackUsed };
+
     const errors: MarketDataProviderError[] = [];
     for (const provider of this.orderedProviders(request.symbol, "candles")) {
       if (!isTimeSeriesProvider(provider)) continue;
@@ -290,7 +316,9 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
           withReliability(() => provider.getTimeSeries(request), provider.name, this.reliability),
         );
         const fallbackUsed = errors.some((e) => e.kind !== "unconfigured");
-        return { candles, provider: provider.name, fallbackUsed };
+        const result: TimeSeriesResult = { candles, provider: provider.name, fallbackUsed };
+        this.timeSeriesCache.set(cacheKey, result);
+        return result;
       } catch (error) {
         if (error instanceof MarketDataProviderError) {
           errors.push(error);
@@ -300,9 +328,11 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
       }
     }
     // Sprint D2.3.S3 - candles are deliberately NOT part of the stale-cache-
-    // fallback resilience path: they aren't cached at this service level at
-    // all (see the method comment above), so there is nothing to fall back
-    // to here. This is a documented non-goal, not an oversight.
+    // fallback resilience path: a true all-providers-failed outcome is never
+    // papered over with an old cached value here (see D2.8.16 note above for
+    // the separate, short fresh-only cache that DOES exist now to cut
+    // redundant identical requests). This remains a documented non-goal, not
+    // an oversight.
     this.log.error("all providers failed", { symbol: request.symbol, attempted: errors.map((e) => `${e.provider}:${e.kind}`) });
     throw this.aggregateError(request.symbol, errors);
   }
