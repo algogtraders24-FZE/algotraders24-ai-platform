@@ -67,7 +67,13 @@ export const INSTRUMENT_CATALOG: readonly CanonicalInstrument[] = [
     marketCategory: "forex",
     currency: "USD",
     aliases: ["pound", "sterling", "cable", "gbp"],
-    providerMappings: [{ provider: "twelve-data", providerSymbol: "GBP/USD", supportedCapabilities: ["quote", "candles"], verified: true }],
+    providerMappings: [
+      { provider: "twelve-data", providerSymbol: "GBP/USD", supportedCapabilities: ["quote", "candles"], verified: true },
+      // MT5 (Exness) live data bridge - see mt5-bridge/README.md. Real
+      // live quote confirmed directly against the deployed bridge
+      // (bid 1.35318, ask 1.35319).
+      { provider: "mt5", providerSymbol: "GBPUSD", supportedCapabilities: ["quote", "candles"], verified: true },
+    ],
   },
   {
     id: "USDJPY",
@@ -77,7 +83,13 @@ export const INSTRUMENT_CATALOG: readonly CanonicalInstrument[] = [
     marketCategory: "forex",
     currency: "JPY",
     aliases: ["yen", "jpy"],
-    providerMappings: [{ provider: "twelve-data", providerSymbol: "USD/JPY", supportedCapabilities: ["quote", "candles"], verified: true }],
+    providerMappings: [
+      { provider: "twelve-data", providerSymbol: "USD/JPY", supportedCapabilities: ["quote", "candles"], verified: true },
+      // MT5 (Exness) live data bridge - see mt5-bridge/README.md. Real
+      // live quote confirmed directly against the deployed bridge
+      // (bid 159.632, ask 159.632).
+      { provider: "mt5", providerSymbol: "USDJPY", supportedCapabilities: ["quote", "candles"], verified: true },
+    ],
   },
 
   // ---- Commodities ----
@@ -152,6 +164,12 @@ export const INSTRUMENT_CATALOG: readonly CanonicalInstrument[] = [
       { provider: "twelve-data", providerSymbol: "BTC/USD", supportedCapabilities: ["quote", "candles"], verified: true },
       // Live-verified 2026-08-10 against https://api.binance.com/api/v3/ticker/24hr and /klines (see binance.provider.ts header).
       { provider: "binance", providerSymbol: "BTCUSDT", supportedCapabilities: ["quote", "candles"], verified: true },
+      // MT5 (Exness) live data bridge - see mt5-bridge/README.md. Real
+      // live quote confirmed directly against the deployed bridge
+      // (bid 64552.83, ask 64555.58) - a real CFD price on Exness, a
+      // disclosed approximation of the real market like Binance's own
+      // BTCUSDT mapping above, never a synthesized one.
+      { provider: "mt5", providerSymbol: "BTCUSD", supportedCapabilities: ["quote", "candles"], verified: true },
     ],
   },
   {
@@ -165,6 +183,11 @@ export const INSTRUMENT_CATALOG: readonly CanonicalInstrument[] = [
     providerMappings: [
       { provider: "twelve-data", providerSymbol: "ETH/USD", supportedCapabilities: ["quote", "candles"], verified: true },
       { provider: "binance", providerSymbol: "ETHUSDT", supportedCapabilities: ["quote", "candles"], verified: true },
+      // MT5 (Exness) live data bridge - see mt5-bridge/README.md. Real
+      // live quote confirmed directly against the deployed bridge
+      // (bid 1913.44, ask 1913.57) - a real CFD price on Exness, same
+      // disclosed-approximation discipline as the binance mapping above.
+      { provider: "mt5", providerSymbol: "ETHUSD", supportedCapabilities: ["quote", "candles"], verified: true },
     ],
   },
   {

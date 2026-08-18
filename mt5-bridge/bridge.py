@@ -49,6 +49,10 @@ SYMBOL_MAP: dict[str, str] = {
     "XAGUSD": "XAGUSD",
     "XAUUSD": "XAUUSD",
     "EURUSD": "EURUSD",
+    "GBPUSD": "GBPUSD",
+    "USDJPY": "USDJPY",
+    "BTCUSD": "BTCUSD",
+    "ETHUSD": "ETHUSD",
 }
 
 
