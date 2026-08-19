@@ -44,6 +44,28 @@ Don't leave it running in a foreground terminal window — it'll die when you di
 - **Task Scheduler** (simplest): create a task that runs `uvicorn bridge:app --host 0.0.0.0 --port 8787` at system startup, "run whether user is logged on or not."
 - **NSSM** (Non-Sucking Service Manager): wraps the same command as a real Windows service, restarts automatically on crash. Slightly more setup, more robust.
 
+## Permanent / self-healing setup (recommended)
+
+Even with a Task Scheduler entry, the bridge or the tunnel can still go down (a crash, a network blip, MT5 losing its connection to the broker after a Windows Update, the VPS rebooting while nobody's logged in) and stay down until someone notices and manually runs `schtasks /run`. `watchdog.ps1` + `setup-watchdog.ps1` close that gap: a scheduled check every 5 minutes (and once immediately at every boot) that restarts whichever piece is actually broken, with no manual intervention.
+
+It deliberately does **not** need to know how `AT24-MT5-Bridge`/`AT24-MT5-Tunnel` are launched internally — it only calls `schtasks /run /tn <name>` on your existing tasks, so it works with whatever launch command you already have configured.
+
+Run once, from an elevated (Administrator) PowerShell window on the VPS, inside this `mt5-bridge/` folder:
+
+```powershell
+.\setup-watchdog.ps1 -PublicHealthUrl "https://mt5.yourdomain.com/health"
+```
+
+(Use your real `MT5_BRIDGE_URL` + `/health` — the same URL Vercel is configured with. Omit `-PublicHealthUrl` to only watch the local bridge, not the tunnel.)
+
+This registers a third scheduled task, `AT24-MT5-Watchdog`, running as `SYSTEM` (no login required, ever). Check `watchdog.log` in this folder any time to see its history:
+
+```powershell
+Get-Content .\watchdog.log -Tail 20
+```
+
+Re-running `setup-watchdog.ps1` is safe — it always cleanly replaces the previous registration rather than duplicating it.
+
 ## Exposing it to the internet (required — Vercel needs to reach it over HTTPS)
 
 Don't expose port 8787 directly. Put a reverse proxy in front of it that terminates TLS. The simplest option is **Caddy** (single binary, automatic Let's Encrypt certificates):
