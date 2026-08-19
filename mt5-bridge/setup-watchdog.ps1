@@ -41,9 +41,13 @@ $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $argumentL
 # self-heals within the first cycle, not after waiting up to 5 minutes),
 # AND repeat every 5 minutes indefinitely from then on.
 $startupTrigger = New-ScheduledTaskTrigger -AtStartup
+# Task Scheduler's XML schema cannot represent [TimeSpan]::MaxValue (it
+# overflows the duration field - the exact error this line used to
+# cause). 10 years is not literally infinite, but it is effectively
+# forever for this purpose, and it's a value the schema can serialize.
 $repeatingTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) `
     -RepetitionInterval (New-TimeSpan -Minutes 5) `
-    -RepetitionDuration ([TimeSpan]::MaxValue)
+    -RepetitionDuration (New-TimeSpan -Days 3650)
 
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -DontStopOnIdleEnd `
     -ExecutionTimeLimit (New-TimeSpan -Minutes 4) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
@@ -52,13 +56,21 @@ Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction Silent
 
 # SYSTEM account, not a user account: runs with no login required and
 # never expires/locks out the way a saved user password can.
-Register-ScheduledTask -TaskName $taskName `
-    -Action $action `
-    -Trigger @($startupTrigger, $repeatingTrigger) `
-    -Settings $settings `
-    -User "SYSTEM" `
-    -RunLevel Highest `
-    -Force | Out-Null
+# -ErrorAction Stop + try/catch so a real registration failure is
+# reported as a failure, never printed as a false "Registered" success.
+try {
+    Register-ScheduledTask -TaskName $taskName `
+        -Action $action `
+        -Trigger @($startupTrigger, $repeatingTrigger) `
+        -Settings $settings `
+        -User "SYSTEM" `
+        -RunLevel Highest `
+        -Force `
+        -ErrorAction Stop | Out-Null
+} catch {
+    Write-Error "Failed to register '$taskName': $($_.Exception.Message)"
+    exit 1
+}
 
 Write-Host "Registered '$taskName': runs at every VPS startup and every 5 minutes after, as SYSTEM."
 Write-Host "Log file: $PSScriptRoot\watchdog.log"
