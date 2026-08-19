@@ -29,9 +29,11 @@ export const PANEL_REGISTRY: Record<ChartPanelId, PanelSpec> = {
   volume: { id: "volume", label: "Volume", heightWeight: 1 },
   rsi: { id: "rsi", label: "RSI", heightWeight: 1 },
   macd: { id: "macd", label: "MACD", heightWeight: 1 },
+  atr: { id: "atr", label: "ATR", heightWeight: 1 },
+  stochastic: { id: "stochastic", label: "Stochastic", heightWeight: 1 },
 };
 
-/** The default, deterministic indicator configurations the chart toolbar's Indicators menu offers - real periods matching TechnicalContextService's own existing choices (RSI-14, EMA-20/50, SMA-20, Bollinger-20/2, MACD-12/26/9) so a value shown on the chart always agrees with the same value the AI Intelligence panel would report for the same symbol/timeframe. */
+/** The default, deterministic indicator configurations the chart toolbar's Indicators menu offers - real periods matching TechnicalContextService's own existing choices (RSI-14, EMA-20/50, SMA-20, Bollinger-20/2, MACD-12/26/9) so a value shown on the chart always agrees with the same value the AI Intelligence panel would report for the same symbol/timeframe. ATR-14 matches TechnicalContextService's own ATR_PERIOD_DEFAULT (indicators.ts). Stochastic 5/3/3 is MT5's real default (verified this session against mql5.com/metatrader5.com - see indicators.ts's stochasticSeries() header comment), not the textbook fast-stochastic every other platform defaults to. */
 export const DEFAULT_INDICATOR_CONFIGS: readonly IndicatorConfig[] = [
   { id: "ema", key: "ema-20", period: 20, color: "var(--gold)" },
   { id: "ema", key: "ema-50", period: 50, color: "var(--gold-strong)" },
@@ -40,6 +42,8 @@ export const DEFAULT_INDICATOR_CONFIGS: readonly IndicatorConfig[] = [
   { id: "rsi", key: "rsi-14", period: 14, color: "var(--gold)" },
   { id: "macd", key: "macd-12-26-9", period: 12, fastPeriod: 12, slowPeriod: 26, signalPeriod: 9, color: "var(--gold)" },
   { id: "volume", key: "volume", period: 20, color: "var(--steel)" },
+  { id: "atr", key: "atr-14", period: 14, color: "var(--gold)" },
+  { id: "stochastic", key: "stochastic-5-3-3", period: 5, slowingPeriod: 3, signalPeriod: 3, color: "var(--gold)" },
 ];
 
 // Sprint D2.7.5, Phase 4 - a static id->panel lookup so the toolbar's
@@ -59,4 +63,6 @@ export const INDICATOR_PANEL_ID: Record<IndicatorConfig["id"], ChartPanelId> = {
   rsi: "rsi",
   macd: "macd",
   volume: "volume",
+  atr: "atr",
+  stochastic: "stochastic",
 };

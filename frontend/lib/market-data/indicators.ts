@@ -89,8 +89,8 @@ export function rsi(values: readonly number[], period = RSI_PERIOD_DEFAULT): num
   return 100 - 100 / (1 + rs);
 }
 
-/** Wilder's ATR over candles. Needs at least period+1 candles. */
-export function atr(candles: readonly Candle[], period = ATR_PERIOD_DEFAULT): number | undefined {
+/** Wilder's ATR over candles. Needs at least period+1 candles. Takes OhlcCandle (defined below, alongside atrSeries) rather than the full Candle type - this function only ever reads high/low/close, never datetime, so it's satisfied by both this module's own Candle[] callers and the chart engine's separate ChartCandle[] with zero conversion. */
+export function atr(candles: readonly OhlcCandle[], period = ATR_PERIOD_DEFAULT): number | undefined {
   if (candles.length < period + 1) return undefined;
   const trueRanges: number[] = [];
   for (let i = 1; i < candles.length; i++) {
@@ -238,4 +238,101 @@ export function macdSeries(values: readonly number[], fast = 12, slow = 26, sign
     return { macd: macdValue, signal: sig, histogram: macdValue - sig };
   });
   return alignToLength(raw, values.length);
+}
+
+/** The only OHLC fields atrSeries()/stochasticSeries() below genuinely need - deliberately narrower than the full `Candle` type (which also requires `datetime`), so both this module's own `Candle[]` callers AND the chart engine's separate `ChartCandle[]` (types/chart-data.ts - `time: number`, no `datetime`) satisfy it structurally with zero conversion. */
+export interface OhlcCandle {
+  high: number;
+  low: number;
+  close: number;
+}
+
+/** Wilder's ATR at every index - the exact same true-range/Wilder-smoothing recurrence atr() above uses, collected at each step instead of only the last. */
+export function atrSeries(candles: readonly OhlcCandle[], period = ATR_PERIOD_DEFAULT): (number | undefined)[] {
+  if (candles.length < period + 1) return candles.map(() => undefined);
+  const trueRanges: number[] = [];
+  for (let i = 1; i < candles.length; i++) {
+    const c = candles[i];
+    const prevClose = candles[i - 1].close;
+    trueRanges.push(Math.max(c.high - c.low, Math.abs(c.high - prevClose), Math.abs(c.low - prevClose)));
+  }
+  const raw: number[] = [];
+  let value = trueRanges.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  raw.push(value);
+  for (let i = period; i < trueRanges.length; i++) {
+    value = (value * (period - 1) + trueRanges[i]) / period;
+    raw.push(value);
+  }
+  // trueRanges[period-1] (the seed) corresponds to real candle index `period`
+  // (trueRanges itself starts at candle index 1) - so raw[0] aligns to
+  // candles[period], and left-padding to candles.length lines the rest up
+  // exactly, the same alignment convention every *Series function here uses.
+  return alignToLength(raw, candles.length);
+}
+
+export const STOCHASTIC_K_PERIOD_DEFAULT = 5;
+export const STOCHASTIC_SLOWING_DEFAULT = 3;
+export const STOCHASTIC_D_PERIOD_DEFAULT = 3;
+
+export interface StochasticResult {
+  k: number;
+  d: number;
+}
+
+/** A rolling SMA over a series that may have leading `undefined`s (not enough data yet) - the window only advances across DEFINED values, matching every other *Series function's "honest undefined, never fabricated" contract. Used to compose the Stochastic Oscillator's two smoothing passes below without a second/divergent SMA implementation from smaSeries() above (that one assumes no gaps, which rawK here genuinely has). */
+function smaOverOptional(values: readonly (number | undefined)[], period: number): (number | undefined)[] {
+  const out: (number | undefined)[] = new Array(values.length).fill(undefined);
+  const window: number[] = [];
+  let sum = 0;
+  for (let i = 0; i < values.length; i++) {
+    const v = values[i];
+    if (v === undefined) continue;
+    window.push(v);
+    sum += v;
+    if (window.length > period) sum -= window.shift() as number;
+    if (window.length === period) out[i] = sum / period;
+  }
+  return out;
+}
+
+/**
+ * MT5's real default Stochastic Oscillator - verified against
+ * metatrader5.com/mql5.com this session (see the roadmap doc's own
+ * "Research basis"): %K period 5, Slowing 3, %D period 3. This is the
+ * "Slow Stochastic" MT5 actually ships by default, not the textbook
+ * "Fast Stochastic" many other platforms default to instead - the raw
+ * %K (close's position within the kPeriod high/low range) is itself
+ * smoothed by `slowing` before becoming the displayed %K line, and %D is
+ * that line's own further SMA. Needs real high/low/close (not just
+ * closes), so this lives here as its own *Series function rather than
+ * composing from the closes-only helpers above.
+ */
+export function stochasticSeries(
+  candles: readonly OhlcCandle[],
+  kPeriod = STOCHASTIC_K_PERIOD_DEFAULT,
+  slowing = STOCHASTIC_SLOWING_DEFAULT,
+  dPeriod = STOCHASTIC_D_PERIOD_DEFAULT,
+): (StochasticResult | undefined)[] {
+  if (candles.length < kPeriod) return candles.map(() => undefined);
+
+  const rawK: (number | undefined)[] = candles.map((c, i) => {
+    if (i < kPeriod - 1) return undefined;
+    const window = candles.slice(i - kPeriod + 1, i + 1);
+    const highestHigh = Math.max(...window.map((w) => w.high));
+    const lowestLow = Math.min(...window.map((w) => w.low));
+    const range = highestHigh - lowestLow;
+    // A genuinely flat window (no range at all) has no honest position to
+    // report - 50 (the real midpoint) is the standard convention every
+    // mainstream Stochastic implementation uses here, never a guess.
+    return range === 0 ? 50 : ((c.close - lowestLow) / range) * 100;
+  });
+
+  const slowedK = smaOverOptional(rawK, slowing);
+  const dLine = smaOverOptional(slowedK, dPeriod);
+
+  return candles.map((_, i) => {
+    const k = slowedK[i];
+    const d = dLine[i];
+    return k === undefined || d === undefined ? undefined : { k, d };
+  });
 }

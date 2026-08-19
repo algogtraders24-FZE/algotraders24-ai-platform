@@ -602,11 +602,15 @@ async function indicatorStateTests(): Promise<void> {
     assert.ok(panelSrc.includes("useState<Set<string>>"));
   });
 
+  // Updated (Phase 2, this session) - atr/stochastic are legitimate new
+  // panel ids (their own sub-panel row each, never overlaid on price),
+  // added alongside price/volume/rsi/macd, not a change to D2.7.5's own
+  // grouping mechanism itself.
   await test("the Overlays/Panels grouping (D2.7.5) and INDICATOR_PANEL_ID sync are unaffected", () => {
     const candles = makeCandleSeries(60, 60_000);
     for (const cfg of DEFAULT_INDICATOR_CONFIGS) {
       const series = computeIndicatorSeries(candles, cfg);
-      assert.ok(["price", "volume", "rsi", "macd"].includes(series.panel));
+      assert.ok(["price", "volume", "rsi", "macd", "atr", "stochastic"].includes(series.panel));
     }
   });
 

@@ -61,6 +61,7 @@
     "validate:native-chart-professionalization": "tsx scripts/validate-native-chart-professionalization.ts",
     "validate:native-chart-interaction": "tsx scripts/validate-native-chart-interaction.ts",
     "validate:native-chart-drawing-tools": "tsx scripts/validate-native-chart-drawing-tools.ts",
+    "validate:native-chart-indicators-phase2": "tsx scripts/validate-native-chart-indicators-phase2.ts",
     "validate:intelligence-panel-projection": "tsx scripts/validate-intelligence-panel-projection.ts",
     "validate:market-regime-overview": "tsx scripts/validate-market-regime-overview.ts",
     "validate:workspace-header-symbol-switch": "tsx scripts/validate-workspace-header-symbol-switch.ts",

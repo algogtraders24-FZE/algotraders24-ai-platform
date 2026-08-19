@@ -398,7 +398,12 @@ async function indicatorCorrectnessTests(): Promise<void> {
 
     await test(`indicator ${cfg.key}: classified into the correct panel (overlay vs its own sub-panel)`, () => {
       const series = computeIndicatorSeries(candles, cfg);
-      const expectedPanel = cfg.id === "rsi" ? "rsi" : cfg.id === "macd" ? "macd" : cfg.id === "volume" ? "volume" : "price";
+      // Phase 2 (this session) added atr/stochastic, each in their own
+      // real sub-panel - never overlaid on price, matching the same
+      // "every non-overlay indicator gets its own row" rule rsi/macd/
+      // volume already established.
+      const expectedPanel =
+        cfg.id === "rsi" ? "rsi" : cfg.id === "macd" ? "macd" : cfg.id === "volume" ? "volume" : cfg.id === "atr" ? "atr" : cfg.id === "stochastic" ? "stochastic" : "price";
       assert.equal(series.panel, expectedPanel);
     });
   }

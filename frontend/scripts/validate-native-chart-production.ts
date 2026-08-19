@@ -272,8 +272,12 @@ async function panelLayoutTests(): Promise<void> {
     for (const cfg of DEFAULT_INDICATOR_CONFIGS) assert.match(cfg.color, /^var\(--/);
   });
 
-  await test("32: panel-registry.ts introduces no new panel ids beyond price/volume/rsi/macd (Phase 8's own enumerated set)", () => {
-    assert.deepEqual(Object.keys(PANEL_REGISTRY).sort(), ["macd", "price", "rsi", "volume"]);
+  // Updated (Phase 2, this session) - atr/stochastic are legitimate new
+  // panel ids added to Phase 8's original enumerated set, each with their
+  // own real sub-panel renderer (sub-panel-renderer.ts's drawAtrPanel/
+  // drawStochasticPanel), not an uncontrolled/unregistered addition.
+  await test("32: panel-registry.ts's panel ids are exactly Phase 8's original set plus Phase 2's atr/stochastic - never an untracked addition", () => {
+    assert.deepEqual(Object.keys(PANEL_REGISTRY).sort(), ["atr", "macd", "price", "rsi", "stochastic", "volume"]);
   });
 }
 

@@ -7,10 +7,10 @@
 // separation is mandatory per the sprint brief:
 //   Calculation Layer -> Indicator Data -> Chart Coordinate System -> Renderer
 
-export type IndicatorId = "sma" | "ema" | "rsi" | "macd" | "bollinger" | "volume";
+export type IndicatorId = "sma" | "ema" | "rsi" | "macd" | "bollinger" | "volume" | "atr" | "stochastic";
 
 /** The sub-panel an indicator's line(s) render into - Phase 8's reusable panel model. "price" means "drawn as an overlay on the main candlestick panel", not a separate panel. */
-export type ChartPanelId = "price" | "volume" | "rsi" | "macd";
+export type ChartPanelId = "price" | "volume" | "rsi" | "macd" | "atr" | "stochastic";
 
 export interface IndicatorConfig {
   id: IndicatorId;
@@ -22,7 +22,10 @@ export interface IndicatorConfig {
   /** MACD only. */
   fastPeriod?: number;
   slowPeriod?: number;
+  /** MACD's signal-line period, or (Phase 2) Stochastic's %D period - both are "the smoothing period for this indicator's second/signal line", the same real concept reused rather than a second near-identical field. */
   signalPeriod?: number;
+  /** Stochastic only - MT5's real default "Slowing" period (5,3,3 - see indicators.ts's stochasticSeries() header comment for why this is the genuine MT5 default, not the textbook fast-stochastic every other platform ships). */
+  slowingPeriod?: number;
   /** One of AT24's existing design tokens (see palette.ts) - never a new arbitrary color invented per indicator. */
   color: string;
 }

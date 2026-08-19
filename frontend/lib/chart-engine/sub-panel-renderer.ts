@@ -30,6 +30,12 @@ import { fractionalIndexForTime, indexToX, type IndexRange } from "./index-scale
 const AXIS_FONT_SIZE = 10;
 const RSI_OVERBOUGHT = 70;
 const RSI_OVERSOLD = 30;
+// Stochastic's own real, standard overbought/oversold convention - 80/20,
+// deliberately DIFFERENT from RSI's 70/30 (a common beginner mix-up this
+// codebase's own constants keep honestly separate rather than reusing
+// RSI's thresholds for a different oscillator).
+const STOCHASTIC_OVERBOUGHT = 80;
+const STOCHASTIC_OVERSOLD = 20;
 
 function panelViewport(viewport: Viewport, minValue: number, maxValue: number): Viewport {
   return { minTime: viewport.minTime, maxTime: viewport.maxTime, minPrice: minValue, maxPrice: maxValue };
@@ -267,4 +273,81 @@ export function drawMacdPanel(
   }
   if (macdLine) drawLine(ctx, macdLine.points, candles, indexRange, panelVp, plotWidth, row, macdLine.color);
   if (signalLine) drawLine(ctx, signalLine.points, candles, indexRange, panelVp, plotWidth, row, signalLine.color);
+}
+
+/** ATR (Phase 2) - a dynamic 0..max scale, the same "real max of the visible window" convention drawVolumePanel already uses, since ATR is an unbounded, instrument-specific price magnitude (unlike RSI/Stochastic's fixed 0-100 range) - there is no honest fixed scale to draw it against. */
+export function drawAtrPanel(
+  ctx: CanvasRenderingContext2D,
+  series: IndicatorSeries | undefined,
+  candles: ChartCandle[],
+  indexRange: IndexRange,
+  viewport: Viewport,
+  plotWidth: number,
+  row: PanelRow,
+  colors: ChartColors,
+): void {
+  drawPanelFrame(ctx, row, plotWidth, colors, "ATR");
+  if (!series) return;
+  const line = series.lines[0];
+  if (!line) return;
+
+  const visibleValues = line.points
+    .filter((p) => p.time >= viewport.minTime && p.time <= viewport.maxTime && p.value !== undefined)
+    .map((p) => p.value as number);
+  if (visibleValues.length === 0) return;
+  const maxValue = Math.max(...visibleValues);
+  if (maxValue <= 0) return;
+  const panelVp = panelViewport(viewport, 0, maxValue);
+
+  drawLine(ctx, line.points, candles, indexRange, panelVp, plotWidth, row, line.color);
+
+  // The real max ATR value in the visible window - the same "a real
+  // numeric scale reference, never a bare unlabeled line" discipline
+  // drawVolumePanel/drawRsiPanel already established.
+  const decimals = maxValue < 10 ? 4 : 2;
+  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  ctx.fillStyle = colors.textTertiary;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "top";
+  ctx.fillText(maxValue.toFixed(decimals), plotWidth - 4, row.top + 2);
+}
+
+/** Stochastic Oscillator (Phase 2) - a fixed 0-100 scale like RSI, but with the real, DIFFERENT 80/20 overbought/oversold convention (never RSI's 70/30) and two lines: %K (the smoothed "Slow Stochastic" main line - see indicators.ts's stochasticSeries() for why it's already smoothed by MT5's real default Slowing period) and %D (its own further-smoothed signal line). */
+export function drawStochasticPanel(
+  ctx: CanvasRenderingContext2D,
+  series: IndicatorSeries | undefined,
+  candles: ChartCandle[],
+  indexRange: IndexRange,
+  viewport: Viewport,
+  plotWidth: number,
+  row: PanelRow,
+  colors: ChartColors,
+): void {
+  drawPanelFrame(ctx, row, plotWidth, colors, "Stochastic");
+  const panelVp = panelViewport(viewport, 0, 100);
+
+  ctx.strokeStyle = colors.grid;
+  ctx.setLineDash([2, 2]);
+  for (const level of [STOCHASTIC_OVERSOLD, STOCHASTIC_OVERBOUGHT]) {
+    const y = row.top + priceToY(level, panelVp, row.height);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(plotWidth, y);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  ctx.fillStyle = colors.textTertiary;
+  ctx.textAlign = "right";
+  for (const level of [STOCHASTIC_OVERSOLD, STOCHASTIC_OVERBOUGHT]) {
+    const y = row.top + priceToY(level, panelVp, row.height);
+    ctx.textBaseline = level === STOCHASTIC_OVERBOUGHT ? "bottom" : "top";
+    ctx.fillText(String(level), plotWidth - 4, y);
+  }
+
+  if (!series) return;
+  const [kLine, dLine] = series.lines;
+  if (kLine) drawLine(ctx, kLine.points, candles, indexRange, panelVp, plotWidth, row, kLine.color);
+  if (dLine) drawLine(ctx, dLine.points, candles, indexRange, panelVp, plotWidth, row, dLine.color);
 }

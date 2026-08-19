@@ -7,7 +7,7 @@
 // shape (types.ts). It contains ZERO Canvas/coordinate code and zero
 // indicator math of its own.
 import type { ChartCandle } from "@/types/chart-data";
-import { smaSeries, emaSeries, rsiSeries, bollingerSeries, macdSeries } from "@/lib/market-data/indicators";
+import { smaSeries, emaSeries, rsiSeries, bollingerSeries, macdSeries, atrSeries, stochasticSeries } from "@/lib/market-data/indicators";
 import type { IndicatorConfig, IndicatorSeries, IndicatorPoint, IndicatorLine } from "./types";
 
 /** emaSeries() (lib/market-data/indicators.ts) returns only its computable tail, unaligned - left-pad it to one entry per candle, same honest-undefined convention every other *Series function already returns. */
@@ -79,6 +79,24 @@ export function computeIndicatorSeries(candles: ChartCandle[], config: Indicator
       const values = candles.map((c) => c.volume);
       const line: IndicatorLine = { name: config.key, points: toPoints(candles, values), color: config.color };
       return { config, panel: "volume", lines: [line] };
+    }
+    case "atr": {
+      const values = atrSeries(candles, config.period);
+      const line: IndicatorLine = { name: config.key, points: toPoints(candles, values), color: config.color };
+      return { config, panel: "atr", lines: [line] };
+    }
+    case "stochastic": {
+      const results = stochasticSeries(candles, config.period, config.slowingPeriod, config.signalPeriod);
+      const kLine = toPoints(candles, results.map((r) => r?.k));
+      const dLine = toPoints(candles, results.map((r) => r?.d));
+      return {
+        config,
+        panel: "stochastic",
+        lines: [
+          { name: `${config.key}-k`, points: kLine, color: config.color },
+          { name: `${config.key}-d`, points: dLine, color: "var(--steel)" },
+        ],
+      };
     }
   }
 }
