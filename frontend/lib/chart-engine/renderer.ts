@@ -30,6 +30,8 @@ import { candleStepMs } from "./viewport";
 import { computePanelLayout, type PanelRow } from "./panel-layout";
 import { drawOverlays, drawVolumePanel, drawRsiPanel, drawMacdPanel } from "./sub-panel-renderer";
 import type { IndicatorSeries, ChartPanelId } from "./indicators/types";
+import { drawDrawingObjects, drawDrawingPreview } from "./drawing/drawing-renderer";
+import type { DrawingObject, DrawingPreview } from "./drawing/types";
 
 export interface RenderParams {
   ctx: CanvasRenderingContext2D;
@@ -46,6 +48,11 @@ export interface RenderParams {
   indicatorSeries?: IndicatorSeries[];
   /** MT5-style in-chart label ("SYMBOL, TIMEFRAME: Display Name"), drawn top-left of the price panel - matches the user's live MT5 terminal reference. Optional: when omitted, nothing is drawn (never a placeholder/guessed label). */
   symbolLabel?: string;
+  /** MT5 feature-parity Phase 1 - user-drawn trend lines/horizontal lines/rectangles, anchored in real time/price space. Defaults to empty - zero behavior/regression for any existing caller that doesn't pass this. */
+  drawingObjects?: DrawingObject[];
+  selectedDrawingObjectId?: string | null;
+  /** The live "rubber band" preview between a 2-click tool's first and second click - never persisted, drawn only while a placement is in progress. */
+  drawingPreview?: DrawingPreview | null;
 }
 
 const AXIS_FONT_SIZE = 11;
@@ -61,7 +68,21 @@ const CROSSHAIR_PRICE_LABEL_WIDTH = 58;
 const CROSSHAIR_PRICE_LABEL_HEIGHT = 14;
 
 export function renderChart(params: RenderParams): void {
-  const { ctx, dims, candles, viewport, timeframe, crosshair, colors, activePanels = [], indicatorSeries = [], symbolLabel } = params;
+  const {
+    ctx,
+    dims,
+    candles,
+    viewport,
+    timeframe,
+    crosshair,
+    colors,
+    activePanels = [],
+    indicatorSeries = [],
+    symbolLabel,
+    drawingObjects = [],
+    selectedDrawingObjectId = null,
+    drawingPreview = null,
+  } = params;
   const plotWidth = Math.max(0, dims.width - dims.priceAxisWidth);
   const plotHeight = Math.max(0, dims.height - dims.timeAxisHeight);
 
@@ -95,6 +116,8 @@ export function renderChart(params: RenderParams): void {
   drawPriceAxis(ctx, priceTicks, viewport, plotWidth, priceRow, colors);
   drawLatestPriceMarker(ctx, candles, viewport, plotWidth, priceRow, colors, priceTicks);
   if (symbolLabel) drawSymbolLabel(ctx, symbolLabel, priceRow, colors);
+  if (drawingObjects.length > 0) drawDrawingObjects(ctx, drawingObjects, viewport, plotWidth, priceRow, selectedDrawingObjectId);
+  if (drawingPreview) drawDrawingPreview(ctx, drawingPreview, colors.accent, viewport, plotWidth, priceRow);
 
   for (const row of layout) {
     if (row.id === "price") continue;

@@ -527,7 +527,12 @@ async function crosshairTests(): Promise<void> {
 
   await test("Escape clears an active crosshair - a real, previously-missing keyboard escape hatch for a transient interaction state", () => {
     const src = nativeChartSrc();
-    const keyFn = src.slice(src.indexOf("function handleKeyDown"), src.indexOf("function handleKeyDown") + 700);
+    // Window widened from 700 (post-MT5-feature-parity Phase 1 - the
+    // Escape branch also cancels an in-progress drawing-tool placement/
+    // drag now, and a new Delete/Backspace branch sits right after it,
+    // pushing the crosshair-clearing line further into the function than
+    // the original fixed window covered).
+    const keyFn = src.slice(src.indexOf("function handleKeyDown"), src.indexOf("function handleKeyDown") + 1400);
     assert.ok(keyFn.includes('if (e.key === "Escape") {'));
     assert.ok(keyFn.includes("crosshairRef.current = null;"));
   });

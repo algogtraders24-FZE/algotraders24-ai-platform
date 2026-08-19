@@ -53,6 +53,7 @@ import {
 import { classifyCandle } from "@/lib/chart-engine/candle-classifier";
 import { computeIndicatorSeries, valueAtIndex } from "@/lib/chart-engine/indicators/compute";
 import { DEFAULT_INDICATOR_CONFIGS } from "@/lib/chart-engine/indicators/panel-registry";
+import { computePanelLayout } from "@/lib/chart-engine/panel-layout";
 import type { ChartCandle, ChartSeries } from "@/types/chart-data";
 import type { CrosshairState, Viewport } from "@/lib/chart-engine/types";
 import type { SignalTimeframe } from "@/types/signal";
@@ -61,6 +62,22 @@ import { useChartCandles } from "./useChartCandles";
 import ChartToolbar from "./ChartToolbar";
 import ChartHeader from "./ChartHeader";
 import MicrostructurePanel from "./MicrostructurePanel";
+// MT5 feature-parity Phase 1 - Drawing Tools (trend line, horizontal
+// line, rectangle). See docs/architecture/D2.7.11-native-chart-mt5-
+// feature-parity-roadmap.md for the full phased plan this belongs to.
+import DrawingToolbar from "./DrawingToolbar";
+import { hitTestObjects, pixelToPoint, applyDrag } from "@/lib/chart-engine/drawing/geometry";
+import { readDrawingObjects, writeDrawingObjects } from "@/lib/chart-engine/drawing/store";
+import {
+  createHorizontalLine,
+  createTrendLine,
+  createRectangle,
+  type DrawingObject,
+  type DrawingHandle,
+  type DrawingPoint,
+  type DrawingPreview,
+  type DrawingToolId,
+} from "@/lib/chart-engine/drawing/types";
 
 const PRICE_AXIS_WIDTH = 64;
 const TIME_AXIS_HEIGHT = 22;
@@ -153,6 +170,48 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
 
   const [hoveredIndex, setHoveredIndex] = useState<number>(-1);
 
+  // MT5 feature-parity Phase 1 - Drawing Tools state. Objects/selection are
+  // held in BOTH a ref (drawingObjectsRef/selectedObjectIdRef - what draw()
+  // actually reads, live, at call time - the exact same "refs for the
+  // per-frame draw loop" discipline viewportRef/crosshairRef already
+  // establish above) AND React state (drawingObjects/selectedObjectId -
+  // what the JSX/DrawingToolbar render from, so the UI genuinely
+  // re-renders on selection/count changes). commitDrawingObjects/
+  // setSelectedObjectId below are the ONLY place either pair is written,
+  // so the two never drift apart.
+  const [activeTool, setActiveTool] = useState<DrawingToolId | null>(null);
+  const [drawingObjects, setDrawingObjectsState] = useState<DrawingObject[]>([]);
+  const [selectedObjectId, setSelectedObjectIdState] = useState<string | null>(null);
+  const drawingObjectsRef = useRef<DrawingObject[]>([]);
+  const selectedObjectIdRef = useRef<string | null>(null);
+  // The in-progress first point of a 2-click tool (trendline/rectangle),
+  // and the live pointer position while the second click hasn't landed
+  // yet - together these drive the "rubber band" preview renderer.ts draws.
+  const pendingPlacementRef = useRef<DrawingPoint | null>(null);
+  const drawingPreviewRef = useRef<DrawingPreview | null>(null);
+  // A drag on an EXISTING selected object's handle/body - deliberately a
+  // separate ref from `dragRef` (chart panning) and `pinchRef`: object
+  // dragging, chart panning, and pinch-zoom are mutually exclusive
+  // gestures, never combined.
+  const objectDragRef = useRef<{ objectId: string; handle: DrawingHandle; startPoint: DrawingPoint; original: DrawingObject } | null>(null);
+
+  function commitDrawingObjects(objects: DrawingObject[]) {
+    drawingObjectsRef.current = objects;
+    setDrawingObjectsState(objects);
+  }
+
+  function setSelectedObjectId(id: string | null) {
+    selectedObjectIdRef.current = id;
+    setSelectedObjectIdState(id);
+  }
+
+  /** The price panel's own row (top/height) within the canvas - drawing objects are scoped to the price panel only (Phase 1 - never a sub-panel), so every hit-test/placement must use THIS row's local coordinates, the same ones renderChart() itself uses internally (panel-layout.ts's computePanelLayout). */
+  function priceRow() {
+    const plotH = Math.max(0, dimsRef.current.height - TIME_AXIS_HEIGHT);
+    const layout = computePanelLayout(activePanels, plotH);
+    return layout.find((r) => r.id === "price") ?? { id: "price" as const, top: 0, height: plotH };
+  }
+
   const candles = useMemo<ChartCandle[]>(() => result.series?.candles ?? [], [result.series]);
 
   const activeConfigs = useMemo(
@@ -198,6 +257,16 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
         activePanels,
         indicatorSeries,
         symbolLabel: `${symbol}, ${timeframe.toUpperCase()}: ${name ?? symbol}`,
+        // Read from refs, not the drawingObjects/selectedObjectId STATE
+        // variables - the same reason viewport/crosshair are read via
+        // viewportRef.current/crosshairRef.current above, not React
+        // state: a drag gesture updates these every pointer-move tick via
+        // scheduleDraw(), and re-reading fresh refs here (rather than
+        // closing over a stale state value from whenever `draw` was last
+        // recreated) is what makes that live update actually visible.
+        drawingObjects: drawingObjectsRef.current,
+        selectedDrawingObjectId: selectedObjectIdRef.current,
+        drawingPreview: drawingPreviewRef.current,
       });
     },
     [candles, timeframe, activePanels, indicatorSeries, symbol, name],
@@ -274,6 +343,29 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
     draw();
   }, [candles, symbol, timeframe, draw]);
 
+  // MT5 feature-parity Phase 1 - drawn objects are per symbol+timeframe
+  // (matching MT5's own per-chart objects), loaded fresh whenever either
+  // changes, and any in-progress placement/selection from the PREVIOUS
+  // symbol/timeframe is discarded (a pending trendline click on the
+  // PREVIOUS instrument means nothing once the symbol has changed).
+  useEffect(() => {
+    commitDrawingObjects(readDrawingObjects(symbol, timeframe));
+    setSelectedObjectId(null);
+    pendingPlacementRef.current = null;
+    drawingPreviewRef.current = null;
+    objectDragRef.current = null;
+  }, [symbol, timeframe]);
+
+  // Best-effort persistence (sessionStorage - see store.ts) every time the
+  // committed object set actually changes. Deliberately does NOT fire on
+  // ephemeral drag-preview updates (those mutate drawingObjectsRef.current
+  // directly without calling commitDrawingObjects - see handlePointerMove)
+  // so a drag doesn't write to storage on every pointer-move tick, only
+  // once the gesture completes.
+  useEffect(() => {
+    writeDrawingObjects(symbol, timeframe, drawingObjects);
+  }, [symbol, timeframe, drawingObjects]);
+
   function scheduleHoverUpdate(index: number) {
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(() => {
@@ -346,12 +438,84 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
   // this at the source. (2) Pointer Events fire for touch input too, giving
   // real single-finger pan and (via activePointersRef tracking two points)
   // pinch-zoom for free, with zero duplicate/parallel event-handling code.
+  /** MT5 feature-parity Phase 1 - handles a click while a drawing tool is active: the horizontal-line tool commits on the first click (it only ever needs one price), trendline/rectangle need a second click (tracked via pendingPlacementRef, rendered live via drawingPreviewRef in the meantime). Silently does nothing for a click outside the price row - Phase 1 objects are price-panel only. */
+  function handleDrawingPlacementClick(x: number, y: number) {
+    const viewport = viewportRef.current;
+    if (!viewport || !activeTool) return;
+    const row = priceRow();
+    if (y < row.top || y > row.top + row.height) return;
+    const point = pixelToPoint(x, y - row.top, viewport, plotWidth(), row.height);
+    const nowMs = Date.now();
+
+    if (activeTool === "horizontal-line") {
+      const obj = createHorizontalLine(point.price, nowMs);
+      commitDrawingObjects([...drawingObjectsRef.current, obj]);
+      setSelectedObjectId(obj.id);
+      setActiveTool(null);
+      draw();
+      return;
+    }
+
+    if (!pendingPlacementRef.current) {
+      pendingPlacementRef.current = point;
+      drawingPreviewRef.current = { tool: activeTool, p1: point, p2: point };
+      draw();
+      return;
+    }
+
+    const p1 = pendingPlacementRef.current;
+    const obj = activeTool === "trendline" ? createTrendLine(p1, point, nowMs) : createRectangle(p1, point, nowMs);
+    commitDrawingObjects([...drawingObjectsRef.current, obj]);
+    setSelectedObjectId(obj.id);
+    pendingPlacementRef.current = null;
+    drawingPreviewRef.current = null;
+    setActiveTool(null);
+    draw();
+  }
+
   function handlePointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current;
     if (!canvas || !viewportRef.current) return;
     canvas.setPointerCapture(e.pointerId);
     const rect = canvas.getBoundingClientRect();
-    activePointersRef.current.set(e.pointerId, { x: e.clientX - rect.left, y: e.clientY - rect.top });
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    activePointersRef.current.set(e.pointerId, { x, y });
+
+    // MT5 feature-parity Phase 1 - drawing-tool placement/selection is a
+    // single-pointer-only interaction that always takes priority over
+    // pan/pinch when applicable, and returns early to skip them entirely.
+    // Falls through to the existing pan/pinch logic below completely
+    // unchanged whenever there's nothing to draw/select - the overwhelming
+    // majority of clicks.
+    if (activePointersRef.current.size === 1 && x <= plotWidth()) {
+      const viewport = viewportRef.current;
+      if (activeTool) {
+        handleDrawingPlacementClick(x, y);
+        return;
+      }
+      const row = priceRow();
+      if (y >= row.top && y <= row.top + row.height) {
+        const hit = hitTestObjects(drawingObjectsRef.current, x, y - row.top, viewport, plotWidth(), row.height);
+        if (hit) {
+          const target = drawingObjectsRef.current.find((o) => o.id === hit.objectId);
+          if (target) {
+            setSelectedObjectId(hit.objectId);
+            objectDragRef.current = {
+              objectId: hit.objectId,
+              handle: hit.handle,
+              startPoint: pixelToPoint(x, y - row.top, viewport, plotWidth(), row.height),
+              original: target,
+            };
+            draw();
+            return;
+          }
+        } else if (selectedObjectIdRef.current !== null) {
+          setSelectedObjectId(null);
+          draw();
+        }
+      }
+    }
 
     if (activePointersRef.current.size === 2) {
       // A second finger just landed - this gesture is now a pinch, not a
@@ -372,6 +536,35 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     if (activePointersRef.current.has(e.pointerId)) activePointersRef.current.set(e.pointerId, { x, y });
+
+    // MT5 feature-parity Phase 1 - live "rubber band" preview while a
+    // 2-click tool's first point is placed but the second hasn't landed.
+    if (pendingPlacementRef.current && drawingPreviewRef.current && viewportRef.current) {
+      const row = priceRow();
+      const point = pixelToPoint(x, y - row.top, viewportRef.current, plotWidth(), row.height);
+      drawingPreviewRef.current = { tool: drawingPreviewRef.current.tool, p1: pendingPlacementRef.current, p2: point };
+      scheduleDraw();
+      return;
+    }
+
+    // MT5 feature-parity Phase 1 - live drag of a selected object's
+    // handle/body. Mutates drawingObjectsRef.current DIRECTLY (never
+    // commitDrawingObjects/setState here) so a drag doesn't trigger a
+    // React re-render or a sessionStorage write on every pointer-move
+    // tick - the same performance discipline applyViewport's own pan/
+    // zoom already follows for the viewport itself (see this file's
+    // header comment on drawRafRef).
+    if (objectDragRef.current && viewportRef.current) {
+      const { objectId, handle, startPoint, original } = objectDragRef.current;
+      const row = priceRow();
+      const current = pixelToPoint(x, y - row.top, viewportRef.current, plotWidth(), row.height);
+      const deltaTime = current.time - startPoint.time;
+      const deltaPrice = current.price - startPoint.price;
+      const updated = applyDrag(original, handle, deltaTime, deltaPrice);
+      drawingObjectsRef.current = drawingObjectsRef.current.map((o) => (o.id === objectId ? updated : o));
+      scheduleDraw();
+      return;
+    }
 
     // Sprint D2.7.7, Phase 7 - two-finger pinch zoom, reusing the SAME
     // zoomViewport already used by wheel/keyboard zoom - never a second
@@ -426,6 +619,15 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
     activePointersRef.current.delete(e.pointerId);
     if (activePointersRef.current.size < 2) pinchRef.current = null;
     if (activePointersRef.current.size === 0) dragRef.current = null;
+    // MT5 feature-parity Phase 1 - a drag gesture only ever mutates
+    // drawingObjectsRef directly (see handlePointerMove); this is the
+    // ONE place that finalizes it into real state - triggering a single
+    // re-render and a single sessionStorage write per drag, not one per
+    // pointer-move tick.
+    if (objectDragRef.current) {
+      commitDrawingObjects([...drawingObjectsRef.current]);
+      objectDragRef.current = null;
+    }
     try {
       canvasRef.current?.releasePointerCapture(e.pointerId);
     } catch {
@@ -473,6 +675,34 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
     applyViewport(followLatest(viewport, candles));
   }
 
+  // MT5 feature-parity Phase 1 - the toolbar's own Delete/Clear-all
+  // buttons, sharing the exact same commit path as the keyboard Delete
+  // handler above (never a second/divergent deletion code path).
+  function handleDeleteSelectedDrawing() {
+    if (!selectedObjectIdRef.current) return;
+    const id = selectedObjectIdRef.current;
+    commitDrawingObjects(drawingObjectsRef.current.filter((o) => o.id !== id));
+    setSelectedObjectId(null);
+    draw();
+  }
+
+  function handleClearAllDrawings() {
+    if (drawingObjectsRef.current.length === 0) return;
+    commitDrawingObjects([]);
+    setSelectedObjectId(null);
+    draw();
+  }
+
+  function handleSelectDrawingTool(tool: DrawingToolId | null) {
+    // Switching tools (or back to cursor) mid-placement abandons whatever
+    // was pending - never silently completes a trendline with the WRONG
+    // second tool's semantics.
+    pendingPlacementRef.current = null;
+    drawingPreviewRef.current = null;
+    setActiveTool(tool);
+    draw();
+  }
+
   function handleToggleFullscreen() {
     setIsFullscreen((v) => !v);
   }
@@ -507,11 +737,33 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
       dragRef.current = null;
       pinchRef.current = null;
       activePointersRef.current.clear();
+      // MT5 feature-parity Phase 1 - Escape also cancels a mid-placement
+      // 2-click tool and an in-progress object drag, returning to cursor
+      // mode - the same "universal cancel" role Escape already plays for
+      // drag/pinch/crosshair below.
+      const hadPendingDrawing = pendingPlacementRef.current !== null || objectDragRef.current !== null || activeTool !== null;
+      pendingPlacementRef.current = null;
+      drawingPreviewRef.current = null;
+      objectDragRef.current = null;
+      if (activeTool) setActiveTool(null);
       if (crosshairRef.current) {
         crosshairRef.current = null;
         scheduleHoverUpdate(-1);
         draw();
+      } else if (hadPendingDrawing) {
+        draw();
       }
+      return;
+    }
+    // MT5 feature-parity Phase 1 - Delete/Backspace removes the currently
+    // selected drawn object. Independent of the viewport/candles guard
+    // below - deleting a selection doesn't need either.
+    if ((e.key === "Delete" || e.key === "Backspace") && selectedObjectIdRef.current) {
+      e.preventDefault();
+      const id = selectedObjectIdRef.current;
+      commitDrawingObjects(drawingObjectsRef.current.filter((o) => o.id !== id));
+      setSelectedObjectId(null);
+      draw();
       return;
     }
     const viewport = viewportRef.current;
@@ -608,6 +860,15 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
         isLive={isLive}
         isFullscreen={isFullscreen}
         onToggleFullscreen={handleToggleFullscreen}
+      />
+
+      <DrawingToolbar
+        activeTool={activeTool}
+        onSelectTool={handleSelectDrawingTool}
+        hasSelection={selectedObjectId !== null}
+        onDeleteSelected={handleDeleteSelectedDrawing}
+        objectCount={drawingObjects.length}
+        onClearAll={handleClearAllDrawings}
       />
 
       {result.status === "stale" && (
