@@ -131,8 +131,17 @@ export function drawVolumePanel(
     const x = timeToX(c.time, viewport, plotWidth);
     const y = row.top + priceToY(c.volume as number, panelVp, row.height);
     const bottom = row.top + row.height;
-    const isUp = c.close >= c.open;
-    ctx.fillStyle = isUp ? colors.bullish : colors.bearish;
+    // MT5-style theme (this session): a single uniform volume color,
+    // matching the user's live terminal reference (plain green bars, not
+    // a bullish/bearish two-tone). Only set for the "mt5" palette - the
+    // "at24" theme's colors.volume is undefined, so this falls through to
+    // the original, unchanged two-tone logic below.
+    if (colors.volume) {
+      ctx.fillStyle = colors.volume;
+    } else {
+      const isUp = c.close >= c.open;
+      ctx.fillStyle = isUp ? colors.bullish : colors.bearish;
+    }
     ctx.fillRect(x - barWidth / 2, y, barWidth, bottom - y);
   }
 

@@ -188,12 +188,19 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
         viewport,
         timeframe,
         crosshair: crosshairRef.current,
-        colors: resolveChartColors(),
+        // MT5-style theme (this session) - the Native Chart's canvas now
+        // matches the user's own live MetaTrader 5 terminal (pure black,
+        // hollow candles, teal current-price line) rather than AT24's
+        // original token-driven palette. See canvas-colors.ts's header
+        // comment for why this is a separate hardcoded palette rather than
+        // a change to the shared --ink-2/--signal-up/--signal-down tokens.
+        colors: resolveChartColors("mt5"),
         activePanels,
         indicatorSeries,
+        symbolLabel: `${symbol}, ${timeframe.toUpperCase()}: ${name ?? symbol}`,
       });
     },
-    [candles, timeframe, activePanels, indicatorSeries],
+    [candles, timeframe, activePanels, indicatorSeries, symbol, name],
   );
 
   // Resize: keep the canvas's real pixel buffer matched to its CSS size *

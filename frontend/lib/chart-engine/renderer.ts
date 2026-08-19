@@ -44,6 +44,8 @@ export interface RenderParams {
   activePanels?: ChartPanelId[];
   /** Every currently-active indicator's already-computed series (overlays AND sub-panel indicators together) - the renderer only reads `.panel` to decide where each draws. */
   indicatorSeries?: IndicatorSeries[];
+  /** MT5-style in-chart label ("SYMBOL, TIMEFRAME: Display Name"), drawn top-left of the price panel - matches the user's live MT5 terminal reference. Optional: when omitted, nothing is drawn (never a placeholder/guessed label). */
+  symbolLabel?: string;
 }
 
 const AXIS_FONT_SIZE = 11;
@@ -59,7 +61,7 @@ const CROSSHAIR_PRICE_LABEL_WIDTH = 58;
 const CROSSHAIR_PRICE_LABEL_HEIGHT = 14;
 
 export function renderChart(params: RenderParams): void {
-  const { ctx, dims, candles, viewport, timeframe, crosshair, colors, activePanels = [], indicatorSeries = [] } = params;
+  const { ctx, dims, candles, viewport, timeframe, crosshair, colors, activePanels = [], indicatorSeries = [], symbolLabel } = params;
   const plotWidth = Math.max(0, dims.width - dims.priceAxisWidth);
   const plotHeight = Math.max(0, dims.height - dims.timeAxisHeight);
 
@@ -92,6 +94,7 @@ export function renderChart(params: RenderParams): void {
   drawOverlays(ctx, indicatorSeries, viewport, plotWidth, priceRow);
   drawPriceAxis(ctx, priceTicks, viewport, plotWidth, priceRow, colors);
   drawLatestPriceMarker(ctx, candles, viewport, plotWidth, priceRow, colors, priceTicks);
+  if (symbolLabel) drawSymbolLabel(ctx, symbolLabel, priceRow, colors);
 
   for (const row of layout) {
     if (row.id === "price") continue;
@@ -146,14 +149,23 @@ function drawCandles(ctx: CanvasRenderingContext2D, candles: ChartCandle[], view
     if (candle.time < viewport.minTime - step || candle.time > viewport.maxTime + step) continue;
     const x = timeToX(candle.time, viewport, plotWidth);
     const trend = classifyCandle(candle);
-    const color = trend === "bearish" ? colors.bearish : trend === "bullish" ? colors.bullish : colors.textTertiary;
+    // MT5-style hollow-body rendering (this session, matching the user's
+    // live terminal reference): a bearish body is filled in `bearish`
+    // (black in the mt5 theme) with a distinct `bearishOutline` stroke -
+    // without the outline a black body would be invisible against a black
+    // background. For the original "at24" theme, bearishOutline resolves
+    // to the same value as bearish (see canvas-colors.ts), so this draws
+    // byte-for-byte identically to the prior solid-fill rendering there -
+    // no regression for the default theme.
+    const fillColor = trend === "bearish" ? colors.bearish : trend === "bullish" ? colors.bullish : colors.textTertiary;
+    const outlineColor = trend === "bearish" ? colors.bearishOutline : fillColor;
 
     const highY = row.top + priceToY(candle.high, viewport, row.height);
     const lowY = row.top + priceToY(candle.low, viewport, row.height);
     const openY = row.top + priceToY(candle.open, viewport, row.height);
     const closeY = row.top + priceToY(candle.close, viewport, row.height);
 
-    ctx.strokeStyle = color;
+    ctx.strokeStyle = outlineColor;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(Math.round(x), highY);
@@ -162,9 +174,42 @@ function drawCandles(ctx: CanvasRenderingContext2D, candles: ChartCandle[], view
 
     const bodyTop = Math.min(openY, closeY);
     const bodyHeight = Math.max(1, Math.abs(closeY - openY));
-    ctx.fillStyle = color;
-    ctx.fillRect(x - bodyWidth / 2, bodyTop, bodyWidth, bodyHeight);
+    const bodyLeft = x - bodyWidth / 2;
+    ctx.fillStyle = fillColor;
+    ctx.fillRect(bodyLeft, bodyTop, bodyWidth, bodyHeight);
+
+    // Hollow outline, drawn only when it actually differs from the fill
+    // (the "at24" theme's outlineColor always equals fillColor - see
+    // above - so this never runs there, an exact no-op/no-regression for
+    // the original theme). Uses moveTo/lineTo/stroke rather than
+    // strokeRect() so this reuses the exact same CanvasRenderingContext2D
+    // methods the wick line above already relies on - never a new drawing
+    // primitive this file didn't already depend on.
+    if (outlineColor !== fillColor) {
+      ctx.strokeStyle = outlineColor;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(bodyLeft, bodyTop);
+      ctx.lineTo(bodyLeft + bodyWidth, bodyTop);
+      ctx.lineTo(bodyLeft + bodyWidth, bodyTop + bodyHeight);
+      ctx.lineTo(bodyLeft, bodyTop + bodyHeight);
+      ctx.lineTo(bodyLeft, bodyTop);
+      ctx.stroke();
+    }
   }
+}
+
+// MT5-style in-chart label (this session), matching the top-left
+// "SYMBOL, TIMEFRAME: Display Name" overlay in the user's own live MT5
+// terminal reference. Deliberately just text, never a second data source -
+// the caller (NativeChart.tsx) builds the string from the exact same
+// symbol/timeframe/name the rest of the Workspace already uses.
+function drawSymbolLabel(ctx: CanvasRenderingContext2D, label: string, priceRow: PanelRow, colors: ChartColors): void {
+  ctx.font = canvasMonoFont(12);
+  ctx.fillStyle = colors.textPrimary;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText(label, 8, priceRow.top + 6);
 }
 
 function drawPriceAxis(ctx: CanvasRenderingContext2D, ticks: PriceAxisTick[], viewport: Viewport, plotWidth: number, row: PanelRow, colors: ChartColors): void {
@@ -199,7 +244,13 @@ function drawLatestPriceMarker(
   const y = row.top + priceToY(latest.close, viewport, row.height);
   if (y < row.top - 1 || y > row.top + row.height + 1) return; // off-panel (zoomed/panned away) - never draw a marker outside its own panel
 
-  ctx.strokeStyle = colors.gold;
+  // Sprint (this session) - uses `colors.accent` rather than `colors.gold`
+  // directly: for the "at24" theme accent resolves to the exact same gold
+  // value (see canvas-colors.ts), so this is byte-for-byte unchanged there;
+  // the "mt5" theme's accent is a distinct teal so the current-price line
+  // is never confused with a bullish/bearish candle color, matching the
+  // user's own live terminal reference.
+  ctx.strokeStyle = colors.accent;
   ctx.setLineDash([4, 3]);
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -209,7 +260,7 @@ function drawLatestPriceMarker(
   ctx.setLineDash([]);
 
   const decimals = priceTicks[0]?.decimals ?? 2;
-  ctx.fillStyle = colors.gold;
+  ctx.fillStyle = colors.accent;
   ctx.fillRect(plotWidth, y - 7, 58, 14);
   ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
   ctx.fillStyle = colors.background;
@@ -265,7 +316,7 @@ function drawCrosshair(
   ctx.setLineDash([]);
 
   ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
-  ctx.fillStyle = colors.gold;
+  ctx.fillStyle = colors.accent;
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   ctx.fillText(formatTimestamp(candle.time, "datetime"), x, plotHeight + 6);
