@@ -80,7 +80,29 @@ function drawLine(
   ctx.stroke();
 }
 
-/** EMA/SMA/Bollinger overlays, drawn directly on the price panel using its OWN price viewport - never a separate value scale from the candles they annotate. */
+const SAR_DOT_SIZE_PX = 3;
+
+/** Parabolic SAR's own real MT5 visual convention (this session) - discrete dots at each candle's stop-and-reverse level, never a connected line (a connected line would visually imply a continuous value between candles, which isn't what a stop-and-reverse LEVEL means). Uses fillRect (never ctx.arc - a new canvas primitive this codebase's test-fake CanvasRenderingContext2D mocks don't implement, the same constraint drawCandles'/drawing-renderer.ts's own comments document for strokeRect). */
+function drawDots(
+  ctx: CanvasRenderingContext2D,
+  points: { time: number; value: number | undefined }[],
+  candles: ChartCandle[],
+  indexRange: IndexRange,
+  panelVp: Viewport,
+  plotWidth: number,
+  row: PanelRow,
+  color: string,
+): void {
+  ctx.fillStyle = color;
+  for (const point of points) {
+    if (point.value === undefined) continue;
+    const x = indexToX(fractionalIndexForTime(candles, point.time), indexRange, plotWidth);
+    const y = row.top + priceToY(point.value, panelVp, row.height);
+    ctx.fillRect(x - SAR_DOT_SIZE_PX / 2, y - SAR_DOT_SIZE_PX / 2, SAR_DOT_SIZE_PX, SAR_DOT_SIZE_PX);
+  }
+}
+
+/** EMA/SMA/Bollinger/Parabolic SAR overlays, drawn directly on the price panel using its OWN price viewport - never a separate value scale from the candles they annotate. Branches on each line's own `style` (never `config.id`) - the same "renderer doesn't know indicator-specific semantics" discipline Bollinger's band-edge style already established. */
 export function drawOverlays(
   ctx: CanvasRenderingContext2D,
   overlays: IndicatorSeries[],
@@ -93,7 +115,8 @@ export function drawOverlays(
   for (const series of overlays) {
     if (series.panel !== "price") continue;
     for (const line of series.lines) {
-      drawLine(ctx, line.points, candles, indexRange, viewport, plotWidth, priceRow, line.color);
+      if (line.style === "dots") drawDots(ctx, line.points, candles, indexRange, viewport, plotWidth, priceRow, line.color);
+      else drawLine(ctx, line.points, candles, indexRange, viewport, plotWidth, priceRow, line.color);
     }
   }
 }

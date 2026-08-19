@@ -455,3 +455,96 @@ export function williamsPercentRSeries(candles: readonly OhlcCandle[], period = 
   }
   return alignToLength(raw, candles.length);
 }
+
+// ============================================================
+// Parabolic SAR (MT5 feature-parity Phase 2, this session) - a genuinely
+// different SHAPE from every indicator above: a stateful, recursive
+// trend-following construction (Wilder's original), not a sliding-
+// window formula. Real MT5 default step/maximum verified this session
+// against mql5.com/metatrader5.com.
+// ============================================================
+
+export const PARABOLIC_SAR_STEP_DEFAULT = 0.02;
+export const PARABOLIC_SAR_MAX_STEP_DEFAULT = 0.2;
+
+export interface ParabolicSarResult {
+  value: number;
+  trend: "up" | "down";
+}
+
+/**
+ * Wilder's Parabolic SAR at every index - the standard construction every
+ * mainstream platform (MT5 included) implements: a trailing stop-and-
+ * reverse level that accelerates toward price as a trend extends. State
+ * carried between indices (trend direction, Extreme Point, Acceleration
+ * Factor) - genuinely different from every sliding-window indicator
+ * above, which is why this needs its own recursive implementation rather
+ * than a *Series wrapper around a scalar sibling.
+ *
+ * Bootstraps its initial trend/SAR from the first two candles (close[1]
+ * vs close[0] - the same convention every real-world Parabolic SAR
+ * implementation uses, since Wilder's original method has no other
+ * honest way to pick a starting trend before any reversal has occurred)
+ * - index 0 is honestly undefined (there is no prior candle to derive a
+ * SAR from), index 1 is the bootstrap value, and every index from there
+ * follows the real recurrence: SAR moves toward the Extreme Point by
+ * (Acceleration Factor * distance) each step, is clamped so an uptrend's
+ * SAR never rises above the prior two candles' lows (and a downtrend's
+ * never falls below their highs), and reverses - resetting AF to `step`
+ * and starting a fresh Extreme Point - the instant price crosses it.
+ */
+export function parabolicSarSeries(
+  candles: readonly OhlcCandle[],
+  step = PARABOLIC_SAR_STEP_DEFAULT,
+  maxStep = PARABOLIC_SAR_MAX_STEP_DEFAULT,
+): (ParabolicSarResult | undefined)[] {
+  if (candles.length < 2) return candles.map(() => undefined);
+
+  const result: (ParabolicSarResult | undefined)[] = new Array(candles.length).fill(undefined);
+
+  let uptrend = candles[1].close >= candles[0].close;
+  let sar = uptrend ? candles[0].low : candles[0].high;
+  let ep = uptrend ? candles[1].high : candles[1].low;
+  let af = step;
+  result[1] = { value: sar, trend: uptrend ? "up" : "down" };
+
+  for (let i = 2; i < candles.length; i++) {
+    let nextSar = sar + af * (ep - sar);
+
+    if (uptrend) {
+      nextSar = Math.min(nextSar, candles[i - 1].low, candles[i - 2].low);
+    } else {
+      nextSar = Math.max(nextSar, candles[i - 1].high, candles[i - 2].high);
+    }
+
+    let reversed = false;
+    if (uptrend && candles[i].low < nextSar) {
+      uptrend = false;
+      reversed = true;
+      nextSar = ep; // SAR jumps to the extreme the just-ended trend reached
+      ep = candles[i].low;
+      af = step;
+    } else if (!uptrend && candles[i].high > nextSar) {
+      uptrend = true;
+      reversed = true;
+      nextSar = ep;
+      ep = candles[i].high;
+      af = step;
+    }
+
+    if (!reversed) {
+      if (uptrend && candles[i].high > ep) {
+        ep = candles[i].high;
+        af = Math.min(af + step, maxStep);
+      } else if (!uptrend && candles[i].low < ep) {
+        ep = candles[i].low;
+        af = Math.min(af + step, maxStep);
+      }
+    }
+
+    sar = nextSar;
+    result[i] = { value: sar, trend: uptrend ? "up" : "down" };
+  }
+
+  return result;
+}

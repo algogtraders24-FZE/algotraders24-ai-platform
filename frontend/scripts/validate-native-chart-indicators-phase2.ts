@@ -1,12 +1,12 @@
 // scripts/validate-native-chart-indicators-phase2.ts
 // MT5 feature-parity Phase 2 - expanded indicator library: ATR,
 // Stochastic Oscillator (MT5's real default 5/3/3 "Slow Stochastic"),
-// ADX, CCI, and Williams %R - every default period verified against
-// mql5.com/metatrader5.com this session (not textbook values - CCI's own
-// original Lambert methodology used 20, but MT5 itself defaults to 14,
-// same as the others). Standalone, assert-based verification, matching
-// every prior sprint's scripts/validate-*.ts pattern. Run via
-// `npm run validate:native-chart-indicators-phase2`.
+// ADX, CCI, Williams %R, and Parabolic SAR - every default parameter
+// verified against mql5.com/metatrader5.com this session (not textbook
+// values - CCI's own original Lambert methodology used 20, but MT5
+// itself defaults to 14, same as the others). Standalone, assert-based
+// verification, matching every prior sprint's scripts/validate-*.ts
+// pattern. Run via `npm run validate:native-chart-indicators-phase2`.
 import assert from "node:assert/strict";
 
 import {
@@ -16,6 +16,7 @@ import {
   adxSeries,
   cciSeries,
   williamsPercentRSeries,
+  parabolicSarSeries,
   ATR_PERIOD_DEFAULT,
   STOCHASTIC_K_PERIOD_DEFAULT,
   STOCHASTIC_SLOWING_DEFAULT,
@@ -23,11 +24,13 @@ import {
   ADX_PERIOD_DEFAULT,
   CCI_PERIOD_DEFAULT,
   WILLIAMS_R_PERIOD_DEFAULT,
+  PARABOLIC_SAR_STEP_DEFAULT,
+  PARABOLIC_SAR_MAX_STEP_DEFAULT,
   type OhlcCandle,
 } from "../lib/market-data/indicators";
 import { computeIndicatorSeries } from "../lib/chart-engine/indicators/compute";
 import { DEFAULT_INDICATOR_CONFIGS, PANEL_REGISTRY, INDICATOR_PANEL_ID } from "../lib/chart-engine/indicators/panel-registry";
-import { drawAtrPanel, drawStochasticPanel, drawAdxPanel, drawCciPanel, drawWilliamsRPanel } from "../lib/chart-engine/sub-panel-renderer";
+import { drawAtrPanel, drawStochasticPanel, drawAdxPanel, drawCciPanel, drawWilliamsRPanel, drawOverlays } from "../lib/chart-engine/sub-panel-renderer";
 import { renderChart } from "../lib/chart-engine/renderer";
 import { fitToData } from "../lib/chart-engine/viewport";
 import { resolveChartColors } from "../lib/chart-engine/canvas-colors";
@@ -247,6 +250,72 @@ async function main(): Promise<void> {
     assert.equal(lastDefined, -50);
   });
 
+  console.log("\n=== Parabolic SAR ===");
+
+  function makeTrendingCandles(count: number, direction: 1 | -1): ChartCandle[] {
+    const start = Date.parse("2026-01-01T00:00:00Z");
+    const out: ChartCandle[] = [];
+    for (let i = 0; i < count; i++) {
+      const base = 100 + direction * i * 2;
+      out.push({ time: start + i * 60_000, open: base, high: base + 1, low: base - 1, close: base + direction * 0.5, volume: 100 });
+    }
+    return out;
+  }
+
+  test("MT5's real default Parabolic SAR step/maximum are 0.02/0.2 - verified against mql5.com/metatrader5.com this session", () => {
+    assert.equal(PARABOLIC_SAR_STEP_DEFAULT, 0.02);
+    assert.equal(PARABOLIC_SAR_MAX_STEP_DEFAULT, 0.2);
+  });
+
+  test("parabolicSarSeries with fewer than 2 candles is honestly all-undefined, never throws", () => {
+    const series = parabolicSarSeries([{ high: 101, low: 99, close: 100 }]);
+    assert.ok(series.every((v) => v === undefined));
+  });
+
+  test("parabolicSarSeries has exactly one entry per candle, index 0 honestly undefined (no prior candle to derive a bootstrap SAR from), index 1 the real bootstrap value", () => {
+    const candles = makeTrendingCandles(30, 1);
+    const series = parabolicSarSeries(candles);
+    assert.equal(series.length, candles.length);
+    assert.equal(series[0], undefined);
+    assert.notEqual(series[1], undefined);
+  });
+
+  test("in a clean, sustained uptrend, SAR stays below the candle's own low at every index - the fundamental Parabolic SAR invariant while trending up (a trailing stop UNDER price)", () => {
+    const candles = makeTrendingCandles(40, 1);
+    const series = parabolicSarSeries(candles, 0.02, 0.2);
+    for (let i = 2; i < candles.length; i++) {
+      const point = series[i];
+      if (!point) continue;
+      assert.equal(point.trend, "up", `index ${i} should still be in the uptrend given monotonically rising candles`);
+      assert.ok(point.value <= candles[i].low, `SAR ${point.value} should be <= low ${candles[i].low} at index ${i}`);
+    }
+  });
+
+  test("in a clean, sustained downtrend, SAR stays above the candle's own high at every index - the mirror invariant while trending down (a trailing stop ABOVE price)", () => {
+    const candles = makeTrendingCandles(40, -1);
+    const series = parabolicSarSeries(candles, 0.02, 0.2);
+    for (let i = 2; i < candles.length; i++) {
+      const point = series[i];
+      if (!point) continue;
+      assert.equal(point.trend, "down", `index ${i} should still be in the downtrend given monotonically falling candles`);
+      assert.ok(point.value >= candles[i].high, `SAR ${point.value} should be >= high ${candles[i].high} at index ${i}`);
+    }
+  });
+
+  test("a real reversal (sharp downturn after a sustained uptrend) is genuinely detected - the trend flips from 'up' to 'down' partway through, never stuck permanently on the bootstrap direction", () => {
+    const up = makeTrendingCandles(20, 1);
+    const lastUpBase = 100 + 1 * 19 * 2;
+    const down = Array.from({ length: 20 }, (_, i) => {
+      const base = lastUpBase - i * 3;
+      return { time: up[up.length - 1].time + (i + 1) * 60_000, open: base, high: base + 1, low: base - 1, close: base - 0.5, volume: 100 };
+    });
+    const candles = [...up, ...down];
+    const series = parabolicSarSeries(candles, 0.02, 0.2);
+    const trends = series.map((p) => p?.trend);
+    assert.ok(trends.slice(0, 15).includes("up"), "should be in an uptrend during the rising portion");
+    assert.ok(trends.slice(-5).includes("down"), "should have reversed to a downtrend by the end of the sharp downturn");
+  });
+
   console.log("\n=== Chart engine wiring (panel-registry.ts / compute.ts) ===");
 
   test("ATR/Stochastic/ADX/CCI/Williams %R are all registered in PANEL_REGISTRY with their own real sub-panel row, never overlaid on price", () => {
@@ -262,17 +331,28 @@ async function main(): Promise<void> {
     const adxCfg = DEFAULT_INDICATOR_CONFIGS.find((c) => c.id === "adx");
     const cciCfg = DEFAULT_INDICATOR_CONFIGS.find((c) => c.id === "cci");
     const wprCfg = DEFAULT_INDICATOR_CONFIGS.find((c) => c.id === "williams-r");
+    const sarCfg = DEFAULT_INDICATOR_CONFIGS.find((c) => c.id === "parabolic-sar");
     assert.ok(atrCfg && atrCfg.period === 14);
     assert.ok(stochCfg && stochCfg.period === 5 && stochCfg.slowingPeriod === 3 && stochCfg.signalPeriod === 3);
     assert.ok(adxCfg && adxCfg.period === 14);
     assert.ok(cciCfg && cciCfg.period === 14);
     assert.ok(wprCfg && wprCfg.period === 14);
+    assert.ok(sarCfg && sarCfg.period === 0.02 && sarCfg.maxStep === 0.2);
 
     const candles = makeCandles(80);
     for (const cfg of DEFAULT_INDICATOR_CONFIGS) {
       const series = computeIndicatorSeries(candles, cfg);
       assert.equal(series.panel, INDICATOR_PANEL_ID[cfg.id]);
     }
+  });
+
+  test("parabolic-sar is a PRICE overlay (never its own sub-panel) with a single 'dots'-styled line - never a connected line", () => {
+    const candles = makeCandles(80);
+    const cfg = DEFAULT_INDICATOR_CONFIGS.find((c) => c.id === "parabolic-sar")!;
+    const series = computeIndicatorSeries(candles, cfg);
+    assert.equal(series.panel, "price");
+    assert.equal(series.lines.length, 1);
+    assert.equal(series.lines[0].style, "dots");
   });
 
   test("computeIndicatorSeries for adx returns three lines (ADX, +DI, -DI) with distinct names - the real MT5 3-line display, never a single line standing in for all three", () => {
@@ -350,11 +430,27 @@ async function main(): Promise<void> {
     assert.ok(!ctx.calls.includes("strokeRect"));
   });
 
-  test("renderChart end-to-end with all five Phase 2 panels active runs without throwing, using only canvas methods already relied on elsewhere", () => {
+  test("drawOverlays renders Parabolic SAR as discrete dots (fillRect only) - never a connected line (no stroke/moveTo/lineTo for this series)", () => {
+    const candles = makeCandles(40);
+    const cfg = DEFAULT_INDICATOR_CONFIGS.find((c) => c.id === "parabolic-sar")!;
+    const series = computeIndicatorSeries(candles, cfg);
+    const vp = fitToData(candles);
+    const range = indexRangeForViewport(candles, vp);
+    const priceRow: PanelRow = { id: "price", top: 0, height: 300 };
+    const ctx = fakeCtx();
+    assert.doesNotThrow(() => drawOverlays(ctx, [series], candles, range, vp, PLOT_WIDTH, priceRow));
+    assert.ok(ctx.calls.includes("fillRect"));
+    assert.ok(!ctx.calls.includes("stroke"));
+    assert.ok(!ctx.calls.includes("moveTo"));
+    assert.ok(!ctx.calls.includes("lineTo"));
+  });
+
+  test("renderChart end-to-end with all five Phase 2 sub-panels PLUS the Parabolic SAR overlay active runs without throwing, using only canvas methods already relied on elsewhere", () => {
     const candles = makeCandles(80);
     const vp = fitToData(candles);
-    const ids = ["atr", "stochastic", "adx", "cci", "williams-r"] as const;
-    const indicatorSeries = ids.map((id) => computeIndicatorSeries(candles, DEFAULT_INDICATOR_CONFIGS.find((c) => c.id === id)!));
+    const subPanelIds = ["atr", "stochastic", "adx", "cci", "williams-r"] as const;
+    const indicatorIds = [...subPanelIds, "parabolic-sar"] as const;
+    const indicatorSeries = indicatorIds.map((id) => computeIndicatorSeries(candles, DEFAULT_INDICATOR_CONFIGS.find((c) => c.id === id)!));
     const ctx = fakeCtx();
     assert.doesNotThrow(() => {
       renderChart({
@@ -365,7 +461,7 @@ async function main(): Promise<void> {
         timeframe: "1h",
         crosshair: null,
         colors: resolveChartColors(),
-        activePanels: [...ids],
+        activePanels: [...subPanelIds], // "parabolic-sar" is a PRICE overlay, never an activePanels entry - drawOverlays picks it up from indicatorSeries via its own .panel === "price"
         indicatorSeries,
       });
     });

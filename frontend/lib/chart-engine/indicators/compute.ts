@@ -7,7 +7,7 @@
 // shape (types.ts). It contains ZERO Canvas/coordinate code and zero
 // indicator math of its own.
 import type { ChartCandle } from "@/types/chart-data";
-import { smaSeries, emaSeries, rsiSeries, bollingerSeries, macdSeries, atrSeries, stochasticSeries, adxSeries, cciSeries, williamsPercentRSeries } from "@/lib/market-data/indicators";
+import { smaSeries, emaSeries, rsiSeries, bollingerSeries, macdSeries, atrSeries, stochasticSeries, adxSeries, cciSeries, williamsPercentRSeries, parabolicSarSeries } from "@/lib/market-data/indicators";
 import type { IndicatorConfig, IndicatorSeries, IndicatorPoint, IndicatorLine } from "./types";
 
 /** emaSeries() (lib/market-data/indicators.ts) returns only its computable tail, unaligned - left-pad it to one entry per candle, same honest-undefined convention every other *Series function already returns. */
@@ -122,6 +122,15 @@ export function computeIndicatorSeries(candles: ChartCandle[], config: Indicator
       const values = williamsPercentRSeries(candles, config.period);
       const line: IndicatorLine = { name: config.key, points: toPoints(candles, values), color: config.color };
       return { config, panel: "williams-r", lines: [line] };
+    }
+    case "parabolic-sar": {
+      // config.period IS the Acceleration Factor "step" here - see
+      // IndicatorConfig's own field comment for why this reuses `period`
+      // rather than a whole second required field.
+      const results = parabolicSarSeries(candles, config.period, config.maxStep);
+      const values = results.map((r) => r?.value);
+      const line: IndicatorLine = { name: config.key, points: toPoints(candles, values), color: config.color, style: "dots" };
+      return { config, panel: "price", lines: [line] };
     }
   }
 }
