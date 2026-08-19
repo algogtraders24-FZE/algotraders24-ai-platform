@@ -28,6 +28,7 @@ import { drawDrawingObjects, drawDrawingPreview } from "../lib/chart-engine/draw
 import { renderChart } from "../lib/chart-engine/renderer";
 import { fitToData } from "../lib/chart-engine/viewport";
 import { resolveChartColors } from "../lib/chart-engine/canvas-colors";
+import { indexRangeForViewport } from "../lib/chart-engine/index-scale";
 import type { Viewport } from "../lib/chart-engine/types";
 import type { PanelRow } from "../lib/chart-engine/panel-layout";
 import type { ChartCandle } from "../types/chart-data";
@@ -51,6 +52,15 @@ const VIEWPORT: Viewport = { minTime: 0, maxTime: 1000, minPrice: 100, maxPrice:
 const PLOT_WIDTH = 1000;
 const PLOT_HEIGHT = 500;
 const PRICE_ROW: PanelRow = { id: "price", top: 0, height: PLOT_HEIGHT };
+// Gapless x-axis (this session) - geometry/drawing-renderer now position
+// everything by candle INDEX, not raw time, so the tests need a real
+// candles fixture spanning VIEWPORT's time range. 11 candles evenly
+// spaced every 100ms (0, 100, 200, ..., 1000) means every time value the
+// tests below already used (200/500/800/900) lands EXACTLY on a real
+// candle index (2/5/8/9) - fractional-index math resolves to a clean
+// integer, keeping every existing pixel-position assertion unchanged.
+const CANDLES: ChartCandle[] = Array.from({ length: 11 }, (_, i) => ({ time: i * 100, open: 100, high: 110, low: 90, close: 100 }));
+const INDEX_RANGE = indexRangeForViewport(CANDLES, VIEWPORT);
 
 function fakeCtx() {
   const calls: string[] = [];
@@ -111,8 +121,8 @@ async function main(): Promise<void> {
 
   test("pointToPixel/pixelToPoint round-trip is lossless for a point inside the viewport", () => {
     const point = { time: 500, price: 150 };
-    const px = pointToPixel(point, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
-    const back = pixelToPoint(px.x, px.y, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
+    const px = pointToPixel(point, CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
+    const back = pixelToPoint(px.x, px.y, CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
     assert.ok(Math.abs(back.time - point.time) < 1e-6);
     assert.ok(Math.abs(back.price - point.price) < 1e-6);
   });
@@ -135,50 +145,50 @@ async function main(): Promise<void> {
 
   test("hitTestObjects: a click on a trend line's p1 endpoint hits 'p1', not 'body'", () => {
     const line = createTrendLine({ time: 200, price: 180 }, { time: 800, price: 120 }, 1000);
-    const px = pointToPixel(line.p1, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
-    const hit = hitTestObjects([line], px.x, px.y, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
+    const px = pointToPixel(line.p1, CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
+    const hit = hitTestObjects([line], px.x, px.y, CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
     assert.deepEqual(hit, { objectId: line.id, handle: "p1" });
   });
 
   test("hitTestObjects: a click on a trend line's p2 endpoint hits 'p2'", () => {
     const line = createTrendLine({ time: 200, price: 180 }, { time: 800, price: 120 }, 1000);
-    const px = pointToPixel(line.p2, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
-    const hit = hitTestObjects([line], px.x, px.y, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
+    const px = pointToPixel(line.p2, CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
+    const hit = hitTestObjects([line], px.x, px.y, CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
     assert.deepEqual(hit, { objectId: line.id, handle: "p2" });
   });
 
   test("hitTestObjects: a click on the middle of a trend line's segment hits 'body'", () => {
     const line = createTrendLine({ time: 100, price: 150 }, { time: 900, price: 150 }, 1000);
-    const mid = pointToPixel({ time: 500, price: 150 }, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
-    const hit = hitTestObjects([line], mid.x, mid.y, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
+    const mid = pointToPixel({ time: 500, price: 150 }, CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
+    const hit = hitTestObjects([line], mid.x, mid.y, CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
     assert.deepEqual(hit, { objectId: line.id, handle: "body" });
   });
 
   test("hitTestObjects: a click far from any object returns null - never a false positive", () => {
     const line = createTrendLine({ time: 100, price: 150 }, { time: 900, price: 150 }, 1000);
-    const hit = hitTestObjects([line], 5, 5, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
+    const hit = hitTestObjects([line], 5, 5, CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
     assert.equal(hit, null);
   });
 
   test("hitTestObjects: a horizontal line hits 'body' anywhere along its full width at its price, never 'p1'/'p2' (it has no independent endpoints)", () => {
     const hLine = createHorizontalLine(160, 1000);
-    const y = pointToPixel({ time: 0, price: 160 }, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT).y;
-    const hit = hitTestObjects([hLine], 999, y, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
+    const y = pointToPixel({ time: 0, price: 160 }, CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT).y;
+    const hit = hitTestObjects([hLine], 999, y, CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
     assert.deepEqual(hit, { objectId: hLine.id, handle: "body" });
   });
 
   test("hitTestObjects: a rectangle hits 'body' for a click INSIDE its area, not just on the border", () => {
     const rect = createRectangle({ time: 200, price: 180 }, { time: 800, price: 120 }, 1000);
-    const center = pointToPixel({ time: 500, price: 150 }, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
-    const hit = hitTestObjects([rect], center.x, center.y, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
+    const center = pointToPixel({ time: 500, price: 150 }, CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
+    const hit = hitTestObjects([rect], center.x, center.y, CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
     assert.deepEqual(hit, { objectId: rect.id, handle: "body" });
   });
 
   test("hitTestObjects: overlapping objects resolve to the TOPMOST (last-created) one, matching the natural expectation of clicking the thing visually on top", () => {
     const bottom = createTrendLine({ time: 100, price: 150 }, { time: 900, price: 150 }, 1000);
     const top = createTrendLine({ time: 100, price: 150 }, { time: 900, price: 150 }, 2000);
-    const mid = pointToPixel({ time: 500, price: 150 }, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
-    const hit = hitTestObjects([bottom, top], mid.x, mid.y, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
+    const mid = pointToPixel({ time: 500, price: 150 }, CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
+    const hit = hitTestObjects([bottom, top], mid.x, mid.y, CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
     assert.equal(hit?.objectId, top.id);
   });
 
@@ -266,7 +276,7 @@ async function main(): Promise<void> {
       createRectangle({ time: 200, price: 180 }, { time: 800, price: 120 }, 1000),
     ];
     const ctx = fakeCtx();
-    drawDrawingObjects(ctx, objects, VIEWPORT, PLOT_WIDTH, PRICE_ROW, null);
+    drawDrawingObjects(ctx, objects, CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PRICE_ROW, null);
     assert.ok(ctx.calls.includes("stroke"));
     assert.ok(!ctx.calls.includes("strokeRect"));
   });
@@ -274,11 +284,11 @@ async function main(): Promise<void> {
   test("a selected object draws its handles (extra fillRect calls) that an unselected object doesn't", () => {
     const line = createTrendLine({ time: 100, price: 150 }, { time: 900, price: 150 }, 1000);
     const unselected = fakeCtx();
-    drawDrawingObjects(unselected, [line], VIEWPORT, PLOT_WIDTH, PRICE_ROW, null);
+    drawDrawingObjects(unselected, [line], CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PRICE_ROW, null);
     const unselectedFillRects = unselected.calls.filter((c) => c === "fillRect").length;
 
     const selected = fakeCtx();
-    drawDrawingObjects(selected, [line], VIEWPORT, PLOT_WIDTH, PRICE_ROW, line.id);
+    drawDrawingObjects(selected, [line], CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PRICE_ROW, line.id);
     const selectedFillRects = selected.calls.filter((c) => c === "fillRect").length;
 
     assert.ok(selectedFillRects > unselectedFillRects);
@@ -287,16 +297,16 @@ async function main(): Promise<void> {
   test("a horizontal line whose price is outside the current viewport is never drawn - off-panel objects don't leak a stray line", () => {
     const hLine = createHorizontalLine(9999, 1000); // far outside VIEWPORT's 100-200 range
     const ctx = fakeCtx();
-    drawDrawingObjects(ctx, [hLine], VIEWPORT, PLOT_WIDTH, PRICE_ROW, null);
+    drawDrawingObjects(ctx, [hLine], CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PRICE_ROW, null);
     assert.ok(!ctx.calls.includes("moveTo"));
   });
 
   test("drawDrawingPreview runs without throwing for both 2-click tool types and uses a dashed line (setLineDash), visually distinct from a committed object", () => {
     const ctx = fakeCtx();
-    drawDrawingPreview(ctx, { tool: "trendline", p1: { time: 100, price: 150 }, p2: { time: 800, price: 130 } }, "#f59e0b", VIEWPORT, PLOT_WIDTH, PRICE_ROW);
+    drawDrawingPreview(ctx, { tool: "trendline", p1: { time: 100, price: 150 }, p2: { time: 800, price: 130 } }, CANDLES, INDEX_RANGE, VIEWPORT, "#f59e0b", PLOT_WIDTH, PRICE_ROW);
     assert.ok(ctx.calls.includes("setLineDash"));
     const ctx2 = fakeCtx();
-    drawDrawingPreview(ctx2, { tool: "rectangle", p1: { time: 100, price: 150 }, p2: { time: 800, price: 130 } }, "#60a5fa", VIEWPORT, PLOT_WIDTH, PRICE_ROW);
+    drawDrawingPreview(ctx2, { tool: "rectangle", p1: { time: 100, price: 150 }, p2: { time: 800, price: 130 } }, CANDLES, INDEX_RANGE, VIEWPORT, "#60a5fa", PLOT_WIDTH, PRICE_ROW);
     assert.ok(ctx2.calls.includes("setLineDash"));
   });
 

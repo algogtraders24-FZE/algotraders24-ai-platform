@@ -157,10 +157,16 @@ async function rendererInvariantTests(): Promise<void> {
     assert.equal((src.match(/drawTimeGrid\(ctx, timeTicks/g) ?? []).length, 1);
   });
 
+  // Updated (gapless x-axis, this session) - drawTimeGrid now positions
+  // each tick via its real candle INDEX (index-scale.ts's indexToX), not
+  // raw time - see that file's header comment for why (a naive time-
+  // linear x-axis renders a real market gap, e.g. a weekend, as dead
+  // empty canvas space). The crisp-1px-line convention itself (round + 0.5)
+  // is unchanged, just applied to the new index-based x.
   await test("drawTimeGrid uses the SAME crisp-1px-line convention (round + 0.5) as the existing horizontal price grid", () => {
     const src = read("lib/chart-engine/renderer.ts");
     const fn = src.slice(src.indexOf("function drawTimeGrid"), src.indexOf("function drawTimeGrid") + 500);
-    assert.ok(fn.includes("Math.round(timeToX(tick.time, viewport, plotWidth)) + 0.5"));
+    assert.ok(fn.includes("Math.round(indexToX(tick.index, indexRange, plotWidth)) + 0.5"));
   });
 
   await test("the grid is drawn behind the candles - drawPriceGrid/drawTimeGrid are called before drawCandles in renderChart", () => {
@@ -912,10 +918,16 @@ async function securityTests(): Promise<void> {
 // 18 - Existing architecture reuse
 // ============================================================
 async function architectureReuseTests(): Promise<void> {
-  await test("no second grid/tick system was introduced - drawTimeGrid reuses the existing coordinate-system.ts timeToX, never a parallel conversion", () => {
+  // Updated (gapless x-axis, this session) - drawTimeGrid reuses index-
+  // scale.ts's indexToX (the ONE gapless x-position function every
+  // renderer element now shares - candles, ticks, drawn objects,
+  // crosshair) rather than coordinate-system.ts's time-domain timeToX.
+  // Still a single shared conversion, never a second/parallel one - just
+  // a different (and, per this session's fix, more correct) shared one.
+  await test("no second grid/tick system was introduced - drawTimeGrid reuses the shared index-scale.ts indexToX, never a parallel conversion", () => {
     const src = read("lib/chart-engine/renderer.ts");
     const fn = src.slice(src.indexOf("function drawTimeGrid"), src.indexOf("function drawTimeGrid") + 400);
-    assert.ok(fn.includes("timeToX("));
+    assert.ok(fn.includes("indexToX("));
   });
 
   await test("no second timeframe/indicator/instrument/symbol registry was introduced anywhere in this sprint's changes", () => {

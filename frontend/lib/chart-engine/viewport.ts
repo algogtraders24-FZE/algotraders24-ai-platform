@@ -16,7 +16,7 @@ const MIN_VISIBLE_CANDLES = 5;
 const MAX_VISIBLE_CANDLES = 2000;
 
 /** The real spacing between consecutive candles, derived from the data itself - never a hardcoded per-timeframe constant (Phase 6's "no hardcoded dimensions"). Falls back to 1 minute only when there are fewer than 2 candles to measure a real step from (used solely as a padding unit in that edge case, never presented as real data). */
-export function candleStepMs(candles: ChartCandle[]): number {
+export function candleStepMs(candles: readonly ChartCandle[]): number {
   if (candles.length < 2) return 60_000;
   return candles[1].time - candles[0].time;
 }

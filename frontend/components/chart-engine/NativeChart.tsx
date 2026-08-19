@@ -54,6 +54,7 @@ import { classifyCandle } from "@/lib/chart-engine/candle-classifier";
 import { computeIndicatorSeries, valueAtIndex } from "@/lib/chart-engine/indicators/compute";
 import { DEFAULT_INDICATOR_CONFIGS } from "@/lib/chart-engine/indicators/panel-registry";
 import { computePanelLayout } from "@/lib/chart-engine/panel-layout";
+import { indexRangeForViewport, xToIndex, fractionalIndexToTime } from "@/lib/chart-engine/index-scale";
 import type { ChartCandle, ChartSeries } from "@/types/chart-data";
 import type { CrosshairState, Viewport } from "@/lib/chart-engine/types";
 import type { SignalTimeframe } from "@/types/signal";
@@ -422,7 +423,14 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
     const x = e.clientX - rect.left;
-    const anchorTime = viewport.minTime + (x / plotWidth()) * (viewport.maxTime - viewport.minTime);
+    // Gapless x-axis (this session) - the zoom anchor must agree with what's
+    // actually rendered at this pixel (index-based), not plain linear-time
+    // math, or zooming near a compressed real-time gap would center on the
+    // wrong candle. zoomViewport/clampViewportToCandleBounds themselves stay
+    // real-time-based (unchanged) - only the ANCHOR lookup goes through the
+    // index bridge.
+    const range = indexRangeForViewport(candles, viewport);
+    const anchorTime = fractionalIndexToTime(candles, xToIndex(x, range, plotWidth()));
     const factor = e.deltaY < 0 ? ZOOM_IN_FACTOR : ZOOM_OUT_FACTOR;
     const zoomed = zoomViewport(viewport, factor, anchorTime, candleStepMs(candles));
     applyViewport(clampViewportToCandleBounds(zoomed, candles), true);
@@ -444,7 +452,8 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
     if (!viewport || !activeTool) return;
     const row = priceRow();
     if (y < row.top || y > row.top + row.height) return;
-    const point = pixelToPoint(x, y - row.top, viewport, plotWidth(), row.height);
+    const range = indexRangeForViewport(candles, viewport);
+    const point = pixelToPoint(x, y - row.top, candles, range, viewport, plotWidth(), row.height);
     const nowMs = Date.now();
 
     if (activeTool === "horizontal-line") {
@@ -496,7 +505,8 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
       }
       const row = priceRow();
       if (y >= row.top && y <= row.top + row.height) {
-        const hit = hitTestObjects(drawingObjectsRef.current, x, y - row.top, viewport, plotWidth(), row.height);
+        const range = indexRangeForViewport(candles, viewport);
+        const hit = hitTestObjects(drawingObjectsRef.current, x, y - row.top, candles, range, viewport, plotWidth(), row.height);
         if (hit) {
           const target = drawingObjectsRef.current.find((o) => o.id === hit.objectId);
           if (target) {
@@ -504,7 +514,7 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
             objectDragRef.current = {
               objectId: hit.objectId,
               handle: hit.handle,
-              startPoint: pixelToPoint(x, y - row.top, viewport, plotWidth(), row.height),
+              startPoint: pixelToPoint(x, y - row.top, candles, range, viewport, plotWidth(), row.height),
               original: target,
             };
             draw();
@@ -541,7 +551,8 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
     // 2-click tool's first point is placed but the second hasn't landed.
     if (pendingPlacementRef.current && drawingPreviewRef.current && viewportRef.current) {
       const row = priceRow();
-      const point = pixelToPoint(x, y - row.top, viewportRef.current, plotWidth(), row.height);
+      const range = indexRangeForViewport(candles, viewportRef.current);
+      const point = pixelToPoint(x, y - row.top, candles, range, viewportRef.current, plotWidth(), row.height);
       drawingPreviewRef.current = { tool: drawingPreviewRef.current.tool, p1: pendingPlacementRef.current, p2: point };
       scheduleDraw();
       return;
@@ -557,7 +568,8 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
     if (objectDragRef.current && viewportRef.current) {
       const { objectId, handle, startPoint, original } = objectDragRef.current;
       const row = priceRow();
-      const current = pixelToPoint(x, y - row.top, viewportRef.current, plotWidth(), row.height);
+      const range = indexRangeForViewport(candles, viewportRef.current);
+      const current = pixelToPoint(x, y - row.top, candles, range, viewportRef.current, plotWidth(), row.height);
       const deltaTime = current.time - startPoint.time;
       const deltaPrice = current.price - startPoint.price;
       const updated = applyDrag(original, handle, deltaTime, deltaPrice);
@@ -579,7 +591,8 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
       if (distance > 0 && startDistance > 0) {
         const factor = startDistance / distance; // fingers spreading (distance grows) -> factor<1 -> zoom in
         const midX = (points[0].x + points[1].x) / 2;
-        const anchorTime = startViewport.minTime + (midX / Math.max(1, plotWidth())) * (startViewport.maxTime - startViewport.minTime);
+        const pinchRange = indexRangeForViewport(candles, startViewport);
+        const anchorTime = fractionalIndexToTime(candles, xToIndex(midX, pinchRange, Math.max(1, plotWidth())));
         const zoomed = zoomViewport(startViewport, factor, anchorTime, candleStepMs(candles));
         applyViewport(clampViewportToCandleBounds(zoomed, candles), true);
       }

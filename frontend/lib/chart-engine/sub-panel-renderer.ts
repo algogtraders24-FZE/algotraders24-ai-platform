@@ -8,15 +8,24 @@
 // system.ts functions renderer.ts already uses (a per-panel Viewport with
 // that panel's own price/value range, passed the panel row's own height as
 // `plotHeight`, with the panel row's `top` added to every resulting y).
+//
+// Gapless x-axis (this session) - every horizontal position here now goes
+// through index-scale.ts's index-domain functions, not coordinate-
+// system.ts's time-domain timeToX, matching renderer.ts's own candle
+// positioning (see that file's header comment). A line/bar's real `time`
+// is looked up to its fractional candle-index once per point - correct
+// AND cheap, since every indicator/volume value is computed 1:1 from this
+// same candles array, so the lookup nearly always resolves to an exact
+// integer index, never a costly or approximate interpolation.
 import type { ChartCandle } from "@/types/chart-data";
 import type { IndicatorSeries } from "./indicators/types";
-import { priceToY, timeToX } from "./coordinate-system";
-import { candleStepMs } from "./viewport";
+import { priceToY } from "./coordinate-system";
 import { canvasMonoFont } from "./canvas-typography";
 import { formatCompactVolume } from "@/lib/financial-format";
 import type { ChartColors } from "./canvas-colors";
 import type { PanelRow } from "./panel-layout";
 import type { Viewport } from "./types";
+import { fractionalIndexForTime, indexToX, type IndexRange } from "./index-scale";
 
 const AXIS_FONT_SIZE = 10;
 const RSI_OVERBOUGHT = 70;
@@ -29,7 +38,8 @@ function panelViewport(viewport: Viewport, minValue: number, maxValue: number): 
 function drawLine(
   ctx: CanvasRenderingContext2D,
   points: { time: number; value: number | undefined }[],
-  viewport: Viewport,
+  candles: ChartCandle[],
+  indexRange: IndexRange,
   panelVp: Viewport,
   plotWidth: number,
   row: PanelRow,
@@ -44,7 +54,7 @@ function drawLine(
       started = false;
       continue;
     }
-    const x = timeToX(point.time, viewport, plotWidth);
+    const x = indexToX(fractionalIndexForTime(candles, point.time), indexRange, plotWidth);
     const y = row.top + priceToY(point.value, panelVp, row.height);
     if (!started) {
       ctx.moveTo(x, y);
@@ -60,6 +70,8 @@ function drawLine(
 export function drawOverlays(
   ctx: CanvasRenderingContext2D,
   overlays: IndicatorSeries[],
+  candles: ChartCandle[],
+  indexRange: IndexRange,
   viewport: Viewport,
   plotWidth: number,
   priceRow: PanelRow,
@@ -67,7 +79,7 @@ export function drawOverlays(
   for (const series of overlays) {
     if (series.panel !== "price") continue;
     for (const line of series.lines) {
-      drawLine(ctx, line.points, viewport, viewport, plotWidth, priceRow, line.color);
+      drawLine(ctx, line.points, candles, indexRange, viewport, plotWidth, priceRow, line.color);
     }
   }
 }
@@ -105,13 +117,19 @@ function drawEmptyPanelNotice(ctx: CanvasRenderingContext2D, row: PanelRow, plot
 export function drawVolumePanel(
   ctx: CanvasRenderingContext2D,
   candles: ChartCandle[],
+  indexRange: IndexRange,
   viewport: Viewport,
   plotWidth: number,
   row: PanelRow,
   colors: ChartColors,
 ): void {
   drawPanelFrame(ctx, row, plotWidth, colors, "Volume");
-  const visible = candles.filter((c) => c.time >= viewport.minTime && c.time <= viewport.maxTime && c.volume !== undefined);
+  const from = Math.max(0, Math.floor(indexRange.minIndex));
+  const to = Math.min(candles.length - 1, Math.ceil(indexRange.maxIndex));
+  const visible: { index: number; candle: ChartCandle }[] = [];
+  for (let i = from; i <= to; i++) {
+    if (candles[i]?.volume !== undefined) visible.push({ index: i, candle: candles[i] });
+  }
   if (visible.length === 0) {
     // Distinguish "this instrument's provider doesn't report volume" (a
     // real, honest limitation worth surfacing) from "there simply are no
@@ -120,16 +138,15 @@ export function drawVolumePanel(
     if (candles.length > 0) drawEmptyPanelNotice(ctx, row, plotWidth, colors, "No volume data for this instrument");
     return;
   }
-  const maxVolume = Math.max(...visible.map((c) => c.volume as number));
+  const maxVolume = Math.max(...visible.map((v) => v.candle.volume as number));
   if (maxVolume <= 0) return;
   const panelVp = panelViewport(viewport, 0, maxVolume);
-  const step = candleStepMs(candles);
-  const pixelsPerMs = plotWidth / Math.max(1, viewport.maxTime - viewport.minTime);
-  const barWidth = Math.max(1, step * pixelsPerMs * 0.7);
+  const pixelsPerIndex = plotWidth / Math.max(1e-6, indexRange.maxIndex - indexRange.minIndex);
+  const barWidth = Math.max(1, pixelsPerIndex * 0.7);
 
-  for (const c of visible) {
-    const x = timeToX(c.time, viewport, plotWidth);
-    const y = row.top + priceToY(c.volume as number, panelVp, row.height);
+  for (const { index, candle } of visible) {
+    const x = indexToX(index, indexRange, plotWidth);
+    const y = row.top + priceToY(candle.volume as number, panelVp, row.height);
     const bottom = row.top + row.height;
     // MT5-style theme (this session): a single uniform volume color,
     // matching the user's live terminal reference (plain green bars, not
@@ -139,7 +156,7 @@ export function drawVolumePanel(
     if (colors.volume) {
       ctx.fillStyle = colors.volume;
     } else {
-      const isUp = c.close >= c.open;
+      const isUp = candle.close >= candle.open;
       ctx.fillStyle = isUp ? colors.bullish : colors.bearish;
     }
     ctx.fillRect(x - barWidth / 2, y, barWidth, bottom - y);
@@ -160,6 +177,8 @@ export function drawVolumePanel(
 export function drawRsiPanel(
   ctx: CanvasRenderingContext2D,
   series: IndicatorSeries | undefined,
+  candles: ChartCandle[],
+  indexRange: IndexRange,
   viewport: Viewport,
   plotWidth: number,
   row: PanelRow,
@@ -194,12 +213,14 @@ export function drawRsiPanel(
 
   if (!series) return;
   const line = series.lines[0];
-  if (line) drawLine(ctx, line.points, viewport, panelVp, plotWidth, row, line.color);
+  if (line) drawLine(ctx, line.points, candles, indexRange, panelVp, plotWidth, row, line.color);
 }
 
 export function drawMacdPanel(
   ctx: CanvasRenderingContext2D,
   series: IndicatorSeries | undefined,
+  candles: ChartCandle[],
+  indexRange: IndexRange,
   viewport: Viewport,
   plotWidth: number,
   row: PanelRow,
@@ -231,14 +252,12 @@ export function drawMacdPanel(
   ctx.setLineDash([]);
 
   if (histogram) {
-    const pixelsPerMs = plotWidth / Math.max(1, viewport.maxTime - viewport.minTime);
-    const times = histogram.points.map((p) => p.time);
-    const spacing = times.length > 1 ? times[1] - times[0] : 0;
-    const barWidth = Math.max(1, spacing * pixelsPerMs * 0.7);
+    const pixelsPerIndex = plotWidth / Math.max(1e-6, indexRange.maxIndex - indexRange.minIndex);
+    const barWidth = Math.max(1, pixelsPerIndex * 0.7);
     const zeroY = row.top + priceToY(0, panelVp, row.height);
     for (const point of histogram.points) {
       if (point.value === undefined) continue;
-      const x = timeToX(point.time, viewport, plotWidth);
+      const x = indexToX(fractionalIndexForTime(candles, point.time), indexRange, plotWidth);
       const y = row.top + priceToY(point.value, panelVp, row.height);
       ctx.fillStyle = point.value >= 0 ? colors.bullish : colors.bearish;
       const top = Math.min(y, zeroY);
@@ -246,6 +265,6 @@ export function drawMacdPanel(
       ctx.fillRect(x - barWidth / 2, top, barWidth, height);
     }
   }
-  if (macdLine) drawLine(ctx, macdLine.points, viewport, panelVp, plotWidth, row, macdLine.color);
-  if (signalLine) drawLine(ctx, signalLine.points, viewport, panelVp, plotWidth, row, signalLine.color);
+  if (macdLine) drawLine(ctx, macdLine.points, candles, indexRange, panelVp, plotWidth, row, macdLine.color);
+  if (signalLine) drawLine(ctx, signalLine.points, candles, indexRange, panelVp, plotWidth, row, signalLine.color);
 }

@@ -1,22 +1,31 @@
 // lib/chart-engine/drawing/geometry.ts
 // Pure hit-testing/geometry for drawn objects. No DOM, no React, no
-// mutation - every function takes the current Viewport/plot dimensions
-// explicitly and derives pixel positions fresh via the SAME
-// coordinate-system.ts functions the candle/crosshair renderer already
-// uses, never a second time<->pixel conversion.
-import { priceToY, timeToX, xToTime, yToPrice } from "../coordinate-system";
+// mutation - every function takes the current candles/Viewport/plot
+// dimensions explicitly and derives pixel positions fresh, never a second
+// stored/cached pixel position.
+//
+// Gapless x-axis (this session) - x positions go through index-scale.ts,
+// the SAME functions renderer.ts/drawing-renderer.ts use for candles and
+// drawn objects, so a hit-test always agrees with what's actually on
+// screen (including across a compressed real-time gap). Y positions are
+// unaffected - still plain coordinate-system.ts price<->pixel math.
+import type { ChartCandle } from "@/types/chart-data";
+import { priceToY, yToPrice } from "../coordinate-system";
+import { fractionalIndexForTime, fractionalIndexToTime, indexToX, xToIndex, type IndexRange } from "../index-scale";
 import type { Viewport } from "../types";
 import type { DrawingHit, DrawingObject, DrawingPoint } from "./types";
 
 const HANDLE_RADIUS_PX = 7;
 const BODY_TOLERANCE_PX = 5;
 
-export function pointToPixel(point: DrawingPoint, viewport: Viewport, plotWidth: number, plotHeight: number): { x: number; y: number } {
-  return { x: timeToX(point.time, viewport, plotWidth), y: priceToY(point.price, viewport, plotHeight) };
+export function pointToPixel(point: DrawingPoint, candles: readonly ChartCandle[], indexRange: IndexRange, viewport: Viewport, plotWidth: number, plotHeight: number): { x: number; y: number } {
+  const index = fractionalIndexForTime(candles, point.time);
+  return { x: indexToX(index, indexRange, plotWidth), y: priceToY(point.price, viewport, plotHeight) };
 }
 
-export function pixelToPoint(x: number, y: number, viewport: Viewport, plotWidth: number, plotHeight: number): DrawingPoint {
-  return { time: xToTime(x, viewport, plotWidth), price: yToPrice(y, viewport, plotHeight) };
+export function pixelToPoint(x: number, y: number, candles: readonly ChartCandle[], indexRange: IndexRange, viewport: Viewport, plotWidth: number, plotHeight: number): DrawingPoint {
+  const index = xToIndex(x, indexRange, plotWidth);
+  return { time: fractionalIndexToTime(candles, index), price: yToPrice(y, viewport, plotHeight) };
 }
 
 /** Shortest distance from (px,py) to the segment [a,b], in pixels. Standard clamped-projection formula - degenerates cleanly to point-distance when a===b. */
@@ -31,14 +40,23 @@ export function distancePointToSegmentPx(px: number, py: number, ax: number, ay:
   return Math.hypot(px - projX, py - projY);
 }
 
-function hitTestOne(obj: DrawingObject, px: number, py: number, viewport: Viewport, plotWidth: number, plotHeight: number): DrawingHit["handle"] | null {
+function hitTestOne(
+  obj: DrawingObject,
+  px: number,
+  py: number,
+  candles: readonly ChartCandle[],
+  indexRange: IndexRange,
+  viewport: Viewport,
+  plotWidth: number,
+  plotHeight: number,
+): DrawingHit["handle"] | null {
   if (obj.tool === "horizontal-line") {
     const y = priceToY(obj.price, viewport, plotHeight);
     return Math.abs(py - y) <= BODY_TOLERANCE_PX ? "body" : null;
   }
 
-  const a = pointToPixel(obj.p1, viewport, plotWidth, plotHeight);
-  const b = pointToPixel(obj.p2, viewport, plotWidth, plotHeight);
+  const a = pointToPixel(obj.p1, candles, indexRange, viewport, plotWidth, plotHeight);
+  const b = pointToPixel(obj.p2, candles, indexRange, viewport, plotWidth, plotHeight);
   if (Math.hypot(px - a.x, py - a.y) <= HANDLE_RADIUS_PX) return "p1";
   if (Math.hypot(px - b.x, py - b.y) <= HANDLE_RADIUS_PX) return "p2";
 
@@ -61,12 +79,14 @@ export function hitTestObjects(
   objects: readonly DrawingObject[],
   px: number,
   py: number,
+  candles: readonly ChartCandle[],
+  indexRange: IndexRange,
   viewport: Viewport,
   plotWidth: number,
   plotHeight: number,
 ): DrawingHit | null {
   for (let i = objects.length - 1; i >= 0; i--) {
-    const handle = hitTestOne(objects[i], px, py, viewport, plotWidth, plotHeight);
+    const handle = hitTestOne(objects[i], px, py, candles, indexRange, viewport, plotWidth, plotHeight);
     if (handle) return { objectId: objects[i].id, handle };
   }
   return null;

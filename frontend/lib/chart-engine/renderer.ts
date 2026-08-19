@@ -22,12 +22,12 @@ import { formatTimestamp } from "@/lib/financial-format";
 import type { ChartColors } from "./canvas-colors";
 import { canvasMonoFont } from "./canvas-typography";
 import { classifyCandle } from "./candle-classifier";
-import { priceToY, timeToX, yToPrice } from "./coordinate-system";
+import { priceToY, yToPrice } from "./coordinate-system";
 import { computePriceTicks, targetPriceTickCountForHeight, type PriceAxisTick } from "./price-axis";
 import { computeTimeTicks, targetTimeTickCountForWidth, type TimeAxisTick } from "./time-axis";
 import type { ChartDimensions, CrosshairState, Viewport } from "./types";
-import { candleStepMs } from "./viewport";
 import { computePanelLayout, type PanelRow } from "./panel-layout";
+import { indexRangeForViewport, indexToX, type IndexRange } from "./index-scale";
 import { drawOverlays, drawVolumePanel, drawRsiPanel, drawMacdPanel } from "./sub-panel-renderer";
 import type { IndicatorSeries, ChartPanelId } from "./indicators/types";
 import { drawDrawingObjects, drawDrawingPreview } from "./drawing/drawing-renderer";
@@ -95,6 +95,13 @@ export function renderChart(params: RenderParams): void {
   const layout = computePanelLayout(activePanels, plotHeight);
   const priceRow = layout.find((r) => r.id === "price") ?? { id: "price" as const, top: 0, height: plotHeight };
 
+  // Gapless x-axis (this session) - every candle/tick/drawn-object x
+  // position below goes through this ONE index range, computed once per
+  // render, never per-candle. See index-scale.ts's header comment for why:
+  // a real market's weekend/missing-bar time gaps must never consume
+  // proportional pixel width the way a naive time-linear x-axis would.
+  const indexRange = indexRangeForViewport(candles, viewport);
+
   // Sprint D2.7.6, Phase 5/6 - tick density now derives from the panel's
   // real pixel space instead of a fixed constant, so labels never crowd on
   // a short/narrow viewport and a wide desktop panel isn't under-labeled.
@@ -109,28 +116,28 @@ export function renderChart(params: RenderParams): void {
   // across the price panel and any active sub-panels. Horizontal price
   // grid remains scoped to the price panel's own row, unchanged since D2.7.2.
   drawPriceGrid(ctx, priceTicks, viewport, plotWidth, priceRow, colors);
-  drawTimeGrid(ctx, timeTicks, viewport, plotWidth, plotHeight, colors);
+  drawTimeGrid(ctx, timeTicks, indexRange, plotWidth, plotHeight, colors);
 
-  drawCandles(ctx, candles, viewport, plotWidth, priceRow, colors);
-  drawOverlays(ctx, indicatorSeries, viewport, plotWidth, priceRow);
+  drawCandles(ctx, candles, indexRange, viewport, plotWidth, priceRow, colors);
+  drawOverlays(ctx, indicatorSeries, candles, indexRange, viewport, plotWidth, priceRow);
   drawPriceAxis(ctx, priceTicks, viewport, plotWidth, priceRow, colors);
   drawLatestPriceMarker(ctx, candles, viewport, plotWidth, priceRow, colors, priceTicks);
   if (symbolLabel) drawSymbolLabel(ctx, symbolLabel, priceRow, colors);
-  if (drawingObjects.length > 0) drawDrawingObjects(ctx, drawingObjects, viewport, plotWidth, priceRow, selectedDrawingObjectId);
-  if (drawingPreview) drawDrawingPreview(ctx, drawingPreview, colors.accent, viewport, plotWidth, priceRow);
+  if (drawingObjects.length > 0) drawDrawingObjects(ctx, drawingObjects, candles, indexRange, viewport, plotWidth, priceRow, selectedDrawingObjectId);
+  if (drawingPreview) drawDrawingPreview(ctx, drawingPreview, candles, indexRange, viewport, colors.accent, plotWidth, priceRow);
 
   for (const row of layout) {
     if (row.id === "price") continue;
     const series = indicatorSeries.find((s) => s.panel === row.id);
-    if (row.id === "volume") drawVolumePanel(ctx, candles, viewport, plotWidth, row, colors);
-    else if (row.id === "rsi") drawRsiPanel(ctx, series, viewport, plotWidth, row, colors);
-    else if (row.id === "macd") drawMacdPanel(ctx, series, viewport, plotWidth, row, colors);
+    if (row.id === "volume") drawVolumePanel(ctx, candles, indexRange, viewport, plotWidth, row, colors);
+    else if (row.id === "rsi") drawRsiPanel(ctx, series, candles, indexRange, viewport, plotWidth, row, colors);
+    else if (row.id === "macd") drawMacdPanel(ctx, series, candles, indexRange, viewport, plotWidth, row, colors);
   }
 
-  drawTimeAxis(ctx, timeTicks, viewport, plotWidth, plotHeight, colors);
+  drawTimeAxis(ctx, timeTicks, indexRange, plotWidth, plotHeight, colors);
 
   if (crosshair && crosshair.index >= 0 && crosshair.index < candles.length) {
-    drawCrosshair(ctx, crosshair, candles[crosshair.index], viewport, plotWidth, plotHeight, colors, priceRow, priceTicks);
+    drawCrosshair(ctx, crosshair, candles[crosshair.index], indexRange, viewport, plotWidth, plotHeight, colors, priceRow, priceTicks);
   }
 }
 
@@ -138,11 +145,11 @@ export function renderChart(params: RenderParams): void {
 // previously entirely absent (only horizontal price gridlines existed).
 // Uses the SAME crisp-1px-line convention (integer-round + 0.5 offset) as
 // every other grid/axis line in this renderer.
-function drawTimeGrid(ctx: CanvasRenderingContext2D, ticks: TimeAxisTick[], viewport: Viewport, plotWidth: number, plotHeight: number, colors: ChartColors): void {
+function drawTimeGrid(ctx: CanvasRenderingContext2D, ticks: TimeAxisTick[], indexRange: IndexRange, plotWidth: number, plotHeight: number, colors: ChartColors): void {
   ctx.strokeStyle = colors.grid;
   ctx.lineWidth = 1;
   for (const tick of ticks) {
-    const x = Math.round(timeToX(tick.time, viewport, plotWidth)) + 0.5;
+    const x = Math.round(indexToX(tick.index, indexRange, plotWidth)) + 0.5;
     ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, plotHeight);
@@ -162,15 +169,26 @@ function drawPriceGrid(ctx: CanvasRenderingContext2D, ticks: PriceAxisTick[], vi
   }
 }
 
-function drawCandles(ctx: CanvasRenderingContext2D, candles: ChartCandle[], viewport: Viewport, plotWidth: number, row: PanelRow, colors: ChartColors): void {
+function drawCandles(ctx: CanvasRenderingContext2D, candles: ChartCandle[], indexRange: IndexRange, viewport: Viewport, plotWidth: number, row: PanelRow, colors: ChartColors): void {
   if (candles.length === 0) return;
-  const step = candleStepMs(candles);
-  const pixelsPerMs = plotWidth / Math.max(1, viewport.maxTime - viewport.minTime);
-  const bodyWidth = Math.min(MAX_BODY_WIDTH_PX, Math.max(MIN_BODY_WIDTH_PX, step * pixelsPerMs * BODY_WIDTH_RATIO));
+  // Gapless x-axis (this session) - one candle is always exactly one
+  // index unit wide, so the pixels-per-candle ratio is simply the plot's
+  // width divided by the visible index span. No candleStepMs/real-time
+  // math needed here anymore - that was only ever a proxy for "how much
+  // of one candle-width is visible", which the index span already IS,
+  // directly and exactly, gaps or not.
+  const pixelsPerIndex = plotWidth / Math.max(1e-6, indexRange.maxIndex - indexRange.minIndex);
+  const bodyWidth = Math.min(MAX_BODY_WIDTH_PX, Math.max(MIN_BODY_WIDTH_PX, pixelsPerIndex * BODY_WIDTH_RATIO));
 
-  for (const candle of candles) {
-    if (candle.time < viewport.minTime - step || candle.time > viewport.maxTime + step) continue;
-    const x = timeToX(candle.time, viewport, plotWidth);
+  // One index unit of padding on each side (the exact index-domain analog
+  // of the old `candle.time < viewport.minTime - step` padding) so a
+  // candle's wick/body doesn't visibly clip right at the panel edge.
+  const from = Math.max(0, Math.floor(indexRange.minIndex) - 1);
+  const to = Math.min(candles.length - 1, Math.ceil(indexRange.maxIndex) + 1);
+
+  for (let i = from; i <= to; i++) {
+    const candle = candles[i];
+    const x = indexToX(i, indexRange, plotWidth);
     const trend = classifyCandle(candle);
     // MT5-style hollow-body rendering (this session, matching the user's
     // live terminal reference): a bearish body is filled in `bearish`
@@ -295,7 +313,7 @@ function drawLatestPriceMarker(
 function drawTimeAxis(
   ctx: CanvasRenderingContext2D,
   ticks: TimeAxisTick[],
-  viewport: Viewport,
+  indexRange: IndexRange,
   plotWidth: number,
   plotHeight: number,
   colors: ChartColors,
@@ -305,7 +323,7 @@ function drawTimeAxis(
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   for (const tick of ticks) {
-    const x = timeToX(tick.time, viewport, plotWidth);
+    const x = indexToX(tick.index, indexRange, plotWidth);
     const label = formatTimestamp(tick.time, tick.granularity);
     ctx.fillText(label, x, plotHeight + 6);
   }
@@ -315,6 +333,7 @@ function drawCrosshair(
   ctx: CanvasRenderingContext2D,
   crosshair: CrosshairState,
   candle: ChartCandle,
+  indexRange: IndexRange,
   viewport: Viewport,
   plotWidth: number,
   plotHeight: number,
@@ -322,7 +341,7 @@ function drawCrosshair(
   priceRow: PanelRow,
   priceTicks: PriceAxisTick[],
 ): void {
-  const x = timeToX(candle.time, viewport, plotWidth);
+  const x = indexToX(crosshair.index, indexRange, plotWidth);
   const y = Math.max(0, Math.min(plotHeight, crosshair.y));
 
   ctx.strokeStyle = colors.textTertiary;

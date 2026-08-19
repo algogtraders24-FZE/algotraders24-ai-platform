@@ -599,10 +599,15 @@ async function axisSyncTests(): Promise<void> {
     assert.ok(fn.includes("if (y >= priceRow.top && y <= priceRow.top + priceRow.height) {"));
   });
 
-  await test("the crosshair's time-axis label is drawn at the real snapped candle's own x position, via the SAME timeToX every other renderer element uses", () => {
+  // Updated (gapless x-axis, this session) - the crosshair's x position now
+  // comes from indexToX(crosshair.index, ...) (index-scale.ts), the same
+  // shared gapless positioning candles/ticks/drawn objects all use, not
+  // coordinate-system.ts's time-domain timeToX. crosshair.index is already
+  // the real snapped candle's own array index, so this needs no lookup.
+  await test("the crosshair's time-axis label is drawn at the real snapped candle's own x position, via the SAME indexToX every other renderer element uses", () => {
     const src = read("lib/chart-engine/renderer.ts");
     const fn = src.slice(src.indexOf("function drawCrosshair"), src.indexOf("function drawCrosshair") + 400);
-    assert.ok(fn.includes("timeToX(candle.time, viewport, plotWidth)"));
+    assert.ok(fn.includes("indexToX(crosshair.index, indexRange, plotWidth)"));
   });
 
   await test("panning/zooming does not desynchronize the crosshair from the axis - draw() always passes the SAME crosshairRef.current to renderChart on every redraw", () => {

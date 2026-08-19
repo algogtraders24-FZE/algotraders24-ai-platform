@@ -4,16 +4,26 @@
 // header comment): every pixel drawn is fully determined by the objects/
 // viewport/colors passed in, no hidden state.
 //
+// Gapless x-axis (this session) - a drawn object's x position goes through
+// the SAME index-scale.ts functions renderer.ts's own candle positioning
+// uses, never coordinate-system.ts's time-domain timeToX. This isn't
+// cosmetic: a trend line anchored across a real market gap (e.g. drawn
+// from a Friday candle to a Monday candle) MUST land on those exact same
+// gapless candle positions the price bars themselves render at, or the
+// line would visibly detach from the candles it's meant to annotate.
+//
 // Deliberately never uses ctx.strokeRect/ctx.fillRect-with-inversion or
 // any canvas method the existing renderer.ts doesn't already rely on -
 // renderer.ts's own drawCandles() comment documents WHY (this codebase's
 // test-fake CanvasRenderingContext2D mocks don't implement strokeRect) -
 // a rectangle's outline is drawn via moveTo/lineTo x4/stroke, the exact
 // same primitive the candle hollow-body outline already uses.
-import { priceToY, timeToX } from "../coordinate-system";
+import type { ChartCandle } from "@/types/chart-data";
+import { priceToY } from "../coordinate-system";
 import { canvasMonoFont } from "../canvas-typography";
 import type { PanelRow } from "../panel-layout";
 import type { Viewport } from "../types";
+import { fractionalIndexForTime, indexToX, type IndexRange } from "../index-scale";
 import type { DrawingObject, DrawingPoint, DrawingPreview } from "./types";
 
 const HANDLE_SIZE_PX = 6;
@@ -21,8 +31,9 @@ const SELECTED_LINE_WIDTH = 2;
 const DEFAULT_LINE_WIDTH = 1;
 const RECT_FILL_ALPHA = 0.12;
 
-function toPx(point: DrawingPoint, viewport: Viewport, plotWidth: number, row: PanelRow): { x: number; y: number } {
-  return { x: timeToX(point.time, viewport, plotWidth), y: row.top + priceToY(point.price, viewport, row.height) };
+function toPx(point: DrawingPoint, candles: readonly ChartCandle[], indexRange: IndexRange, viewport: Viewport, plotWidth: number, row: PanelRow): { x: number; y: number } {
+  const index = fractionalIndexForTime(candles, point.time);
+  return { x: indexToX(index, indexRange, plotWidth), y: row.top + priceToY(point.price, viewport, row.height) };
 }
 
 function hexToRgba(hex: string, alpha: number): string {
@@ -71,9 +82,20 @@ function drawHorizontalLine(ctx: CanvasRenderingContext2D, price: number, color:
   ctx.fillText(price.toFixed(5).replace(/0+$/, "").replace(/\.$/, ""), plotWidth + 4, y);
 }
 
-function drawTrendLine(ctx: CanvasRenderingContext2D, p1: DrawingPoint, p2: DrawingPoint, color: string, viewport: Viewport, plotWidth: number, row: PanelRow, selected: boolean): void {
-  const a = toPx(p1, viewport, plotWidth, row);
-  const b = toPx(p2, viewport, plotWidth, row);
+function drawTrendLine(
+  ctx: CanvasRenderingContext2D,
+  p1: DrawingPoint,
+  p2: DrawingPoint,
+  color: string,
+  candles: readonly ChartCandle[],
+  indexRange: IndexRange,
+  viewport: Viewport,
+  plotWidth: number,
+  row: PanelRow,
+  selected: boolean,
+): void {
+  const a = toPx(p1, candles, indexRange, viewport, plotWidth, row);
+  const b = toPx(p2, candles, indexRange, viewport, plotWidth, row);
   ctx.strokeStyle = color;
   ctx.lineWidth = selected ? SELECTED_LINE_WIDTH : DEFAULT_LINE_WIDTH;
   ctx.beginPath();
@@ -86,9 +108,20 @@ function drawTrendLine(ctx: CanvasRenderingContext2D, p1: DrawingPoint, p2: Draw
   }
 }
 
-function drawRectangle(ctx: CanvasRenderingContext2D, p1: DrawingPoint, p2: DrawingPoint, color: string, viewport: Viewport, plotWidth: number, row: PanelRow, selected: boolean): void {
-  const a = toPx(p1, viewport, plotWidth, row);
-  const b = toPx(p2, viewport, plotWidth, row);
+function drawRectangle(
+  ctx: CanvasRenderingContext2D,
+  p1: DrawingPoint,
+  p2: DrawingPoint,
+  color: string,
+  candles: readonly ChartCandle[],
+  indexRange: IndexRange,
+  viewport: Viewport,
+  plotWidth: number,
+  row: PanelRow,
+  selected: boolean,
+): void {
+  const a = toPx(p1, candles, indexRange, viewport, plotWidth, row);
+  const b = toPx(p2, candles, indexRange, viewport, plotWidth, row);
   const left = Math.min(a.x, b.x);
   const top = Math.min(a.y, b.y);
   const width = Math.abs(b.x - a.x);
@@ -108,6 +141,8 @@ function drawRectangle(ctx: CanvasRenderingContext2D, p1: DrawingPoint, p2: Draw
 export function drawDrawingObjects(
   ctx: CanvasRenderingContext2D,
   objects: readonly DrawingObject[],
+  candles: readonly ChartCandle[],
+  indexRange: IndexRange,
   viewport: Viewport,
   plotWidth: number,
   row: PanelRow,
@@ -116,15 +151,24 @@ export function drawDrawingObjects(
   for (const obj of objects) {
     const selected = obj.id === selectedObjectId;
     if (obj.tool === "horizontal-line") drawHorizontalLine(ctx, obj.price, obj.color, plotWidth, viewport, row, selected);
-    else if (obj.tool === "trendline") drawTrendLine(ctx, obj.p1, obj.p2, obj.color, viewport, plotWidth, row, selected);
-    else drawRectangle(ctx, obj.p1, obj.p2, obj.color, viewport, plotWidth, row, selected);
+    else if (obj.tool === "trendline") drawTrendLine(ctx, obj.p1, obj.p2, obj.color, candles, indexRange, viewport, plotWidth, row, selected);
+    else drawRectangle(ctx, obj.p1, obj.p2, obj.color, candles, indexRange, viewport, plotWidth, row, selected);
   }
 }
 
 /** The live "rubber band" preview between a 2-click tool's first click and the second - dashed, so it's visually distinct from a committed object even before any color/selection styling applies. Never persisted; purely a draw-time preview. */
-export function drawDrawingPreview(ctx: CanvasRenderingContext2D, preview: DrawingPreview, color: string, viewport: Viewport, plotWidth: number, row: PanelRow): void {
-  const a = toPx(preview.p1, viewport, plotWidth, row);
-  const b = toPx(preview.p2, viewport, plotWidth, row);
+export function drawDrawingPreview(
+  ctx: CanvasRenderingContext2D,
+  preview: DrawingPreview,
+  candles: readonly ChartCandle[],
+  indexRange: IndexRange,
+  viewport: Viewport,
+  color: string,
+  plotWidth: number,
+  row: PanelRow,
+): void {
+  const a = toPx(preview.p1, candles, indexRange, viewport, plotWidth, row);
+  const b = toPx(preview.p2, candles, indexRange, viewport, plotWidth, row);
   ctx.strokeStyle = color;
   ctx.lineWidth = DEFAULT_LINE_WIDTH;
   ctx.setLineDash([4, 3]);
