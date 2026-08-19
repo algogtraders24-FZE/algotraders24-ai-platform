@@ -398,12 +398,15 @@ async function indicatorCorrectnessTests(): Promise<void> {
 
     await test(`indicator ${cfg.key}: classified into the correct panel (overlay vs its own sub-panel)`, () => {
       const series = computeIndicatorSeries(candles, cfg);
-      // Phase 2 (this session) added atr/stochastic, each in their own
-      // real sub-panel - never overlaid on price, matching the same
-      // "every non-overlay indicator gets its own row" rule rsi/macd/
-      // volume already established.
-      const expectedPanel =
-        cfg.id === "rsi" ? "rsi" : cfg.id === "macd" ? "macd" : cfg.id === "volume" ? "volume" : cfg.id === "atr" ? "atr" : cfg.id === "stochastic" ? "stochastic" : "price";
+      // Phase 2 (this session) added atr/stochastic/adx/cci/williams-r,
+      // each in their own real sub-panel - never overlaid on price,
+      // matching the same "every non-overlay indicator gets its own row"
+      // rule rsi/macd/volume already established. Every non-overlay id
+      // maps to a sub-panel of the exact same name as its id - the one
+      // exception (an id that ISN'T also its own panel name) is handled
+      // explicitly below, never silently defaulted to "price".
+      const nonOverlayIds = ["rsi", "macd", "volume", "atr", "stochastic", "adx", "cci", "williams-r"];
+      const expectedPanel = nonOverlayIds.includes(cfg.id) ? cfg.id : "price";
       assert.equal(series.panel, expectedPanel);
     });
   }

@@ -336,3 +336,122 @@ export function stochasticSeries(
     return k === undefined || d === undefined ? undefined : { k, d };
   });
 }
+
+// ============================================================
+// Phase 2 continued (this session) - ADX, CCI, Williams %R. All three
+// verified against MT5's real default period this session: 14 for every
+// one of them (metatrader5.com - CCI's own ORIGINAL Lambert methodology
+// used 20, but MT5 itself defaults to 14, same as RSI/ATR/Williams %R -
+// this codebase follows MT5's real default, never the textbook one,
+// exactly like Stochastic's 5/3/3 above).
+// ============================================================
+
+export const ADX_PERIOD_DEFAULT = 14;
+export const CCI_PERIOD_DEFAULT = 14;
+export const WILLIAMS_R_PERIOD_DEFAULT = 14;
+
+/** Wilder-smooths a raw (already one-per-transition, e.g. true-range or directional-movement) series: seeded with the simple average of the first `period` values, then the same recurrence atr()/atrSeries() already use. The one shared smoothing primitive adxSeries() below composes three times (TR, +DM, -DM) rather than three near-identical inline copies. */
+function wilderSmooth(raw: readonly number[], period: number): number[] {
+  if (raw.length < period) return [];
+  const out: number[] = [];
+  let value = raw.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  out.push(value);
+  for (let i = period; i < raw.length; i++) {
+    value = (value * (period - 1) + raw[i]) / period;
+    out.push(value);
+  }
+  return out;
+}
+
+export interface AdxResult {
+  adx: number;
+  plusDI: number;
+  minusDI: number;
+}
+
+/**
+ * Wilder's ADX (Average Directional Index) at every index. Standard
+ * Wilder construction: directional movement (+DM/-DM, from the larger of
+ * the up-move/down-move between consecutive highs/lows) and true range
+ * are each Wilder-smoothed, combining into +DI/-DI; their normalized
+ * difference (DX) is itself Wilder-smoothed into ADX. All three lines
+ * are genuinely bounded in [0,100] by construction - never clamped.
+ * Needs 2*period candles (one period for the DI smoothing, a second for
+ * ADX's own smoothing of DX) before the first real value.
+ */
+export function adxSeries(candles: readonly OhlcCandle[], period = ADX_PERIOD_DEFAULT): (AdxResult | undefined)[] {
+  if (candles.length < period * 2) return candles.map(() => undefined);
+
+  const trueRanges: number[] = [];
+  const plusDMs: number[] = [];
+  const minusDMs: number[] = [];
+  for (let i = 1; i < candles.length; i++) {
+    const c = candles[i];
+    const prev = candles[i - 1];
+    trueRanges.push(Math.max(c.high - c.low, Math.abs(c.high - prev.close), Math.abs(c.low - prev.close)));
+    const upMove = c.high - prev.high;
+    const downMove = prev.low - c.low;
+    plusDMs.push(upMove > downMove && upMove > 0 ? upMove : 0);
+    minusDMs.push(downMove > upMove && downMove > 0 ? downMove : 0);
+  }
+
+  const smoothedTR = wilderSmooth(trueRanges, period);
+  const smoothedPlusDM = wilderSmooth(plusDMs, period);
+  const smoothedMinusDM = wilderSmooth(minusDMs, period);
+
+  const plusDIFull = smoothedTR.map((tr, i) => (tr === 0 ? 0 : (100 * smoothedPlusDM[i]) / tr));
+  const minusDIFull = smoothedTR.map((tr, i) => (tr === 0 ? 0 : (100 * smoothedMinusDM[i]) / tr));
+  const dx = plusDIFull.map((plusDI, i) => {
+    const minusDI = minusDIFull[i];
+    const sum = plusDI + minusDI;
+    return sum === 0 ? 0 : (100 * Math.abs(plusDI - minusDI)) / sum;
+  });
+
+  const adxRaw = wilderSmooth(dx, period);
+  // adxRaw[i] corresponds to dx[period-1+i], which shares its index with
+  // smoothedTR/plusDIFull/minusDIFull (all built from the same
+  // trueRanges-derived alignment) - so plusDIFull[period-1+i] is the
+  // exact +DI paired with adxRaw[i]. alignToLength below then left-pads
+  // to line the whole thing up with the real candles array.
+  const raw: AdxResult[] = adxRaw.map((adx, i) => ({
+    adx,
+    plusDI: plusDIFull[i + period - 1],
+    minusDI: minusDIFull[i + period - 1],
+  }));
+  return alignToLength(raw, candles.length);
+}
+
+/** Commodity Channel Index at every index - the standard, unmodified Lambert formula: (typicalPrice - SMA(typicalPrice)) / (0.015 * meanAbsoluteDeviation). Genuinely unbounded (can exceed +-100 in a strong trend) - never clamped to a fixed range. */
+export function cciSeries(candles: readonly OhlcCandle[], period = CCI_PERIOD_DEFAULT): (number | undefined)[] {
+  if (candles.length < period) return candles.map(() => undefined);
+  const typicalPrices = candles.map((c) => (c.high + c.low + c.close) / 3);
+  const raw: number[] = [];
+  for (let i = period - 1; i < typicalPrices.length; i++) {
+    const window = typicalPrices.slice(i - period + 1, i + 1);
+    const mean = window.reduce((a, b) => a + b, 0) / period;
+    const meanDeviation = window.reduce((acc, v) => acc + Math.abs(v - mean), 0) / period;
+    // A genuinely flat window (zero mean deviation) has no honest
+    // deviation to report - 0 (no signal either way) is the honest
+    // reading, never a division-by-zero NaN/Infinity.
+    raw.push(meanDeviation === 0 ? 0 : (typicalPrices[i] - mean) / (0.015 * meanDeviation));
+  }
+  return alignToLength(raw, candles.length);
+}
+
+/** Williams' %R at every index - %R = (highestHigh - close) / (highestHigh - lowestLow) * -100, genuinely bounded in [-100, 0] by construction (0 = at the period's high, -100 = at its low). */
+export function williamsPercentRSeries(candles: readonly OhlcCandle[], period = WILLIAMS_R_PERIOD_DEFAULT): (number | undefined)[] {
+  if (candles.length < period) return candles.map(() => undefined);
+  const raw: number[] = [];
+  for (let i = period - 1; i < candles.length; i++) {
+    const window = candles.slice(i - period + 1, i + 1);
+    const highestHigh = Math.max(...window.map((w) => w.high));
+    const lowestLow = Math.min(...window.map((w) => w.low));
+    const range = highestHigh - lowestLow;
+    // A genuinely flat window has no honest position to report - -50
+    // (the real midpoint of [-100,0]) is the honest reading, matching
+    // stochasticSeries' own flat-window convention (50, the midpoint of
+    // its own [0,100] range) rather than a guessed extreme.
+    raw.push(range === 0 ? -50 : ((highestHigh - candles[i].close) / range) * -100);
+  }
+  return alignToLength(raw, candles.length);
+}

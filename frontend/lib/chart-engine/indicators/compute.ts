@@ -7,7 +7,7 @@
 // shape (types.ts). It contains ZERO Canvas/coordinate code and zero
 // indicator math of its own.
 import type { ChartCandle } from "@/types/chart-data";
-import { smaSeries, emaSeries, rsiSeries, bollingerSeries, macdSeries, atrSeries, stochasticSeries } from "@/lib/market-data/indicators";
+import { smaSeries, emaSeries, rsiSeries, bollingerSeries, macdSeries, atrSeries, stochasticSeries, adxSeries, cciSeries, williamsPercentRSeries } from "@/lib/market-data/indicators";
 import type { IndicatorConfig, IndicatorSeries, IndicatorPoint, IndicatorLine } from "./types";
 
 /** emaSeries() (lib/market-data/indicators.ts) returns only its computable tail, unaligned - left-pad it to one entry per candle, same honest-undefined convention every other *Series function already returns. */
@@ -97,6 +97,31 @@ export function computeIndicatorSeries(candles: ChartCandle[], config: Indicator
           { name: `${config.key}-d`, points: dLine, color: "var(--steel)" },
         ],
       };
+    }
+    case "adx": {
+      const results = adxSeries(candles, config.period);
+      const adxLine = toPoints(candles, results.map((r) => r?.adx));
+      const plusDI = toPoints(candles, results.map((r) => r?.plusDI));
+      const minusDI = toPoints(candles, results.map((r) => r?.minusDI));
+      return {
+        config,
+        panel: "adx",
+        lines: [
+          { name: `${config.key}-adx`, points: adxLine, color: config.color },
+          { name: `${config.key}-plus-di`, points: plusDI, color: "var(--signal-up)" },
+          { name: `${config.key}-minus-di`, points: minusDI, color: "var(--signal-down)" },
+        ],
+      };
+    }
+    case "cci": {
+      const values = cciSeries(candles, config.period);
+      const line: IndicatorLine = { name: config.key, points: toPoints(candles, values), color: config.color };
+      return { config, panel: "cci", lines: [line] };
+    }
+    case "williams-r": {
+      const values = williamsPercentRSeries(candles, config.period);
+      const line: IndicatorLine = { name: config.key, points: toPoints(candles, values), color: config.color };
+      return { config, panel: "williams-r", lines: [line] };
     }
   }
 }

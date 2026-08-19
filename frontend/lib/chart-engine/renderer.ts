@@ -28,7 +28,17 @@ import { computeTimeTicks, targetTimeTickCountForWidth, type TimeAxisTick } from
 import type { ChartDimensions, CrosshairState, Viewport } from "./types";
 import { computePanelLayout, type PanelRow } from "./panel-layout";
 import { indexRangeForViewport, indexToX, type IndexRange } from "./index-scale";
-import { drawOverlays, drawVolumePanel, drawRsiPanel, drawMacdPanel, drawAtrPanel, drawStochasticPanel } from "./sub-panel-renderer";
+import {
+  drawOverlays,
+  drawVolumePanel,
+  drawRsiPanel,
+  drawMacdPanel,
+  drawAtrPanel,
+  drawStochasticPanel,
+  drawAdxPanel,
+  drawCciPanel,
+  drawWilliamsRPanel,
+} from "./sub-panel-renderer";
 import type { IndicatorSeries, ChartPanelId } from "./indicators/types";
 import { drawDrawingObjects, drawDrawingPreview } from "./drawing/drawing-renderer";
 import type { DrawingObject, DrawingPreview } from "./drawing/types";
@@ -137,6 +147,9 @@ export function renderChart(params: RenderParams): void {
     else if (row.id === "macd") drawMacdPanel(ctx, series, candles, indexRange, viewport, plotWidth, row, colors);
     else if (row.id === "atr") drawAtrPanel(ctx, series, candles, indexRange, viewport, plotWidth, row, colors);
     else if (row.id === "stochastic") drawStochasticPanel(ctx, series, candles, indexRange, viewport, plotWidth, row, colors);
+    else if (row.id === "adx") drawAdxPanel(ctx, series, candles, indexRange, viewport, plotWidth, row, colors);
+    else if (row.id === "cci") drawCciPanel(ctx, series, candles, indexRange, viewport, plotWidth, row, colors);
+    else if (row.id === "williams-r") drawWilliamsRPanel(ctx, series, candles, indexRange, viewport, plotWidth, row, colors);
   }
 
   drawTimeAxis(ctx, timeTicks, indexRange, plotWidth, plotHeight, colors);

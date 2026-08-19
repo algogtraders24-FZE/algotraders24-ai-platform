@@ -36,6 +36,14 @@ const RSI_OVERSOLD = 30;
 // RSI's thresholds for a different oscillator).
 const STOCHASTIC_OVERBOUGHT = 80;
 const STOCHASTIC_OVERSOLD = 20;
+// CCI's own real, standard reference lines - +-100 (not a bounded
+// oscillator like RSI/Stochastic, so these are reference thresholds on a
+// dynamic scale, never a fixed axis range).
+const CCI_REFERENCE_LEVEL = 100;
+// Williams %R's own real, standard overbought/oversold convention on its
+// [-100,0] range - -20/-80, the mirror image of Stochastic's 80/20.
+const WILLIAMS_R_OVERBOUGHT = -20;
+const WILLIAMS_R_OVERSOLD = -80;
 
 function panelViewport(viewport: Viewport, minValue: number, maxValue: number): Viewport {
   return { minTime: viewport.minTime, maxTime: viewport.maxTime, minPrice: minValue, maxPrice: maxValue };
@@ -350,4 +358,108 @@ export function drawStochasticPanel(
   const [kLine, dLine] = series.lines;
   if (kLine) drawLine(ctx, kLine.points, candles, indexRange, panelVp, plotWidth, row, kLine.color);
   if (dLine) drawLine(ctx, dLine.points, candles, indexRange, panelVp, plotWidth, row, dLine.color);
+}
+
+/** ADX (Phase 2 continued) - a fixed 0-100 scale (all three lines are genuinely bounded in that range by construction - see indicators.ts's adxSeries()), with the real ADX (trend strength) plus +DI/-DI (directional bias) lines. Deliberately no overbought/oversold reference lines - MT5's own real ADX indicator doesn't draw one by default (it's a trend-strength gauge, not a bounded oscillator with a genuine threshold convention like RSI/Stochastic), so this never fabricates a UI element that isn't actually there. */
+export function drawAdxPanel(
+  ctx: CanvasRenderingContext2D,
+  series: IndicatorSeries | undefined,
+  candles: ChartCandle[],
+  indexRange: IndexRange,
+  viewport: Viewport,
+  plotWidth: number,
+  row: PanelRow,
+  colors: ChartColors,
+): void {
+  drawPanelFrame(ctx, row, plotWidth, colors, "ADX");
+  if (!series) return;
+  const panelVp = panelViewport(viewport, 0, 100);
+  const [adxLine, plusDI, minusDI] = series.lines;
+  if (plusDI) drawLine(ctx, plusDI.points, candles, indexRange, panelVp, plotWidth, row, plusDI.color);
+  if (minusDI) drawLine(ctx, minusDI.points, candles, indexRange, panelVp, plotWidth, row, minusDI.color);
+  if (adxLine) drawLine(ctx, adxLine.points, candles, indexRange, panelVp, plotWidth, row, adxLine.color);
+}
+
+/** CCI (Phase 2 continued) - a dynamic scale, but one that always includes CCI's own real +-100 reference levels even when the visible data's own range is narrower, so those reference lines stay meaningful (never silently squeezed out of view). Genuinely unbounded (a strong trend can push CCI well past +-100) - the scale expands to fit whichever is larger. */
+export function drawCciPanel(
+  ctx: CanvasRenderingContext2D,
+  series: IndicatorSeries | undefined,
+  candles: ChartCandle[],
+  indexRange: IndexRange,
+  viewport: Viewport,
+  plotWidth: number,
+  row: PanelRow,
+  colors: ChartColors,
+): void {
+  drawPanelFrame(ctx, row, plotWidth, colors, "CCI");
+  if (!series) return;
+  const line = series.lines[0];
+  if (!line) return;
+
+  const visibleValues = line.points
+    .filter((p) => p.time >= viewport.minTime && p.time <= viewport.maxTime && p.value !== undefined)
+    .map((p) => p.value as number);
+  const maxAbs = Math.max(CCI_REFERENCE_LEVEL, ...visibleValues.map((v) => Math.abs(v)));
+  const panelVp = panelViewport(viewport, -maxAbs, maxAbs);
+
+  ctx.strokeStyle = colors.grid;
+  ctx.setLineDash([2, 2]);
+  for (const level of [-CCI_REFERENCE_LEVEL, CCI_REFERENCE_LEVEL]) {
+    const y = row.top + priceToY(level, panelVp, row.height);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(plotWidth, y);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  ctx.fillStyle = colors.textTertiary;
+  ctx.textAlign = "right";
+  for (const level of [-CCI_REFERENCE_LEVEL, CCI_REFERENCE_LEVEL]) {
+    const y = row.top + priceToY(level, panelVp, row.height);
+    ctx.textBaseline = level === CCI_REFERENCE_LEVEL ? "bottom" : "top";
+    ctx.fillText(String(level), plotWidth - 4, y);
+  }
+
+  drawLine(ctx, line.points, candles, indexRange, panelVp, plotWidth, row, line.color);
+}
+
+/** Williams %R (Phase 2 continued) - a fixed [-100,0] scale (genuinely bounded by construction - see indicators.ts's williamsPercentRSeries()), with its own real -20/-80 overbought/oversold reference lines - the mirror image of Stochastic's 80/20, never reused/confused with it. */
+export function drawWilliamsRPanel(
+  ctx: CanvasRenderingContext2D,
+  series: IndicatorSeries | undefined,
+  candles: ChartCandle[],
+  indexRange: IndexRange,
+  viewport: Viewport,
+  plotWidth: number,
+  row: PanelRow,
+  colors: ChartColors,
+): void {
+  drawPanelFrame(ctx, row, plotWidth, colors, "Williams %R");
+  const panelVp = panelViewport(viewport, -100, 0);
+
+  ctx.strokeStyle = colors.grid;
+  ctx.setLineDash([2, 2]);
+  for (const level of [WILLIAMS_R_OVERSOLD, WILLIAMS_R_OVERBOUGHT]) {
+    const y = row.top + priceToY(level, panelVp, row.height);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(plotWidth, y);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  ctx.fillStyle = colors.textTertiary;
+  ctx.textAlign = "right";
+  for (const level of [WILLIAMS_R_OVERSOLD, WILLIAMS_R_OVERBOUGHT]) {
+    const y = row.top + priceToY(level, panelVp, row.height);
+    ctx.textBaseline = level === WILLIAMS_R_OVERBOUGHT ? "bottom" : "top";
+    ctx.fillText(String(level), plotWidth - 4, y);
+  }
+
+  if (!series) return;
+  const line = series.lines[0];
+  if (line) drawLine(ctx, line.points, candles, indexRange, panelVp, plotWidth, row, line.color);
 }
