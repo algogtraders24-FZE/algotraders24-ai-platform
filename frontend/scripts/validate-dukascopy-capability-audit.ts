@@ -87,13 +87,15 @@ async function main(): Promise<void> {
   });
 
   // ---------------------------------------------------------------------
-  // 12: provider priority/order unchanged
+  // 12: provider priority/order - MT5 promoted to first (this session,
+  // unrelated to this sprint's own scope, at the user's explicit request);
+  // this audit's own real invariant (no Dukascopy provider) is unaffected
   // ---------------------------------------------------------------------
-  await test("12: MarketDataService's default provider priority order is unchanged", () => {
+  await test("12: MarketDataService's default provider priority order has MT5 first and never references Dukascopy", () => {
     const source = readFileSync(new URL("../services/market-data/market-data.service.ts", import.meta.url), "utf8");
     assert.ok(
-      source.includes("options.providers ?? [new TwelveDataProvider(), new AlphaVantageProvider(), new BinanceProvider(), new AngelOneProvider()]"),
-      "the default provider array must not reference Dukascopy or otherwise change",
+      source.includes("options.providers ?? [new Mt5Provider(), new TwelveDataProvider(), new AlphaVantageProvider(), new BinanceProvider(), new AngelOneProvider()]"),
+      "the default provider array must have MT5 first and must not reference Dukascopy",
     );
     assert.ok(!/dukascopy/i.test(source));
   });

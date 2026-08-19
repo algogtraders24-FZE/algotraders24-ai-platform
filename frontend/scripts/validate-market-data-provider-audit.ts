@@ -40,11 +40,17 @@ async function main(): Promise<void> {
   // ---------------------------------------------------------------------
   // 2: MarketDataService's default provider array is unchanged
   // ---------------------------------------------------------------------
-  await test("2: MarketDataService's default provider priority order for the D2.8.1 providers is unchanged (Twelve Data, Alpha Vantage, Binance, Angel One, in that exact order) - MT5 is a legitimate APPEND after them, never inserted before", () => {
+  // Updated (post-D2.8.1, this session) - MT5 was intentionally moved to
+  // position 1 at the user's explicit request, to relieve Twelve Data/
+  // Alpha Vantage's shared-quota rate-limit blocks on the 7 symbols MT5
+  // covers. The D2.8.1 providers keep their exact original RELATIVE order
+  // among themselves (Twelve Data, Alpha Vantage, Binance, Angel One) -
+  // only MT5's position changed, from last to first.
+  await test("2: MarketDataService's default provider priority order has MT5 first, then the D2.8.1 providers in their original relative order (Twelve Data, Alpha Vantage, Binance, Angel One)", () => {
     const source = readFileSync(new URL("../services/market-data/market-data.service.ts", import.meta.url), "utf8");
     assert.ok(
-      source.includes("options.providers ?? [new TwelveDataProvider(), new AlphaVantageProvider(), new BinanceProvider(), new AngelOneProvider(), new Mt5Provider()]"),
-      "the D2.8.1 providers must keep their exact original relative order, with MT5 appended last",
+      source.includes("options.providers ?? [new Mt5Provider(), new TwelveDataProvider(), new AlphaVantageProvider(), new BinanceProvider(), new AngelOneProvider()]"),
+      "MT5 must be first, followed by the D2.8.1 providers in their exact original relative order",
     );
   });
 

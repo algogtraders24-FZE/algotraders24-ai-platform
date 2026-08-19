@@ -415,11 +415,12 @@ async function main(): Promise<void> {
   });
 
   // ---------------------------------------------------------------------
-  // 17: no provider priority changes
+  // 17: provider priority order - MT5 promoted to first (this session,
+  // unrelated to this sprint's own scope, at the user's explicit request)
   // ---------------------------------------------------------------------
-  await test("17: MarketDataService's default provider priority order is unchanged by this sprint", () => {
+  await test("17: MarketDataService's default provider priority order has MT5 first, then the pre-existing 4 in their original relative order", () => {
     const source = readFileSync(new URL("../services/market-data/market-data.service.ts", import.meta.url), "utf8");
-    assert.ok(source.includes("options.providers ?? [new TwelveDataProvider(), new AlphaVantageProvider(), new BinanceProvider(), new AngelOneProvider()]"));
+    assert.ok(source.includes("options.providers ?? [new Mt5Provider(), new TwelveDataProvider(), new AlphaVantageProvider(), new BinanceProvider(), new AngelOneProvider()]"));
   });
 
   // ---------------------------------------------------------------------

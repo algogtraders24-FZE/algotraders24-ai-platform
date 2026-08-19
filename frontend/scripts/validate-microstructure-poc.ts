@@ -26,20 +26,25 @@ async function main(): Promise<void> {
   // ---------------------------------------------------------------------
   // 1: no duplicate provider abstraction was created
   // ---------------------------------------------------------------------
-  await test("1: lib/market-data/providers/ contains exactly the D2.8.1/D2.8.2 baseline - no new provider file this sprint", () => {
+  // Updated for the MT5 (Exness) live data bridge - a legitimate later
+  // addition (same as angel-one/binance were legitimate additions after
+  // this test was first written), not a change from this sprint.
+  await test("1: lib/market-data/providers/ contains exactly the D2.8.1/D2.8.2 baseline plus the intentional MT5 bridge addition - no new provider file this sprint", () => {
     const files = readdirSync(new URL("../lib/market-data/providers/", import.meta.url)).sort();
-    const expected = ["alpha-vantage-news.provider.ts", "alpha-vantage.provider.ts", "angel-one.provider.ts", "binance.provider.ts", "twelve-data.provider.ts"];
+    const expected = ["alpha-vantage-news.provider.ts", "alpha-vantage.provider.ts", "angel-one.provider.ts", "binance.provider.ts", "mt5.provider.ts", "twelve-data.provider.ts"];
     assert.deepEqual(files, expected, "provider directory contents must be unchanged");
   });
 
   // ---------------------------------------------------------------------
-  // 2: existing provider priority order unchanged
+  // 2: provider priority order - MT5 promoted to first (this session,
+  // unrelated to this POC sprint's own scope, at the user's explicit
+  // request)
   // ---------------------------------------------------------------------
-  await test("2: MarketDataService's default provider priority order is unchanged", () => {
+  await test("2: MarketDataService's default provider priority order has MT5 first, then the pre-existing 4 in their original relative order", () => {
     const source = readFileSync(new URL("../services/market-data/market-data.service.ts", import.meta.url), "utf8");
     assert.ok(
-      source.includes("options.providers ?? [new TwelveDataProvider(), new AlphaVantageProvider(), new BinanceProvider(), new AngelOneProvider()]"),
-      "the default provider array must not have been touched by this POC sprint",
+      source.includes("options.providers ?? [new Mt5Provider(), new TwelveDataProvider(), new AlphaVantageProvider(), new BinanceProvider(), new AngelOneProvider()]"),
+      "MT5 must be first, followed by the pre-existing 4 providers in their exact original relative order",
     );
   });
 

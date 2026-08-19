@@ -42,16 +42,15 @@ import { AlphaVantageProvider } from "@/lib/market-data/providers/alpha-vantage.
 // length matter at all.
 import { BinanceProvider } from "@/lib/market-data/providers/binance.provider";
 import { AngelOneProvider } from "@/lib/market-data/providers/angel-one.provider";
-// MT5 (Exness) live data bridge - appended LAST, same backward-
-// compatible "append, never insert before" rule as Binance/Angel One
-// above. Twelve Data/Alpha Vantage/Binance/Angel One keep their exact
-// existing priority and behavior for every symbol they already serve;
-// MT5 only matters where every earlier provider genuinely fails (XAGUSD
-// today - see mt5-bridge/README.md) or as one more resilience layer.
-// Absent (unconfigured) by default - isConfigured() is false until
-// MT5_BRIDGE_URL/MT5_BRIDGE_SECRET are actually set, so the platform's
-// behavior is completely unchanged for every deployment that hasn't set
-// up the bridge.
+// MT5 (Exness) live data bridge - now tried FIRST (moved ahead of Twelve
+// Data/Alpha Vantage this session, at the user's request, to relieve
+// those two shared-quota providers' rate-limit blocks on the 7 symbols
+// MT5 covers - see the MarketDataServiceOptions.providers JSDoc below for
+// the full rationale). Absent (unconfigured) by default - isConfigured()
+// is false until MT5_BRIDGE_URL/MT5_BRIDGE_SECRET are actually set, so
+// the platform's behavior is completely unchanged for every deployment
+// that hasn't set up the bridge (the loop falls through to Twelve Data
+// immediately, same as before this session).
 import { Mt5Provider } from "@/lib/market-data/providers/mt5.provider";
 import { ProviderHealthMonitor, type ProviderHealthSnapshot } from "@/lib/market-data/health-monitor";
 import { logger } from "@/services/backend/Logger";
@@ -86,7 +85,23 @@ function withDerivedSpread(snapshot: MarketSnapshot): MarketSnapshot {
 }
 
 export interface MarketDataServiceOptions {
-  /** Providers in priority order. Default: [Twelve Data (primary), Alpha Vantage, Binance, Angel One (D2.6.3), MT5 (user's own live-account bridge, unconfigured/absent unless MT5_BRIDGE_URL+MT5_BRIDGE_SECRET are set)]. */
+  /**
+   * Providers in priority order. Default: [MT5 (user's own live-account
+   * bridge - tried FIRST for the 7 symbols it covers: XAUUSD/XAGUSD/EURUSD/
+   * GBPUSD/USDJPY/BTCUSD/ETHUSD; throws unsupported_symbol synchronously,
+   * no network call, for every other symbol - see mt5.provider.ts's
+   * resolveSymbol()), Twelve Data, Alpha Vantage, Binance, Angel One
+   * (D2.6.3)].
+   *
+   * MT5 was moved ahead of Twelve Data/Alpha Vantage (this session) at the
+   * user's explicit request, to relieve those two shared-quota providers'
+   * rate-limit blocks on the instruments the user actually watches day to
+   * day - every one of the 7 MT5-covered symbols is a live production
+   * feed already verified working (see mt5-bridge/README.md). Symbols MT5
+   * doesn't map (NIFTY50/BANKNIFTY, etc.) are completely unaffected: MT5's
+   * resolveSymbol() fails fast with no network round-trip, so the loop
+   * falls through to Twelve Data exactly as before.
+   */
   providers?: MarketDataProvider[];
   cacheTtlMs?: number;
   /** Sprint D2.3.S3 - grace window past cacheTtlMs a stale entry may still be served when every provider fails. */
@@ -113,13 +128,12 @@ export class MarketDataService implements MarketDataProvider, SnapshotProvider, 
   private readonly log = logger.child("market-data");
 
   constructor(options: MarketDataServiceOptions = {}) {
-    // Priority order is the provider-priority contract: Twelve Data first,
-    // Alpha Vantage as the preserved fallback, then Binance and Angel One
-    // (Sprint D2.6.3) appended - see the import comment above for why
-    // this ordering is deliberately backward-compatible. Callers may
-    // override entirely (e.g. tests inject fakes) but the default
+    // Priority order: MT5 first (this session - see the interface's own
+    // JSDoc above for why), then Twelve Data, Alpha Vantage, Binance and
+    // Angel One (Sprint D2.6.3) in their original relative order. Callers
+    // may override entirely (e.g. tests inject fakes) but the default
     // encodes the documented policy.
-    this.providers = options.providers ?? [new TwelveDataProvider(), new AlphaVantageProvider(), new BinanceProvider(), new AngelOneProvider(), new Mt5Provider()];
+    this.providers = options.providers ?? [new Mt5Provider(), new TwelveDataProvider(), new AlphaVantageProvider(), new BinanceProvider(), new AngelOneProvider()];
     this.clock = options.clock ?? systemClock;
     this.cacheTtlMs = options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
     this.cache = new TtlCache<MarketContextResult>(this.cacheTtlMs, this.clock);

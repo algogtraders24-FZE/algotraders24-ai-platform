@@ -1,0 +1,4 @@
+# Compiled MQL5/MQL4 binaries and MetaEditor build logs are regenerable — keep only source.
+*.ex5
+*.ex4
+compile.log
