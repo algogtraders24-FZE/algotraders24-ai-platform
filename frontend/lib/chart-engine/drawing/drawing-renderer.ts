@@ -24,7 +24,7 @@ import { canvasMonoFont } from "../canvas-typography";
 import type { PanelRow } from "../panel-layout";
 import type { Viewport } from "../types";
 import { fractionalIndexForTime, indexToX, type IndexRange } from "../index-scale";
-import type { DrawingObject, DrawingPoint, DrawingPreview } from "./types";
+import { FIBONACCI_LEVELS, type DrawingObject, type DrawingPoint, type DrawingPreview } from "./types";
 
 const HANDLE_SIZE_PX = 6;
 const SELECTED_LINE_WIDTH = 2;
@@ -138,6 +138,58 @@ function drawRectangle(
   }
 }
 
+/**
+ * MT5's OBJ_FIBO - horizontal price levels at each of FIBONACCI_LEVELS'
+ * real ratios between p1.price and p2.price, spanning only the x range
+ * between the two anchors (never the full panel width - that's what
+ * visually distinguishes it from a set of independent horizontal lines).
+ * Each level's own real price is labeled next to it, the same "always
+ * show the real number" convention drawHorizontalLine already follows.
+ */
+function drawFibonacci(
+  ctx: CanvasRenderingContext2D,
+  p1: DrawingPoint,
+  p2: DrawingPoint,
+  color: string,
+  candles: readonly ChartCandle[],
+  indexRange: IndexRange,
+  viewport: Viewport,
+  plotWidth: number,
+  row: PanelRow,
+  selected: boolean,
+): void {
+  const a = toPx(p1, candles, indexRange, viewport, plotWidth, row);
+  const b = toPx(p2, candles, indexRange, viewport, plotWidth, row);
+  const left = Math.min(a.x, b.x);
+  const right = Math.max(a.x, b.x);
+
+  ctx.lineWidth = selected ? SELECTED_LINE_WIDTH : DEFAULT_LINE_WIDTH;
+  ctx.font = canvasMonoFont(10);
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+
+  for (const level of FIBONACCI_LEVELS) {
+    const price = p1.price + (p2.price - p1.price) * level;
+    const y = row.top + priceToY(price, viewport, row.height);
+    if (y < row.top - 1 || y > row.top + row.height + 1) continue; // off-panel level - skip, never draw outside its own panel
+
+    ctx.strokeStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(left, y);
+    ctx.lineTo(right, y);
+    ctx.stroke();
+
+    ctx.fillStyle = color;
+    const priceLabel = price.toFixed(5).replace(/0+$/, "").replace(/\.$/, "");
+    ctx.fillText(`${(level * 100).toFixed(1)}%  ${priceLabel}`, right + 4, y);
+  }
+
+  if (selected) {
+    drawHandle(ctx, a.x, a.y, color);
+    drawHandle(ctx, b.x, b.y, color);
+  }
+}
+
 export function drawDrawingObjects(
   ctx: CanvasRenderingContext2D,
   objects: readonly DrawingObject[],
@@ -152,6 +204,7 @@ export function drawDrawingObjects(
     const selected = obj.id === selectedObjectId;
     if (obj.tool === "horizontal-line") drawHorizontalLine(ctx, obj.price, obj.color, plotWidth, viewport, row, selected);
     else if (obj.tool === "trendline") drawTrendLine(ctx, obj.p1, obj.p2, obj.color, candles, indexRange, viewport, plotWidth, row, selected);
+    else if (obj.tool === "fibonacci") drawFibonacci(ctx, obj.p1, obj.p2, obj.color, candles, indexRange, viewport, plotWidth, row, selected);
     else drawRectangle(ctx, obj.p1, obj.p2, obj.color, candles, indexRange, viewport, plotWidth, row, selected);
   }
 }

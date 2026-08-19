@@ -53,6 +53,8 @@ export interface RenderParams {
   selectedDrawingObjectId?: string | null;
   /** The live "rubber band" preview between a 2-click tool's first and second click - never persisted, drawn only while a placement is in progress. */
   drawingPreview?: DrawingPreview | null;
+  /** This session - the live bid/ask (useLiveQuote.ts), preferred over the last candle's close for the current-price marker when present. Omitted/null means "no live quote yet" - the marker falls back to the candle close exactly as it always has, never a fabricated bid/ask. */
+  liveQuote?: { bid: number; ask: number } | null;
 }
 
 const AXIS_FONT_SIZE = 11;
@@ -82,6 +84,7 @@ export function renderChart(params: RenderParams): void {
     drawingObjects = [],
     selectedDrawingObjectId = null,
     drawingPreview = null,
+    liveQuote = null,
   } = params;
   const plotWidth = Math.max(0, dims.width - dims.priceAxisWidth);
   const plotHeight = Math.max(0, dims.height - dims.timeAxisHeight);
@@ -121,7 +124,7 @@ export function renderChart(params: RenderParams): void {
   drawCandles(ctx, candles, indexRange, viewport, plotWidth, priceRow, colors);
   drawOverlays(ctx, indicatorSeries, candles, indexRange, viewport, plotWidth, priceRow);
   drawPriceAxis(ctx, priceTicks, viewport, plotWidth, priceRow, colors);
-  drawLatestPriceMarker(ctx, candles, viewport, plotWidth, priceRow, colors, priceTicks);
+  drawLatestPriceMarker(ctx, candles, viewport, plotWidth, priceRow, colors, priceTicks, liveQuote);
   if (symbolLabel) drawSymbolLabel(ctx, symbolLabel, priceRow, colors);
   if (drawingObjects.length > 0) drawDrawingObjects(ctx, drawingObjects, candles, indexRange, viewport, plotWidth, priceRow, selectedDrawingObjectId);
   if (drawingPreview) drawDrawingPreview(ctx, drawingPreview, candles, indexRange, viewport, colors.accent, plotWidth, priceRow);
@@ -271,6 +274,16 @@ function drawPriceAxis(ctx: CanvasRenderingContext2D, ticks: PriceAxisTick[], vi
 // grid/candle/indicator colors) with its real price value in the axis
 // gutter - never a second price source, always the exact same candles[]
 // the chart itself already renders.
+//
+// This session - when a live bid/ask quote is available (useLiveQuote.ts,
+// the same /api/private/market-data/snapshot endpoint every other bid/ask
+// display on this platform already calls), the line/label prefer the real
+// live BID over the last candle's close - matching real MT5's own
+// terminal, whose current-price line is always the live tradeable bid,
+// not a possibly-seconds-stale candle close. The label also shows the
+// real ask right next to it, so the live spread is visible at a glance -
+// never a second/fabricated number when liveQuote is absent, the candle
+// close alone is shown exactly as before this session.
 function drawLatestPriceMarker(
   ctx: CanvasRenderingContext2D,
   candles: ChartCandle[],
@@ -279,10 +292,12 @@ function drawLatestPriceMarker(
   row: PanelRow,
   colors: ChartColors,
   priceTicks: PriceAxisTick[],
+  liveQuote?: { bid: number; ask: number } | null,
 ): void {
   const latest = candles[candles.length - 1];
   if (!latest) return;
-  const y = row.top + priceToY(latest.close, viewport, row.height);
+  const price = liveQuote ? liveQuote.bid : latest.close;
+  const y = row.top + priceToY(price, viewport, row.height);
   if (y < row.top - 1 || y > row.top + row.height + 1) return; // off-panel (zoomed/panned away) - never draw a marker outside its own panel
 
   // Sprint (this session) - uses `colors.accent` rather than `colors.gold`
@@ -301,13 +316,21 @@ function drawLatestPriceMarker(
   ctx.setLineDash([]);
 
   const decimals = priceTicks[0]?.decimals ?? 2;
+  const label = liveQuote ? `${price.toFixed(decimals)}/${liveQuote.ask.toFixed(decimals)}` : price.toFixed(decimals);
+  // Box width fits the label's own length - never a fixed 58px assumption
+  // that would clip a longer "bid/ask" string. Estimated by character
+  // count (never ctx.measureText - this codebase's test-fake
+  // CanvasRenderingContext2D mocks don't implement it, the same
+  // constraint drawCandles' own comment documents for strokeRect).
+  const AXIS_CHAR_WIDTH_PX = 6.6; // 11px monospace's own average glyph width
+  const boxWidth = Math.max(58, label.length * AXIS_CHAR_WIDTH_PX + 8);
   ctx.fillStyle = colors.accent;
-  ctx.fillRect(plotWidth, y - 7, 58, 14);
+  ctx.fillRect(plotWidth, y - 7, boxWidth, 14);
   ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
   ctx.fillStyle = colors.background;
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
-  ctx.fillText(latest.close.toFixed(decimals), plotWidth + 4, y);
+  ctx.fillText(label, plotWidth + 4, y);
 }
 
 function drawTimeAxis(

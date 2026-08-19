@@ -1,14 +1,14 @@
 "use client";
 
 // components/chart-engine/DrawingToolbar.tsx
-// MT5 feature-parity Phase 1 - the drawing-tool selector: Cursor (normal
-// pan/crosshair mode), Trend Line, Horizontal Line, Rectangle, plus a
-// "Delete selected" action enabled only when an object is actually
-// selected. Deliberately a SEPARATE small toolbar from ChartToolbar.tsx
-// (symbol/timeframe/indicators/fit/live) rather than folded into it -
-// these are two different concerns (data/view controls vs. annotation
-// tools), matching how MT5 itself keeps its own drawing toolbar visually
-// distinct from the chart's main controls.
+// MT5 feature-parity Phase 1/1b - the drawing-tool selector: Cursor
+// (normal pan/crosshair mode), Trend Line, Horizontal Line, Rectangle,
+// Fibonacci Retracement, plus a "Delete selected" action enabled only
+// when an object is actually selected. Deliberately a SEPARATE small
+// toolbar from ChartToolbar.tsx (symbol/timeframe/indicators/fit/live)
+// rather than folded into it - these are two different concerns (data/
+// view controls vs. annotation tools), matching how MT5 itself keeps its
+// own drawing toolbar visually distinct from the chart's main controls.
 import type { DrawingToolId } from "@/lib/chart-engine/drawing/types";
 
 export interface DrawingToolbarProps {
@@ -24,6 +24,7 @@ const TOOLS: { id: DrawingToolId; label: string; glyph: string }[] = [
   { id: "trendline", label: "Trend Line", glyph: "╱" },
   { id: "horizontal-line", label: "Horizontal Line", glyph: "―" },
   { id: "rectangle", label: "Rectangle", glyph: "▭" },
+  { id: "fibonacci", label: "Fibonacci Retracement", glyph: "F" },
 ];
 
 export default function DrawingToolbar({ activeTool, onSelectTool, hasSelection, onDeleteSelected, objectCount, onClearAll }: DrawingToolbarProps) {

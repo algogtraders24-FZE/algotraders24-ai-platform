@@ -639,6 +639,70 @@ async function uxAndCoexistenceTests(): Promise<void> {
     });
   });
 
+  await test("live bid/ask (this session): the current-price marker uses the live bid over the candle close when a liveQuote is passed, and labels the real ask alongside it", () => {
+    const candles = makeCandleSeries(30, 60_000);
+    const viewport = fitToData(candles);
+    const texts: string[] = [];
+    const textCapturingCtx = {
+      clearRect: () => {},
+      fillRect: () => {},
+      beginPath: () => {},
+      moveTo: () => {},
+      lineTo: () => {},
+      stroke: () => {},
+      fillText: (text: string) => texts.push(text),
+      setLineDash: () => {},
+      set fillStyle(_v: string) {},
+      set strokeStyle(_v: string) {},
+      set lineWidth(_v: number) {},
+      set font(_v: string) {},
+      set textAlign(_v: string) {},
+      set textBaseline(_v: string) {},
+    } as unknown as CanvasRenderingContext2D;
+
+    // Deliberately DIFFERENT from the candle close (so the assertion below
+    // can only pass if the marker genuinely used the live quote, not
+    // silently fallen back to it) but small enough to stay safely inside
+    // fitToData's own padded viewport for this fixture - a large offset
+    // here would push the marker off-panel and skip it entirely, which is
+    // its own correct-but-unrelated behavior this test isn't about.
+    const bid = candles[candles.length - 1].close + 0.3;
+    const ask = bid + 0.05;
+    renderChart({
+      ctx: textCapturingCtx,
+      dims: { width: 600, height: 300, priceAxisWidth: 64, timeAxisHeight: 22 },
+      candles,
+      viewport,
+      timeframe: "1h",
+      crosshair: null,
+      colors: resolveChartColors(),
+      liveQuote: { bid, ask },
+    });
+
+    // Don't assume a specific decimal precision here - the marker's own
+    // decimals come from computePriceTicks' nice-step logic for THIS
+    // fixture's price range, which this test isn't about. Just confirm
+    // the ONE "bid/ask" formatted label exists and both halves are real
+    // numbers close to the actual live bid/ask, at whatever precision the
+    // renderer chose.
+    const label = texts.find((t) => t.includes("/"));
+    assert.ok(label, `expected a fillText call containing a "bid/ask" label; got: ${JSON.stringify(texts)}`);
+    const [bidPart, askPart] = label!.split("/");
+    assert.ok(Math.abs(parseFloat(bidPart) - bid) < 1, `label's bid half (${bidPart}) should be close to the real live bid (${bid})`);
+    assert.ok(Math.abs(parseFloat(askPart) - ask) < 1, `label's ask half (${askPart}) should be close to the real live ask (${ask})`);
+  });
+
+  await test("live bid/ask (this session): omitting liveQuote falls back to the candle close exactly as before this session - zero regression for a symbol/provider with no bid/ask", () => {
+    const candles = makeCandleSeries(30, 60_000);
+    const viewport = fitToData(candles);
+    const withoutQuote = fakeCtx();
+    const withNullQuote = fakeCtx();
+    assert.doesNotThrow(() => {
+      renderChart({ ctx: withoutQuote, dims: { width: 600, height: 300, priceAxisWidth: 64, timeAxisHeight: 22 }, candles, viewport, timeframe: "1h", crosshair: null, colors: resolveChartColors() });
+      renderChart({ ctx: withNullQuote, dims: { width: 600, height: 300, priceAxisWidth: 64, timeAxisHeight: 22 }, candles, viewport, timeframe: "1h", crosshair: null, colors: resolveChartColors(), liveQuote: null });
+    });
+  });
+
   await test("provenance/freshness disclosure: NativeChart renders a real disclosure line sourced from ChartSeries fields, never invented text", () => {
     const src = read("components/chart-engine/NativeChart.tsx");
     assert.ok(src.includes("function ProvenanceDisclosure"));

@@ -46,7 +46,7 @@ function isValidObject(value: unknown): value is DrawingObject {
   if (typeof v.color !== "string" || v.color.length === 0) return false;
   if (typeof v.createdAt !== "number" || !Number.isFinite(v.createdAt)) return false;
   if (v.tool === "horizontal-line") return typeof v.price === "number" && Number.isFinite(v.price);
-  if (v.tool === "trendline" || v.tool === "rectangle") return isValidPoint(v.p1) && isValidPoint(v.p2);
+  if (v.tool === "trendline" || v.tool === "rectangle" || v.tool === "fibonacci") return isValidPoint(v.p1) && isValidPoint(v.p2);
   return false;
 }
 

@@ -60,6 +60,7 @@ import type { CrosshairState, Viewport } from "@/lib/chart-engine/types";
 import type { SignalTimeframe } from "@/types/signal";
 import type { ChartPanelId, IndicatorSeries } from "@/lib/chart-engine/indicators/types";
 import { useChartCandles } from "./useChartCandles";
+import { useLiveQuote } from "./useLiveQuote";
 import ChartToolbar from "./ChartToolbar";
 import ChartHeader from "./ChartHeader";
 import MicrostructurePanel from "./MicrostructurePanel";
@@ -73,6 +74,7 @@ import {
   createHorizontalLine,
   createTrendLine,
   createRectangle,
+  createFibonacci,
   type DrawingObject,
   type DrawingHandle,
   type DrawingPoint,
@@ -127,6 +129,11 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
   const [isFullscreen, setIsFullscreen] = useState(false);
   const resolution = resolveChartInstrument(symbol);
   const result = useChartCandles(symbol, timeframe);
+  // This session - the price panel's current-price marker prefers this
+  // live bid/ask over the last candle's close (see useLiveQuote.ts's own
+  // header comment). Independent of the candles fetch/poll above - a slow
+  // or failed quote poll never blocks or degrades candle rendering.
+  const liveQuote = useLiveQuote(symbol);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -268,9 +275,10 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
         drawingObjects: drawingObjectsRef.current,
         selectedDrawingObjectId: selectedObjectIdRef.current,
         drawingPreview: drawingPreviewRef.current,
+        liveQuote,
       });
     },
-    [candles, timeframe, activePanels, indicatorSeries, symbol, name],
+    [candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote],
   );
 
   // Resize: keep the canvas's real pixel buffer matched to its CSS size *
@@ -473,7 +481,12 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
     }
 
     const p1 = pendingPlacementRef.current;
-    const obj = activeTool === "trendline" ? createTrendLine(p1, point, nowMs) : createRectangle(p1, point, nowMs);
+    const obj =
+      activeTool === "trendline"
+        ? createTrendLine(p1, point, nowMs)
+        : activeTool === "fibonacci"
+          ? createFibonacci(p1, point, nowMs)
+          : createRectangle(p1, point, nowMs);
     commitDrawingObjects([...drawingObjectsRef.current, obj]);
     setSelectedObjectId(obj.id);
     pendingPlacementRef.current = null;

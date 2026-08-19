@@ -64,9 +64,12 @@ function hitTestOne(
     return distancePointToSegmentPx(px, py, a.x, a.y, b.x, b.y) <= BODY_TOLERANCE_PX ? "body" : null;
   }
 
-  // Rectangle - hit if inside the fill or near an edge (both count as
-  // "body": dragging anywhere inside a rectangle moves the whole shape,
-  // matching MT5's own rectangle drag behavior).
+  // Rectangle and Fibonacci Retracement both hit-test as their bounding
+  // box - hit if inside the fill/level-lines' extent or near an edge (both
+  // count as "body": dragging anywhere inside moves the whole shape,
+  // matching MT5's own rectangle/Fibonacci drag behavior - a Fibonacci
+  // object's real anchors are still exactly p1/p2, the level lines are
+  // just a derived visualization between them).
   const left = Math.min(a.x, b.x) - BODY_TOLERANCE_PX;
   const right = Math.max(a.x, b.x) + BODY_TOLERANCE_PX;
   const top = Math.min(a.y, b.y) - BODY_TOLERANCE_PX;

@@ -1,6 +1,6 @@
 // scripts/validate-native-chart-drawing-tools.ts
-// MT5 feature-parity Phase 1 - Drawing Tools (trend line, horizontal
-// line, rectangle). Standalone, assert-based verification, matching
+// MT5 feature-parity Phase 1/1b - Drawing Tools (trend line, horizontal
+// line, rectangle, Fibonacci Retracement). Standalone, assert-based verification, matching
 // every prior sprint's scripts/validate-*.ts pattern. Run via
 // `npm run validate:native-chart-drawing-tools`.
 //
@@ -19,7 +19,9 @@ import {
   createHorizontalLine,
   createRectangle,
   createTrendLine,
+  createFibonacci,
   DRAWING_TOOL_DEFAULT_COLOR,
+  FIBONACCI_LEVELS,
   type DrawingObject,
 } from "../lib/chart-engine/drawing/types";
 import { applyDrag, distancePointToSegmentPx, hitTestObjects, pixelToPoint, pointToPixel } from "../lib/chart-engine/drawing/geometry";
@@ -192,6 +194,17 @@ async function main(): Promise<void> {
     assert.equal(hit?.objectId, top.id);
   });
 
+  test("hitTestObjects: a Fibonacci Retracement hits 'body' for a click inside its p1/p2 extent, and 'p1'/'p2' at its two real anchor handles - the same bounding-box treatment as a rectangle, since its real anchors ARE exactly p1/p2", () => {
+    const fib = createFibonacci({ time: 200, price: 180 }, { time: 800, price: 120 }, 1000);
+    const center = pointToPixel({ time: 500, price: 150 }, CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
+    const bodyHit = hitTestObjects([fib], center.x, center.y, CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
+    assert.deepEqual(bodyHit, { objectId: fib.id, handle: "body" });
+
+    const p1px = pointToPixel(fib.p1, CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
+    const p1Hit = hitTestObjects([fib], p1px.x, p1px.y, CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PLOT_HEIGHT);
+    assert.deepEqual(p1Hit, { objectId: fib.id, handle: "p1" });
+  });
+
   console.log("\n=== Geometry: dragging ===");
 
   test("applyDrag on a trend line's 'p1' handle moves ONLY p1 - p2 stays exactly fixed", () => {
@@ -221,6 +234,13 @@ async function main(): Promise<void> {
     assert.deepEqual(line, original);
   });
 
+  test("applyDrag on a Fibonacci Retracement's 'body' translates both anchors together, exactly like a trend line's body drag - its level lines are a pure derivation of p1/p2, never separately stored/dragged state", () => {
+    const fib = createFibonacci({ time: 100, price: 100 }, { time: 900, price: 200 }, 1000);
+    const moved = applyDrag(fib, "body", 50, 10) as typeof fib;
+    assert.deepEqual(moved.p1, { time: 150, price: 110 });
+    assert.deepEqual(moved.p2, { time: 950, price: 210 });
+  });
+
   console.log("\n=== Object creation ===");
 
   test("createTrendLine/createHorizontalLine/createRectangle each produce a unique id - two objects created back to back never collide", () => {
@@ -233,9 +253,15 @@ async function main(): Promise<void> {
     const line = createTrendLine({ time: 0, price: 0 }, { time: 1, price: 1 }, 1000);
     const hLine = createHorizontalLine(100, 1000);
     const rect = createRectangle({ time: 0, price: 0 }, { time: 1, price: 1 }, 1000);
+    const fib = createFibonacci({ time: 0, price: 0 }, { time: 1, price: 1 }, 1000);
     assert.equal(line.color, DRAWING_TOOL_DEFAULT_COLOR.trendline);
     assert.equal(hLine.color, DRAWING_TOOL_DEFAULT_COLOR["horizontal-line"]);
     assert.equal(rect.color, DRAWING_TOOL_DEFAULT_COLOR.rectangle);
+    assert.equal(fib.color, DRAWING_TOOL_DEFAULT_COLOR.fibonacci);
+  });
+
+  test("FIBONACCI_LEVELS is MT5's real OBJ_FIBO default ratio set (0%/23.6%/38.2%/50%/61.8%/78.6%/100%) - verified against mql5.com/metatrader5.com this session, never an invented level", () => {
+    assert.deepEqual(FIBONACCI_LEVELS, [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1]);
   });
 
   console.log("\n=== Persistence (store.ts) ===");
@@ -250,6 +276,12 @@ async function main(): Promise<void> {
     const objects: DrawingObject[] = [createTrendLine({ time: 0, price: 100 }, { time: 500, price: 150 }, 1000)];
     writeDrawingObjects("XAUUSD", "4h", objects);
     assert.deepEqual(readDrawingObjects("XAUUSD", "4h"), objects);
+  });
+
+  test("a Fibonacci Retracement round-trips through the store exactly like any other p1/p2 object - store.ts's isValidObject() accepts the new tool", () => {
+    const objects: DrawingObject[] = [createFibonacci({ time: 0, price: 100 }, { time: 500, price: 150 }, 1000)];
+    writeDrawingObjects("GBPUSD", "1h", objects);
+    assert.deepEqual(readDrawingObjects("GBPUSD", "1h"), objects);
   });
 
   test("objects for one symbol/timeframe never leak into a different symbol or timeframe", () => {
@@ -269,16 +301,27 @@ async function main(): Promise<void> {
 
   console.log("\n=== Rendering (drawing-renderer.ts) ===");
 
-  test("drawDrawingObjects runs end-to-end for all three tool types without throwing, using only canvas methods the renderer already relies on elsewhere (never strokeRect)", () => {
+  test("drawDrawingObjects runs end-to-end for all four tool types without throwing, using only canvas methods the renderer already relies on elsewhere (never strokeRect)", () => {
     const objects: DrawingObject[] = [
       createTrendLine({ time: 100, price: 150 }, { time: 900, price: 150 }, 1000),
       createHorizontalLine(160, 1000),
       createRectangle({ time: 200, price: 180 }, { time: 800, price: 120 }, 1000),
+      createFibonacci({ time: 200, price: 180 }, { time: 800, price: 120 }, 1000),
     ];
     const ctx = fakeCtx();
     drawDrawingObjects(ctx, objects, CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PRICE_ROW, null);
     assert.ok(ctx.calls.includes("stroke"));
     assert.ok(!ctx.calls.includes("strokeRect"));
+  });
+
+  test("drawDrawingObjects draws one stroke per visible Fibonacci level (up to FIBONACCI_LEVELS.length), each with its own real ratio%/price label - never a single generic line standing in for all 7", () => {
+    const fib = createFibonacci({ time: 200, price: 180 }, { time: 800, price: 120 }, 1000);
+    const ctx = fakeCtx();
+    drawDrawingObjects(ctx, [fib], CANDLES, INDEX_RANGE, VIEWPORT, PLOT_WIDTH, PRICE_ROW, null);
+    const strokeCount = ctx.calls.filter((c) => c === "stroke").length;
+    const fillTextCount = ctx.calls.filter((c) => c === "fillText").length;
+    assert.equal(strokeCount, FIBONACCI_LEVELS.length, "every level between p1/p2's price range should draw its own line here (both anchors are within VIEWPORT's 100-200 price range)");
+    assert.equal(fillTextCount, FIBONACCI_LEVELS.length, "every drawn level should carry its own real ratio%/price label");
   });
 
   test("a selected object draws its handles (extra fillRect calls) that an unselected object doesn't", () => {
