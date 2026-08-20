@@ -497,6 +497,30 @@ model WorkspacePreference {
   @@index([deletedAt])
 }
 
+// Sprint D2.7.11 Phase 1b - durable, cross-session persistence for chart
+// drawn objects (trend lines, horizontal lines, rectangles, Fibonacci
+// retracements - lib/chart-engine/drawing/types.ts's DrawingObject union).
+// Previously sessionStorage only (lib/chart-engine/drawing/store.ts) - tab-
+// scoped, gone on tab close. One row per (userId, symbol, timeframe) - the
+// exact same compound key store.ts's sessionStorage entries already used -
+// `objects` is the full JSON array for that key, always written as a
+// whole-array replace (never per-object CRUD), matching NativeChart.tsx's
+// existing commitDrawingObjects()/writeDrawingObjects() semantics exactly,
+// so the client-side object model and component logic needed no redesign,
+// only a swap from sync sessionStorage calls to async fetch calls.
+model ChartDrawingSet {
+  id        String   @id @default(cuid())
+  userId    String
+  symbol    String
+  timeframe String
+  objects   Json     @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, symbol, timeframe])
+  @@index([userId])
+}
+
 // Sprint D2.3.S1 - Publishing Activation. Real, DB-backed article state:
 // before this, the Publishing dashboard rendered hardcoded mock data with no
 // persistence and no working Publish/Schedule actions (Master Audit D2.3.F,
@@ -741,4 +765,82 @@ model IntelligenceAuditTrace {
   @@index([analysisRunId])
   @@index([createdAt])
   @@map("intelligence_audit_traces")
+}
+
+// ============================================================================
+// Sprint M8 - AT24 Marketplace. Additive-only; NOT applied to the live
+// database this sprint (schema drafted + migration generated, not run -
+// see ea-research/marketplace-research/m8-marketplace-platform/ for the
+// full architecture audit and the reasoning below). Deliberately NOT
+// connected to Product (which continues to power /products, untouched) -
+// these are two parallel catalogs by design this sprint, not one migrated
+// into the other. See M8_entity_relationship.md for the complete reasoning.
+//
+// tradingSystemId/versionId are plain identifier strings, not live Prisma
+// relations: TradingSystem/Version/Evidence/Validation/RiskAnalysis/
+// HistoryEvent/TrustStatus all remain M1_schema.prisma drafts (never
+// applied to this file, across M1-M7) - there is nothing in this database
+// to point a real foreign key at yet. Same reasoning for evidenceId/
+// validationId/riskAnalysisId: pointers into the M2-M7 flat-file artifacts,
+// not copies of their contents - this model never duplicates Evidence,
+// Validation, RiskAnalysis, History, TrustStatus, or Score content.
+//
+// No evidenceTier field: blocked on ARCH-M1-TRUST-002 (M1's original
+// BACKTEST_VERIFIED/.../AT24_VERIFIED tier vocabulary vs. M7's
+// UNVERIFIED/.../SUPERSEDED trust-state vocabulary - two different,
+// not-yet-reconciled concepts, documented not resolved here).
+//
+// trustState/publicationState are two separate columns on purpose (M8
+// brief section 17/25) - a listing can be PUBLISHED with
+// trustState=INCONCLUSIVE; the two are never equated in this sprint's code.
+model MarketplaceListing {
+  id   String @id @default(cuid())
+  slug String @unique
+
+  // --- Seller-authored presentation fields ---------------------------------
+  // AT24-controlled fields (below) are never seller-writable; enforced in
+  // the service/API layer, not just by convention - see
+  // MarketplaceListingService and the marketplace API route handlers.
+  sellerId    String
+  title       String
+  description String   @default("")
+  media       String[] @default([])
+  pricing     Json     @default("{}")
+  category    String   @default("") // strategy category tag (trend/breakout/mean-reversion/liquidity/etc.)
+  platformTag String   @default("") // MT5 / MT4 / cTrader / NinjaTrader / Crypto / AI Engine
+  assetTag    String   @default("") // Gold / Silver / Forex / Indices / Crypto / etc.
+  tags        String[] @default([])
+
+  // --- Identity references (plain strings, not live FKs - see model comment) ---
+  tradingSystemId String?
+  versionId       String?
+
+  // --- AT24-computed reference + outcome fields (never seller-writable) ---
+  evidenceId       String?
+  evidenceHash     String?
+  validationId     String?
+  validationHash   String?
+  riskAnalysisId   String?
+  riskAnalysisHash String?
+  trustState       String? // M7 vocabulary: UNVERIFIED|VALIDATION_PENDING|INCONCLUSIVE|LIMITED|UNDER_OBSERVATION|VALIDATED|INVALIDATED|SUPERSEDED
+  trustReasonCode  String?
+  trustExplanation String  @default("")
+  trustStatusId    String?
+  lastEvidenceAt   DateTime? // observedAt of the most recent Evidence referenced above - a timestamp, not evidence content; lets catalog sort by "Most Recent Evidence" (M8 section 20) without joining the full Evidence record
+
+  // --- Marketplace workflow state - separate axis from trustState ---------
+  publicationState String @default("DRAFT") // DRAFT|SUBMITTED|UNDER_REVIEW|EVIDENCE_PENDING|VALIDATION_PENDING|READY|PUBLISHED|SUSPENDED|RETIRED
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([sellerId])
+  @@index([publicationState])
+  @@index([trustState])
+  @@index([platformTag])
+  @@index([assetTag])
+  @@index([category])
+  @@index([deletedAt])
+  @@map("marketplace_listings")
 }

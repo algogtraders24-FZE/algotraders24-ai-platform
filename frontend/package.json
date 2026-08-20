@@ -62,6 +62,7 @@
     "validate:native-chart-interaction": "tsx scripts/validate-native-chart-interaction.ts",
     "validate:native-chart-drawing-tools": "tsx scripts/validate-native-chart-drawing-tools.ts",
     "validate:native-chart-indicators-phase2": "tsx scripts/validate-native-chart-indicators-phase2.ts",
+    "validate:chart-drawing-persistence": "tsx scripts/validate-chart-drawing-persistence.ts",
     "validate:intelligence-panel-projection": "tsx scripts/validate-intelligence-panel-projection.ts",
     "validate:market-regime-overview": "tsx scripts/validate-market-regime-overview.ts",
     "validate:workspace-header-symbol-switch": "tsx scripts/validate-workspace-header-symbol-switch.ts",
@@ -82,7 +83,9 @@
     "validate:microstructure-evidence-explanation": "tsx scripts/validate-microstructure-evidence-explanation.ts",
     "validate:microstructure-production-wiring": "tsx scripts/validate-microstructure-production-wiring.ts",
     "validate:historical-microstructure-outcomes": "tsx scripts/validate-historical-microstructure-outcomes.ts",
-    "validate:intelligence-data-sufficiency": "tsx scripts/validate-intelligence-data-sufficiency.ts"
+    "validate:intelligence-data-sufficiency": "tsx scripts/validate-intelligence-data-sufficiency.ts",
+    "validate:marketplace": "tsx scripts/validate-marketplace-platform.ts",
+    "validate:marketplace-prod": "tsx scripts/validate-marketplace-production-smoke.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",

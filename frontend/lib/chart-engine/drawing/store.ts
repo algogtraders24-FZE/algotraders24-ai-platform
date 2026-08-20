@@ -1,85 +1,67 @@
 // lib/chart-engine/drawing/store.ts
-// Persistence for drawn chart objects. Deliberately sessionStorage, NOT
-// localStorage or a database table - the exact same choice and the exact
-// same reasoning chart-session-state.ts (D2.7.5, Phase 8) already
-// established for chart UI state: survive a same-tab reload or in-app
-// navigation, but never silently follow the user to a new tab, a
-// different device, or tomorrow's session. Durable, cross-session,
-// per-account object storage (matching real MT5's own per-chart saved
-// objects) is an explicit LATER phase - see the roadmap doc - not folded
-// into this one without being asked for.
+// Sprint D2.7.11 Phase 1b - durable persistence for drawn chart objects.
+// Previously sessionStorage (tab-scoped, gone on tab close) - now backed by
+// a real per-user DB table (ChartDrawingSet) via GET/PUT
+// /api/private/chart-drawings, so a trend line drawn today is still there
+// tomorrow, on any device - matching MT5's own real per-chart saved
+// objects. This was an explicit open design decision in the roadmap doc
+// (new Prisma model vs extending WorkspacePreference) - resolved in favor
+// of a dedicated table, since WorkspacePreference is a flat one-row-per-
+// user model with no per-symbol/per-timeframe dimension at all.
 //
-// Every read is re-validated field-by-field (never `as DrawingObject`
-// trusted blindly) so a corrupted or hand-edited storage value can never
-// reach the renderer as a half-formed object - it's silently dropped
-// instead, matching chart-session-state.ts's own "stale value never
-// applies" discipline.
-import type { DrawingObject, DrawingPoint } from "./types";
-
-const STORAGE_KEY = "at24.workspace.chart-drawings.v1";
+// Every read is re-validated field-by-field via isValidDrawingObject
+// (never trusted blindly) - same discipline this file always followed,
+// now guarding a possibly-stale/malformed server response instead of a
+// corrupted sessionStorage value.
+//
+// Writes for the SAME (symbol, timeframe) key are serialized through a
+// module-level per-key promise queue - async network calls can resolve
+// out of order, and without this, a rapid add-then-delete could have its
+// two PUT requests land at the server in the WRONG order, leaving a
+// deleted object resurrected on the next read. Writes for DIFFERENT keys
+// stay fully independent/concurrent.
+import { isValidDrawingObject } from "./validation";
+import type { DrawingObject } from "./types";
 
 function storeKey(symbol: string, timeframe: string): string {
   return `${symbol}|${timeframe}`;
 }
 
-function sessionStorageOrNull(): Storage | null {
-  if (typeof window === "undefined") return null;
+/** Never throws - a fetch failure, an unauthenticated caller, or a symbol/timeframe with nothing saved yet all honestly resolve to an empty array, exactly like the old sessionStorage read's own contract. */
+export async function readDrawingObjects(symbol: string, timeframe: string, signal?: AbortSignal): Promise<DrawingObject[]> {
   try {
-    return window.sessionStorage;
+    const params = new URLSearchParams({ symbol, timeframe });
+    const res = await fetch(`/api/private/chart-drawings?${params.toString()}`, { signal });
+    if (!res.ok) return [];
+    const json = await res.json();
+    const raw = json?.data?.objects;
+    if (!Array.isArray(raw)) return [];
+    return raw.filter(isValidDrawingObject);
   } catch {
-    // Some environments (locked-down iframes, certain privacy modes) throw
-    // on mere access, not just on read/write.
-    return null;
+    return [];
   }
 }
 
-function isValidPoint(value: unknown): value is DrawingPoint {
-  if (typeof value !== "object" || value === null) return false;
-  const v = value as Record<string, unknown>;
-  return typeof v.time === "number" && Number.isFinite(v.time) && typeof v.price === "number" && Number.isFinite(v.price);
-}
+const writeQueues = new Map<string, Promise<void>>();
 
-function isValidObject(value: unknown): value is DrawingObject {
-  if (typeof value !== "object" || value === null) return false;
-  const v = value as Record<string, unknown>;
-  if (typeof v.id !== "string" || v.id.length === 0) return false;
-  if (typeof v.color !== "string" || v.color.length === 0) return false;
-  if (typeof v.createdAt !== "number" || !Number.isFinite(v.createdAt)) return false;
-  if (v.tool === "horizontal-line") return typeof v.price === "number" && Number.isFinite(v.price);
-  if (v.tool === "trendline" || v.tool === "rectangle" || v.tool === "fibonacci") return isValidPoint(v.p1) && isValidPoint(v.p2);
-  return false;
-}
-
-function readAll(): Record<string, unknown> {
-  const storage = sessionStorageOrNull();
-  if (!storage) return {};
+async function putOnce(symbol: string, timeframe: string, objects: readonly DrawingObject[]): Promise<void> {
   try {
-    const raw = storage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    const parsed: unknown = JSON.parse(raw);
-    return typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>) : {};
+    await fetch("/api/private/chart-drawings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbol, timeframe, objects }),
+    });
   } catch {
-    return {};
+    // Best-effort - a failed/offline request never blocks or errors the
+    // chart UI, same contract the old sessionStorage write always had.
   }
 }
 
-/** Never throws - an absent, corrupted, or storage-unavailable entry honestly returns an empty array, exactly like a symbol/timeframe with no drawings on it yet. */
-export function readDrawingObjects(symbol: string, timeframe: string): DrawingObject[] {
-  const all = readAll();
-  const raw = all[storeKey(symbol, timeframe)];
-  if (!Array.isArray(raw)) return [];
-  return raw.filter(isValidObject);
-}
-
-/** Best-effort write - a full/unavailable storage never blocks or errors the chart UI, it just silently fails to persist this tick (matches chart-session-state.ts's own writeChartSessionState). */
-export function writeDrawingObjects(symbol: string, timeframe: string, objects: readonly DrawingObject[]): void {
-  const storage = sessionStorageOrNull();
-  if (!storage) return;
-  try {
-    const all = readAll();
-    all[storeKey(symbol, timeframe)] = objects;
-    storage.setItem(STORAGE_KEY, JSON.stringify(all));
-  } catch {
-    // ignore
-  }
+/** Best-effort write, queued per (symbol, timeframe) so out-of-order network resolution can never leave a stale value persisted (see header comment). */
+export function writeDrawingObjects(symbol: string, timeframe: string, objects: readonly DrawingObject[]): Promise<void> {
+  const key = storeKey(symbol, timeframe);
+  const previous = writeQueues.get(key) ?? Promise.resolve();
+  const next = previous.then(() => putOnce(symbol, timeframe, objects));
+  writeQueues.set(key, next);
+  return next;
 }

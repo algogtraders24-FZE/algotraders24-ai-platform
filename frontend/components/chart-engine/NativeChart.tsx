@@ -202,6 +202,17 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
   // dragging, chart panning, and pinch-zoom are mutually exclusive
   // gestures, never combined.
   const objectDragRef = useRef<{ objectId: string; handle: DrawingHandle; startPoint: DrawingPoint; original: DrawingObject } | null>(null);
+  // Sprint D2.7.11 Phase 1b - readDrawingObjects/writeDrawingObjects are now
+  // async (DB-backed, not sync sessionStorage). This tracks which
+  // symbol|timeframe key's initial load has actually FINISHED, so the
+  // write-effect below can tell "we just cleared local state because the
+  // symbol changed and the real fetch hasn't resolved yet" apart from "the
+  // user genuinely changed something" - without it, the write-effect would
+  // PUT an empty array for the new key before its real saved objects ever
+  // loaded, permanently wiping them out. Mirrors fittedKeyRef's own
+  // established "has this effect actually completed for the current key"
+  // pattern in this same file.
+  const drawingsLoadedKeyRef = useRef<string>("");
 
   function commitDrawingObjects(objects: DrawingObject[]) {
     drawingObjectsRef.current = objects;
@@ -357,21 +368,50 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
   // changes, and any in-progress placement/selection from the PREVIOUS
   // symbol/timeframe is discarded (a pending trendline click on the
   // PREVIOUS instrument means nothing once the symbol has changed).
+  //
+  // Sprint D2.7.11 Phase 1b - readDrawingObjects is now an async DB fetch,
+  // not a sync sessionStorage read. Local state is cleared to an honest
+  // empty set immediately (never show the PREVIOUS symbol's drawings on a
+  // new one), then replaced once the real fetch resolves. `cancelled`
+  // guards against a slow, now-stale fetch for a symbol/timeframe the user
+  // has already navigated away from landing after a newer one already
+  // finished - the exact same guard useChartCandles.ts already uses for
+  // its own fetch effect.
   useEffect(() => {
-    commitDrawingObjects(readDrawingObjects(symbol, timeframe));
+    let cancelled = false;
+    const key = `${symbol}|${timeframe}`;
+    drawingsLoadedKeyRef.current = "";
+    commitDrawingObjects([]);
     setSelectedObjectId(null);
     pendingPlacementRef.current = null;
     drawingPreviewRef.current = null;
     objectDragRef.current = null;
+
+    readDrawingObjects(symbol, timeframe).then((objects) => {
+      if (cancelled) return;
+      commitDrawingObjects(objects);
+      drawingsLoadedKeyRef.current = key;
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [symbol, timeframe]);
 
-  // Best-effort persistence (sessionStorage - see store.ts) every time the
-  // committed object set actually changes. Deliberately does NOT fire on
-  // ephemeral drag-preview updates (those mutate drawingObjectsRef.current
-  // directly without calling commitDrawingObjects - see handlePointerMove)
-  // so a drag doesn't write to storage on every pointer-move tick, only
-  // once the gesture completes.
+  // Best-effort persistence (a durable DB table - see store.ts) every time
+  // the committed object set actually changes. Deliberately does NOT fire
+  // on ephemeral drag-preview updates (those mutate drawingObjectsRef.
+  // current directly without calling commitDrawingObjects - see
+  // handlePointerMove) so a drag doesn't write to storage on every
+  // pointer-move tick, only once the gesture completes. Also skipped
+  // entirely until drawingsLoadedKeyRef confirms the CURRENT symbol/
+  // timeframe's initial load has actually finished - otherwise the empty
+  // array the effect above commits while loading would itself trigger a
+  // write here, overwriting real saved objects with [] before they ever
+  // had a chance to load.
   useEffect(() => {
+    const key = `${symbol}|${timeframe}`;
+    if (drawingsLoadedKeyRef.current !== key) return;
     writeDrawingObjects(symbol, timeframe, drawingObjects);
   }, [symbol, timeframe, drawingObjects]);
 

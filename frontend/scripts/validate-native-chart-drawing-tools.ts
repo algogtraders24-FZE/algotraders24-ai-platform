@@ -50,6 +50,18 @@ function test(name: string, fn: () => void): void {
   }
 }
 
+async function testAsync(name: string, fn: () => Promise<void>): Promise<void> {
+  try {
+    await fn();
+    passed += 1;
+    console.log(`  ok - ${name}`);
+  } catch (err) {
+    failed += 1;
+    console.error(`  FAIL - ${name}`);
+    console.error(err instanceof Error ? `    ${err.message}` : `    ${String(err)}`);
+  }
+}
+
 const VIEWPORT: Viewport = { minTime: 0, maxTime: 1000, minPrice: 100, maxPrice: 200 };
 const PLOT_WIDTH = 1000;
 const PLOT_HEIGHT = 500;
@@ -86,28 +98,35 @@ function fakeCtx() {
   return ctx as unknown as CanvasRenderingContext2D & { calls: string[] };
 }
 
-// A minimal in-memory Storage fake for store.ts's sessionStorage calls -
-// this script runs under plain Node (no DOM), so `window`/`sessionStorage`
-// genuinely don't exist here; store.ts's own `typeof window === "undefined"`
-// guard means readDrawingObjects/writeDrawingObjects are no-ops (empty
-// read, silently-dropped write) unless we stub a global `window` first.
-function installFakeSessionStorage(): void {
-  const data = new Map<string, string>();
-  const storage: Storage = {
-    getItem: (k: string) => (data.has(k) ? (data.get(k) as string) : null),
-    setItem: (k: string, v: string) => {
-      data.set(k, v);
-    },
-    removeItem: (k: string) => {
-      data.delete(k);
-    },
-    clear: () => data.clear(),
-    key: (i: number) => Array.from(data.keys())[i] ?? null,
-    get length() {
-      return data.size;
-    },
-  };
-  (globalThis as unknown as { window: { sessionStorage: Storage } }).window = { sessionStorage: storage };
+// Sprint D2.7.11 Phase 1b - store.ts is now a thin fetch wrapper around
+// GET/PUT /api/private/chart-drawings (DB-backed, durable persistence -
+// see store.ts's own header comment for why this replaced sessionStorage).
+// This script runs under plain Node with no real server to call, so
+// `fetch` is stubbed with a minimal in-memory fake that mirrors the real
+// route's exact request/response shape (ApiResponse's {status,data} envelope)
+// closely enough that store.ts's own response-parsing code path is
+// genuinely exercised, not bypassed.
+function installFakeFetch(): void {
+  const data = new Map<string, unknown>();
+  const fakeFetch = (async (input: string | URL, init?: RequestInit) => {
+    const url = new URL(String(input), "http://localhost");
+    if (url.pathname !== "/api/private/chart-drawings") {
+      return new Response(JSON.stringify({ status: "error" }), { status: 404 });
+    }
+    if (!init || init.method === undefined) {
+      const symbol = url.searchParams.get("symbol") ?? "";
+      const timeframe = url.searchParams.get("timeframe") ?? "";
+      const objects = data.get(`${symbol}|${timeframe}`) ?? [];
+      return new Response(JSON.stringify({ status: "ok", data: { objects } }), { status: 200 });
+    }
+    if (init.method === "PUT") {
+      const body = JSON.parse(String(init.body)) as { symbol: string; timeframe: string; objects: unknown };
+      data.set(`${body.symbol}|${body.timeframe}`, body.objects);
+      return new Response(JSON.stringify({ status: "ok", data: { objects: body.objects } }), { status: 200 });
+    }
+    return new Response(JSON.stringify({ status: "error" }), { status: 404 });
+  }) as typeof fetch;
+  (globalThis as unknown as { fetch: typeof fetch }).fetch = fakeFetch;
 }
 
 function makeCandles(count: number): ChartCandle[] {
@@ -264,39 +283,76 @@ async function main(): Promise<void> {
     assert.deepEqual(FIBONACCI_LEVELS, [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1]);
   });
 
-  console.log("\n=== Persistence (store.ts) ===");
+  console.log("\n=== Persistence (store.ts - durable, DB-backed via /api/private/chart-drawings) ===");
 
-  installFakeSessionStorage();
+  installFakeFetch();
 
-  test("readDrawingObjects returns an empty array for a symbol/timeframe with nothing saved yet - never throws, never fabricates a default object", () => {
-    assert.deepEqual(readDrawingObjects("EURUSD", "1h"), []);
+  await testAsync("readDrawingObjects returns an empty array for a symbol/timeframe with nothing saved yet - never throws, never fabricates a default object", async () => {
+    assert.deepEqual(await readDrawingObjects("EURUSD", "1h"), []);
   });
 
-  test("write then read round-trips the exact objects for that symbol/timeframe", () => {
+  await testAsync("write then read round-trips the exact objects for that symbol/timeframe", async () => {
     const objects: DrawingObject[] = [createTrendLine({ time: 0, price: 100 }, { time: 500, price: 150 }, 1000)];
-    writeDrawingObjects("XAUUSD", "4h", objects);
-    assert.deepEqual(readDrawingObjects("XAUUSD", "4h"), objects);
+    await writeDrawingObjects("XAUUSD", "4h", objects);
+    assert.deepEqual(await readDrawingObjects("XAUUSD", "4h"), objects);
   });
 
-  test("a Fibonacci Retracement round-trips through the store exactly like any other p1/p2 object - store.ts's isValidObject() accepts the new tool", () => {
+  await testAsync("a Fibonacci Retracement round-trips through the store exactly like any other p1/p2 object - isValidDrawingObject() accepts the new tool", async () => {
     const objects: DrawingObject[] = [createFibonacci({ time: 0, price: 100 }, { time: 500, price: 150 }, 1000)];
-    writeDrawingObjects("GBPUSD", "1h", objects);
-    assert.deepEqual(readDrawingObjects("GBPUSD", "1h"), objects);
+    await writeDrawingObjects("GBPUSD", "1h", objects);
+    assert.deepEqual(await readDrawingObjects("GBPUSD", "1h"), objects);
   });
 
-  test("objects for one symbol/timeframe never leak into a different symbol or timeframe", () => {
-    writeDrawingObjects("XAUUSD", "1h", [createHorizontalLine(200, 1000)]);
-    writeDrawingObjects("XAUUSD", "4h", [createHorizontalLine(999, 1000)]);
-    const oneHour = readDrawingObjects("XAUUSD", "1h");
+  await testAsync("objects for one symbol/timeframe never leak into a different symbol or timeframe", async () => {
+    await writeDrawingObjects("XAUUSD", "1h", [createHorizontalLine(200, 1000)]);
+    await writeDrawingObjects("XAUUSD", "4h", [createHorizontalLine(999, 1000)]);
+    const oneHour = await readDrawingObjects("XAUUSD", "1h");
     assert.equal(oneHour.length, 1);
     const [obj] = oneHour;
     assert.ok(obj.tool === "horizontal-line" && obj.price === 200);
   });
 
-  test("a corrupted/hand-edited storage entry is silently dropped, never trusted as a half-formed object", () => {
-    const win = (globalThis as unknown as { window: { sessionStorage: Storage } }).window;
-    win.sessionStorage.setItem("at24.workspace.chart-drawings.v1", JSON.stringify({ "BADSYMBOL|1h": [{ tool: "trendline" }, { not: "an object" }, null] }));
-    assert.deepEqual(readDrawingObjects("BADSYMBOL", "1h"), []);
+  await testAsync("a malformed/corrupted server response is silently dropped, never trusted as a half-formed object - client-side defense in depth, same discipline as the old sessionStorage read", async () => {
+    const win = globalThis as unknown as { fetch: typeof fetch };
+    const real = win.fetch;
+    win.fetch = (async () =>
+      new Response(JSON.stringify({ status: "ok", data: { objects: [{ tool: "trendline" }, { not: "an object" }, null] } }), { status: 200 })) as typeof fetch;
+    try {
+      assert.deepEqual(await readDrawingObjects("BADSYMBOL", "1h"), []);
+    } finally {
+      win.fetch = real;
+    }
+  });
+
+  await testAsync("writeDrawingObjects for the SAME key is serialized in call order even when the network resolves out of order - a rapid add-then-delete never resurrects the deleted state", async () => {
+    const win = globalThis as unknown as { fetch: typeof fetch };
+    const real = win.fetch;
+    const store = new Map<string, unknown>();
+    const order: string[] = [];
+    win.fetch = (async (input: string | URL, init?: RequestInit) => {
+      if (init?.method === "PUT") {
+        const body = JSON.parse(String(init.body)) as { symbol: string; timeframe: string; objects: unknown[] };
+        // The SECOND write (the delete, an empty array) resolves FASTER than
+        // the first (a slow network tick for the add) - without the write
+        // queue in store.ts, this ordering alone would leave the add's
+        // stale [A] persisted as the final DB value.
+        const delayMs = body.objects.length > 0 ? 20 : 0;
+        await new Promise((r) => setTimeout(r, delayMs));
+        store.set(`${body.symbol}|${body.timeframe}`, body.objects);
+        order.push(body.objects.length > 0 ? "add" : "delete");
+      }
+      return new Response(JSON.stringify({ status: "ok", data: {} }), { status: 200 });
+    }) as typeof fetch;
+    try {
+      const line = createTrendLine({ time: 0, price: 0 }, { time: 1, price: 1 }, 1000);
+      const addPromise = writeDrawingObjects("RACEUSD", "1h", [line]);
+      const deletePromise = writeDrawingObjects("RACEUSD", "1h", []);
+      await Promise.all([addPromise, deletePromise]);
+      assert.deepEqual(order, ["add", "delete"], "the server must see the add BEFORE the delete, matching call order, not network resolution order");
+      assert.deepEqual(store.get("RACEUSD|1h"), []);
+    } finally {
+      win.fetch = real;
+    }
   });
 
   console.log("\n=== Rendering (drawing-renderer.ts) ===");
