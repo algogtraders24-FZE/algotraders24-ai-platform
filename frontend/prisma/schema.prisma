@@ -521,6 +521,33 @@ model ChartDrawingSet {
   @@index([userId])
 }
 
+// Sprint D2.7.11 Phase 4 - saved chart templates (MT5's own real Template
+// feature: a named, reusable bundle of active indicators + drawn objects).
+// Deliberately NOT scoped by symbol/timeframe (unlike ChartDrawingSet
+// above) - a template is meant to be applied to ANY chart, matching real
+// MT5 template behavior exactly, including its own real limitation: a
+// drawn object's price/time coordinates are reapplied as-is to whatever
+// symbol/timeframe the template lands on, which can look nonsensical on a
+// very different instrument - MT5 itself has this same limitation, so
+// this isn't a shortfall to engineer around, just realistic parity.
+// `indicatorKeys` stores only the DEFAULT_INDICATOR_CONFIGS `key` strings
+// (e.g. "ema-20") - never a full duplicated IndicatorConfig - since the
+// registry is the one canonical source for what a given key actually
+// means. (userId, name) is unique - saving a template under an existing
+// name is a deliberate upsert (overwrite), not a rejected duplicate.
+model ChartTemplate {
+  id             String   @id @default(cuid())
+  userId         String
+  name           String
+  indicatorKeys  String[] @default([])
+  drawingObjects Json     @default("[]")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
 // Sprint D2.3.S1 - Publishing Activation. Real, DB-backed article state:
 // before this, the Publishing dashboard rendered hardcoded mock data with no
 // persistence and no working Publish/Schedule actions (Master Audit D2.3.F,
@@ -843,4 +870,171 @@ model MarketplaceListing {
   @@index([category])
   @@index([deletedAt])
   @@map("marketplace_listings")
+}
+
+// ── Sprint M11: License & Product Protection Architecture ──────────────
+// Purely additive: five new tables, zero changes to any existing table,
+// column, or constraint. NOT applied to the live database this sprint -
+// migration.sql exists but running it requires a separate, explicit
+// go-ahead (see M11_license_product_protection.md "Production Safety").
+//
+// Chain: MarketplaceListing -> ReleaseArtifact (one specific downloadable
+// build) -> Purchase (a buyer bought a listing) -> Entitlement (buyer is
+// authorized for a TradingSystem/platform, derived from a Purchase) ->
+// License (a signed, revocable grant against one Entitlement) ->
+// Activation (one device bound to one License). Deliberately parallel to,
+// and never merged with, the Evidence/Validation/RiskAnalysis/History/
+// TrustStatus chain: License answers "is this buyer authorized," Trust
+// answers "how trustworthy is the product," Eligibility (M9) answers "is
+// AT24 allowing this product to be sold." See M11_architecture.md section 1.
+//
+// Cross-domain references (buyerId -> User, marketplaceListingId ->
+// MarketplaceListing, tradingSystemId/versionId -> the not-yet-real M1
+// TradingSystem/Version) are plain, unconstrained strings, matching
+// MarketplaceListing's own established convention (see that model's
+// comment) - relations are only declared AMONG these five new models,
+// which are introduced together in this same sprint (same pattern as
+// Conversation/Message).
+
+model ReleaseArtifact {
+  id                    String    @id @default(cuid())
+  tradingSystemId       String
+  versionId             String
+  marketplaceListingId  String?
+  platform              String
+  artifactVersion       String
+  artifactHash          String
+  // DRAFT|PUBLISHED|DEPRECATED|REVOKED - a compromised release (Section 15/17)
+  // is marked REVOKED here, never deleted; RuntimeValidation must reject it.
+  releaseStatus         String    @default("DRAFT")
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  deletedAt             DateTime?
+
+  licenses License[]
+
+  // A given exact binary (by hash) for a given TradingSystem/Version/platform
+  // is one release, once - a new binary is always a new row, never an
+  // overwrite (Section 2: "A new binary must never silently replace an old
+  // release").
+  @@unique([tradingSystemId, versionId, platform, artifactHash])
+  @@index([marketplaceListingId])
+  @@index([platform])
+  @@index([releaseStatus])
+  @@index([deletedAt])
+  @@map("release_artifacts")
+}
+
+model Purchase {
+  id                    String    @id @default(cuid())
+  buyerId               String
+  marketplaceListingId  String
+  tradingSystemId       String
+  amount                Float     @default(0)
+  currency              String    @default("USD")
+  // Null until a real payment flow exists - never fabricated (mirrors
+  // Subscription.provider's own honesty convention above).
+  provider              String?
+  providerRef           String?   @unique
+  status                String    @default("PENDING") // PENDING|COMPLETED|REFUNDED|REVERSED
+  purchasedAt           DateTime  @default(now())
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  deletedAt             DateTime?
+
+  entitlements Entitlement[]
+
+  @@index([buyerId])
+  @@index([marketplaceListingId])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("purchases")
+}
+
+model Entitlement {
+  id                    String    @id @default(cuid())
+  purchaseId            String
+  buyerId               String
+  tradingSystemId       String
+  marketplaceListingId  String
+  platform              String
+  status                String    @default("ACTIVE") // ACTIVE|REVOKED
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  deletedAt             DateTime?
+
+  purchase Purchase  @relation(fields: [purchaseId], references: [id])
+  licenses License[]
+
+  @@index([buyerId])
+  @@index([purchaseId])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("entitlements")
+}
+
+model License {
+  id                    String    @id @default(cuid())
+  entitlementId         String
+  buyerId               String
+  tradingSystemId       String
+  versionId             String
+  releaseId             String
+  platform              String
+  // ISSUED|ACTIVE|SUSPENDED|REVOKED|EXPIRED - see licenseStateMachine.ts for
+  // the deterministic, fail-closed transition table.
+  licenseStatus         String    @default("ISSUED")
+  licenseSchemaVersion  String    @default("M11-license-v1")
+  activationPolicy      Json      // { maxActivations: number } - see types/license.ts
+  issuedAt              DateTime  @default(now())
+  expiresAt             DateTime?
+  revokedAt             DateTime?
+  revokedReason         String?
+  // Base64 Ed25519 signature over the canonical license payload - see
+  // services/licensing/crypto.ts. Tamper-evident: any field change breaks
+  // verification against the public key embedded in the product runtime.
+  signature             String
+  // Hashed at rest (never the raw key - see crypto.ts hashApiKey). The
+  // credential a RUNTIME product presents to /api/license/* - NOT a browser
+  // session (see M11_api_contract.md "Authentication"). The raw key is
+  // returned to the buyer exactly once, at issuance, never stored or shown
+  // again.
+  apiKeyHash            String
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  entitlement Entitlement     @relation(fields: [entitlementId], references: [id])
+  release     ReleaseArtifact @relation(fields: [releaseId], references: [id])
+  activations Activation[]
+
+  @@index([entitlementId])
+  @@index([buyerId])
+  @@index([releaseId])
+  @@index([licenseStatus])
+  @@map("licenses")
+}
+
+model Activation {
+  id               String    @id @default(cuid())
+  licenseId        String
+  // Platform-specific stable device identity, produced by a PlatformAdapter
+  // (never a raw machine ID alone - see services/licensing/adapters/).
+  deviceBindingId  String
+  deviceLabel      String    @default("")
+  status           String    @default("ACTIVE") // ACTIVE|DEACTIVATED
+  activatedAt      DateTime  @default(now())
+  deactivatedAt    DateTime?
+  lastValidatedAt  DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  license License @relation(fields: [licenseId], references: [id])
+
+  // Re-activating the same device on the same license is idempotent (Section
+  // 19 test K/L: duplicate/replayed activation), enforced here at the DB
+  // level, not just in application logic.
+  @@unique([licenseId, deviceBindingId])
+  @@index([licenseId])
+  @@index([status])
+  @@map("activations")
 }

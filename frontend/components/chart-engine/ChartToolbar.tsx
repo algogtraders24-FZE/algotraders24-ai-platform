@@ -21,6 +21,7 @@ import Tooltip from "@/components/ui/Tooltip";
 import { FIN_LABEL } from "@/components/ui/financial-typography";
 import { DEFAULT_INDICATOR_CONFIGS, INDICATOR_PANEL_ID } from "@/lib/chart-engine/indicators/panel-registry";
 import type { SignalTimeframe } from "@/types/signal";
+import type { ChartTemplate } from "@/lib/chart-engine/templates/types";
 import ChartTimeframeSelector from "./ChartTimeframeSelector";
 
 export interface ChartToolbarProps {
@@ -34,6 +35,11 @@ export interface ChartToolbarProps {
   isLive: boolean;
   isFullscreen: boolean;
   onToggleFullscreen: () => void;
+  /** Sprint D2.7.11 Phase 4 - saved chart templates (MT5's own real Template feature). */
+  templates: readonly ChartTemplate[];
+  onApplyTemplate: (template: ChartTemplate) => void;
+  onDeleteTemplate: (id: string) => void;
+  onOpenSaveTemplate: () => void;
 }
 
 const OVERLAY_CONFIGS = DEFAULT_INDICATOR_CONFIGS.filter((cfg) => INDICATOR_PANEL_ID[cfg.id] === "price");
@@ -50,9 +56,15 @@ export default function ChartToolbar({
   isLive,
   isFullscreen,
   onToggleFullscreen,
+  templates,
+  onApplyTemplate,
+  onDeleteTemplate,
+  onOpenSaveTemplate,
 }: ChartToolbarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [templatesMenuOpen, setTemplatesMenuOpen] = useState(false);
+  const templatesMenuRef = useRef<HTMLDivElement>(null);
 
   // Sprint D2.7.5 - close on Escape and on an outside click, the two
   // dismissal paths every other dropdown in this codebase already supports
@@ -72,6 +84,26 @@ export default function ChartToolbar({
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [menuOpen]);
+
+  // Sprint D2.7.11 Phase 4 - the Templates menu is a second, independent
+  // dropdown - same dismissal pattern as the Indicators menu above, kept
+  // as its own state/ref rather than a shared "which menu is open" enum
+  // so the two can never accidentally interfere with each other.
+  useEffect(() => {
+    if (!templatesMenuOpen) return;
+    function handlePointerDown(e: PointerEvent) {
+      if (templatesMenuRef.current && !templatesMenuRef.current.contains(e.target as Node)) setTemplatesMenuOpen(false);
+    }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setTemplatesMenuOpen(false);
+    }
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [templatesMenuOpen]);
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -99,6 +131,61 @@ export default function ChartToolbar({
             >
               <IndicatorGroup label="Overlays" configs={OVERLAY_CONFIGS} activeIndicatorKeys={activeIndicatorKeys} onToggleIndicator={onToggleIndicator} />
               <IndicatorGroup label="Panels" configs={PANEL_CONFIGS} activeIndicatorKeys={activeIndicatorKeys} onToggleIndicator={onToggleIndicator} />
+            </div>
+          )}
+        </div>
+
+        <div className="relative" ref={templatesMenuRef}>
+          <button
+            type="button"
+            onClick={() => setTemplatesMenuOpen((v) => !v)}
+            aria-expanded={templatesMenuOpen}
+            aria-haspopup="true"
+            className="rounded-control border border-border bg-ink-3 px-2.5 py-1 text-[11px] font-medium text-text-3 transition hover:bg-ink-4 hover:text-text"
+          >
+            Templates
+          </button>
+          {templatesMenuOpen && (
+            <div role="menu" aria-label="Chart templates" className="absolute right-0 top-full z-10 mt-1 w-64 rounded-panel border border-border bg-ink-2 p-1.5 shadow-raised">
+              <button
+                type="button"
+                onClick={() => {
+                  setTemplatesMenuOpen(false);
+                  onOpenSaveTemplate();
+                }}
+                className="w-full rounded-control px-2 py-1.5 text-left text-xs font-medium text-gold hover:bg-ink-3"
+              >
+                Save current as template…
+              </button>
+              {templates.length > 0 && (
+                <div className="mt-1 border-t border-border pt-1">
+                  <p className={`${FIN_LABEL} px-2 pb-1 pt-1`}>Saved</p>
+                  {templates.map((tpl) => (
+                    <div key={tpl.id} className="group flex items-center gap-1 rounded-control px-2 py-1.5 hover:bg-ink-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTemplatesMenuOpen(false);
+                          onApplyTemplate(tpl);
+                        }}
+                        title={`Apply "${tpl.name}"`}
+                        className="flex-1 truncate text-left text-xs text-text-2"
+                      >
+                        {tpl.name}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDeleteTemplate(tpl.id)}
+                        aria-label={`Delete template "${tpl.name}"`}
+                        title="Delete template"
+                        className="rounded-control px-1.5 text-xs text-text-3 opacity-0 transition hover:text-signal-down group-hover:opacity-100"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

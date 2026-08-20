@@ -68,6 +68,14 @@ export default function ChartPanel() {
     });
   }
 
+  // Sprint D2.7.11 Phase 4 - applying a saved template replaces the WHOLE
+  // active set at once (never a series of individual toggles), same
+  // "known keys only" filter as toggleIndicator above.
+  function applyIndicatorKeys(keys: readonly string[]) {
+    const known = new Set(DEFAULT_INDICATOR_CONFIGS.map((cfg) => cfg.key));
+    setActiveIndicatorKeys(new Set(keys.filter((k) => known.has(k))));
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex justify-end">
@@ -79,6 +87,7 @@ export default function ChartPanel() {
           onTimeframeChange={setTimeframe}
           activeIndicatorKeys={activeIndicatorKeys}
           onToggleIndicator={toggleIndicator}
+          onApplyIndicatorKeys={applyIndicatorKeys}
         />
       ) : (
         <AdvancedChart />

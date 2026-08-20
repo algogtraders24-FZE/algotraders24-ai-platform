@@ -81,6 +81,12 @@ import {
   type DrawingPreview,
   type DrawingToolId,
 } from "@/lib/chart-engine/drawing/types";
+// Sprint D2.7.11 Phase 4 - saved chart templates (MT5's own real Template
+// feature). See docs/architecture/D2.7.11-native-chart-mt5-feature-parity-
+// roadmap.md for the full phased plan this belongs to.
+import { listTemplates, saveTemplate, deleteTemplate } from "@/lib/chart-engine/templates/store";
+import type { ChartTemplate } from "@/lib/chart-engine/templates/types";
+import Modal from "@/components/ui/Modal";
 
 const PRICE_AXIS_WIDTH = 64;
 const TIME_AXIS_HEIGHT = 22;
@@ -107,9 +113,11 @@ export interface NativeChartProps {
   onTimeframeChange: (timeframe: SignalTimeframe) => void;
   activeIndicatorKeys: ReadonlySet<string>;
   onToggleIndicator: (key: string) => void;
+  /** Sprint D2.7.11 Phase 4 - replaces the WHOLE active indicator set at once (applying a saved template), never a series of individual toggles. */
+  onApplyIndicatorKeys: (keys: readonly string[]) => void;
 }
 
-export default function NativeChart({ timeframe, onTimeframeChange, activeIndicatorKeys, onToggleIndicator }: NativeChartProps) {
+export default function NativeChart({ timeframe, onTimeframeChange, activeIndicatorKeys, onToggleIndicator, onApplyIndicatorKeys }: NativeChartProps) {
   // Sprint D2.8.13 - `hypothesisType` is the real, already-fetched active
   // hypothesis WorkspaceResearch found for this same symbol (D2.8.13's own
   // WorkspaceContext addition) - reused here verbatim, never a second
@@ -237,6 +245,50 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
   function setSelectedObjectId(id: string | null) {
     selectedObjectIdRef.current = id;
     setSelectedObjectIdState(id);
+  }
+
+  // Sprint D2.7.11 Phase 4 - saved chart templates: a named, reusable
+  // bundle of active indicators + drawn objects (MT5's own real Template
+  // feature). Deliberately fetched once on mount, never re-fetched per
+  // symbol/timeframe switch - templates are a per-user library, not
+  // scoped to one chart (see chart-template.service.ts's own header
+  // comment for why).
+  const [templates, setTemplates] = useState<ChartTemplate[]>([]);
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [saveNameInput, setSaveNameInput] = useState("");
+  const [templateActionPending, setTemplateActionPending] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    listTemplates().then((list) => {
+      if (!cancelled) setTemplates(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function handleSaveTemplate() {
+    const name = saveNameInput.trim();
+    if (!name) return;
+    setTemplateActionPending(true);
+    const saved = await saveTemplate(name, Array.from(activeIndicatorKeys), drawingObjectsRef.current);
+    setTemplateActionPending(false);
+    if (!saved) return; // best-effort - a failed save just leaves the modal open, never a silent false success
+    setTemplates((prev) => [saved, ...prev.filter((t) => t.id !== saved.id)]);
+    setSaveModalOpen(false);
+    setSaveNameInput("");
+  }
+
+  /** Applying a template replaces BOTH halves of the bundle at once: the active indicator set (bubbles up to ChartPanel, which owns that state) and the current symbol/timeframe's drawn objects (local - commitDrawingObjects already triggers the existing persistence-write effect, so this is durably saved for the CURRENT chart exactly like any other edit). */
+  function handleApplyTemplate(template: ChartTemplate) {
+    onApplyIndicatorKeys(template.indicatorKeys);
+    commitDrawingObjects(template.drawingObjects);
+  }
+
+  async function handleDeleteTemplate(id: string) {
+    const ok = await deleteTemplate(id);
+    if (ok) setTemplates((prev) => prev.filter((t) => t.id !== id));
   }
 
   /** The price panel's own row (top/height) within the canvas - drawing objects are scoped to the price panel only (Phase 1 - never a sub-panel), so every hit-test/placement must use THIS row's local coordinates, the same ones renderChart() itself uses internally (panel-layout.ts's computePanelLayout). */
@@ -976,7 +1028,46 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
         isLive={isLive}
         isFullscreen={isFullscreen}
         onToggleFullscreen={handleToggleFullscreen}
+        templates={templates}
+        onApplyTemplate={handleApplyTemplate}
+        onDeleteTemplate={handleDeleteTemplate}
+        onOpenSaveTemplate={() => setSaveModalOpen(true)}
       />
+
+      <Modal open={saveModalOpen} onClose={() => setSaveModalOpen(false)} title="Save as Template">
+        <p className="text-xs text-text-3">
+          Saves the current active indicators and drawn objects as a reusable template. Saving under an existing name overwrites it.
+        </p>
+        <input
+          type="text"
+          value={saveNameInput}
+          onChange={(e) => setSaveNameInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSaveTemplate();
+          }}
+          placeholder="Template name"
+          maxLength={60}
+          autoFocus
+          className="mt-3 w-full rounded-control border border-border bg-ink-3 px-3 py-2 text-sm text-text placeholder:text-text-3 focus:border-gold focus:outline-none"
+        />
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setSaveModalOpen(false)}
+            className="rounded-control border border-border bg-ink-3 px-3 py-1.5 text-xs font-medium text-text-3 transition hover:bg-ink-4 hover:text-text"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSaveTemplate}
+            disabled={saveNameInput.trim().length === 0 || templateActionPending}
+            className="rounded-control border border-gold/40 bg-gold/10 px-3 py-1.5 text-xs font-medium text-gold transition hover:bg-gold/20 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {templateActionPending ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </Modal>
 
       <DrawingToolbar
         activeTool={activeTool}
