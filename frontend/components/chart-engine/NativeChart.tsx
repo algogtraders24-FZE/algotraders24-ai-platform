@@ -440,7 +440,7 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
     const range = indexRangeForViewport(candles, viewport);
     const anchorTime = fractionalIndexToTime(candles, xToIndex(x, range, plotWidth()));
     const factor = e.deltaY < 0 ? ZOOM_IN_FACTOR : ZOOM_OUT_FACTOR;
-    const zoomed = zoomViewport(viewport, factor, anchorTime, candleStepMs(candles));
+    const zoomed = zoomViewport(viewport, factor, anchorTime, candleStepMs(candles), candles.length);
     applyViewport(clampViewportToCandleBounds(zoomed, candles), true);
   }
 
@@ -606,7 +606,7 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
         const midX = (points[0].x + points[1].x) / 2;
         const pinchRange = indexRangeForViewport(candles, startViewport);
         const anchorTime = fractionalIndexToTime(candles, xToIndex(midX, pinchRange, Math.max(1, plotWidth())));
-        const zoomed = zoomViewport(startViewport, factor, anchorTime, candleStepMs(candles));
+        const zoomed = zoomViewport(startViewport, factor, anchorTime, candleStepMs(candles), candles.length);
         applyViewport(clampViewportToCandleBounds(zoomed, candles), true);
       }
       return;
@@ -803,12 +803,12 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
     } else if (e.key === "+" || e.key === "=") {
       e.preventDefault();
       const mid = (viewport.minTime + viewport.maxTime) / 2;
-      const zoomed = clampViewportToCandleBounds(zoomViewport(viewport, ZOOM_IN_FACTOR, mid, step), candles);
+      const zoomed = clampViewportToCandleBounds(zoomViewport(viewport, ZOOM_IN_FACTOR, mid, step, candles.length), candles);
       applyViewport(zoomed, true);
     } else if (e.key === "-" || e.key === "_") {
       e.preventDefault();
       const mid = (viewport.minTime + viewport.maxTime) / 2;
-      const zoomed = clampViewportToCandleBounds(zoomViewport(viewport, ZOOM_OUT_FACTOR, mid, step), candles);
+      const zoomed = clampViewportToCandleBounds(zoomViewport(viewport, ZOOM_OUT_FACTOR, mid, step, candles.length), candles);
       applyViewport(zoomed, true);
     } else if (e.key === "Home") {
       e.preventDefault();

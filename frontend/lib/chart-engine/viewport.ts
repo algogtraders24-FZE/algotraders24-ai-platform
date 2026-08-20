@@ -14,6 +14,8 @@ const DEFAULT_PRICE_PADDING_PCT = 0.08;
 const DEFAULT_TIME_PADDING_CANDLES = 2;
 const MIN_VISIBLE_CANDLES = 5;
 const MAX_VISIBLE_CANDLES = 2000;
+/** Bug found live-verifying Ichimoku (this session): with only ~300 candles typically loaded (useChartCandles' DEFAULT_OUTPUT_SIZE) but a flat MAX_VISIBLE_CANDLES=2000 ceiling, a handful of scroll-wheel zoom-out ticks could reach a span up to ~6.7x the real loaded data - real candles compressed to a barely-visible sliver against a mostly-empty chart. zoomViewport's optional `candleCount` param ties the effective zoom-out ceiling to what's actually loaded, so the widest zoom-out always still shows real data across at least half the visible width. */
+const ZOOM_OUT_DATA_MULTIPLIER = 2;
 
 /** The real spacing between consecutive candles, derived from the data itself - never a hardcoded per-timeframe constant (Phase 6's "no hardcoded dimensions"). Falls back to 1 minute only when there are fewer than 2 candles to measure a real step from (used solely as a padding unit in that edge case, never presented as real data). */
 export function candleStepMs(candles: readonly ChartCandle[]): number {
@@ -77,11 +79,21 @@ export function panViewport(viewport: Viewport, deltaMs: number): Viewport {
  * `stepMs`-derived candle-count bounds (MIN/MAX_VISIBLE_CANDLES) so a user
  * can never zoom into a degenerate zero-width span or out past a
  * meaningless one.
+ *
+ * `candleCount` (optional - every existing call site keeps working
+ * unchanged if omitted) additionally ties the zoom-out ceiling to how much
+ * real data is actually loaded: `ZOOM_OUT_DATA_MULTIPLIER * candleCount`,
+ * capped by the absolute MAX_VISIBLE_CANDLES ceiling either way. Without
+ * this, a chart loaded with e.g. 300 candles could still be zoomed out to
+ * a 2000-candle-wide span - real data compressed into a small sliver
+ * against an otherwise-empty chart, which is what a genuinely small number
+ * of scroll-wheel zoom-out ticks produced live on production this session.
  */
-export function zoomViewport(viewport: Viewport, factor: number, anchorTime: number, stepMs: number): Viewport {
+export function zoomViewport(viewport: Viewport, factor: number, anchorTime: number, stepMs: number, candleCount = Infinity): Viewport {
   const span = viewport.maxTime - viewport.minTime;
   const minSpan = stepMs * MIN_VISIBLE_CANDLES;
-  const maxSpan = stepMs * MAX_VISIBLE_CANDLES;
+  const dataAwareCeiling = Math.max(candleCount, MIN_VISIBLE_CANDLES) * ZOOM_OUT_DATA_MULTIPLIER;
+  const maxSpan = stepMs * Math.min(MAX_VISIBLE_CANDLES, dataAwareCeiling);
   const nextSpan = Math.min(Math.max(span * factor, minSpan), maxSpan);
   const anchorRatio = span === 0 ? 0.5 : (anchorTime - viewport.minTime) / span;
   const minTime = anchorTime - nextSpan * anchorRatio;

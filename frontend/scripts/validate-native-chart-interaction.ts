@@ -201,6 +201,28 @@ async function zoomTests(): Promise<void> {
     assert.ok(zoomed.maxTime - zoomed.minTime <= 1_000 * 2000 + 1e-6);
   });
 
+  await test("zoomViewport's optional candleCount ties the zoom-out ceiling to real loaded data - fixes a real bug found live-verifying Ichimoku this session, where only ~300 loaded candles could still be zoomed out to a flat 2000-candle-wide span (real data reduced to a thin sliver against an otherwise-empty chart)", () => {
+    const vp: Viewport = { minTime: 0, maxTime: 10_000, minPrice: 0, maxPrice: 1 };
+    let zoomed = vp;
+    for (let i = 0; i < 100; i++) zoomed = zoomViewport(zoomed, 2, 5_000, 1_000, 300);
+    // ZOOM_OUT_DATA_MULTIPLIER (2) * 300 candles = 600 candles - far below the flat 2000 ceiling.
+    assert.ok(zoomed.maxTime - zoomed.minTime <= 1_000 * 600 + 1e-6, `expected the span to be capped near 600 candles for 300 loaded candles, got ${(zoomed.maxTime - zoomed.minTime) / 1_000} candles`);
+  });
+
+  await test("zoomViewport omitting candleCount (every pre-existing call site/test) is byte-for-byte unaffected - still the flat 2000-candle ceiling, never a silent behavior change for callers that don't pass it", () => {
+    const vp: Viewport = { minTime: 0, maxTime: 10_000, minPrice: 0, maxPrice: 1 };
+    let zoomed = vp;
+    for (let i = 0; i < 100; i++) zoomed = zoomViewport(zoomed, 2, 5_000, 1_000);
+    assert.ok(zoomed.maxTime - zoomed.minTime <= 1_000 * 2000 + 1e-6);
+    assert.ok(zoomed.maxTime - zoomed.minTime >= 1_000 * 1999);
+  });
+
+  await test("handleWheel passes candles.length through to zoomViewport, so the real production wheel-zoom gets the data-aware ceiling, not just the flat 2000-candle one", () => {
+    const src = nativeChartSrc();
+    const wheelHandler = src.slice(src.indexOf("function handleWheel"), src.indexOf("function handlePointerDown"));
+    assert.ok(wheelHandler.includes("zoomViewport(viewport, factor, anchorTime, candleStepMs(candles), candles.length)"));
+  });
+
   await test("wheel zoom velocity is inherently bounded - the applied factor never scales with deltaY magnitude, only its sign, so a large trackpad-fling delta zooms by the exact same step as a tiny nudge", () => {
     const src = nativeChartSrc();
     const wheelHandler = src.slice(src.indexOf("function handleWheel"), src.indexOf("function handlePointerDown"));
@@ -217,7 +239,7 @@ async function zoomTests(): Promise<void> {
   await test("pinch-zoom reuses the SAME zoomViewport function wheel/keyboard zoom already use - never a second zoom model", () => {
     const src = nativeChartSrc();
     const moveHandler = src.slice(src.indexOf("function handlePointerMove"), src.indexOf("function releasePointer"));
-    assert.ok(moveHandler.includes("zoomViewport(startViewport, factor, anchorTime, candleStepMs(candles))"));
+    assert.ok(moveHandler.includes("zoomViewport(startViewport, factor, anchorTime, candleStepMs(candles), candles.length)"));
   });
 
   await test("pinch-zoom anchors on the real midpoint between the two live touch points", () => {
@@ -243,8 +265,8 @@ async function zoomTests(): Promise<void> {
   await test("keyboard +/- zoom is also clamped to real candle bounds", () => {
     const src = nativeChartSrc();
     const keyHandler = src.slice(src.indexOf("function handleKeyDown"));
-    assert.ok(keyHandler.includes('clampViewportToCandleBounds(zoomViewport(viewport, ZOOM_IN_FACTOR, mid, step), candles)'));
-    assert.ok(keyHandler.includes('clampViewportToCandleBounds(zoomViewport(viewport, ZOOM_OUT_FACTOR, mid, step), candles)'));
+    assert.ok(keyHandler.includes('clampViewportToCandleBounds(zoomViewport(viewport, ZOOM_IN_FACTOR, mid, step, candles.length), candles)'));
+    assert.ok(keyHandler.includes('clampViewportToCandleBounds(zoomViewport(viewport, ZOOM_OUT_FACTOR, mid, step, candles.length), candles)'));
   });
 
   await test("a real zoom sequence never produces NaN/Infinity bounds", () => {
