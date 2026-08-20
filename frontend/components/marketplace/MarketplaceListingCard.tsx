@@ -6,15 +6,18 @@
 // visual boundary (section 7: "AT24-generated facts must be visually
 // distinct from seller-authored content").
 import Link from "next/link";
+import Image from "next/image";
 import Badge from "@/components/ui/Badge";
 import { formatListingPrice, trustStateLabel, trustStateTone } from "@/lib/marketplace";
 import type { MarketplaceListingSummary } from "@/types/marketplace";
 
 export default function MarketplaceListingCard({ listing }: { listing: MarketplaceListingSummary }) {
+  const icon = listing.media[0];
   return (
     <div className="rounded-2xl bg-ink-3 border border-border p-6 flex flex-col hover:border-gold transition duration-300">
-      {/* Top: platform + asset tags (seller-selected categorization) */}
+      {/* Top: icon (media[0], if uploaded) + platform/asset tags */}
       <div className="flex items-center gap-2 flex-wrap">
+        {icon && <Image src={icon} alt="" width={32} height={32} className="rounded-lg border border-border" unoptimized />}
         {listing.platformTag && (
           <span className="text-xs font-semibold bg-gold/20 text-gold px-3 py-1 rounded-full">{listing.platformTag}</span>
         )}

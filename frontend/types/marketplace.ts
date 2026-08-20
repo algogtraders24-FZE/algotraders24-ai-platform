@@ -87,6 +87,9 @@ export interface MarketplaceListingSummary {
   lastEvidenceAt: string | null; // ISO string
   createdAt: string;
   updatedAt: string;
+  // media[0] = square icon/logo, media[1] = wide hero/banner - a convention
+  // enforced by the upload UI, not the schema (M12 branding follow-on).
+  media: string[];
 }
 
 // --- Detail-page section shapes -------------------------------------------
@@ -163,7 +166,6 @@ export interface TrustStateInfo {
 
 // --- Full detail page -------------------------------------------------------
 export interface MarketplaceListingDetail extends MarketplaceListingSummary {
-  media: string[];
   tradingSystemId: string | null;
   trustExplanation: string | null;
   trustInfo: TrustStateInfo | null;

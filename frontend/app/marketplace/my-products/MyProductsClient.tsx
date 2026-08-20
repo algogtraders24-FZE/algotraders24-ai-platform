@@ -6,6 +6,8 @@
 // function the backend uses (services/marketplace/factory/submissionState.ts,
 // no server-only dependency) - not a reimplementation.
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
 import Alert from "@/components/ui/Alert";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -18,6 +20,7 @@ interface ListingRow {
   id: string;
   slug: string;
   title: string;
+  media: string[];
   publicationState: string;
   evidenceId: string | null;
   validationId: string | null;
@@ -25,6 +28,27 @@ interface ListingRow {
   trustState: string | null;
   trustReasonCode: string | null;
   updatedAt: string;
+}
+
+// media[0] = icon/logo, media[1] = hero/banner - same convention
+// ListingDetailView and MarketplaceListingCard render by.
+async function uploadMedia(listingId: string, file: File): Promise<string> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`/api/private/marketplace/listings/${listingId}/media`, { method: "POST", body: form });
+  const body = await res.json();
+  if (!res.ok || body.status !== "ok") throw new Error(body?.error?.message ?? `Upload failed (${res.status})`);
+  return body.data.url as string;
+}
+
+async function patchMedia(listingId: string, media: string[]): Promise<void> {
+  const res = await fetch(`/api/private/marketplace/listings/${listingId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ media }),
+  });
+  const body = await res.json();
+  if (!res.ok || body.status !== "ok") throw new Error(body?.error?.message ?? `Save failed (${res.status})`);
 }
 
 interface SubmitOutcome {
@@ -40,6 +64,8 @@ export default function MyProductsClient() {
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [outcomes, setOutcomes] = useState<Record<string, SubmitOutcome>>({});
   const [submitErrors, setSubmitErrors] = useState<Record<string, string>>({});
+  const [mediaUploadingKey, setMediaUploadingKey] = useState<string | null>(null);
+  const [mediaErrors, setMediaErrors] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     try {
@@ -72,6 +98,24 @@ export default function MyProductsClient() {
     }
   }
 
+  async function handleMediaChange(item: ListingRow, slot: 0 | 1, file: File | null) {
+    if (!file) return;
+    const key = `${item.id}:${slot}`;
+    setMediaErrors((prev) => ({ ...prev, [key]: "" }));
+    setMediaUploadingKey(key);
+    try {
+      const url = await uploadMedia(item.id, file);
+      const nextMedia = [...item.media];
+      nextMedia[slot] = url;
+      await patchMedia(item.id, nextMedia);
+      await load();
+    } catch (err) {
+      setMediaErrors((prev) => ({ ...prev, [key]: err instanceof Error ? err.message : "Upload failed." }));
+    } finally {
+      setMediaUploadingKey(null);
+    }
+  }
+
   if (error) return <Alert tone="danger">{error}</Alert>;
   if (items === null) return <Skeleton className="h-40 w-full" />;
   if (items.length === 0) {
@@ -99,6 +143,46 @@ export default function MyProductsClient() {
                 <Badge tone={trustStateTone(item.trustState as never)}>{trustStateLabel(item.trustState as never)}</Badge>
                 {item.trustReasonCode && <span className="text-xs text-text-3">{item.trustReasonCode}</span>}
               </div>
+            </div>
+
+            <div className="mt-4 rounded-control border border-border/60 bg-ink-3 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-3">Branding</p>
+              <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {([0, 1] as const).map((slot) => {
+                  const key = `${item.id}:${slot}`;
+                  const label = slot === 0 ? "Icon / logo (square)" : "Banner / hero (wide)";
+                  const current = item.media[slot];
+                  return (
+                    <div key={slot}>
+                      <p className="mb-1 text-[11px] text-text-3">{label}</p>
+                      {current && (
+                        <Image
+                          src={current}
+                          alt=""
+                          width={slot === 0 ? 40 : 160}
+                          height={40}
+                          unoptimized
+                          className="mb-2 rounded-lg border border-border object-cover"
+                        />
+                      )}
+                      <input
+                        type="file"
+                        accept="image/svg+xml,image/png,image/jpeg,image/webp"
+                        disabled={mediaUploadingKey === key}
+                        onChange={(e) => handleMediaChange(item, slot, e.target.files?.[0] ?? null)}
+                        className="block w-full text-xs text-text-3 file:mr-3 file:rounded-control file:border-0 file:bg-ink-4 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-text-2 hover:file:bg-border disabled:opacity-50"
+                      />
+                      {mediaErrors[key] && <p className="mt-1 text-xs text-danger">{mediaErrors[key]}</p>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <Link href={`/marketplace/preview/${item.id}`} className="text-xs font-medium text-gold hover:underline">
+                Preview this listing →
+              </Link>
             </div>
 
             {item.publicationState === "DRAFT" && (

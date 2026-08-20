@@ -61,6 +61,34 @@ function toSummary(row: PrismaMarketplaceListing, sellerNames: Map<string, strin
     lastEvidenceAt: row.lastEvidenceAt ? row.lastEvidenceAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    media: row.media,
+  };
+}
+
+function rowToDetail(row: PrismaMarketplaceListing, sellerNames: Map<string, string>): MarketplaceListingDetail {
+  const summary = toSummary(row, sellerNames);
+  // Evidence/Validation/Risk/History sections: this listing has no
+  // ingestion path wiring it to the real M2-M7 artifacts yet (see
+  // M8_entity_relationship.md section 3) - always null this sprint. The
+  // detail page renders each section's own honest "unavailable" state
+  // rather than fabricating placeholder numbers.
+  return {
+    ...summary,
+    tradingSystemId: row.tradingSystemId,
+    trustExplanation: row.trustExplanation || null,
+    trustInfo:
+      row.trustState && row.trustReasonCode
+        ? {
+            status: row.trustState as TrustState,
+            reasonCode: row.trustReasonCode,
+            explanation: row.trustExplanation || "",
+            generatedAt: row.updatedAt.toISOString(),
+          }
+        : null,
+    evidence: null,
+    validation: null,
+    risk: null,
+    history: null,
   };
 }
 
@@ -154,32 +182,37 @@ export class MarketplaceCatalogue {
     if (!row) return null;
 
     const sellerNames = await resolveSellerNames([row.sellerId]);
-    const summary = toSummary(row, sellerNames);
+    return rowToDetail(row, sellerNames);
+  }
 
-    // Evidence/Validation/Risk/History sections: this listing has no
-    // ingestion path wiring it to the real M2-M7 artifacts yet (see
-    // M8_entity_relationship.md section 3) - always null this sprint. The
-    // detail page renders each section's own honest "unavailable" state
-    // rather than fabricating placeholder numbers.
-    return {
-      ...summary,
-      media: row.media,
-      tradingSystemId: row.tradingSystemId,
-      trustExplanation: row.trustExplanation || null,
-      trustInfo:
-        row.trustState && row.trustReasonCode
-          ? {
-              status: row.trustState as TrustState,
-              reasonCode: row.trustReasonCode,
-              explanation: row.trustExplanation || "",
-              generatedAt: row.updatedAt.toISOString(),
-            }
-          : null,
-      evidence: null,
-      validation: null,
-      risk: null,
-      history: null,
-    };
+  // Owner-only preview read - deliberately does NOT filter by
+  // publicationState (a seller must be able to preview their own DRAFT
+  // listing before it's publicly reachable), but DOES require sellerId to
+  // match the caller, same ownership pattern as the PATCH/media routes.
+  // Never exposed to unauthenticated callers - see
+  // app/marketplace/preview/[id]/page.tsx, the only caller.
+  static async getByIdForOwner(id: string, sellerId: string): Promise<MarketplaceListingDetail | null> {
+    const row = await withTableFallback(
+      () => prisma.marketplaceListing.findFirst({ where: { id, sellerId, deletedAt: null } }),
+      null,
+    );
+    if (!row) return null;
+
+    const sellerNames = await resolveSellerNames([row.sellerId]);
+    return rowToDetail(row, sellerNames);
+  }
+
+  // Owner-only: every one of the caller's own listings regardless of
+  // publicationState, lightweight (Summary shape) - used by the homepage
+  // preview page (app/marketplace/preview/homepage/page.tsx), same
+  // ownership-only gate as getByIdForOwner.
+  static async listAllForOwner(sellerId: string): Promise<MarketplaceListingSummary[]> {
+    const rows = await withTableFallback(
+      () => prisma.marketplaceListing.findMany({ where: { sellerId, deletedAt: null }, orderBy: { updatedAt: "desc" } }),
+      [] as PrismaMarketplaceListing[],
+    );
+    const sellerNames = await resolveSellerNames(rows.map((r) => r.sellerId));
+    return rows.map((r) => toSummary(r, sellerNames));
   }
 
   static async getAllSlugs(): Promise<string[]> {

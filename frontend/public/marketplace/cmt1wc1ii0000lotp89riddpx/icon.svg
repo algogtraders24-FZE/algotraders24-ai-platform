@@ -1,0 +1,25 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e7c86b"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Deep Black surface, rounded square -->
+  <rect x="8" y="8" width="496" height="496" rx="96" fill="#0b0f19"/>
+  <rect x="8" y="8" width="496" height="496" rx="96" fill="none" stroke="url(#goldGrad)" stroke-width="6"/>
+
+  <!-- PDH resistance line (dashed, slate) -->
+  <line x1="96" y1="200" x2="416" y2="200" stroke="#94a3b8" stroke-width="6" stroke-dasharray="14 12"/>
+
+  <!-- Price path breaking through resistance -->
+  <path d="M 96 320 L 160 300 L 200 340 L 248 260 L 292 300 L 336 200 L 392 130"
+        fill="none" stroke="url(#goldGrad)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Breakout arrowhead -->
+  <path d="M 392 130 L 364 138 M 392 130 L 384 158" fill="none" stroke="url(#goldGrad)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Breakout candle accent -->
+  <rect x="330" y="176" width="14" height="46" rx="3" fill="#3fb27f"/>
+</svg>

@@ -1,0 +1,73 @@
+<svg viewBox="0 0 1600 500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19"/>
+      <stop offset="100%" stop-color="#131826"/>
+    </linearGradient>
+    <linearGradient id="goldGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e7c86b"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1600" height="500" fill="url(#bgGrad)"/>
+
+  <!-- faint grid -->
+  <g stroke="#232b3d" stroke-width="1">
+    <line x1="0" y1="125" x2="1600" y2="125"/>
+    <line x1="0" y1="250" x2="1600" y2="250"/>
+    <line x1="0" y1="375" x2="1600" y2="375"/>
+  </g>
+
+  <!-- Left: wordmark + tagline -->
+  <g>
+    <rect x="70" y="70" width="96" height="96" rx="20" fill="#0b0f19" stroke="url(#goldGrad3)" stroke-width="2"/>
+    <line x1="90" y1="112" x2="152" y2="112" stroke="#94a3b8" stroke-width="3" stroke-dasharray="6 5"/>
+    <path d="M 90 142 L 104 136 L 114 148 L 126 122 L 138 136 L 150 100"
+          fill="none" stroke="url(#goldGrad3)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="144" y="108" width="6" height="16" rx="1.5" fill="#3fb27f"/>
+
+    <text x="70" y="225" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="700" fill="#ffffff">AT24 </text>
+    <text x="182" y="225" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="700" fill="url(#goldGrad3)">Gold Range Breaker</text>
+    <text x="70" y="258" font-family="Arial, Helvetica, sans-serif" font-size="20" fill="#94a3b8" letter-spacing="1">PDH/PDL Breakout · EMA/ADX Filter · Pyramid Entries — MT5</text>
+
+    <!-- Trust status badge: neutral tone per RiskSection convention (INCONCLUSIVE = neutral, never hidden) -->
+    <rect x="70" y="284" width="230" height="34" rx="17" fill="#1c2434" stroke="#283246" stroke-width="1"/>
+    <circle cx="90" cy="301" r="5" fill="#94a3b8"/>
+    <text x="104" y="307" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#94a3b8">Trust Status: INCONCLUSIVE</text>
+
+    <text x="70" y="350" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#7b889b">Real backtest evidence, independently verified.</text>
+    <text x="70" y="370" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#7b889b">Not a guarantee of future performance.</text>
+  </g>
+
+  <!-- Right: real evidence stat tiles (from PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN, M4/M5 verified) -->
+  <g font-family="Arial, Helvetica, sans-serif">
+    <!-- tile template: 4 tiles, 2x2 -->
+    <g>
+      <rect x="900" y="70" width="300" height="120" rx="14" fill="#131826" stroke="#232b3d" stroke-width="1"/>
+      <text x="924" y="104" font-size="13" fill="#7b889b" letter-spacing="1">NET PROFIT (BACKTEST)</text>
+      <text x="924" y="150" font-size="36" font-weight="700" fill="#3fb27f">+21,723</text>
+      <text x="924" y="174" font-size="13" fill="#7b889b">1,511 trades · 2025.01–2026.08</text>
+    </g>
+    <g>
+      <rect x="1230" y="70" width="300" height="120" rx="14" fill="#131826" stroke="#232b3d" stroke-width="1"/>
+      <text x="1254" y="104" font-size="13" fill="#7b889b" letter-spacing="1">PROFIT FACTOR</text>
+      <text x="1254" y="150" font-size="36" font-weight="700" fill="url(#goldGrad3)">1.16</text>
+      <text x="1254" y="174" font-size="13" fill="#7b889b">Win rate 39.91%</text>
+    </g>
+    <g>
+      <rect x="900" y="210" width="300" height="120" rx="14" fill="#131826" stroke="#232b3d" stroke-width="1"/>
+      <text x="924" y="244" font-size="13" fill="#7b889b" letter-spacing="1">MAX DRAWDOWN</text>
+      <text x="924" y="290" font-size="36" font-weight="700" fill="#d1594a">29.01%</text>
+      <text x="924" y="314" font-size="13" fill="#7b889b">Balance-based · 39 episodes</text>
+    </g>
+    <g>
+      <rect x="1230" y="210" width="300" height="120" rx="14" fill="#131826" stroke="#232b3d" stroke-width="1"/>
+      <text x="1254" y="244" font-size="13" fill="#7b889b" letter-spacing="1">WALK-FORWARD (M4)</text>
+      <text x="1254" y="290" font-size="36" font-weight="700" fill="#3fb27f">PASS</text>
+      <text x="1254" y="314" font-size="13" fill="#7b889b">2025 train → 2026 test</text>
+    </g>
+  </g>
+
+  <text x="900" y="360" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#7b889b">Source: AT24 M2–M5 Evidence/Validation/Risk engines, real MT5 report. Full evidence report available on the listing page.</text>
+</svg>
