@@ -230,10 +230,24 @@ async function zoomTests(): Promise<void> {
     assert.ok(!/deltaY\s*\*|deltaY\s*\/(?!\s*Math)/.test(wheelHandler));
   });
 
-  await test("handleWheel calls preventDefault, so scrolling the page is never hijacked OUTSIDE the chart (the listener is scoped to the canvas element only)", () => {
+  await test("handleWheel calls preventDefault - the FIRST half of stopping the page from scrolling while zooming the chart (see the next test for the second, previously-missing half)", () => {
     const src = nativeChartSrc();
     const wheelHandler = src.slice(src.indexOf("function handleWheel"), src.indexOf("function handlePointerDown"));
     assert.ok(wheelHandler.includes("e.preventDefault()"));
+  });
+
+  await test("the wheel listener is attached imperatively with { passive: false }, never via the JSX onWheel prop - a real bug found live on production this session: React 17+ attaches its delegated wheel/touchstart/touchmove listeners as PASSIVE by default, which silently ignores preventDefault() no matter how correctly handleWheel calls it, so scrolling over the chart ALSO scrolled the containing page (not TradingView-like, where the page never moves)", () => {
+    const src = nativeChartSrc();
+    assert.ok(!src.includes("onWheel={handleWheel}"), "the JSX onWheel prop must be gone - it's the passive listener that caused the bug");
+    assert.ok(src.includes('addEventListener("wheel", listener, { passive: false })'), "the imperative, non-passive listener is what actually makes preventDefault() work");
+  });
+
+  await test("the imperative wheel listener always dispatches to the LATEST render's handleWheel via a ref, never a closure captured once on mount - handleWheelRef.current is reassigned every render, so the listener never goes stale even though its own attaching effect runs only once", () => {
+    const src = nativeChartSrc();
+    assert.ok(src.includes("handleWheelRef.current = handleWheel;"));
+    const effectBlock = src.slice(src.indexOf('canvas.addEventListener("wheel"') - 400, src.indexOf('canvas.addEventListener("wheel"') + 400);
+    assert.ok(effectBlock.includes("}, []);"), "the attaching effect must run once on mount (empty dep array) - re-attaching per render would defeat the point of the ref indirection");
+    assert.ok(effectBlock.includes("canvas.removeEventListener"), "cleanup must remove the exact same listener reference passed to addEventListener, never leaking it across remounts");
   });
 
   await test("pinch-zoom reuses the SAME zoomViewport function wheel/keyboard zoom already use - never a second zoom model", () => {

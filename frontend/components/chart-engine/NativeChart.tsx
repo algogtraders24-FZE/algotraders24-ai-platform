@@ -137,6 +137,22 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
 
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Sprint D2.7.11 - React attaches its delegated `wheel` listener as
+  // PASSIVE by default (a React 17+ perf change - wheel/touchstart/
+  // touchmove are known scroll-related events browsers warn about for
+  // non-passive listeners). A passive listener silently ignores
+  // preventDefault() - handleWheel's own e.preventDefault() call below has
+  // always been a no-op when attached via the JSX `onWheel` prop, so every
+  // scroll-wheel zoom has ALSO scrolled the containing page at the same
+  // time (confirmed live on production, and the root cause of a real user
+  // report: zoom didn't feel like TradingView's, where the page never
+  // moves). The fix is the standard workaround: attach the listener
+  // imperatively with `{ passive: false }`, which JSX props can't express.
+  // handleWheelRef always holds the LATEST render's handleWheel (closing
+  // over the latest candles/etc.) so the listener-attaching effect below
+  // can run once on mount, never needing to track handleWheel's own
+  // dependencies or re-attach on every candles poll.
+  const handleWheelRef = useRef<(e: WheelEvent) => void>(() => {});
   const viewportRef = useRef<Viewport | null>(null);
   const crosshairRef = useRef<CrosshairState | null>(null);
   const dragRef = useRef<{ startX: number; startViewport: Viewport } | null>(null);
@@ -464,7 +480,7 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
     else draw();
   }
 
-  function handleWheel(e: React.WheelEvent<HTMLCanvasElement>) {
+  function handleWheel(e: WheelEvent) {
     e.preventDefault();
     const viewport = viewportRef.current;
     if (!viewport || candles.length === 0) return;
@@ -483,6 +499,20 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
     const zoomed = zoomViewport(viewport, factor, anchorTime, candleStepMs(candles), candles.length);
     applyViewport(clampViewportToCandleBounds(zoomed, candles), true);
   }
+  handleWheelRef.current = handleWheel;
+
+  // Sprint D2.7.11 - see handleWheelRef's own comment above for why this
+  // can't be the JSX `onWheel` prop. Runs once on mount (canvasRef.current
+  // is stable for the component's lifetime) and always dispatches to
+  // handleWheelRef.current, so it never goes stale and never needs
+  // re-attaching when candles/viewport/etc. change on every render.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const listener = (e: WheelEvent) => handleWheelRef.current(e);
+    canvas.addEventListener("wheel", listener, { passive: false });
+    return () => canvas.removeEventListener("wheel", listener);
+  }, []);
 
   // Sprint D2.7.7, Phase 2/7 - migrated from Mouse Events to the unified
   // Pointer Events API (mouse/touch/pen all deliver through this one model)
@@ -985,7 +1015,6 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
           // scroll/pinch-zoom/navigation gesture, so our own pointer-event
           // pan/pinch logic is the only thing handling touch input here.
           style={{ touchAction: "none" }}
-          onWheel={handleWheel}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
