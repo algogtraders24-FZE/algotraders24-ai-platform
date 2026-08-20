@@ -1,0 +1,242 @@
+// M1 — TradingSystem Schema (DRAFT ARTIFACT)
+//
+// Status: design draft for Sprint M1, authorized by M0.1_product_model_freeze.md.
+// NOT wired into any application or database. Do not run `prisma migrate` /
+// `prisma db push` against this file as-is — it is a standalone schema
+// artifact living in ea-research/marketplace-research/, deliberately kept
+// separate from frontend/prisma/schema.prisma (see M1_tradingsystem_schema.md
+// section 5 for why). Conventions (cuid ids, createdAt/updatedAt, @@index
+// style) intentionally mirror frontend/prisma/schema.prisma so a future
+// integration decision is a copy/merge, not a rewrite.
+//
+// Numeric validation thresholds, trust-status qualification rules, and the
+// AT24 Score formula are explicitly NOT modeled here — see
+// M1_tradingsystem_schema.md section 4. Every place a ruleset would apply
+// carries a `rulesetVersion`/`formulaVersion` string instead of a hardcoded
+// rule, so M4/M5/M6 can evolve without another schema migration.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma-marketplace"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ── Identity ────────────────────────────────────────────────────────────
+
+model TradingSystem {
+  id               String    @id @default(cuid())
+  slug             String    @unique
+  name             String
+  ownerId          String // FK to the platform's existing User — no parallel seller-identity table
+  strategyCategory String    @default("")
+  description      String    @default("") // seller-controlled
+  shortDescription String    @default("") // seller-controlled
+  platform         String    @default("") // MT4 / MT5 / other
+  status           String    @default("draft") // draft | active | archived
+  currentVersionId String? // convenience pointer only, not authoritative
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  versions Version[]
+  listings MarketplaceListing[]
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model Version {
+  id                 String    @id @default(cuid())
+  tradingSystemId    String
+  versionString      String // e.g. "v1.0"
+  parentVersionId    String? // lineage pointer only — never implies evidence inheritance
+  strategyDefinition Json // seller-authored: entry/exit logic ref, params, artifact pointer/hash
+  declaredRiskModel  Json // seller-declared risk-per-trade/SL-TP/max-trades-per-day — distinct from RiskAnalysis
+  supportedInstruments String[] @default([])
+  supportedTimeframes  String[] @default([])
+  executionModel       Json     @default("{}")
+  artifactHash         String? // reserved for M14 integrity/security, not enforced yet
+  status               String   @default("draft") // draft | frozen | deprecated
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  tradingSystem TradingSystem @relation(fields: [tradingSystemId], references: [id])
+
+  evidence          Evidence[]
+  riskAnalyses      RiskAnalysis[]
+  historyEvents     HistoryEvent[]
+  trustStatuses     TrustStatus[]
+  scores            Score[]
+  listing           MarketplaceListing[]
+
+  @@index([tradingSystemId])
+  @@index([status])
+}
+
+// ── Evidence (M2 / M3) ──────────────────────────────────────────────────
+
+model Evidence {
+  id            String   @id @default(cuid())
+  versionId     String
+  evidenceClass String // HISTORICAL | LIVE — never collapsed together (principle 5)
+  source        String // BACKTEST | PAPER | LIVE_ACCOUNT
+  provenance    Json // dataSource, broker, symbol, timeframe, period, spread/commission/swap model, tickDataQuality, executionAssumptions — mandatory (principle 7)
+  generatedBy   String // named, versioned AT24 process/engine that produced this — reproducibility claim (principle 2)
+  metricsSummary Json // netProfit, returnPct, profitFactor, winRate, avgTrade, maxDrawdown, recoveryFactor, sharpe, sortino, expectedPayoff, largestWin/Loss, consecutiveWins/Losses, tradeCount
+  curves        Json     @default("{}") // pointer/blob ref to equity/balance/drawdown curves + monthly/yearly rollups
+  createdAt     DateTime @default(now())
+  // No updatedAt — Evidence is immutable once written (principle 2), enforced at the application write layer.
+
+  version Version @relation(fields: [versionId], references: [id])
+
+  trades      Trade[]
+  validations Validation[]
+
+  @@index([versionId])
+  @@index([evidenceClass])
+  @@index([source])
+}
+
+model Trade {
+  id             String   @id @default(cuid())
+  evidenceId     String
+  timestamp      DateTime
+  symbol         String
+  direction      String // long | short
+  entryPrice     Float
+  exitPrice      Float
+  sl             Float?
+  tp             Float?
+  volume         Float
+  profit         Float
+  rMultiple      Float?
+  durationSeconds Int?
+  marketRegime   String? // feeds M4 Layer 6 regime validation
+
+  evidence Evidence @relation(fields: [evidenceId], references: [id])
+
+  @@index([evidenceId])
+  @@index([timestamp])
+}
+
+// ── Validation (M4) ─────────────────────────────────────────────────────
+
+model Validation {
+  id             String   @id @default(cuid())
+  evidenceId     String // always tied to specific Evidence, never a seller description of it
+  layer          String // DATA_INTEGRITY | STATISTICAL_VALIDITY | OUT_OF_SAMPLE | WALK_FORWARD | PARAMETER_ROBUSTNESS | REGIME_VALIDATION
+  result         String // PASS | FAIL | NOT_APPLICABLE
+  measuredValues Json
+  thresholdsUsed Json // snapshot of thresholds applied at run time — thresholds are explicitly unfrozen (M0.1 section 4)
+  rulesetVersion String // which versioned threshold-ruleset produced this result
+  auditTrail     String // human-readable why-pass/why-fail (principle 8)
+  runAt          DateTime @default(now())
+
+  evidence Evidence @relation(fields: [evidenceId], references: [id])
+
+  @@index([evidenceId])
+  @@index([layer])
+  @@index([result])
+}
+
+// ── Risk Analysis (M5) ──────────────────────────────────────────────────
+
+model RiskAnalysis {
+  id                            String   @id @default(cuid())
+  versionId                     String // scoped to Version — synthesizes across that Version's Evidence
+  monteCarloSummary             Json     @default("{}")
+  parameterPerturbationSummary  Json     @default("{}")
+  stressTestSummary             Json     @default("{}") // spread +25/+50/+100%, slippage stress
+  dataWindowStabilitySummary    Json     @default("{}")
+  marketRegimeStabilitySummary  Json     @default("{}")
+  rulesetVersion                String
+  computedAt                    DateTime @default(now())
+
+  version Version @relation(fields: [versionId], references: [id])
+
+  @@index([versionId])
+}
+
+// ── History (audit ledger) ──────────────────────────────────────────────
+
+model HistoryEvent {
+  id          String   @id @default(cuid())
+  versionId   String
+  eventType   String // EVIDENCE_ADDED | VALIDATION_RUN | RISK_ANALYSIS_RUN | TRUST_STATUS_CHANGED | LISTING_STATUS_CHANGED
+  referenceId String // FK to the specific row this event documents (polymorphic by eventType)
+  occurredAt  DateTime @default(now())
+
+  version Version @relation(fields: [versionId], references: [id])
+
+  @@index([versionId])
+  @@index([eventType])
+}
+
+// ── Trust Status & Score (M6 / M7) ──────────────────────────────────────
+
+model TrustStatus {
+  id                   String    @id @default(cuid())
+  versionId            String
+  status               String // UNVERIFIED | BACKTEST_VERIFIED | ROBUSTNESS_VERIFIED | PAPER_VERIFIED | LIVE_VERIFIED | AT24_VERIFIED
+  rationale            String
+  basedOnValidationIds String[]  @default([])
+  basedOnRiskAnalysisId String?
+  rulesetVersion       String
+  assignedAt           DateTime  @default(now())
+  supersededAt         DateTime? // NULL = currently active — append-only, never overwritten
+
+  version Version @relation(fields: [versionId], references: [id])
+
+  @@index([versionId])
+  @@index([supersededAt])
+}
+
+model Score {
+  id                 String    @id @default(cuid())
+  versionId          String
+  scoreValue         Float
+  subScores          Json // performance, risk, robustness, consistency, validation, sampleSize, liveEvidence — dimensions only, weights not decided
+  basedOnTrustStatusId String?
+  formulaVersion     String
+  computedAt         DateTime  @default(now())
+  supersededAt       DateTime? // NULL = currently active
+
+  version Version @relation(fields: [versionId], references: [id])
+
+  @@index([versionId])
+  @@index([supersededAt])
+}
+
+// ── Marketplace Listing (M9) ─────────────────────────────────────────────
+
+model MarketplaceListing {
+  id                   String    @id @default(cuid())
+  tradingSystemId      String
+  publishedVersionId   String? // nullable until actually published
+  title                String    @default("") // seller-controlled
+  description          String    @default("") // seller-controlled
+  category             String    @default("")
+  supportedMarkets     String[]  @default([])
+  supportedTimeframes  String[]  @default([])
+  media                String[]  @default([]) // seller-controlled
+  pricing              Json      @default("{}") // M13 economics not modeled beyond a slot existing
+  publicationStatus    String    @default("draft") // draft|submitted|under_review|validation|approved|published|rejected
+  rejectionReason      String?
+  performanceSummary   Json      @default("{}") // read-only projection from published Version's Evidence
+  riskProfileSummary   Json      @default("{}") // read-only projection from published Version's RiskAnalysis
+  trustStatusSummary   Json      @default("{}") // read-only projection from published Version's TrustStatus
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  deletedAt            DateTime?
+
+  tradingSystem    TradingSystem @relation(fields: [tradingSystemId], references: [id])
+  publishedVersion Version?      @relation(fields: [publishedVersionId], references: [id])
+
+  @@index([tradingSystemId])
+  @@index([publicationStatus])
+  @@index([deletedAt])
+}

@@ -14,7 +14,23 @@ export type AuditAction =
   | "subscription.plan_overridden"
   | "subscription.canceled"
   | "subscription.reactivated"
-  | "knowledge.deleted";
+  | "knowledge.deleted"
+  // Sprint M9 - Marketplace Product Factory audit trail. Reuses this
+  // existing, already-append-only AuditLog model rather than a new table
+  // (see ea-research/marketplace-research/m9-product-factory/
+  // M9_architecture_audit.md section 5).
+  | "marketplace.submission_created"
+  | "marketplace.submission_updated"
+  | "marketplace.submitted_for_review"
+  | "marketplace.ingestion_started"
+  | "marketplace.ingestion_completed"
+  | "marketplace.validation_completed"
+  | "marketplace.risk_analysis_completed"
+  | "marketplace.trust_evaluated"
+  | "marketplace.eligibility_evaluated"
+  | "marketplace.published"
+  | "marketplace.unpublished"
+  | "marketplace.rejected";
 
 export interface AuditLogEntry {
   id: string;

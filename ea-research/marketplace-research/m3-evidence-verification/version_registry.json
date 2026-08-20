@@ -1,0 +1,8 @@
+{
+  "_comment": "Stand-in for M1's Version/TradingSystem tables, which don't exist as a real database yet. Maps a Version.id (as used in M2's Evidence.versionId) to its owning TradingSystem -- see M3_evidence_integrity_verification.md section 2 for why this lives here instead of being written onto the Evidence artifact.",
+  "G01-v0.1-FROZEN-BASELINE": {
+    "tradingSystemId": "G01",
+    "tradingSystemName": "G01 LiquiditySweep MSS FVG (Gold Auto Strategy)",
+    "versionString": "v0.1"
+  }
+}

@@ -85,7 +85,8 @@
     "validate:historical-microstructure-outcomes": "tsx scripts/validate-historical-microstructure-outcomes.ts",
     "validate:intelligence-data-sufficiency": "tsx scripts/validate-intelligence-data-sufficiency.ts",
     "validate:marketplace": "tsx scripts/validate-marketplace-platform.ts",
-    "validate:marketplace-prod": "tsx scripts/validate-marketplace-production-smoke.ts"
+    "validate:marketplace-prod": "tsx scripts/validate-marketplace-production-smoke.ts",
+    "validate:marketplace-factory": "tsx scripts/validate-marketplace-factory.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",
