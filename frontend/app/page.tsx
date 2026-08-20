@@ -2,7 +2,7 @@ import Navbar from "@/components/layout/Navbar";
 import Hero from "@/sections/Hero";
 import TrustStrip from "@/sections/TrustStrip";
 import PlatformOverview from "@/sections/PlatformOverview";
-import FeaturedProducts from "@/sections/FeaturedProducts";
+import FeaturedMarketplace from "@/sections/FeaturedMarketplace";
 import PricingTeaser from "@/sections/PricingTeaser";
 import FAQ from "@/sections/FAQ";
 import CTA from "@/sections/CTA";
@@ -43,6 +43,16 @@ import Footer from "@/sections/Footer";
 // 4-tier data, compact chips) rather than the full <Pricing /> grid, which
 // stays unchanged at /pricing. FAQ shows the top 5 of 7; the rest is at
 // /resources/faq.
+//
+// Sprint M12 branding follow-on - the "Products" section is now
+// FeaturedMarketplace (real Marketplace listings, independently verified
+// via M2-M7), not the legacy /products catalogue - explicit direction,
+// pre-public-launch. FeaturedProducts.tsx is left in the codebase, unused,
+// not deleted. Same public visibility gate as /marketplace everywhere
+// else: only READY/PUBLISHED listings ever show here. A seller publishes
+// through the My Products backoffice (app/marketplace/my-products), which
+// is the only place publicationState actually changes - see that page's
+// own comment.
 export default function Home() {
   return (
     <main id="main-content" className="min-h-screen bg-ink text-text">
@@ -50,7 +60,7 @@ export default function Home() {
       <Hero />
       <TrustStrip />
       <PlatformOverview />
-      <FeaturedProducts />
+      <FeaturedMarketplace />
       <PricingTeaser />
       <FAQ limit={5} />
       <CTA />
