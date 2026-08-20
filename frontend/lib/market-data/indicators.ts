@@ -548,3 +548,100 @@ export function parabolicSarSeries(
 
   return result;
 }
+
+// ============================================================
+// Ichimoku Kinko Hyo (MT5 feature-parity Phase 2, this session) - real MT5
+// defaults verified against mql5.com/metatrader5.com: Tenkan-sen 9,
+// Kijun-sen 26, Senkou Span B 52. Genuinely different SHAPE from every
+// indicator above: two of its five lines (Senkou Span A/B) plot 26 periods
+// FORWARD of the candle they're computed from, and one (Chikou Span) plots
+// 26 periods BACKWARD - real time-shifted output, not just a new formula.
+// ============================================================
+
+export const ICHIMOKU_TENKAN_DEFAULT = 9;
+export const ICHIMOKU_KIJUN_DEFAULT = 26;
+export const ICHIMOKU_SENKOU_DEFAULT = 52;
+
+/** Ichimoku needs each candle's real timestamp (to compute shifted lines' synthetic times) - the one indicator in this file that can't use the plain OhlcCandle shape. ChartCandle (time: number) and this module's own Candle (via a `time` accessor) both satisfy this with zero conversion. */
+export interface OhlcCandleWithTime extends OhlcCandle {
+  time: number;
+}
+
+export interface IchimokuPoint {
+  time: number;
+  value: number | undefined;
+}
+
+export interface IchimokuResult {
+  tenkan: IchimokuPoint[];
+  kijun: IchimokuPoint[];
+  senkouA: IchimokuPoint[];
+  senkouB: IchimokuPoint[];
+  chikou: IchimokuPoint[];
+}
+
+/** (highest high + lowest low)/2 over the `period` candles ending at `endIndex` - the shared Donchian-midpoint formula Tenkan-sen, Kijun-sen and Senkou Span B all use, just at different periods. Honestly undefined until `period` candles exist. */
+function donchianMid(candles: readonly OhlcCandle[], endIndex: number, period: number): number | undefined {
+  if (endIndex < period - 1) return undefined;
+  let highestHigh = -Infinity;
+  let lowestLow = Infinity;
+  for (let i = endIndex - period + 1; i <= endIndex; i++) {
+    if (candles[i].high > highestHigh) highestHigh = candles[i].high;
+    if (candles[i].low < lowestLow) lowestLow = candles[i].low;
+  }
+  return (highestHigh + lowestLow) / 2;
+}
+
+/**
+ * Ichimoku Kinko Hyo at every index. Tenkan-sen/Kijun-sen plot at their own
+ * candle's real time (no shift). Senkou Span A/B are computed from the
+ * CURRENT candle but plotted `kijunPeriod` candles ahead - Chikou Span is
+ * the current candle's close plotted `kijunPeriod` candles behind. Shifted
+ * targets that land outside the real candles array get a synthetic time
+ * extrapolated from the array's own step size (never a fabricated value,
+ * only a fabricated TIME to plot an already-real value at) - the chart's
+ * existing gapless index-scale extrapolation (fractionalIndexForTime)
+ * already renders times beyond the real candle range correctly, so no
+ * renderer change is needed to support this.
+ */
+export function ichimokuSeries(
+  candles: readonly OhlcCandleWithTime[],
+  tenkanPeriod = ICHIMOKU_TENKAN_DEFAULT,
+  kijunPeriod = ICHIMOKU_KIJUN_DEFAULT,
+  senkouPeriod = ICHIMOKU_SENKOU_DEFAULT,
+): IchimokuResult {
+  const n = candles.length;
+  if (n === 0) return { tenkan: [], kijun: [], senkouA: [], senkouB: [], chikou: [] };
+  const stepMs = n >= 2 ? candles[1].time - candles[0].time : 60_000;
+
+  function timeAtOffset(targetIndex: number): number {
+    if (targetIndex >= 0 && targetIndex < n) return candles[targetIndex].time;
+    if (targetIndex >= n) return candles[n - 1].time + (targetIndex - (n - 1)) * stepMs;
+    return candles[0].time + targetIndex * stepMs;
+  }
+
+  const tenkanRaw = candles.map((_, i) => donchianMid(candles, i, tenkanPeriod));
+  const kijunRaw = candles.map((_, i) => donchianMid(candles, i, kijunPeriod));
+  const senkouBRaw = candles.map((_, i) => donchianMid(candles, i, senkouPeriod));
+
+  const tenkan: IchimokuPoint[] = candles.map((c, i) => ({ time: c.time, value: tenkanRaw[i] }));
+  const kijun: IchimokuPoint[] = candles.map((c, i) => ({ time: c.time, value: kijunRaw[i] }));
+
+  const senkouA: IchimokuPoint[] = candles.map((_, i) => {
+    const t = tenkanRaw[i];
+    const k = kijunRaw[i];
+    return { time: timeAtOffset(i + kijunPeriod), value: t !== undefined && k !== undefined ? (t + k) / 2 : undefined };
+  });
+
+  const senkouB: IchimokuPoint[] = candles.map((_, i) => ({
+    time: timeAtOffset(i + kijunPeriod),
+    value: senkouBRaw[i],
+  }));
+
+  const chikou: IchimokuPoint[] = candles.map((c, i) => ({
+    time: timeAtOffset(i - kijunPeriod),
+    value: c.close,
+  }));
+
+  return { tenkan, kijun, senkouA, senkouB, chikou };
+}

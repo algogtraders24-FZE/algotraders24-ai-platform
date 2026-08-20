@@ -36,7 +36,7 @@ export const PANEL_REGISTRY: Record<ChartPanelId, PanelSpec> = {
   "williams-r": { id: "williams-r", label: "Williams %R", heightWeight: 1 },
 };
 
-/** The default, deterministic indicator configurations the chart toolbar's Indicators menu offers - real periods matching TechnicalContextService's own existing choices (RSI-14, EMA-20/50, SMA-20, Bollinger-20/2, MACD-12/26/9) so a value shown on the chart always agrees with the same value the AI Intelligence panel would report for the same symbol/timeframe. ATR-14 matches TechnicalContextService's own ATR_PERIOD_DEFAULT (indicators.ts). Stochastic 5/3/3, ADX-14, CCI-14, Williams %R-14 and Parabolic SAR 0.02/0.2 are all MT5's real verified defaults this session (mql5.com/metatrader5.com) - CCI's own original Lambert methodology used 20, but MT5 itself defaults to 14, same as the others. */
+/** The default, deterministic indicator configurations the chart toolbar's Indicators menu offers - real periods matching TechnicalContextService's own existing choices (RSI-14, EMA-20/50, SMA-20, Bollinger-20/2, MACD-12/26/9) so a value shown on the chart always agrees with the same value the AI Intelligence panel would report for the same symbol/timeframe. ATR-14 matches TechnicalContextService's own ATR_PERIOD_DEFAULT (indicators.ts). Stochastic 5/3/3, ADX-14, CCI-14, Williams %R-14, Parabolic SAR 0.02/0.2 and Ichimoku 9/26/52 are all MT5's real verified defaults this session (mql5.com/metatrader5.com) - CCI's own original Lambert methodology used 20, but MT5 itself defaults to 14, same as the others. */
 export const DEFAULT_INDICATOR_CONFIGS: readonly IndicatorConfig[] = [
   { id: "ema", key: "ema-20", period: 20, color: "var(--gold)" },
   { id: "ema", key: "ema-50", period: 50, color: "var(--gold-strong)" },
@@ -51,6 +51,7 @@ export const DEFAULT_INDICATOR_CONFIGS: readonly IndicatorConfig[] = [
   { id: "cci", key: "cci-14", period: 14, color: "var(--gold)" },
   { id: "williams-r", key: "williams-r-14", period: 14, color: "var(--gold)" },
   { id: "parabolic-sar", key: "parabolic-sar-0.02-0.2", period: 0.02, maxStep: 0.2, color: "var(--gold)" },
+  { id: "ichimoku", key: "ichimoku-9-26-52", period: 9, slowPeriod: 26, senkouPeriod: 52, color: "var(--gold)" },
 ];
 
 // Sprint D2.7.5, Phase 4 - a static id->panel lookup so the toolbar's
@@ -76,4 +77,5 @@ export const INDICATOR_PANEL_ID: Record<IndicatorConfig["id"], ChartPanelId> = {
   cci: "cci",
   "williams-r": "williams-r",
   "parabolic-sar": "price",
+  ichimoku: "price",
 };

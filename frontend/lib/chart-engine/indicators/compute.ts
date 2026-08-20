@@ -7,7 +7,7 @@
 // shape (types.ts). It contains ZERO Canvas/coordinate code and zero
 // indicator math of its own.
 import type { ChartCandle } from "@/types/chart-data";
-import { smaSeries, emaSeries, rsiSeries, bollingerSeries, macdSeries, atrSeries, stochasticSeries, adxSeries, cciSeries, williamsPercentRSeries, parabolicSarSeries } from "@/lib/market-data/indicators";
+import { smaSeries, emaSeries, rsiSeries, bollingerSeries, macdSeries, atrSeries, stochasticSeries, adxSeries, cciSeries, williamsPercentRSeries, parabolicSarSeries, ichimokuSeries } from "@/lib/market-data/indicators";
 import type { IndicatorConfig, IndicatorSeries, IndicatorPoint, IndicatorLine } from "./types";
 
 /** emaSeries() (lib/market-data/indicators.ts) returns only its computable tail, unaligned - left-pad it to one entry per candle, same honest-undefined convention every other *Series function already returns. */
@@ -131,6 +131,25 @@ export function computeIndicatorSeries(candles: ChartCandle[], config: Indicator
       const values = results.map((r) => r?.value);
       const line: IndicatorLine = { name: config.key, points: toPoints(candles, values), color: config.color, style: "dots" };
       return { config, panel: "price", lines: [line] };
+    }
+    case "ichimoku": {
+      // config.period/slowPeriod/senkouPeriod are Tenkan/Kijun/Senkou - see
+      // IndicatorConfig's own field comments. Each line below is already a
+      // {time,value}[] with its own (possibly shifted) times - IchimokuPoint
+      // and IndicatorPoint are the same shape, so no toPoints() conversion.
+      const kijunPeriod = config.slowPeriod ?? 26;
+      const result = ichimokuSeries(candles, config.period, kijunPeriod, config.senkouPeriod);
+      return {
+        config,
+        panel: "price",
+        lines: [
+          { name: `${config.key}-tenkan`, points: result.tenkan, color: config.color },
+          { name: `${config.key}-kijun`, points: result.kijun, color: "var(--gold-strong)" },
+          { name: `${config.key}-senkou-a`, points: result.senkouA, color: "var(--signal-up)" },
+          { name: `${config.key}-senkou-b`, points: result.senkouB, color: "var(--signal-down)" },
+          { name: `${config.key}-chikou`, points: result.chikou, color: "var(--steel)" },
+        ],
+      };
     }
   }
 }

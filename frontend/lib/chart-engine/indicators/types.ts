@@ -7,7 +7,7 @@
 // separation is mandatory per the sprint brief:
 //   Calculation Layer -> Indicator Data -> Chart Coordinate System -> Renderer
 
-export type IndicatorId = "sma" | "ema" | "rsi" | "macd" | "bollinger" | "volume" | "atr" | "stochastic" | "adx" | "cci" | "williams-r" | "parabolic-sar";
+export type IndicatorId = "sma" | "ema" | "rsi" | "macd" | "bollinger" | "volume" | "atr" | "stochastic" | "adx" | "cci" | "williams-r" | "parabolic-sar" | "ichimoku";
 
 /** The sub-panel an indicator's line(s) render into - Phase 8's reusable panel model. "price" means "drawn as an overlay on the main candlestick panel", not a separate panel. */
 export type ChartPanelId = "price" | "volume" | "rsi" | "macd" | "atr" | "stochastic" | "adx" | "cci" | "williams-r";
@@ -16,7 +16,7 @@ export interface IndicatorConfig {
   id: IndicatorId;
   /** Deterministic, derived from id+period (e.g. "ema-20") - distinguishes two instances of the same indicator (EMA20 vs EMA50) on one chart. Never free-text. */
   key: string;
-  /** Parabolic SAR (this session) reuses this field for its own primary numeric parameter - the Acceleration Factor "step" (MT5's real default 0.02) - rather than adding a whole second required field for a value that plays the same "this indicator's one core tunable number" role every other indicator's `period` already plays. */
+  /** Parabolic SAR (this session) reuses this field for its own primary numeric parameter - the Acceleration Factor "step" (MT5's real default 0.02) - rather than adding a whole second required field for a value that plays the same "this indicator's one core tunable number" role every other indicator's `period` already plays. Ichimoku (this session) reuses this field for Tenkan-sen's period (MT5 default 9) - see `slowPeriod` (Kijun-sen, 26) and `senkouPeriod` (Senkou Span B, 52) for its other two periods. */
   period: number;
   /** Bollinger only. */
   stdDevMultiplier?: number;
@@ -29,6 +29,8 @@ export interface IndicatorConfig {
   slowingPeriod?: number;
   /** Parabolic SAR only - MT5's real default Acceleration Factor ceiling (0.2 - see indicators.ts's parabolicSarSeries() header comment). */
   maxStep?: number;
+  /** Ichimoku only - Senkou Span B's own period (MT5 default 52), distinct from `period` (Tenkan, 9) and `slowPeriod` (Kijun, 26) since Ichimoku genuinely needs three independent periods, not two. */
+  senkouPeriod?: number;
   /** One of AT24's existing design tokens (see palette.ts) - never a new arbitrary color invented per indicator. */
   color: string;
 }

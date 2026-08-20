@@ -364,9 +364,23 @@ async function indicatorCorrectnessTests(): Promise<void> {
   for (const cfg of DEFAULT_INDICATOR_CONFIGS) {
     await test(`indicator ${cfg.key}: output is correctly aligned with candles (one point per candle, matching real timestamps)`, () => {
       const series = computeIndicatorSeries(candles, cfg);
+      const stepMs = candles[1].time - candles[0].time;
       for (const line of series.lines) {
         assert.equal(line.points.length, candles.length);
-        for (let i = 0; i < candles.length; i++) assert.equal(line.points[i].time, candles[i].time);
+        // Ichimoku's Senkou Span A/B (this session) deliberately plot
+        // kijunPeriod candles AHEAD, and Chikou Span kijunPeriod candles
+        // BEHIND - real MT5 time-shifted output, not a bug. Every other
+        // line of every other indicator still aligns 1:1 with its own
+        // candle's real time, unchanged from before this sprint.
+        if (cfg.id === "ichimoku" && (line.name.endsWith("-senkou-a") || line.name.endsWith("-senkou-b"))) {
+          const kijunPeriod = cfg.slowPeriod ?? 26;
+          for (let i = 0; i < candles.length; i++) assert.equal(line.points[i].time, candles[i].time + kijunPeriod * stepMs);
+        } else if (cfg.id === "ichimoku" && line.name.endsWith("-chikou")) {
+          const kijunPeriod = cfg.slowPeriod ?? 26;
+          for (let i = 0; i < candles.length; i++) assert.equal(line.points[i].time, candles[i].time - kijunPeriod * stepMs);
+        } else {
+          for (let i = 0; i < candles.length; i++) assert.equal(line.points[i].time, candles[i].time);
+        }
       }
     });
 

@@ -17,6 +17,7 @@ import {
   cciSeries,
   williamsPercentRSeries,
   parabolicSarSeries,
+  ichimokuSeries,
   ATR_PERIOD_DEFAULT,
   STOCHASTIC_K_PERIOD_DEFAULT,
   STOCHASTIC_SLOWING_DEFAULT,
@@ -26,6 +27,9 @@ import {
   WILLIAMS_R_PERIOD_DEFAULT,
   PARABOLIC_SAR_STEP_DEFAULT,
   PARABOLIC_SAR_MAX_STEP_DEFAULT,
+  ICHIMOKU_TENKAN_DEFAULT,
+  ICHIMOKU_KIJUN_DEFAULT,
+  ICHIMOKU_SENKOU_DEFAULT,
   type OhlcCandle,
 } from "../lib/market-data/indicators";
 import { computeIndicatorSeries } from "../lib/chart-engine/indicators/compute";
@@ -316,6 +320,88 @@ async function main(): Promise<void> {
     assert.ok(trends.slice(-5).includes("down"), "should have reversed to a downtrend by the end of the sharp downturn");
   });
 
+  console.log("\n=== Ichimoku Kinko Hyo ===");
+
+  test("MT5's real default Ichimoku periods are Tenkan 9 / Kijun 26 / Senkou 52 - verified against mql5.com/metatrader5.com this session", () => {
+    assert.equal(ICHIMOKU_TENKAN_DEFAULT, 9);
+    assert.equal(ICHIMOKU_KIJUN_DEFAULT, 26);
+    assert.equal(ICHIMOKU_SENKOU_DEFAULT, 52);
+  });
+
+  test("ichimokuSeries on an empty array returns five empty line arrays, never throws", () => {
+    const result = ichimokuSeries([]);
+    assert.equal(result.tenkan.length, 0);
+    assert.equal(result.kijun.length, 0);
+    assert.equal(result.senkouA.length, 0);
+    assert.equal(result.senkouB.length, 0);
+    assert.equal(result.chikou.length, 0);
+  });
+
+  test("Tenkan-sen/Kijun-sen are honestly undefined until their own period of candles exist, then match the real (highest high + lowest low)/2 Donchian-midpoint formula", () => {
+    const candles = makeCandles(70);
+    const result = ichimokuSeries(candles, 9, 26, 52);
+    assert.equal(result.tenkan[7].value, undefined);
+    assert.notEqual(result.tenkan[8].value, undefined);
+    const tenkanWindow = candles.slice(0, 9);
+    const tenkanExpected = (Math.max(...tenkanWindow.map((c) => c.high)) + Math.min(...tenkanWindow.map((c) => c.low))) / 2;
+    assert.equal(result.tenkan[8].value, tenkanExpected);
+
+    assert.equal(result.kijun[24].value, undefined);
+    assert.notEqual(result.kijun[25].value, undefined);
+    const kijunWindow = candles.slice(0, 26);
+    const kijunExpected = (Math.max(...kijunWindow.map((c) => c.high)) + Math.min(...kijunWindow.map((c) => c.low))) / 2;
+    assert.equal(result.kijun[25].value, kijunExpected);
+  });
+
+  test("Tenkan-sen/Kijun-sen plot at their own candle's real, unshifted time - never shifted", () => {
+    const candles = makeCandles(70);
+    const result = ichimokuSeries(candles, 9, 26, 52);
+    assert.equal(result.tenkan[30].time, candles[30].time);
+    assert.equal(result.kijun[30].time, candles[30].time);
+  });
+
+  test("Senkou Span A/B are computed from the current candle but plotted kijunPeriod candles AHEAD - when the shift target still exists within the real array, it uses that real candle's time (never a synthetic one)", () => {
+    const candles = makeCandles(100);
+    const result = ichimokuSeries(candles, 9, 26, 52);
+    assert.equal(result.senkouA[52].time, candles[78].time);
+    assert.equal(result.senkouB[52].time, candles[78].time);
+    const tenkanAt52 = result.tenkan[52].value!;
+    const kijunAt52 = result.kijun[52].value!;
+    assert.equal(result.senkouA[52].value, (tenkanAt52 + kijunAt52) / 2);
+    const senkouBWindow = candles.slice(52 - 52 + 1, 52 + 1);
+    const senkouBExpected = (Math.max(...senkouBWindow.map((c) => c.high)) + Math.min(...senkouBWindow.map((c) => c.low))) / 2;
+    assert.equal(result.senkouB[52].value, senkouBExpected);
+  });
+
+  test("Senkou Span A/B plotted beyond the real candle array extrapolate a synthetic FUTURE time using the array's own real step - never a fabricated VALUE, only a fabricated time to plot an already-real value at", () => {
+    const candles = makeCandles(70);
+    const result = ichimokuSeries(candles, 9, 26, 52);
+    const n = candles.length;
+    const lastIndex = n - 1;
+    const stepMs = candles[1].time - candles[0].time;
+    const targetIndex = lastIndex + 26;
+    const expectedTime = candles[n - 1].time + (targetIndex - (n - 1)) * stepMs;
+    assert.equal(result.senkouA[lastIndex].time, expectedTime);
+    assert.equal(result.senkouB[lastIndex].time, expectedTime);
+    assert.notEqual(result.senkouB[lastIndex].value, undefined);
+  });
+
+  test("Chikou Span always equals the candle's own close price (never undefined - no minimum period), plotted kijunPeriod candles BEHIND, using the real earlier candle's time whenever that index exists", () => {
+    const candles = makeCandles(70);
+    const result = ichimokuSeries(candles, 9, 26, 52);
+    assert.equal(result.chikou[40].value, candles[40].close);
+    assert.equal(result.chikou[40].time, candles[14].time);
+  });
+
+  test("Chikou Span for early indices (before kijunPeriod candles exist) extrapolates a synthetic BACKWARD time before the array's first real candle - never a fabricated value, only a fabricated time", () => {
+    const candles = makeCandles(70);
+    const result = ichimokuSeries(candles, 9, 26, 52);
+    const stepMs = candles[1].time - candles[0].time;
+    const expectedTime = candles[0].time + (5 - 26) * stepMs;
+    assert.equal(result.chikou[5].time, expectedTime);
+    assert.equal(result.chikou[5].value, candles[5].close);
+  });
+
   console.log("\n=== Chart engine wiring (panel-registry.ts / compute.ts) ===");
 
   test("ATR/Stochastic/ADX/CCI/Williams %R are all registered in PANEL_REGISTRY with their own real sub-panel row, never overlaid on price", () => {
@@ -332,12 +418,14 @@ async function main(): Promise<void> {
     const cciCfg = DEFAULT_INDICATOR_CONFIGS.find((c) => c.id === "cci");
     const wprCfg = DEFAULT_INDICATOR_CONFIGS.find((c) => c.id === "williams-r");
     const sarCfg = DEFAULT_INDICATOR_CONFIGS.find((c) => c.id === "parabolic-sar");
+    const ichimokuCfg = DEFAULT_INDICATOR_CONFIGS.find((c) => c.id === "ichimoku");
     assert.ok(atrCfg && atrCfg.period === 14);
     assert.ok(stochCfg && stochCfg.period === 5 && stochCfg.slowingPeriod === 3 && stochCfg.signalPeriod === 3);
     assert.ok(adxCfg && adxCfg.period === 14);
     assert.ok(cciCfg && cciCfg.period === 14);
     assert.ok(wprCfg && wprCfg.period === 14);
     assert.ok(sarCfg && sarCfg.period === 0.02 && sarCfg.maxStep === 0.2);
+    assert.ok(ichimokuCfg && ichimokuCfg.period === 9 && ichimokuCfg.slowPeriod === 26 && ichimokuCfg.senkouPeriod === 52);
 
     const candles = makeCandles(80);
     for (const cfg of DEFAULT_INDICATOR_CONFIGS) {
@@ -353,6 +441,20 @@ async function main(): Promise<void> {
     assert.equal(series.panel, "price");
     assert.equal(series.lines.length, 1);
     assert.equal(series.lines[0].style, "dots");
+  });
+
+  test("ichimoku is a PRICE overlay (never its own sub-panel) with five distinct lines (Tenkan/Kijun/Senkou A/Senkou B/Chikou), all connected lines - never dots or band-edge", () => {
+    const candles = makeCandles(80);
+    const cfg = DEFAULT_INDICATOR_CONFIGS.find((c) => c.id === "ichimoku")!;
+    const series = computeIndicatorSeries(candles, cfg);
+    assert.equal(series.panel, "price");
+    assert.equal(series.lines.length, 5);
+    assert.ok(series.lines.every((l) => l.style === undefined));
+    assert.ok(series.lines[0].name.endsWith("-tenkan"));
+    assert.ok(series.lines[1].name.endsWith("-kijun"));
+    assert.ok(series.lines[2].name.endsWith("-senkou-a"));
+    assert.ok(series.lines[3].name.endsWith("-senkou-b"));
+    assert.ok(series.lines[4].name.endsWith("-chikou"));
   });
 
   test("computeIndicatorSeries for adx returns three lines (ADX, +DI, -DI) with distinct names - the real MT5 3-line display, never a single line standing in for all three", () => {
@@ -445,11 +547,11 @@ async function main(): Promise<void> {
     assert.ok(!ctx.calls.includes("lineTo"));
   });
 
-  test("renderChart end-to-end with all five Phase 2 sub-panels PLUS the Parabolic SAR overlay active runs without throwing, using only canvas methods already relied on elsewhere", () => {
+  test("renderChart end-to-end with all five Phase 2 sub-panels PLUS the Parabolic SAR and Ichimoku overlays active runs without throwing, using only canvas methods already relied on elsewhere", () => {
     const candles = makeCandles(80);
     const vp = fitToData(candles);
     const subPanelIds = ["atr", "stochastic", "adx", "cci", "williams-r"] as const;
-    const indicatorIds = [...subPanelIds, "parabolic-sar"] as const;
+    const indicatorIds = [...subPanelIds, "parabolic-sar", "ichimoku"] as const;
     const indicatorSeries = indicatorIds.map((id) => computeIndicatorSeries(candles, DEFAULT_INDICATOR_CONFIGS.find((c) => c.id === id)!));
     const ctx = fakeCtx();
     assert.doesNotThrow(() => {
@@ -461,7 +563,7 @@ async function main(): Promise<void> {
         timeframe: "1h",
         crosshair: null,
         colors: resolveChartColors(),
-        activePanels: [...subPanelIds], // "parabolic-sar" is a PRICE overlay, never an activePanels entry - drawOverlays picks it up from indicatorSeries via its own .panel === "price"
+        activePanels: [...subPanelIds], // "parabolic-sar"/"ichimoku" are PRICE overlays, never activePanels entries - drawOverlays picks them up from indicatorSeries via their own .panel === "price"
         indicatorSeries,
       });
     });
