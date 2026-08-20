@@ -149,9 +149,8 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
   // moves). The fix is the standard workaround: attach the listener
   // imperatively with `{ passive: false }`, which JSX props can't express.
   // handleWheelRef always holds the LATEST render's handleWheel (closing
-  // over the latest candles/etc.) so the listener-attaching effect below
-  // can run once on mount, never needing to track handleWheel's own
-  // dependencies or re-attach on every candles poll.
+  // over the latest candles/etc.), so the listener itself never goes
+  // stale no matter when its attaching effect (below) happens to run.
   const handleWheelRef = useRef<(e: WheelEvent) => void>(() => {});
   const viewportRef = useRef<Viewport | null>(null);
   const crosshairRef = useRef<CrosshairState | null>(null);
@@ -502,17 +501,38 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
   handleWheelRef.current = handleWheel;
 
   // Sprint D2.7.11 - see handleWheelRef's own comment above for why this
-  // can't be the JSX `onWheel` prop. Runs once on mount (canvasRef.current
-  // is stable for the component's lifetime) and always dispatches to
-  // handleWheelRef.current, so it never goes stale and never needs
-  // re-attaching when candles/viewport/etc. change on every render.
+  // can't be the JSX `onWheel` prop. Always dispatches to
+  // handleWheelRef.current, so it never goes stale on its own.
+  //
+  // Bug found live on production (this session): an empty `[]` dependency
+  // array here looked right ("attach once on mount") but was actually
+  // broken - this component early-returns a loading <StateMessage/> (see
+  // the `result.status === "loading"` branch below) with NO canvas at all
+  // for the component's very FIRST render, since useChartCandles's own
+  // initial state is always `{status: "loading"}`. That first render is
+  // exactly when a `[]`-effect fires - canvasRef.current is null, the
+  // guard below no-ops, and because the deps never change, this effect
+  // then NEVER runs again for the rest of the component's lifetime, even
+  // once real candles arrive and the real canvas mounts a few renders
+  // later. The listener silently never attaches at all - wheel-zoom still
+  // "worked" (handleWheel ran via events that happened to reach it some
+  // other way in dev, masking the bug) but preventDefault never took
+  // effect on the REAL attached listener because there wasn't one.
+  // Depending on `[draw]` instead - the exact same dependency the
+  // ResizeObserver effect above already uses - re-runs this effect the
+  // moment `draw` changes identity, which happens whenever `candles`
+  // transitions from empty to populated (loading -> ready), so the
+  // listener gets attached to the real canvas as soon as it exists. It
+  // also re-attaches on every later candles poll (same as the
+  // ResizeObserver effect already does, functionally harmless since the
+  // cleanup always removes the previous listener first).
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const listener = (e: WheelEvent) => handleWheelRef.current(e);
     canvas.addEventListener("wheel", listener, { passive: false });
     return () => canvas.removeEventListener("wheel", listener);
-  }, []);
+  }, [draw]);
 
   // Sprint D2.7.7, Phase 2/7 - migrated from Mouse Events to the unified
   // Pointer Events API (mouse/touch/pen all deliver through this one model)

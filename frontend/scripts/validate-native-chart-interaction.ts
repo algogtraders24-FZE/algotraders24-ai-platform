@@ -242,12 +242,18 @@ async function zoomTests(): Promise<void> {
     assert.ok(src.includes('addEventListener("wheel", listener, { passive: false })'), "the imperative, non-passive listener is what actually makes preventDefault() work");
   });
 
-  await test("the imperative wheel listener always dispatches to the LATEST render's handleWheel via a ref, never a closure captured once on mount - handleWheelRef.current is reassigned every render, so the listener never goes stale even though its own attaching effect runs only once", () => {
+  await test("the imperative wheel listener always dispatches to the LATEST render's handleWheel via a ref, never a closure captured once on mount - handleWheelRef.current is reassigned every render, so the listener never goes stale regardless of how often its own attaching effect re-runs", () => {
     const src = nativeChartSrc();
     assert.ok(src.includes("handleWheelRef.current = handleWheel;"));
     const effectBlock = src.slice(src.indexOf('canvas.addEventListener("wheel"') - 400, src.indexOf('canvas.addEventListener("wheel"') + 400);
-    assert.ok(effectBlock.includes("}, []);"), "the attaching effect must run once on mount (empty dep array) - re-attaching per render would defeat the point of the ref indirection");
     assert.ok(effectBlock.includes("canvas.removeEventListener"), "cleanup must remove the exact same listener reference passed to addEventListener, never leaking it across remounts");
+  });
+
+  await test("the wheel-listener effect depends on [draw], NEVER an empty [] array - a second, deeper bug found live on production this session (same commit as the passive-listener fix): this component's very FIRST render is always the 'loading' StateMessage branch (useChartCandles's own initial state), which has NO canvas at all - an empty-deps effect fires during exactly that render, sees canvasRef.current === null, no-ops, and (since its deps never change) never runs again for the component's whole lifetime, even once a real canvas mounts a few renders later. Depending on [draw] - the SAME dependency the sibling ResizeObserver effect above it already uses - re-runs the effect the moment `draw`'s identity changes (which happens whenever candles goes from empty to populated), so the listener actually gets attached once the real canvas exists.", () => {
+    const src = nativeChartSrc();
+    const effectBlock = src.slice(src.indexOf('canvas.addEventListener("wheel"') - 400, src.indexOf('canvas.addEventListener("wheel"') + 600);
+    assert.ok(effectBlock.includes("}, [draw]);"), "must depend on [draw] (or an equivalent value that changes once real candles/canvas exist) - a bare [] silently never attaches the listener at all, since the canvas doesn't exist yet on this component's first ('loading') render");
+    assert.ok(!effectBlock.includes("}, []);"), "must NOT be an empty dependency array - see this test's own name for why that's a real, confirmed-live bug, not just a style preference");
   });
 
   await test("pinch-zoom reuses the SAME zoomViewport function wheel/keyboard zoom already use - never a second zoom model", () => {
