@@ -1,0 +1,117 @@
+{
+  "evidence": {
+    "evidenceId": "7096a2d04a5f60dc",
+    "sourceAdapter": "mt5-deals-table-xlsx-v1",
+    "evidenceClass": "HISTORICAL",
+    "tradeCount": 1511,
+    "periodStart": "2025-01-02T04:21:28",
+    "periodEnd": "2026-08-07T17:04:07",
+    "symbol": "XAUUSD+",
+    "timeframe": "M15 (2025.01.01 - 2026.08.08)",
+    "broker": "Vantage Markets (Pty) Ltd",
+    "netProfit": 21723,
+    "profitFactor": 1.1611,
+    "winRate": 0.3991,
+    "maxDrawdownPercent": 0.2901,
+    "totalCost": 0,
+    "dataSource": "ReportTester-new report xml.xlsx",
+    "generator": "AT24-M2-Evidence-Engine-v0.4"
+  },
+  "validation": {
+    "validationId": "7096a2d04a5f60dc",
+    "overallStatus": "INCONCLUSIVE",
+    "methodologyVersion": "M4-methodology-v1",
+    "dimensions": [
+      {
+        "validationType": "SAMPLE_SIZE",
+        "status": "PASS"
+      },
+      {
+        "validationType": "OUT_OF_SAMPLE",
+        "status": "PASS"
+      },
+      {
+        "validationType": "WALK_FORWARD",
+        "status": "PASS"
+      },
+      {
+        "validationType": "TEMPORAL_STABILITY",
+        "status": "PASS"
+      },
+      {
+        "validationType": "REGIME_COVERAGE",
+        "status": "INCONCLUSIVE"
+      },
+      {
+        "validationType": "PERFORMANCE_DISTRIBUTION",
+        "status": "PASS"
+      },
+      {
+        "validationType": "PARAMETER_SENSITIVITY",
+        "status": "INCONCLUSIVE"
+      }
+    ]
+  },
+  "risk": {
+    "riskAnalysisId": "a2d346bb8121cf4e",
+    "status": "PARTIAL",
+    "maxDrawdownPercent": 0.2901,
+    "maxConsecutiveLosses": 24,
+    "lossClusteredSharePct": 0.9747,
+    "recoveryEpisodes": 38,
+    "expectancyPerTrade": 14.3766,
+    "profitFactor": 1.1611,
+    "totalCost": 0,
+    "maxSimultaneousPositions": 3,
+    "dataQuality": {
+      "drawdown": "LIMITED",
+      "lossDistribution": "AVAILABLE",
+      "winDistribution": "AVAILABLE",
+      "expectancy": "AVAILABLE",
+      "lossStreaks": "AVAILABLE",
+      "recovery": "LIMITED",
+      "tailRisk": "AVAILABLE",
+      "concentration": "AVAILABLE",
+      "temporalRisk": "AVAILABLE",
+      "regimeRisk": "UNAVAILABLE",
+      "exposureRisk": "AVAILABLE",
+      "costRisk": "AVAILABLE"
+    }
+  },
+  "history": {
+    "events": [
+      {
+        "eventType": "SYSTEM_CREATED",
+        "observedAt": "2026-08-21T10:24:27.671302Z",
+        "recordedAt": "2026-08-21T10:24:27.671302Z"
+      },
+      {
+        "eventType": "VERSION_CREATED",
+        "observedAt": "2026-08-21T10:24:27.671302Z",
+        "recordedAt": "2026-08-21T10:24:27.671302Z"
+      },
+      {
+        "eventType": "EVIDENCE_ADDED",
+        "observedAt": "2026-08-07T17:04:07",
+        "recordedAt": "2026-08-21T10:24:27.671302Z"
+      },
+      {
+        "eventType": "EVIDENCE_VERIFIED",
+        "observedAt": "2026-08-21T10:24:27.671302Z",
+        "recordedAt": "2026-08-21T10:24:27.671302Z"
+      },
+      {
+        "eventType": "VALIDATION_COMPLETED",
+        "observedAt": "2026-08-21T10:24:27.671302Z",
+        "recordedAt": "2026-08-21T10:24:27.671302Z"
+      },
+      {
+        "eventType": "RISK_ANALYSIS_COMPLETED",
+        "observedAt": "2026-08-21T10:24:27.671302Z",
+        "recordedAt": "2026-08-21T10:24:27.671302Z"
+      }
+    ],
+    "observationCount": 1,
+    "singleObservationOnly": true
+  }
+}
