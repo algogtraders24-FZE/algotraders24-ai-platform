@@ -26,6 +26,12 @@ export const DASHBOARD_NAV: DashboardNavItem[] = [
   // right after Dashboard so it is the first destination after the overview.
   { label: "Workspace", href: "/dashboard/workspace", icon: "WS" },
   { label: "Licenses", href: "/dashboard/licenses", icon: "LC" },
+  // Sprint M12 branding follow-on - the seller backoffice
+  // (app/marketplace/my-products) existed and was fully functional but had
+  // no navigation entry anywhere, making it undiscoverable except by typing
+  // the URL directly - same class of gap L2.3's own comment above warns
+  // about, just missing rather than dead.
+  { label: "My Products", href: "/marketplace/my-products", icon: "MP" },
   { label: "AI Signals", href: "/dashboard/signals", icon: "SG" },
   { label: "Market Intel", href: "/dashboard/market-intelligence", icon: "MI" },
   { label: "AI News", href: "/dashboard/news", icon: "NW" },
