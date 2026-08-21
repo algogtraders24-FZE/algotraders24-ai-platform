@@ -486,3 +486,63 @@ export function drawWilliamsRPanel(
   const line = series.lines[0];
   if (line) drawLine(ctx, line.points, candles, indexRange, panelVp, plotWidth, row, line.color);
 }
+
+/**
+ * Bill Williams' Awesome Oscillator (Sprint D2.7.11) - a dynamic scale like
+ * ATR/MACD (unbounded, instrument-specific magnitude), drawn as a
+ * histogram. Deliberately colored by comparison to the PREVIOUS bar's own
+ * value (green when rising, red when falling) - MT5's own real AO
+ * convention (metatrader5.com), genuinely different from MACD's histogram
+ * above which colors by sign (>=0 vs <0). Conflating the two would be a
+ * real, incorrect claim about how this indicator's own color convention
+ * works, not just a cosmetic choice.
+ */
+export function drawAwesomeOscillatorPanel(
+  ctx: CanvasRenderingContext2D,
+  series: IndicatorSeries | undefined,
+  candles: ChartCandle[],
+  indexRange: IndexRange,
+  viewport: Viewport,
+  plotWidth: number,
+  row: PanelRow,
+  colors: ChartColors,
+): void {
+  drawPanelFrame(ctx, row, plotWidth, colors, "Awesome Oscillator");
+  if (!series) return;
+  const line = series.lines[0];
+  if (!line) return;
+
+  const visibleValues = line.points
+    .filter((p) => p.time >= viewport.minTime && p.time <= viewport.maxTime && p.value !== undefined)
+    .map((p) => p.value as number);
+  if (visibleValues.length === 0) return;
+  const maxAbs = Math.max(1e-9, ...visibleValues.map((v) => Math.abs(v)));
+  const panelVp = panelViewport(viewport, -maxAbs, maxAbs);
+
+  const zeroY = row.top + priceToY(0, panelVp, row.height);
+  ctx.strokeStyle = colors.grid;
+  ctx.setLineDash([2, 2]);
+  ctx.beginPath();
+  ctx.moveTo(0, zeroY);
+  ctx.lineTo(plotWidth, zeroY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  const pixelsPerIndex = plotWidth / Math.max(1e-6, indexRange.maxIndex - indexRange.minIndex);
+  const barWidth = Math.max(1, pixelsPerIndex * 0.7);
+  let previousValue: number | undefined;
+  for (const point of line.points) {
+    if (point.value === undefined) {
+      previousValue = undefined;
+      continue;
+    }
+    const x = indexToX(fractionalIndexForTime(candles, point.time), indexRange, plotWidth);
+    const y = row.top + priceToY(point.value, panelVp, row.height);
+    const rising = previousValue === undefined ? true : point.value >= previousValue;
+    ctx.fillStyle = rising ? colors.bullish : colors.bearish;
+    const top = Math.min(y, zeroY);
+    const height = Math.max(1, Math.abs(y - zeroY));
+    ctx.fillRect(x - barWidth / 2, top, barWidth, height);
+    previousValue = point.value;
+  }
+}

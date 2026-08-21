@@ -7,10 +7,26 @@
 // separation is mandatory per the sprint brief:
 //   Calculation Layer -> Indicator Data -> Chart Coordinate System -> Renderer
 
-export type IndicatorId = "sma" | "ema" | "rsi" | "macd" | "bollinger" | "volume" | "atr" | "stochastic" | "adx" | "cci" | "williams-r" | "parabolic-sar" | "ichimoku";
+export type IndicatorId =
+  | "sma"
+  | "ema"
+  | "rsi"
+  | "macd"
+  | "bollinger"
+  | "volume"
+  | "atr"
+  | "stochastic"
+  | "adx"
+  | "cci"
+  | "williams-r"
+  | "parabolic-sar"
+  | "ichimoku"
+  | "alligator"
+  | "awesome-oscillator"
+  | "fractals";
 
 /** The sub-panel an indicator's line(s) render into - Phase 8's reusable panel model. "price" means "drawn as an overlay on the main candlestick panel", not a separate panel. */
-export type ChartPanelId = "price" | "volume" | "rsi" | "macd" | "atr" | "stochastic" | "adx" | "cci" | "williams-r";
+export type ChartPanelId = "price" | "volume" | "rsi" | "macd" | "atr" | "stochastic" | "adx" | "cci" | "williams-r" | "awesome-oscillator";
 
 export interface IndicatorConfig {
   id: IndicatorId;

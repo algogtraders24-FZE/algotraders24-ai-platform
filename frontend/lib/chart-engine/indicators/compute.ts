@@ -7,7 +7,23 @@
 // shape (types.ts). It contains ZERO Canvas/coordinate code and zero
 // indicator math of its own.
 import type { ChartCandle } from "@/types/chart-data";
-import { smaSeries, emaSeries, rsiSeries, bollingerSeries, macdSeries, atrSeries, stochasticSeries, adxSeries, cciSeries, williamsPercentRSeries, parabolicSarSeries, ichimokuSeries } from "@/lib/market-data/indicators";
+import {
+  smaSeries,
+  emaSeries,
+  rsiSeries,
+  bollingerSeries,
+  macdSeries,
+  atrSeries,
+  stochasticSeries,
+  adxSeries,
+  cciSeries,
+  williamsPercentRSeries,
+  parabolicSarSeries,
+  ichimokuSeries,
+  alligatorSeries,
+  awesomeOscillatorSeries,
+  fractalsSeries,
+} from "@/lib/market-data/indicators";
 import type { IndicatorConfig, IndicatorSeries, IndicatorPoint, IndicatorLine } from "./types";
 
 /** emaSeries() (lib/market-data/indicators.ts) returns only its computable tail, unaligned - left-pad it to one entry per candle, same honest-undefined convention every other *Series function already returns. */
@@ -148,6 +164,38 @@ export function computeIndicatorSeries(candles: ChartCandle[], config: Indicator
           { name: `${config.key}-senkou-a`, points: result.senkouA, color: "var(--signal-up)" },
           { name: `${config.key}-senkou-b`, points: result.senkouB, color: "var(--signal-down)" },
           { name: `${config.key}-chikou`, points: result.chikou, color: "var(--steel)" },
+        ],
+      };
+    }
+    case "alligator": {
+      // Jaw/Teeth/Lips periods+shifts are all fixed real MT5 defaults
+      // (alligatorSeries() itself, never read from config here) - see
+      // panel-registry.ts's own comment for why this config entry's
+      // period/slowPeriod/senkouPeriod fields are nominal only.
+      const result = alligatorSeries(candles);
+      return {
+        config,
+        panel: "price",
+        lines: [
+          { name: `${config.key}-jaw`, points: result.jaw, color: "var(--steel)" },
+          { name: `${config.key}-teeth`, points: result.teeth, color: "var(--gold-strong)" },
+          { name: `${config.key}-lips`, points: result.lips, color: config.color },
+        ],
+      };
+    }
+    case "awesome-oscillator": {
+      const values = awesomeOscillatorSeries(candles);
+      const line: IndicatorLine = { name: config.key, points: toPoints(candles, values), color: config.color };
+      return { config, panel: "awesome-oscillator", lines: [line] };
+    }
+    case "fractals": {
+      const result = fractalsSeries(candles);
+      return {
+        config,
+        panel: "price",
+        lines: [
+          { name: `${config.key}-up`, points: toPoints(candles, result.up), color: "var(--signal-up)", style: "dots" },
+          { name: `${config.key}-down`, points: toPoints(candles, result.down), color: "var(--signal-down)", style: "dots" },
         ],
       };
     }

@@ -38,6 +38,7 @@ import {
   drawAdxPanel,
   drawCciPanel,
   drawWilliamsRPanel,
+  drawAwesomeOscillatorPanel,
 } from "./sub-panel-renderer";
 import type { IndicatorSeries, ChartPanelId } from "./indicators/types";
 import { drawDrawingObjects, drawDrawingPreview } from "./drawing/drawing-renderer";
@@ -167,6 +168,7 @@ export function renderChart(params: RenderParams): void {
     else if (row.id === "adx") drawAdxPanel(ctx, series, candles, indexRange, viewport, plotWidth, row, colors);
     else if (row.id === "cci") drawCciPanel(ctx, series, candles, indexRange, viewport, plotWidth, row, colors);
     else if (row.id === "williams-r") drawWilliamsRPanel(ctx, series, candles, indexRange, viewport, plotWidth, row, colors);
+    else if (row.id === "awesome-oscillator") drawAwesomeOscillatorPanel(ctx, series, candles, indexRange, viewport, plotWidth, row, colors);
   }
 
   drawTimeAxis(ctx, timeTicks, indexRange, plotWidth, plotHeight, colors);

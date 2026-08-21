@@ -34,6 +34,7 @@ export const PANEL_REGISTRY: Record<ChartPanelId, PanelSpec> = {
   adx: { id: "adx", label: "ADX", heightWeight: 1 },
   cci: { id: "cci", label: "CCI", heightWeight: 1 },
   "williams-r": { id: "williams-r", label: "Williams %R", heightWeight: 1 },
+  "awesome-oscillator": { id: "awesome-oscillator", label: "Awesome Oscillator", heightWeight: 1 },
 };
 
 /** The default, deterministic indicator configurations the chart toolbar's Indicators menu offers - real periods matching TechnicalContextService's own existing choices (RSI-14, EMA-20/50, SMA-20, Bollinger-20/2, MACD-12/26/9) so a value shown on the chart always agrees with the same value the AI Intelligence panel would report for the same symbol/timeframe. ATR-14 matches TechnicalContextService's own ATR_PERIOD_DEFAULT (indicators.ts). Stochastic 5/3/3, ADX-14, CCI-14, Williams %R-14, Parabolic SAR 0.02/0.2 and Ichimoku 9/26/52 are all MT5's real verified defaults this session (mql5.com/metatrader5.com) - CCI's own original Lambert methodology used 20, but MT5 itself defaults to 14, same as the others. */
@@ -52,6 +53,18 @@ export const DEFAULT_INDICATOR_CONFIGS: readonly IndicatorConfig[] = [
   { id: "williams-r", key: "williams-r-14", period: 14, color: "var(--gold)" },
   { id: "parabolic-sar", key: "parabolic-sar-0.02-0.2", period: 0.02, maxStep: 0.2, color: "var(--gold)" },
   { id: "ichimoku", key: "ichimoku-9-26-52", period: 9, slowPeriod: 26, senkouPeriod: 52, color: "var(--gold)" },
+  // Sprint D2.7.11 - Bill Williams' tools (deferred from Phase 2, requested
+  // this session), MT5's own real verified defaults (metatrader5.com):
+  // Alligator 13/8/5 (Jaw/Teeth/Lips periods, +8/+5/+3 bar future shifts -
+  // fixed structural values, not user-tunable, so `period`/`slowPeriod`/
+  // `senkouPeriod` below just distinguish the config entry, never read by
+  // compute.ts's case - alligatorSeries() itself always uses the real
+  // defaults). Awesome Oscillator 5/34 (fast/slow SMA periods on median
+  // price). Fractals has no numeric parameter at all (a fixed 5-bar
+  // structural rule) - `period` here is a nominal placeholder only.
+  { id: "alligator", key: "alligator-13-8-5", period: 13, slowPeriod: 8, senkouPeriod: 5, color: "var(--gold)" },
+  { id: "awesome-oscillator", key: "awesome-oscillator-5-34", period: 5, slowPeriod: 34, color: "var(--gold)" },
+  { id: "fractals", key: "fractals", period: 5, color: "var(--signal-up)" },
 ];
 
 // Sprint D2.7.5, Phase 4 - a static id->panel lookup so the toolbar's
@@ -78,4 +91,7 @@ export const INDICATOR_PANEL_ID: Record<IndicatorConfig["id"], ChartPanelId> = {
   "williams-r": "williams-r",
   "parabolic-sar": "price",
   ichimoku: "price",
+  alligator: "price",
+  "awesome-oscillator": "awesome-oscillator",
+  fractals: "price",
 };

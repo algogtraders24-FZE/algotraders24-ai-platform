@@ -610,7 +610,9 @@ async function indicatorStateTests(): Promise<void> {
     const candles = makeCandleSeries(60, 60_000);
     for (const cfg of DEFAULT_INDICATOR_CONFIGS) {
       const series = computeIndicatorSeries(candles, cfg);
-      assert.ok(["price", "volume", "rsi", "macd", "atr", "stochastic", "adx", "cci", "williams-r"].includes(series.panel));
+      // D2.7.11 - "awesome-oscillator" joins this list (Bill Williams'
+      // Awesome Oscillator, its own real sub-panel).
+      assert.ok(["price", "volume", "rsi", "macd", "atr", "stochastic", "adx", "cci", "williams-r", "awesome-oscillator"].includes(series.panel));
     }
   });
 

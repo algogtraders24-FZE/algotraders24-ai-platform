@@ -645,3 +645,122 @@ export function ichimokuSeries(
 
   return { tenkan, kijun, senkouA, senkouB, chikou };
 }
+
+// Sprint D2.7.11 - Bill Williams' tools (deferred from Phase 2, requested
+// this session). MT5's own real, verified defaults (metatrader5.com/help/
+// indicators/bw_indicators - Alligator/Fractals/Awesome Oscillator pages,
+// this session):
+export const ALLIGATOR_JAW_PERIOD_DEFAULT = 13;
+export const ALLIGATOR_JAW_SHIFT_DEFAULT = 8;
+export const ALLIGATOR_TEETH_PERIOD_DEFAULT = 8;
+export const ALLIGATOR_TEETH_SHIFT_DEFAULT = 5;
+export const ALLIGATOR_LIPS_PERIOD_DEFAULT = 5;
+export const ALLIGATOR_LIPS_SHIFT_DEFAULT = 3;
+export const AO_FAST_PERIOD_DEFAULT = 5;
+export const AO_SLOW_PERIOD_DEFAULT = 34;
+// Fractals' own real definition (metatrader5.com) needs 2 confirming bars
+// on EACH side of the middle bar - a fixed structural constant, not a
+// user-tunable "period" the way every other indicator here has one.
+const FRACTAL_WING_WIDTH = 2;
+
+export interface AlligatorResult {
+  jaw: IchimokuPoint[];
+  teeth: IchimokuPoint[];
+  lips: IchimokuPoint[];
+}
+
+/**
+ * Bill Williams' Alligator: three Smoothed Moving Averages (SMMA - the
+ * SAME smoothing formula wilderSmooth() above already implements, since
+ * Wilder's smoothing and SMMA are the identical construction historically)
+ * over median price ((high+low)/2), each shifted a fixed number of bars
+ * INTO THE FUTURE - Jaw (13, +8), Teeth (8, +5), Lips (5, +3), MT5's own
+ * real verified defaults. Reuses the exact same `timeAtOffset` synthetic-
+ * time-extrapolation pattern ichimokuSeries() above already established
+ * for its own forward-shifted Senkou spans - the chart's existing gapless
+ * index-scale extrapolation (fractionalIndexForTime) already renders
+ * times beyond the real candle range correctly, so no renderer change is
+ * needed here either.
+ */
+export function alligatorSeries(candles: readonly OhlcCandleWithTime[]): AlligatorResult {
+  const n = candles.length;
+  if (n === 0) return { jaw: [], teeth: [], lips: [] };
+  const stepMs = n >= 2 ? candles[1].time - candles[0].time : 60_000;
+
+  function timeAtOffset(targetIndex: number): number {
+    if (targetIndex >= 0 && targetIndex < n) return candles[targetIndex].time;
+    if (targetIndex >= n) return candles[n - 1].time + (targetIndex - (n - 1)) * stepMs;
+    return candles[0].time + targetIndex * stepMs;
+  }
+
+  const median = candles.map((c) => (c.high + c.low) / 2);
+
+  function smmaLine(period: number, shift: number): IchimokuPoint[] {
+    const smoothed = wilderSmooth(median, period); // unaligned tail: smoothed[0] is candle index (period-1)
+    return candles.map((_, i) => {
+      const smoothedIndex = i - (period - 1);
+      const value = smoothedIndex >= 0 && smoothedIndex < smoothed.length ? smoothed[smoothedIndex] : undefined;
+      return { time: timeAtOffset(i + shift), value };
+    });
+  }
+
+  return {
+    jaw: smmaLine(ALLIGATOR_JAW_PERIOD_DEFAULT, ALLIGATOR_JAW_SHIFT_DEFAULT),
+    teeth: smmaLine(ALLIGATOR_TEETH_PERIOD_DEFAULT, ALLIGATOR_TEETH_SHIFT_DEFAULT),
+    lips: smmaLine(ALLIGATOR_LIPS_PERIOD_DEFAULT, ALLIGATOR_LIPS_SHIFT_DEFAULT),
+  };
+}
+
+/**
+ * Bill Williams' Awesome Oscillator: 5-period SMA minus 34-period SMA, both
+ * over median price - MT5's own real, fixed formula (metatrader5.com).
+ * Honestly undefined until the slower (34-period) average is computable.
+ */
+export function awesomeOscillatorSeries(candles: readonly OhlcCandle[]): (number | undefined)[] {
+  const median = candles.map((c) => (c.high + c.low) / 2);
+  const fast = smaSeries(median, AO_FAST_PERIOD_DEFAULT);
+  const slow = smaSeries(median, AO_SLOW_PERIOD_DEFAULT);
+  return candles.map((_, i) => {
+    const f = fast[i];
+    const s = slow[i];
+    return f !== undefined && s !== undefined ? f - s : undefined;
+  });
+}
+
+export interface FractalsResult {
+  /** The candle's own real `high` at every index where an up-fractal genuinely occurs, undefined everywhere else - never a synthesized offset value. */
+  up: (number | undefined)[];
+  /** The candle's own real `low` at every index where a down-fractal genuinely occurs. */
+  down: (number | undefined)[];
+}
+
+/**
+ * Bill Williams' Fractals: a 5-bar window where the middle bar's high is
+ * STRICTLY the highest of all 5 (up-fractal) or its low is strictly the
+ * lowest of all 5 (down-fractal) - MT5's own real definition (metatrader5.com:
+ * "the highest HIGH in the middle, and two lower HIGHs on both sides").
+ * Deliberately does NOT require the two bars on each side to be
+ * monotonically decreasing away from the middle - only that both are
+ * individually lower than the middle, matching the real MT5 rule exactly
+ * (a stricter monotonic reading would silently reject valid fractals).
+ * The first/last 2 candles can never qualify (no room for both wings) -
+ * left/right honestly undefined there, never guessed.
+ */
+export function fractalsSeries(candles: readonly OhlcCandle[]): FractalsResult {
+  const n = candles.length;
+  const up: (number | undefined)[] = new Array(n).fill(undefined);
+  const down: (number | undefined)[] = new Array(n).fill(undefined);
+  for (let i = FRACTAL_WING_WIDTH; i < n - FRACTAL_WING_WIDTH; i++) {
+    const high = candles[i].high;
+    let isUp = true;
+    let isDown = true;
+    const low = candles[i].low;
+    for (let w = 1; w <= FRACTAL_WING_WIDTH; w++) {
+      if (candles[i - w].high >= high || candles[i + w].high >= high) isUp = false;
+      if (candles[i - w].low <= low || candles[i + w].low <= low) isDown = false;
+    }
+    if (isUp) up[i] = high;
+    if (isDown) down[i] = low;
+  }
+  return { up, down };
+}

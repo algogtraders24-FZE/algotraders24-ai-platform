@@ -378,6 +378,15 @@ async function indicatorCorrectnessTests(): Promise<void> {
         } else if (cfg.id === "ichimoku" && line.name.endsWith("-chikou")) {
           const kijunPeriod = cfg.slowPeriod ?? 26;
           for (let i = 0; i < candles.length; i++) assert.equal(line.points[i].time, candles[i].time - kijunPeriod * stepMs);
+        } else if (cfg.id === "alligator") {
+          // D2.7.11 - Bill Williams' Alligator deliberately plots all three
+          // lines shifted a fixed number of bars INTO THE FUTURE (Jaw +8,
+          // Teeth +5, Lips +3) - real MT5 time-shifted output, the exact
+          // same "forward shift" precedent Ichimoku's Senkou spans already
+          // established above, just with per-line shift amounts instead of
+          // one shared kijunPeriod.
+          const shift = line.name.endsWith("-jaw") ? 8 : line.name.endsWith("-teeth") ? 5 : 3;
+          for (let i = 0; i < candles.length; i++) assert.equal(line.points[i].time, candles[i].time + shift * stepMs);
         } else {
           for (let i = 0; i < candles.length; i++) assert.equal(line.points[i].time, candles[i].time);
         }
@@ -419,7 +428,10 @@ async function indicatorCorrectnessTests(): Promise<void> {
       // maps to a sub-panel of the exact same name as its id - the one
       // exception (an id that ISN'T also its own panel name) is handled
       // explicitly below, never silently defaulted to "price".
-      const nonOverlayIds = ["rsi", "macd", "volume", "atr", "stochastic", "adx", "cci", "williams-r"];
+      // D2.7.11 - Awesome Oscillator joins this list (its own real
+      // sub-panel, same "panel name equals id" rule); Alligator/Fractals
+      // are price overlays, so they deliberately stay OUT of this list.
+      const nonOverlayIds = ["rsi", "macd", "volume", "atr", "stochastic", "adx", "cci", "williams-r", "awesome-oscillator"];
       const expectedPanel = nonOverlayIds.includes(cfg.id) ? cfg.id : "price";
       assert.equal(series.panel, expectedPanel);
     });
