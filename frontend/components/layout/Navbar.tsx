@@ -31,6 +31,13 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: "Products", href: "/products" },
+  // Sprint M12 branding follow-on - the public Marketplace catalog
+  // (independently verified, seller-listed products) had no top-nav entry
+  // anywhere; only reachable by scrolling the homepage's "From The
+  // Marketplace" section. Distinct from "My Products" in the dashboard
+  // sidebar, which is the seller-only backoffice, not this public browse
+  // page.
+  { label: "Marketplace", href: "/marketplace" },
   {
     label: "Platform",
     href: "/platform",
