@@ -4,6 +4,7 @@
 // requireRole) before any seller UI renders - the real authorization
 // decision is still enforced independently, server-side, by the API route
 // itself (evaluateListingMutation) - this gate is UX, not the only defense.
+import Link from "next/link";
 import { requireUser } from "@/lib/auth/protectedRoute";
 import SellClient from "./SellClient";
 
@@ -23,6 +24,9 @@ export default async function SellPage() {
           as fact - every Trust State, Evidence, Validation, and Risk figure shown on the Marketplace comes from AT24&apos;s
           own independent verification pipeline, run after you submit for review.
         </p>
+        <Link href="/resources/marketplace-seller-guide" className="mt-2 inline-block text-sm text-gold hover:underline">
+          Read the full seller guide →
+        </Link>
       </header>
       <SellClient />
     </div>

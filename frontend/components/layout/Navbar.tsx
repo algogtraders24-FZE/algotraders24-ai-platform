@@ -61,7 +61,10 @@ const NAV_ITEMS: NavItem[] = [
   {
     label: "Resources",
     href: "/resources",
-    children: [{ label: "FAQ", href: "/resources/faq" }],
+    children: [
+      { label: "FAQ", href: "/resources/faq" },
+      { label: "Seller Guide", href: "/resources/marketplace-seller-guide" },
+    ],
   },
   {
     label: "Company",
