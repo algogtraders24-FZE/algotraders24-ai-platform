@@ -22,12 +22,22 @@ import { FIN_LABEL } from "@/components/ui/financial-typography";
 import { DEFAULT_INDICATOR_CONFIGS, INDICATOR_PANEL_ID } from "@/lib/chart-engine/indicators/panel-registry";
 import type { SignalTimeframe } from "@/types/signal";
 import type { ChartTemplate } from "@/lib/chart-engine/templates/types";
+import type { ChartRenderType } from "@/lib/chart-engine/types";
 import ChartTimeframeSelector from "./ChartTimeframeSelector";
+
+const CHART_TYPES: { value: ChartRenderType; label: string; title: string }[] = [
+  { value: "candlestick", label: "Candles", title: "Candlesticks" },
+  { value: "bar", label: "Bars", title: "Bar chart" },
+  { value: "line", label: "Line", title: "Line chart" },
+];
 
 export interface ChartToolbarProps {
   displaySymbol: string;
   timeframe: SignalTimeframe;
   onTimeframeChange: (timeframe: SignalTimeframe) => void;
+  /** Sprint D2.7.11 Phase 5 - MT5's Bar chart / Candlesticks / Line chart toggle (right-click chart menu, Alt+1/2/3 in real MT5). */
+  chartType: ChartRenderType;
+  onChartTypeChange: (chartType: ChartRenderType) => void;
   activeIndicatorKeys: ReadonlySet<string>;
   onToggleIndicator: (key: string) => void;
   onFit: () => void;
@@ -49,6 +59,8 @@ export default function ChartToolbar({
   displaySymbol,
   timeframe,
   onTimeframeChange,
+  chartType,
+  onChartTypeChange,
   activeIndicatorKeys,
   onToggleIndicator,
   onFit,
@@ -113,6 +125,23 @@ export default function ChartToolbar({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        <div role="group" aria-label="Chart type" className="flex items-center gap-0.5 rounded-control border border-border bg-ink-3 p-0.5">
+          {CHART_TYPES.map((ct) => (
+            <button
+              key={ct.value}
+              type="button"
+              onClick={() => onChartTypeChange(ct.value)}
+              aria-pressed={chartType === ct.value}
+              title={ct.title}
+              className={`rounded-[4px] px-2 py-1 text-[11px] font-medium transition ${
+                chartType === ct.value ? "bg-gold text-ink" : "text-text-3 hover:bg-ink-4 hover:text-text"
+              }`}
+            >
+              {ct.label}
+            </button>
+          ))}
+        </div>
+
         <div className="relative" ref={menuRef}>
           <button
             type="button"

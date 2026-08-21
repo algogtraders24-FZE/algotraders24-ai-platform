@@ -56,7 +56,7 @@ import { DEFAULT_INDICATOR_CONFIGS } from "@/lib/chart-engine/indicators/panel-r
 import { computePanelLayout } from "@/lib/chart-engine/panel-layout";
 import { indexRangeForViewport, xToIndex, fractionalIndexToTime } from "@/lib/chart-engine/index-scale";
 import type { ChartCandle, ChartSeries } from "@/types/chart-data";
-import type { CrosshairState, Viewport } from "@/lib/chart-engine/types";
+import type { ChartRenderType, CrosshairState, Viewport } from "@/lib/chart-engine/types";
 import type { SignalTimeframe } from "@/types/signal";
 import type { ChartPanelId, IndicatorSeries } from "@/lib/chart-engine/indicators/types";
 import { useChartCandles } from "./useChartCandles";
@@ -152,6 +152,13 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
   // ever exist (implicitly always true then; explicit now that it isn't).
   const { symbol: activeSymbol, hypothesisType } = useWorkspace();
   const [isLive, setIsLive] = useState(true);
+  // Sprint D2.7.11 Phase 5 - MT5's Bar/Candlesticks/Line chart-type toggle.
+  // Local, like isLive/activeTool above (not lifted to ChartPanel): this is
+  // a pure rendering-style preference, not per-instrument data, and this
+  // NativeChart instance already stays mounted for the pane's whole
+  // lifetime (D2.7.11 Phase 3) - only the TradingView<->Native provider
+  // toggle unmounts it, at which point isLive/activeTool already reset too.
+  const [chartType, setChartType] = useState<ChartRenderType>("candlestick");
   // Sprint D2.7.5, Phase 9 - a CSS-driven focus mode (not the browser
   // Fullscreen API): toggling this class alone naturally re-triggers the
   // EXISTING ResizeObserver effect below (it observes containerRef's real
@@ -381,9 +388,10 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
         selectedDrawingObjectId: selectedObjectIdRef.current,
         drawingPreview: drawingPreviewRef.current,
         liveQuote,
+        chartType,
       });
     },
-    [candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote],
+    [candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType],
   );
 
   // Resize: keep the canvas's real pixel buffer matched to its CSS size *
@@ -1048,6 +1056,8 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
         displaySymbol={resolution.displaySymbol}
         timeframe={timeframe}
         onTimeframeChange={onTimeframeChange}
+        chartType={chartType}
+        onChartTypeChange={setChartType}
         activeIndicatorKeys={activeIndicatorKeys}
         onToggleIndicator={onToggleIndicator}
         onFit={handleFit}

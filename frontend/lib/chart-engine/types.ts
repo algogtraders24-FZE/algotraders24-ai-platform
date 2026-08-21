@@ -30,3 +30,6 @@ export interface CrosshairState {
   x: number;
   y: number;
 }
+
+/** Sprint D2.7.11 Phase 5 - MT5's own "Bar chart / Candlesticks / Line chart" price-panel render style (right-click chart menu, Alt+1/2/3). "candlestick" is the existing default, unchanged for every caller that doesn't pass this. */
+export type ChartRenderType = "candlestick" | "bar" | "line";

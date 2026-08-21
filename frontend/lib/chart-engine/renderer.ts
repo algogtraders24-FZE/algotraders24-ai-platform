@@ -25,7 +25,7 @@ import { classifyCandle } from "./candle-classifier";
 import { priceToY, yToPrice } from "./coordinate-system";
 import { computePriceTicks, targetPriceTickCountForHeight, type PriceAxisTick } from "./price-axis";
 import { computeTimeTicks, targetTimeTickCountForWidth, type TimeAxisTick } from "./time-axis";
-import type { ChartDimensions, CrosshairState, Viewport } from "./types";
+import type { ChartDimensions, ChartRenderType, CrosshairState, Viewport } from "./types";
 import { computePanelLayout, type PanelRow } from "./panel-layout";
 import { indexRangeForViewport, indexToX, type IndexRange } from "./index-scale";
 import {
@@ -65,6 +65,8 @@ export interface RenderParams {
   drawingPreview?: DrawingPreview | null;
   /** This session - the live bid/ask (useLiveQuote.ts), preferred over the last candle's close for the current-price marker when present. Omitted/null means "no live quote yet" - the marker falls back to the candle close exactly as it always has, never a fabricated bid/ask. */
   liveQuote?: { bid: number; ask: number } | null;
+  /** Sprint D2.7.11 Phase 5 - MT5's Bar chart / Candlesticks / Line chart price-panel style. Defaults to "candlestick" - every existing caller that never passes this renders byte-for-byte as before this phase. */
+  chartType?: ChartRenderType;
 }
 
 const AXIS_FONT_SIZE = 11;
@@ -95,6 +97,7 @@ export function renderChart(params: RenderParams): void {
     selectedDrawingObjectId = null,
     drawingPreview = null,
     liveQuote = null,
+    chartType = "candlestick",
   } = params;
   const plotWidth = Math.max(0, dims.width - dims.priceAxisWidth);
   const plotHeight = Math.max(0, dims.height - dims.timeAxisHeight);
@@ -131,7 +134,9 @@ export function renderChart(params: RenderParams): void {
   drawPriceGrid(ctx, priceTicks, viewport, plotWidth, priceRow, colors);
   drawTimeGrid(ctx, timeTicks, indexRange, plotWidth, plotHeight, colors);
 
-  drawCandles(ctx, candles, indexRange, viewport, plotWidth, priceRow, colors);
+  if (chartType === "bar") drawBars(ctx, candles, indexRange, viewport, plotWidth, priceRow, colors);
+  else if (chartType === "line") drawLine(ctx, candles, indexRange, viewport, plotWidth, priceRow, colors);
+  else drawCandles(ctx, candles, indexRange, viewport, plotWidth, priceRow, colors);
   drawOverlays(ctx, indicatorSeries, candles, indexRange, viewport, plotWidth, priceRow);
   drawPriceAxis(ctx, priceTicks, viewport, plotWidth, priceRow, colors);
   drawLatestPriceMarker(ctx, candles, viewport, plotWidth, priceRow, colors, priceTicks, liveQuote);
@@ -256,6 +261,64 @@ function drawCandles(ctx: CanvasRenderingContext2D, candles: ChartCandle[], inde
       ctx.stroke();
     }
   }
+}
+
+// Sprint D2.7.11 Phase 5 - MT5's "Bar chart" style: a plain OHLC bar (one
+// vertical high-low line, a short left tick at open, a short right tick at
+// close - never a filled body). Shares the exact same index-scale x
+// positioning and MAX_BODY_WIDTH_PX-derived tick length as drawCandles, so
+// switching chart type never shifts a candle/bar's horizontal position.
+function drawBars(ctx: CanvasRenderingContext2D, candles: ChartCandle[], indexRange: IndexRange, viewport: Viewport, plotWidth: number, row: PanelRow, colors: ChartColors): void {
+  if (candles.length === 0) return;
+  const pixelsPerIndex = plotWidth / Math.max(1e-6, indexRange.maxIndex - indexRange.minIndex);
+  const tickWidth = Math.min(MAX_BODY_WIDTH_PX, Math.max(MIN_BODY_WIDTH_PX, pixelsPerIndex * BODY_WIDTH_RATIO)) / 2;
+
+  const from = Math.max(0, Math.floor(indexRange.minIndex) - 1);
+  const to = Math.min(candles.length - 1, Math.ceil(indexRange.maxIndex) + 1);
+
+  for (let i = from; i <= to; i++) {
+    const candle = candles[i];
+    const x = Math.round(indexToX(i, indexRange, plotWidth));
+    const trend = classifyCandle(candle);
+    ctx.strokeStyle = trend === "bearish" ? colors.bearishOutline : trend === "bullish" ? colors.bullish : colors.textTertiary;
+    ctx.lineWidth = 1;
+
+    const highY = row.top + priceToY(candle.high, viewport, row.height);
+    const lowY = row.top + priceToY(candle.low, viewport, row.height);
+    const openY = row.top + priceToY(candle.open, viewport, row.height);
+    const closeY = row.top + priceToY(candle.close, viewport, row.height);
+
+    ctx.beginPath();
+    ctx.moveTo(x, highY);
+    ctx.lineTo(x, lowY);
+    ctx.moveTo(x - tickWidth, openY);
+    ctx.lineTo(x, openY);
+    ctx.moveTo(x, closeY);
+    ctx.lineTo(x + tickWidth, closeY);
+    ctx.stroke();
+  }
+}
+
+// Sprint D2.7.11 Phase 5 - MT5's "Line chart" style: a single polyline
+// through each candle's close, in the same accent color as the current-price
+// marker (drawLatestPriceMarker below) - both are "the price, over time",
+// styled consistently rather than inventing a fourth chart color.
+function drawLine(ctx: CanvasRenderingContext2D, candles: ChartCandle[], indexRange: IndexRange, viewport: Viewport, plotWidth: number, row: PanelRow, colors: ChartColors): void {
+  if (candles.length === 0) return;
+  const from = Math.max(0, Math.floor(indexRange.minIndex) - 1);
+  const to = Math.min(candles.length - 1, Math.ceil(indexRange.maxIndex) + 1);
+  if (to < from) return;
+
+  ctx.strokeStyle = colors.accent;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let i = from; i <= to; i++) {
+    const x = indexToX(i, indexRange, plotWidth);
+    const y = row.top + priceToY(candles[i].close, viewport, row.height);
+    if (i === from) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
 }
 
 // MT5-style in-chart label (this session), matching the top-left
