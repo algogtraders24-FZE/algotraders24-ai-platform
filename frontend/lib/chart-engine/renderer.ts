@@ -24,7 +24,7 @@ import { canvasMonoFont } from "./canvas-typography";
 import { classifyCandle } from "./candle-classifier";
 import { priceToY, yToPrice } from "./coordinate-system";
 import { computePriceTicks, targetPriceTickCountForHeight, type PriceAxisTick } from "./price-axis";
-import { computeTimeTicks, targetTimeTickCountForWidth, type TimeAxisTick } from "./time-axis";
+import { computeTimeTicks, computePeriodSeparators, targetTimeTickCountForWidth, type PeriodSeparator, type TimeAxisTick } from "./time-axis";
 import type { ChartDimensions, ChartRenderType, CrosshairState, Viewport } from "./types";
 import { computePanelLayout, type PanelRow } from "./panel-layout";
 import { indexRangeForViewport, indexToX, type IndexRange } from "./index-scale";
@@ -67,6 +67,10 @@ export interface RenderParams {
   liveQuote?: { bid: number; ask: number } | null;
   /** Sprint D2.7.11 Phase 5 - MT5's Bar chart / Candlesticks / Line chart price-panel style. Defaults to "candlestick" - every existing caller that never passes this renders byte-for-byte as before this phase. */
   chartType?: ChartRenderType;
+  /** Sprint D2.7.11 Phase 5b - MT5's "Show grid" toggle (Properties dialog, Show tab). Defaults to true, preserving this renderer's own pre-Phase-5b behavior (the grid has always been drawn unconditionally). */
+  showGrid?: boolean;
+  /** Sprint D2.7.11 Phase 5b - MT5's "Show period separators" toggle. Defaults to false, matching real MT5's own default (verified against the user's live Properties dialog screenshot) - a new feature, so there is no prior "always on" behavior to preserve here. */
+  showPeriodSeparators?: boolean;
 }
 
 const AXIS_FONT_SIZE = 11;
@@ -98,6 +102,8 @@ export function renderChart(params: RenderParams): void {
     drawingPreview = null,
     liveQuote = null,
     chartType = "candlestick",
+    showGrid = true,
+    showPeriodSeparators = false,
   } = params;
   const plotWidth = Math.max(0, dims.width - dims.priceAxisWidth);
   const plotHeight = Math.max(0, dims.height - dims.timeAxisHeight);
@@ -131,8 +137,14 @@ export function renderChart(params: RenderParams): void {
   // axis - keeps candles/bars visually aligned to the same time positions
   // across the price panel and any active sub-panels. Horizontal price
   // grid remains scoped to the price panel's own row, unchanged since D2.7.2.
-  drawPriceGrid(ctx, priceTicks, viewport, plotWidth, priceRow, colors);
-  drawTimeGrid(ctx, timeTicks, indexRange, plotWidth, plotHeight, colors);
+  if (showGrid) {
+    drawPriceGrid(ctx, priceTicks, viewport, plotWidth, priceRow, colors);
+    drawTimeGrid(ctx, timeTicks, indexRange, plotWidth, plotHeight, colors);
+  }
+  if (showPeriodSeparators) {
+    const separators = computePeriodSeparators(candles, timeframe);
+    drawPeriodSeparators(ctx, separators, indexRange, plotWidth, plotHeight, colors);
+  }
 
   if (chartType === "bar") drawBars(ctx, candles, indexRange, viewport, plotWidth, priceRow, colors);
   else if (chartType === "line") drawLine(ctx, candles, indexRange, viewport, plotWidth, priceRow, colors);
@@ -190,6 +202,27 @@ function drawPriceGrid(ctx: CanvasRenderingContext2D, ticks: PriceAxisTick[], vi
     ctx.lineTo(plotWidth, y);
     ctx.stroke();
   }
+}
+
+// Sprint D2.7.11 Phase 5b - MT5's "Show period separators" line: a dashed
+// vertical line at each new trading day, visually distinct from the plain
+// solid time grid (drawTimeGrid above) so a day boundary reads as a real
+// marker rather than just another grid line. Drawn across the FULL plot
+// height (like drawTimeGrid), not scoped to the price row, since every
+// panel shares the same time axis.
+function drawPeriodSeparators(ctx: CanvasRenderingContext2D, separators: PeriodSeparator[], indexRange: IndexRange, plotWidth: number, plotHeight: number, colors: ChartColors): void {
+  if (separators.length === 0) return;
+  ctx.strokeStyle = colors.border;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2, 2]);
+  for (const sep of separators) {
+    const x = Math.round(indexToX(sep.index, indexRange, plotWidth)) + 0.5;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, plotHeight);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
 }
 
 function drawCandles(ctx: CanvasRenderingContext2D, candles: ChartCandle[], indexRange: IndexRange, viewport: Viewport, plotWidth: number, row: PanelRow, colors: ChartColors): void {

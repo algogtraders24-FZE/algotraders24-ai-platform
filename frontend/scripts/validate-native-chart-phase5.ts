@@ -16,7 +16,9 @@ import { join } from "node:path";
 import { renderChart } from "../lib/chart-engine/renderer";
 import { fitToData } from "../lib/chart-engine/viewport";
 import { resolveChartColors } from "../lib/chart-engine/canvas-colors";
+import { computePeriodSeparators } from "../lib/chart-engine/time-axis";
 import type { ChartCandle } from "../types/chart-data";
+import type { SignalTimeframe } from "../types/signal";
 
 let passed = 0;
 let failed = 0;
@@ -75,7 +77,10 @@ function fakeCtx(): { ctx: CanvasRenderingContext2D; calls: string[] } {
   return { ctx: ctx as unknown as CanvasRenderingContext2D, calls };
 }
 
-function renderWith(chartType: "candlestick" | "bar" | "line" | undefined, candles: ChartCandle[]) {
+function renderWith(
+  candles: ChartCandle[],
+  opts: { chartType?: "candlestick" | "bar" | "line"; showGrid?: boolean; showPeriodSeparators?: boolean; timeframe?: SignalTimeframe } = {},
+) {
   const { ctx, calls } = fakeCtx();
   const vp = fitToData(candles);
   renderChart({
@@ -83,10 +88,12 @@ function renderWith(chartType: "candlestick" | "bar" | "line" | undefined, candl
     dims: { width: 600, height: 300, priceAxisWidth: 64, timeAxisHeight: 22 },
     candles,
     viewport: vp,
-    timeframe: "1h",
+    timeframe: opts.timeframe ?? "1h",
     crosshair: null,
     colors: resolveChartColors(),
-    chartType,
+    chartType: opts.chartType,
+    showGrid: opts.showGrid,
+    showPeriodSeparators: opts.showPeriodSeparators,
   });
   return calls;
 }
@@ -99,40 +106,83 @@ function rendererTests(): void {
   const candles = makeSeries(20, 60_000);
 
   test("1: chartType omitted renders byte-for-byte identically to chartType: 'candlestick' - the default is never a behavior change for any existing caller", () => {
-    const withDefault = renderWith(undefined, candles);
-    const explicit = renderWith("candlestick", candles);
+    const withDefault = renderWith(candles, {});
+    const explicit = renderWith(candles, { chartType: "candlestick" });
     assert.deepEqual(withDefault, explicit);
   });
 
   test("2: 'bar' chart type never fills a candle body (no per-candle fillRect) - only the background/price-marker fillRect calls from candlestick mode remain, so bar's fillRect count is strictly less", () => {
-    const candlestickCalls = renderWith("candlestick", candles);
-    const barCalls = renderWith("bar", candles);
+    const candlestickCalls = renderWith(candles, { chartType: "candlestick" });
+    const barCalls = renderWith(candles, { chartType: "bar" });
     assert.ok(count(barCalls, "fillRect") < count(candlestickCalls, "fillRect"), "bar mode must never fillRect a candle body");
   });
 
   test("3: 'line' chart type never fills a candle body either, and draws a SINGLE continuous path (one moveTo, not one per candle) - so its moveTo count is far below candlestick's per-candle wick+outline moveTo calls", () => {
-    const candlestickCalls = renderWith("candlestick", candles);
-    const lineCalls = renderWith("line", candles);
+    const candlestickCalls = renderWith(candles, { chartType: "candlestick" });
+    const lineCalls = renderWith(candles, { chartType: "line" });
     assert.ok(count(lineCalls, "fillRect") < count(candlestickCalls, "fillRect"), "line mode must never fillRect a candle body");
     assert.ok(count(lineCalls, "moveTo") < count(candlestickCalls, "moveTo"), "line mode must draw one continuous path, not per-candle moves");
   });
 
   test("4: 'bar' chart type draws 3 strokes worth of moveTo per bar (high-low, open tick, close tick) - its moveTo count exceeds line mode's single-path count", () => {
-    const barCalls = renderWith("bar", candles);
-    const lineCalls = renderWith("line", candles);
+    const barCalls = renderWith(candles, { chartType: "bar" });
+    const lineCalls = renderWith(candles, { chartType: "line" });
     assert.ok(count(barCalls, "moveTo") > count(lineCalls, "moveTo"));
   });
 
   test("5: every chart type renders an empty candle series without throwing (honest empty-plot draw, matching drawCandles' own existing contract)", () => {
-    assert.doesNotThrow(() => renderWith("bar", []));
-    assert.doesNotThrow(() => renderWith("line", []));
-    assert.doesNotThrow(() => renderWith("candlestick", []));
+    assert.doesNotThrow(() => renderWith([], { chartType: "bar" }));
+    assert.doesNotThrow(() => renderWith([], { chartType: "line" }));
+    assert.doesNotThrow(() => renderWith([], { chartType: "candlestick" }));
   });
 
   test("6: every chart type renders a single-candle series without throwing (a real degenerate case - a brand-new symbol with only one candle loaded)", () => {
     const one = makeSeries(1);
-    assert.doesNotThrow(() => renderWith("bar", one));
-    assert.doesNotThrow(() => renderWith("line", one));
+    assert.doesNotThrow(() => renderWith(one, { chartType: "bar" }));
+    assert.doesNotThrow(() => renderWith(one, { chartType: "line" }));
+  });
+
+  test("13: showGrid omitted (default true) renders byte-for-byte identically to showGrid: true - preserves this renderer's pre-Phase-5b 'grid always drawn' behavior for every existing caller", () => {
+    const withDefault = renderWith(candles, {});
+    const explicit = renderWith(candles, { showGrid: true });
+    assert.deepEqual(withDefault, explicit);
+  });
+
+  test("14: showGrid: false draws strictly fewer strokes than the default (grid lines genuinely stop being drawn, not just visually hidden)", () => {
+    const withGrid = renderWith(candles, { showGrid: true });
+    const withoutGrid = renderWith(candles, { showGrid: false });
+    assert.ok(count(withoutGrid, "stroke") < count(withGrid, "stroke"));
+  });
+
+  test("15: showPeriodSeparators omitted (default false) renders byte-for-byte identically to showPeriodSeparators: true - matches real MT5's own default (verified against the user's live Properties dialog screenshot: 'Show period separators' unchecked)", () => {
+    const withDefault = renderWith(candles, {});
+    const explicitOff = renderWith(candles, { showPeriodSeparators: false });
+    assert.deepEqual(withDefault, explicitOff);
+  });
+
+  test("16: computePeriodSeparators finds exactly the UTC day boundaries in a multi-day intraday series, never off-by-one, never a separator at index 0 (the first candle is never 'after' a boundary)", () => {
+    // 3 candles/day across 3 days, 8h apart - deliberately coarse so each
+    // day has few candles and the boundary index is easy to hand-verify.
+    const start = Date.parse("2026-01-01T00:00:00Z");
+    const threeDays: ChartCandle[] = [];
+    for (let i = 0; i < 9; i++) threeDays.push({ time: start + i * 8 * 3_600_000, open: 1, high: 2, low: 0, close: 1 });
+    const separators = computePeriodSeparators(threeDays, "4h");
+    assert.deepEqual(separators.map((s) => s.index), [3, 6]);
+  });
+
+  test("17: computePeriodSeparators returns nothing for D1+ timeframes - one bar already IS a whole day there, so a same-scale day-boundary line would be redundant, never fabricated", () => {
+    const candles20 = makeSeries(20, 86_400_000);
+    assert.deepEqual(computePeriodSeparators(candles20, "1d"), []);
+    assert.deepEqual(computePeriodSeparators(candles20, "1w"), []);
+  });
+
+  test("18: showPeriodSeparators: true on a real multi-day intraday series draws strictly more strokes than showPeriodSeparators: false (the separator lines are genuinely drawn, not just computed and discarded)", () => {
+    const start = Date.parse("2026-01-01T00:00:00Z");
+    const multiDay: ChartCandle[] = [];
+    for (let i = 0; i < 12; i++) multiDay.push({ time: start + i * 4 * 3_600_000, open: 100 + i, high: 101 + i, low: 99 + i, close: 100 + i });
+    const off = renderWith(multiDay, { timeframe: "4h", showPeriodSeparators: false });
+    const on = renderWith(multiDay, { timeframe: "4h", showPeriodSeparators: true });
+    assert.ok(count(on, "stroke") > count(off, "stroke"));
   });
 }
 
@@ -158,9 +208,9 @@ function wiringTests(): void {
 
   test("10: NativeChart's draw() useMemo includes chartType in its dependency array and passes it to renderChart - switching chart type must actually trigger a redraw, never a stale canvas", () => {
     const src = read("components/chart-engine/NativeChart.tsx");
-    const drawBlock = src.slice(src.indexOf("const draw = useMemo"), src.indexOf("const draw = useMemo") + 2000);
+    const drawBlock = src.slice(src.indexOf("const draw = useMemo"), src.indexOf("const draw = useMemo") + 2500);
     assert.ok(drawBlock.includes("chartType,"), "renderChart(...) call must pass chartType");
-    assert.ok(/\[candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType\]/.test(drawBlock), "deps array must include chartType");
+    assert.ok(/\[candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators\]/.test(drawBlock), "deps array must include chartType/showGrid/showPeriodSeparators");
   });
 
   test("11: NativeChart forwards chartType/onChartTypeChange to ChartToolbar - the toggle is reachable, never dead state with no UI", () => {
@@ -172,6 +222,37 @@ function wiringTests(): void {
   test("12: renderer.ts's chartType param defaults to 'candlestick' at the destructuring site - the actual guarantee behind test 1's byte-identical-render assertion, not just a coincidence of this test's inputs", () => {
     const src = read("lib/chart-engine/renderer.ts");
     assert.ok(src.includes('chartType = "candlestick"'));
+  });
+
+  test("19: renderer.ts's showGrid/showPeriodSeparators default at the destructuring site to true/false respectively - the actual guarantee behind tests 13/15's byte-identical-render assertions", () => {
+    const src = read("lib/chart-engine/renderer.ts");
+    assert.ok(src.includes("showGrid = true"));
+    assert.ok(src.includes("showPeriodSeparators = false"));
+  });
+
+  test("20: ChartToolbar renders a 'Properties' button wired to onOpenProperties - MT5's own Properties dialog (F8), reachable from the toolbar like Templates/Fit/Live", () => {
+    const src = read("components/chart-engine/ChartToolbar.tsx");
+    assert.ok(src.includes("onClick={onOpenProperties}"));
+    assert.ok(src.includes("Properties"));
+  });
+
+  test("21: NativeChart owns showGrid/showPeriodSeparators as local state (same 'rendering-style preference, not per-instrument data' reasoning as chartType) and opens a Chart Properties Modal - reusing the EXISTING Modal component, never a second bespoke dialog implementation", () => {
+    const src = read("components/chart-engine/NativeChart.tsx");
+    assert.ok(src.includes("const [showGrid, setShowGrid] = useState(true)"));
+    assert.ok(src.includes("const [showPeriodSeparators, setShowPeriodSeparators] = useState(false)"));
+    assert.ok(src.includes('<Modal open={propertiesModalOpen} onClose={() => setPropertiesModalOpen(false)} title="Chart Properties">'));
+  });
+
+  test("22: the Chart Properties modal's Grid/Period separators checkboxes are real <input type=\"checkbox\"> wrapped in a <label>, the same natively-accessible pattern the Indicators menu already uses - no ARIA reinvention", () => {
+    const src = read("components/chart-engine/NativeChart.tsx");
+    const block = src.slice(src.indexOf("Chart Properties"), src.indexOf("Chart Properties") + 900);
+    assert.ok(block.includes('type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)}'));
+    assert.ok(block.includes('type="checkbox" checked={showPeriodSeparators} onChange={(e) => setShowPeriodSeparators(e.target.checked)}'));
+  });
+
+  test("23: NativeChart forwards onOpenProperties to ChartToolbar, opening the Modal - the toolbar button is reachable, never dead state with no UI (same discipline test 11 already applies to chartType)", () => {
+    const src = read("components/chart-engine/NativeChart.tsx");
+    assert.ok(src.includes("onOpenProperties={() => setPropertiesModalOpen(true)}"));
   });
 }
 

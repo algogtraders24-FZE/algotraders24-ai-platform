@@ -43,6 +43,32 @@ export function targetTimeTickCountForWidth(widthPx: number): number {
   return Math.min(MAX_TIME_TICK_COUNT, Math.max(MIN_TIME_TICK_COUNT, count));
 }
 
+export interface PeriodSeparator {
+  /** Index into the candle array of the FIRST candle of a new UTC calendar day - the renderer positions the separator line at that candle's real x. */
+  index: number;
+}
+
+/**
+ * Sprint D2.7.11 Phase 5b - MT5's "Show period separators" (a vertical line
+ * at each new trading day, right-click chart menu / Properties dialog).
+ * Deliberately scoped to INTRADAY timeframes only, matching real MT5 (on a
+ * D1+ chart, one bar already IS a whole day - a same-scale "day boundary"
+ * line there would be redundant with every single bar). Never fabricates a
+ * separator for a timeframe where the concept doesn't honestly apply.
+ */
+export function computePeriodSeparators(candles: ChartCandle[], timeframe: SignalTimeframe): PeriodSeparator[] {
+  if (!INTRADAY_TIMEFRAMES.has(timeframe)) return [];
+  const MS_PER_DAY = 86_400_000;
+  const separators: PeriodSeparator[] = [];
+  let lastDay: number | null = null;
+  for (let index = 0; index < candles.length; index++) {
+    const day = Math.floor(candles[index].time / MS_PER_DAY);
+    if (lastDay !== null && day !== lastDay) separators.push({ index });
+    lastDay = day;
+  }
+  return separators;
+}
+
 /** Up to `targetCount` evenly spaced real candles from the visible window. Returns an empty array when nothing is visible (never fabricates a tick). */
 export function computeTimeTicks(
   candles: ChartCandle[],

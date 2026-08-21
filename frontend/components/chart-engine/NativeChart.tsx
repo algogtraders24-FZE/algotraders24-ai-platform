@@ -159,6 +159,14 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
   // lifetime (D2.7.11 Phase 3) - only the TradingView<->Native provider
   // toggle unmounts it, at which point isLive/activeTool already reset too.
   const [chartType, setChartType] = useState<ChartRenderType>("candlestick");
+  // Sprint D2.7.11 Phase 5b - MT5's Properties dialog "Show" tab (Grid /
+  // Period separators). Also local, same reasoning as chartType above.
+  // showGrid defaults to true (this renderer has always drawn the grid
+  // unconditionally, so this preserves that exact behavior); showPeriodSeparators
+  // defaults to false, matching real MT5's own default.
+  const [showGrid, setShowGrid] = useState(true);
+  const [showPeriodSeparators, setShowPeriodSeparators] = useState(false);
+  const [propertiesModalOpen, setPropertiesModalOpen] = useState(false);
   // Sprint D2.7.5, Phase 9 - a CSS-driven focus mode (not the browser
   // Fullscreen API): toggling this class alone naturally re-triggers the
   // EXISTING ResizeObserver effect below (it observes containerRef's real
@@ -389,9 +397,11 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
         drawingPreview: drawingPreviewRef.current,
         liveQuote,
         chartType,
+        showGrid,
+        showPeriodSeparators,
       });
     },
-    [candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType],
+    [candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators],
   );
 
   // Resize: keep the canvas's real pixel buffer matched to its CSS size *
@@ -1069,6 +1079,7 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
         onApplyTemplate={handleApplyTemplate}
         onDeleteTemplate={handleDeleteTemplate}
         onOpenSaveTemplate={() => setSaveModalOpen(true)}
+        onOpenProperties={() => setPropertiesModalOpen(true)}
       />
 
       <Modal open={saveModalOpen} onClose={() => setSaveModalOpen(false)} title="Save as Template">
@@ -1102,6 +1113,27 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
             className="rounded-control border border-gold/40 bg-gold/10 px-3 py-1.5 text-xs font-medium text-gold transition hover:bg-gold/20 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {templateActionPending ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal open={propertiesModalOpen} onClose={() => setPropertiesModalOpen(false)} title="Chart Properties">
+        <p className={`${FIN_LABEL} pb-1`}>Show</p>
+        <label className="flex cursor-pointer items-center gap-2 rounded-control px-1 py-1.5 text-xs text-text-2 hover:bg-ink-3">
+          <input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} className="accent-gold" />
+          Grid
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 rounded-control px-1 py-1.5 text-xs text-text-2 hover:bg-ink-3">
+          <input type="checkbox" checked={showPeriodSeparators} onChange={(e) => setShowPeriodSeparators(e.target.checked)} className="accent-gold" />
+          Period separators
+        </label>
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setPropertiesModalOpen(false)}
+            className="rounded-control border border-gold/40 bg-gold/10 px-3 py-1.5 text-xs font-medium text-gold transition hover:bg-gold/20"
+          >
+            Done
           </button>
         </div>
       </Modal>
