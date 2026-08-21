@@ -30,11 +30,15 @@ interface ListingRow {
   updatedAt: string;
 }
 
-// media[0] = icon/logo, media[1] = hero/banner - same convention
+// media[0] = icon/logo (must be exactly 200x200, enforced server-side),
+// media[1] = hero/banner, media[2+] = screenshot gallery - same convention
 // ListingDetailView and MarketplaceListingCard render by.
-async function uploadMedia(listingId: string, file: File): Promise<string> {
+type MediaKind = "icon" | "banner" | "screenshot";
+
+async function uploadMedia(listingId: string, file: File, kind: MediaKind): Promise<string> {
   const form = new FormData();
   form.append("file", file);
+  form.append("kind", kind);
   const res = await fetch(`/api/private/marketplace/listings/${listingId}/media`, { method: "POST", body: form });
   const body = await res.json();
   if (!res.ok || body.status !== "ok") throw new Error(body?.error?.message ?? `Upload failed (${res.status})`);
@@ -98,13 +102,13 @@ export default function MyProductsClient() {
     }
   }
 
-  async function handleMediaChange(item: ListingRow, slot: 0 | 1, file: File | null) {
+  async function handleMediaChange(item: ListingRow, slot: 0 | 1, kind: MediaKind, file: File | null) {
     if (!file) return;
     const key = `${item.id}:${slot}`;
     setMediaErrors((prev) => ({ ...prev, [key]: "" }));
     setMediaUploadingKey(key);
     try {
-      const url = await uploadMedia(item.id, file);
+      const url = await uploadMedia(item.id, file, kind);
       const nextMedia = [...item.media];
       nextMedia[slot] = url;
       await patchMedia(item.id, nextMedia);
@@ -114,6 +118,31 @@ export default function MyProductsClient() {
     } finally {
       setMediaUploadingKey(null);
     }
+  }
+
+  async function handleScreenshotAdd(item: ListingRow, file: File | null) {
+    if (!file) return;
+    const key = `${item.id}:screenshot`;
+    setMediaErrors((prev) => ({ ...prev, [key]: "" }));
+    setMediaUploadingKey(key);
+    try {
+      const url = await uploadMedia(item.id, file, "screenshot");
+      const nextMedia = [...item.media];
+      while (nextMedia.length < 2) nextMedia.push(""); // keep icon/banner slots stable even if unset
+      nextMedia.push(url);
+      await patchMedia(item.id, nextMedia);
+      await load();
+    } catch (err) {
+      setMediaErrors((prev) => ({ ...prev, [key]: err instanceof Error ? err.message : "Upload failed." }));
+    } finally {
+      setMediaUploadingKey(null);
+    }
+  }
+
+  async function handleScreenshotRemove(item: ListingRow, index: number) {
+    const nextMedia = item.media.filter((_, i) => i !== index);
+    await patchMedia(item.id, nextMedia);
+    await load();
   }
 
   if (error) return <Alert tone="danger">{error}</Alert>;
@@ -149,8 +178,9 @@ export default function MyProductsClient() {
               <p className="text-xs font-semibold uppercase tracking-wide text-text-3">Branding</p>
               <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {([0, 1] as const).map((slot) => {
+                  const kind: MediaKind = slot === 0 ? "icon" : "banner";
                   const key = `${item.id}:${slot}`;
-                  const label = slot === 0 ? "Icon / logo (square)" : "Banner / hero (wide)";
+                  const label = slot === 0 ? "Icon / logo — 200 x 200px required" : "Banner / hero (wide)";
                   const current = item.media[slot];
                   return (
                     <div key={slot}>
@@ -169,13 +199,45 @@ export default function MyProductsClient() {
                         type="file"
                         accept="image/svg+xml,image/png,image/jpeg,image/webp"
                         disabled={mediaUploadingKey === key}
-                        onChange={(e) => handleMediaChange(item, slot, e.target.files?.[0] ?? null)}
+                        onChange={(e) => handleMediaChange(item, slot, kind, e.target.files?.[0] ?? null)}
                         className="block w-full text-xs text-text-3 file:mr-3 file:rounded-control file:border-0 file:bg-ink-4 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-text-2 hover:file:bg-border disabled:opacity-50"
                       />
                       {mediaErrors[key] && <p className="mt-1 text-xs text-danger">{mediaErrors[key]}</p>}
                     </div>
                   );
                 })}
+              </div>
+
+              <div className="mt-4 border-t border-border/60 pt-3">
+                <p className="mb-1 text-[11px] text-text-3">Screenshots (as many as you like — strategy tester results, chart setups, etc.)</p>
+                <div className="flex flex-wrap gap-2">
+                  {item.media.slice(2).map((url, i) =>
+                    url ? (
+                      <div key={i} className="relative">
+                        <Image src={url} alt="" width={96} height={64} unoptimized className="rounded-lg border border-border object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => handleScreenshotRemove(item, i + 2)}
+                          className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-danger text-[10px] font-bold text-white"
+                          aria-label="Remove screenshot"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ) : null,
+                  )}
+                </div>
+                <input
+                  type="file"
+                  accept="image/svg+xml,image/png,image/jpeg,image/webp"
+                  disabled={mediaUploadingKey === `${item.id}:screenshot`}
+                  onChange={(e) => {
+                    handleScreenshotAdd(item, e.target.files?.[0] ?? null);
+                    e.target.value = "";
+                  }}
+                  className="mt-2 block w-full text-xs text-text-3 file:mr-3 file:rounded-control file:border-0 file:bg-ink-4 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-text-2 hover:file:bg-border disabled:opacity-50"
+                />
+                {mediaErrors[`${item.id}:screenshot`] && <p className="mt-1 text-xs text-danger">{mediaErrors[`${item.id}:screenshot`]}</p>}
               </div>
             </div>
 

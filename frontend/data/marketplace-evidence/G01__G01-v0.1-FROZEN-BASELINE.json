@@ -1,0 +1,66 @@
+{
+  "_provenance": {
+    "generatedBy": "generate_g01_integration_snapshot.py (M9)",
+    "generatedAt": "2026-08-20T07:42:55.893068Z",
+    "note": "Real, deterministic M3/M4/M5/M7 result for G01 v0.1 -- not fabricated, not a mock fixture. Reproducible by re-running this script against the same real artifacts. See M9_architecture_audit.md section 6."
+  },
+  "tradingSystemId": "G01",
+  "versionId": "G01-v0.1-FROZEN-BASELINE",
+  "m3": {
+    "status": "VERIFIED",
+    "evidenceId": "1d0d5df55c44a8a1",
+    "warnings": [
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'spreadModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'commissionModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'swapModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'tickDataQuality' is null"
+    ]
+  },
+  "m4": {
+    "overallStatus": "INCONCLUSIVE",
+    "evidenceId": "1d0d5df55c44a8a1",
+    "recordStatuses": {
+      "SAMPLE_SIZE": "PASS",
+      "OUT_OF_SAMPLE": "PASS",
+      "WALK_FORWARD": "PASS",
+      "TEMPORAL_STABILITY": "PASS",
+      "REGIME_COVERAGE": "INCONCLUSIVE",
+      "PERFORMANCE_DISTRIBUTION": "PASS",
+      "PARAMETER_SENSITIVITY": "INCONCLUSIVE"
+    }
+  },
+  "m5": {
+    "status": "PARTIAL",
+    "riskAnalysisId": "f7b2f31d02b36205",
+    "riskAnalysisHash": "f7b2f31d02b36205",
+    "dataQuality": {
+      "drawdown": "LIMITED",
+      "lossDistribution": "AVAILABLE",
+      "winDistribution": "AVAILABLE",
+      "expectancy": "AVAILABLE",
+      "lossStreaks": "AVAILABLE",
+      "recovery": "LIMITED",
+      "tailRisk": "AVAILABLE",
+      "concentration": "AVAILABLE",
+      "temporalRisk": "AVAILABLE",
+      "regimeRisk": "UNAVAILABLE",
+      "exposureRisk": "AVAILABLE",
+      "costRisk": "AVAILABLE"
+    }
+  },
+  "m7": {
+    "status": "INCONCLUSIVE",
+    "reasonCode": "VALIDATION_INCONCLUSIVE",
+    "explanation": "Evidence integrity is verified, but the current Validation (M4) result is INCONCLUSIVE (overallStatus=INCONCLUSIVE) -- validation types not conclusively completed: REGIME_COVERAGE, PARAMETER_SENSITIVITY",
+    "id": "d5eb6bdcf62bceeb",
+    "generatedAt": "2026-08-20T07:42:56.123022Z"
+  },
+  "evidenceId": "1d0d5df55c44a8a1",
+  "evidenceHash": "1d0d5df55c44a8a1",
+  "validationId": "1d0d5df55c44a8a1",
+  "validationHash": "1d0d5df55c44a8a1",
+  "riskAnalysisId": "f7b2f31d02b36205",
+  "riskAnalysisHash": "f7b2f31d02b36205",
+  "trustStatusId": "d5eb6bdcf62bceeb",
+  "lastEvidenceAt": "2026-07-22T04:08:42"
+}

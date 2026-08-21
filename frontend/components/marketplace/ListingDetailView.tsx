@@ -30,6 +30,7 @@ export default function ListingDetailView({
 }) {
   const icon = listing.media[0];
   const banner = listing.media[1];
+  const screenshots = listing.media.slice(2).filter(Boolean);
 
   return (
     <>
@@ -60,6 +61,15 @@ export default function ListingDetailView({
           <p className="text-xs text-text-3 mt-2">
             Listed by {listing.sellerName ?? "Unknown seller"} <span className="text-text-3/60">· seller-provided identity</span>
           </p>
+
+          {screenshots.length > 0 && (
+            <div className="mt-6 flex gap-3 overflow-x-auto pb-2">
+              {screenshots.map((url, i) => (
+                // eslint-disable-next-line @next/next/no-img-element -- SVG screenshots upload here too
+                <img key={i} src={url} alt="" className="h-40 w-auto flex-shrink-0 rounded-xl border border-border object-cover" />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

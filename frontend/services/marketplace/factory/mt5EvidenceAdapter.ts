@@ -51,14 +51,27 @@ function loadSnapshot(filename: string): MT5EvidenceSnapshot | null {
   }
 }
 
-// Only G01/v0.1's real snapshot exists this sprint. A lookup for any other
-// tradingSystemId/versionId is honestly EVIDENCE_INGESTION_UNAVAILABLE,
-// never fabricated.
+// Filesystem-safe encoding of an id pair into the one filename convention
+// every snapshot in SNAPSHOTS_DIR follows: "<tradingSystemId>__<versionId>.json".
+// Only alnum/-/. survive; everything else (spaces, parens, slashes in a
+// versionId's free-text description) becomes "_" - deterministic in both
+// directions isn't required, this only ever needs to go id -> filename.
+function snapshotFilename(tradingSystemId: string, versionId: string): string {
+  const safe = (s: string) => s.replace(/[^a-zA-Z0-9.-]/g, "_");
+  return `${safe(tradingSystemId)}__${safe(versionId)}.json`;
+}
+
+// Generalized lookup (M12 branding follow-on): any tradingSystemId/versionId
+// with a matching snapshot file in SNAPSHOTS_DIR is discovered - no longer
+// hardcoded to one product. A snapshot only ever exists here because an
+// AT24 human ran the real M2-M7 engines and placed it via
+// scripts/assemble-marketplace-evidence-snapshot.ts (or by hand, same
+// shape) - sellers have no write access to this directory or these DB
+// columns, so this change is a discovery-scope fix, not a security
+// change. A lookup for any id pair with no matching file is honestly
+// EVIDENCE_INGESTION_UNAVAILABLE, never fabricated.
 export function discoverMt5Evidence(tradingSystemId: string, versionId: string): MT5EvidenceSnapshot | null {
-  if (tradingSystemId === "G01" && versionId === "G01-v0.1-FROZEN-BASELINE") {
-    return loadSnapshot("g01-integration-snapshot.json");
-  }
-  return null;
+  return loadSnapshot(snapshotFilename(tradingSystemId, versionId));
 }
 
 // The MT5 PlatformAdapter's discoverEvidence implementation - flattens

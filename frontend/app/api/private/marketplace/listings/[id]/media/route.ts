@@ -22,6 +22,7 @@ import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { prisma } from "@/lib/prisma";
 import { withTableFallback } from "@/services/marketplace/tableGuard";
+import { readImageDimensions } from "@/lib/marketplace/imageDimensions";
 
 const MAX_BYTES = 3 * 1024 * 1024; // 3MB - these are logos/banners, not galleries
 const ALLOWED: Record<string, string> = {
@@ -31,6 +32,14 @@ const ALLOWED: Record<string, string> = {
   "image/webp": "webp",
 };
 const MEDIA_ROOT = path.join(process.cwd(), "public", "marketplace");
+// Matches MQL5 Market's own product-icon convention (see M12 branding
+// follow-on discussion) - enforced only for kind="icon"; banner/screenshot
+// uploads have no fixed-dimension requirement.
+const ICON_SIZE = 200;
+type MediaKind = "icon" | "banner" | "screenshot";
+function isMediaKind(v: unknown): v is MediaKind {
+  return v === "icon" || v === "banner" || v === "screenshot";
+}
 
 function listingIdFromPath(reqPath: string): string | undefined {
   const segments = reqPath.split("/").filter(Boolean);
@@ -90,7 +99,29 @@ export const POST = withContext(async (req, ctx) => {
     );
   }
 
+  const kindInput = form.get("kind");
+  const kind: MediaKind = isMediaKind(kindInput) ? kindInput : "screenshot";
+
   const buffer = Buffer.from(await file.arrayBuffer());
+
+  // Icon dimension check: fail-closed only when the dimensions ARE
+  // determined and don't match; fail-open (allow) when the format variant
+  // isn't recognized by readImageDimensions - this is a UX guardrail
+  // (consistent, professional-looking catalog cards), not a security
+  // boundary, so an unrecognized-but-legitimate file should never be
+  // blocked on a parsing gap.
+  if (kind === "icon") {
+    const dims = readImageDimensions(buffer, file.type);
+    if (dims && (dims.width !== ICON_SIZE || dims.height !== ICON_SIZE)) {
+      return ApiResponse.error(
+        { code: "INVALID_ICON_DIMENSIONS", message: `Icon must be exactly ${ICON_SIZE}x${ICON_SIZE}px (this file is ${dims.width}x${dims.height}px).` },
+        ctx.requestId,
+        400,
+        ctx.startedAt,
+      );
+    }
+  }
+
   const dir = path.join(MEDIA_ROOT, listingId);
   await mkdir(dir, { recursive: true });
   const filename = `${sanitizeBaseName(file.name)}-${Date.now().toString(36)}.${ext}`;

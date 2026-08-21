@@ -1,0 +1,61 @@
+{
+  "tradingSystemId": "PDHPDL-GOLD",
+  "versionId": "PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN",
+  "m3": {
+    "status": "VERIFIED",
+    "evidenceId": "7096a2d04a5f60dc",
+    "warnings": [
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'spreadModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'commissionModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'swapModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'tickDataQuality' is null"
+    ]
+  },
+  "m4": {
+    "overallStatus": "INCONCLUSIVE",
+    "evidenceId": "7096a2d04a5f60dc",
+    "recordStatuses": {
+      "SAMPLE_SIZE": "PASS",
+      "OUT_OF_SAMPLE": "PASS",
+      "WALK_FORWARD": "PASS",
+      "TEMPORAL_STABILITY": "PASS",
+      "REGIME_COVERAGE": "INCONCLUSIVE",
+      "PERFORMANCE_DISTRIBUTION": "PASS",
+      "PARAMETER_SENSITIVITY": "INCONCLUSIVE"
+    }
+  },
+  "m5": {
+    "status": "PARTIAL",
+    "riskAnalysisId": "a2d346bb8121cf4e",
+    "riskAnalysisHash": "a2d346bb8121cf4e",
+    "dataQuality": {
+      "drawdown": "LIMITED",
+      "lossDistribution": "AVAILABLE",
+      "winDistribution": "AVAILABLE",
+      "expectancy": "AVAILABLE",
+      "lossStreaks": "AVAILABLE",
+      "recovery": "LIMITED",
+      "tailRisk": "AVAILABLE",
+      "concentration": "AVAILABLE",
+      "temporalRisk": "AVAILABLE",
+      "regimeRisk": "UNAVAILABLE",
+      "exposureRisk": "AVAILABLE",
+      "costRisk": "AVAILABLE"
+    }
+  },
+  "m7": {
+    "status": "INCONCLUSIVE",
+    "reasonCode": "VALIDATION_INCONCLUSIVE",
+    "explanation": "Evidence integrity is verified, but the current Validation (M4) result is INCONCLUSIVE (overallStatus=INCONCLUSIVE) -- validation types not conclusively completed: REGIME_COVERAGE, PARAMETER_SENSITIVITY",
+    "id": "852a5d4953dacfe3",
+    "generatedAt": "2026-08-20T18:49:56.505721Z"
+  },
+  "evidenceId": "7096a2d04a5f60dc",
+  "evidenceHash": "7096a2d04a5f60dc",
+  "validationId": "7096a2d04a5f60dc",
+  "validationHash": "7096a2d04a5f60dc",
+  "riskAnalysisId": "a2d346bb8121cf4e",
+  "riskAnalysisHash": "a2d346bb8121cf4e",
+  "trustStatusId": "852a5d4953dacfe3",
+  "lastEvidenceAt": "2026-08-07T17:04:07"
+}
