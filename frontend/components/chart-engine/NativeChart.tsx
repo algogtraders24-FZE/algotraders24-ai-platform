@@ -932,6 +932,22 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
     draw();
   }
 
+  // Sprint D2.7.11 Phase 5e - Object List panel (DrawingToolbar.tsx). Same
+  // select/delete plumbing handleDeleteSelectedDrawing already uses, just
+  // parameterized by an explicit id instead of always reading the current
+  // selection - a list row's delete button must remove THAT row's object
+  // even if it isn't the one currently selected on the canvas.
+  function handleSelectObjectFromList(id: string) {
+    setSelectedObjectId(id);
+    draw();
+  }
+
+  function handleDeleteObjectFromList(id: string) {
+    commitDrawingObjects(drawingObjectsRef.current.filter((o) => o.id !== id));
+    if (selectedObjectIdRef.current === id) setSelectedObjectId(null);
+    draw();
+  }
+
   function handleClearAllDrawings() {
     if (drawingObjectsRef.current.length === 0) return;
     commitDrawingObjects([]);
@@ -1192,6 +1208,10 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
         onDeleteSelected={handleDeleteSelectedDrawing}
         objectCount={drawingObjects.length}
         onClearAll={handleClearAllDrawings}
+        drawingObjects={drawingObjects}
+        selectedObjectId={selectedObjectId}
+        onSelectObject={handleSelectObjectFromList}
+        onDeleteObject={handleDeleteObjectFromList}
       />
 
       {result.status === "stale" && (

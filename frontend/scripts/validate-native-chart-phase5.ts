@@ -326,6 +326,49 @@ function wiringTests(): void {
     const src = read("components/chart-engine/NativeChart.tsx");
     assert.ok(src.includes("onSaveAsPicture={handleSaveAsPicture}"));
   });
+
+  test("34: DrawingToolbar renders an 'Objects' dropdown (MT5's Object List, Ctrl+B) with the same dismissal pattern (own state/ref, Escape + outside-click) ChartToolbar's Indicators/Templates dropdowns already use - never a second, divergent menu implementation", () => {
+    const src = read("components/chart-engine/DrawingToolbar.tsx");
+    assert.ok(src.includes('aria-label="Object list"'));
+    assert.ok(src.includes("const [listOpen, setListOpen] = useState(false)"));
+    assert.ok(src.includes('if (e.key === "Escape") setListOpen(false)'));
+  });
+
+  test("35: the Object List shows an honest empty state when nothing is drawn - never a fabricated placeholder row", () => {
+    const src = read("components/chart-engine/DrawingToolbar.tsx");
+    assert.ok(src.includes("No objects drawn yet"));
+  });
+
+  test("36: the Object List orders rows by creation order (oldest first, orderedObjects sorted by createdAt) - a stable order that never reshuffles as objects are selected/deselected", () => {
+    const src = read("components/chart-engine/DrawingToolbar.tsx");
+    assert.ok(src.includes("[...drawingObjects].sort((a, b) => a.createdAt - b.createdAt)"));
+  });
+
+  test("37: each Object List row's Select and Delete are distinct callbacks (onSelectObject(obj.id) / onDeleteObject(obj.id)) - clicking a row's name never also deletes it, the same 'two distinct actions per row' discipline the Templates dropdown already applies", () => {
+    const src = read("components/chart-engine/DrawingToolbar.tsx");
+    const block = src.slice(src.indexOf("orderedObjects.map"), src.indexOf("orderedObjects.map") + 1200);
+    assert.ok(block.includes("onClick={() => onSelectObject(obj.id)}"));
+    assert.ok(block.includes("onClick={() => onDeleteObject(obj.id)}"));
+  });
+
+  test("38: a horizontal-line row shows its real anchor price inline ('@ <price>') - the one drawing tool whose single most useful identifying fact (which price level it's pinned to) isn't obvious from the type name alone, unlike trend lines/rectangles/fibonacci", () => {
+    const src = read("components/chart-engine/DrawingToolbar.tsx");
+    assert.ok(src.includes('obj.tool === "horizontal-line" ? ` @ ${obj.price}` : ""'));
+  });
+
+  test("39: NativeChart's handleDeleteObjectFromList clears the selection when the deleted object WAS the selected one (never leaves selectedObjectId pointing at an object that no longer exists), but leaves selection untouched when deleting a DIFFERENT object - matching the layout-shrink 'fall back only when the removed thing was the active one' discipline Phase 3 already established", () => {
+    const src = read("components/chart-engine/NativeChart.tsx");
+    const fnBlock = src.slice(src.indexOf("function handleDeleteObjectFromList"), src.indexOf("function handleDeleteObjectFromList") + 300);
+    assert.ok(fnBlock.includes("if (selectedObjectIdRef.current === id) setSelectedObjectId(null)"));
+  });
+
+  test("40: NativeChart forwards drawingObjects/selectedObjectId/onSelectObject/onDeleteObject to DrawingToolbar - the Object List panel is reachable and reflects the chart's real live state, never a second/stale copy", () => {
+    const src = read("components/chart-engine/NativeChart.tsx");
+    assert.ok(src.includes("drawingObjects={drawingObjects}"));
+    assert.ok(src.includes("selectedObjectId={selectedObjectId}"));
+    assert.ok(src.includes("onSelectObject={handleSelectObjectFromList}"));
+    assert.ok(src.includes("onDeleteObject={handleDeleteObjectFromList}"));
+  });
 }
 
 async function main(): Promise<void> {
