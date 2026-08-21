@@ -30,7 +30,19 @@ export type AuditAction =
   | "marketplace.eligibility_evaluated"
   | "marketplace.published"
   | "marketplace.unpublished"
-  | "marketplace.rejected";
+  | "marketplace.rejected"
+  // Sprint M11 - License & Product Protection audit trail (brief section
+  // 16). Reuses this same existing, already-append-only AuditLog model -
+  // no new table (see m11-license-architecture/M11_architecture.md).
+  | "license.issued"
+  | "license.activated"
+  | "license.validated"
+  | "license.deactivated"
+  | "license.suspended"
+  | "license.reinstated"
+  | "license.revoked"
+  | "license.expired"
+  | "release.downloaded";
 
 export interface AuditLogEntry {
   id: string;
