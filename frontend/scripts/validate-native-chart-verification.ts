@@ -732,19 +732,23 @@ async function uxAndCoexistenceTests(): Promise<void> {
     assert.ok(src.includes("series.freshness"));
   });
 
-  await test("BUG FIX: ChartPanel now owns timeframe/activeIndicatorKeys state (lifted out of NativeChart) - it survives a native/tradingview provider toggle instead of resetting", () => {
+  await test("BUG FIX: ChartPanel now owns timeframe/activeIndicatorKeys state (lifted out of NativeChart) - it survives a native/tradingview provider toggle instead of resetting. Sprint D2.7.11 Phase 3 - timeframe/indicators are now per-pane fields inside ChartPanel's own `panes` array state, not a standalone useState<SignalTimeframe> - still ChartPanel-owned (never unmounted by the provider toggle), just one level of nesting deeper now that N panes can exist.", () => {
     const panelSrc = read("components/chart-engine/ChartPanel.tsx");
-    assert.ok(panelSrc.includes("useState<SignalTimeframe>"));
-    assert.ok(panelSrc.includes("useState<Set<string>>"));
+    assert.ok(panelSrc.includes("useState<ChartPaneState[]>"), "timeframe/activeIndicatorKeys now live inside each ChartPaneState, owned by this one panes array");
+    const paneSrc = read("components/chart-engine/ChartPane.tsx");
+    assert.ok(/timeframe:\s*SignalTimeframe/.test(paneSrc), "ChartPaneState (ChartPane.tsx) still types timeframe as a real SignalTimeframe, never a loose string");
     const nativeChartSrc = read("components/chart-engine/NativeChart.tsx");
     assert.ok(!/const \[timeframe, setTimeframe\] = useState/.test(nativeChartSrc));
   });
 
-  await test("switching chart provider never mutates the selected canonical instrument - both AdvancedChart and NativeChart read `symbol` from the SAME WorkspaceContext, never a component-local copy", () => {
+  await test("switching chart provider never mutates the selected canonical instrument. Sprint D2.7.11 Phase 3 - AdvancedChart still reads `symbol` straight from WorkspaceContext (untouched, always non-tiled); NativeChart now takes `symbol` as a controlled PROP instead (multiple panes can each show a different instrument) - ChartPanel is the one place that reconciles the two, keeping exactly one pane's symbol (the primary one) bidirectionally synced with WorkspaceContext.symbol, so the single-chart case behaves identically to before this phase.", () => {
     const nativeChartSrc = read("components/chart-engine/NativeChart.tsx");
     const advancedChartSrc = read("components/workspace/tradingview/AdvancedChart.tsx");
-    assert.ok(nativeChartSrc.includes("useWorkspace()"));
-    assert.ok(advancedChartSrc.includes("useWorkspace()"));
+    const panelSrc = read("components/chart-engine/ChartPanel.tsx");
+    assert.ok(advancedChartSrc.includes("useWorkspace()"), "AdvancedChart is still the single, non-tiled, always-context-driven chart");
+    assert.ok(/symbol:\s*string/.test(nativeChartSrc), "NativeChart's symbol is now a typed prop, not a context read");
+    assert.ok(!/const \{ symbol,.*\} = useWorkspace\(\)/.test(nativeChartSrc), "NativeChart must not destructure symbol out of useWorkspace() anymore");
+    assert.ok(panelSrc.includes("setContextSymbol(") && panelSrc.includes("useWorkspace()"), "ChartPanel is the one place that reconciles the primary pane's symbol with WorkspaceContext");
   });
 
   await test("the provider toggle is explicit (native | tradingview) - neither chart is ever silently substituted for the other", () => {

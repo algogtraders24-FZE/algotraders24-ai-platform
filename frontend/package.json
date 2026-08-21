@@ -65,6 +65,7 @@
     "validate:chart-drawing-persistence": "tsx scripts/validate-chart-drawing-persistence.ts",
     "validate:chart-template-persistence": "tsx scripts/validate-chart-template-persistence.ts",
     "validate:native-chart-templates": "tsx scripts/validate-native-chart-templates.ts",
+    "validate:native-chart-tiling": "tsx scripts/validate-native-chart-tiling.ts",
     "validate:intelligence-panel-projection": "tsx scripts/validate-intelligence-panel-projection.ts",
     "validate:market-regime-overview": "tsx scripts/validate-market-regime-overview.ts",
     "validate:workspace-header-symbol-switch": "tsx scripts/validate-workspace-header-symbol-switch.ts",

@@ -755,10 +755,12 @@ async function contractTests(): Promise<void> {
     assert.ok(src.includes("chart: r.chart"));
   });
 
-  await test("45: the frontend selector never hardcodes search results - it always calls the real search route", () => {
-    const src = read("components/workspace/GlobalSymbolSelector.tsx");
-    assert.ok(src.includes("/api/private/instruments/search"));
-    assert.ok(!/const\s+results\s*[:=]\s*\[\s*\{/.test(src), "no hardcoded results array should exist in the component");
+  await test("45: the frontend selector never hardcodes search results - it always calls the real search route. Sprint D2.7.11 Phase 3 - the actual fetch now lives in InstrumentSearchBox.tsx (extracted so a chart pane's own independent symbol search can reuse it) - GlobalSymbolSelector.tsx is just a thin WorkspaceContext-wired caller of it now, so this checks the box that genuinely still does the fetching.", () => {
+    const boxSrc = read("components/workspace/InstrumentSearchBox.tsx");
+    assert.ok(boxSrc.includes("/api/private/instruments/search"));
+    assert.ok(!/const\s+results\s*[:=]\s*\[\s*\{/.test(boxSrc), "no hardcoded results array should exist in the component");
+    const selectorSrc = read("components/workspace/GlobalSymbolSelector.tsx");
+    assert.ok(selectorSrc.includes("<InstrumentSearchBox"), "GlobalSymbolSelector must actually render the real search box, never a second implementation");
   });
 }
 

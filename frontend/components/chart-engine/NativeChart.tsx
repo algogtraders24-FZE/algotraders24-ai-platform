@@ -98,6 +98,23 @@ const PAN_KEY_STEP_CANDLES = 5;
 
 export interface NativeChartProps {
   /**
+   * Sprint D2.7.11 Phase 3 - multi-symbol tiled layout. `symbol`/`name` are
+   * now controlled props (one pane's own instrument), never read from
+   * WorkspaceContext directly - a page can have several NativeChart
+   * instances mounted at once (one per visible grid pane), each showing a
+   * genuinely different symbol, which a single shared context value could
+   * never represent. ChartPanel/ChartPane own this the exact same way they
+   * already own `timeframe`/`activeIndicatorKeys` below (see that comment) -
+   * one more field lifted to the same existing owner, not a new pattern.
+   * WorkspaceContext's OWN `symbol` still exists and still drives every
+   * OTHER workspace panel (header, AI intelligence, assistant, research,
+   * ribbon) - it's simply no longer the ONLY symbol on the page. Exactly
+   * one pane (the "primary" one, see ChartPanel.tsx) is kept in sync with
+   * it bidirectionally; every other pane's symbol is independent.
+   */
+  symbol: string;
+  name?: string;
+  /**
    * Sprint D2.7.4 - timeframe/indicator selection is now OWNED by ChartPanel
    * (controlled props here), not local state. Fixes a real Phase 11 bug:
    * NativeChart previously held this in its own useState, which React
@@ -117,13 +134,23 @@ export interface NativeChartProps {
   onApplyIndicatorKeys: (keys: readonly string[]) => void;
 }
 
-export default function NativeChart({ timeframe, onTimeframeChange, activeIndicatorKeys, onToggleIndicator, onApplyIndicatorKeys }: NativeChartProps) {
+export default function NativeChart({ symbol, name, timeframe, onTimeframeChange, activeIndicatorKeys, onToggleIndicator, onApplyIndicatorKeys }: NativeChartProps) {
   // Sprint D2.8.13 - `hypothesisType` is the real, already-fetched active
   // hypothesis WorkspaceResearch found for this same symbol (D2.8.13's own
   // WorkspaceContext addition) - reused here verbatim, never a second
   // fetch/computation, so MicrostructurePanel can render D2.8.11/D2.8.12's
   // real evidence relationship instead of only raw numbers.
-  const { symbol, name, hypothesisType } = useWorkspace();
+  //
+  // Sprint D2.7.11 Phase 3 - `activeSymbol` (WorkspaceContext's own symbol,
+  // distinct from this component's own `symbol` PROP above) is read only
+  // to guard this: WorkspaceResearch fetched `hypothesisType` for whichever
+  // symbol is the page's primary one, not necessarily THIS pane's symbol
+  // once multiple panes can show different instruments. Forwarding it to a
+  // pane showing a DIFFERENT symbol than the one it was actually computed
+  // for would misattribute another instrument's hypothesis - the guard
+  // below keeps this exactly as honest as it was when only one chart could
+  // ever exist (implicitly always true then; explicit now that it isn't).
+  const { symbol: activeSymbol, hypothesisType } = useWorkspace();
   const [isLive, setIsLive] = useState(true);
   // Sprint D2.7.5, Phase 9 - a CSS-driven focus mode (not the browser
   // Fullscreen API): toggling this class alone naturally re-triggers the
@@ -1016,7 +1043,7 @@ export default function NativeChart({ timeframe, onTimeframeChange, activeIndica
   return (
     <div className={isFullscreen ? "fixed inset-0 z-50 flex flex-col gap-2 bg-ink p-4" : "flex flex-col gap-2"}>
       <ChartHeader displaySymbol={resolution.displaySymbol} instrumentName={name} timeframe={timeframe} series={result.series} />
-      <MicrostructurePanel symbol={symbol} hypothesisType={hypothesisType} />
+      <MicrostructurePanel symbol={symbol} hypothesisType={symbol === activeSymbol ? hypothesisType : undefined} />
       <ChartToolbar
         displaySymbol={resolution.displaySymbol}
         timeframe={timeframe}

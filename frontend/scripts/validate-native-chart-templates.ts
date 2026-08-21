@@ -159,17 +159,17 @@ async function main(): Promise<void> {
     assert.ok(effectBlock.includes("}, []);"));
   });
 
-  await test("ChartPanel's applyIndicatorKeys filters to known registry keys only, same discipline toggleIndicator already applies - a template saved with a since-removed indicator key can never resurrect an unknown indicator", () => {
+  await test("ChartPanel's applyPaneIndicatorKeys filters to known registry keys only, same discipline togglePaneIndicator already applies - a template saved with a since-removed indicator key can never resurrect an unknown indicator. Sprint D2.7.11 Phase 3 - renamed/re-scoped to operate on ONE pane's indicator set (a template applies to whichever pane you save it from), not a single page-wide set.", () => {
     const src = read("components/chart-engine/ChartPanel.tsx");
-    const fnBlock = src.slice(src.indexOf("function applyIndicatorKeys"), src.indexOf("function applyIndicatorKeys") + 400);
+    const fnBlock = src.slice(src.indexOf("function applyPaneIndicatorKeys"), src.indexOf("function applyPaneIndicatorKeys") + 400);
     assert.ok(fnBlock.includes("DEFAULT_INDICATOR_CONFIGS"));
     assert.ok(fnBlock.includes(".filter("));
   });
 
-  await test("ChartPanel passes onApplyIndicatorKeys down to NativeChart, distinct from onToggleIndicator - the two are never conflated into one prop", () => {
+  await test("ChartPanel passes onApplyIndicatorKeys down to each ChartPane (bound to that pane's own id), distinct from onToggleIndicator - the two are never conflated into one prop", () => {
     const src = read("components/chart-engine/ChartPanel.tsx");
-    assert.ok(src.includes("onApplyIndicatorKeys={applyIndicatorKeys}"));
-    assert.ok(src.includes("onToggleIndicator={toggleIndicator}"));
+    assert.ok(src.includes("onApplyIndicatorKeys={(keys) => applyPaneIndicatorKeys(pane.id, keys)}"));
+    assert.ok(src.includes("onToggleIndicator={(key) => togglePaneIndicator(pane.id, key)}"));
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);

@@ -597,9 +597,9 @@ async function indicatorStateTests(): Promise<void> {
     assert.ok(zeroLineIndex > -1 && zeroLineIndex < histogramIfIndex, "the zero line must be drawn unconditionally, before the histogram-only branch");
   });
 
-  await test("indicator toggle state ownership (ChartPanel, since D2.7.4) is unaffected by this sprint's renderer changes", () => {
+  await test("indicator toggle state ownership (ChartPanel, since D2.7.4) is unaffected by this sprint's renderer changes. Sprint D2.7.11 Phase 3 - now nested per-pane inside ChartPanel's own panes array, still ChartPanel-owned.", () => {
     const panelSrc = read("components/chart-engine/ChartPanel.tsx");
-    assert.ok(panelSrc.includes("useState<Set<string>>"));
+    assert.ok(panelSrc.includes("useState<ChartPaneState[]>"));
   });
 
   // Updated (Phase 2, this session) - atr/stochastic/adx/cci/williams-r
@@ -642,7 +642,14 @@ async function persistenceCompatibilityTests(): Promise<void> {
 
   await test("no new persisted field was introduced this sprint - rendering preferences (grid density, etc.) are NOT persisted, since they derive automatically from real viewport dimensions every render", () => {
     const src = read("lib/chart-engine/chart-session-state.ts");
-    assert.ok(!/grid|tickCount|bodyWidth/i.test(src));
+    // Sprint D2.7.11 Phase 3 legitimately uses the word "grid" in prose
+    // (the tiled multi-pane LAYOUT grid, e.g. "one entry per visible grid
+    // cell") - a completely different concept from a rendering-level grid-
+    // LINE density preference, which is what this test actually guards
+    // against. Matching the specific field names a real rendering
+    // preference would use (never a bare, prose-catching "grid") keeps the
+    // test honest without banning an ordinary English word from comments.
+    assert.ok(!/gridDensity|showGrid|tickCount|bodyWidth/i.test(src));
   });
 
   await test("ChartPanel's hydration/persist effects (D2.7.5) are unaffected by this sprint", () => {

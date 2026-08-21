@@ -26,7 +26,7 @@ import { nearestIndexByTime } from "../lib/chart-engine/candle-index";
 import { computeIndicatorSeries } from "../lib/chart-engine/indicators/compute";
 import { DEFAULT_INDICATOR_CONFIGS, INDICATOR_PANEL_ID } from "../lib/chart-engine/indicators/panel-registry";
 import { computeRangeChange } from "../lib/chart-engine/range-change";
-import { readChartSessionState, writeChartSessionState } from "../lib/chart-engine/chart-session-state";
+import { readChartSessionState, writeChartSessionState, CHART_SESSION_STORAGE_KEY } from "../lib/chart-engine/chart-session-state";
 import { renderChart } from "../lib/chart-engine/renderer";
 import { resolveChartColors } from "../lib/chart-engine/canvas-colors";
 import { TIMEFRAME_LABELS } from "../components/chart-engine/ChartTimeframeSelector";
@@ -253,9 +253,11 @@ async function indicatorManagementTests(): Promise<void> {
     for (const cfg of panel) assert.ok(!overlapKeys.has(cfg.key));
   });
 
-  await test("indicator toggle state (activeIndicatorKeys) is still owned by ChartPanel, not NativeChart - the D2.7.4 fix this sprint must not regress", () => {
+  await test("indicator toggle state (activeIndicatorKeys) is still owned by ChartPanel, not NativeChart - the D2.7.4 fix this sprint must not regress. Sprint D2.7.11 Phase 3 - activeIndicatorKeys now lives per-pane inside ChartPanel's own panes array (ChartPaneState), never inside NativeChart itself.", () => {
     const panelSrc = read("components/chart-engine/ChartPanel.tsx");
-    assert.ok(panelSrc.includes("useState<Set<string>>"));
+    assert.ok(panelSrc.includes("useState<ChartPaneState[]>"));
+    const paneSrc = read("components/chart-engine/ChartPane.tsx");
+    assert.ok(paneSrc.includes("activeIndicatorKeys: Set<string>"));
     const nativeSrc = read("components/chart-engine/NativeChart.tsx");
     assert.ok(!/const \[activeIndicatorKeys, setActiveIndicatorKeys\] = useState/.test(nativeSrc));
   });
@@ -415,53 +417,79 @@ async function statePersistenceTests(): Promise<void> {
   });
 
   await test("writeChartSessionState is a silent no-op when sessionStorage is unavailable - never throws", () => {
-    assert.doesNotThrow(() => writeChartSessionState({ provider: "native", timeframe: "1h", indicatorKeys: ["ema-20"] }));
+    assert.doesNotThrow(() => writeChartSessionState({ provider: "native", layout: 1, panes: [{ symbol: "EURUSD", timeframe: "1h", indicatorKeys: ["ema-20"] }], primaryPaneIndex: 0 }));
   });
 
-  await test("write then read round-trips a real, valid chart session state", () => {
+  await test("write then read round-trips a real, valid chart session state - Sprint D2.7.11 Phase 3's panes/layout/primaryPaneIndex shape, not the old flat timeframe/indicatorKeys one", () => {
     withFakeSessionStorage(() => {
-      writeChartSessionState({ provider: "native", timeframe: "4h", indicatorKeys: ["rsi-14", "ema-20"] });
+      writeChartSessionState({
+        provider: "native",
+        layout: 2,
+        panes: [
+          { symbol: "XAUUSD", timeframe: "4h", indicatorKeys: ["rsi-14", "ema-20"] },
+          { symbol: "EURUSD", timeframe: "1h", indicatorKeys: [] },
+        ],
+        primaryPaneIndex: 1,
+      });
       const restored = readChartSessionState();
       assert.equal(restored.provider, "native");
-      assert.equal(restored.timeframe, "4h");
-      assert.deepEqual(restored.indicatorKeys?.slice().sort(), ["ema-20", "rsi-14"]);
+      assert.equal(restored.layout, 2);
+      assert.equal(restored.primaryPaneIndex, 1);
+      assert.equal(restored.panes?.length, 2);
+      assert.equal(restored.panes?.[0].symbol, "XAUUSD");
+      assert.deepEqual(restored.panes?.[0].indicatorKeys.slice().sort(), ["ema-20", "rsi-14"]);
+      assert.equal(restored.panes?.[1].symbol, "EURUSD");
     });
   });
 
-  await test("an unknown/invalid provider value in storage is dropped, never applied", () => {
+  await test("an unknown/invalid provider or layout value in storage is dropped, never applied", () => {
     withFakeSessionStorage(() => {
       (global as unknown as { window: { sessionStorage: Storage } }).window.sessionStorage.setItem(
-        "at24.workspace.chart-session.v1",
-        JSON.stringify({ provider: "made-up-provider", timeframe: "1h", indicatorKeys: [] }),
+        CHART_SESSION_STORAGE_KEY,
+        JSON.stringify({ provider: "made-up-provider", layout: 3, panes: [] }),
       );
-      assert.equal(readChartSessionState().provider, undefined);
+      const restored = readChartSessionState();
+      assert.equal(restored.provider, undefined);
+      assert.equal(restored.layout, undefined, "3 is not a real layout (only 1/2/4 are) - must be dropped, not silently accepted");
     });
   });
 
-  await test("an invalid timeframe value in storage is dropped, never applied - re-validated against the real isSignalTimeframe check", () => {
+  await test("a pane with an invalid timeframe is dropped from the restored panes array - re-validated against the real isSignalTimeframe check, never trusted whole-cloth", () => {
     withFakeSessionStorage(() => {
       (global as unknown as { window: { sessionStorage: Storage } }).window.sessionStorage.setItem(
-        "at24.workspace.chart-session.v1",
-        JSON.stringify({ timeframe: "2m" }),
+        CHART_SESSION_STORAGE_KEY,
+        JSON.stringify({ panes: [{ symbol: "EURUSD", timeframe: "2m", indicatorKeys: [] }] }),
       );
-      assert.equal(readChartSessionState().timeframe, undefined);
+      assert.equal(readChartSessionState().panes, undefined, "the only pane was invalid, so the whole (now-empty) panes array is honestly absent, never a fabricated empty-but-present array");
       assert.equal(isSignalTimeframe("2m"), false);
     });
   });
 
-  await test("unknown indicator keys in storage are filtered out, only real DEFAULT_INDICATOR_CONFIGS keys survive", () => {
+  await test("unknown indicator keys within a pane are filtered out, only real DEFAULT_INDICATOR_CONFIGS keys survive - a real pane is not dropped just because ONE of its indicator keys was invalid", () => {
     withFakeSessionStorage(() => {
       (global as unknown as { window: { sessionStorage: Storage } }).window.sessionStorage.setItem(
-        "at24.workspace.chart-session.v1",
-        JSON.stringify({ indicatorKeys: ["ema-20", "not-a-real-indicator"] }),
+        CHART_SESSION_STORAGE_KEY,
+        JSON.stringify({ panes: [{ symbol: "EURUSD", timeframe: "1h", indicatorKeys: ["ema-20", "not-a-real-indicator"] }] }),
       );
-      assert.deepEqual(readChartSessionState().indicatorKeys, ["ema-20"]);
+      assert.deepEqual(readChartSessionState().panes?.[0].indicatorKeys, ["ema-20"]);
+    });
+  });
+
+  await test("a pane missing a symbol entirely is dropped, never restored as an empty-symbol chart", () => {
+    withFakeSessionStorage(() => {
+      (global as unknown as { window: { sessionStorage: Storage } }).window.sessionStorage.setItem(
+        CHART_SESSION_STORAGE_KEY,
+        JSON.stringify({ panes: [{ timeframe: "1h", indicatorKeys: [] }, { symbol: "EURUSD", timeframe: "1h", indicatorKeys: [] }] }),
+      );
+      const restored = readChartSessionState();
+      assert.equal(restored.panes?.length, 1);
+      assert.equal(restored.panes?.[0].symbol, "EURUSD");
     });
   });
 
   await test("corrupted (non-JSON) storage content is handled gracefully - readChartSessionState never throws, honestly returns {}", () => {
     withFakeSessionStorage(() => {
-      (global as unknown as { window: { sessionStorage: Storage } }).window.sessionStorage.setItem("at24.workspace.chart-session.v1", "{not json");
+      (global as unknown as { window: { sessionStorage: Storage } }).window.sessionStorage.setItem(CHART_SESSION_STORAGE_KEY, "{not json");
       assert.deepEqual(readChartSessionState(), {});
     });
   });
