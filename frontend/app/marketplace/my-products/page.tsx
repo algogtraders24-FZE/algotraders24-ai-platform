@@ -5,6 +5,8 @@
 // separated (M9 brief) - see MyProductsClient's own layout.
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/protectedRoute";
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/sections/Footer";
 import MyProductsClient from "./MyProductsClient";
 
 export const metadata = {
@@ -15,17 +17,21 @@ export default async function MyProductsPage() {
   await requireUser("/login?redirect=/marketplace/my-products");
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-text sm:text-3xl">My Products</h1>
-          <p className="mt-1 text-sm text-text-2">Your own submissions. AT24-verified fields are always shown separately from your own text.</p>
-        </div>
-        <Link href="/marketplace/sell" className="text-sm font-semibold text-gold hover:underline">
-          + New submission
-        </Link>
-      </header>
-      <MyProductsClient />
-    </div>
+    <main className="min-h-screen bg-ink pt-20 text-text">
+      <Navbar />
+      <div className="mx-auto max-w-4xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+        <header className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-text sm:text-3xl">My Products</h1>
+            <p className="mt-1 text-sm text-text-2">Your own submissions. AT24-verified fields are always shown separately from your own text.</p>
+          </div>
+          <Link href="/marketplace/sell" className="text-sm font-semibold text-gold hover:underline">
+            + New submission
+          </Link>
+        </header>
+        <MyProductsClient />
+      </div>
+      <Footer />
+    </main>
   );
 }
