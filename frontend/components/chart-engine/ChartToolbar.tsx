@@ -52,6 +52,8 @@ export interface ChartToolbarProps {
   onOpenSaveTemplate: () => void;
   /** Sprint D2.7.11 Phase 5b - MT5's Properties dialog (F8 in real MT5). */
   onOpenProperties: () => void;
+  /** Sprint D2.7.11 Phase 5d - MT5's "Save as Picture" (right-click chart menu). */
+  onSaveAsPicture: () => void;
 }
 
 const OVERLAY_CONFIGS = DEFAULT_INDICATOR_CONFIGS.filter((cfg) => INDICATOR_PANEL_ID[cfg.id] === "price");
@@ -75,6 +77,7 @@ export default function ChartToolbar({
   onDeleteTemplate,
   onOpenSaveTemplate,
   onOpenProperties,
+  onSaveAsPicture,
 }: ChartToolbarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -230,6 +233,16 @@ export default function ChartToolbar({
           className="rounded-control border border-border bg-ink-3 px-2.5 py-1 text-[11px] font-medium text-text-3 transition hover:bg-ink-4 hover:text-text"
         >
           Properties
+        </button>
+
+        <button
+          type="button"
+          onClick={onSaveAsPicture}
+          title="Save the current chart as a PNG image"
+          aria-label="Save chart as picture"
+          className="rounded-control border border-border bg-ink-3 px-2.5 py-1 text-[11px] font-medium text-text-3 transition hover:bg-ink-4 hover:text-text"
+        >
+          Save Image
         </button>
 
         <button

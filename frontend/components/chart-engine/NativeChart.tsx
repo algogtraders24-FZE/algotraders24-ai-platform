@@ -902,6 +902,25 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
     applyViewport(followLatest(viewport, candles));
   }
 
+  // Sprint D2.7.11 Phase 5d - MT5's "Save as Picture" (right-click chart
+  // menu). The canvas already has the ENTIRE chart drawn into it in one
+  // pass (price panel, any active sub-panels, indicators, drawn objects -
+  // renderChart's own single ctx) so canvas.toDataURL() alone captures
+  // everything currently visible, exactly matching what the user sees -
+  // never a second, separately-composed export render. Purely client-side:
+  // no server round-trip, no upload, the PNG never leaves the browser
+  // except via the browser's own download.
+  function handleSaveAsPicture() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL("image/png");
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const link = document.createElement("a");
+    link.href = dataUrl;
+    link.download = `${symbol}_${timeframe}_${stamp}.png`;
+    link.click();
+  }
+
   // MT5 feature-parity Phase 1 - the toolbar's own Delete/Clear-all
   // buttons, sharing the exact same commit path as the keyboard Delete
   // handler above (never a second/divergent deletion code path).
@@ -1094,6 +1113,7 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
         onDeleteTemplate={handleDeleteTemplate}
         onOpenSaveTemplate={() => setSaveModalOpen(true)}
         onOpenProperties={() => setPropertiesModalOpen(true)}
+        onSaveAsPicture={handleSaveAsPicture}
       />
 
       <Modal open={saveModalOpen} onClose={() => setSaveModalOpen(false)} title="Save as Template">

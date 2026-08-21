@@ -300,6 +300,32 @@ function wiringTests(): void {
     assert.ok(!block.includes('"at24"'));
     assert.ok(block.includes('"mt5"') && block.includes('"mt5-green"'));
   });
+
+  test("30: ChartToolbar renders a 'Save Image' button wired to onSaveAsPicture - MT5's own 'Save as Picture' (right-click chart menu)", () => {
+    const src = read("components/chart-engine/ChartToolbar.tsx");
+    assert.ok(src.includes("onClick={onSaveAsPicture}"));
+    assert.ok(src.includes("Save Image"));
+  });
+
+  test("31: NativeChart's handleSaveAsPicture reads the SAME canvasRef the chart itself renders into (never a second, separately-composed export canvas) and exports via canvas.toDataURL - so the saved PNG is exactly what's on screen, including any active sub-panels/indicators/drawn objects, since renderChart draws everything into that one canvas in a single pass", () => {
+    const src = read("components/chart-engine/NativeChart.tsx");
+    const fnBlock = src.slice(src.indexOf("function handleSaveAsPicture"), src.indexOf("function handleSaveAsPicture") + 500);
+    assert.ok(fnBlock.includes("canvasRef.current"));
+    assert.ok(fnBlock.includes('canvas.toDataURL("image/png")'));
+  });
+
+  test("32: handleSaveAsPicture triggers a real browser download (an <a download> click) - purely client-side, never a server upload/round-trip for what is, after all, just a local screenshot of data already on the user's own screen", () => {
+    const src = read("components/chart-engine/NativeChart.tsx");
+    const fnBlock = src.slice(src.indexOf("function handleSaveAsPicture"), src.indexOf("function handleSaveAsPicture") + 500);
+    assert.ok(fnBlock.includes("link.download ="));
+    assert.ok(fnBlock.includes("link.click()"));
+    assert.ok(!/fetch\(|await /.test(fnBlock), "must never touch the network - this is a pure client-side canvas export");
+  });
+
+  test("33: NativeChart forwards onSaveAsPicture={handleSaveAsPicture} to ChartToolbar - the toolbar button is reachable, never dead state with no UI (same discipline every other Phase 5 control already applies)", () => {
+    const src = read("components/chart-engine/NativeChart.tsx");
+    assert.ok(src.includes("onSaveAsPicture={handleSaveAsPicture}"));
+  });
 }
 
 async function main(): Promise<void> {
