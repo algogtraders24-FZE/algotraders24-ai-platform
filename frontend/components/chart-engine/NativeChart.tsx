@@ -37,7 +37,7 @@ import { useWorkspace } from "@/context/WorkspaceContext";
 import { formatPrice, formatTimestamp, formatCompactVolume, formatDuration } from "@/lib/financial-format";
 import { FIN_LABEL, FIN_PRIMARY, FIN_SECONDARY, FIN_TERTIARY, financialDirectionClass } from "@/components/ui/financial-typography";
 import { resolveChartInstrument } from "@/lib/market-data/chart-instrument-resolver";
-import { resolveChartColors } from "@/lib/chart-engine/canvas-colors";
+import { resolveChartColors, CHART_THEME_LABELS, type ChartTheme } from "@/lib/chart-engine/canvas-colors";
 import { nearestCandleIndex } from "@/lib/chart-engine/crosshair";
 import { renderChart } from "@/lib/chart-engine/renderer";
 import {
@@ -95,6 +95,11 @@ const ZOOM_OUT_FACTOR = 1.1;
 const BASE_PANEL_HEIGHT = 380;
 const SUB_PANEL_HEIGHT = 110;
 const PAN_KEY_STEP_CANDLES = 5;
+// Sprint D2.7.11 Phase 5c - the Properties dialog's Colors-tab scheme
+// picker only offers the two real, screenshot-grounded MT5 schemes
+// (canvas-colors.ts) - deliberately never "at24" here, since that's the
+// platform's own generic token-driven theme, not an MT5 scheme choice.
+const COLOR_SCHEMES: ChartTheme[] = ["mt5", "mt5-green"];
 
 export interface NativeChartProps {
   /**
@@ -166,6 +171,12 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
   // defaults to false, matching real MT5's own default.
   const [showGrid, setShowGrid] = useState(true);
   const [showPeriodSeparators, setShowPeriodSeparators] = useState(false);
+  // Sprint D2.7.11 Phase 5c - MT5's Properties dialog Colors-tab scheme
+  // picker. Defaults to "mt5" - the exact theme this chart already always
+  // rendered before this phase (resolveChartColors("mt5") was previously
+  // hardcoded below), so this is zero visual change until a user actually
+  // opens Properties and picks something else.
+  const [colorScheme, setColorScheme] = useState<ChartTheme>("mt5");
   const [propertiesModalOpen, setPropertiesModalOpen] = useState(false);
   // Sprint D2.7.5, Phase 9 - a CSS-driven focus mode (not the browser
   // Fullscreen API): toggling this class alone naturally re-triggers the
@@ -375,13 +386,16 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
         viewport,
         timeframe,
         crosshair: crosshairRef.current,
-        // MT5-style theme (this session) - the Native Chart's canvas now
-        // matches the user's own live MetaTrader 5 terminal (pure black,
-        // hollow candles, teal current-price line) rather than AT24's
-        // original token-driven palette. See canvas-colors.ts's header
-        // comment for why this is a separate hardcoded palette rather than
-        // a change to the shared --ink-2/--signal-up/--signal-down tokens.
-        colors: resolveChartColors("mt5"),
+        // MT5-style theme (D2.7.2) - the Native Chart's canvas matches the
+        // user's own live MetaTrader 5 terminal rather than AT24's original
+        // token-driven palette. See canvas-colors.ts's header comment for
+        // why this is a separate hardcoded palette rather than a change to
+        // the shared --ink-2/--signal-up/--signal-down tokens. Sprint
+        // D2.7.11 Phase 5c - which MT5 scheme is now itself a user choice
+        // (Properties dialog, Colors tab) instead of a hardcoded "mt5"
+        // literal; colorScheme defaults to "mt5" so this is zero visual
+        // change until someone actually picks something else.
+        colors: resolveChartColors(colorScheme),
         activePanels,
         indicatorSeries,
         symbolLabel: `${symbol}, ${timeframe.toUpperCase()}: ${name ?? symbol}`,
@@ -401,7 +415,7 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
         showPeriodSeparators,
       });
     },
-    [candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators],
+    [candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme],
   );
 
   // Resize: keep the canvas's real pixel buffer matched to its CSS size *
@@ -1127,6 +1141,19 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
           <input type="checkbox" checked={showPeriodSeparators} onChange={(e) => setShowPeriodSeparators(e.target.checked)} className="accent-gold" />
           Period separators
         </label>
+        <p className={`${FIN_LABEL} pb-1 pt-3`}>Colors</p>
+        <select
+          value={colorScheme}
+          onChange={(e) => setColorScheme(e.target.value as ChartTheme)}
+          aria-label="Chart color scheme"
+          className="w-full rounded-control border border-border bg-ink-3 px-2 py-1.5 text-xs text-text focus:border-gold focus:outline-none"
+        >
+          {COLOR_SCHEMES.map((scheme) => (
+            <option key={scheme} value={scheme}>
+              {CHART_THEME_LABELS[scheme]}
+            </option>
+          ))}
+        </select>
         <div className="mt-4 flex justify-end">
           <button
             type="button"

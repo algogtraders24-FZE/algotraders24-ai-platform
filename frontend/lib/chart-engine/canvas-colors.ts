@@ -36,7 +36,10 @@ export interface ChartColors {
   volume?: string;
 }
 
-export type ChartTheme = "at24" | "mt5";
+export type ChartTheme = "at24" | "mt5" | "mt5-green";
+
+/** Sprint D2.7.11 Phase 5c - human-readable labels for the Properties dialog's Colors-tab scheme picker, in the same order OPTIONS lists them. */
+export const CHART_THEME_LABELS: Record<ChartTheme, string> = { at24: "AT24", mt5: "Black", "mt5-green": "Green on Black" };
 
 const FALLBACK_COLORS: ChartColors = {
   background: "#131826", // --ink-2
@@ -71,7 +74,31 @@ const MT5_COLORS: ChartColors = {
   volume: "#2e7d32",
 };
 
-let cached: Record<ChartTheme, ChartColors | null> = { at24: null, mt5: null };
+// Sprint D2.7.11 Phase 5c - MT5's real "Green on Black" built-in scheme
+// (Properties dialog, Colors tab - verified against the user's own live
+// screenshot of that exact dropdown/color list): Background Black,
+// Foreground White, Grid/Bid-price-line LightSlateGray, Bar
+// up/Line-chart/Volumes in the green family (Lime/LimeGreen), Bear candle
+// White (so both directions stay visible against the black background
+// without needing a separate outline color, the same "outline == fill"
+// simplification the "at24" theme already uses), Last-price-line the
+// screenshot's own exact RGB(0,192,0). This is a genuinely distinct,
+// MT5-grounded second scheme - never an invented palette.
+const MT5_GREEN_COLORS: ChartColors = {
+  background: "#000000",
+  grid: "#778899", // LightSlateGray
+  border: "#778899",
+  textPrimary: "#ffffff",
+  textTertiary: "#a9b4c0",
+  bullish: "#00ff00", // Lime
+  bearish: "#ffffff",
+  bearishOutline: "#ffffff",
+  gold: "#00c000", // Last price line, RGB(0,192,0)
+  accent: "#00c000",
+  volume: "#32cd32", // LimeGreen
+};
+
+let cached: Record<ChartTheme, ChartColors | null> = { at24: null, mt5: null, "mt5-green": null };
 
 function readVar(styles: CSSStyleDeclaration, name: string, fallback: string): string {
   const value = styles.getPropertyValue(name).trim();
@@ -80,6 +107,7 @@ function readVar(styles: CSSStyleDeclaration, name: string, fallback: string): s
 
 export function resolveChartColors(theme: ChartTheme = "at24"): ChartColors {
   if (theme === "mt5") return MT5_COLORS;
+  if (theme === "mt5-green") return MT5_GREEN_COLORS;
 
   if (cached.at24) return cached.at24;
   if (typeof document === "undefined") return FALLBACK_COLORS;
@@ -102,5 +130,5 @@ export function resolveChartColors(theme: ChartTheme = "at24"): ChartColors {
 
 /** Test/dev-only reset so a test can simulate a fresh module load. */
 export function resetColorCacheForTests(): void {
-  cached = { at24: null, mt5: null };
+  cached = { at24: null, mt5: null, "mt5-green": null };
 }

@@ -15,7 +15,7 @@ import { join } from "node:path";
 
 import { renderChart } from "../lib/chart-engine/renderer";
 import { fitToData } from "../lib/chart-engine/viewport";
-import { resolveChartColors } from "../lib/chart-engine/canvas-colors";
+import { resolveChartColors, CHART_THEME_LABELS } from "../lib/chart-engine/canvas-colors";
 import { computePeriodSeparators } from "../lib/chart-engine/time-axis";
 import type { ChartCandle } from "../types/chart-data";
 import type { SignalTimeframe } from "../types/signal";
@@ -184,6 +184,26 @@ function rendererTests(): void {
     const on = renderWith(multiDay, { timeframe: "4h", showPeriodSeparators: true });
     assert.ok(count(on, "stroke") > count(off, "stroke"));
   });
+
+  test("24: resolveChartColors('mt5-green') returns a real, distinct palette from 'mt5' - the Colors-tab scheme picker's two options genuinely differ, never the same colors under two names", () => {
+    const black = resolveChartColors("mt5");
+    const green = resolveChartColors("mt5-green");
+    assert.notEqual(black.bullish, green.bullish);
+    assert.notEqual(black.accent, green.accent);
+  });
+
+  test("25: 'mt5-green' matches the exact real values from the user's own live Properties-dialog Colors-tab screenshot - Lime bull/#00ff00, LimeGreen volume/#32cd32, and the Last-price-line's literal RGB(0,192,0)/#00c000 - never an invented palette", () => {
+    const green = resolveChartColors("mt5-green");
+    assert.equal(green.background, "#000000");
+    assert.equal(green.bullish, "#00ff00");
+    assert.equal(green.volume, "#32cd32");
+    assert.equal(green.accent, "#00c000");
+  });
+
+  test("26: CHART_THEME_LABELS provides a human-readable label for every ChartTheme the Colors-tab picker offers - 'Black' and 'Green on Black', matching MT5's own real scheme names", () => {
+    assert.equal(CHART_THEME_LABELS.mt5, "Black");
+    assert.equal(CHART_THEME_LABELS["mt5-green"], "Green on Black");
+  });
 }
 
 function wiringTests(): void {
@@ -210,7 +230,10 @@ function wiringTests(): void {
     const src = read("components/chart-engine/NativeChart.tsx");
     const drawBlock = src.slice(src.indexOf("const draw = useMemo"), src.indexOf("const draw = useMemo") + 2500);
     assert.ok(drawBlock.includes("chartType,"), "renderChart(...) call must pass chartType");
-    assert.ok(/\[candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators\]/.test(drawBlock), "deps array must include chartType/showGrid/showPeriodSeparators");
+    assert.ok(
+      /\[candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme\]/.test(drawBlock),
+      "deps array must include chartType/showGrid/showPeriodSeparators/colorScheme",
+    );
   });
 
   test("11: NativeChart forwards chartType/onChartTypeChange to ChartToolbar - the toggle is reachable, never dead state with no UI", () => {
@@ -253,6 +276,29 @@ function wiringTests(): void {
   test("23: NativeChart forwards onOpenProperties to ChartToolbar, opening the Modal - the toolbar button is reachable, never dead state with no UI (same discipline test 11 already applies to chartType)", () => {
     const src = read("components/chart-engine/NativeChart.tsx");
     assert.ok(src.includes("onOpenProperties={() => setPropertiesModalOpen(true)}"));
+  });
+
+  test("27: NativeChart owns colorScheme as local state (same 'rendering-style preference, not per-instrument data' reasoning as chartType/showGrid) - defaults to 'mt5', the exact theme this chart has always used, so this is zero visual change until Properties is actually opened", () => {
+    const src = read("components/chart-engine/NativeChart.tsx");
+    assert.ok(src.includes('useState<ChartTheme>("mt5")'));
+    assert.ok(!src.includes("colors: resolveChartColors(\"mt5\")"), "the OLD hardcoded call site must be gone - colorScheme is now the real source of truth (a historical mention of the same string in a comment is fine)");
+    assert.ok(src.includes("colors: resolveChartColors(colorScheme)"));
+  });
+
+  test("28: the Chart Properties modal's Colors section is a real <select> populated from COLOR_SCHEMES/CHART_THEME_LABELS - never a hardcoded pair of <option> strings that could drift from canvas-colors.ts's actual theme list", () => {
+    const src = read("components/chart-engine/NativeChart.tsx");
+    const block = src.slice(src.indexOf("Chart Properties"), src.indexOf("Chart Properties") + 1600);
+    assert.ok(block.includes("COLOR_SCHEMES.map((scheme)"));
+    assert.ok(block.includes("CHART_THEME_LABELS[scheme]"));
+    assert.ok(block.includes("value={colorScheme}"));
+    assert.ok(block.includes("onChange={(e) => setColorScheme(e.target.value as ChartTheme)}"));
+  });
+
+  test("29: COLOR_SCHEMES deliberately excludes 'at24' - that's the platform's own generic token-driven theme, not an MT5 scheme, and was never part of what the user's Properties-dialog screenshot asked for", () => {
+    const src = read("components/chart-engine/NativeChart.tsx");
+    const block = src.slice(src.indexOf("const COLOR_SCHEMES"), src.indexOf("const COLOR_SCHEMES") + 120);
+    assert.ok(!block.includes('"at24"'));
+    assert.ok(block.includes('"mt5"') && block.includes('"mt5-green"'));
   });
 }
 
