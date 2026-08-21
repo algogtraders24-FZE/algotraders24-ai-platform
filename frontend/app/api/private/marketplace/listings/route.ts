@@ -71,6 +71,7 @@ export const GET = withContext(async (req, ctx) => {
         slug: r.slug,
         title: r.title,
         media: r.media,
+        pricing: r.pricing,
         publicationState: r.publicationState,
         // Sprint M9 - reference ids (not sensitive content, just AT24
         // record pointers) so the seller's own "My Products" view can

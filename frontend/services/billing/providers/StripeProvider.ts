@@ -100,6 +100,70 @@ export class StripeProvider {
     }
   }
 
+  // Sprint M12 branding follow-on - one-time Marketplace product purchase
+  // (mode: "payment", not "subscription" - a marketplace license is a
+  // single purchase, never a recurring charge). Distinguished from the
+  // subscription checkout above by metadata.type="marketplace_purchase",
+  // which the webhook handler branches on before touching Subscription
+  // state - the two flows never cross.
+  async createMarketplaceCheckoutSession(params: {
+    buyerId: string;
+    listingId: string;
+    listingSlug: string;
+    listingTitle: string;
+    tradingSystemId: string;
+    versionId: string;
+    platform: string;
+    releaseId: string;
+    amount: number;
+    currency: string;
+  }): Promise<{ url: string }> {
+    const stripe = getClient();
+    if (params.amount <= 0) {
+      throw new PaymentProviderError("invalid_response", `Listing has no valid price: ${params.listingId}`, "stripe");
+    }
+
+    const customerId = await this.getOrCreateCustomer(params.buyerId);
+    const siteUrl = getSiteUrl();
+    const unitAmount = Math.round(params.amount * 100);
+
+    try {
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        customer: customerId,
+        line_items: [
+          {
+            price_data: {
+              currency: params.currency.toLowerCase(),
+              unit_amount: unitAmount,
+              product_data: { name: params.listingTitle },
+            },
+            quantity: 1,
+          },
+        ],
+        success_url: `${siteUrl}/marketplace/${params.listingSlug}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${siteUrl}/marketplace/${params.listingSlug}?checkout=cancel`,
+        metadata: {
+          type: "marketplace_purchase",
+          buyerId: params.buyerId,
+          listingId: params.listingId,
+          tradingSystemId: params.tradingSystemId,
+          versionId: params.versionId,
+          platform: params.platform,
+          releaseId: params.releaseId,
+        },
+      });
+
+      if (!session.url) {
+        throw new PaymentProviderError("invalid_response", "Stripe did not return a checkout URL", "stripe");
+      }
+      return { url: session.url };
+    } catch (error) {
+      if (error instanceof PaymentProviderError) throw error;
+      throw new PaymentProviderError("http_error", "Failed to create Stripe marketplace checkout session", "stripe", error);
+    }
+  }
+
   // Real signature verification (Stripe.webhooks.constructEvent) - throws
   // PaymentProviderError("invalid_signature") on a bad/missing signature,
   // never processes an unverified payload.

@@ -65,8 +65,27 @@ function toSummary(row: PrismaMarketplaceListing, sellerNames: Map<string, strin
   };
 }
 
-function rowToDetail(row: PrismaMarketplaceListing, sellerNames: Map<string, string>): MarketplaceListingDetail {
+// A listing can only ever be purchasable when a real PUBLISHED
+// ReleaseArtifact exists for its exact tradingSystemId/versionId/platform -
+// checked fresh here, never cached/assumed, so a purchase can never be
+// offered for a product with nothing real to download.
+async function findRealRelease(row: PrismaMarketplaceListing): Promise<string | null> {
+  if (!row.tradingSystemId || !row.versionId) return null;
+  const release = await withTableFallback(
+    () =>
+      prisma.releaseArtifact.findFirst({
+        where: { tradingSystemId: row.tradingSystemId!, versionId: row.versionId!, platform: row.platformTag, releaseStatus: "PUBLISHED", deletedAt: null },
+        select: { id: true },
+        orderBy: { createdAt: "desc" },
+      }),
+    null,
+  );
+  return release?.id ?? null;
+}
+
+async function rowToDetail(row: PrismaMarketplaceListing, sellerNames: Map<string, string>): Promise<MarketplaceListingDetail> {
   const summary = toSummary(row, sellerNames);
+  const releaseId = await findRealRelease(row);
   // Evidence/Validation/Risk/History sections: this listing has no
   // ingestion path wiring it to the real M2-M7 artifacts yet (see
   // M8_entity_relationship.md section 3) - always null this sprint. The
@@ -75,6 +94,7 @@ function rowToDetail(row: PrismaMarketplaceListing, sellerNames: Map<string, str
   return {
     ...summary,
     tradingSystemId: row.tradingSystemId,
+    releaseId,
     trustExplanation: row.trustExplanation || null,
     trustInfo:
       row.trustState && row.trustReasonCode

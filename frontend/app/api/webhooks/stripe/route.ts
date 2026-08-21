@@ -11,6 +11,8 @@ import { ApiResponse } from "@/services/backend/ApiResponse";
 import { stripeProvider } from "@/services/billing/providers/StripeProvider";
 import { PaymentProviderError } from "@/lib/payments/errors";
 import { subscriptionActionService } from "@/services/billing/SubscriptionActionService";
+import { issueLicenseForPurchase } from "@/services/licensing/licenseService";
+import type { PlatformName } from "@/types/marketplace-factory";
 import type Stripe from "stripe";
 
 function addMonths(date: Date, months: number): Date {
@@ -45,6 +47,32 @@ export const POST = withContext(async (req, ctx) => {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
+
+        // Marketplace product purchase (mode: "payment") - distinct flow
+        // from the platform-subscription case below, branched on
+        // metadata.type so the two never cross. Issues a real, signed
+        // License via the exact same issueLicenseForPurchase the M11
+        // architecture already defines - this webhook is its first real
+        // caller (previously "called only by the test suite", per that
+        // function's own comment).
+        if (session.metadata?.type === "marketplace_purchase") {
+          const m = session.metadata;
+          if (m.buyerId && m.listingId && m.tradingSystemId && m.versionId && m.platform && m.releaseId) {
+            await issueLicenseForPurchase({
+              buyerId: m.buyerId,
+              marketplaceListingId: m.listingId,
+              tradingSystemId: m.tradingSystemId,
+              versionId: m.versionId,
+              releaseId: m.releaseId,
+              platform: m.platform as PlatformName,
+              amount: (session.amount_total ?? 0) / 100,
+              currency: (session.currency ?? "usd").toUpperCase(),
+              expiresAt: null,
+            });
+          }
+          break;
+        }
+
         const userId = session.metadata?.userId;
         const planId = session.metadata?.planId;
         const subscriptionId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id;

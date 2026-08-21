@@ -16,11 +16,18 @@ import EmptyState from "@/components/ui/EmptyState";
 import { deriveSubmissionState } from "@/services/marketplace/factory/submissionState";
 import { publicationStateTone, trustStateLabel, trustStateTone } from "@/lib/marketplace";
 
+interface ListingPricing {
+  model: "one_time" | "subscription" | "free" | "unavailable";
+  amount?: number;
+  currency?: string;
+}
+
 interface ListingRow {
   id: string;
   slug: string;
   title: string;
   media: string[];
+  pricing: ListingPricing;
   publicationState: string;
   evidenceId: string | null;
   validationId: string | null;
@@ -28,6 +35,16 @@ interface ListingRow {
   trustState: string | null;
   trustReasonCode: string | null;
   updatedAt: string;
+}
+
+async function patchPricing(listingId: string, pricing: ListingPricing): Promise<void> {
+  const res = await fetch(`/api/private/marketplace/listings/${listingId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pricing }),
+  });
+  const body = await res.json();
+  if (!res.ok || body.status !== "ok") throw new Error(body?.error?.message ?? `Save failed (${res.status})`);
 }
 
 // media[0] = icon/logo (must be exactly 200x200, enforced server-side),
@@ -70,6 +87,7 @@ export default function MyProductsClient() {
   const [submitErrors, setSubmitErrors] = useState<Record<string, string>>({});
   const [mediaUploadingKey, setMediaUploadingKey] = useState<string | null>(null);
   const [mediaErrors, setMediaErrors] = useState<Record<string, string>>({});
+  const [priceInputs, setPriceInputs] = useState<Record<string, { amount: string; currency: string }>>({});
 
   const load = useCallback(async () => {
     try {
@@ -145,6 +163,26 @@ export default function MyProductsClient() {
     await load();
   }
 
+  async function handlePriceSave(item: ListingRow) {
+    const draft = priceInputs[item.id] ?? { amount: String(item.pricing.amount ?? ""), currency: item.pricing.currency ?? "USD" };
+    const amount = Number(draft.amount);
+    const key = `${item.id}:price`;
+    if (!draft.amount.trim() || Number.isNaN(amount) || amount <= 0) {
+      setMediaErrors((prev) => ({ ...prev, [key]: "Enter a valid amount greater than 0." }));
+      return;
+    }
+    setMediaErrors((prev) => ({ ...prev, [key]: "" }));
+    setMediaUploadingKey(key);
+    try {
+      await patchPricing(item.id, { model: "one_time", amount, currency: draft.currency });
+      await load();
+    } catch (err) {
+      setMediaErrors((prev) => ({ ...prev, [key]: err instanceof Error ? err.message : "Save failed." }));
+    } finally {
+      setMediaUploadingKey(null);
+    }
+  }
+
   if (error) return <Alert tone="danger">{error}</Alert>;
   if (items === null) return <Skeleton className="h-40 w-full" />;
   if (items.length === 0) {
@@ -172,6 +210,55 @@ export default function MyProductsClient() {
                 <Badge tone={trustStateTone(item.trustState as never)}>{trustStateLabel(item.trustState as never)}</Badge>
                 {item.trustReasonCode && <span className="text-xs text-text-3">{item.trustReasonCode}</span>}
               </div>
+            </div>
+
+            <div className="mt-4 rounded-control border border-border/60 bg-ink-3 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-3">Price (one-time purchase)</p>
+              <div className="mt-2 flex flex-wrap items-end gap-2">
+                <div>
+                  <p className="mb-1 text-[11px] text-text-3">Amount</p>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="299"
+                    value={priceInputs[item.id]?.amount ?? String(item.pricing?.amount ?? "")}
+                    onChange={(e) =>
+                      setPriceInputs((prev) => ({
+                        ...prev,
+                        [item.id]: { amount: e.target.value, currency: prev[item.id]?.currency ?? item.pricing?.currency ?? "USD" },
+                      }))
+                    }
+                    className="w-28 rounded-control border border-border bg-ink-4 px-2 py-1.5 text-xs text-text"
+                  />
+                </div>
+                <div>
+                  <p className="mb-1 text-[11px] text-text-3">Currency</p>
+                  <select
+                    value={priceInputs[item.id]?.currency ?? item.pricing?.currency ?? "USD"}
+                    onChange={(e) =>
+                      setPriceInputs((prev) => ({
+                        ...prev,
+                        [item.id]: { amount: prev[item.id]?.amount ?? String(item.pricing?.amount ?? ""), currency: e.target.value },
+                      }))
+                    }
+                    className="rounded-control border border-border bg-ink-4 px-2 py-1.5 text-xs text-text"
+                  >
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="INR">INR</option>
+                  </select>
+                </div>
+                <Button size="sm" loading={mediaUploadingKey === `${item.id}:price`} onClick={() => handlePriceSave(item)}>
+                  Save price
+                </Button>
+                {item.pricing?.model === "one_time" && item.pricing.amount ? (
+                  <span className="text-xs text-success">Current: {item.pricing.currency ?? "USD"} {item.pricing.amount}</span>
+                ) : (
+                  <span className="text-xs text-text-3">No price set yet</span>
+                )}
+              </div>
+              {mediaErrors[`${item.id}:price`] && <p className="mt-1 text-xs text-danger">{mediaErrors[`${item.id}:price`]}</p>}
             </div>
 
             <div className="mt-4 rounded-control border border-border/60 bg-ink-3 p-3">

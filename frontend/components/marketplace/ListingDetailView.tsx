@@ -84,7 +84,7 @@ export default function ListingDetailView({
             <VersionSection versionId={listing.versionId} tradingSystemId={listing.tradingSystemId} />
           </div>
           <div className="space-y-6">
-            <PurchaseCTA pricing={listing.pricing} />
+            <PurchaseCTA listingId={listing.id} pricing={listing.pricing} releaseId={listing.releaseId} />
             <RiskDisclosure />
           </div>
         </div>

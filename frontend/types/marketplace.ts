@@ -167,6 +167,12 @@ export interface TrustStateInfo {
 // --- Full detail page -------------------------------------------------------
 export interface MarketplaceListingDetail extends MarketplaceListingSummary {
   tradingSystemId: string | null;
+  // A real PUBLISHED ReleaseArtifact exists for this tradingSystemId/
+  // versionId/platform - purchase can only ever be offered when this is
+  // true (see PurchaseCTA.tsx). Never fabricated true - checking out for
+  // a listing with no real downloadable release would take payment for
+  // nothing deliverable.
+  releaseId: string | null;
   trustExplanation: string | null;
   trustInfo: TrustStateInfo | null;
   evidence: EvidenceSummary | null;
