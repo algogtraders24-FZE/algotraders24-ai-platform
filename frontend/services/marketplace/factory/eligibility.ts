@@ -1,20 +1,32 @@
 // services/marketplace/factory/eligibility.ts
 // Sprint M9 - Publication eligibility gate. A named, versioned, CATEGORICAL
 // policy - never a numeric quality threshold (M9 brief section 10/13
-// explicitly forbid "PF > 1 = validated" style rules). The trust-state
-// allowlist below is the one real policy decision this sprint makes, and
-// it is exactly why the real G01 fixture (trustState=INCONCLUSIVE) is
-// correctly NOT eligible - see M9_product_factory.md section 5.
+// explicitly forbid "PF > 1 = validated" style rules).
+//
+// Sprint M12 branding follow-on (v2) - widened deliberately, after real
+// production experience: REGIME_COVERAGE and PARAMETER_SENSITIVITY are
+// structurally incomplete for EVERY product in this program right now (no
+// regime classifier exists anywhere yet; parameter-sensitivity needs new
+// backtests nobody has run for any product, including G01). Under the v1
+// policy below, that meant NO product - regardless of quality - could
+// ever reach eligibility, which isn't a quality bar, it's a program-wide
+// infrastructure gap being mistaken for a per-product rejection. v2 policy:
+// publication no longer requires FULL conclusiveness, only that Evidence/
+// Validation/Risk genuinely ran and didn't fail outright. What this does
+// NOT change: the Trust State badge itself is never softened or hidden -
+// INCONCLUSIVE still displays as INCONCLUSIVE, everywhere, always. This
+// widens what's publishable, not what's claimed to be true.
 import type { EligibilityReasonCode, EligibilityResult } from "@/types/marketplace-factory";
 
-export const MARKETPLACE_ELIGIBILITY_RULESET_VERSION = "M9-eligibility-v1";
+export const MARKETPLACE_ELIGIBILITY_RULESET_VERSION = "M9-eligibility-v2";
 
-// Only these M7 trust states represent "the full Evidence->Validation->Risk
-// chain came back sufficient" - every other state (including INCONCLUSIVE,
-// which is not a negative judgment, just an incomplete one) blocks
-// publication until it changes. This is a categorical allowlist of M7's
-// own existing vocabulary, not an invented numeric bar.
-const ELIGIBLE_TRUST_STATES = new Set(["VALIDATED", "UNDER_OBSERVATION"]);
+// VALIDATED/UNDER_OBSERVATION are the "fully conclusive" states.
+// INCONCLUSIVE is now also accepted (v2) - it means "verified, validation
+// ran, but not every dimension could be computed yet," not "failed" or
+// "not run." UNVERIFIED/VALIDATION_PENDING/LIMITED/INVALIDATED/SUPERSEDED
+// still block - those are genuine absence, an active negative finding, or
+// a stale result, not the same thing as "incomplete."
+const ELIGIBLE_TRUST_STATES = new Set(["VALIDATED", "UNDER_OBSERVATION", "INCONCLUSIVE"]);
 
 export interface EligibilityInput {
   tradingSystemId: string | null;
@@ -44,19 +56,25 @@ export function evaluateEligibility(input: EligibilityInput): EligibilityResult 
     reasons.push({ code: "MISSING_EVIDENCE", detail: "No AT24 Evidence has been discovered for this Version." });
   }
 
-  if (!input.validationId || (input.validationOverallStatus && input.validationOverallStatus !== "PASS" && input.validationOverallStatus !== "WARNING")) {
+  // v2: FAIL is still an active negative finding and still blocks.
+  // INCONCLUSIVE ran and genuinely didn't fail - accepted, same reasoning
+  // as the trust-state widening above.
+  if (!input.validationId || input.validationOverallStatus === "FAIL") {
     reasons.push({
       code: "VALIDATION_INCONCLUSIVE",
       detail: input.validationId
-        ? `Validation overallStatus is ${input.validationOverallStatus ?? "unknown"}, not PASS/WARNING.`
+        ? `Validation overallStatus is FAIL.`
         : "No AT24 Validation result exists for this Version.",
     });
   }
 
-  if (!input.riskAnalysisId || (input.riskStatus && input.riskStatus !== "COMPLETE")) {
+  // v2: FAILED is still an active negative finding and still blocks.
+  // PARTIAL/INCONCLUSIVE ran and produced real (if incomplete) data -
+  // accepted.
+  if (!input.riskAnalysisId || input.riskStatus === "FAILED") {
     reasons.push({
       code: "RISK_ANALYSIS_INCOMPLETE",
-      detail: input.riskAnalysisId ? `RiskAnalysis status is ${input.riskStatus ?? "unknown"}, not COMPLETE.` : "No AT24 RiskAnalysis exists for this Version.",
+      detail: input.riskAnalysisId ? `RiskAnalysis status is FAILED.` : "No AT24 RiskAnalysis exists for this Version.",
     });
   }
 

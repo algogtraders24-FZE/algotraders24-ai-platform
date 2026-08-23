@@ -76,7 +76,7 @@ export default function ListingDetailView({
       <section className="px-6 pb-24">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
-            <TrustStateSection trustInfo={listing.trustInfo} />
+            <TrustStateSection trustInfo={listing.trustInfo} validation={listing.validation} />
             <EvidenceSection evidence={listing.evidence} />
             <ValidationSection validation={listing.validation} />
             <RiskSection risk={listing.risk} />

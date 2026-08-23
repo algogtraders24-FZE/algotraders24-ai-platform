@@ -179,7 +179,7 @@ async function main() {
     }
   });
 
-  console.log("\n=== O-U - Eligibility policy (M9-eligibility-v1, categorical) ===");
+  console.log("\n=== O-U - Eligibility policy (M9-eligibility-v2, categorical) ===");
 
   const validBase = {
     tradingSystemId: "G01",
@@ -198,7 +198,7 @@ async function main() {
     const result = evaluateEligibility(validBase);
     assert.equal(result.eligible, true);
     assert.deepEqual(result.reasons, []);
-    assert.equal(result.rulesetVersion, "M9-eligibility-v1");
+    assert.equal(result.rulesetVersion, "M9-eligibility-v2");
   });
 
   await test("P - missing tradingSystemId/versionId produces VERSION_INVALID", () => {
@@ -212,22 +212,30 @@ async function main() {
     assert.ok(result.reasons.some((r) => r.code === "MISSING_EVIDENCE"));
   });
 
-  await test("R - validationOverallStatus=FAIL produces VALIDATION_INCONCLUSIVE", () => {
-    const result = evaluateEligibility({ ...validBase, validationOverallStatus: "FAIL" });
-    assert.ok(result.reasons.some((r) => r.code === "VALIDATION_INCONCLUSIVE"));
+  await test("R - validationOverallStatus=FAIL produces VALIDATION_INCONCLUSIVE (still blocks - an active negative finding); overallStatus=INCONCLUSIVE does not (v2 policy)", () => {
+    const failed = evaluateEligibility({ ...validBase, validationOverallStatus: "FAIL" });
+    assert.ok(failed.reasons.some((r) => r.code === "VALIDATION_INCONCLUSIVE"));
+    const inconclusive = evaluateEligibility({ ...validBase, validationOverallStatus: "INCONCLUSIVE" });
+    assert.ok(!inconclusive.reasons.some((r) => r.code === "VALIDATION_INCONCLUSIVE"));
   });
 
-  await test("S - riskStatus=PARTIAL produces RISK_ANALYSIS_INCOMPLETE", () => {
-    const result = evaluateEligibility({ ...validBase, riskStatus: "PARTIAL" });
-    assert.ok(result.reasons.some((r) => r.code === "RISK_ANALYSIS_INCOMPLETE"));
+  await test("S - riskStatus=FAILED produces RISK_ANALYSIS_INCOMPLETE (still blocks); PARTIAL does not (v2 policy - real, if incomplete, data)", () => {
+    const failed = evaluateEligibility({ ...validBase, riskStatus: "FAILED" });
+    assert.ok(failed.reasons.some((r) => r.code === "RISK_ANALYSIS_INCOMPLETE"));
+    const partial = evaluateEligibility({ ...validBase, riskStatus: "PARTIAL" });
+    assert.ok(!partial.reasons.some((r) => r.code === "RISK_ANALYSIS_INCOMPLETE"));
   });
 
-  await test("T - trustState=INCONCLUSIVE (not in the allowlist) produces TRUST_STATUS_BLOCKED, and UNDER_OBSERVATION does not", () => {
+  await test("T - trustState=INCONCLUSIVE is now eligible (v2 policy - verified but not fully conclusive is publishable, never hidden on the badge); UNVERIFIED/INVALIDATED still block", () => {
     const inconclusive = evaluateEligibility({ ...validBase, trustState: "INCONCLUSIVE" });
-    assert.ok(inconclusive.reasons.some((r) => r.code === "TRUST_STATUS_BLOCKED"));
+    assert.ok(!inconclusive.reasons.some((r) => r.code === "TRUST_STATUS_BLOCKED"));
+    assert.equal(inconclusive.eligible, true);
     const underObservation = evaluateEligibility({ ...validBase, trustState: "UNDER_OBSERVATION" });
     assert.ok(!underObservation.reasons.some((r) => r.code === "TRUST_STATUS_BLOCKED"));
     assert.equal(underObservation.eligible, true);
+    const invalidated = evaluateEligibility({ ...validBase, trustState: "INVALIDATED" });
+    assert.ok(invalidated.reasons.some((r) => r.code === "TRUST_STATUS_BLOCKED"));
+    assert.equal(invalidated.eligible, false);
   });
 
   await test("U - requestingUserId !== sellerId produces OWNERSHIP_FAILURE", () => {
@@ -298,7 +306,7 @@ async function main() {
     assert.equal(result.riskStatus, snapshot.m5.status);
   });
 
-  await test("AC - the real G01 fixture is NOT eligible, and the reasons name exactly what's actually incomplete (matches the real snapshot, not an assumption)", async () => {
+  await test("AC - the real G01 fixture IS eligible under the v2 policy (INCONCLUSIVE/PARTIAL are publishable, not FAIL/FAILED) - and the Trust State badge itself is untouched, still the real INCONCLUSIVE value", async () => {
     const snapshotPath = join(__dirname, "..", "data", "marketplace-evidence", "g01-integration-snapshot.json");
     const snapshot = JSON.parse(readFileSync(snapshotPath, "utf-8"));
     assert.equal(snapshot.m7.status, "INCONCLUSIVE", "fixture assumption check: if this fails, the real snapshot changed and this test's expectations must be re-derived, not patched blind");
@@ -316,10 +324,16 @@ async function main() {
       sellerId: "seller-1",
       requestingUserId: "seller-1",
     });
-    assert.equal(eligibility.eligible, false);
-    const codes = eligibility.reasons.map((r) => r.code).sort();
-    assert.deepEqual(codes, ["RISK_ANALYSIS_INCOMPLETE", "TRUST_STATUS_BLOCKED", "VALIDATION_INCONCLUSIVE"].sort());
-    assert.equal(deriveSubmissionState({ publicationState: "SUBMITTED", evidenceId: ingestion.evidenceId, validationId: ingestion.validationId, riskAnalysisId: ingestion.riskAnalysisId, trustState: ingestion.trustState }, eligibility), "REJECTED");
+    // The v2 policy widening this session (real production experience:
+    // REGIME_COVERAGE/PARAMETER_SENSITIVITY are structurally incomplete
+    // program-wide, not a per-product defect) - not the same as claiming
+    // G01 is now VALIDATED. It isn't, and never says it is.
+    assert.equal(eligibility.eligible, true, `expected eligible under v2 policy, got reasons: ${JSON.stringify(eligibility.reasons)}`);
+    // The one thing that must NEVER change alongside this: the real Trust
+    // State value flowing to the badge stays exactly INCONCLUSIVE, not
+    // silently upgraded to look better because it's now publishable.
+    assert.equal(ingestion.trustState, "INCONCLUSIVE");
+    assert.equal(deriveSubmissionState({ publicationState: "SUBMITTED", evidenceId: ingestion.evidenceId, validationId: ingestion.validationId, riskAnalysisId: ingestion.riskAnalysisId, trustState: ingestion.trustState }, eligibility), "ELIGIBLE");
   });
 
   console.log("\n=== AD - Platform-neutrality (M9 brief section 27) ===");
