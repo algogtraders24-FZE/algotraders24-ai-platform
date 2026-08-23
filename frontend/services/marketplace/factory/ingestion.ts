@@ -34,7 +34,7 @@ const EMPTY_REFS = {
   validationOverallStatus: null, riskStatus: null,
 } as const;
 
-export function runIngestionPipeline(input: IngestionInput): IngestionResult {
+export async function runIngestionPipeline(input: IngestionInput): Promise<IngestionResult> {
   const stages: StageResult[] = [];
 
   // 1. SCHEMA_VALIDATION
@@ -71,7 +71,7 @@ export function runIngestionPipeline(input: IngestionInput): IngestionResult {
     const { stageResult, failedAt } = fail("EVIDENCE_DISCOVERY", `EVIDENCE_INGESTION_UNAVAILABLE: platform "${adapter.platform}" has no evidence-ingestion adapter yet.`);
     return { stages: [...stages, stageResult], failedAt, ...EMPTY_REFS };
   }
-  const snapshot = adapter.discoverEvidence(input.tradingSystemId, input.versionId);
+  const snapshot = await adapter.discoverEvidence(input.tradingSystemId, input.versionId);
   if (!snapshot) {
     const { stageResult, failedAt } = fail("EVIDENCE_DISCOVERY", `No Evidence snapshot found for tradingSystemId=${input.tradingSystemId} versionId=${input.versionId}.`);
     return { stages: [...stages, stageResult], failedAt, ...EMPTY_REFS };

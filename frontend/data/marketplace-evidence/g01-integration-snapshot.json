@@ -1,7 +1,7 @@
 {
   "_provenance": {
     "generatedBy": "generate_g01_integration_snapshot.py (M9)",
-    "generatedAt": "2026-08-20T07:42:55.893068Z",
+    "generatedAt": "2026-08-23T16:02:05.397046Z",
     "note": "Real, deterministic M3/M4/M5/M7 result for G01 v0.1 -- not fabricated, not a mock fixture. Reproducible by re-running this script against the same real artifacts. See M9_architecture_audit.md section 6."
   },
   "tradingSystemId": "G01",
@@ -31,8 +31,8 @@
   },
   "m5": {
     "status": "PARTIAL",
-    "riskAnalysisId": "f7b2f31d02b36205",
-    "riskAnalysisHash": "f7b2f31d02b36205",
+    "riskAnalysisId": "3d88f3ede2e6e6c1",
+    "riskAnalysisHash": "3d88f3ede2e6e6c1",
     "dataQuality": {
       "drawdown": "LIMITED",
       "lossDistribution": "AVAILABLE",
@@ -52,15 +52,15 @@
     "status": "INCONCLUSIVE",
     "reasonCode": "VALIDATION_INCONCLUSIVE",
     "explanation": "Evidence integrity is verified, but the current Validation (M4) result is INCONCLUSIVE (overallStatus=INCONCLUSIVE) -- validation types not conclusively completed: REGIME_COVERAGE, PARAMETER_SENSITIVITY",
-    "id": "d5eb6bdcf62bceeb",
-    "generatedAt": "2026-08-20T07:42:56.123022Z"
+    "id": "774e47263b2343a5",
+    "generatedAt": "2026-08-23T16:02:05.627682Z"
   },
   "evidenceId": "1d0d5df55c44a8a1",
   "evidenceHash": "1d0d5df55c44a8a1",
   "validationId": "1d0d5df55c44a8a1",
   "validationHash": "1d0d5df55c44a8a1",
-  "riskAnalysisId": "f7b2f31d02b36205",
-  "riskAnalysisHash": "f7b2f31d02b36205",
-  "trustStatusId": "d5eb6bdcf62bceeb",
+  "riskAnalysisId": "3d88f3ede2e6e6c1",
+  "riskAnalysisHash": "3d88f3ede2e6e6c1",
+  "trustStatusId": "774e47263b2343a5",
   "lastEvidenceAt": "2026-07-22T04:08:42"
 }

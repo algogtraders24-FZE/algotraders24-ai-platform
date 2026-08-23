@@ -13,7 +13,7 @@ import { mt5DiscoverEvidence } from "./mt5EvidenceAdapter";
 // The five platforms with no evidence-ingestion adapter yet all share this
 // literal - explicit, honest "nothing exists here", never a fabricated
 // lookup.
-const noEvidenceAdapter = () => null;
+const noEvidenceAdapter = async () => null;
 
 const ADAPTERS: Record<PlatformName, PlatformAdapter> = {
   MT5: {

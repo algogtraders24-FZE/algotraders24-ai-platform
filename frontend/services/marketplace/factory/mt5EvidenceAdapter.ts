@@ -2,25 +2,30 @@
 // Sprint M9 - MT5-specific evidence discovery. This is the ONLY file in
 // the Factory allowed to know about MT5 specifics (M9 brief section 3) -
 // ProductFactory/ingestion.ts/eligibility.ts never branch on platform.
-// Reads a REAL, generated snapshot of G01's actual M3/M4/M5/M7 result
-// (ea-research/marketplace-research/m9-product-factory/
-// generate_g01_integration_snapshot.py produced it by calling M3-M7's own
-// existing functions - no new computation, no fabricated data). Currently
-// this snapshot only exists for G01/v0.1 - looking up any other
-// tradingSystemId/versionId honestly returns "not found", never a guess.
+//
+// Sprint M12 branding follow-on (Phase 2) - primary source is now the
+// real MarketplaceEvidenceRecord DB table (prisma/schema.prisma), written
+// only by scripts/load-marketplace-evidence.ts after an AT24 human runs
+// the real M2-M7 engines - never seller-writable. The old flat-file
+// convention (data/marketplace-evidence/*.json, from Phase 1 the same
+// session) is kept as a fallback, not removed - both G01 and PDHPDL-GOLD
+// are loaded into the DB now, but this avoids a hard cutover if a future
+// product's snapshot only exists as a file.
+//
 // No `import "server-only"` here (unlike MarketplaceCatalogue.ts, which
 // needs it as its primary defense against accidental client bundling of a
-// Prisma call). This module's node:fs/node:path imports already make it
-// unbundleable into any Client Component by construction - Next's client
-// bundler errors on `fs` before ever reaching this file's own logic - and
-// its only two importers (adapters.ts -> the [id]/submit route handler,
-// and this sprint's validate-marketplace-factory.ts script) are both
-// inherently server-side already. Keeping the marker off is what makes
-// this file (and the ingestion pipeline that depends on it) testable by a
-// plain tsx script at all - see that script's own top-of-file note on the
+// Prisma call). This module's node:fs/node:path/Prisma imports already
+// make it unbundleable into any Client Component by construction - Next's
+// client bundler errors on `fs` before ever reaching this file's own
+// logic - and its only two importers (adapters.ts -> the [id]/submit
+// route handler, and validate-marketplace-factory.ts) are both inherently
+// server-side already. Keeping the marker off is what makes this file
+// (and the ingestion pipeline that depends on it) testable by a plain tsx
+// script at all - see that script's own top-of-file note on the
 // "server-only" package not being resolvable outside Next's bundler.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { prisma } from "@/lib/prisma";
 import type { PlatformEvidenceSnapshot } from "@/types/marketplace-factory";
 
 export interface MT5EvidenceSnapshot {
@@ -61,16 +66,33 @@ function snapshotFilename(tradingSystemId: string, versionId: string): string {
   return `${safe(tradingSystemId)}__${safe(versionId)}.json`;
 }
 
-// Generalized lookup (M12 branding follow-on): any tradingSystemId/versionId
-// with a matching snapshot file in SNAPSHOTS_DIR is discovered - no longer
-// hardcoded to one product. A snapshot only ever exists here because an
-// AT24 human ran the real M2-M7 engines and placed it via
-// scripts/assemble-marketplace-evidence-snapshot.ts (or by hand, same
-// shape) - sellers have no write access to this directory or these DB
-// columns, so this change is a discovery-scope fix, not a security
-// change. A lookup for any id pair with no matching file is honestly
-// EVIDENCE_INGESTION_UNAVAILABLE, never fabricated.
-export function discoverMt5Evidence(tradingSystemId: string, versionId: string): MT5EvidenceSnapshot | null {
+// DB-first lookup: a row in MarketplaceEvidenceRecord (real, AT24-written
+// only) always wins when present. Falls back to the file convention
+// (Phase 1) so a product with only a snapshot file still works. A lookup
+// for any id pair with neither is honestly EVIDENCE_INGESTION_UNAVAILABLE,
+// never fabricated.
+export async function discoverMt5Evidence(tradingSystemId: string, versionId: string): Promise<MT5EvidenceSnapshot | null> {
+  const row = await prisma.marketplaceEvidenceRecord
+    .findUnique({ where: { tradingSystemId_versionId: { tradingSystemId, versionId } } })
+    .catch(() => null);
+  if (row) {
+    return {
+      tradingSystemId: row.tradingSystemId,
+      versionId: row.versionId,
+      m3: { status: "VERIFIED", evidenceId: row.evidenceId, warnings: [] },
+      m4: { overallStatus: row.validationOverallStatus, evidenceId: row.evidenceId, recordStatuses: {} },
+      m5: { status: row.riskStatus, riskAnalysisId: row.riskAnalysisId, riskAnalysisHash: row.riskAnalysisHash, dataQuality: {} },
+      m7: { status: row.trustState, reasonCode: row.trustReasonCode, explanation: row.trustExplanation, id: row.trustStatusId, generatedAt: row.updatedAt.toISOString() },
+      evidenceId: row.evidenceId,
+      evidenceHash: row.evidenceHash,
+      validationId: row.validationId,
+      validationHash: row.validationHash,
+      riskAnalysisId: row.riskAnalysisId,
+      riskAnalysisHash: row.riskAnalysisHash,
+      trustStatusId: row.trustStatusId,
+      lastEvidenceAt: row.lastEvidenceAt ? row.lastEvidenceAt.toISOString() : null,
+    };
+  }
   return loadSnapshot(snapshotFilename(tradingSystemId, versionId));
 }
 
@@ -78,8 +100,8 @@ export function discoverMt5Evidence(tradingSystemId: string, versionId: string):
 // MT5EvidenceSnapshot's M3/M4/M5/M7-nested shape into the generic
 // PlatformEvidenceSnapshot contract ingestion.ts consumes, so ingestion.ts
 // never needs to know MT5's internal shape (or that MT5 exists at all).
-export function mt5DiscoverEvidence(tradingSystemId: string, versionId: string): PlatformEvidenceSnapshot | null {
-  const snapshot = discoverMt5Evidence(tradingSystemId, versionId);
+export async function mt5DiscoverEvidence(tradingSystemId: string, versionId: string): Promise<PlatformEvidenceSnapshot | null> {
+  const snapshot = await discoverMt5Evidence(tradingSystemId, versionId);
   if (!snapshot) return null;
   return {
     evidenceId: snapshot.evidenceId,

@@ -3,13 +3,19 @@
 // Pipeline (no test framework exists in this project - see package.json).
 // Run via `npm run validate:marketplace-factory`.
 //
-// HONESTY NOTE (read before trusting a green run): this tool sandbox has
-// NO outbound TCP reachability to the production Supabase Postgres port
-// (confirmed directly: `next build`'s generateStaticParams failed with
-// Prisma P1001 DatabaseNotReachable against the real pooler host; a raw
-// `/dev/tcp` connect to the same host:5432 timed out, while HTTPS to an
-// unrelated host succeeded in the same shell - i.e. this is a port-level
-// egress restriction, not a DNS/general-network failure). The only DB
+// HONESTY NOTE (read before trusting a green run): the original version of
+// this note (M9) said this sandbox had no outbound TCP reachability to the
+// production Postgres port. That was true then; it is no longer true as of
+// the M12 branding follow-on session, which ran dozens of direct
+// `npx tsx` scripts against the real production DB successfully (with
+// `import "dotenv/config"` loaded, as this file now does). Since
+// mt5EvidenceAdapter.ts's discoverMt5Evidence now queries the real
+// MarketplaceEvidenceRecord table first (DB-first, file-fallback - see
+// that file's own comment), tests AB/AC below now genuinely exercise a
+// live DB read, not just the file fallback. The remaining skips below
+// (HTTP round-trips needing an authenticated session) are still real
+// limitations, unrelated to DB reachability - that part of the note
+// still applies. The only DB
 // connection reachable this session is the user's own already-running
 // `next dev` process (a separate long-lived process this sandbox didn't
 // spawn), reachable only via the Browser tool, and its /api/private/*
@@ -36,6 +42,7 @@
 //     the user's running dev server via the Browser tool immediately
 //     before this script was written - recorded here as a fact, not
 //     re-executed by this script, since this script has no browser access).
+import "dotenv/config";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -238,47 +245,47 @@ async function main() {
 
   console.log("\n=== V-AC - Ingestion pipeline (stage-observable) ===");
 
-  await test("V - empty title/description fails at SCHEMA_VALIDATION", () => {
-    const result = runIngestionPipeline({ ...G01_INPUT, title: "  ", description: "" });
+  await test("V - empty title/description fails at SCHEMA_VALIDATION", async () => {
+    const result = await runIngestionPipeline({ ...G01_INPUT, title: "  ", description: "" });
     assert.equal(result.failedAt, "FAILED_AT_SCHEMA_VALIDATION");
   });
 
-  await test("W - unknown platformTag fails at PLATFORM_VALIDATION", () => {
-    const result = runIngestionPipeline({ ...G01_INPUT, platformTag: "TradingView" });
+  await test("W - unknown platformTag fails at PLATFORM_VALIDATION", async () => {
+    const result = await runIngestionPipeline({ ...G01_INPUT, platformTag: "TradingView" });
     assert.equal(result.failedAt, "FAILED_AT_PLATFORM_VALIDATION");
   });
 
-  await test("X - missing tradingSystemId fails at TRADING_SYSTEM_BINDING", () => {
-    const result = runIngestionPipeline({ ...G01_INPUT, tradingSystemId: null });
+  await test("X - missing tradingSystemId fails at TRADING_SYSTEM_BINDING", async () => {
+    const result = await runIngestionPipeline({ ...G01_INPUT, tradingSystemId: null });
     assert.equal(result.failedAt, "FAILED_AT_TRADING_SYSTEM_BINDING");
   });
 
-  await test("Y - missing versionId fails at VERSION_BINDING", () => {
-    const result = runIngestionPipeline({ ...G01_INPUT, versionId: null });
+  await test("Y - missing versionId fails at VERSION_BINDING", async () => {
+    const result = await runIngestionPipeline({ ...G01_INPUT, versionId: null });
     assert.equal(result.failedAt, "FAILED_AT_VERSION_BINDING");
   });
 
-  await test("Z - a platform registered but with evidenceIngestionSupported=false fails at EVIDENCE_DISCOVERY with EVIDENCE_INGESTION_UNAVAILABLE, for every one of the 5 unsupported platforms", () => {
+  await test("Z - a platform registered but with evidenceIngestionSupported=false fails at EVIDENCE_DISCOVERY with EVIDENCE_INGESTION_UNAVAILABLE, for every one of the 5 unsupported platforms", async () => {
     for (const platform of PLATFORM_NAMES.filter((p) => p !== "MT5")) {
-      const result = runIngestionPipeline({ ...G01_INPUT, platformTag: platform });
+      const result = await runIngestionPipeline({ ...G01_INPUT, platformTag: platform });
       assert.equal(result.failedAt, "FAILED_AT_EVIDENCE_DISCOVERY");
       const stage = result.stages[result.stages.length - 1];
       assert.ok(stage.detail.includes("EVIDENCE_INGESTION_UNAVAILABLE"), `${platform}: ${stage.detail}`);
     }
   });
 
-  await test("AA - MT5 with an unknown tradingSystemId/versionId honestly fails at EVIDENCE_DISCOVERY (no fabricated lookup)", () => {
-    const result = runIngestionPipeline({ ...G01_INPUT, tradingSystemId: "NOT-A-REAL-SYSTEM", versionId: "v0" });
+  await test("AA - MT5 with an unknown tradingSystemId/versionId honestly fails at EVIDENCE_DISCOVERY (no fabricated lookup)", async () => {
+    const result = await runIngestionPipeline({ ...G01_INPUT, tradingSystemId: "NOT-A-REAL-SYSTEM", versionId: "v0" });
     assert.equal(result.failedAt, "FAILED_AT_EVIDENCE_DISCOVERY");
   });
 
   console.log("\n=== AB - REAL G01 integration fixture (M9 brief section 28) ===");
 
-  await test("AB - the real G01/v0.1 fixture runs the full pipeline to TRUST_EVALUATION with failedAt=null, and its reference fields match the real snapshot file exactly", () => {
+  await test("AB - the real G01/v0.1 fixture runs the full pipeline to TRUST_EVALUATION with failedAt=null, and its reference fields match the real snapshot file exactly", async () => {
     const snapshotPath = join(__dirname, "..", "data", "marketplace-evidence", "g01-integration-snapshot.json");
     const snapshot = JSON.parse(readFileSync(snapshotPath, "utf-8"));
 
-    const result = runIngestionPipeline(G01_INPUT);
+    const result = await runIngestionPipeline(G01_INPUT);
     assert.equal(result.failedAt, null);
     assert.equal(result.stages.length, 9);
     assert.ok(result.stages.every((s) => s.status === "PASS"));
@@ -291,12 +298,12 @@ async function main() {
     assert.equal(result.riskStatus, snapshot.m5.status);
   });
 
-  await test("AC - the real G01 fixture is NOT eligible, and the reasons name exactly what's actually incomplete (matches the real snapshot, not an assumption)", () => {
+  await test("AC - the real G01 fixture is NOT eligible, and the reasons name exactly what's actually incomplete (matches the real snapshot, not an assumption)", async () => {
     const snapshotPath = join(__dirname, "..", "data", "marketplace-evidence", "g01-integration-snapshot.json");
     const snapshot = JSON.parse(readFileSync(snapshotPath, "utf-8"));
     assert.equal(snapshot.m7.status, "INCONCLUSIVE", "fixture assumption check: if this fails, the real snapshot changed and this test's expectations must be re-derived, not patched blind");
 
-    const ingestion = runIngestionPipeline(G01_INPUT);
+    const ingestion = await runIngestionPipeline(G01_INPUT);
     const eligibility = evaluateEligibility({
       tradingSystemId: G01_INPUT.tradingSystemId,
       versionId: G01_INPUT.versionId,
@@ -317,12 +324,12 @@ async function main() {
 
   console.log("\n=== AD - Platform-neutrality (M9 brief section 27) ===");
 
-  await test("AD - ingestion.ts source contains zero platform-name string literal comparisons; the identical code path runs for all 6 platforms up to EVIDENCE_DISCOVERY", () => {
+  await test("AD - ingestion.ts source contains zero platform-name string literal comparisons; the identical code path runs for all 6 platforms up to EVIDENCE_DISCOVERY", async () => {
     const src = readSource("services/marketplace/factory/ingestion.ts");
     for (const platform of PLATFORM_NAMES) {
       assert.ok(!src.includes(`"${platform}"`), `ingestion.ts references platform literal "${platform}" - should read adapter.discoverEvidence() generically instead`);
     }
-    const results = PLATFORM_NAMES.map((platform) => runIngestionPipeline({ ...G01_INPUT, platformTag: platform }));
+    const results = await Promise.all(PLATFORM_NAMES.map((platform) => runIngestionPipeline({ ...G01_INPUT, platformTag: platform })));
     // Every one reaches PLATFORM_VALIDATION/TRADING_SYSTEM_BINDING/VERSION_BINDING identically (same 3 PASS stages before divergence at EVIDENCE_DISCOVERY).
     for (const result of results) {
       assert.deepEqual(result.stages.slice(0, 4).map((s) => s.stage), ["SCHEMA_VALIDATION", "PLATFORM_VALIDATION", "TRADING_SYSTEM_BINDING", "VERSION_BINDING"]);
@@ -336,8 +343,8 @@ async function main() {
 
   console.log("\n=== AE-AG - Version immutability & seller/AT24 boundary ===");
 
-  await test("AE - a second version of the same TradingSystem starts with all reference fields null (Factory never copies from one version to another)", () => {
-    const secondVersionResult = runIngestionPipeline({ ...G01_INPUT, versionId: "G01-v0.2-DOES-NOT-EXIST-YET" });
+  await test("AE - a second version of the same TradingSystem starts with all reference fields null (Factory never copies from one version to another)", async () => {
+    const secondVersionResult = await runIngestionPipeline({ ...G01_INPUT, versionId: "G01-v0.2-DOES-NOT-EXIST-YET" });
     assert.equal(secondVersionResult.failedAt, "FAILED_AT_EVIDENCE_DISCOVERY");
     assert.equal(secondVersionResult.evidenceId, null);
     assert.equal(secondVersionResult.trustState, null);

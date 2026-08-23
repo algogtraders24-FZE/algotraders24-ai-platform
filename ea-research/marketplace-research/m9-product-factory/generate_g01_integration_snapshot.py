@@ -33,6 +33,12 @@ REGISTRY = HERE.parent / "m3-evidence-verification" / "version_registry.json"
 EXPECTED_VERSION_ID = "G01-v0.1-FROZEN-BASELINE"
 TRADING_SYSTEM_ID = "G01"
 OUTPUT_PATH = HERE.parent.parent.parent / "frontend" / "data" / "marketplace-evidence" / "g01-integration-snapshot.json"
+# Sprint M12 branding follow-on - full chain result (adds m4_full/m5_full/
+# m6_full) for scripts/load-marketplace-evidence.ts to load into the real
+# MarketplaceEvidenceRecord DB table. Additive - the original snapshot
+# above (still used by validate-marketplace-factory.ts's own test) is
+# unchanged.
+FULL_OUTPUT_PATH = HERE / "g01_full_chain_result.json"
 
 
 def main() -> None:
@@ -82,6 +88,10 @@ def main() -> None:
     OUTPUT_PATH.write_text(json.dumps(snapshot, indent=2), encoding="utf-8")
     print(f"Snapshot written: {OUTPUT_PATH}")
     print(f"  M3={m3_result.status} M4={val_result['overallStatus']} M5={risk_result['status']} M7={trust['status']}/{trust['reasonCode']}")
+
+    full_snapshot = {**snapshot, "m4_full": val_result, "m5_full": risk_result, "m6_full": history}
+    FULL_OUTPUT_PATH.write_text(json.dumps(full_snapshot, indent=2, default=str), encoding="utf-8")
+    print(f"Full chain result written: {FULL_OUTPUT_PATH}")
 
 
 if __name__ == "__main__":

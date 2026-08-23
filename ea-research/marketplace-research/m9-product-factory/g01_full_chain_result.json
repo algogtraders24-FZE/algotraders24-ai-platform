@@ -1,0 +1,1889 @@
+{
+  "_provenance": {
+    "generatedBy": "generate_g01_integration_snapshot.py (M9)",
+    "generatedAt": "2026-08-23T16:02:05.397046Z",
+    "note": "Real, deterministic M3/M4/M5/M7 result for G01 v0.1 -- not fabricated, not a mock fixture. Reproducible by re-running this script against the same real artifacts. See M9_architecture_audit.md section 6."
+  },
+  "tradingSystemId": "G01",
+  "versionId": "G01-v0.1-FROZEN-BASELINE",
+  "m3": {
+    "status": "VERIFIED",
+    "evidenceId": "1d0d5df55c44a8a1",
+    "warnings": [
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'spreadModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'commissionModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'swapModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'tickDataQuality' is null"
+    ]
+  },
+  "m4": {
+    "overallStatus": "INCONCLUSIVE",
+    "evidenceId": "1d0d5df55c44a8a1",
+    "recordStatuses": {
+      "SAMPLE_SIZE": "PASS",
+      "OUT_OF_SAMPLE": "PASS",
+      "WALK_FORWARD": "PASS",
+      "TEMPORAL_STABILITY": "PASS",
+      "REGIME_COVERAGE": "INCONCLUSIVE",
+      "PERFORMANCE_DISTRIBUTION": "PASS",
+      "PARAMETER_SENSITIVITY": "INCONCLUSIVE"
+    }
+  },
+  "m5": {
+    "status": "PARTIAL",
+    "riskAnalysisId": "3d88f3ede2e6e6c1",
+    "riskAnalysisHash": "3d88f3ede2e6e6c1",
+    "dataQuality": {
+      "drawdown": "LIMITED",
+      "lossDistribution": "AVAILABLE",
+      "winDistribution": "AVAILABLE",
+      "expectancy": "AVAILABLE",
+      "lossStreaks": "AVAILABLE",
+      "recovery": "LIMITED",
+      "tailRisk": "AVAILABLE",
+      "concentration": "AVAILABLE",
+      "temporalRisk": "AVAILABLE",
+      "regimeRisk": "UNAVAILABLE",
+      "exposureRisk": "AVAILABLE",
+      "costRisk": "AVAILABLE"
+    }
+  },
+  "m7": {
+    "status": "INCONCLUSIVE",
+    "reasonCode": "VALIDATION_INCONCLUSIVE",
+    "explanation": "Evidence integrity is verified, but the current Validation (M4) result is INCONCLUSIVE (overallStatus=INCONCLUSIVE) -- validation types not conclusively completed: REGIME_COVERAGE, PARAMETER_SENSITIVITY",
+    "id": "774e47263b2343a5",
+    "generatedAt": "2026-08-23T16:02:05.627682Z"
+  },
+  "evidenceId": "1d0d5df55c44a8a1",
+  "evidenceHash": "1d0d5df55c44a8a1",
+  "validationId": "1d0d5df55c44a8a1",
+  "validationHash": "1d0d5df55c44a8a1",
+  "riskAnalysisId": "3d88f3ede2e6e6c1",
+  "riskAnalysisHash": "3d88f3ede2e6e6c1",
+  "trustStatusId": "774e47263b2343a5",
+  "lastEvidenceAt": "2026-07-22T04:08:42",
+  "m4_full": {
+    "evidenceId": "1d0d5df55c44a8a1",
+    "versionId": "G01-v0.1-FROZEN-BASELINE",
+    "datasetHash": "3b94c92eb80e2583",
+    "engineVersion": "AT24-M4-Validation-Engine-v1.1",
+    "methodologyVersion": "M4-methodology-v1",
+    "overallStatus": "INCONCLUSIVE",
+    "records": [
+      {
+        "validationId": "SAMPLE_SIZE:1d0d5df55c44a8a1",
+        "versionId": "G01-v0.1-FROZEN-BASELINE",
+        "evidenceId": "1d0d5df55c44a8a1",
+        "validationType": "SAMPLE_SIZE",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "3b94c92eb80e2583",
+        "inputEvidenceHash": "1d0d5df55c44a8a1",
+        "startedAt": "2026-08-23T16:02:02.885432Z",
+        "completedAt": "2026-08-23T16:02:02.977457Z",
+        "methodology": "Direct count/duration measurement, no acceptance threshold applied.",
+        "parameters": {},
+        "metrics": {
+          "tradeCount": 2712,
+          "profitTradeCount": 908,
+          "lossTradeCount": 1804,
+          "breakEvenTradeCount": 0,
+          "durationDays": 3393,
+          "tradesPerMonth": 24.33,
+          "observationsPerYear": {
+            "2017": 216,
+            "2018": 274,
+            "2019": 306,
+            "2020": 289,
+            "2021": 309,
+            "2022": 296,
+            "2023": 293,
+            "2024": 318,
+            "2025": 305,
+            "2026": 106
+          }
+        },
+        "findings": [
+          "2712 trades over 3393 days (9.3 years) across 10 distinct calendar years."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.1"
+      },
+      {
+        "validationId": "OUT_OF_SAMPLE:1d0d5df55c44a8a1",
+        "versionId": "G01-v0.1-FROZEN-BASELINE",
+        "evidenceId": "1d0d5df55c44a8a1",
+        "validationType": "OUT_OF_SAMPLE",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "3b94c92eb80e2583",
+        "inputEvidenceHash": "1d0d5df55c44a8a1",
+        "startedAt": "2026-08-23T16:02:02.977457Z",
+        "completedAt": "2026-08-23T16:02:03.366135Z",
+        "methodology": "Time-based split at 80% of [first trade, last trade] duration (M4-methodology-v1).",
+        "parameters": {
+          "splitRatio": 0.8,
+          "boundary": "2024-09-11T10:54:34.200000"
+        },
+        "metrics": {
+          "inSampleMetrics": {
+            "netProfit": -5804.25,
+            "profitFactor": 0.8763,
+            "winRate": 0.3326,
+            "avgTrade": -2.63,
+            "expectedPayoff": -2.63,
+            "maxDrawdown": {
+              "absolute": 6183.69,
+              "percent": 0.6121
+            },
+            "recoveryFactor": -0.9386,
+            "sharpe": -0.0589,
+            "sortino": -0.1898,
+            "largestWin": 120.08,
+            "largestLoss": -141.97,
+            "consecutiveWins": 7,
+            "consecutiveLosses": 16,
+            "tradeCount": 2204,
+            "_annualized": false,
+            "_depositUsedForDrawdown": 10000.0,
+            "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+          },
+          "outOfSampleMetrics": {
+            "netProfit": -105.07,
+            "profitFactor": 0.9814,
+            "winRate": 0.3445,
+            "avgTrade": -0.21,
+            "expectedPayoff": -0.21,
+            "maxDrawdown": {
+              "absolute": 519.32,
+              "percent": 0.0516
+            },
+            "recoveryFactor": -0.2023,
+            "sharpe": -0.0088,
+            "sortino": -0.066,
+            "largestWin": 58.36,
+            "largestLoss": -31.08,
+            "consecutiveWins": 6,
+            "consecutiveLosses": 12,
+            "tradeCount": 508,
+            "_annualized": false,
+            "_depositUsedForDrawdown": 10000.0,
+            "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+          },
+          "inSampleTradeCount": 2204,
+          "outOfSampleTradeCount": 508
+        },
+        "findings": [
+          "Split boundary (time-based, 80% in-sample): 2024-09-11T10:54:34.200000",
+          "In-sample: 2204 trades. Out-of-sample: 508 trades.",
+          "In-sample and out-of-sample metrics computed independently and are reported separately below -- never combined into one number."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.1"
+      },
+      {
+        "validationId": "WALK_FORWARD:1d0d5df55c44a8a1",
+        "versionId": "G01-v0.1-FROZEN-BASELINE",
+        "evidenceId": "1d0d5df55c44a8a1",
+        "validationType": "WALK_FORWARD",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "3b94c92eb80e2583",
+        "inputEvidenceHash": "1d0d5df55c44a8a1",
+        "startedAt": "2026-08-23T16:02:03.367138Z",
+        "completedAt": "2026-08-23T16:02:04.345843Z",
+        "methodology": "Expanding-window, one test window per calendar year (M4-methodology-v1). Never collapsed into a single score.",
+        "parameters": {
+          "windowDefinition": "calendar-year",
+          "windowCount": 9
+        },
+        "metrics": {
+          "windows": [
+            {
+              "testYear": 2018,
+              "trainStart": "2017-04-06T13:58:03",
+              "trainEnd": "2017-12-29T10:43:05",
+              "testStart": "2018-01-01T00:00:00",
+              "testEnd": "2018-12-31T23:59:59",
+              "trainTradeCount": 216,
+              "testTradeCount": 274,
+              "trainMetrics": {
+                "netProfit": -1004.55,
+                "profitFactor": 0.8628,
+                "winRate": 0.338,
+                "avgTrade": -4.65,
+                "expectedPayoff": -4.65,
+                "maxDrawdown": {
+                  "absolute": 1259.51,
+                  "percent": 0.1247
+                },
+                "recoveryFactor": -0.7976,
+                "sharpe": -0.0703,
+                "sortino": -0.474,
+                "largestWin": 120.08,
+                "largestLoss": -109.06,
+                "consecutiveWins": 6,
+                "consecutiveLosses": 12,
+                "tradeCount": 216,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "testMetrics": {
+                "netProfit": -675.18,
+                "profitFactor": 0.9189,
+                "winRate": 0.3467,
+                "avgTrade": -2.46,
+                "expectedPayoff": -2.46,
+                "maxDrawdown": {
+                  "absolute": 1037.14,
+                  "percent": 0.1026
+                },
+                "recoveryFactor": -0.651,
+                "sharpe": -0.0402,
+                "sortino": -0.2187,
+                "largestWin": 110.07,
+                "largestLoss": -141.97,
+                "consecutiveWins": 7,
+                "consecutiveLosses": 10,
+                "tradeCount": 274,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "configurationVersion": "G01-v0.1-FROZEN-BASELINE",
+              "status": "PASS"
+            },
+            {
+              "testYear": 2019,
+              "trainStart": "2017-04-06T13:58:03",
+              "trainEnd": "2018-12-28T15:29:38",
+              "testStart": "2019-01-01T00:00:00",
+              "testEnd": "2019-12-31T23:59:59",
+              "trainTradeCount": 490,
+              "testTradeCount": 306,
+              "trainMetrics": {
+                "netProfit": -1679.73,
+                "profitFactor": 0.8926,
+                "winRate": 0.3429,
+                "avgTrade": -3.43,
+                "expectedPayoff": -3.43,
+                "maxDrawdown": {
+                  "absolute": 2034.62,
+                  "percent": 0.2014
+                },
+                "recoveryFactor": -0.8256,
+                "sharpe": -0.054,
+                "sortino": -0.3145,
+                "largestWin": 120.08,
+                "largestLoss": -141.97,
+                "consecutiveWins": 7,
+                "consecutiveLosses": 12,
+                "tradeCount": 490,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "testMetrics": {
+                "netProfit": -1055.91,
+                "profitFactor": 0.881,
+                "winRate": 0.3366,
+                "avgTrade": -3.45,
+                "expectedPayoff": -3.45,
+                "maxDrawdown": {
+                  "absolute": 1713.04,
+                  "percent": 0.162
+                },
+                "recoveryFactor": -0.6164,
+                "sharpe": -0.0603,
+                "sortino": -0.4051,
+                "largestWin": 109.73,
+                "largestLoss": -86.42,
+                "consecutiveWins": 5,
+                "consecutiveLosses": 13,
+                "tradeCount": 306,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "configurationVersion": "G01-v0.1-FROZEN-BASELINE",
+              "status": "PASS"
+            },
+            {
+              "testYear": 2020,
+              "trainStart": "2017-04-06T13:58:03",
+              "trainEnd": "2019-12-30T14:39:26",
+              "testStart": "2020-01-01T00:00:00",
+              "testEnd": "2020-12-31T23:59:59",
+              "trainTradeCount": 796,
+              "testTradeCount": 289,
+              "trainMetrics": {
+                "netProfit": -2735.64,
+                "profitFactor": 0.8884,
+                "winRate": 0.3405,
+                "avgTrade": -3.44,
+                "expectedPayoff": -3.44,
+                "maxDrawdown": {
+                  "absolute": 2921.95,
+                  "percent": 0.2892
+                },
+                "recoveryFactor": -0.9362,
+                "sharpe": -0.0562,
+                "sortino": -0.333,
+                "largestWin": 120.08,
+                "largestLoss": -141.97,
+                "consecutiveWins": 7,
+                "consecutiveLosses": 13,
+                "tradeCount": 796,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "testMetrics": {
+                "netProfit": -1496.72,
+                "profitFactor": 0.772,
+                "winRate": 0.308,
+                "avgTrade": -5.18,
+                "expectedPayoff": -5.18,
+                "maxDrawdown": {
+                  "absolute": 1605.63,
+                  "percent": 0.1588
+                },
+                "recoveryFactor": -0.9322,
+                "sharpe": -0.123,
+                "sortino": -0.7128,
+                "largestWin": 83.63,
+                "largestLoss": -88.4,
+                "consecutiveWins": 4,
+                "consecutiveLosses": 14,
+                "tradeCount": 289,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "configurationVersion": "G01-v0.1-FROZEN-BASELINE",
+              "status": "PASS"
+            },
+            {
+              "testYear": 2021,
+              "trainStart": "2017-04-06T13:58:03",
+              "trainEnd": "2020-12-31T16:53:29",
+              "testStart": "2021-01-01T00:00:00",
+              "testEnd": "2021-12-31T23:59:59",
+              "trainTradeCount": 1085,
+              "testTradeCount": 309,
+              "trainMetrics": {
+                "netProfit": -4232.36,
+                "profitFactor": 0.8638,
+                "winRate": 0.3318,
+                "avgTrade": -3.9,
+                "expectedPayoff": -3.9,
+                "maxDrawdown": {
+                  "absolute": 4334.48,
+                  "percent": 0.4291
+                },
+                "recoveryFactor": -0.9764,
+                "sharpe": -0.0688,
+                "sortino": -0.3418,
+                "largestWin": 120.08,
+                "largestLoss": -141.97,
+                "consecutiveWins": 7,
+                "consecutiveLosses": 14,
+                "tradeCount": 1085,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "testMetrics": {
+                "netProfit": -1582.41,
+                "profitFactor": 0.6984,
+                "winRate": 0.288,
+                "avgTrade": -5.12,
+                "expectedPayoff": -5.12,
+                "maxDrawdown": {
+                  "absolute": 1890.48,
+                  "percent": 0.1865
+                },
+                "recoveryFactor": -0.837,
+                "sharpe": -0.1704,
+                "sortino": -0.9711,
+                "largestWin": 60.9,
+                "largestLoss": -58.54,
+                "consecutiveWins": 4,
+                "consecutiveLosses": 16,
+                "tradeCount": 309,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "configurationVersion": "G01-v0.1-FROZEN-BASELINE",
+              "status": "PASS"
+            },
+            {
+              "testYear": 2022,
+              "trainStart": "2017-04-06T13:58:03",
+              "trainEnd": "2021-12-31T09:03:35",
+              "testStart": "2022-01-01T00:00:00",
+              "testEnd": "2022-12-31T23:59:59",
+              "trainTradeCount": 1394,
+              "testTradeCount": 296,
+              "trainMetrics": {
+                "netProfit": -5814.77,
+                "profitFactor": 0.8399,
+                "winRate": 0.3221,
+                "avgTrade": -4.17,
+                "expectedPayoff": -4.17,
+                "maxDrawdown": {
+                  "absolute": 6088.26,
+                  "percent": 0.6027
+                },
+                "recoveryFactor": -0.9551,
+                "sharpe": -0.0802,
+                "sortino": -0.319,
+                "largestWin": 120.08,
+                "largestLoss": -141.97,
+                "consecutiveWins": 7,
+                "consecutiveLosses": 16,
+                "tradeCount": 1394,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "testMetrics": {
+                "netProfit": 84.83,
+                "profitFactor": 1.0223,
+                "winRate": 0.3547,
+                "avgTrade": 0.29,
+                "expectedPayoff": 0.29,
+                "maxDrawdown": {
+                  "absolute": 374.28,
+                  "percent": 0.0369
+                },
+                "recoveryFactor": 0.2266,
+                "sharpe": 0.0104,
+                "sortino": 0.0893,
+                "largestWin": 48.9,
+                "largestLoss": -40.29,
+                "consecutiveWins": 4,
+                "consecutiveLosses": 10,
+                "tradeCount": 296,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "configurationVersion": "G01-v0.1-FROZEN-BASELINE",
+              "status": "PASS"
+            },
+            {
+              "testYear": 2023,
+              "trainStart": "2017-04-06T13:58:03",
+              "trainEnd": "2022-12-30T13:39:26",
+              "testStart": "2023-01-01T00:00:00",
+              "testEnd": "2023-12-31T23:59:59",
+              "trainTradeCount": 1690,
+              "testTradeCount": 293,
+              "trainMetrics": {
+                "netProfit": -5729.94,
+                "profitFactor": 0.8572,
+                "winRate": 0.3278,
+                "avgTrade": -3.39,
+                "expectedPayoff": -3.39,
+                "maxDrawdown": {
+                  "absolute": 6161.26,
+                  "percent": 0.6099
+                },
+                "recoveryFactor": -0.93,
+                "sharpe": -0.0697,
+                "sortino": -0.2447,
+                "largestWin": 120.08,
+                "largestLoss": -141.97,
+                "consecutiveWins": 7,
+                "consecutiveLosses": 16,
+                "tradeCount": 1690,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "testMetrics": {
+                "netProfit": -45.2,
+                "profitFactor": 0.9885,
+                "winRate": 0.3447,
+                "avgTrade": -0.15,
+                "expectedPayoff": -0.15,
+                "maxDrawdown": {
+                  "absolute": 434.35,
+                  "percent": 0.0426
+                },
+                "recoveryFactor": -0.1041,
+                "sharpe": -0.0054,
+                "sortino": -0.0364,
+                "largestWin": 100.84,
+                "largestLoss": -50.71,
+                "consecutiveWins": 4,
+                "consecutiveLosses": 11,
+                "tradeCount": 293,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "configurationVersion": "G01-v0.1-FROZEN-BASELINE",
+              "status": "PASS"
+            },
+            {
+              "testYear": 2024,
+              "trainStart": "2017-04-06T13:58:03",
+              "trainEnd": "2023-12-29T22:46:37",
+              "testStart": "2024-01-01T00:00:00",
+              "testEnd": "2024-12-31T23:59:59",
+              "trainTradeCount": 1983,
+              "testTradeCount": 318,
+              "trainMetrics": {
+                "netProfit": -5775.14,
+                "profitFactor": 0.8689,
+                "winRate": 0.3303,
+                "avgTrade": -2.91,
+                "expectedPayoff": -2.91,
+                "maxDrawdown": {
+                  "absolute": 6161.26,
+                  "percent": 0.6099
+                },
+                "recoveryFactor": -0.9373,
+                "sharpe": -0.063,
+                "sortino": -0.209,
+                "largestWin": 120.08,
+                "largestLoss": -141.97,
+                "consecutiveWins": 7,
+                "consecutiveLosses": 16,
+                "tradeCount": 1983,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "testMetrics": {
+                "netProfit": -81.19,
+                "profitFactor": 0.9799,
+                "winRate": 0.3491,
+                "avgTrade": -0.26,
+                "expectedPayoff": -0.26,
+                "maxDrawdown": {
+                  "absolute": 616.79,
+                  "percent": 0.0598
+                },
+                "recoveryFactor": -0.1316,
+                "sharpe": -0.0096,
+                "sortino": -0.068,
+                "largestWin": 54.59,
+                "largestLoss": -37.62,
+                "consecutiveWins": 5,
+                "consecutiveLosses": 9,
+                "tradeCount": 318,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "configurationVersion": "G01-v0.1-FROZEN-BASELINE",
+              "status": "PASS"
+            },
+            {
+              "testYear": 2025,
+              "trainStart": "2017-04-06T13:58:03",
+              "trainEnd": "2024-12-30T15:35:31",
+              "testStart": "2025-01-01T00:00:00",
+              "testEnd": "2025-12-31T23:59:59",
+              "trainTradeCount": 2301,
+              "testTradeCount": 305,
+              "trainMetrics": {
+                "netProfit": -5856.33,
+                "profitFactor": 0.8783,
+                "winRate": 0.3329,
+                "avgTrade": -2.55,
+                "expectedPayoff": -2.55,
+                "maxDrawdown": {
+                  "absolute": 6183.69,
+                  "percent": 0.6121
+                },
+                "recoveryFactor": -0.9471,
+                "sharpe": -0.0578,
+                "sortino": -0.1839,
+                "largestWin": 120.08,
+                "largestLoss": -141.97,
+                "consecutiveWins": 7,
+                "consecutiveLosses": 16,
+                "tradeCount": 2301,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "testMetrics": {
+                "netProfit": -374.77,
+                "profitFactor": 0.8912,
+                "winRate": 0.3246,
+                "avgTrade": -1.23,
+                "expectedPayoff": -1.23,
+                "maxDrawdown": {
+                  "absolute": 434.59,
+                  "percent": 0.0433
+                },
+                "recoveryFactor": -0.8624,
+                "sharpe": -0.054,
+                "sortino": -0.3758,
+                "largestWin": 58.36,
+                "largestLoss": -31.08,
+                "consecutiveWins": 3,
+                "consecutiveLosses": 12,
+                "tradeCount": 305,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "configurationVersion": "G01-v0.1-FROZEN-BASELINE",
+              "status": "PASS"
+            },
+            {
+              "testYear": 2026,
+              "trainStart": "2017-04-06T13:58:03",
+              "trainEnd": "2025-12-29T02:20:40",
+              "testStart": "2026-01-01T00:00:00",
+              "testEnd": "2026-12-31T23:59:59",
+              "trainTradeCount": 2606,
+              "testTradeCount": 106,
+              "trainMetrics": {
+                "netProfit": -6231.1,
+                "profitFactor": 0.8791,
+                "winRate": 0.3319,
+                "avgTrade": -2.39,
+                "expectedPayoff": -2.39,
+                "maxDrawdown": {
+                  "absolute": 6365.57,
+                  "percent": 0.6301
+                },
+                "recoveryFactor": -0.9789,
+                "sharpe": -0.0568,
+                "sortino": -0.1724,
+                "largestWin": 120.08,
+                "largestLoss": -141.97,
+                "consecutiveWins": 7,
+                "consecutiveLosses": 16,
+                "tradeCount": 2606,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "testMetrics": {
+                "netProfit": 321.78,
+                "profitFactor": 1.3188,
+                "winRate": 0.4057,
+                "avgTrade": 3.04,
+                "expectedPayoff": 3.04,
+                "maxDrawdown": {
+                  "absolute": 240.26,
+                  "percent": 0.0229
+                },
+                "recoveryFactor": 1.3393,
+                "sharpe": 0.1297,
+                "sortino": 1.0781,
+                "largestWin": 39.01,
+                "largestLoss": -24.67,
+                "consecutiveWins": 6,
+                "consecutiveLosses": 7,
+                "tradeCount": 106,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "configurationVersion": "G01-v0.1-FROZEN-BASELINE",
+              "status": "PASS"
+            }
+          ]
+        },
+        "findings": [
+          "9 walk-forward windows (one per calendar year from 2018 to 2026, 2017 reserved as the initial training-only period). Same configuration (G01-v0.1-FROZEN-BASELINE) used in every window -- no re-optimization between windows."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.1"
+      },
+      {
+        "validationId": "TEMPORAL_STABILITY:1d0d5df55c44a8a1",
+        "versionId": "G01-v0.1-FROZEN-BASELINE",
+        "evidenceId": "1d0d5df55c44a8a1",
+        "validationType": "TEMPORAL_STABILITY",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "3b94c92eb80e2583",
+        "inputEvidenceHash": "1d0d5df55c44a8a1",
+        "startedAt": "2026-08-23T16:02:04.346522Z",
+        "completedAt": "2026-08-23T16:02:04.476349Z",
+        "methodology": "Calendar-period aggregation (month/quarter/year) plus inter-trade gap and best-single-period concentration.",
+        "parameters": {},
+        "metrics": {
+          "monthly": {
+            "2017-04": {
+              "tradeCount": 17,
+              "netProfit": -64.0
+            },
+            "2017-05": {
+              "tradeCount": 27,
+              "netProfit": 166.12
+            },
+            "2017-06": {
+              "tradeCount": 32,
+              "netProfit": -624.9
+            },
+            "2017-07": {
+              "tradeCount": 23,
+              "netProfit": -185.34
+            },
+            "2017-08": {
+              "tradeCount": 21,
+              "netProfit": 68.09
+            },
+            "2017-09": {
+              "tradeCount": 26,
+              "netProfit": -33.95
+            },
+            "2017-10": {
+              "tradeCount": 24,
+              "netProfit": -376.98
+            },
+            "2017-11": {
+              "tradeCount": 21,
+              "netProfit": 180.23
+            },
+            "2017-12": {
+              "tradeCount": 25,
+              "netProfit": -133.82
+            },
+            "2018-01": {
+              "tradeCount": 26,
+              "netProfit": -195.47
+            },
+            "2018-02": {
+              "tradeCount": 18,
+              "netProfit": -450.8
+            },
+            "2018-03": {
+              "tradeCount": 20,
+              "netProfit": -91.19
+            },
+            "2018-04": {
+              "tradeCount": 27,
+              "netProfit": 37.04
+            },
+            "2018-05": {
+              "tradeCount": 30,
+              "netProfit": 46.63
+            },
+            "2018-06": {
+              "tradeCount": 11,
+              "netProfit": 284.38
+            },
+            "2018-07": {
+              "tradeCount": 25,
+              "netProfit": 102.24
+            },
+            "2018-08": {
+              "tradeCount": 31,
+              "netProfit": -310.13
+            },
+            "2018-09": {
+              "tradeCount": 14,
+              "netProfit": 283.61
+            },
+            "2018-10": {
+              "tradeCount": 30,
+              "netProfit": -25.85
+            },
+            "2018-11": {
+              "tradeCount": 22,
+              "netProfit": -215.77
+            },
+            "2018-12": {
+              "tradeCount": 20,
+              "netProfit": -139.87
+            },
+            "2019-01": {
+              "tradeCount": 23,
+              "netProfit": 141.69
+            },
+            "2019-02": {
+              "tradeCount": 24,
+              "netProfit": -214.86
+            },
+            "2019-03": {
+              "tradeCount": 29,
+              "netProfit": 604.72
+            },
+            "2019-04": {
+              "tradeCount": 30,
+              "netProfit": -630.48
+            },
+            "2019-05": {
+              "tradeCount": 27,
+              "netProfit": -243.88
+            },
+            "2019-06": {
+              "tradeCount": 27,
+              "netProfit": 199.14
+            },
+            "2019-07": {
+              "tradeCount": 29,
+              "netProfit": -118.58
+            },
+            "2019-08": {
+              "tradeCount": 28,
+              "netProfit": -15.18
+            },
+            "2019-09": {
+              "tradeCount": 23,
+              "netProfit": -173.03
+            },
+            "2019-10": {
+              "tradeCount": 15,
+              "netProfit": 14.05
+            },
+            "2019-11": {
+              "tradeCount": 28,
+              "netProfit": -346.53
+            },
+            "2019-12": {
+              "tradeCount": 23,
+              "netProfit": -272.97
+            },
+            "2020-01": {
+              "tradeCount": 26,
+              "netProfit": -153.27
+            },
+            "2020-02": {
+              "tradeCount": 24,
+              "netProfit": 262.18
+            },
+            "2020-03": {
+              "tradeCount": 23,
+              "netProfit": -390.76
+            },
+            "2020-04": {
+              "tradeCount": 14,
+              "netProfit": -193.87
+            },
+            "2020-05": {
+              "tradeCount": 16,
+              "netProfit": -184.63
+            },
+            "2020-06": {
+              "tradeCount": 21,
+              "netProfit": -352.5
+            },
+            "2020-07": {
+              "tradeCount": 29,
+              "netProfit": -236.56
+            },
+            "2020-08": {
+              "tradeCount": 31,
+              "netProfit": 581.71
+            },
+            "2020-09": {
+              "tradeCount": 28,
+              "netProfit": -325.2
+            },
+            "2020-10": {
+              "tradeCount": 22,
+              "netProfit": -74.07
+            },
+            "2020-11": {
+              "tradeCount": 26,
+              "netProfit": -71.06
+            },
+            "2020-12": {
+              "tradeCount": 29,
+              "netProfit": -358.69
+            },
+            "2021-01": {
+              "tradeCount": 22,
+              "netProfit": -189.37
+            },
+            "2021-02": {
+              "tradeCount": 21,
+              "netProfit": 36.63
+            },
+            "2021-03": {
+              "tradeCount": 28,
+              "netProfit": -291.55
+            },
+            "2021-04": {
+              "tradeCount": 30,
+              "netProfit": -384.46
+            },
+            "2021-05": {
+              "tradeCount": 28,
+              "netProfit": -107.01
+            },
+            "2021-06": {
+              "tradeCount": 28,
+              "netProfit": -259.19
+            },
+            "2021-07": {
+              "tradeCount": 24,
+              "netProfit": -309.27
+            },
+            "2021-08": {
+              "tradeCount": 27,
+              "netProfit": -137.53
+            },
+            "2021-09": {
+              "tradeCount": 18,
+              "netProfit": -87.05
+            },
+            "2021-10": {
+              "tradeCount": 32,
+              "netProfit": 205.42
+            },
+            "2021-11": {
+              "tradeCount": 27,
+              "netProfit": -60.68
+            },
+            "2021-12": {
+              "tradeCount": 24,
+              "netProfit": 1.65
+            },
+            "2022-01": {
+              "tradeCount": 31,
+              "netProfit": -74.02
+            },
+            "2022-02": {
+              "tradeCount": 24,
+              "netProfit": 29.02
+            },
+            "2022-03": {
+              "tradeCount": 25,
+              "netProfit": 84.63
+            },
+            "2022-04": {
+              "tradeCount": 18,
+              "netProfit": -90.48
+            },
+            "2022-05": {
+              "tradeCount": 30,
+              "netProfit": -39.84
+            },
+            "2022-06": {
+              "tradeCount": 17,
+              "netProfit": 9.47
+            },
+            "2022-07": {
+              "tradeCount": 24,
+              "netProfit": -25.15
+            },
+            "2022-08": {
+              "tradeCount": 24,
+              "netProfit": -13.54
+            },
+            "2022-09": {
+              "tradeCount": 30,
+              "netProfit": 221.13
+            },
+            "2022-10": {
+              "tradeCount": 25,
+              "netProfit": 68.6
+            },
+            "2022-11": {
+              "tradeCount": 23,
+              "netProfit": -19.51
+            },
+            "2022-12": {
+              "tradeCount": 25,
+              "netProfit": -65.48
+            },
+            "2023-01": {
+              "tradeCount": 22,
+              "netProfit": 103.11
+            },
+            "2023-02": {
+              "tradeCount": 24,
+              "netProfit": -95.68
+            },
+            "2023-03": {
+              "tradeCount": 26,
+              "netProfit": -47.36
+            },
+            "2023-04": {
+              "tradeCount": 25,
+              "netProfit": 74.35
+            },
+            "2023-05": {
+              "tradeCount": 28,
+              "netProfit": -33.82
+            },
+            "2023-06": {
+              "tradeCount": 23,
+              "netProfit": -20.31
+            },
+            "2023-07": {
+              "tradeCount": 24,
+              "netProfit": 68.07
+            },
+            "2023-08": {
+              "tradeCount": 22,
+              "netProfit": -62.84
+            },
+            "2023-09": {
+              "tradeCount": 27,
+              "netProfit": -179.56
+            },
+            "2023-10": {
+              "tradeCount": 25,
+              "netProfit": 72.04
+            },
+            "2023-11": {
+              "tradeCount": 24,
+              "netProfit": 35.12
+            },
+            "2023-12": {
+              "tradeCount": 23,
+              "netProfit": 41.68
+            },
+            "2024-01": {
+              "tradeCount": 27,
+              "netProfit": 240.9
+            },
+            "2024-02": {
+              "tradeCount": 25,
+              "netProfit": -292.64
+            },
+            "2024-03": {
+              "tradeCount": 27,
+              "netProfit": -192.15
+            },
+            "2024-04": {
+              "tradeCount": 24,
+              "netProfit": 94.6
+            },
+            "2024-05": {
+              "tradeCount": 28,
+              "netProfit": 38.55
+            },
+            "2024-06": {
+              "tradeCount": 25,
+              "netProfit": 148.81
+            },
+            "2024-07": {
+              "tradeCount": 24,
+              "netProfit": 137.71
+            },
+            "2024-08": {
+              "tradeCount": 28,
+              "netProfit": -63.27
+            },
+            "2024-09": {
+              "tradeCount": 29,
+              "netProfit": -178.78
+            },
+            "2024-10": {
+              "tradeCount": 28,
+              "netProfit": 10.42
+            },
+            "2024-11": {
+              "tradeCount": 27,
+              "netProfit": 19.52
+            },
+            "2024-12": {
+              "tradeCount": 26,
+              "netProfit": -44.86
+            },
+            "2025-01": {
+              "tradeCount": 27,
+              "netProfit": -180.31
+            },
+            "2025-02": {
+              "tradeCount": 33,
+              "netProfit": -32.34
+            },
+            "2025-03": {
+              "tradeCount": 24,
+              "netProfit": -67.27
+            },
+            "2025-04": {
+              "tradeCount": 27,
+              "netProfit": -105.7
+            },
+            "2025-05": {
+              "tradeCount": 25,
+              "netProfit": 92.0
+            },
+            "2025-06": {
+              "tradeCount": 21,
+              "netProfit": -29.9
+            },
+            "2025-07": {
+              "tradeCount": 28,
+              "netProfit": 114.11
+            },
+            "2025-08": {
+              "tradeCount": 30,
+              "netProfit": -94.32
+            },
+            "2025-09": {
+              "tradeCount": 29,
+              "netProfit": -69.72
+            },
+            "2025-10": {
+              "tradeCount": 19,
+              "netProfit": 207.96
+            },
+            "2025-11": {
+              "tradeCount": 18,
+              "netProfit": 102.0
+            },
+            "2025-12": {
+              "tradeCount": 24,
+              "netProfit": -311.28
+            },
+            "2026-01": {
+              "tradeCount": 16,
+              "netProfit": 146.54
+            },
+            "2026-02": {
+              "tradeCount": 13,
+              "netProfit": 82.92
+            },
+            "2026-03": {
+              "tradeCount": 8,
+              "netProfit": 114.71
+            },
+            "2026-04": {
+              "tradeCount": 21,
+              "netProfit": 4.09
+            },
+            "2026-05": {
+              "tradeCount": 20,
+              "netProfit": 45.89
+            },
+            "2026-06": {
+              "tradeCount": 20,
+              "netProfit": -124.83
+            },
+            "2026-07": {
+              "tradeCount": 8,
+              "netProfit": 52.46
+            }
+          },
+          "quarterly": {
+            "2017-Q2": {
+              "tradeCount": 76,
+              "netProfit": -522.78
+            },
+            "2017-Q3": {
+              "tradeCount": 70,
+              "netProfit": -151.2
+            },
+            "2017-Q4": {
+              "tradeCount": 70,
+              "netProfit": -330.57
+            },
+            "2018-Q1": {
+              "tradeCount": 64,
+              "netProfit": -737.46
+            },
+            "2018-Q2": {
+              "tradeCount": 68,
+              "netProfit": 368.05
+            },
+            "2018-Q3": {
+              "tradeCount": 70,
+              "netProfit": 75.72
+            },
+            "2018-Q4": {
+              "tradeCount": 72,
+              "netProfit": -381.49
+            },
+            "2019-Q1": {
+              "tradeCount": 76,
+              "netProfit": 531.55
+            },
+            "2019-Q2": {
+              "tradeCount": 84,
+              "netProfit": -675.22
+            },
+            "2019-Q3": {
+              "tradeCount": 80,
+              "netProfit": -306.79
+            },
+            "2019-Q4": {
+              "tradeCount": 66,
+              "netProfit": -605.45
+            },
+            "2020-Q1": {
+              "tradeCount": 73,
+              "netProfit": -281.85
+            },
+            "2020-Q2": {
+              "tradeCount": 51,
+              "netProfit": -731.0
+            },
+            "2020-Q3": {
+              "tradeCount": 88,
+              "netProfit": 19.95
+            },
+            "2020-Q4": {
+              "tradeCount": 77,
+              "netProfit": -503.82
+            },
+            "2021-Q1": {
+              "tradeCount": 71,
+              "netProfit": -444.29
+            },
+            "2021-Q2": {
+              "tradeCount": 86,
+              "netProfit": -750.66
+            },
+            "2021-Q3": {
+              "tradeCount": 69,
+              "netProfit": -533.85
+            },
+            "2021-Q4": {
+              "tradeCount": 83,
+              "netProfit": 146.39
+            },
+            "2022-Q1": {
+              "tradeCount": 80,
+              "netProfit": 39.63
+            },
+            "2022-Q2": {
+              "tradeCount": 65,
+              "netProfit": -120.85
+            },
+            "2022-Q3": {
+              "tradeCount": 78,
+              "netProfit": 182.44
+            },
+            "2022-Q4": {
+              "tradeCount": 73,
+              "netProfit": -16.39
+            },
+            "2023-Q1": {
+              "tradeCount": 72,
+              "netProfit": -39.93
+            },
+            "2023-Q2": {
+              "tradeCount": 76,
+              "netProfit": 20.22
+            },
+            "2023-Q3": {
+              "tradeCount": 73,
+              "netProfit": -174.33
+            },
+            "2023-Q4": {
+              "tradeCount": 72,
+              "netProfit": 148.84
+            },
+            "2024-Q1": {
+              "tradeCount": 79,
+              "netProfit": -243.89
+            },
+            "2024-Q2": {
+              "tradeCount": 77,
+              "netProfit": 281.96
+            },
+            "2024-Q3": {
+              "tradeCount": 81,
+              "netProfit": -104.34
+            },
+            "2024-Q4": {
+              "tradeCount": 81,
+              "netProfit": -14.92
+            },
+            "2025-Q1": {
+              "tradeCount": 84,
+              "netProfit": -279.92
+            },
+            "2025-Q2": {
+              "tradeCount": 73,
+              "netProfit": -43.6
+            },
+            "2025-Q3": {
+              "tradeCount": 87,
+              "netProfit": -49.93
+            },
+            "2025-Q4": {
+              "tradeCount": 61,
+              "netProfit": -1.32
+            },
+            "2026-Q1": {
+              "tradeCount": 37,
+              "netProfit": 344.17
+            },
+            "2026-Q2": {
+              "tradeCount": 61,
+              "netProfit": -74.85
+            },
+            "2026-Q3": {
+              "tradeCount": 8,
+              "netProfit": 52.46
+            }
+          },
+          "yearly": {
+            "2017": {
+              "tradeCount": 216,
+              "netProfit": -1004.55
+            },
+            "2018": {
+              "tradeCount": 274,
+              "netProfit": -675.18
+            },
+            "2019": {
+              "tradeCount": 306,
+              "netProfit": -1055.91
+            },
+            "2020": {
+              "tradeCount": 289,
+              "netProfit": -1496.72
+            },
+            "2021": {
+              "tradeCount": 309,
+              "netProfit": -1582.41
+            },
+            "2022": {
+              "tradeCount": 296,
+              "netProfit": 84.83
+            },
+            "2023": {
+              "tradeCount": 293,
+              "netProfit": -45.2
+            },
+            "2024": {
+              "tradeCount": 318,
+              "netProfit": -81.19
+            },
+            "2025": {
+              "tradeCount": 305,
+              "netProfit": -374.77
+            },
+            "2026": {
+              "tradeCount": 106,
+              "netProfit": 321.78
+            }
+          },
+          "longestInactiveGapDays": 12,
+          "bestMonthShareOfPositiveMonths": 0.1065,
+          "winningMonths": 45,
+          "losingMonths": 67,
+          "flatMonths": 0
+        },
+        "findings": [
+          "112 distinct months, 10 distinct years represented.",
+          "Longest gap with zero trades: 12 days.",
+          "The single best month accounts for 10.7% of all positive monthly profit -- reported as a fact, no pass/fail threshold applied."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.1"
+      },
+      {
+        "validationId": "REGIME_COVERAGE:1d0d5df55c44a8a1",
+        "versionId": "G01-v0.1-FROZEN-BASELINE",
+        "evidenceId": "1d0d5df55c44a8a1",
+        "validationType": "REGIME_COVERAGE",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "3b94c92eb80e2583",
+        "inputEvidenceHash": "1d0d5df55c44a8a1",
+        "startedAt": "2026-08-23T16:02:04.476349Z",
+        "completedAt": "2026-08-23T16:02:04.477351Z",
+        "methodology": "Per-regime trade grouping using Trade.marketRegime, when present.",
+        "parameters": {},
+        "metrics": {
+          "regimesRepresented": [],
+          "tradeCountByRegime": {}
+        },
+        "findings": [
+          "No trades in this Evidence carry a marketRegime tag -- regime coverage cannot be computed for this Evidence. No regime classifier exists yet in this research program (see design doc section 11); this is reported honestly, not fabricated."
+        ],
+        "warnings": [],
+        "status": "INCONCLUSIVE",
+        "createdBy": "AT24-M4-Validation-Engine-v1.1"
+      },
+      {
+        "validationId": "PERFORMANCE_DISTRIBUTION:1d0d5df55c44a8a1",
+        "versionId": "G01-v0.1-FROZEN-BASELINE",
+        "evidenceId": "1d0d5df55c44a8a1",
+        "validationType": "PERFORMANCE_DISTRIBUTION",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "3b94c92eb80e2583",
+        "inputEvidenceHash": "1d0d5df55c44a8a1",
+        "startedAt": "2026-08-23T16:02:04.477351Z",
+        "completedAt": "2026-08-23T16:02:04.516080Z",
+        "methodology": "Distribution statistics beyond total return: median, expectancy, streaks, top-decile concentration.",
+        "parameters": {},
+        "metrics": {
+          "profitFactor": 0.8876,
+          "winRate": 0.3348,
+          "avgTrade": -2.18,
+          "medianTrade": -19.16,
+          "expectancy": -2.179,
+          "maxDrawdown": {
+            "absolute": 6365.57,
+            "percent": 0.6301
+          },
+          "largestWin": 120.08,
+          "largestLoss": -141.97,
+          "consecutiveWins": 7,
+          "consecutiveLosses": 16,
+          "topDecileWinShareOfGrossProfit": 0.1773
+        },
+        "findings": [
+          "Median trade P&L: -19.16. Expectancy per trade: -2.179.",
+          "Best 10% of winning trades account for 17.7% of total gross profit -- a concentration fact, not a pass/fail judgment."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.1"
+      },
+      {
+        "validationId": "PARAMETER_SENSITIVITY:1d0d5df55c44a8a1",
+        "versionId": "G01-v0.1-FROZEN-BASELINE",
+        "evidenceId": "1d0d5df55c44a8a1",
+        "validationType": "PARAMETER_SENSITIVITY",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "n/a",
+        "datasetHash": "3b94c92eb80e2583",
+        "inputEvidenceHash": "1d0d5df55c44a8a1",
+        "startedAt": "2026-08-23T16:02:04.516080Z",
+        "completedAt": "2026-08-23T16:02:04.516080Z",
+        "methodology": "Baseline-vs-perturbed-configuration comparison (framework only -- see design doc section 12).",
+        "parameters": {},
+        "metrics": {},
+        "findings": [
+          "Not executed for this Evidence: real parameter-sensitivity analysis requires new backtests with perturbed EA inputs, which this sprint's guardrails explicitly forbid ('Do not optimize G01. Do not change G01 parameters.'). The framework itself is built and verified against synthetic configurations (see test_validation_engine.py Test H). Deferred to a future sprint that explicitly authorizes new runs."
+        ],
+        "warnings": [],
+        "status": "INCONCLUSIVE",
+        "createdBy": "AT24-M4-Validation-Engine-v1.1"
+      }
+    ]
+  },
+  "m5_full": {
+    "riskAnalysisId": "3d88f3ede2e6e6c1",
+    "versionId": "G01-v0.1-FROZEN-BASELINE",
+    "evidenceId": "1d0d5df55c44a8a1",
+    "validationId": "26d6db39ad522c01",
+    "rulesetVersion": "none-defined",
+    "methodologyVersion": "M5-methodology-v1",
+    "inputEvidenceHash": "1d0d5df55c44a8a1",
+    "inputValidationHash": "26d6db39ad522c01",
+    "generatedAt": "2026-08-23T16:02:05.364129Z",
+    "drawdown": {
+      "curveType": "balance (trade-close), NOT intraday equity -- see design doc section 8",
+      "equityDrawdownAvailable": false,
+      "balanceDrawdownAvailable": true,
+      "maxDrawdown": 6365.57,
+      "maxDrawdownPercent": 0.6301,
+      "maxDrawdownDurationDays": 3338,
+      "averageDrawdown": 3550.02,
+      "medianDrawdown": 3550.02,
+      "drawdownFrequency": 2,
+      "episodeCount": 2,
+      "unrecoveredEpisodes": 1,
+      "dataQuality": "LIMITED",
+      "note": "DRAWDOWN_ANALYSIS_LIMITED: no intraday/tick equity series exists in this Evidence (Evidence.curves is empty) -- figures above are BALANCE drawdown (closed trades only), not EQUITY drawdown."
+    },
+    "lossDistribution": {
+      "count": 1804,
+      "largestLoss": -141.97,
+      "averageLoss": -29.14,
+      "medianLoss": -22.71,
+      "stdevLoss": 13.86,
+      "percentiles": {
+        "P50": 22.72,
+        "P75": 40.48,
+        "P90": 48.44,
+        "P95": 52.08,
+        "P99": 65.56
+      },
+      "maxConsecutiveLosses": 16,
+      "averageConsecutiveLossLength": 2.99,
+      "lossStreakEpisodes": 603,
+      "clusteredLossShare": 0.9002,
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "winDistribution": {
+      "count": 908,
+      "largestWin": 120.08,
+      "averageWin": 51.38,
+      "medianWin": 40.3,
+      "stdevWin": 21.62,
+      "percentiles": {
+        "P50": 40.3,
+        "P75": 73.0,
+        "P90": 83.51,
+        "P95": 88.89,
+        "P99": 100.84
+      },
+      "maxConsecutiveWins": 7,
+      "averageConsecutiveWinLength": 1.5,
+      "winStreakEpisodes": 604,
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "expectancy": {
+      "expectancyPerTrade": -2.179,
+      "averageWin": 51.38,
+      "averageLoss": -29.14,
+      "winLossRatio": 1.7634,
+      "profitFactorNet": 0.8876,
+      "grossProfitNet": 46653.41,
+      "grossLossNet": -52562.73,
+      "netResult": -5909.32,
+      "grossProfitRaw": 47962.14,
+      "grossLossRaw": -50228.77,
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "lossStreaks": {
+      "maxConsecutiveLosses": 16,
+      "maxLossStreakDurationDays": 18,
+      "capitalImpactOfLongestLossStreak": -355.08,
+      "capitalImpactPctOfDeposit": 0.0355,
+      "dataQuality": "AVAILABLE"
+    },
+    "recovery": {
+      "recoveryEpisodes": 1,
+      "unrecoveredEpisodesAtEndOfPeriod": 1,
+      "averageRecoveryDurationDays": 55,
+      "percentOfPeriodBelowPriorPeak": 1.0,
+      "dataQuality": "LIMITED",
+      "note": "Recovery timing is reconstructed from the same balance-level (trade-close) equity curve as drawdown -- not intraday equity. See drawdown section."
+    },
+    "tailRisk": {
+      "worst1Trade": -141.97,
+      "worst5Trades": -533.85,
+      "worst10Trades": -959.71,
+      "worst1SharePctOfGrossLoss": 0.0027,
+      "worst5SharePctOfGrossLoss": 0.0102,
+      "worst10SharePctOfGrossLoss": 0.0183,
+      "P95Loss": 52.08,
+      "P99Loss": 65.56,
+      "largestDrawdown": 6365.57,
+      "worstLossStreakCapitalImpact": -355.08,
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "concentration": {
+      "top1PctWinnersShareOfGrossProfit": 0.0209,
+      "top5PctWinnersShareOfGrossProfit": 0.0931,
+      "dataQuality": "AVAILABLE",
+      "bestYear": {
+        "year": "2026",
+        "tradeCount": 106,
+        "netProfit": 321.78
+      },
+      "worstYear": {
+        "year": "2021",
+        "tradeCount": 309,
+        "netProfit": -1582.41
+      },
+      "bestMonth": {
+        "month": "2019-03",
+        "tradeCount": 29,
+        "netProfit": 604.72
+      },
+      "worstMonth": {
+        "month": "2019-04",
+        "tradeCount": 30,
+        "netProfit": -630.48
+      },
+      "positivePeriodsCount": 45,
+      "negativePeriodsCount": 67,
+      "source": "reused from M4 TEMPORAL_STABILITY record (not recomputed)"
+    },
+    "temporalRisk": {
+      "perYear": {
+        "2017": {
+          "tradeCount": 216,
+          "maxDrawdownWithinYear": 1259.51,
+          "maxConsecutiveLossesWithinYear": 12
+        },
+        "2018": {
+          "tradeCount": 274,
+          "maxDrawdownWithinYear": 1037.14,
+          "maxConsecutiveLossesWithinYear": 10
+        },
+        "2019": {
+          "tradeCount": 306,
+          "maxDrawdownWithinYear": 1713.04,
+          "maxConsecutiveLossesWithinYear": 13
+        },
+        "2020": {
+          "tradeCount": 289,
+          "maxDrawdownWithinYear": 1605.63,
+          "maxConsecutiveLossesWithinYear": 14
+        },
+        "2021": {
+          "tradeCount": 309,
+          "maxDrawdownWithinYear": 1890.48,
+          "maxConsecutiveLossesWithinYear": 16
+        },
+        "2022": {
+          "tradeCount": 296,
+          "maxDrawdownWithinYear": 374.28,
+          "maxConsecutiveLossesWithinYear": 10
+        },
+        "2023": {
+          "tradeCount": 293,
+          "maxDrawdownWithinYear": 434.35,
+          "maxConsecutiveLossesWithinYear": 11
+        },
+        "2024": {
+          "tradeCount": 318,
+          "maxDrawdownWithinYear": 616.79,
+          "maxConsecutiveLossesWithinYear": 9
+        },
+        "2025": {
+          "tradeCount": 305,
+          "maxDrawdownWithinYear": 434.59,
+          "maxConsecutiveLossesWithinYear": 12
+        },
+        "2026": {
+          "tradeCount": 106,
+          "maxDrawdownWithinYear": 240.26,
+          "maxConsecutiveLossesWithinYear": 7
+        }
+      },
+      "worstDrawdownYear": "2021",
+      "dataQuality": "AVAILABLE",
+      "note": "Per-year drawdown/loss-streak computed fresh here (not in M4's TEMPORAL_STABILITY, which only tracked net profit/PF per period)."
+    },
+    "regimeRisk": {
+      "dataQuality": "UNAVAILABLE",
+      "note": "REGIME_DATA_UNAVAILABLE: no trades in this Evidence carry a marketRegime tag. No regime classifier exists yet in this research program -- not inferred.",
+      "riskByRegime": {}
+    },
+    "exposureRisk": {
+      "positionSize": {
+        "maxPositionSize": 5.36,
+        "averagePositionSize": 0.1555,
+        "positionSizeStdev": 0.2984,
+        "topDecilePositionShareOfTotalVolume": 0.4672
+      },
+      "directionalConcentration": {
+        "long": 1419,
+        "short": 1293,
+        "longSharePct": 0.5232
+      },
+      "simultaneousExposure": {
+        "maxSimultaneousPositions": 1,
+        "hadOverlappingPositions": false,
+        "totalOverlapDurationHours": 0.0
+      },
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "costRisk": {
+      "totalCommission": -2964.9,
+      "totalSwap": -677.79,
+      "totalCost": -3642.69,
+      "costPerTrade": -1.3432,
+      "costAsPctOfGrossProfit": 0.0759,
+      "costAsPctOfGrossLoss": 0.0725,
+      "spreadModel": "UNKNOWN",
+      "dataQuality": "AVAILABLE",
+      "note": "spreadModel is UNKNOWN (not zero) -- the source report doesn't expose it; commission/swap above are real measured values, independent of this gap."
+    },
+    "dataQuality": {
+      "drawdown": "LIMITED",
+      "lossDistribution": "AVAILABLE",
+      "winDistribution": "AVAILABLE",
+      "expectancy": "AVAILABLE",
+      "lossStreaks": "AVAILABLE",
+      "recovery": "LIMITED",
+      "tailRisk": "AVAILABLE",
+      "concentration": "AVAILABLE",
+      "temporalRisk": "AVAILABLE",
+      "regimeRisk": "UNAVAILABLE",
+      "exposureRisk": "AVAILABLE",
+      "costRisk": "AVAILABLE"
+    },
+    "findings": [
+      "Max drawdown (balance): 6365.57 (0.6301), 2 drawdown episodes, 1 unrecovered at end of period.",
+      "Expectancy per trade: -2.179. Max consecutive losses: 16."
+    ],
+    "warnings": [],
+    "limitations": [
+      "DRAWDOWN_ANALYSIS_LIMITED: no intraday/tick equity series exists in this Evidence (Evidence.curves is empty) -- figures above are BALANCE drawdown (closed trades only), not EQUITY drawdown.",
+      "Recovery timing is reconstructed from the same balance-level (trade-close) equity curve as drawdown -- not intraday equity. See drawdown section.",
+      "REGIME_DATA_UNAVAILABLE: no trades in this Evidence carry a marketRegime tag. No regime classifier exists yet in this research program -- not inferred.",
+      "spreadModel is UNKNOWN (not zero) -- the source report doesn't expose it; commission/swap above are real measured values, independent of this gap."
+    ],
+    "status": "PARTIAL",
+    "riskAnalysisHash": "3d88f3ede2e6e6c1",
+    "createdBy": "AT24-M5-Risk-Analysis-Engine-v1.0"
+  },
+  "m6_full": [
+    {
+      "tradingSystemId": "G01",
+      "versionId": "G01-v0.1-FROZEN-BASELINE",
+      "evidenceId": null,
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "SYSTEM_CREATED",
+      "observedAt": "2026-08-23T16:02:05.397046Z",
+      "recordedAt": "2026-08-23T16:02:05.397046Z",
+      "source": "AT24-M6-History-Engine-v1.0",
+      "sourceHash": null,
+      "payload": {
+        "tradingSystemId": "G01"
+      },
+      "previousEventId": null,
+      "previousEventHash": null,
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "5170ba7144568ccd",
+      "contentHash": "5170ba7144568ccd"
+    },
+    {
+      "tradingSystemId": "G01",
+      "versionId": "G01-v0.1-FROZEN-BASELINE",
+      "evidenceId": null,
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "VERSION_CREATED",
+      "observedAt": "2026-08-23T16:02:05.397046Z",
+      "recordedAt": "2026-08-23T16:02:05.397046Z",
+      "source": "AT24-M6-History-Engine-v1.0",
+      "sourceHash": null,
+      "payload": {
+        "versionId": "G01-v0.1-FROZEN-BASELINE"
+      },
+      "previousEventId": "5170ba7144568ccd",
+      "previousEventHash": "5170ba7144568ccd",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "bc842eab567a24cb",
+      "contentHash": "bc842eab567a24cb"
+    },
+    {
+      "tradingSystemId": "G01",
+      "versionId": "G01-v0.1-FROZEN-BASELINE",
+      "evidenceId": "1d0d5df55c44a8a1",
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "EVIDENCE_ADDED",
+      "observedAt": "2026-07-22T04:08:42",
+      "recordedAt": "2026-08-23T16:02:05.397046Z",
+      "source": "AT24-M2-Evidence-Engine-v0.2",
+      "sourceHash": "1d0d5df55c44a8a1",
+      "payload": {
+        "sourceAdapter": "mt5-deals-table-v1",
+        "tradeCount": 2712
+      },
+      "previousEventId": "bc842eab567a24cb",
+      "previousEventHash": "bc842eab567a24cb",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "ee2194aa53b44273",
+      "contentHash": "ee2194aa53b44273"
+    },
+    {
+      "tradingSystemId": "G01",
+      "versionId": "G01-v0.1-FROZEN-BASELINE",
+      "evidenceId": "1d0d5df55c44a8a1",
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "EVIDENCE_VERIFIED",
+      "observedAt": "2026-08-23T16:02:05.397046Z",
+      "recordedAt": "2026-08-23T16:02:05.397046Z",
+      "source": "AT24-M3-Evidence-Verifier-v1.0",
+      "sourceHash": "1d0d5df55c44a8a1",
+      "payload": {
+        "m3Status": "VERIFIED",
+        "warnings": [
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'spreadModel' is null",
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'commissionModel' is null",
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'swapModel' is null",
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'tickDataQuality' is null"
+        ]
+      },
+      "previousEventId": "ee2194aa53b44273",
+      "previousEventHash": "ee2194aa53b44273",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "1a972113deff817a",
+      "contentHash": "1a972113deff817a"
+    },
+    {
+      "tradingSystemId": "G01",
+      "versionId": "G01-v0.1-FROZEN-BASELINE",
+      "evidenceId": "1d0d5df55c44a8a1",
+      "validationId": "1d0d5df55c44a8a1",
+      "riskAnalysisId": null,
+      "eventType": "VALIDATION_COMPLETED",
+      "observedAt": "2026-08-23T16:02:05.397046Z",
+      "recordedAt": "2026-08-23T16:02:05.397046Z",
+      "source": "AT24-M4-Validation-Engine-v1.1",
+      "sourceHash": "1d0d5df55c44a8a1",
+      "payload": {
+        "overallStatus": "INCONCLUSIVE",
+        "recordStatuses": {
+          "SAMPLE_SIZE": "PASS",
+          "OUT_OF_SAMPLE": "PASS",
+          "WALK_FORWARD": "PASS",
+          "TEMPORAL_STABILITY": "PASS",
+          "REGIME_COVERAGE": "INCONCLUSIVE",
+          "PERFORMANCE_DISTRIBUTION": "PASS",
+          "PARAMETER_SENSITIVITY": "INCONCLUSIVE"
+        }
+      },
+      "previousEventId": "1a972113deff817a",
+      "previousEventHash": "1a972113deff817a",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "1887c261a8265727",
+      "contentHash": "1887c261a8265727"
+    },
+    {
+      "tradingSystemId": "G01",
+      "versionId": "G01-v0.1-FROZEN-BASELINE",
+      "evidenceId": "1d0d5df55c44a8a1",
+      "validationId": "1d0d5df55c44a8a1",
+      "riskAnalysisId": "3d88f3ede2e6e6c1",
+      "eventType": "RISK_ANALYSIS_COMPLETED",
+      "observedAt": "2026-08-23T16:02:05.397046Z",
+      "recordedAt": "2026-08-23T16:02:05.397046Z",
+      "source": "AT24-M5-Risk-Analysis-Engine-v1.0",
+      "sourceHash": "3d88f3ede2e6e6c1",
+      "payload": {
+        "status": "PARTIAL",
+        "dataQuality": {
+          "drawdown": "LIMITED",
+          "lossDistribution": "AVAILABLE",
+          "winDistribution": "AVAILABLE",
+          "expectancy": "AVAILABLE",
+          "lossStreaks": "AVAILABLE",
+          "recovery": "LIMITED",
+          "tailRisk": "AVAILABLE",
+          "concentration": "AVAILABLE",
+          "temporalRisk": "AVAILABLE",
+          "regimeRisk": "UNAVAILABLE",
+          "exposureRisk": "AVAILABLE",
+          "costRisk": "AVAILABLE"
+        }
+      },
+      "previousEventId": "1887c261a8265727",
+      "previousEventHash": "1887c261a8265727",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "d993cfe56ffa427d",
+      "contentHash": "d993cfe56ffa427d"
+    }
+  ]
+}

@@ -72,7 +72,7 @@ export const POST = withContext(async (req, ctx) => {
   await recordSubmittedForReview(sellerId, listing.id);
 
   await recordIngestionStarted(sellerId, listing.id);
-  const ingestion = runIngestionPipeline({
+  const ingestion = await runIngestionPipeline({
     title: listing.title,
     description: listing.description,
     platformTag: listing.platformTag,

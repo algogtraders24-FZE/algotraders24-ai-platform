@@ -1038,3 +1038,61 @@ model Activation {
   @@index([status])
   @@map("activations")
 }
+
+// ── Sprint M12 branding follow-on: real Evidence/Validation/Risk/Trust
+// storage, replacing the flat-file convention (data/marketplace-evidence/
+// *.json) two things depended on: mt5EvidenceAdapter.ts's discoverMt5Evidence
+// (drives the real Submit-for-review eligibility check) and
+// MarketplaceCatalogue.ts's detail-page Evidence/Validation/Risk/History
+// sections. One row per tradingSystemId+versionId - deliberately NOT a
+// normalized multi-table model (Evidence/Validation/RiskAnalysis/TrustStatus
+// as separate tables, each own PK/FK) like the M1 schema draft
+// (ea-research/marketplace-research/M1_schema.prisma) sketches - that draft
+// was never wired to this schema or any live data and adopting it wholesale
+// would mean redesigning the already-shipped M8/M9/M11 MarketplaceListing
+// model too. This is the smallest real step that gets every product off
+// hand-copied JSON files and onto one source of truth, so it stops breaking
+// silently in unrelated ways (see the outputFileTracingIncludes fix this
+// same session - a class of bug this table removes entirely).
+//
+// Still written only by an AT24 human running the real M2-M7 engines and
+// then a loader script (scripts/load-marketplace-evidence.ts) - sellers
+// have no write path to this table, same trust boundary as the files it
+// replaces. Automating the M2-M7 computation itself (not just its storage)
+// is a separate, much larger project - see this session's own discussion.
+model MarketplaceEvidenceRecord {
+  id              String @id @default(cuid())
+  tradingSystemId String
+  versionId       String
+
+  // Discovery/eligibility fields - the exact shape
+  // mt5EvidenceAdapter.ts's MT5EvidenceSnapshot already used, now as real
+  // columns instead of a JSON file's top level.
+  evidenceId              String
+  evidenceHash            String
+  validationId            String
+  validationHash          String
+  riskAnalysisId          String
+  riskAnalysisHash        String
+  trustState              String
+  trustReasonCode         String
+  trustExplanation        String    @default("")
+  trustStatusId           String
+  lastEvidenceAt          DateTime?
+  validationOverallStatus String
+  riskStatus              String
+
+  // Full content for the listing detail page - the exact shape
+  // MarketplaceCatalogue.ts's EvidenceContent already used.
+  evidenceContent   Json
+  validationContent Json
+  riskContent       Json
+  historyContent    Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tradingSystemId, versionId])
+  @@index([tradingSystemId])
+  @@map("marketplace_evidence_records")
+}

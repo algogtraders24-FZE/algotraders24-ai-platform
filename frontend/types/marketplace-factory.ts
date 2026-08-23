@@ -49,8 +49,9 @@ export interface PlatformAdapter {
   // Every adapter implements this, even the five with
   // evidenceIngestionSupported=false (which just return null) - so
   // ingestion.ts never needs an `if (platform === "X")` to decide who to
-  // ask.
-  discoverEvidence: (tradingSystemId: string, versionId: string) => PlatformEvidenceSnapshot | null;
+  // ask. Async since Sprint M12 branding follow-on (MT5's real
+  // implementation now queries the real MarketplaceEvidenceRecord table).
+  discoverEvidence: (tradingSystemId: string, versionId: string) => Promise<PlatformEvidenceSnapshot | null>;
 }
 
 // --- Submission lifecycle (derived, not stored - see submissionState.ts) ---
