@@ -131,4 +131,45 @@ export function resolveChartColors(theme: ChartTheme = "at24"): ChartColors {
 /** Test/dev-only reset so a test can simulate a fresh module load. */
 export function resetColorCacheForTests(): void {
   cached = { at24: null, mt5: null, "mt5-green": null };
+  indicatorColorCache.clear();
+}
+
+// Sprint D2.7.11 - a real, previously-undetected bug this session's own
+// pixel-sampling live-verification found (not something Bill Williams'
+// tools introduced - it affects every indicator whose IndicatorLine.color
+// is a literal "var(--x)" string: EMA/SMA/RSI, Ichimoku's Kijun/Chikou,
+// MACD's signal line, and now Alligator/Fractals too). Canvas 2D's
+// fillStyle/strokeStyle setters do NOT support CSS var() syntax - per
+// spec, assigning an unparseable color silently leaves the PREVIOUS
+// strokeStyle/fillStyle unchanged, so every one of those lines has always
+// drawn in whatever color the last successful assignment happened to be
+// (a candle body color, the grid color, etc.) rather than its own real,
+// intended token color. Confirmed directly: `ctx.strokeStyle =
+// "var(--steel)"` on a real canvas leaves strokeStyle unchanged even
+// though `getComputedStyle(document.documentElement).getPropertyValue
+// ("--steel")` resolves correctly - proving the var() syntax itself,
+// not the underlying CSS variable, is what canvas rejects.
+//
+// The fix: resolve "var(--x)" to its real computed hex/rgb value ONCE,
+// at the actual draw boundary (drawLine/drawDots below) - never at the
+// token-reference layer (compute.ts/panel-registry.ts keep writing
+// "var(--gold)" etc, which stays the correct semantic reference; only
+// the thing that hands a color to ctx.strokeStyle/fillStyle needs a real
+// resolved value). Cached per CSS variable name, invalidated only by
+// resetColorCacheForTests() (mirrors resolveChartColors()'s own "at24"
+// caching precedent) - never re-read on every single draw call.
+const indicatorColorCache = new Map<string, string>();
+const CSS_VAR_PATTERN = /^var\((--[\w-]+)\)$/;
+
+export function resolveIndicatorColor(color: string): string {
+  const match = color.match(CSS_VAR_PATTERN);
+  if (!match) return color; // already a real color (e.g. a raw hex) - never touched
+  const varName = match[1];
+  const cachedValue = indicatorColorCache.get(varName);
+  if (cachedValue) return cachedValue;
+  if (typeof document === "undefined") return color; // SSR safety - never crash, just fall through unresolved
+  const resolved = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  if (resolved.length === 0) return color; // the variable genuinely doesn't exist - never fabricate a color
+  indicatorColorCache.set(varName, resolved);
+  return resolved;
 }

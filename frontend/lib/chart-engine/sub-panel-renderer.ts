@@ -23,6 +23,7 @@ import { priceToY } from "./coordinate-system";
 import { canvasMonoFont } from "./canvas-typography";
 import { formatCompactVolume } from "@/lib/financial-format";
 import type { ChartColors } from "./canvas-colors";
+import { resolveIndicatorColor } from "./canvas-colors";
 import type { PanelRow } from "./panel-layout";
 import type { Viewport } from "./types";
 import { fractionalIndexForTime, indexToX, type IndexRange } from "./index-scale";
@@ -59,7 +60,7 @@ function drawLine(
   row: PanelRow,
   color: string,
 ): void {
-  ctx.strokeStyle = color;
+  ctx.strokeStyle = resolveIndicatorColor(color);
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   let started = false;
@@ -93,7 +94,7 @@ function drawDots(
   row: PanelRow,
   color: string,
 ): void {
-  ctx.fillStyle = color;
+  ctx.fillStyle = resolveIndicatorColor(color);
   for (const point of points) {
     if (point.value === undefined) continue;
     const x = indexToX(fractionalIndexForTime(candles, point.time), indexRange, plotWidth);

@@ -26,7 +26,7 @@ import { computeIndicatorSeries } from "../lib/chart-engine/indicators/compute";
 import { DEFAULT_INDICATOR_CONFIGS, PANEL_REGISTRY, INDICATOR_PANEL_ID } from "../lib/chart-engine/indicators/panel-registry";
 import { renderChart } from "../lib/chart-engine/renderer";
 import { fitToData } from "../lib/chart-engine/viewport";
-import { resolveChartColors } from "../lib/chart-engine/canvas-colors";
+import { resolveChartColors, resolveIndicatorColor } from "../lib/chart-engine/canvas-colors";
 import type { ChartCandle } from "../types/chart-data";
 
 let passed = 0;
@@ -259,6 +259,18 @@ function wiringTests(): void {
   });
 }
 
+function colorResolutionBugTests(): void {
+  test("20: a real, previously-undetected bug this session's own pixel-sampling live-verification found (not introduced by Bill Williams' tools - it affected every indicator's color, back to Ichimoku/D2.7.3): Canvas 2D's strokeStyle/fillStyle silently reject 'var(--x)' CSS custom-property syntax, leaving the previous color unchanged. resolveIndicatorColor() is the fix, applied at the actual draw boundary (drawLine/drawDots in sub-panel-renderer.ts) - never at the token-reference layer, which correctly keeps writing 'var(--gold)' etc as the real semantic reference (see test 16 above)", () => {
+    // Node has no `document`/CSSOM - this test covers the two branches
+    // that don't need a real browser; the var()-resolution branch itself
+    // was confirmed directly in Chrome this session (ctx.strokeStyle =
+    // "var(--steel)" left unchanged; getComputedStyle(...).getPropertyValue
+    // ("--steel") correctly returned "#94a3b8") - a real, not simulated, check.
+    assert.equal(resolveIndicatorColor("#d4af37"), "#d4af37", "an already-real color must pass through untouched");
+    assert.equal(resolveIndicatorColor("rgb(212,175,55)"), "rgb(212,175,55)", "a non-var() color must never be altered");
+  });
+}
+
 async function main(): Promise<void> {
   console.log("=== Alligator (Jaw/Teeth/Lips SMMA, MT5's real 13/8/5 + future shifts) ===");
   alligatorTests();
@@ -268,6 +280,8 @@ async function main(): Promise<void> {
   fractalsTests();
   console.log("\n=== Wiring (panel-registry.ts / compute.ts / renderer.ts) ===");
   wiringTests();
+  console.log("\n=== Color resolution bug fix (canvas-colors.ts) ===");
+  colorResolutionBugTests();
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);
 }
