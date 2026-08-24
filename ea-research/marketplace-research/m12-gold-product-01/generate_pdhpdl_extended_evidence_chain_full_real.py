@@ -31,7 +31,7 @@ from trust_status_engine import run_trust_status  # noqa: E402
 from pdhpdl_strategy_backtest import load_candles, run_pdhpdl_backtest, Params  # noqa: E402
 
 HERE = Path(__file__).parent
-EVIDENCE_PATH = HERE.parent / "m4-validation-engine" / "pdhpdl_gold_v2x_regime_tagged.json"
+EVIDENCE_PATH = HERE.parent / "m4-validation-engine" / "pdhpdl_gold_v2x_regime_tagged_with_curve.json"
 MARKET_DB = HERE.parent.parent.parent / "quant_engine" / "market.db"
 SOURCE_ARTIFACT = Path(r"C:\Users\om\OneDrive\Desktop\staergy report\ReportTester-new report xml.xlsx")
 REGISTRY = HERE.parent / "m3-evidence-verification" / "version_registry.json"

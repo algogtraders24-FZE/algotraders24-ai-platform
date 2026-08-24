@@ -201,6 +201,31 @@ def _chronological(trades: list[dict[str, Any]]) -> list[tuple[dict[str, Any], d
     return dated
 
 
+def build_real_equity_curve(evidence: dict[str, Any]) -> list[tuple[datetime, float]] | None:
+    """A real, bar-level mark-to-market equity curve, when the Evidence
+    actually carries one in its reserved `curves` field (M5.1 -- see
+    reconstruct_equity_curve.py: real M15 candle data used only to fill in
+    the path BETWEEN each trade's own already-known real entry/exit, never
+    a new number). Returns None (never a guess) when curves is absent or
+    malformed -- callers fall back to build_balance_equity_curve."""
+    curves = evidence.get("curves")
+    if not curves or not isinstance(curves, dict):
+        return None
+    equity = curves.get("equity")
+    if not equity or not isinstance(equity, list):
+        return None
+    out: list[tuple[datetime, float]] = []
+    for point in equity:
+        try:
+            ts = _parse_ts(point[0])
+            val = float(point[1])
+        except (TypeError, ValueError, IndexError):
+            continue
+        if ts is not None:
+            out.append((ts, val))
+    return out if out else None
+
+
 def build_balance_equity_curve(trades: list[dict[str, Any]], deposit: float | None) -> list[tuple[datetime, float]]:
     dep = deposit if deposit is not None else 0.0
     running = dep
@@ -256,8 +281,14 @@ def _extract_drawdown_episodes(curve: list[tuple[Any, float]]) -> list[dict[str,
 
 
 def analyze_drawdown(evidence: dict[str, Any], trades: list[dict[str, Any]], deposit: float | None) -> dict[str, Any]:
-    has_real_curve = bool(evidence.get("curves"))  # M2's reserved field -- never populated by any current adapter
-    curve = build_balance_equity_curve(trades, deposit)
+    # M5.1 fix -- previously this only checked WHETHER evidence.curves
+    # existed to decide the dataQuality LABEL, but always computed the
+    # actual numbers from the balance-only curve regardless, even when a
+    # real curve was present. Now genuinely uses the real curve's own
+    # values when one exists.
+    real_curve = build_real_equity_curve(evidence)
+    has_real_curve = real_curve is not None
+    curve = real_curve if has_real_curve else build_balance_equity_curve(trades, deposit)
     episodes = _extract_drawdown_episodes(curve)
 
     if not episodes:
@@ -274,7 +305,8 @@ def analyze_drawdown(evidence: dict[str, Any], trades: list[dict[str, Any]], dep
     max_ep = max(episodes, key=lambda e: e["depth"])
 
     return {
-        "curveType": "balance (trade-close), NOT intraday equity -- see design doc section 8",
+        "curveType": "equity (real M15 mark-to-market, reconstructed from real price bars between each trade's own real entry/exit)" if has_real_curve
+                     else "balance (trade-close), NOT intraday equity -- see design doc section 8",
         "equityDrawdownAvailable": has_real_curve,
         "balanceDrawdownAvailable": True,
         "maxDrawdown": max_ep["depth"],
@@ -445,13 +477,22 @@ def analyze_loss_streaks_and_recovery(evidence: dict[str, Any], trades: list[dic
         "dataQuality": "AVAILABLE" if loss_streaks else "UNAVAILABLE",
     }
 
-    has_real_curve = bool(evidence.get("curves"))
-    curve = build_balance_equity_curve(trades, deposit)
+    # M5.1 fix -- see analyze_drawdown's identical comment above.
+    real_curve = build_real_equity_curve(evidence)
+    has_real_curve = real_curve is not None
+    curve = real_curve if has_real_curve else build_balance_equity_curve(trades, deposit)
     episodes = _extract_drawdown_episodes(curve)
     recovered = [e for e in episodes if e["recovered"]]
     unrecovered = [e for e in episodes if not e["recovered"]]
     total_days = (dated[-1][1] - dated[0][1]).days if len(dated) >= 2 else 0
     days_in_drawdown = sum(e["durationDays"] or 0 for e in episodes)
+
+    if not episodes:
+        recovery_note = None
+    elif has_real_curve:
+        recovery_note = "Recovery timing uses the real reconstructed M15 equity curve (see drawdown section's curveType)."
+    else:
+        recovery_note = "Recovery timing is reconstructed from the same balance-level (trade-close) equity curve as drawdown -- not intraday equity. See drawdown section."
 
     recovery_summary = {
         "recoveryEpisodes": len(recovered),
@@ -459,7 +500,7 @@ def analyze_loss_streaks_and_recovery(evidence: dict[str, Any], trades: list[dic
         "averageRecoveryDurationDays": round(statistics.mean([e["durationDays"] for e in recovered if e["durationDays"] is not None]), 1) if recovered else None,
         "percentOfPeriodBelowPriorPeak": round(days_in_drawdown / total_days, 4) if total_days > 0 else None,
         "dataQuality": ("AVAILABLE" if has_real_curve else "LIMITED") if episodes else "UNAVAILABLE",
-        "note": None if (has_real_curve or not episodes) else "Recovery timing is reconstructed from the same balance-level (trade-close) equity curve as drawdown -- not intraday equity. See drawdown section.",
+        "note": recovery_note,
     }
     return loss_streaks_summary, recovery_summary
 

@@ -1,14 +1,14 @@
 {
   "_provenance": {
     "generatedBy": "generate_pdhpdl_extended_evidence_chain_full_real.py",
-    "generatedAt": "2026-08-24T08:27:28.913970Z",
+    "generatedAt": "2026-08-24T08:53:20.600995Z",
     "note": "REGIME_COVERAGE: real, via regime_classifier.py against real quant_engine/market.db candles. PARAMETER_SENSITIVITY: real, via pdhpdl_strategy_backtest.py (standalone faithful Python port of the EA's real logic, run against the SAME real candle data) - baseline + 4 perturbed variants (SL x1.15/x0.85, TP x1.15, pyramid-trigger x1.2), each an independent, apples-to-apples backtest through this same engine. This is a SEPARATE engine from the real MT5 Strategy Tester run that produced the actual PDHPDL-GOLD-v2x Evidence - see pdhpdl_strategy_backtest.py's own docstring for every documented simplification versus the real MT5 execution model."
   },
   "tradingSystemId": "PDHPDL-GOLD",
   "versionId": "PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN",
   "m3": {
     "status": "VERIFIED",
-    "evidenceId": "7096a2d04a5f60dc",
+    "evidenceId": "4a27d1c3f86dcf4a",
     "warnings": [
       "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'spreadModel' is null",
       "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'commissionModel' is null",
@@ -18,7 +18,7 @@
   },
   "m4": {
     "overallStatus": "PASS",
-    "evidenceId": "7096a2d04a5f60dc",
+    "evidenceId": "4a27d1c3f86dcf4a",
     "recordStatuses": {
       "SAMPLE_SIZE": "PASS",
       "OUT_OF_SAMPLE": "PASS",
@@ -30,16 +30,16 @@
     }
   },
   "m5": {
-    "status": "PARTIAL",
-    "riskAnalysisId": "aec3f30fa513ba61",
-    "riskAnalysisHash": "aec3f30fa513ba61",
+    "status": "COMPLETE",
+    "riskAnalysisId": "1e4333ede89dd8cd",
+    "riskAnalysisHash": "1e4333ede89dd8cd",
     "dataQuality": {
-      "drawdown": "LIMITED",
+      "drawdown": "AVAILABLE",
       "lossDistribution": "AVAILABLE",
       "winDistribution": "AVAILABLE",
       "expectancy": "AVAILABLE",
       "lossStreaks": "AVAILABLE",
-      "recovery": "LIMITED",
+      "recovery": "AVAILABLE",
       "tailRisk": "AVAILABLE",
       "concentration": "AVAILABLE",
       "temporalRisk": "AVAILABLE",
@@ -49,20 +49,20 @@
     }
   },
   "m7": {
-    "status": "LIMITED",
-    "reasonCode": "RISK_ANALYSIS_PARTIAL",
-    "explanation": "Evidence and Validation are sufficient, but RiskAnalysis (M5) is PARTIAL -- incomplete dimensions: drawdown, recovery.",
-    "id": "bc227a59e2b3294b",
-    "generatedAt": "2026-08-24T08:27:29.037661Z"
+    "status": "UNDER_OBSERVATION",
+    "reasonCode": "HISTORY_INSUFFICIENT",
+    "explanation": "Evidence, Validation, and RiskAnalysis are all sufficient, but only 1 historical observation(s) have been recorded (M6) -- AT24 has not yet observed this Version across more than one point in time.",
+    "id": "805511c09b737c22",
+    "generatedAt": "2026-08-24T08:53:20.853797Z"
   },
-  "evidenceId": "7096a2d04a5f60dc",
-  "evidenceHash": "7096a2d04a5f60dc",
-  "validationId": "7096a2d04a5f60dc",
-  "riskAnalysisId": "aec3f30fa513ba61",
-  "trustStatusId": "bc227a59e2b3294b",
+  "evidenceId": "4a27d1c3f86dcf4a",
+  "evidenceHash": "4a27d1c3f86dcf4a",
+  "validationId": "4a27d1c3f86dcf4a",
+  "riskAnalysisId": "1e4333ede89dd8cd",
+  "trustStatusId": "805511c09b737c22",
   "lastEvidenceAt": "2026-08-07T17:04:07",
   "m4_full": {
-    "evidenceId": "7096a2d04a5f60dc",
+    "evidenceId": "4a27d1c3f86dcf4a",
     "versionId": "PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN",
     "datasetHash": "abb95fe7090e856a",
     "engineVersion": "AT24-M4-Validation-Engine-v1.1",
@@ -70,16 +70,16 @@
     "overallStatus": "PASS",
     "records": [
       {
-        "validationId": "SAMPLE_SIZE:7096a2d04a5f60dc",
+        "validationId": "SAMPLE_SIZE:4a27d1c3f86dcf4a",
         "versionId": "PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN",
-        "evidenceId": "7096a2d04a5f60dc",
+        "evidenceId": "4a27d1c3f86dcf4a",
         "validationType": "SAMPLE_SIZE",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
         "datasetHash": "abb95fe7090e856a",
-        "inputEvidenceHash": "7096a2d04a5f60dc",
-        "startedAt": "2026-08-24T08:27:27.853526Z",
-        "completedAt": "2026-08-24T08:27:27.897013Z",
+        "inputEvidenceHash": "4a27d1c3f86dcf4a",
+        "startedAt": "2026-08-24T08:53:16.047776Z",
+        "completedAt": "2026-08-24T08:53:16.094681Z",
         "methodology": "Direct count/duration measurement, no acceptance threshold applied.",
         "parameters": {},
         "metrics": {
@@ -102,16 +102,16 @@
         "createdBy": "AT24-M4-Validation-Engine-v1.1"
       },
       {
-        "validationId": "OUT_OF_SAMPLE:7096a2d04a5f60dc",
+        "validationId": "OUT_OF_SAMPLE:4a27d1c3f86dcf4a",
         "versionId": "PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN",
-        "evidenceId": "7096a2d04a5f60dc",
+        "evidenceId": "4a27d1c3f86dcf4a",
         "validationType": "OUT_OF_SAMPLE",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
         "datasetHash": "abb95fe7090e856a",
-        "inputEvidenceHash": "7096a2d04a5f60dc",
-        "startedAt": "2026-08-24T08:27:27.897013Z",
-        "completedAt": "2026-08-24T08:27:28.088316Z",
+        "inputEvidenceHash": "4a27d1c3f86dcf4a",
+        "startedAt": "2026-08-24T08:53:16.094681Z",
+        "completedAt": "2026-08-24T08:53:16.313684Z",
         "methodology": "Time-based split at 80% of [first trade, last trade] duration (M4-methodology-v1).",
         "parameters": {
           "splitRatio": 0.8,
@@ -175,16 +175,16 @@
         "createdBy": "AT24-M4-Validation-Engine-v1.1"
       },
       {
-        "validationId": "WALK_FORWARD:7096a2d04a5f60dc",
+        "validationId": "WALK_FORWARD:4a27d1c3f86dcf4a",
         "versionId": "PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN",
-        "evidenceId": "7096a2d04a5f60dc",
+        "evidenceId": "4a27d1c3f86dcf4a",
         "validationType": "WALK_FORWARD",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
         "datasetHash": "abb95fe7090e856a",
-        "inputEvidenceHash": "7096a2d04a5f60dc",
-        "startedAt": "2026-08-24T08:27:28.088316Z",
-        "completedAt": "2026-08-24T08:27:28.188376Z",
+        "inputEvidenceHash": "4a27d1c3f86dcf4a",
+        "startedAt": "2026-08-24T08:53:16.313684Z",
+        "completedAt": "2026-08-24T08:53:16.431309Z",
         "methodology": "Expanding-window, one test window per calendar year (M4-methodology-v1). Never collapsed into a single score.",
         "parameters": {
           "windowDefinition": "calendar-year",
@@ -257,16 +257,16 @@
         "createdBy": "AT24-M4-Validation-Engine-v1.1"
       },
       {
-        "validationId": "TEMPORAL_STABILITY:7096a2d04a5f60dc",
+        "validationId": "TEMPORAL_STABILITY:4a27d1c3f86dcf4a",
         "versionId": "PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN",
-        "evidenceId": "7096a2d04a5f60dc",
+        "evidenceId": "4a27d1c3f86dcf4a",
         "validationType": "TEMPORAL_STABILITY",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
         "datasetHash": "abb95fe7090e856a",
-        "inputEvidenceHash": "7096a2d04a5f60dc",
-        "startedAt": "2026-08-24T08:27:28.190392Z",
-        "completedAt": "2026-08-24T08:27:28.237420Z",
+        "inputEvidenceHash": "4a27d1c3f86dcf4a",
+        "startedAt": "2026-08-24T08:53:16.432309Z",
+        "completedAt": "2026-08-24T08:53:16.494443Z",
         "methodology": "Calendar-period aggregation (month/quarter/year) plus inter-trade gap and best-single-period concentration.",
         "parameters": {},
         "metrics": {
@@ -408,16 +408,16 @@
         "createdBy": "AT24-M4-Validation-Engine-v1.1"
       },
       {
-        "validationId": "REGIME_COVERAGE:7096a2d04a5f60dc",
+        "validationId": "REGIME_COVERAGE:4a27d1c3f86dcf4a",
         "versionId": "PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN",
-        "evidenceId": "7096a2d04a5f60dc",
+        "evidenceId": "4a27d1c3f86dcf4a",
         "validationType": "REGIME_COVERAGE",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
         "datasetHash": "abb95fe7090e856a",
-        "inputEvidenceHash": "7096a2d04a5f60dc",
-        "startedAt": "2026-08-24T08:27:28.237420Z",
-        "completedAt": "2026-08-24T08:27:28.244110Z",
+        "inputEvidenceHash": "4a27d1c3f86dcf4a",
+        "startedAt": "2026-08-24T08:53:16.495444Z",
+        "completedAt": "2026-08-24T08:53:16.496445Z",
         "methodology": "Per-regime trade grouping using Trade.marketRegime.",
         "parameters": {},
         "metrics": {
@@ -454,16 +454,16 @@
         "createdBy": "AT24-M4-Validation-Engine-v1.1"
       },
       {
-        "validationId": "PERFORMANCE_DISTRIBUTION:7096a2d04a5f60dc",
+        "validationId": "PERFORMANCE_DISTRIBUTION:4a27d1c3f86dcf4a",
         "versionId": "PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN",
-        "evidenceId": "7096a2d04a5f60dc",
+        "evidenceId": "4a27d1c3f86dcf4a",
         "validationType": "PERFORMANCE_DISTRIBUTION",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
         "datasetHash": "abb95fe7090e856a",
-        "inputEvidenceHash": "7096a2d04a5f60dc",
-        "startedAt": "2026-08-24T08:27:28.244110Z",
-        "completedAt": "2026-08-24T08:27:28.264018Z",
+        "inputEvidenceHash": "4a27d1c3f86dcf4a",
+        "startedAt": "2026-08-24T08:53:16.496445Z",
+        "completedAt": "2026-08-24T08:53:16.513020Z",
         "methodology": "Distribution statistics beyond total return: median, expectancy, streaks, top-decile concentration.",
         "parameters": {},
         "metrics": {
@@ -491,16 +491,16 @@
         "createdBy": "AT24-M4-Validation-Engine-v1.1"
       },
       {
-        "validationId": "PARAMETER_SENSITIVITY:7096a2d04a5f60dc",
+        "validationId": "PARAMETER_SENSITIVITY:4a27d1c3f86dcf4a",
         "versionId": "PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN",
-        "evidenceId": "7096a2d04a5f60dc",
+        "evidenceId": "4a27d1c3f86dcf4a",
         "validationType": "PARAMETER_SENSITIVITY",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[] per configuration",
         "datasetHash": "abb95fe7090e856a",
-        "inputEvidenceHash": "7096a2d04a5f60dc",
-        "startedAt": "2026-08-24T08:27:28.264018Z",
-        "completedAt": "2026-08-24T08:27:28.297775Z",
+        "inputEvidenceHash": "4a27d1c3f86dcf4a",
+        "startedAt": "2026-08-24T08:53:16.513020Z",
+        "completedAt": "2026-08-24T08:53:16.543534Z",
         "methodology": "Baseline-vs-perturbed-configuration comparison; each configuration recorded independently.",
         "parameters": {
           "configurationNames": [
@@ -754,29 +754,29 @@
     ]
   },
   "m5_full": {
-    "riskAnalysisId": "aec3f30fa513ba61",
+    "riskAnalysisId": "1e4333ede89dd8cd",
     "versionId": "PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN",
-    "evidenceId": "7096a2d04a5f60dc",
-    "validationId": "c7730a8e1a5ca3e7",
+    "evidenceId": "4a27d1c3f86dcf4a",
+    "validationId": "6232afe7c2e6e35d",
     "rulesetVersion": "none-defined",
     "methodologyVersion": "M5-methodology-v1",
-    "inputEvidenceHash": "7096a2d04a5f60dc",
-    "inputValidationHash": "c7730a8e1a5ca3e7",
-    "generatedAt": "2026-08-24T08:27:28.888191Z",
+    "inputEvidenceHash": "4a27d1c3f86dcf4a",
+    "inputValidationHash": "6232afe7c2e6e35d",
+    "generatedAt": "2026-08-24T08:53:20.529551Z",
     "drawdown": {
-      "curveType": "balance (trade-close), NOT intraday equity -- see design doc section 8",
-      "equityDrawdownAvailable": false,
+      "curveType": "equity (real M15 mark-to-market, reconstructed from real price bars between each trade's own real entry/exit)",
+      "equityDrawdownAvailable": true,
       "balanceDrawdownAvailable": true,
-      "maxDrawdown": 9526.1,
-      "maxDrawdownPercent": 0.2901,
-      "maxDrawdownDurationDays": 53,
-      "averageDrawdown": 1283.58,
-      "medianDrawdown": 459.85,
-      "drawdownFrequency": 39,
-      "episodeCount": 39,
+      "maxDrawdown": 12002.11,
+      "maxDrawdownPercent": 0.3438,
+      "maxDrawdownDurationDays": 121,
+      "averageDrawdown": 402.3,
+      "medianDrawdown": 136.38,
+      "drawdownFrequency": 144,
+      "episodeCount": 144,
       "unrecoveredEpisodes": 1,
-      "dataQuality": "LIMITED",
-      "note": "DRAWDOWN_ANALYSIS_LIMITED: no intraday/tick equity series exists in this Evidence (Evidence.curves is empty) -- figures above are BALANCE drawdown (closed trades only), not EQUITY drawdown."
+      "dataQuality": "AVAILABLE",
+      "note": null
     },
     "lossDistribution": {
       "count": 908,
@@ -839,12 +839,12 @@
       "dataQuality": "AVAILABLE"
     },
     "recovery": {
-      "recoveryEpisodes": 38,
+      "recoveryEpisodes": 143,
       "unrecoveredEpisodesAtEndOfPeriod": 1,
-      "averageRecoveryDurationDays": 10.7,
-      "percentOfPeriodBelowPriorPeak": 0.933,
-      "dataQuality": "LIMITED",
-      "note": "Recovery timing is reconstructed from the same balance-level (trade-close) equity curve as drawdown -- not intraday equity. See drawdown section."
+      "averageRecoveryDurationDays": 2.5,
+      "percentOfPeriodBelowPriorPeak": 0.8333,
+      "dataQuality": "AVAILABLE",
+      "note": "Recovery timing uses the real reconstructed M15 equity curve (see drawdown section's curveType)."
     },
     "tailRisk": {
       "worst1Trade": -1681.7,
@@ -855,7 +855,7 @@
       "worst10SharePctOfGrossLoss": 0.0735,
       "P95Loss": 359.1,
       "P99Loss": 775.7,
-      "largestDrawdown": 9526.1,
+      "largestDrawdown": 12002.11,
       "worstLossStreakCapitalImpact": -1451.95,
       "dataQuality": "AVAILABLE",
       "note": null
@@ -962,12 +962,12 @@
       "note": "spreadModel is UNKNOWN (not zero) -- the source report doesn't expose it; commission/swap above are real measured values, independent of this gap."
     },
     "dataQuality": {
-      "drawdown": "LIMITED",
+      "drawdown": "AVAILABLE",
       "lossDistribution": "AVAILABLE",
       "winDistribution": "AVAILABLE",
       "expectancy": "AVAILABLE",
       "lossStreaks": "AVAILABLE",
-      "recovery": "LIMITED",
+      "recovery": "AVAILABLE",
       "tailRisk": "AVAILABLE",
       "concentration": "AVAILABLE",
       "temporalRisk": "AVAILABLE",
@@ -976,17 +976,16 @@
       "costRisk": "AVAILABLE"
     },
     "findings": [
-      "Max drawdown (balance): 9526.1 (0.2901), 39 drawdown episodes, 1 unrecovered at end of period.",
+      "Max drawdown (balance): 12002.11 (0.3438), 144 drawdown episodes, 1 unrecovered at end of period.",
       "Expectancy per trade: 14.3766. Max consecutive losses: 24."
     ],
     "warnings": [],
     "limitations": [
-      "DRAWDOWN_ANALYSIS_LIMITED: no intraday/tick equity series exists in this Evidence (Evidence.curves is empty) -- figures above are BALANCE drawdown (closed trades only), not EQUITY drawdown.",
-      "Recovery timing is reconstructed from the same balance-level (trade-close) equity curve as drawdown -- not intraday equity. See drawdown section.",
+      "Recovery timing uses the real reconstructed M15 equity curve (see drawdown section's curveType).",
       "spreadModel is UNKNOWN (not zero) -- the source report doesn't expose it; commission/swap above are real measured values, independent of this gap."
     ],
-    "status": "PARTIAL",
-    "riskAnalysisHash": "aec3f30fa513ba61",
+    "status": "COMPLETE",
+    "riskAnalysisHash": "1e4333ede89dd8cd",
     "createdBy": "AT24-M5-Risk-Analysis-Engine-v1.0"
   },
   "m6_full": [
@@ -997,8 +996,8 @@
       "validationId": null,
       "riskAnalysisId": null,
       "eventType": "SYSTEM_CREATED",
-      "observedAt": "2026-08-24T08:27:28.913970Z",
-      "recordedAt": "2026-08-24T08:27:28.913970Z",
+      "observedAt": "2026-08-24T08:53:20.600995Z",
+      "recordedAt": "2026-08-24T08:53:20.600995Z",
       "source": "AT24-M6-History-Engine-v1.0",
       "sourceHash": null,
       "payload": {
@@ -1009,8 +1008,8 @@
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "b6e808b5aa88cc79",
-      "contentHash": "b6e808b5aa88cc79"
+      "historyEventId": "23c2bf4e036bfd2d",
+      "contentHash": "23c2bf4e036bfd2d"
     },
     {
       "tradingSystemId": "PDHPDL-GOLD",
@@ -1019,55 +1018,55 @@
       "validationId": null,
       "riskAnalysisId": null,
       "eventType": "VERSION_CREATED",
-      "observedAt": "2026-08-24T08:27:28.913970Z",
-      "recordedAt": "2026-08-24T08:27:28.913970Z",
+      "observedAt": "2026-08-24T08:53:20.600995Z",
+      "recordedAt": "2026-08-24T08:53:20.600995Z",
       "source": "AT24-M6-History-Engine-v1.0",
       "sourceHash": null,
       "payload": {
         "versionId": "PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN"
       },
-      "previousEventId": "b6e808b5aa88cc79",
-      "previousEventHash": "b6e808b5aa88cc79",
+      "previousEventId": "23c2bf4e036bfd2d",
+      "previousEventHash": "23c2bf4e036bfd2d",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "f0fc6cd703ccc216",
-      "contentHash": "f0fc6cd703ccc216"
+      "historyEventId": "a7f9a8c618c70ed3",
+      "contentHash": "a7f9a8c618c70ed3"
     },
     {
       "tradingSystemId": "PDHPDL-GOLD",
       "versionId": "PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN",
-      "evidenceId": "7096a2d04a5f60dc",
+      "evidenceId": "4a27d1c3f86dcf4a",
       "validationId": null,
       "riskAnalysisId": null,
       "eventType": "EVIDENCE_ADDED",
       "observedAt": "2026-08-07T17:04:07",
-      "recordedAt": "2026-08-24T08:27:28.913970Z",
+      "recordedAt": "2026-08-24T08:53:20.600995Z",
       "source": "AT24-M2-Evidence-Engine-v0.4",
-      "sourceHash": "7096a2d04a5f60dc",
+      "sourceHash": "4a27d1c3f86dcf4a",
       "payload": {
         "sourceAdapter": "mt5-deals-table-xlsx-v1",
         "tradeCount": 1511
       },
-      "previousEventId": "f0fc6cd703ccc216",
-      "previousEventHash": "f0fc6cd703ccc216",
+      "previousEventId": "a7f9a8c618c70ed3",
+      "previousEventHash": "a7f9a8c618c70ed3",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "d9c6543535d722b8",
-      "contentHash": "d9c6543535d722b8"
+      "historyEventId": "69109a2c25dfc763",
+      "contentHash": "69109a2c25dfc763"
     },
     {
       "tradingSystemId": "PDHPDL-GOLD",
       "versionId": "PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN",
-      "evidenceId": "7096a2d04a5f60dc",
+      "evidenceId": "4a27d1c3f86dcf4a",
       "validationId": null,
       "riskAnalysisId": null,
       "eventType": "EVIDENCE_VERIFIED",
-      "observedAt": "2026-08-24T08:27:28.913970Z",
-      "recordedAt": "2026-08-24T08:27:28.913970Z",
+      "observedAt": "2026-08-24T08:53:20.600995Z",
+      "recordedAt": "2026-08-24T08:53:20.600995Z",
       "source": "AT24-M3-Evidence-Verifier-v1.0",
-      "sourceHash": "7096a2d04a5f60dc",
+      "sourceHash": "4a27d1c3f86dcf4a",
       "payload": {
         "m3Status": "VERIFIED",
         "warnings": [
@@ -1077,25 +1076,25 @@
           "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'tickDataQuality' is null"
         ]
       },
-      "previousEventId": "d9c6543535d722b8",
-      "previousEventHash": "d9c6543535d722b8",
+      "previousEventId": "69109a2c25dfc763",
+      "previousEventHash": "69109a2c25dfc763",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "a508b17198af9de3",
-      "contentHash": "a508b17198af9de3"
+      "historyEventId": "7985407ae9216db4",
+      "contentHash": "7985407ae9216db4"
     },
     {
       "tradingSystemId": "PDHPDL-GOLD",
       "versionId": "PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN",
-      "evidenceId": "7096a2d04a5f60dc",
-      "validationId": "7096a2d04a5f60dc",
+      "evidenceId": "4a27d1c3f86dcf4a",
+      "validationId": "4a27d1c3f86dcf4a",
       "riskAnalysisId": null,
       "eventType": "VALIDATION_COMPLETED",
-      "observedAt": "2026-08-24T08:27:28.913970Z",
-      "recordedAt": "2026-08-24T08:27:28.913970Z",
+      "observedAt": "2026-08-24T08:53:20.600995Z",
+      "recordedAt": "2026-08-24T08:53:20.600995Z",
       "source": "AT24-M4-Validation-Engine-v1.1",
-      "sourceHash": "7096a2d04a5f60dc",
+      "sourceHash": "4a27d1c3f86dcf4a",
       "payload": {
         "overallStatus": "PASS",
         "recordStatuses": {
@@ -1108,34 +1107,34 @@
           "PARAMETER_SENSITIVITY": "PASS"
         }
       },
-      "previousEventId": "a508b17198af9de3",
-      "previousEventHash": "a508b17198af9de3",
+      "previousEventId": "7985407ae9216db4",
+      "previousEventHash": "7985407ae9216db4",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "7927f7cdbfd32dd6",
-      "contentHash": "7927f7cdbfd32dd6"
+      "historyEventId": "6866b46da4467b0d",
+      "contentHash": "6866b46da4467b0d"
     },
     {
       "tradingSystemId": "PDHPDL-GOLD",
       "versionId": "PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN",
-      "evidenceId": "7096a2d04a5f60dc",
-      "validationId": "7096a2d04a5f60dc",
-      "riskAnalysisId": "aec3f30fa513ba61",
+      "evidenceId": "4a27d1c3f86dcf4a",
+      "validationId": "4a27d1c3f86dcf4a",
+      "riskAnalysisId": "1e4333ede89dd8cd",
       "eventType": "RISK_ANALYSIS_COMPLETED",
-      "observedAt": "2026-08-24T08:27:28.913970Z",
-      "recordedAt": "2026-08-24T08:27:28.913970Z",
+      "observedAt": "2026-08-24T08:53:20.600995Z",
+      "recordedAt": "2026-08-24T08:53:20.600995Z",
       "source": "AT24-M5-Risk-Analysis-Engine-v1.0",
-      "sourceHash": "aec3f30fa513ba61",
+      "sourceHash": "1e4333ede89dd8cd",
       "payload": {
-        "status": "PARTIAL",
+        "status": "COMPLETE",
         "dataQuality": {
-          "drawdown": "LIMITED",
+          "drawdown": "AVAILABLE",
           "lossDistribution": "AVAILABLE",
           "winDistribution": "AVAILABLE",
           "expectancy": "AVAILABLE",
           "lossStreaks": "AVAILABLE",
-          "recovery": "LIMITED",
+          "recovery": "AVAILABLE",
           "tailRisk": "AVAILABLE",
           "concentration": "AVAILABLE",
           "temporalRisk": "AVAILABLE",
@@ -1144,13 +1143,13 @@
           "costRisk": "AVAILABLE"
         }
       },
-      "previousEventId": "7927f7cdbfd32dd6",
-      "previousEventHash": "7927f7cdbfd32dd6",
+      "previousEventId": "6866b46da4467b0d",
+      "previousEventHash": "6866b46da4467b0d",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "cdc716f610bf37e1",
-      "contentHash": "cdc716f610bf37e1"
+      "historyEventId": "528ff4668a16c160",
+      "contentHash": "528ff4668a16c160"
     }
   ]
 }
