@@ -1096,3 +1096,35 @@ model MarketplaceEvidenceRecord {
   @@index([tradingSystemId])
   @@map("marketplace_evidence_records")
 }
+
+// Real, persisted observation history - the actual fix for the "UNDER_
+// OBSERVATION forever" problem M7's own trust_status_engine.py always had:
+// run_trust_status's own history_chain was built FRESH in-memory on every
+// single script run and never saved anywhere, so re-running the same
+// computation on the same Evidence could never accumulate real
+// observations over time - there was no persistence layer for it to
+// accumulate INTO. This table is that layer. One real row per genuinely
+// distinct (tradingSystemId, versionId, evidenceId, riskAnalysisId)
+// combination - the @@unique constraint is what makes this honest:
+// re-loading the exact same computation twice (e.g. re-running a script)
+// does NOT create a second observation, only a genuinely new evidenceId
+// or riskAnalysisId (a real re-verification at a real later point in
+// time) does. scripts/load-marketplace-evidence.ts is the only writer;
+// it counts real distinct rows here and only upgrades trustState to
+// VALIDATED when the count reaches M7's own MIN_OBSERVATIONS_FOR_VALIDATED
+// (2) AND the underlying validation/risk status independently qualify -
+// mirrors trust_status_engine.py's derive_trust_status precedence
+// (Python stays authoritative for the base per-run decision; this is only
+// the observation-count layer Python could never persist on its own).
+model MarketplaceObservation {
+  id              String   @id @default(cuid())
+  tradingSystemId String
+  versionId       String
+  evidenceId      String
+  riskAnalysisId  String
+  observedAt      DateTime @default(now())
+
+  @@unique([tradingSystemId, versionId, evidenceId, riskAnalysisId])
+  @@index([tradingSystemId, versionId])
+  @@map("marketplace_observations")
+}
