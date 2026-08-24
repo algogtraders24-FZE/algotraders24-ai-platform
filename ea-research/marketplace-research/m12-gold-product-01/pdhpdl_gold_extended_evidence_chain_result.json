@@ -1,7 +1,8 @@
 {
   "_provenance": {
-    "generatedBy": "generate_pdhpdl_extended_evidence_chain.py",
-    "generatedAt": "2026-08-21T10:24:27.671302Z"
+    "generatedBy": "generate_pdhpdl_extended_evidence_chain_full_real.py",
+    "generatedAt": "2026-08-24T08:27:28.913970Z",
+    "note": "REGIME_COVERAGE: real, via regime_classifier.py against real quant_engine/market.db candles. PARAMETER_SENSITIVITY: real, via pdhpdl_strategy_backtest.py (standalone faithful Python port of the EA's real logic, run against the SAME real candle data) - baseline + 4 perturbed variants (SL x1.15/x0.85, TP x1.15, pyramid-trigger x1.2), each an independent, apples-to-apples backtest through this same engine. This is a SEPARATE engine from the real MT5 Strategy Tester run that produced the actual PDHPDL-GOLD-v2x Evidence - see pdhpdl_strategy_backtest.py's own docstring for every documented simplification versus the real MT5 execution model."
   },
   "tradingSystemId": "PDHPDL-GOLD",
   "versionId": "PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN",
@@ -16,22 +17,22 @@
     ]
   },
   "m4": {
-    "overallStatus": "INCONCLUSIVE",
+    "overallStatus": "PASS",
     "evidenceId": "7096a2d04a5f60dc",
     "recordStatuses": {
       "SAMPLE_SIZE": "PASS",
       "OUT_OF_SAMPLE": "PASS",
       "WALK_FORWARD": "PASS",
       "TEMPORAL_STABILITY": "PASS",
-      "REGIME_COVERAGE": "INCONCLUSIVE",
+      "REGIME_COVERAGE": "PASS",
       "PERFORMANCE_DISTRIBUTION": "PASS",
-      "PARAMETER_SENSITIVITY": "INCONCLUSIVE"
+      "PARAMETER_SENSITIVITY": "PASS"
     }
   },
   "m5": {
     "status": "PARTIAL",
-    "riskAnalysisId": "a2d346bb8121cf4e",
-    "riskAnalysisHash": "a2d346bb8121cf4e",
+    "riskAnalysisId": "aec3f30fa513ba61",
+    "riskAnalysisHash": "aec3f30fa513ba61",
     "dataQuality": {
       "drawdown": "LIMITED",
       "lossDistribution": "AVAILABLE",
@@ -42,31 +43,31 @@
       "tailRisk": "AVAILABLE",
       "concentration": "AVAILABLE",
       "temporalRisk": "AVAILABLE",
-      "regimeRisk": "UNAVAILABLE",
+      "regimeRisk": "AVAILABLE",
       "exposureRisk": "AVAILABLE",
       "costRisk": "AVAILABLE"
     }
   },
   "m7": {
-    "status": "INCONCLUSIVE",
-    "reasonCode": "VALIDATION_INCONCLUSIVE",
-    "explanation": "Evidence integrity is verified, but the current Validation (M4) result is INCONCLUSIVE (overallStatus=INCONCLUSIVE) -- validation types not conclusively completed: REGIME_COVERAGE, PARAMETER_SENSITIVITY",
-    "id": "466fdf473c4875c2",
-    "generatedAt": "2026-08-21T10:24:27.794229Z"
+    "status": "LIMITED",
+    "reasonCode": "RISK_ANALYSIS_PARTIAL",
+    "explanation": "Evidence and Validation are sufficient, but RiskAnalysis (M5) is PARTIAL -- incomplete dimensions: drawdown, recovery.",
+    "id": "bc227a59e2b3294b",
+    "generatedAt": "2026-08-24T08:27:29.037661Z"
   },
   "evidenceId": "7096a2d04a5f60dc",
   "evidenceHash": "7096a2d04a5f60dc",
   "validationId": "7096a2d04a5f60dc",
-  "riskAnalysisId": "a2d346bb8121cf4e",
-  "trustStatusId": "466fdf473c4875c2",
+  "riskAnalysisId": "aec3f30fa513ba61",
+  "trustStatusId": "bc227a59e2b3294b",
   "lastEvidenceAt": "2026-08-07T17:04:07",
   "m4_full": {
     "evidenceId": "7096a2d04a5f60dc",
     "versionId": "PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN",
-    "datasetHash": "e974c93cf717a89d",
+    "datasetHash": "abb95fe7090e856a",
     "engineVersion": "AT24-M4-Validation-Engine-v1.1",
     "methodologyVersion": "M4-methodology-v1",
-    "overallStatus": "INCONCLUSIVE",
+    "overallStatus": "PASS",
     "records": [
       {
         "validationId": "SAMPLE_SIZE:7096a2d04a5f60dc",
@@ -75,10 +76,10 @@
         "validationType": "SAMPLE_SIZE",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
-        "datasetHash": "e974c93cf717a89d",
+        "datasetHash": "abb95fe7090e856a",
         "inputEvidenceHash": "7096a2d04a5f60dc",
-        "startedAt": "2026-08-21T10:24:26.638131Z",
-        "completedAt": "2026-08-21T10:24:26.686101Z",
+        "startedAt": "2026-08-24T08:27:27.853526Z",
+        "completedAt": "2026-08-24T08:27:27.897013Z",
         "methodology": "Direct count/duration measurement, no acceptance threshold applied.",
         "parameters": {},
         "metrics": {
@@ -107,10 +108,10 @@
         "validationType": "OUT_OF_SAMPLE",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
-        "datasetHash": "e974c93cf717a89d",
+        "datasetHash": "abb95fe7090e856a",
         "inputEvidenceHash": "7096a2d04a5f60dc",
-        "startedAt": "2026-08-21T10:24:26.686101Z",
-        "completedAt": "2026-08-21T10:24:26.901488Z",
+        "startedAt": "2026-08-24T08:27:27.897013Z",
+        "completedAt": "2026-08-24T08:27:28.088316Z",
         "methodology": "Time-based split at 80% of [first trade, last trade] duration (M4-methodology-v1).",
         "parameters": {
           "splitRatio": 0.8,
@@ -180,10 +181,10 @@
         "validationType": "WALK_FORWARD",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
-        "datasetHash": "e974c93cf717a89d",
+        "datasetHash": "abb95fe7090e856a",
         "inputEvidenceHash": "7096a2d04a5f60dc",
-        "startedAt": "2026-08-21T10:24:26.901488Z",
-        "completedAt": "2026-08-21T10:24:27.027923Z",
+        "startedAt": "2026-08-24T08:27:28.088316Z",
+        "completedAt": "2026-08-24T08:27:28.188376Z",
         "methodology": "Expanding-window, one test window per calendar year (M4-methodology-v1). Never collapsed into a single score.",
         "parameters": {
           "windowDefinition": "calendar-year",
@@ -262,10 +263,10 @@
         "validationType": "TEMPORAL_STABILITY",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
-        "datasetHash": "e974c93cf717a89d",
+        "datasetHash": "abb95fe7090e856a",
         "inputEvidenceHash": "7096a2d04a5f60dc",
-        "startedAt": "2026-08-21T10:24:27.027923Z",
-        "completedAt": "2026-08-21T10:24:27.082404Z",
+        "startedAt": "2026-08-24T08:27:28.190392Z",
+        "completedAt": "2026-08-24T08:27:28.237420Z",
         "methodology": "Calendar-period aggregation (month/quarter/year) plus inter-trade gap and best-single-period concentration.",
         "parameters": {},
         "metrics": {
@@ -413,21 +414,43 @@
         "validationType": "REGIME_COVERAGE",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
-        "datasetHash": "e974c93cf717a89d",
+        "datasetHash": "abb95fe7090e856a",
         "inputEvidenceHash": "7096a2d04a5f60dc",
-        "startedAt": "2026-08-21T10:24:27.082404Z",
-        "completedAt": "2026-08-21T10:24:27.083403Z",
-        "methodology": "Per-regime trade grouping using Trade.marketRegime, when present.",
+        "startedAt": "2026-08-24T08:27:28.237420Z",
+        "completedAt": "2026-08-24T08:27:28.244110Z",
+        "methodology": "Per-regime trade grouping using Trade.marketRegime.",
         "parameters": {},
         "metrics": {
-          "regimesRepresented": [],
-          "tradeCountByRegime": {}
+          "regimesRepresented": [
+            "RANGING_HIGH_VOL",
+            "RANGING_LOW_VOL",
+            "TRENDING_HIGH_VOL",
+            "TRENDING_LOW_VOL"
+          ],
+          "tradeCountByRegime": {
+            "RANGING_LOW_VOL": {
+              "tradeCount": 577,
+              "netProfit": 1351.85
+            },
+            "RANGING_HIGH_VOL": {
+              "tradeCount": 225,
+              "netProfit": 4835.8
+            },
+            "TRENDING_HIGH_VOL": {
+              "tradeCount": 624,
+              "netProfit": 15016.25
+            },
+            "TRENDING_LOW_VOL": {
+              "tradeCount": 85,
+              "netProfit": 519.1
+            }
+          }
         },
         "findings": [
-          "No trades in this Evidence carry a marketRegime tag -- regime coverage cannot be computed for this Evidence. No regime classifier exists yet in this research program (see design doc section 11); this is reported honestly, not fabricated."
+          "4 regime(s) represented across 1511 tagged trades."
         ],
         "warnings": [],
-        "status": "INCONCLUSIVE",
+        "status": "PASS",
         "createdBy": "AT24-M4-Validation-Engine-v1.1"
       },
       {
@@ -437,10 +460,10 @@
         "validationType": "PERFORMANCE_DISTRIBUTION",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
-        "datasetHash": "e974c93cf717a89d",
+        "datasetHash": "abb95fe7090e856a",
         "inputEvidenceHash": "7096a2d04a5f60dc",
-        "startedAt": "2026-08-21T10:24:27.083403Z",
-        "completedAt": "2026-08-21T10:24:27.104399Z",
+        "startedAt": "2026-08-24T08:27:28.244110Z",
+        "completedAt": "2026-08-24T08:27:28.264018Z",
         "methodology": "Distribution statistics beyond total return: median, expectancy, streaks, top-decile concentration.",
         "parameters": {},
         "metrics": {
@@ -473,33 +496,273 @@
         "evidenceId": "7096a2d04a5f60dc",
         "validationType": "PARAMETER_SENSITIVITY",
         "rulesetVersion": "none-defined",
-        "datasetIdentity": "n/a",
-        "datasetHash": "e974c93cf717a89d",
+        "datasetIdentity": "trades[] per configuration",
+        "datasetHash": "abb95fe7090e856a",
         "inputEvidenceHash": "7096a2d04a5f60dc",
-        "startedAt": "2026-08-21T10:24:27.104399Z",
-        "completedAt": "2026-08-21T10:24:27.104399Z",
-        "methodology": "Baseline-vs-perturbed-configuration comparison (framework only -- see design doc section 12).",
-        "parameters": {},
-        "metrics": {},
+        "startedAt": "2026-08-24T08:27:28.264018Z",
+        "completedAt": "2026-08-24T08:27:28.297775Z",
+        "methodology": "Baseline-vs-perturbed-configuration comparison; each configuration recorded independently.",
+        "parameters": {
+          "configurationNames": [
+            "baseline",
+            "A_sl_atr_mult_plus15pct",
+            "B_sl_atr_mult_minus15pct",
+            "C_tp_atr_mult_plus15pct",
+            "D_pyramid_trigger_r_plus20pct"
+          ]
+        },
+        "metrics": {
+          "configurations": {
+            "baseline": {
+              "metrics": {
+                "netProfit": 169.44,
+                "profitFactor": 1.0075,
+                "winRate": 0.424,
+                "avgTrade": 0.34,
+                "expectedPayoff": 0.34,
+                "maxDrawdown": {
+                  "absolute": 2066.91,
+                  "percent": 0.1708
+                },
+                "recoveryFactor": 0.082,
+                "sharpe": 0.0031,
+                "sortino": 0.012,
+                "largestWin": 241.1,
+                "largestLoss": -150.25,
+                "consecutiveWins": 6,
+                "consecutiveLosses": 9,
+                "tradeCount": 500,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "differenceFromBaseline": null
+            },
+            "A_sl_atr_mult_plus15pct": {
+              "metrics": {
+                "netProfit": 991.62,
+                "profitFactor": 1.0449,
+                "winRate": 0.4322,
+                "avgTrade": 2.07,
+                "expectedPayoff": 2.07,
+                "maxDrawdown": {
+                  "absolute": 2328.18,
+                  "percent": 0.1774
+                },
+                "recoveryFactor": 0.4259,
+                "sharpe": 0.0188,
+                "sortino": 0.0707,
+                "largestWin": 224.29,
+                "largestLoss": -130.66,
+                "consecutiveWins": 6,
+                "consecutiveLosses": 7,
+                "tradeCount": 479,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "differenceFromBaseline": {
+                "netProfit": {
+                  "baseline": 169.44,
+                  "variant": 991.62,
+                  "delta": 822.18
+                },
+                "profitFactor": {
+                  "baseline": 1.0075,
+                  "variant": 1.0449,
+                  "delta": 0.0374
+                },
+                "winRate": {
+                  "baseline": 0.424,
+                  "variant": 0.4322,
+                  "delta": 0.0082
+                },
+                "tradeCount": {
+                  "baseline": 500,
+                  "variant": 479,
+                  "delta": -21
+                },
+                "maxDrawdown": {
+                  "baseline": 2066.91,
+                  "variant": 2328.18,
+                  "delta": 261.27
+                }
+              }
+            },
+            "B_sl_atr_mult_minus15pct": {
+              "metrics": {
+                "netProfit": 398.79,
+                "profitFactor": 1.0172,
+                "winRate": 0.4167,
+                "avgTrade": 0.77,
+                "expectedPayoff": 0.77,
+                "maxDrawdown": {
+                  "absolute": 2562.99,
+                  "percent": 0.2055
+                },
+                "recoveryFactor": 0.1556,
+                "sharpe": 0.0067,
+                "sortino": 0.027,
+                "largestWin": 284.94,
+                "largestLoss": -147.92,
+                "consecutiveWins": 6,
+                "consecutiveLosses": 9,
+                "tradeCount": 516,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "differenceFromBaseline": {
+                "netProfit": {
+                  "baseline": 169.44,
+                  "variant": 398.79,
+                  "delta": 229.35
+                },
+                "profitFactor": {
+                  "baseline": 1.0075,
+                  "variant": 1.0172,
+                  "delta": 0.0097
+                },
+                "winRate": {
+                  "baseline": 0.424,
+                  "variant": 0.4167,
+                  "delta": -0.0073
+                },
+                "tradeCount": {
+                  "baseline": 500,
+                  "variant": 516,
+                  "delta": 16
+                },
+                "maxDrawdown": {
+                  "baseline": 2066.91,
+                  "variant": 2562.99,
+                  "delta": 496.08
+                }
+              }
+            },
+            "C_tp_atr_mult_plus15pct": {
+              "metrics": {
+                "netProfit": -48.85,
+                "profitFactor": 0.9978,
+                "winRate": 0.4127,
+                "avgTrade": -0.09,
+                "expectedPayoff": -0.09,
+                "maxDrawdown": {
+                  "absolute": 2096.13,
+                  "percent": 0.1971
+                },
+                "recoveryFactor": -0.0233,
+                "sharpe": -0.0009,
+                "sortino": -0.0036,
+                "largestWin": 255.27,
+                "largestLoss": -113.62,
+                "consecutiveWins": 6,
+                "consecutiveLosses": 10,
+                "tradeCount": 521,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "differenceFromBaseline": {
+                "netProfit": {
+                  "baseline": 169.44,
+                  "variant": -48.85,
+                  "delta": -218.29
+                },
+                "profitFactor": {
+                  "baseline": 1.0075,
+                  "variant": 0.9978,
+                  "delta": -0.0097
+                },
+                "winRate": {
+                  "baseline": 0.424,
+                  "variant": 0.4127,
+                  "delta": -0.0113
+                },
+                "tradeCount": {
+                  "baseline": 500,
+                  "variant": 521,
+                  "delta": 21
+                },
+                "maxDrawdown": {
+                  "baseline": 2066.91,
+                  "variant": 2096.13,
+                  "delta": 29.22
+                }
+              }
+            },
+            "D_pyramid_trigger_r_plus20pct": {
+              "metrics": {
+                "netProfit": 177.5,
+                "profitFactor": 1.0082,
+                "winRate": 0.4183,
+                "avgTrade": 0.4,
+                "expectedPayoff": 0.4,
+                "maxDrawdown": {
+                  "absolute": 2003.22,
+                  "percent": 0.1658
+                },
+                "recoveryFactor": 0.0886,
+                "sharpe": 0.0034,
+                "sortino": 0.0139,
+                "largestWin": 241.1,
+                "largestLoss": -150.25,
+                "consecutiveWins": 10,
+                "consecutiveLosses": 9,
+                "tradeCount": 447,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "differenceFromBaseline": {
+                "netProfit": {
+                  "baseline": 169.44,
+                  "variant": 177.5,
+                  "delta": 8.06
+                },
+                "profitFactor": {
+                  "baseline": 1.0075,
+                  "variant": 1.0082,
+                  "delta": 0.0007
+                },
+                "winRate": {
+                  "baseline": 0.424,
+                  "variant": 0.4183,
+                  "delta": -0.0057
+                },
+                "tradeCount": {
+                  "baseline": 500,
+                  "variant": 447,
+                  "delta": -53
+                },
+                "maxDrawdown": {
+                  "baseline": 2066.91,
+                  "variant": 2003.22,
+                  "delta": -63.69
+                }
+              }
+            }
+          }
+        },
         "findings": [
-          "Not executed for this Evidence: real parameter-sensitivity analysis requires new backtests with perturbed EA inputs, which this sprint's guardrails explicitly forbid ('Do not optimize G01. Do not change G01 parameters.'). The framework itself is built and verified against synthetic configurations (see test_validation_engine.py Test H). Deferred to a future sprint that explicitly authorizes new runs."
+          "5 configurations compared against baseline."
         ],
         "warnings": [],
-        "status": "INCONCLUSIVE",
+        "status": "PASS",
         "createdBy": "AT24-M4-Validation-Engine-v1.1"
       }
     ]
   },
   "m5_full": {
-    "riskAnalysisId": "a2d346bb8121cf4e",
+    "riskAnalysisId": "aec3f30fa513ba61",
     "versionId": "PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN",
     "evidenceId": "7096a2d04a5f60dc",
-    "validationId": "def495a0a772db6e",
+    "validationId": "c7730a8e1a5ca3e7",
     "rulesetVersion": "none-defined",
     "methodologyVersion": "M5-methodology-v1",
     "inputEvidenceHash": "7096a2d04a5f60dc",
-    "inputValidationHash": "def495a0a772db6e",
-    "generatedAt": "2026-08-21T10:24:27.640816Z",
+    "inputValidationHash": "c7730a8e1a5ca3e7",
+    "generatedAt": "2026-08-24T08:27:28.888191Z",
     "drawdown": {
       "curveType": "balance (trade-close), NOT intraday equity -- see design doc section 8",
       "equityDrawdownAvailable": false,
@@ -643,9 +906,29 @@
       "note": "Per-year drawdown/loss-streak computed fresh here (not in M4's TEMPORAL_STABILITY, which only tracked net profit/PF per period)."
     },
     "regimeRisk": {
-      "dataQuality": "UNAVAILABLE",
-      "note": "REGIME_DATA_UNAVAILABLE: no trades in this Evidence carry a marketRegime tag. No regime classifier exists yet in this research program -- not inferred.",
-      "riskByRegime": {}
+      "dataQuality": "AVAILABLE",
+      "riskByRegime": {
+        "RANGING_LOW_VOL": {
+          "tradeCount": 577,
+          "netProfit": 1351.85,
+          "largestLoss": -530.1
+        },
+        "RANGING_HIGH_VOL": {
+          "tradeCount": 225,
+          "netProfit": 4835.8,
+          "largestLoss": -1681.7
+        },
+        "TRENDING_HIGH_VOL": {
+          "tradeCount": 624,
+          "netProfit": 15016.25,
+          "largestLoss": -1518.2
+        },
+        "TRENDING_LOW_VOL": {
+          "tradeCount": 85,
+          "netProfit": 519.1,
+          "largestLoss": -138.1
+        }
+      }
     },
     "exposureRisk": {
       "positionSize": {
@@ -688,7 +971,7 @@
       "tailRisk": "AVAILABLE",
       "concentration": "AVAILABLE",
       "temporalRisk": "AVAILABLE",
-      "regimeRisk": "UNAVAILABLE",
+      "regimeRisk": "AVAILABLE",
       "exposureRisk": "AVAILABLE",
       "costRisk": "AVAILABLE"
     },
@@ -700,11 +983,10 @@
     "limitations": [
       "DRAWDOWN_ANALYSIS_LIMITED: no intraday/tick equity series exists in this Evidence (Evidence.curves is empty) -- figures above are BALANCE drawdown (closed trades only), not EQUITY drawdown.",
       "Recovery timing is reconstructed from the same balance-level (trade-close) equity curve as drawdown -- not intraday equity. See drawdown section.",
-      "REGIME_DATA_UNAVAILABLE: no trades in this Evidence carry a marketRegime tag. No regime classifier exists yet in this research program -- not inferred.",
       "spreadModel is UNKNOWN (not zero) -- the source report doesn't expose it; commission/swap above are real measured values, independent of this gap."
     ],
     "status": "PARTIAL",
-    "riskAnalysisHash": "a2d346bb8121cf4e",
+    "riskAnalysisHash": "aec3f30fa513ba61",
     "createdBy": "AT24-M5-Risk-Analysis-Engine-v1.0"
   },
   "m6_full": [
@@ -715,8 +997,8 @@
       "validationId": null,
       "riskAnalysisId": null,
       "eventType": "SYSTEM_CREATED",
-      "observedAt": "2026-08-21T10:24:27.671302Z",
-      "recordedAt": "2026-08-21T10:24:27.671302Z",
+      "observedAt": "2026-08-24T08:27:28.913970Z",
+      "recordedAt": "2026-08-24T08:27:28.913970Z",
       "source": "AT24-M6-History-Engine-v1.0",
       "sourceHash": null,
       "payload": {
@@ -727,8 +1009,8 @@
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "c5d1a0855574776e",
-      "contentHash": "c5d1a0855574776e"
+      "historyEventId": "b6e808b5aa88cc79",
+      "contentHash": "b6e808b5aa88cc79"
     },
     {
       "tradingSystemId": "PDHPDL-GOLD",
@@ -737,20 +1019,20 @@
       "validationId": null,
       "riskAnalysisId": null,
       "eventType": "VERSION_CREATED",
-      "observedAt": "2026-08-21T10:24:27.671302Z",
-      "recordedAt": "2026-08-21T10:24:27.671302Z",
+      "observedAt": "2026-08-24T08:27:28.913970Z",
+      "recordedAt": "2026-08-24T08:27:28.913970Z",
       "source": "AT24-M6-History-Engine-v1.0",
       "sourceHash": null,
       "payload": {
         "versionId": "PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN"
       },
-      "previousEventId": "c5d1a0855574776e",
-      "previousEventHash": "c5d1a0855574776e",
+      "previousEventId": "b6e808b5aa88cc79",
+      "previousEventHash": "b6e808b5aa88cc79",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "c8788e34201946ae",
-      "contentHash": "c8788e34201946ae"
+      "historyEventId": "f0fc6cd703ccc216",
+      "contentHash": "f0fc6cd703ccc216"
     },
     {
       "tradingSystemId": "PDHPDL-GOLD",
@@ -760,20 +1042,20 @@
       "riskAnalysisId": null,
       "eventType": "EVIDENCE_ADDED",
       "observedAt": "2026-08-07T17:04:07",
-      "recordedAt": "2026-08-21T10:24:27.671302Z",
+      "recordedAt": "2026-08-24T08:27:28.913970Z",
       "source": "AT24-M2-Evidence-Engine-v0.4",
       "sourceHash": "7096a2d04a5f60dc",
       "payload": {
         "sourceAdapter": "mt5-deals-table-xlsx-v1",
         "tradeCount": 1511
       },
-      "previousEventId": "c8788e34201946ae",
-      "previousEventHash": "c8788e34201946ae",
+      "previousEventId": "f0fc6cd703ccc216",
+      "previousEventHash": "f0fc6cd703ccc216",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "f095f6927f38f3a0",
-      "contentHash": "f095f6927f38f3a0"
+      "historyEventId": "d9c6543535d722b8",
+      "contentHash": "d9c6543535d722b8"
     },
     {
       "tradingSystemId": "PDHPDL-GOLD",
@@ -782,8 +1064,8 @@
       "validationId": null,
       "riskAnalysisId": null,
       "eventType": "EVIDENCE_VERIFIED",
-      "observedAt": "2026-08-21T10:24:27.671302Z",
-      "recordedAt": "2026-08-21T10:24:27.671302Z",
+      "observedAt": "2026-08-24T08:27:28.913970Z",
+      "recordedAt": "2026-08-24T08:27:28.913970Z",
       "source": "AT24-M3-Evidence-Verifier-v1.0",
       "sourceHash": "7096a2d04a5f60dc",
       "payload": {
@@ -795,13 +1077,13 @@
           "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'tickDataQuality' is null"
         ]
       },
-      "previousEventId": "f095f6927f38f3a0",
-      "previousEventHash": "f095f6927f38f3a0",
+      "previousEventId": "d9c6543535d722b8",
+      "previousEventHash": "d9c6543535d722b8",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "eb9f674dc04a3b56",
-      "contentHash": "eb9f674dc04a3b56"
+      "historyEventId": "a508b17198af9de3",
+      "contentHash": "a508b17198af9de3"
     },
     {
       "tradingSystemId": "PDHPDL-GOLD",
@@ -810,41 +1092,41 @@
       "validationId": "7096a2d04a5f60dc",
       "riskAnalysisId": null,
       "eventType": "VALIDATION_COMPLETED",
-      "observedAt": "2026-08-21T10:24:27.671302Z",
-      "recordedAt": "2026-08-21T10:24:27.671302Z",
+      "observedAt": "2026-08-24T08:27:28.913970Z",
+      "recordedAt": "2026-08-24T08:27:28.913970Z",
       "source": "AT24-M4-Validation-Engine-v1.1",
       "sourceHash": "7096a2d04a5f60dc",
       "payload": {
-        "overallStatus": "INCONCLUSIVE",
+        "overallStatus": "PASS",
         "recordStatuses": {
           "SAMPLE_SIZE": "PASS",
           "OUT_OF_SAMPLE": "PASS",
           "WALK_FORWARD": "PASS",
           "TEMPORAL_STABILITY": "PASS",
-          "REGIME_COVERAGE": "INCONCLUSIVE",
+          "REGIME_COVERAGE": "PASS",
           "PERFORMANCE_DISTRIBUTION": "PASS",
-          "PARAMETER_SENSITIVITY": "INCONCLUSIVE"
+          "PARAMETER_SENSITIVITY": "PASS"
         }
       },
-      "previousEventId": "eb9f674dc04a3b56",
-      "previousEventHash": "eb9f674dc04a3b56",
+      "previousEventId": "a508b17198af9de3",
+      "previousEventHash": "a508b17198af9de3",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "3d2c1cfe0c50aef7",
-      "contentHash": "3d2c1cfe0c50aef7"
+      "historyEventId": "7927f7cdbfd32dd6",
+      "contentHash": "7927f7cdbfd32dd6"
     },
     {
       "tradingSystemId": "PDHPDL-GOLD",
       "versionId": "PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN",
       "evidenceId": "7096a2d04a5f60dc",
       "validationId": "7096a2d04a5f60dc",
-      "riskAnalysisId": "a2d346bb8121cf4e",
+      "riskAnalysisId": "aec3f30fa513ba61",
       "eventType": "RISK_ANALYSIS_COMPLETED",
-      "observedAt": "2026-08-21T10:24:27.671302Z",
-      "recordedAt": "2026-08-21T10:24:27.671302Z",
+      "observedAt": "2026-08-24T08:27:28.913970Z",
+      "recordedAt": "2026-08-24T08:27:28.913970Z",
       "source": "AT24-M5-Risk-Analysis-Engine-v1.0",
-      "sourceHash": "a2d346bb8121cf4e",
+      "sourceHash": "aec3f30fa513ba61",
       "payload": {
         "status": "PARTIAL",
         "dataQuality": {
@@ -857,18 +1139,18 @@
           "tailRisk": "AVAILABLE",
           "concentration": "AVAILABLE",
           "temporalRisk": "AVAILABLE",
-          "regimeRisk": "UNAVAILABLE",
+          "regimeRisk": "AVAILABLE",
           "exposureRisk": "AVAILABLE",
           "costRisk": "AVAILABLE"
         }
       },
-      "previousEventId": "3d2c1cfe0c50aef7",
-      "previousEventHash": "3d2c1cfe0c50aef7",
+      "previousEventId": "7927f7cdbfd32dd6",
+      "previousEventHash": "7927f7cdbfd32dd6",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "08e9b66b6e74b499",
-      "contentHash": "08e9b66b6e74b499"
+      "historyEventId": "cdc716f610bf37e1",
+      "contentHash": "cdc716f610bf37e1"
     }
   ]
 }
