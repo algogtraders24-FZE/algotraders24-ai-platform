@@ -1,0 +1,15 @@
+Loaded 9731 XAUUSD_EXNESS 1h bars, 580490 1m bars (2024-01-01 23:00:00+00:00 -> 2026-05-31 23:00:00+00:00)
+
+=== RSI Oversold + EMA Trend ===
+  OLD (1h-only, static spread):  trades=0 pf=None return=0% max_dd=0% account_blown=False
+  NEW (1m replay, real spread):  trades=0 pf=None return=0% max_dd=0% account_blown=False same-minute SL+TP conflicts=0
+
+=== MACD Crossover ===
+  OLD (1h-only, static spread):  trades=583 pf=0.95 return=-10.35% max_dd=-29.7% account_blown=False
+  NEW (1m replay, real spread):  trades=690 pf=2.05 return=205.1% max_dd=-5.2% account_blown=False same-minute SL+TP conflicts=2
+
+=== Bollinger Mean Reversion ===
+  OLD (1h-only, static spread):  trades=666 pf=0.95 return=-15.33% max_dd=-31.26% account_blown=False
+  NEW (1m replay, real spread):  trades=516 pf=0.19 return=-100.01% max_dd=-100.01% account_blown=True same-minute SL+TP conflicts=0
+
+Comparison written: E:\algotraders24-ai-platform\quant-engine\scripts\..\output\engine_comparison.json

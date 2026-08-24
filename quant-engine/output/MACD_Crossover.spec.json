@@ -1,0 +1,40 @@
+{
+  "name": "MACD Crossover",
+  "symbol": "XAUUSD",
+  "timeframe": "1h",
+  "indicators": [
+    {
+      "id": "macd1",
+      "type": "MACD",
+      "fast": 12,
+      "slow": 26,
+      "signal": 9
+    },
+    {
+      "id": "atr14",
+      "type": "ATR",
+      "period": 14
+    }
+  ],
+  "entry_long": [
+    {
+      "left": "macd1.line",
+      "op": "cross_above",
+      "right": "macd1.signal"
+    }
+  ],
+  "entry_short": [
+    {
+      "left": "macd1.line",
+      "op": "cross_below",
+      "right": "macd1.signal"
+    }
+  ],
+  "risk": {
+    "sl_mode": "ATR",
+    "sl_atr_mult": 2.0,
+    "tp_mode": "ATR",
+    "tp_atr_mult": 3.0,
+    "atr_id": "atr14"
+  }
+}

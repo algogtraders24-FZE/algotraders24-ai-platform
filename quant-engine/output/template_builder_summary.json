@@ -1,0 +1,56 @@
+[
+  {
+    "wizard_pick": {
+      "name": "Wizard: EMA9x21 Cross, No Filter, Standard Risk",
+      "trigger_key": "ema_cross",
+      "filter_key": "none",
+      "risk_key": "standard"
+    },
+    "name": "Wizard: EMA9x21 Cross, No Filter, Standard Risk",
+    "metrics": {
+      "trades_total": 1162,
+      "trade_cycles": 905,
+      "win_rate_pct": 55.69,
+      "profit_factor": 0.98,
+      "total_return_pct": -7.24,
+      "max_drawdown_pct": -30.18,
+      "final_balance": 9275.92
+    }
+  },
+  {
+    "wizard_pick": {
+      "name": "Wizard: MACD Cross + Trend Filter, Conservative Risk",
+      "trigger_key": "macd_cross",
+      "filter_key": "ema_trend",
+      "risk_key": "conservative"
+    },
+    "name": "Wizard: MACD Cross + Trend Filter, Conservative Risk",
+    "metrics": {
+      "trades_total": 1373,
+      "trade_cycles": 1098,
+      "win_rate_pct": 59.74,
+      "profit_factor": 1.02,
+      "total_return_pct": 9.38,
+      "max_drawdown_pct": -28.87,
+      "final_balance": 10937.54
+    }
+  },
+  {
+    "wizard_pick": {
+      "name": "Wizard: BB Breakout + RSI Momentum Filter, Aggressive Risk",
+      "trigger_key": "bb_breakout",
+      "filter_key": "rsi_midline",
+      "risk_key": "aggressive"
+    },
+    "name": "Wizard: BB Breakout + RSI Momentum Filter, Aggressive Risk",
+    "metrics": {
+      "trades_total": 2131,
+      "trade_cycles": 2090,
+      "win_rate_pct": 39.71,
+      "profit_factor": 0.97,
+      "total_return_pct": -33.99,
+      "max_drawdown_pct": -61.38,
+      "final_balance": 6601.24
+    }
+  }
+]

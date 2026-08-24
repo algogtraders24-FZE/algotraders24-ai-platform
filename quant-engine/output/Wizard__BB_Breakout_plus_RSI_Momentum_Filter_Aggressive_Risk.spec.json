@@ -1,0 +1,72 @@
+{
+  "name": "Wizard: BB Breakout + RSI Momentum Filter, Aggressive Risk",
+  "symbol": "XAUUSD",
+  "timeframe": "1h",
+  "indicators": [
+    {
+      "id": "trigger_bb",
+      "type": "BB",
+      "period": 20,
+      "mult": 2.0
+    },
+    {
+      "id": "filter_rsi",
+      "type": "RSI",
+      "period": 14
+    },
+    {
+      "id": "atrRisk",
+      "type": "ATR",
+      "period": 14
+    }
+  ],
+  "entry_long": [
+    {
+      "left": "close",
+      "op": ">",
+      "right": "trigger_bb.upper"
+    },
+    {
+      "left": "filter_rsi",
+      "op": ">",
+      "right": 50
+    }
+  ],
+  "entry_short": [
+    {
+      "left": "close",
+      "op": "<",
+      "right": "trigger_bb.lower"
+    },
+    {
+      "left": "filter_rsi",
+      "op": "<",
+      "right": 50
+    }
+  ],
+  "risk": {
+    "sl_mode": "ATR",
+    "sl_atr_mult": 1.0,
+    "tp_mode": "ATR",
+    "tp_atr_mult": 1.5,
+    "atr_id": "atrRisk",
+    "be_trigger_atr": 1.5,
+    "be_lock_atr": 0.2,
+    "trail_start_atr": 3.0,
+    "trail_atr_mult": 4.0,
+    "partial_atr": 1.5,
+    "partial_pct": 0.3
+  },
+  "built_from": {
+    "trigger": "bb_breakout",
+    "trigger_params": {
+      "period": 20,
+      "mult": 2.0
+    },
+    "filter": "rsi_midline",
+    "filter_params": {
+      "period": 14
+    },
+    "risk_preset": "aggressive"
+  }
+}

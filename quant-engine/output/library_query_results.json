@@ -1,0 +1,224 @@
+{
+  "grid_size": 330,
+  "build_seconds": 74.9,
+  "stats": {
+    "total": 219,
+    "profitable_pf_gt_1": 55,
+    "avg_pf": 0.9693607305936073,
+    "max_pf": 1.72
+  },
+  "queries": [
+    {
+      "query": {
+        "label": "Best profit factor overall",
+        "min_trades": 30,
+        "order_by": "profit_factor",
+        "top_n": 5
+      },
+      "results": [
+        {
+          "name": "rsi_extreme[period21_oversold20_overbought80]+none[none]+conservative",
+          "trigger_key": "rsi_extreme",
+          "filter_key": "none",
+          "risk_preset": "conservative",
+          "trades_total": 50,
+          "win_rate_pct": 61.7,
+          "profit_factor": 1.72,
+          "total_return_pct": 13.46,
+          "max_drawdown_pct": -3.97,
+          "final_balance": 11346.39
+        },
+        {
+          "name": "rsi_extreme[period21_oversold20_overbought80]+none[none]+standard",
+          "trigger_key": "rsi_extreme",
+          "filter_key": "none",
+          "risk_preset": "standard",
+          "trades_total": 61,
+          "win_rate_pct": 64.29,
+          "profit_factor": 1.57,
+          "total_return_pct": 8.75,
+          "max_drawdown_pct": -3.88,
+          "final_balance": 10874.83
+        },
+        {
+          "name": "rsi_extreme[period7_oversold30_overbought70]+ema_trend[period50]+aggressive",
+          "trigger_key": "rsi_extreme",
+          "filter_key": "ema_trend",
+          "risk_preset": "aggressive",
+          "trades_total": 121,
+          "win_rate_pct": 52.89,
+          "profit_factor": 1.4,
+          "total_return_pct": 27.33,
+          "max_drawdown_pct": -6.82,
+          "final_balance": 12733.4
+        },
+        {
+          "name": "bb_reversion[period20_mult2.5]+ema_trend[period50]+aggressive",
+          "trigger_key": "bb_reversion",
+          "filter_key": "ema_trend",
+          "risk_preset": "aggressive",
+          "trades_total": 30,
+          "win_rate_pct": 56.67,
+          "profit_factor": 1.4,
+          "total_return_pct": 5.4,
+          "max_drawdown_pct": -4.3,
+          "final_balance": 10540.01
+        },
+        {
+          "name": "bb_reversion[period20_mult2.5]+ema_trend[period50]+standard",
+          "trigger_key": "bb_reversion",
+          "filter_key": "ema_trend",
+          "risk_preset": "standard",
+          "trades_total": 40,
+          "win_rate_pct": 72.41,
+          "profit_factor": 1.37,
+          "total_return_pct": 2.98,
+          "max_drawdown_pct": -3.17,
+          "final_balance": 10298.27
+        }
+      ]
+    },
+    {
+      "query": {
+        "label": "Best PF with drawdown capped at 20%",
+        "min_trades": 30,
+        "max_drawdown_pct": 20,
+        "order_by": "profit_factor",
+        "top_n": 5
+      },
+      "results": [
+        {
+          "name": "rsi_extreme[period21_oversold20_overbought80]+none[none]+conservative",
+          "trigger_key": "rsi_extreme",
+          "filter_key": "none",
+          "risk_preset": "conservative",
+          "trades_total": 50,
+          "win_rate_pct": 61.7,
+          "profit_factor": 1.72,
+          "total_return_pct": 13.46,
+          "max_drawdown_pct": -3.97,
+          "final_balance": 11346.39
+        },
+        {
+          "name": "rsi_extreme[period21_oversold20_overbought80]+none[none]+standard",
+          "trigger_key": "rsi_extreme",
+          "filter_key": "none",
+          "risk_preset": "standard",
+          "trades_total": 61,
+          "win_rate_pct": 64.29,
+          "profit_factor": 1.57,
+          "total_return_pct": 8.75,
+          "max_drawdown_pct": -3.88,
+          "final_balance": 10874.83
+        },
+        {
+          "name": "rsi_extreme[period7_oversold30_overbought70]+ema_trend[period50]+aggressive",
+          "trigger_key": "rsi_extreme",
+          "filter_key": "ema_trend",
+          "risk_preset": "aggressive",
+          "trades_total": 121,
+          "win_rate_pct": 52.89,
+          "profit_factor": 1.4,
+          "total_return_pct": 27.33,
+          "max_drawdown_pct": -6.82,
+          "final_balance": 12733.4
+        },
+        {
+          "name": "bb_reversion[period20_mult2.5]+ema_trend[period50]+aggressive",
+          "trigger_key": "bb_reversion",
+          "filter_key": "ema_trend",
+          "risk_preset": "aggressive",
+          "trades_total": 30,
+          "win_rate_pct": 56.67,
+          "profit_factor": 1.4,
+          "total_return_pct": 5.4,
+          "max_drawdown_pct": -4.3,
+          "final_balance": 10540.01
+        },
+        {
+          "name": "bb_reversion[period20_mult2.5]+ema_trend[period50]+standard",
+          "trigger_key": "bb_reversion",
+          "filter_key": "ema_trend",
+          "risk_preset": "standard",
+          "trades_total": 40,
+          "win_rate_pct": 72.41,
+          "profit_factor": 1.37,
+          "total_return_pct": 2.98,
+          "max_drawdown_pct": -3.17,
+          "final_balance": 10298.27
+        }
+      ]
+    },
+    {
+      "query": {
+        "label": "Highest win rate with PF > 1.0",
+        "min_trades": 30,
+        "min_profit_factor": 1.0,
+        "order_by": "win_rate",
+        "top_n": 5
+      },
+      "results": [
+        {
+          "name": "bb_reversion[period20_mult2.5]+ema_trend[period50]+standard",
+          "trigger_key": "bb_reversion",
+          "filter_key": "ema_trend",
+          "risk_preset": "standard",
+          "trades_total": 40,
+          "win_rate_pct": 72.41,
+          "profit_factor": 1.37,
+          "total_return_pct": 2.98,
+          "max_drawdown_pct": -3.17,
+          "final_balance": 10298.27
+        },
+        {
+          "name": "rsi_extreme[period21_oversold20_overbought80]+none[none]+standard",
+          "trigger_key": "rsi_extreme",
+          "filter_key": "none",
+          "risk_preset": "standard",
+          "trades_total": 61,
+          "win_rate_pct": 64.29,
+          "profit_factor": 1.57,
+          "total_return_pct": 8.75,
+          "max_drawdown_pct": -3.88,
+          "final_balance": 10874.83
+        },
+        {
+          "name": "rsi_extreme[period7_oversold30_overbought70]+ema_trend[period50]+standard",
+          "trigger_key": "rsi_extreme",
+          "filter_key": "ema_trend",
+          "risk_preset": "standard",
+          "trades_total": 152,
+          "win_rate_pct": 64.04,
+          "profit_factor": 1.18,
+          "total_return_pct": 7.74,
+          "max_drawdown_pct": -8.05,
+          "final_balance": 10773.53
+        },
+        {
+          "name": "bb_reversion[period20_mult2.0]+ema_trend[period50]+standard",
+          "trigger_key": "bb_reversion",
+          "filter_key": "ema_trend",
+          "risk_preset": "standard",
+          "trades_total": 146,
+          "win_rate_pct": 62.73,
+          "profit_factor": 1.05,
+          "total_return_pct": 2.39,
+          "max_drawdown_pct": -8.82,
+          "final_balance": 10239.13
+        },
+        {
+          "name": "bb_reversion[period20_mult2.5]+ema_trend[period50]+conservative",
+          "trigger_key": "bb_reversion",
+          "filter_key": "ema_trend",
+          "risk_preset": "conservative",
+          "trades_total": 32,
+          "win_rate_pct": 62.07,
+          "profit_factor": 1.03,
+          "total_return_pct": 0.28,
+          "max_drawdown_pct": -4.85,
+          "final_balance": 10027.76
+        }
+      ]
+    }
+  ]
+}

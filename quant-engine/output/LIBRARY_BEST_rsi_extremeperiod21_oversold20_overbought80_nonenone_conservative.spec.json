@@ -1,0 +1,49 @@
+{
+  "name": "rsi_extreme[period21_oversold20_overbought80]+none[none]+conservative",
+  "symbol": "XAUUSD",
+  "timeframe": "1h",
+  "indicators": [
+    {
+      "id": "trigger_rsi",
+      "type": "RSI",
+      "period": 21
+    },
+    {
+      "id": "atrRisk",
+      "type": "ATR",
+      "period": 14
+    }
+  ],
+  "entry_long": [
+    {
+      "left": "trigger_rsi",
+      "op": "<",
+      "right": 20
+    }
+  ],
+  "entry_short": [
+    {
+      "left": "trigger_rsi",
+      "op": ">",
+      "right": 80
+    }
+  ],
+  "risk": {
+    "sl_mode": "ATR",
+    "sl_atr_mult": 1.5,
+    "tp_mode": "ATR",
+    "tp_atr_mult": 2.0,
+    "atr_id": "atrRisk"
+  },
+  "built_from": {
+    "trigger": "rsi_extreme",
+    "trigger_params": {
+      "period": 21,
+      "oversold": 20,
+      "overbought": 80
+    },
+    "filter": "none",
+    "filter_params": {},
+    "risk_preset": "conservative"
+  }
+}

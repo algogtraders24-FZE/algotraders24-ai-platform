@@ -1,0 +1,39 @@
+{
+  "name": "Bollinger Mean Reversion",
+  "symbol": "XAUUSD",
+  "timeframe": "1h",
+  "indicators": [
+    {
+      "id": "bb1",
+      "type": "BB",
+      "period": 20,
+      "mult": 2.0
+    },
+    {
+      "id": "atr14",
+      "type": "ATR",
+      "period": 14
+    }
+  ],
+  "entry_long": [
+    {
+      "left": "close",
+      "op": "<",
+      "right": "bb1.lower"
+    }
+  ],
+  "entry_short": [
+    {
+      "left": "close",
+      "op": ">",
+      "right": "bb1.upper"
+    }
+  ],
+  "risk": {
+    "sl_mode": "ATR",
+    "sl_atr_mult": 1.5,
+    "tp_mode": "ATR",
+    "tp_atr_mult": 2.0,
+    "atr_id": "atr14"
+  }
+}

@@ -1,0 +1,38 @@
+[
+  {
+    "spec":"RSI Oversold + EMA Trend",
+    "old_trades":0,
+    "new_trades":0,
+    "old_pf":null,
+    "new_pf":null,
+    "old_return_pct":0.0,
+    "new_return_pct":0.0,
+    "old_max_dd_pct":0.0,
+    "new_max_dd_pct":0.0,
+    "same_minute_sl_tp_conflicts":0
+  },
+  {
+    "spec":"MACD Crossover",
+    "old_trades":583,
+    "new_trades":690,
+    "old_pf":0.95,
+    "new_pf":2.05,
+    "old_return_pct":-10.35,
+    "new_return_pct":205.1,
+    "old_max_dd_pct":-29.7,
+    "new_max_dd_pct":-5.2,
+    "same_minute_sl_tp_conflicts":2
+  },
+  {
+    "spec":"Bollinger Mean Reversion",
+    "old_trades":666,
+    "new_trades":516,
+    "old_pf":0.95,
+    "new_pf":0.19,
+    "old_return_pct":-15.33,
+    "new_return_pct":-100.01,
+    "old_max_dd_pct":-31.26,
+    "new_max_dd_pct":-100.01,
+    "same_minute_sl_tp_conflicts":0
+  }
+]

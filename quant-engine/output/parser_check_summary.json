@@ -1,0 +1,28 @@
+[
+  {
+    "name": "EMA9x21 Cross + RSI Filter",
+    "idea_text": "9 EMA crosses above 21 EMA and RSI is above 50 -> buy; opposite crossover with RSI below 50 -> sell",
+    "metrics": {
+      "trades_total": 1153,
+      "trade_cycles": 900,
+      "win_rate_pct": 55.22,
+      "profit_factor": 0.95,
+      "total_return_pct": -17.67,
+      "max_drawdown_pct": -30.3,
+      "final_balance": 8232.86
+    }
+  },
+  {
+    "name": "BB + RSI Reversal",
+    "idea_text": "Overbought/oversold reversal: sell when price closes above the upper Bollinger Band and RSI > 70, buy when price closes below the lower Bollinger Band and RSI < 30",
+    "metrics": {
+      "trades_total": 921,
+      "trade_cycles": 809,
+      "win_rate_pct": 50.06,
+      "profit_factor": 0.9,
+      "total_return_pct": -32.57,
+      "max_drawdown_pct": -38.14,
+      "final_balance": 6743.02
+    }
+  }
+]

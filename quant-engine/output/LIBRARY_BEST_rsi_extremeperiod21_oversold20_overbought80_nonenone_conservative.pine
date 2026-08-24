@@ -1,0 +1,32 @@
+//@version=5
+// rsi_extreme[period21_oversold20_overbought80]+none[none]+conservative — AUTO-GENERATED from spec by the AT24 idea-to-code engine.
+// Same indicator math + entry logic as the paired MQL5 EA and the
+// Python backtest this was verified against. Review before live use.
+strategy("rsi_extreme[period21_oversold20_overbought80]+none[none]+conservative", overlay=true, default_qty_type=strategy.percent_of_equity,
+     default_qty_value=100, pyramiding=0, calc_on_every_tick=false)
+
+riskPercent = input.float(1.0, "Risk % per trade", minval=0.01)
+
+trigger_rsi = ta.rsi(close, 21)
+atrRisk = ta.atr(14)
+
+longSignal  = (trigger_rsi < 20)
+shortSignal = (trigger_rsi > 80)
+
+slDist = atrRisk * 1.5
+tpDist = atrRisk * 2.0
+
+// position sizing off risk% and stop distance (approx — Pine strategy()
+// call above already governs qty via default_qty_*; this recomputes
+// the SL/TP price levels used for the actual stop/limit orders)
+if (longSignal and strategy.position_size == 0)
+    slPrice = close - slDist
+    tpPrice = close + tpDist
+    strategy.entry("Long", strategy.long)
+    strategy.exit("Long Exit", from_entry="Long", stop=slPrice, limit=tpPrice)
+
+if (shortSignal and strategy.position_size == 0)
+    slPrice = close + slDist
+    tpPrice = close - tpDist
+    strategy.entry("Short", strategy.short)
+    strategy.exit("Short Exit", from_entry="Short", stop=slPrice, limit=tpPrice)

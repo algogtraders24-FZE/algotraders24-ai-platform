@@ -1,0 +1,9 @@
+# market.db is built locally from the Exness tick-data zips
+# (scripts/import_exness.py, run from ../quant-engine/) and the original
+# trimmed handoff data. It grows into the hundreds of MB to multiple GB
+# range and is fully reproducible from source data that already lives
+# outside git (Downloads/Exness_*.zip) - never commit it.
+market.db
+market.db-wal
+market.db-shm
+__pycache__/

@@ -1,0 +1,11 @@
+# Compiled MQL5/MQL4 binaries, MetaEditor logs, and generated strategy
+# artifacts are regenerable from demo.py / the library builder - keep
+# source (.mq5/.mq4/.pine/.spec.json) but not build output/logs.
+*.ex5
+*.ex4
+compile_*.log
+output/exness_import.log
+output/tick_engine_test.log
+output/compare_engines.log
+__pycache__/
+spec_engine/__pycache__/

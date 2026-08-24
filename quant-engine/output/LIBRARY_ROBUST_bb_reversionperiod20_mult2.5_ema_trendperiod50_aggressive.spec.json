@@ -1,0 +1,72 @@
+{
+  "name": "bb_reversion[period20_mult2.5]+ema_trend[period50]+aggressive",
+  "symbol": "XAUUSD",
+  "timeframe": "1h",
+  "indicators": [
+    {
+      "id": "trigger_bb",
+      "type": "BB",
+      "period": 20,
+      "mult": 2.5
+    },
+    {
+      "id": "filter_ema",
+      "type": "EMA",
+      "period": 50
+    },
+    {
+      "id": "atrRisk",
+      "type": "ATR",
+      "period": 14
+    }
+  ],
+  "entry_long": [
+    {
+      "left": "close",
+      "op": "<",
+      "right": "trigger_bb.lower"
+    },
+    {
+      "left": "close",
+      "op": ">",
+      "right": "filter_ema"
+    }
+  ],
+  "entry_short": [
+    {
+      "left": "close",
+      "op": ">",
+      "right": "trigger_bb.upper"
+    },
+    {
+      "left": "close",
+      "op": "<",
+      "right": "filter_ema"
+    }
+  ],
+  "risk": {
+    "sl_mode": "ATR",
+    "sl_atr_mult": 1.0,
+    "tp_mode": "ATR",
+    "tp_atr_mult": 1.5,
+    "atr_id": "atrRisk",
+    "be_trigger_atr": 1.5,
+    "be_lock_atr": 0.2,
+    "trail_start_atr": 3.0,
+    "trail_atr_mult": 4.0,
+    "partial_atr": 1.5,
+    "partial_pct": 0.3
+  },
+  "built_from": {
+    "trigger": "bb_reversion",
+    "trigger_params": {
+      "period": 20,
+      "mult": 2.5
+    },
+    "filter": "ema_trend",
+    "filter_params": {
+      "period": 50
+    },
+    "risk_preset": "aggressive"
+  }
+}

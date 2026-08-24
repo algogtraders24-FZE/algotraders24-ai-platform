@@ -1,0 +1,53 @@
+{
+  "name": "RSI Oversold + EMA Trend",
+  "symbol": "XAUUSD",
+  "timeframe": "1h",
+  "indicators": [
+    {
+      "id": "rsi14",
+      "type": "RSI",
+      "period": 14
+    },
+    {
+      "id": "ema50",
+      "type": "EMA",
+      "period": 50
+    },
+    {
+      "id": "atr14",
+      "type": "ATR",
+      "period": 14
+    }
+  ],
+  "entry_long": [
+    {
+      "left": "rsi14",
+      "op": "<",
+      "right": 30
+    },
+    {
+      "left": "close",
+      "op": ">",
+      "right": "ema50"
+    }
+  ],
+  "entry_short": [
+    {
+      "left": "rsi14",
+      "op": ">",
+      "right": 70
+    },
+    {
+      "left": "close",
+      "op": "<",
+      "right": "ema50"
+    }
+  ],
+  "risk": {
+    "sl_mode": "ATR",
+    "sl_atr_mult": 2.0,
+    "tp_mode": "ATR",
+    "tp_atr_mult": 4.0,
+    "atr_id": "atr14"
+  }
+}

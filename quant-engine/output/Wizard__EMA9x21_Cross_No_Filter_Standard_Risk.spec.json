@@ -1,0 +1,59 @@
+{
+  "name": "Wizard: EMA9x21 Cross, No Filter, Standard Risk",
+  "symbol": "XAUUSD",
+  "timeframe": "1h",
+  "indicators": [
+    {
+      "id": "trigger_emaF",
+      "type": "EMA",
+      "period": 9
+    },
+    {
+      "id": "trigger_emaS",
+      "type": "EMA",
+      "period": 21
+    },
+    {
+      "id": "atrRisk",
+      "type": "ATR",
+      "period": 14
+    }
+  ],
+  "entry_long": [
+    {
+      "left": "trigger_emaF",
+      "op": "cross_above",
+      "right": "trigger_emaS"
+    }
+  ],
+  "entry_short": [
+    {
+      "left": "trigger_emaF",
+      "op": "cross_below",
+      "right": "trigger_emaS"
+    }
+  ],
+  "risk": {
+    "sl_mode": "ATR",
+    "sl_atr_mult": 2.0,
+    "tp_mode": "ATR",
+    "tp_atr_mult": 4.0,
+    "atr_id": "atrRisk",
+    "be_trigger_atr": 1.0,
+    "be_lock_atr": 0.1,
+    "trail_start_atr": 2.0,
+    "trail_atr_mult": 3.0,
+    "partial_atr": 2.0,
+    "partial_pct": 0.5
+  },
+  "built_from": {
+    "trigger": "ema_cross",
+    "trigger_params": {
+      "fast": 9,
+      "slow": 21
+    },
+    "filter": "none",
+    "filter_params": {},
+    "risk_preset": "standard"
+  }
+}

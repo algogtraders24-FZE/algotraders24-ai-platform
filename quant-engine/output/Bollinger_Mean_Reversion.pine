@@ -1,0 +1,60 @@
+//@version=5
+// Bollinger Mean Reversion — AUTO-GENERATED from spec by the AT24 idea-to-code engine.
+// Same indicator math + entry logic as the paired MQL5 EA and the
+// Python backtest this was verified against. Review before live use.
+strategy("Bollinger Mean Reversion", overlay=true, default_qty_type=strategy.fixed,
+     default_qty_value=1, pyramiding=0, calc_on_every_tick=false)
+
+riskPercent = input.float(1.0, "Risk % per trade", minval=0.01)
+
+bb1_middle = ta.sma(close, 20)
+bb1_stdev = ta.stdev(close, 20)
+bb1_upper = bb1_middle + 2.0 * bb1_stdev
+bb1_lower = bb1_middle - 2.0 * bb1_stdev
+atr14 = ta.atr(14)
+
+longSignal  = (close < bb1_lower)
+shortSignal = (close > bb1_upper)
+
+slDist = atr14 * 1.5
+tpDist = atr14 * 2.0
+
+// Risk-based position size, same formula as CalcLots() in the paired MQL
+// EAs: riskMoney / (stop distance converted to account-currency loss per
+// contract via syminfo.pointvalue). Without this, Pine's strategy.entry
+// would size every trade the same regardless of stop distance — silently
+// disconnected from the risk% the wizard/spec actually asked for.
+riskMoney = strategy.equity * (riskPercent / 100.0)
+slDistPoints = slDist / syminfo.mintick
+lossPerContract = slDistPoints * syminfo.pointvalue
+qty = lossPerContract > 0 ? riskMoney / lossPerContract : 0.0
+
+// SL/TP distance is frozen at the signal bar (matches Python/MQL: the ATR
+// used for sizing a trade doesn't drift after entry), but the price LEVELS
+// are anchored to strategy.position_avg_price (the real average fill),
+// recomputed every bar while in the trade — not the signal bar's close,
+// which with calc_on_every_tick=false is NOT the fill price (entry fills
+// at the next bar's open, so a gap between signal-close and fill-open
+// would otherwise silently widen/narrow the realized stop).
+var float frozenSlDist = na
+var float frozenTpDist = na
+
+if (longSignal and strategy.position_size == 0 and qty > 0)
+    frozenSlDist := slDist
+    frozenTpDist := tpDist
+    strategy.entry("Long", strategy.long, qty=qty)
+
+if (shortSignal and strategy.position_size == 0 and qty > 0)
+    frozenSlDist := slDist
+    frozenTpDist := tpDist
+    strategy.entry("Short", strategy.short, qty=qty)
+
+if strategy.position_size > 0
+    strategy.exit("Long Exit", from_entry="Long",
+         stop=strategy.position_avg_price - frozenSlDist,
+         limit=strategy.position_avg_price + frozenTpDist)
+
+if strategy.position_size < 0
+    strategy.exit("Short Exit", from_entry="Short",
+         stop=strategy.position_avg_price + frozenSlDist,
+         limit=strategy.position_avg_price - frozenTpDist)

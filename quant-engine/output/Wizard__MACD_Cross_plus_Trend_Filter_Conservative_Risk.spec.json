@@ -1,0 +1,74 @@
+{
+  "name": "Wizard: MACD Cross + Trend Filter, Conservative Risk",
+  "symbol": "XAUUSD",
+  "timeframe": "1h",
+  "indicators": [
+    {
+      "id": "trigger_macd",
+      "type": "MACD",
+      "fast": 12,
+      "slow": 26,
+      "signal": 9
+    },
+    {
+      "id": "filter_ema",
+      "type": "EMA",
+      "period": 50
+    },
+    {
+      "id": "atrRisk",
+      "type": "ATR",
+      "period": 14
+    }
+  ],
+  "entry_long": [
+    {
+      "left": "trigger_macd.line",
+      "op": "cross_above",
+      "right": "trigger_macd.signal"
+    },
+    {
+      "left": "close",
+      "op": ">",
+      "right": "filter_ema"
+    }
+  ],
+  "entry_short": [
+    {
+      "left": "trigger_macd.line",
+      "op": "cross_below",
+      "right": "trigger_macd.signal"
+    },
+    {
+      "left": "close",
+      "op": "<",
+      "right": "filter_ema"
+    }
+  ],
+  "risk": {
+    "sl_mode": "ATR",
+    "sl_atr_mult": 1.5,
+    "tp_mode": "ATR",
+    "tp_atr_mult": 2.0,
+    "atr_id": "atrRisk",
+    "be_trigger_atr": 0.5,
+    "be_lock_atr": 0.1,
+    "trail_start_atr": 1.0,
+    "trail_atr_mult": 2.0,
+    "partial_atr": 1.0,
+    "partial_pct": 0.5
+  },
+  "built_from": {
+    "trigger": "macd_cross",
+    "trigger_params": {
+      "fast": 12,
+      "slow": 26,
+      "signal": 9
+    },
+    "filter": "ema_trend",
+    "filter_params": {
+      "period": 50
+    },
+    "risk_preset": "conservative"
+  }
+}

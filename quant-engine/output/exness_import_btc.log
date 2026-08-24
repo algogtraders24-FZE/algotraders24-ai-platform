@@ -1,0 +1,18 @@
+DB ready at E:\algotraders24-ai-platform\quant-engine\scripts\..\..\quant_engine\market.db
+
+=== BTCUSD -> BTCUSD_EXNESS ===
+  streaming Exness_BTCUSD_2024.zip ...
+  Exness_BTCUSD_2024.zip: 34,150,551 ticks read, elapsed 545s
+  streaming Exness_BTCUSD_2025.zip ...
+  Exness_BTCUSD_2025.zip: 33,949,317 ticks read, elapsed 805s
+  streaming Exness_BTCUSD_2026.zip ...
+  Exness_BTCUSD_2026.zip: 21,634,620 ticks read, elapsed 1044s
+  wrote 720,368 1m bars for BTCUSD_EXNESS in 1047s (4267 out-of-order source dupes overwrote an earlier bar)
+  BTCUSD_EXNESS 5m: 144,155 candles (2024-01-01 00:00:00+00:00 -> 2026-08-22 23:55:00+00:00)
+  BTCUSD_EXNESS 15m: 48,071 candles (2024-01-01 00:00:00+00:00 -> 2026-08-22 23:45:00+00:00)
+  BTCUSD_EXNESS 30m: 24,048 candles (2024-01-01 00:00:00+00:00 -> 2026-08-22 23:30:00+00:00)
+  BTCUSD_EXNESS 1h: 12,037 candles (2024-01-01 00:00:00+00:00 -> 2026-08-22 23:00:00+00:00)
+  BTCUSD_EXNESS 4h: 3,015 candles (2024-01-01 00:00:00+00:00 -> 2026-08-22 20:00:00+00:00)
+  BTCUSD_EXNESS 1d: 503 candles (2024-01-01 00:00:00+00:00 -> 2026-08-22 00:00:00+00:00)
+
+All done in 1084s

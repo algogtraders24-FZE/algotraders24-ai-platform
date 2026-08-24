@@ -1,0 +1,7 @@
+signal bars in 2024 window: 5938
+
+=== MACD Crossover === elapsed: 1378s
+{'trades_total': 391, 'trade_cycles': 281, 'win_rate_pct': np.float64(83.63), 'profit_factor': np.float64(2.44), 'total_return_pct': np.float64(97.01), 'max_drawdown_pct': np.float64(-3.68), 'final_balance': np.float64(19700.79), 'same_tick_sl_tp_conflicts': 0, 'total_ticks_replayed': 34194748, 'account_blown': False}
+
+=== Bollinger Mean Reversion === elapsed: 919s
+{'trades_total': 415, 'trade_cycles': 399, 'win_rate_pct': np.float64(25.06), 'profit_factor': np.float64(0.19), 'total_return_pct': np.float64(-91.69), 'max_drawdown_pct': np.float64(-91.69), 'final_balance': np.float64(831.08), 'same_tick_sl_tp_conflicts': 0, 'total_ticks_replayed': 34194748, 'account_blown': False}
