@@ -1,7 +1,7 @@
 {
   "_provenance": {
     "generatedBy": "generate_pdhpdl_extended_evidence_chain_full_real.py",
-    "generatedAt": "2026-08-24T08:53:20.600995Z",
+    "generatedAt": "2026-08-24T09:37:30.404116Z",
     "note": "REGIME_COVERAGE: real, via regime_classifier.py against real quant_engine/market.db candles. PARAMETER_SENSITIVITY: real, via pdhpdl_strategy_backtest.py (standalone faithful Python port of the EA's real logic, run against the SAME real candle data) - baseline + 4 perturbed variants (SL x1.15/x0.85, TP x1.15, pyramid-trigger x1.2), each an independent, apples-to-apples backtest through this same engine. This is a SEPARATE engine from the real MT5 Strategy Tester run that produced the actual PDHPDL-GOLD-v2x Evidence - see pdhpdl_strategy_backtest.py's own docstring for every documented simplification versus the real MT5 execution model."
   },
   "tradingSystemId": "PDHPDL-GOLD",
@@ -49,17 +49,17 @@
     }
   },
   "m7": {
-    "status": "UNDER_OBSERVATION",
-    "reasonCode": "HISTORY_INSUFFICIENT",
-    "explanation": "Evidence, Validation, and RiskAnalysis are all sufficient, but only 1 historical observation(s) have been recorded (M6) -- AT24 has not yet observed this Version across more than one point in time.",
-    "id": "805511c09b737c22",
-    "generatedAt": "2026-08-24T08:53:20.853797Z"
+    "status": "VALIDATED",
+    "reasonCode": "VALIDATION_COMPLETE",
+    "explanation": "Evidence integrity is verified, Validation (M4) supports it (overallStatus=PASS), RiskAnalysis (M5) is COMPLETE, and 1 independent historical observations have been recorded.",
+    "id": "8f16bdbf74cec297",
+    "generatedAt": "2026-08-24T09:37:30.639970Z"
   },
   "evidenceId": "4a27d1c3f86dcf4a",
   "evidenceHash": "4a27d1c3f86dcf4a",
   "validationId": "4a27d1c3f86dcf4a",
   "riskAnalysisId": "1e4333ede89dd8cd",
-  "trustStatusId": "805511c09b737c22",
+  "trustStatusId": "8f16bdbf74cec297",
   "lastEvidenceAt": "2026-08-07T17:04:07",
   "m4_full": {
     "evidenceId": "4a27d1c3f86dcf4a",
@@ -78,8 +78,8 @@
         "datasetIdentity": "trades[]",
         "datasetHash": "abb95fe7090e856a",
         "inputEvidenceHash": "4a27d1c3f86dcf4a",
-        "startedAt": "2026-08-24T08:53:16.047776Z",
-        "completedAt": "2026-08-24T08:53:16.094681Z",
+        "startedAt": "2026-08-24T09:37:25.269663Z",
+        "completedAt": "2026-08-24T09:37:25.329515Z",
         "methodology": "Direct count/duration measurement, no acceptance threshold applied.",
         "parameters": {},
         "metrics": {
@@ -110,8 +110,8 @@
         "datasetIdentity": "trades[]",
         "datasetHash": "abb95fe7090e856a",
         "inputEvidenceHash": "4a27d1c3f86dcf4a",
-        "startedAt": "2026-08-24T08:53:16.094681Z",
-        "completedAt": "2026-08-24T08:53:16.313684Z",
+        "startedAt": "2026-08-24T09:37:25.329515Z",
+        "completedAt": "2026-08-24T09:37:25.564397Z",
         "methodology": "Time-based split at 80% of [first trade, last trade] duration (M4-methodology-v1).",
         "parameters": {
           "splitRatio": 0.8,
@@ -183,8 +183,8 @@
         "datasetIdentity": "trades[]",
         "datasetHash": "abb95fe7090e856a",
         "inputEvidenceHash": "4a27d1c3f86dcf4a",
-        "startedAt": "2026-08-24T08:53:16.313684Z",
-        "completedAt": "2026-08-24T08:53:16.431309Z",
+        "startedAt": "2026-08-24T09:37:25.564397Z",
+        "completedAt": "2026-08-24T09:37:25.704660Z",
         "methodology": "Expanding-window, one test window per calendar year (M4-methodology-v1). Never collapsed into a single score.",
         "parameters": {
           "windowDefinition": "calendar-year",
@@ -265,8 +265,8 @@
         "datasetIdentity": "trades[]",
         "datasetHash": "abb95fe7090e856a",
         "inputEvidenceHash": "4a27d1c3f86dcf4a",
-        "startedAt": "2026-08-24T08:53:16.432309Z",
-        "completedAt": "2026-08-24T08:53:16.494443Z",
+        "startedAt": "2026-08-24T09:37:25.704660Z",
+        "completedAt": "2026-08-24T09:37:25.779935Z",
         "methodology": "Calendar-period aggregation (month/quarter/year) plus inter-trade gap and best-single-period concentration.",
         "parameters": {},
         "metrics": {
@@ -416,8 +416,8 @@
         "datasetIdentity": "trades[]",
         "datasetHash": "abb95fe7090e856a",
         "inputEvidenceHash": "4a27d1c3f86dcf4a",
-        "startedAt": "2026-08-24T08:53:16.495444Z",
-        "completedAt": "2026-08-24T08:53:16.496445Z",
+        "startedAt": "2026-08-24T09:37:25.780936Z",
+        "completedAt": "2026-08-24T09:37:25.785404Z",
         "methodology": "Per-regime trade grouping using Trade.marketRegime.",
         "parameters": {},
         "metrics": {
@@ -462,8 +462,8 @@
         "datasetIdentity": "trades[]",
         "datasetHash": "abb95fe7090e856a",
         "inputEvidenceHash": "4a27d1c3f86dcf4a",
-        "startedAt": "2026-08-24T08:53:16.496445Z",
-        "completedAt": "2026-08-24T08:53:16.513020Z",
+        "startedAt": "2026-08-24T09:37:25.785404Z",
+        "completedAt": "2026-08-24T09:37:25.816250Z",
         "methodology": "Distribution statistics beyond total return: median, expectancy, streaks, top-decile concentration.",
         "parameters": {},
         "metrics": {
@@ -499,8 +499,8 @@
         "datasetIdentity": "trades[] per configuration",
         "datasetHash": "abb95fe7090e856a",
         "inputEvidenceHash": "4a27d1c3f86dcf4a",
-        "startedAt": "2026-08-24T08:53:16.513020Z",
-        "completedAt": "2026-08-24T08:53:16.543534Z",
+        "startedAt": "2026-08-24T09:37:25.816250Z",
+        "completedAt": "2026-08-24T09:37:25.857237Z",
         "methodology": "Baseline-vs-perturbed-configuration comparison; each configuration recorded independently.",
         "parameters": {
           "configurationNames": [
@@ -762,7 +762,7 @@
     "methodologyVersion": "M5-methodology-v1",
     "inputEvidenceHash": "4a27d1c3f86dcf4a",
     "inputValidationHash": "6232afe7c2e6e35d",
-    "generatedAt": "2026-08-24T08:53:20.529551Z",
+    "generatedAt": "2026-08-24T09:37:30.356861Z",
     "drawdown": {
       "curveType": "equity (real M15 mark-to-market, reconstructed from real price bars between each trade's own real entry/exit)",
       "equityDrawdownAvailable": true,
@@ -996,8 +996,8 @@
       "validationId": null,
       "riskAnalysisId": null,
       "eventType": "SYSTEM_CREATED",
-      "observedAt": "2026-08-24T08:53:20.600995Z",
-      "recordedAt": "2026-08-24T08:53:20.600995Z",
+      "observedAt": "2026-08-24T09:37:30.404116Z",
+      "recordedAt": "2026-08-24T09:37:30.404116Z",
       "source": "AT24-M6-History-Engine-v1.0",
       "sourceHash": null,
       "payload": {
@@ -1008,8 +1008,8 @@
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "23c2bf4e036bfd2d",
-      "contentHash": "23c2bf4e036bfd2d"
+      "historyEventId": "50c25a7dfb5a7266",
+      "contentHash": "50c25a7dfb5a7266"
     },
     {
       "tradingSystemId": "PDHPDL-GOLD",
@@ -1018,20 +1018,20 @@
       "validationId": null,
       "riskAnalysisId": null,
       "eventType": "VERSION_CREATED",
-      "observedAt": "2026-08-24T08:53:20.600995Z",
-      "recordedAt": "2026-08-24T08:53:20.600995Z",
+      "observedAt": "2026-08-24T09:37:30.404116Z",
+      "recordedAt": "2026-08-24T09:37:30.404116Z",
       "source": "AT24-M6-History-Engine-v1.0",
       "sourceHash": null,
       "payload": {
         "versionId": "PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN"
       },
-      "previousEventId": "23c2bf4e036bfd2d",
-      "previousEventHash": "23c2bf4e036bfd2d",
+      "previousEventId": "50c25a7dfb5a7266",
+      "previousEventHash": "50c25a7dfb5a7266",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "a7f9a8c618c70ed3",
-      "contentHash": "a7f9a8c618c70ed3"
+      "historyEventId": "89f449832d863449",
+      "contentHash": "89f449832d863449"
     },
     {
       "tradingSystemId": "PDHPDL-GOLD",
@@ -1041,20 +1041,20 @@
       "riskAnalysisId": null,
       "eventType": "EVIDENCE_ADDED",
       "observedAt": "2026-08-07T17:04:07",
-      "recordedAt": "2026-08-24T08:53:20.600995Z",
+      "recordedAt": "2026-08-24T09:37:30.404116Z",
       "source": "AT24-M2-Evidence-Engine-v0.4",
       "sourceHash": "4a27d1c3f86dcf4a",
       "payload": {
         "sourceAdapter": "mt5-deals-table-xlsx-v1",
         "tradeCount": 1511
       },
-      "previousEventId": "a7f9a8c618c70ed3",
-      "previousEventHash": "a7f9a8c618c70ed3",
+      "previousEventId": "89f449832d863449",
+      "previousEventHash": "89f449832d863449",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "69109a2c25dfc763",
-      "contentHash": "69109a2c25dfc763"
+      "historyEventId": "6cff50e92ff2f4c4",
+      "contentHash": "6cff50e92ff2f4c4"
     },
     {
       "tradingSystemId": "PDHPDL-GOLD",
@@ -1063,8 +1063,8 @@
       "validationId": null,
       "riskAnalysisId": null,
       "eventType": "EVIDENCE_VERIFIED",
-      "observedAt": "2026-08-24T08:53:20.600995Z",
-      "recordedAt": "2026-08-24T08:53:20.600995Z",
+      "observedAt": "2026-08-24T09:37:30.404116Z",
+      "recordedAt": "2026-08-24T09:37:30.404116Z",
       "source": "AT24-M3-Evidence-Verifier-v1.0",
       "sourceHash": "4a27d1c3f86dcf4a",
       "payload": {
@@ -1076,13 +1076,13 @@
           "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'tickDataQuality' is null"
         ]
       },
-      "previousEventId": "69109a2c25dfc763",
-      "previousEventHash": "69109a2c25dfc763",
+      "previousEventId": "6cff50e92ff2f4c4",
+      "previousEventHash": "6cff50e92ff2f4c4",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "7985407ae9216db4",
-      "contentHash": "7985407ae9216db4"
+      "historyEventId": "325a1887efad810e",
+      "contentHash": "325a1887efad810e"
     },
     {
       "tradingSystemId": "PDHPDL-GOLD",
@@ -1091,8 +1091,8 @@
       "validationId": "4a27d1c3f86dcf4a",
       "riskAnalysisId": null,
       "eventType": "VALIDATION_COMPLETED",
-      "observedAt": "2026-08-24T08:53:20.600995Z",
-      "recordedAt": "2026-08-24T08:53:20.600995Z",
+      "observedAt": "2026-08-24T09:37:30.404116Z",
+      "recordedAt": "2026-08-24T09:37:30.404116Z",
       "source": "AT24-M4-Validation-Engine-v1.1",
       "sourceHash": "4a27d1c3f86dcf4a",
       "payload": {
@@ -1107,13 +1107,13 @@
           "PARAMETER_SENSITIVITY": "PASS"
         }
       },
-      "previousEventId": "7985407ae9216db4",
-      "previousEventHash": "7985407ae9216db4",
+      "previousEventId": "325a1887efad810e",
+      "previousEventHash": "325a1887efad810e",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "6866b46da4467b0d",
-      "contentHash": "6866b46da4467b0d"
+      "historyEventId": "e3a2d1bf51d0477d",
+      "contentHash": "e3a2d1bf51d0477d"
     },
     {
       "tradingSystemId": "PDHPDL-GOLD",
@@ -1122,8 +1122,8 @@
       "validationId": "4a27d1c3f86dcf4a",
       "riskAnalysisId": "1e4333ede89dd8cd",
       "eventType": "RISK_ANALYSIS_COMPLETED",
-      "observedAt": "2026-08-24T08:53:20.600995Z",
-      "recordedAt": "2026-08-24T08:53:20.600995Z",
+      "observedAt": "2026-08-24T09:37:30.404116Z",
+      "recordedAt": "2026-08-24T09:37:30.404116Z",
       "source": "AT24-M5-Risk-Analysis-Engine-v1.0",
       "sourceHash": "1e4333ede89dd8cd",
       "payload": {
@@ -1143,13 +1143,13 @@
           "costRisk": "AVAILABLE"
         }
       },
-      "previousEventId": "6866b46da4467b0d",
-      "previousEventHash": "6866b46da4467b0d",
+      "previousEventId": "e3a2d1bf51d0477d",
+      "previousEventHash": "e3a2d1bf51d0477d",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "528ff4668a16c160",
-      "contentHash": "528ff4668a16c160"
+      "historyEventId": "dd39829c1cd19aa4",
+      "contentHash": "dd39829c1cd19aa4"
     }
   ]
 }

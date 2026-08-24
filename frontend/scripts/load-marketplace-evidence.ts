@@ -19,14 +19,15 @@
 // never double-counts; only a genuinely new evidenceId/riskAnalysisId
 // (a real re-verification at a real later point in time) adds a new real
 // observation. Once real distinct observations reach M7's own
-// MIN_OBSERVATIONS_FOR_VALIDATED (2) AND the underlying validation/risk
+// MIN_OBSERVATIONS_FOR_VALIDATED AND the underlying validation/risk
 // status independently still qualify, this upgrades trustState to
 // VALIDATED - mirroring trust_status_engine.py's derive_trust_status
 // precedence exactly (see that function's own comment for why Python
-// itself can never persist this count on its own). If the count is under
-// 2, or validation/risk don't qualify, this changes nothing - whatever
-// Python's own run_trust_status already decided stays as-is.
-const MIN_OBSERVATIONS_FOR_VALIDATED = 2; // must match trust_status_engine.py's own constant exactly
+// itself can never persist this count on its own, and for the v2-policy
+// reasoning behind the threshold value itself). If the count is under the
+// threshold, or validation/risk don't qualify, this changes nothing -
+// whatever Python's own run_trust_status already decided stays as-is.
+const MIN_OBSERVATIONS_FOR_VALIDATED = 1; // must match trust_status_engine.py's own constant exactly (v2 policy)
 
 // Usage: npx tsx scripts/load-marketplace-evidence.ts <evidence-package.json> <chain-result.json>
 import "dotenv/config";

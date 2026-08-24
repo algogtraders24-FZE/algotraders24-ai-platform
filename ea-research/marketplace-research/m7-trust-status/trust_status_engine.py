@@ -37,7 +37,16 @@ STATUS_VALUES = frozenset({
     "LIMITED", "UNDER_OBSERVATION", "INVALIDATED", "SUPERSEDED",
 })
 
-MIN_OBSERVATIONS_FOR_VALIDATED = 2  # structural floor (need >1 point to call it "observed more than once"), not a business threshold
+MIN_OBSERVATIONS_FOR_VALIDATED = 1  # Sprint M12 branding follow-on (v2 policy): was 2 ("need >1 point to
+# call it observed more than once"). Lowered deliberately, explicit business decision, not a bug fix -
+# M4's own validation methodology (walk-forward train/test split, out-of-sample split, temporal-stability
+# across the full evidence period, plus real regime-coverage and parameter-sensitivity checks) already
+# tests whether a strategy holds up across different time periods and conditions WITHIN one evidence
+# submission. A second, separate "AT24 looks at the identical evidence again later" pass is largely
+# redundant with what M4 already verifies, and only adds delay. What does NOT change: Evidence must still
+# be genuinely VERIFIED, Validation must still genuinely PASS/WARNING, RiskAnalysis must still genuinely
+# be COMPLETE - this lowers how many times AT24 re-observes the same real result, never softens what the
+# result itself has to be.
 
 
 class InputIntegrityFailureError(Exception):
