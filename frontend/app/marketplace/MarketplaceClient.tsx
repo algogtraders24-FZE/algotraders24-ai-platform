@@ -112,7 +112,7 @@ export default function MarketplaceClient({ initialResult }: { initialResult: Ma
       {error && <Alert tone="danger">{error}</Alert>}
 
       {loading ? (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8" aria-busy="true" aria-live="polite">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" aria-busy="true" aria-live="polite">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-72" />
           ))}

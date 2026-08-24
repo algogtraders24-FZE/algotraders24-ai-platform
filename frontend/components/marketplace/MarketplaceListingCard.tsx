@@ -1,7 +1,7 @@
 // components/marketplace/MarketplaceListingCard.tsx
 // Sprint M8, redesigned M12 branding follow-on ("look at MQL5's product
 // section UI" - session direction) - same visual family as
-// components/product/ProductCard.tsx, but now banner-image-first like a
+// components/product/ProductCard.tsx, but now logo/poster-first like a
 // real marketplace grid needs to be at scale (MQL5's own card: a big
 // square product image is the dominant element, name/price/rating are
 // small text below it). Kept ONE honest difference on purpose: MQL5 bakes
@@ -11,6 +11,17 @@
 // never a score/star/percentage), which is computed data, not marketing
 // copy, and stays visually distinct from the seller-authored image below
 // it via a semi-opaque chip rather than being drawn into the artwork.
+//
+// Poster source is media[0] (the icon/logo), NOT media[1] (the banner) -
+// found a real bug shipping this: banner.svg is a wide 1600x500 hero
+// graphic with its own embedded title/tagline/stat-tiles text, meant for
+// the detail-page top banner. Forcing it into this card's square
+// object-cover crop center-cropped it down to a thin unreadable sliver of
+// overlapping text. The icon is the one asset AT24 actually guarantees is
+// square (media upload API enforces exactly 200x200px), so it's the only
+// safe choice for an object-cover square thumbnail regardless of what
+// aspect ratio a seller's banner happens to be - and it's the product's
+// real logo, which is what a grid card should lead with anyway.
 import Link from "next/link";
 import Image from "next/image";
 import Badge from "@/components/ui/Badge";
@@ -18,20 +29,19 @@ import { formatListingPrice, trustStateLabel, trustStateTone } from "@/lib/marke
 import type { MarketplaceListingSummary } from "@/types/marketplace";
 
 export default function MarketplaceListingCard({ listing }: { listing: MarketplaceListingSummary }) {
-  const icon = listing.media[0];
-  const banner = listing.media[1] ?? listing.media[0];
+  const logo = listing.media[0] ?? listing.media[1];
 
   return (
     <Link
       href={`/marketplace/${listing.slug}`}
       className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-ink-3 transition duration-300 hover:border-gold hover:shadow-raised"
     >
-      {/* Product poster - the dominant visual, like MQL5's grid. Real
-          uploaded banner only; no placeholder marketing graphic. */}
+      {/* Product logo - the dominant visual, like MQL5's grid. Real
+          uploaded icon only; no placeholder marketing graphic. */}
       <div className="relative aspect-square w-full overflow-hidden bg-ink-2">
-        {banner ? (
+        {logo ? (
           <Image
-            src={banner}
+            src={logo}
             alt=""
             fill
             unoptimized
@@ -57,12 +67,7 @@ export default function MarketplaceListingCard({ listing }: { listing: Marketpla
       {/* Seller-authored, kept minimal - full description lives on the
           detail page only, not in the scan-grid. */}
       <div className="flex flex-1 flex-col p-4">
-        <div className="flex items-center gap-2">
-          {icon && (
-            <Image src={icon} alt="" width={20} height={20} className="shrink-0 rounded border border-border" unoptimized />
-          )}
-          <h3 className="truncate text-base font-bold">{listing.title}</h3>
-        </div>
+        <h3 className="truncate text-base font-bold">{listing.title}</h3>
         <p className="mt-1 truncate text-xs text-text-3">by {listing.sellerName ?? "Unknown seller"}</p>
 
         <div className="flex-grow" />
