@@ -21,7 +21,7 @@ export default function MarketplaceGrid({ items, hasActiveFilters }: { items: Ma
   }
 
   return (
-    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+    <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {items.map((listing) => (
         <MarketplaceListingCard key={listing.id} listing={listing} />
       ))}
