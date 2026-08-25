@@ -18,15 +18,22 @@
 // always lived in WorkspaceContext, shared and untouched by either chart).
 //
 // Sprint D2.7.5, Phase 8 - Chart State Persistence. This same state (owned
-// here since D2.7.4) now also survives a same-tab reload/navigation via
-// chart-session-state.ts's sessionStorage helpers - restored once via an
-// effect AFTER mount (never a useState initializer - reading sessionStorage
-// synchronously there would make the client's first render diverge from
-// the server-rendered HTML and trigger a hydration mismatch, the exact
-// reason WorkspaceContext's own preferences already restore via an effect
-// rather than a synchronous initializer). `hydratedRef` prevents the
-// still-default state from being persisted BACK over a real saved value in
-// the brief instant before that restore effect has run.
+// here since D2.7.4) now also survives a reload - restored once via an
+// effect AFTER mount (never a useState initializer - reading persisted
+// state synchronously there would make the client's first render diverge
+// from the server-rendered HTML and trigger a hydration mismatch, the
+// exact reason WorkspaceContext's own preferences already restore via an
+// effect rather than a synchronous initializer). `hydratedRef` prevents
+// the still-default state from being persisted BACK over a real saved
+// value in the brief window before that restore effect has resolved.
+//
+// Sprint D2.7.11 (post-completion, roadmap item 2) - promoted from
+// sessionStorage (tab-scoped) to a real durable per-user database table
+// (chart-workspace-layout-store.ts / ChartWorkspaceLayout), the exact
+// Phase 1 -> 1b precedent already established for drawn objects. The
+// restore is now a genuine network fetch, not a synchronous storage
+// read - `hydratedRef` matters even more now, since the default state
+// is visible for real wall-clock time before the durable fetch resolves.
 //
 // Sprint D2.7.11 Phase 3 - multi-symbol TILED layout (real, simultaneously-
 // visible charts, not just tabs - see the roadmap doc's own design-pass
@@ -53,7 +60,8 @@ import { useEffect, useRef, useState } from "react";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import AdvancedChart from "@/components/workspace/tradingview/AdvancedChart";
 import { DEFAULT_INDICATOR_CONFIGS } from "@/lib/chart-engine/indicators/panel-registry";
-import { readChartSessionState, writeChartSessionState, type ChartLayout } from "@/lib/chart-engine/chart-session-state";
+import type { ChartLayout } from "@/lib/chart-engine/chart-session-state";
+import { readChartWorkspaceLayout, writeChartWorkspaceLayout } from "@/lib/chart-engine/chart-workspace-layout-store";
 import type { ChartProviderKind } from "@/types/chart-data";
 import type { SignalTimeframe } from "@/types/signal";
 import ChartProviderToggle from "./ChartProviderToggle";
@@ -93,16 +101,20 @@ export default function ChartPanel() {
   // cross-device) symbol, the sync effect immediately corrects it - the
   // context symbol is always authoritative for whichever pane is primary.
   useEffect(() => {
-    const saved = readChartSessionState();
-    if (saved.provider) setProvider(saved.provider);
-    if (saved.panes && saved.panes.length > 0) {
-      const restored = saved.panes.map((p) => ({ id: newPaneId(), symbol: p.symbol, timeframe: p.timeframe, activeIndicatorKeys: new Set(p.indicatorKeys) }));
-      setPanes(restored);
-      setLayoutState(saved.layout ?? layoutForRestoredCount(restored.length));
-      const primaryIndex = saved.primaryPaneIndex !== undefined && saved.primaryPaneIndex < restored.length ? saved.primaryPaneIndex : 0;
-      setPrimaryPaneId(restored[primaryIndex].id);
-    }
-    hydratedRef.current = true;
+    const controller = new AbortController();
+    readChartWorkspaceLayout(controller.signal).then((saved) => {
+      if (controller.signal.aborted) return; // unmounted before the fetch resolved - never apply a stale restore
+      if (saved.provider) setProvider(saved.provider);
+      if (saved.panes && saved.panes.length > 0) {
+        const restored = saved.panes.map((p) => ({ id: newPaneId(), symbol: p.symbol, timeframe: p.timeframe, activeIndicatorKeys: new Set(p.indicatorKeys) }));
+        setPanes(restored);
+        setLayoutState(saved.layout ?? layoutForRestoredCount(restored.length));
+        const primaryIndex = saved.primaryPaneIndex !== undefined && saved.primaryPaneIndex < restored.length ? saved.primaryPaneIndex : 0;
+        setPrimaryPaneId(restored[primaryIndex].id);
+      }
+      hydratedRef.current = true;
+    });
+    return () => controller.abort();
   }, []);
 
   // Keeps the PRIMARY pane's symbol equal to WorkspaceContext's own
@@ -126,7 +138,7 @@ export default function ChartPanel() {
   useEffect(() => {
     if (!hydratedRef.current) return; // don't overwrite a not-yet-restored saved value with the still-default initial state
     const primaryIndex = Math.max(0, panes.findIndex((p) => p.id === primaryPaneId));
-    writeChartSessionState({
+    writeChartWorkspaceLayout({
       provider,
       layout,
       panes: panes.map((p) => ({ symbol: p.symbol, timeframe: p.timeframe, indicatorKeys: Array.from(p.activeIndicatorKeys) })),

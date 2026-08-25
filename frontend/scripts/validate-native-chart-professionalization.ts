@@ -637,9 +637,10 @@ async function indicatorStateTests(): Promise<void> {
 // 11 - Persistence compatibility
 // ============================================================
 async function persistenceCompatibilityTests(): Promise<void> {
-  await test("chart-session-state.ts (D2.7.5) is untouched by this sprint - session persistence remains sessionStorage-scoped", () => {
+  await test("chart-session-state.ts (D2.7.5) is untouched by THIS sprint's own changes - its shape/sanitizers are still the real source of truth for chart persistence, regardless of which storage tier currently backs them (sessionStorage originally; since promoted to a durable per-user DB table, D2.7.11 roadmap item 2 - a later, distinct sprint's own deliberate change, not a regression of this one)", () => {
     const src = read("lib/chart-engine/chart-session-state.ts");
-    assert.ok(src.includes("window.sessionStorage"));
+    assert.ok(src.includes("export function sanitizePane"));
+    assert.ok(src.includes("export interface ChartSessionState"));
   });
 
   await test("no new persisted field was introduced this sprint - rendering preferences (grid density, etc.) are NOT persisted, since they derive automatically from real viewport dimensions every render", () => {

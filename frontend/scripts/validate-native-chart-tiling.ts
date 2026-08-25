@@ -158,14 +158,15 @@ async function main(): Promise<void> {
   await test("ChartPanel persists provider/layout/panes/primaryPaneIndex together, gated by the same hydratedRef guard the pre-Phase-3 flat shape already used - never overwriting a not-yet-restored saved value with the still-default initial state", () => {
     const src = panelSrc();
     assert.ok(src.includes("if (!hydratedRef.current) return;"));
-    const writeCall = src.slice(src.indexOf("writeChartSessionState({"), src.indexOf("writeChartSessionState({") + 250);
+    const writeCall = src.slice(src.indexOf("writeChartWorkspaceLayout({"), src.indexOf("writeChartWorkspaceLayout({") + 250);
     assert.ok(writeCall.includes("provider,") && writeCall.includes("layout,") && writeCall.includes("panes:") && writeCall.includes("primaryPaneIndex"));
   });
 
-  await test("session persistence remains sessionStorage-scoped, deliberately NOT a new durable database table - mirrors exactly how Phase 1's drawn-object persistence started session-scoped before Phase 1b earned it a real table, avoiding bundling two separate scope decisions into one already-large phase", () => {
-    const src = read("lib/chart-engine/chart-session-state.ts");
-    assert.ok(src.includes("window.sessionStorage"));
-    assert.ok(!/prisma|PrismaClient|@prisma/i.test(src));
+  await test("session persistence was DELIBERATELY session-scoped-only at Phase 3 ship time (avoiding bundling two separate scope decisions into one already-large phase) and has since been promoted to a real durable per-user database table (ChartWorkspaceLayout) as its own dedicated follow-up - mirrors exactly the Phase 1 -> 1b precedent for drawn-object persistence", () => {
+    const sessionSrc = read("lib/chart-engine/chart-session-state.ts");
+    assert.ok(!sessionSrc.includes("window.sessionStorage"), "chart-session-state.ts itself is now pure types+sanitizers, no I/O");
+    const serviceSrc = read("services/chart/chart-workspace-layout.service.ts");
+    assert.ok(/prisma|PrismaClient/i.test(serviceSrc), "the durable tier genuinely persists via Prisma, not a re-labeled sessionStorage call");
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);

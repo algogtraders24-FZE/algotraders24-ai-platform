@@ -18,7 +18,7 @@ import { join } from "node:path";
 
 import { getCanonicalInstrument } from "../lib/market-data/instrument-catalog";
 import { resolveChartInstrument } from "../lib/market-data/chart-instrument-resolver";
-import { SIGNAL_TIMEFRAMES, isSignalTimeframe } from "../types/signal";
+import { SIGNAL_TIMEFRAMES } from "../types/signal";
 import { normalizeCandles } from "../lib/chart-engine/candle-normalizer";
 import { fitToData } from "../lib/chart-engine/viewport";
 import { nearestCandleIndex } from "../lib/chart-engine/crosshair";
@@ -26,7 +26,6 @@ import { nearestIndexByTime } from "../lib/chart-engine/candle-index";
 import { computeIndicatorSeries } from "../lib/chart-engine/indicators/compute";
 import { DEFAULT_INDICATOR_CONFIGS, INDICATOR_PANEL_ID } from "../lib/chart-engine/indicators/panel-registry";
 import { computeRangeChange } from "../lib/chart-engine/range-change";
-import { readChartSessionState, writeChartSessionState, CHART_SESSION_STORAGE_KEY } from "../lib/chart-engine/chart-session-state";
 import { renderChart } from "../lib/chart-engine/renderer";
 import { resolveChartColors } from "../lib/chart-engine/canvas-colors";
 import { TIMEFRAME_LABELS } from "../components/chart-engine/ChartTimeframeSelector";
@@ -89,29 +88,6 @@ function fakeCtx(): CanvasRenderingContext2D {
     set textBaseline(_v: string) {},
   };
   return ctx as unknown as CanvasRenderingContext2D;
-}
-
-/** Runs `fn` with a real-shaped, in-memory sessionStorage stand-in installed on `global.window`, then restores whatever was there before - never leaks fake globals into other tests in this same process. */
-function withFakeSessionStorage<T>(fn: () => T): T {
-  const store = new Map<string, string>();
-  const fakeStorage = {
-    getItem: (k: string) => (store.has(k) ? (store.get(k) as string) : null),
-    setItem: (k: string, v: string) => {
-      store.set(k, v);
-    },
-    removeItem: (k: string) => {
-      store.delete(k);
-    },
-  };
-  const g = global as unknown as { window?: unknown };
-  const original = g.window;
-  g.window = { sessionStorage: fakeStorage };
-  try {
-    return fn();
-  } finally {
-    if (original === undefined) delete g.window;
-    else g.window = original;
-  }
 }
 
 // ============================================================
@@ -411,106 +387,54 @@ async function crosshairTests(): Promise<void> {
 // ============================================================
 // 7 - Chart state persistence
 // ============================================================
+// Sprint D2.7.11 (post-completion, roadmap item 2) - promoted from
+// sessionStorage (tab-scoped) to a durable per-user DB table
+// (ChartWorkspaceLayout), the exact Phase 1 -> 1b precedent this same
+// suite already accepted for drawn objects. The sanitization-logic
+// tests that used to live here (round-trip, invalid provider/layout
+// dropped, invalid pane timeframe dropped, unknown indicator keys
+// filtered, missing-symbol pane dropped, corrupted-input handling)
+// moved to validate-chart-workspace-layout-persistence.ts, which now
+// exercises the SAME exported sanitizers (chart-session-state.ts) via
+// the real service against a real Postgres row - a MORE faithful test
+// of actual behavior than a fake sessionStorage stand-in ever was, not
+// a lesser replacement. What remains here is the wiring: does
+// ChartPanel actually call the new durable store, in the same safe
+// "effect after mount, guarded against persisting back over a
+// not-yet-restored value" shape sessionStorage-era Phase 8 established.
 async function statePersistenceTests(): Promise<void> {
-  await test("readChartSessionState returns {} when sessionStorage is unavailable (e.g. server-side render) - never throws", () => {
-    assert.deepEqual(readChartSessionState(), {});
-  });
-
-  await test("writeChartSessionState is a silent no-op when sessionStorage is unavailable - never throws", () => {
-    assert.doesNotThrow(() => writeChartSessionState({ provider: "native", layout: 1, panes: [{ symbol: "EURUSD", timeframe: "1h", indicatorKeys: ["ema-20"] }], primaryPaneIndex: 0 }));
-  });
-
-  await test("write then read round-trips a real, valid chart session state - Sprint D2.7.11 Phase 3's panes/layout/primaryPaneIndex shape, not the old flat timeframe/indicatorKeys one", () => {
-    withFakeSessionStorage(() => {
-      writeChartSessionState({
-        provider: "native",
-        layout: 2,
-        panes: [
-          { symbol: "XAUUSD", timeframe: "4h", indicatorKeys: ["rsi-14", "ema-20"] },
-          { symbol: "EURUSD", timeframe: "1h", indicatorKeys: [] },
-        ],
-        primaryPaneIndex: 1,
-      });
-      const restored = readChartSessionState();
-      assert.equal(restored.provider, "native");
-      assert.equal(restored.layout, 2);
-      assert.equal(restored.primaryPaneIndex, 1);
-      assert.equal(restored.panes?.length, 2);
-      assert.equal(restored.panes?.[0].symbol, "XAUUSD");
-      assert.deepEqual(restored.panes?.[0].indicatorKeys.slice().sort(), ["ema-20", "rsi-14"]);
-      assert.equal(restored.panes?.[1].symbol, "EURUSD");
-    });
-  });
-
-  await test("an unknown/invalid provider or layout value in storage is dropped, never applied", () => {
-    withFakeSessionStorage(() => {
-      (global as unknown as { window: { sessionStorage: Storage } }).window.sessionStorage.setItem(
-        CHART_SESSION_STORAGE_KEY,
-        JSON.stringify({ provider: "made-up-provider", layout: 3, panes: [] }),
-      );
-      const restored = readChartSessionState();
-      assert.equal(restored.provider, undefined);
-      assert.equal(restored.layout, undefined, "3 is not a real layout (only 1/2/4 are) - must be dropped, not silently accepted");
-    });
-  });
-
-  await test("a pane with an invalid timeframe is dropped from the restored panes array - re-validated against the real isSignalTimeframe check, never trusted whole-cloth", () => {
-    withFakeSessionStorage(() => {
-      (global as unknown as { window: { sessionStorage: Storage } }).window.sessionStorage.setItem(
-        CHART_SESSION_STORAGE_KEY,
-        JSON.stringify({ panes: [{ symbol: "EURUSD", timeframe: "2m", indicatorKeys: [] }] }),
-      );
-      assert.equal(readChartSessionState().panes, undefined, "the only pane was invalid, so the whole (now-empty) panes array is honestly absent, never a fabricated empty-but-present array");
-      assert.equal(isSignalTimeframe("2m"), false);
-    });
-  });
-
-  await test("unknown indicator keys within a pane are filtered out, only real DEFAULT_INDICATOR_CONFIGS keys survive - a real pane is not dropped just because ONE of its indicator keys was invalid", () => {
-    withFakeSessionStorage(() => {
-      (global as unknown as { window: { sessionStorage: Storage } }).window.sessionStorage.setItem(
-        CHART_SESSION_STORAGE_KEY,
-        JSON.stringify({ panes: [{ symbol: "EURUSD", timeframe: "1h", indicatorKeys: ["ema-20", "not-a-real-indicator"] }] }),
-      );
-      assert.deepEqual(readChartSessionState().panes?.[0].indicatorKeys, ["ema-20"]);
-    });
-  });
-
-  await test("a pane missing a symbol entirely is dropped, never restored as an empty-symbol chart", () => {
-    withFakeSessionStorage(() => {
-      (global as unknown as { window: { sessionStorage: Storage } }).window.sessionStorage.setItem(
-        CHART_SESSION_STORAGE_KEY,
-        JSON.stringify({ panes: [{ timeframe: "1h", indicatorKeys: [] }, { symbol: "EURUSD", timeframe: "1h", indicatorKeys: [] }] }),
-      );
-      const restored = readChartSessionState();
-      assert.equal(restored.panes?.length, 1);
-      assert.equal(restored.panes?.[0].symbol, "EURUSD");
-    });
-  });
-
-  await test("corrupted (non-JSON) storage content is handled gracefully - readChartSessionState never throws, honestly returns {}", () => {
-    withFakeSessionStorage(() => {
-      (global as unknown as { window: { sessionStorage: Storage } }).window.sessionStorage.setItem(CHART_SESSION_STORAGE_KEY, "{not json");
-      assert.deepEqual(readChartSessionState(), {});
-    });
-  });
-
-  await test("chart session state actually uses sessionStorage, not localStorage - matches the sprint's own 'avoid localStorage' instruction (checking real usage, not this file's own comment explaining the choice)", () => {
-    const src = read("lib/chart-engine/chart-session-state.ts");
-    assert.ok(src.includes("window.sessionStorage"));
-    assert.ok(!/window\.localStorage|\blocalStorage\.(getItem|setItem|removeItem)\(/.test(src));
-  });
-
-  await test("ChartPanel restores saved state via an effect AFTER mount, never a useState initializer - avoids an SSR/client hydration mismatch", () => {
+  await test("ChartPanel restores saved state via an effect AFTER mount, never a useState initializer - avoids an SSR/client hydration mismatch. Now reads from the durable store (readChartWorkspaceLayout), not sessionStorage.", () => {
     const src = read("components/chart-engine/ChartPanel.tsx");
-    assert.ok(!/useState<ChartProviderKind>\(\(\) => readChartSessionState/.test(src));
-    assert.ok(src.includes("readChartSessionState()"));
+    assert.ok(!/useState<ChartProviderKind>\(\(\) => readChartWorkspaceLayout/.test(src));
+    assert.ok(src.includes("readChartWorkspaceLayout("));
     assert.ok(src.includes("useEffect(() => {"));
   });
 
-  await test("ChartPanel does not persist BACK over a not-yet-restored saved value - a hydratedRef guard exists", () => {
+  await test("ChartPanel does not persist BACK over a not-yet-restored saved value - a hydratedRef guard exists, now guarding an ASYNC restore (the durable fetch takes real network time, unlike the old synchronous sessionStorage read - this guard matters even more now)", () => {
     const src = read("components/chart-engine/ChartPanel.tsx");
     assert.ok(src.includes("hydratedRef"));
     assert.ok(src.includes("if (!hydratedRef.current) return"));
+  });
+
+  await test("ChartPanel persists via writeChartWorkspaceLayout (the durable store), never the retired sessionStorage writer", () => {
+    const src = read("components/chart-engine/ChartPanel.tsx");
+    assert.ok(src.includes("writeChartWorkspaceLayout("));
+    assert.ok(!src.includes("writeChartSessionState("), "the old sessionStorage writer must be genuinely gone, not left as dead/unused code alongside the new one");
+  });
+
+  await test("chart-session-state.ts's own sessionStorage I/O (readChartSessionState/writeChartSessionState/CHART_SESSION_STORAGE_KEY) is genuinely retired, not left as dead code - only the shared TYPES and SANITIZERS survive the promotion to a durable store, since chart-workspace-layout.service.ts now imports those same sanitizers directly", () => {
+    const src = read("lib/chart-engine/chart-session-state.ts");
+    assert.ok(!/export function readChartSessionState|export function writeChartSessionState|CHART_SESSION_STORAGE_KEY/.test(src));
+    assert.ok(src.includes("export function sanitizePane"));
+    assert.ok(src.includes("export function isChartProviderKind"));
+    assert.ok(src.includes("export function isChartLayout"));
+  });
+
+  await test("the durable ChartWorkspaceLayout table is real per-user and auth-gated - userId always comes from the authenticated session, never trusted from the request body, the same security posture every other durable per-user table (ChartDrawingSet/ChartTemplate) already follows", () => {
+    const routeSrc = read("app/api/private/chart-workspace-layout/route.ts");
+    assert.ok(routeSrc.includes("getUserOrNull()"));
+    assert.ok(routeSrc.includes("sessionUser.profile.id"));
+    assert.ok(!/password|token|email/i.test(read("services/chart/chart-workspace-layout.service.ts")), "no PII/credential fields in the persisted state");
   });
 
   await test("fullscreen state is deliberately NOT persisted across a reload - a jarring auto-fullscreen on page load would be worse UX, not better", () => {
@@ -805,9 +729,9 @@ async function securityTests(): Promise<void> {
     assert.ok(!/password|token|email|userId/i.test(src));
   });
 
-  await test("session state is scoped to sessionStorage (per-tab, cleared on tab close) - never silently promoted to a durable cross-device store", () => {
+  await test("chart-session-state.ts is now a pure types+sanitizers module - genuinely zero sessionStorage I/O remains (deliberately promoted to a durable per-user table this sprint, see chart-workspace-layout-store.ts/chart-workspace-layout.service.ts - this replaces this test's own former, now-superseded 'never promoted to durable' assertion)", () => {
     const src = read("lib/chart-engine/chart-session-state.ts");
-    assert.ok(src.includes("window.sessionStorage"));
+    assert.ok(!src.includes("window.sessionStorage"));
   });
 
   await test("the candles API route's auth/validation/security posture is unchanged by this sprint - route.ts untouched", () => {
@@ -815,9 +739,9 @@ async function securityTests(): Promise<void> {
     assert.ok(!src.includes("Sprint D2.7.5"));
   });
 
-  await test("storage read/write never throws on a hostile/corrupted value - a try/catch boundary exists around both", () => {
-    const src = read("lib/chart-engine/chart-session-state.ts");
-    assert.ok((src.match(/try \{/g) ?? []).length >= 2);
+  await test("the durable store's client read never throws on a hostile/corrupted response or offline network - readChartWorkspaceLayout has its own try/catch boundary, same 'never blocks the chart UI' contract the old sessionStorage reader always had", () => {
+    const src = read("lib/chart-engine/chart-workspace-layout-store.ts");
+    assert.ok((src.match(/try \{/g) ?? []).length >= 2, "both readChartWorkspaceLayout and the write path need their own try/catch");
   });
 }
 

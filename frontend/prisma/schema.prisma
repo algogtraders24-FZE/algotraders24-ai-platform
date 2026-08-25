@@ -548,6 +548,32 @@ model ChartTemplate {
   @@index([userId])
 }
 
+// Sprint D2.7.11 (post-completion, roadmap item 2) - durable, cross-
+// session/cross-device persistence for the Phase 3 multi-symbol tiled
+// layout (provider/layout/panes/primaryPaneIndex - lib/chart-engine/
+// chart-session-state.ts's ChartSessionState shape). Previously
+// sessionStorage only - tab-scoped, gone on tab close/new device - the
+// exact same "prove it in session storage first" precedent
+// ChartDrawingSet followed before it earned a real table (Phase 1 ->
+// 1b). One row per user (`userId` unique) - a single durable "your
+// current tiled workspace", matching how WorkspacePreference already
+// keeps one row per user for symbol/profile/favorites; a separate
+// named-multiple-layouts feature would be its own distinct ask, not
+// fabricated here. `panes` stores the full ChartPaneSessionState[]
+// JSON array (symbol/timeframe/indicatorKeys per pane) - always
+// written as a whole-array replace, matching ChartDrawingSet's own
+// established "here is the new full state" semantics.
+model ChartWorkspaceLayout {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  provider         String   @default("native")
+  layout           Int      @default(1)
+  panes            Json     @default("[]")
+  primaryPaneIndex Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
 // Sprint D2.3.S1 - Publishing Activation. Real, DB-backed article state:
 // before this, the Publishing dashboard rendered hardcoded mock data with no
 // persistence and no working Publish/Schedule actions (Master Audit D2.3.F,

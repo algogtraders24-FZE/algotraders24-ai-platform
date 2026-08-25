@@ -64,6 +64,7 @@
     "validate:native-chart-indicators-phase2": "tsx scripts/validate-native-chart-indicators-phase2.ts",
     "validate:chart-drawing-persistence": "tsx scripts/validate-chart-drawing-persistence.ts",
     "validate:chart-template-persistence": "tsx scripts/validate-chart-template-persistence.ts",
+    "validate:chart-workspace-layout-persistence": "tsx scripts/validate-chart-workspace-layout-persistence.ts",
     "validate:native-chart-templates": "tsx scripts/validate-native-chart-templates.ts",
     "validate:native-chart-tiling": "tsx scripts/validate-native-chart-tiling.ts",
     "validate:native-chart-phase5": "tsx scripts/validate-native-chart-phase5.ts",
