@@ -1,0 +1,32 @@
+
+======================================================================
+MACD Crossover
+======================================================================
+
+--- run 1 (elapsed 1055s) ---
+{'trades_total': 204, 'trade_cycles': 204, 'win_rate_pct': np.float64(53.43), 'profit_factor': np.float64(1.7), 'total_return_pct': np.float64(95.72), 'max_drawdown_pct': np.float64(-5.53), 'final_balance': np.float64(19572.31), 'same_tick_sl_tp_conflicts': 0, 'total_ticks_replayed': 34194748, 'account_blown': False}
+partial_close_rows: 0
+breakeven/trailing check: {'sl_trades_checked': 95, 'sl_price_mismatches': 0}
+
+--- run 2 (elapsed 1042s) ---
+{'trades_total': 204, 'trade_cycles': 204, 'win_rate_pct': np.float64(53.43), 'profit_factor': np.float64(1.7), 'total_return_pct': np.float64(95.72), 'max_drawdown_pct': np.float64(-5.53), 'final_balance': np.float64(19572.31), 'same_tick_sl_tp_conflicts': 0, 'total_ticks_replayed': 34194748, 'account_blown': False}
+partial_close_rows: 0
+breakeven/trailing check: {'sl_trades_checked': 95, 'sl_price_mismatches': 0}
+
+--- determinism check: run1 == run2 ? True ---
+
+======================================================================
+Bollinger Mean Reversion
+======================================================================
+
+--- run 1 (elapsed 958s) ---
+{'trades_total': 372, 'trade_cycles': 372, 'win_rate_pct': np.float64(16.94), 'profit_factor': np.float64(0.26), 'total_return_pct': np.float64(-89.92), 'max_drawdown_pct': np.float64(-89.92), 'final_balance': np.float64(1008.46), 'same_tick_sl_tp_conflicts': 0, 'total_ticks_replayed': 34194748, 'account_blown': False}
+partial_close_rows: 0
+breakeven/trailing check: {'sl_trades_checked': 309, 'sl_price_mismatches': 0}
+
+--- run 2 (elapsed 1036s) ---
+{'trades_total': 372, 'trade_cycles': 372, 'win_rate_pct': np.float64(16.94), 'profit_factor': np.float64(0.26), 'total_return_pct': np.float64(-89.92), 'max_drawdown_pct': np.float64(-89.92), 'final_balance': np.float64(1008.46), 'same_tick_sl_tp_conflicts': 0, 'total_ticks_replayed': 34194748, 'account_blown': False}
+partial_close_rows: 0
+breakeven/trailing check: {'sl_trades_checked': 309, 'sl_price_mismatches': 0}
+
+--- determinism check: run1 == run2 ? True ---

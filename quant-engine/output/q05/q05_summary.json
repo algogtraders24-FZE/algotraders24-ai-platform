@@ -1,0 +1,96 @@
+{
+  "MACD_Crossover": {
+    "runner": {
+      "run1_stats": {
+        "trades_total": 210,
+        "trade_cycles": 210,
+        "win_rate_pct": 41.9,
+        "profit_factor": 1.07,
+        "total_return_pct": 9.61,
+        "max_drawdown_pct": -15.08,
+        "final_balance": 10961.38,
+        "account_blown": false
+      },
+      "deterministic": true,
+      "trade_count": 210
+    },
+    "execution_mtf": {
+      "run1_stats": {
+        "trades_total": 202,
+        "trade_cycles": 202,
+        "win_rate_pct": 53.96,
+        "profit_factor": 1.76,
+        "total_return_pct": 100.27,
+        "max_drawdown_pct": -6.98,
+        "final_balance": 20027.36,
+        "same_minute_sl_tp_conflicts": 0,
+        "account_blown": false
+      },
+      "deterministic": true,
+      "trade_count": 202
+    },
+    "execution_tick": {
+      "run1_stats": {
+        "trades_total": 204,
+        "trade_cycles": 204,
+        "win_rate_pct": 53.43,
+        "profit_factor": 1.71,
+        "total_return_pct": 95.54,
+        "max_drawdown_pct": -5.56,
+        "final_balance": 19553.95,
+        "same_tick_sl_tp_conflicts": 0,
+        "total_ticks_replayed": 34194748,
+        "account_blown": false
+      },
+      "deterministic": true,
+      "trade_count": 204
+    }
+  },
+  "Bollinger_Mean_Reversion": {
+    "runner": {
+      "run1_stats": {
+        "trades_total": 331,
+        "trade_cycles": 331,
+        "win_rate_pct": 43.2,
+        "profit_factor": 1.0,
+        "total_return_pct": -0.22,
+        "max_drawdown_pct": -20.41,
+        "final_balance": 9978.31,
+        "account_blown": false
+      },
+      "deterministic": true,
+      "trade_count": 331
+    },
+    "execution_mtf": {
+      "run1_stats": {
+        "trades_total": 374,
+        "trade_cycles": 374,
+        "win_rate_pct": 17.11,
+        "profit_factor": 0.26,
+        "total_return_pct": -89.77,
+        "max_drawdown_pct": -90.14,
+        "final_balance": 1023.41,
+        "same_minute_sl_tp_conflicts": 0,
+        "account_blown": false
+      },
+      "deterministic": true,
+      "trade_count": 374
+    },
+    "execution_tick": {
+      "run1_stats": {
+        "trades_total": 372,
+        "trade_cycles": 372,
+        "win_rate_pct": 17.74,
+        "profit_factor": 0.27,
+        "total_return_pct": -88.84,
+        "max_drawdown_pct": -89.22,
+        "final_balance": 1115.63,
+        "same_tick_sl_tp_conflicts": 0,
+        "total_ticks_replayed": 34194748,
+        "account_blown": false
+      },
+      "deterministic": true,
+      "trade_count": 372
+    }
+  }
+}

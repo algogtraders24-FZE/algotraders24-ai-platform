@@ -1,0 +1,55 @@
+# Q0.3 — Quant Lite Execution Parity Matrix
+
+Companion to [`QUANT_LITE_EXECUTION_CONTRACT.md`](QUANT_LITE_EXECUTION_CONTRACT.md)
+— that document proves each behavior from source; this one compares them
+side by side. "Python Backtester" reflects `runner.py` unless a row notes
+a difference in `execution_mtf.py`/`execution_tick.py` specifically —
+where the three Python engines themselves disagree, that disagreement is
+called out explicitly rather than picked one and hidden the other two.
+
+Status key: **PARITY** / **PARTIAL PARITY** / **NO PARITY** / **AMBIGUOUS**.
+
+| Behavior | Python Backtester | MQL5 Generator | MQL4 Generator | Pine Generator | Status |
+|---|---|---|---|---|---|
+| Entry | `runner.py`: fills at signal bar's own close ± spread/2. `execution_mtf.py`: fills at next 1m bar. `execution_tick.py`: fills at exact triggering tick's real Ask/Bid. | Fills on next tick after a new bar forms, at real market Ask/Bid (`codegen_mql5.py:317-322` `OnTick`/`OpenTrade`) | Same pattern (`codegen_mql4.py`) | Fills at next bar's open (Pine's `calc_on_every_tick=false` default, `codegen_pine.py:119,151-159`) | **PARTIAL PARITY** — `execution_tick.py`'s tick-triggered real-Ask/Bid fill is the closest analogue to what MQL5/MQL4 actually do live; `runner.py`'s same-bar-close fill is the furthest from it |
+| Exit (SL/TP) | Checked every engine-step (bar/minute/tick), fires the instant a level is touched | Real broker-side SL/TP order (server-enforced, not polled by the EA) | Same | Real `strategy.exit()` stop/limit order (`codegen_pine.py:161-169`) | **PARITY in concept** (both sides fire the instant price touches the level) — **NO PARITY in what happens after**, see Breakeven/Trailing/Partial rows below |
+| SL | ATR-mult or fixed price-distance, `sl = entry - direction × sl_dist` | Same formula, static, set once at `OpenTrade()` (`codegen_mql5.py:304`) | Same (`codegen_mql4.py`) | Same, anchored to `strategy.position_avg_price` (`codegen_pine.py:163`) | **PARITY** for the *initial* SL level |
+| TP | ATR-mult or fixed price-distance | Same, static | Same | Same | **PARITY** for the *initial* TP level |
+| Breakeven | **Active by default** in all 3 Python engines (`RiskConfig.use_breakeven=True`, no spec-level opt-out) | **Not generated** | **Not generated** | **Not generated** | **NO PARITY** — see Gap Report, CRITICAL |
+| ATR trailing | **Active by default** | **Not generated** | **Not generated** | **Not generated** | **NO PARITY** — see Gap Report, CRITICAL |
+| Partial close | **Active by default**, 50% at `partial_atr` × ATR profit | **Not generated** | **Not generated** | **Not generated** | **NO PARITY** — see Gap Report, CRITICAL |
+| Spread | `runner.py`: static 0.30 (hardcoded at every call site). `execution_mtf.py`: real per-minute avg. `execution_tick.py`: real per-tick. | Real market spread (live Ask vs Bid) | Real market spread | Real market spread (Pine has no explicit spread simulation — trades at the requested price, TradingView's own execution model applies real spread when live/paper) | **PARTIAL PARITY** — `execution_tick.py` matches the codegen's real-spread reality; `runner.py` does not |
+| Slippage | **Not modeled** (0 in all 3 Python engines) | Tolerates up to 20 points via `req.deviation=20` (not a simulated cost — a fill-rejection tolerance) | Same, `OrderSend(...,20,...)` | No explicit slippage parameter set | **AMBIGUOUS** — codegen's "20-point deviation" is not the same concept as backtest slippage (it doesn't cost anything in the numbers Python reports), so this isn't cleanly comparable as a cost model on either side |
+| Commission | Present as a hook in `execution_mtf.py`/`execution_tick.py` but always evaluates to 0 (`RiskConfig` has no `commission_per_lot` field) | Not modeled | Not modeled | Not modeled | **PARITY (of absence)** — no side models a real commission cost |
+| Position sizing | `risk_money / (sl_dist × contract_size)`, floor 0.01 lot, no max/step | Same formula, **plus** real broker `SYMBOL_VOLUME_MIN`/`SYMBOL_VOLUME_STEP` rounding (`codegen_mql5.py::CalcLots`) | Same idea (broker-aware) | `strategy.equity × risk% / (slDist/mintick × pointvalue)` — same formula, no step/min correction shown | **PARTIAL PARITY** — MQL5/MQL4 are actually *more* realistic here (real lot-step rounding) than the Python backtest, a rare case where codegen is ahead, not behind |
+| Risk percentage | `risk.risk_pct`, applied against **current** balance every trade | `InpRiskPercent` input, same current-balance formula | Same | `riskPercent` input, same formula (against `strategy.equity`) | **PARITY** |
+| Multiple positions | Single position at a time, hardcoded (`if position is not None: continue`) | `HasOpenPosition()` guard before every entry | `OrdersTotal()`-based equivalent guard | `strategy.position_size==0` guard | **PARITY** — the one behavior confirmed identical across all four |
+| Same-bar processing | SL-wins tie-break when both SL and TP are touched within one evaluation step; `execution_mtf.py`/`execution_tick.py` count how often this happens | N/A — real broker execution has no "same bar" ambiguity, price ticks resolve it | N/A | N/A | **NOT APPLICABLE for codegen** — this is purely a backtest-simulation artifact |
+| Candle-close processing | Signals evaluated once per closed signal-timeframe bar, never on a forming bar | `OnTick()` gates on `iTime(...,0) != g_lastBarTime` — evaluates once per new bar, same principle | Same pattern | Default `calc_on_every_tick=false` — evaluates once per bar close | **PARITY** in principle (evaluate-once-per-closed-bar), though the exact instant differs (Python: at the bar's own close price; codegen: at the first tick of the *next* bar) |
+| Tick processing | `runner.py`/`execution_mtf.py`: no tick-level awareness at all. `execution_tick.py`: full real tick replay. | Native — every `OnTick()` call is a real tick | Same | Pine has no true tick granularity by default (`calc_on_every_tick=false`) | **PARTIAL PARITY** — only `execution_tick.py` genuinely matches MQL5/MQL4's tick-native reality; Pine itself doesn't operate at tick granularity by default either, so Pine and `runner.py`/`execution_mtf.py` are arguably closer to each other here than to MQL5/MQL4 |
+| Session filters | **Ignored by all 3 spec-engine backtesters** despite `RiskConfig.session_start/session_end` defaulting to 7–19 (only the separate, unused base `engine.py::run_backtest()` honors it) | Not generated | Not generated | Not generated | **PARITY (of absence)** — both sides ignore it, though for different reasons (Python has the setting and doesn't apply it; codegen was never given it to apply) |
+| Indicator calculation | 10 types, Wilder/EMA/SMA math in `indicators.py` | Mirrors exactly, including the documented MetaTrader-specific fixes (MACD signal line recomputed via manual EMA recurrence since `iMACD`'s built-in signal is SMA-smoothed; Stochastic `slowing=1`; Donchian excludes the current bar) | Same fixes, independently re-verified present (`codegen_mql4.py:123-134` manual MACD signal block; `slowing=1` note at line ~145) | Mirrors exactly, including the Supertrend sign-flip fix (Pine's built-in direction convention is inverted relative to `indicators.py`, corrected at `codegen_pine.py:65-66`) | **PARITY** — this is the area with the most deliberate, verified cross-language engineering in the whole codebase (per `QUANT_LITE_LEGACY_AUDIT.md` §2, all 10 indicator types present and correct in all 3 codegens) |
+| Stop-distance validation | Not modeled (no broker minimum-stop-distance concept exists anywhere in the Python engines) | Not checked before `OrderSend` | Not checked before `OrderSend` | N/A (Pine has no broker minimum-stop concept) | **PARITY (of absence)** — a real, shared gap, not a divergence between sides |
+| Account blow | **Fixed this sprint** (Q0.2) in `runner.py`/`execution_mtf.py`/`execution_tick.py` — halts new entries once `balance<=0`. **Still unfixed** in the base `quant_engine/engine.py`. | N/A — real broker margin-call/stop-out handles this; no EA needs to reimplement it | N/A, same reasoning | N/A, same reasoning | **NOT APPLICABLE for codegen** |
+| Time handling | UTC timestamps throughout (`market.db` candles stored as ISO8601 UTC) | Broker server time, typically UTC+2/+3 depending on broker — not explicitly reconciled anywhere in the codegen | Same | Same | **AMBIGUOUS** — no code in this repository reconciles the Python backtest's UTC timestamps against a specific broker's server-time offset; this was never tested against a live/demo account this sprint |
+| Data gaps | Not detected — no code checks for irregular time gaps between bars (distinct from NaN handling) | N/A — a live/demo MT4/5 terminal has continuous real-time data, no "gap" concept in the same sense | Same | Same | **AMBIGUOUS** — unproven whether the imported Exness data has gaps large enough to matter; not measured this sprint |
+| Error handling | Spec validation errors raise `ValueError` upfront; insufficient-data returns an empty result gracefully; no broad try/except around the main loop in any engine | Compile-time type/syntax errors only (MetaEditor compiler) — no runtime error handling for e.g. a failed `CopyBuffer` beyond the generated `if(!GetBuf(...)) return;` guards | Same pattern | Pine's own runtime handles NA propagation | **PARTIAL PARITY** — both sides have *some* defensive checks (Python: upfront validation; codegen: per-buffer-read guards) but neither has comprehensive error handling |
+| Determinism | Fully deterministic, confirmed via repeat `demo.py` runs producing identical output | Deterministic given identical market conditions (real trading/live conditions are not deterministic, but that's a property of the market, not the generated code) | Same | Same | **NOT DIRECTLY COMPARABLE** — "determinism" means something different for a backtest (repeatable given fixed input) than for a live EA (deterministic *logic*, but real-world non-deterministic environment) |
+
+---
+
+## Summary counts
+
+| Status | Count |
+|---|---|
+| PARITY | 6 (Multiple positions, SL initial level, TP initial level, Risk %, Candle-close processing, Indicator calculation) |
+| PARITY (of absence — both sides share a gap, not a divergence) | 4 (Commission, Session filters, Stop-distance validation) — 3 rows, one listed twice above for clarity |
+| PARTIAL PARITY | 5 (Entry, Spread, Position sizing, Tick processing, Error handling) |
+| NO PARITY | 3 (Breakeven, ATR trailing, Partial close) — **all three CRITICAL, see Gap Report** |
+| AMBIGUOUS | 4 (Slippage, Time handling, Data gaps — plus Determinism as not-directly-comparable) |
+| NOT APPLICABLE (backtest-only or platform-only concept) | 3 (Same-bar processing, Account blow, Determinism cross-comparison) |
+
+**The three NO PARITY rows are the entire finding.** Everything else in
+this matrix is either genuine agreement, a shared and roughly
+proportionate gap, or a difference of precision (not behavior) between
+the three Python engines' own execution granularity.
