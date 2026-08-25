@@ -1,0 +1,70 @@
+<svg viewBox="0 0 1600 500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19"/>
+      <stop offset="100%" stop-color="#131826"/>
+    </linearGradient>
+    <linearGradient id="goldGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e7c86b"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1600" height="500" fill="url(#bgGrad)"/>
+
+  <!-- faint grid -->
+  <g stroke="#232b3d" stroke-width="1">
+    <line x1="0" y1="125" x2="1600" y2="125"/>
+    <line x1="0" y1="250" x2="1600" y2="250"/>
+    <line x1="0" y1="375" x2="1600" y2="375"/>
+  </g>
+
+  <!-- Left: wordmark + tagline -->
+  <g>
+    <rect x="70" y="70" width="96" height="96" rx="20" fill="#0b0f19" stroke="url(#goldGrad3)" stroke-width="2"/>
+    <rect x="98" y="122" width="28" height="52" rx="4" fill="#3fb27f"/>
+    <path d="M 112 122 C 100 106 102 90 114 74 C 108 88 118 92 120 80 C 128 94 126 110 116 120 C 122 118 126 112 128 106 C 132 118 124 130 112 122 Z" fill="url(#goldGrad3)"/>
+
+    <text x="70" y="225" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="700" fill="#ffffff">GOLD </text>
+    <text x="163" y="225" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="700" fill="url(#goldGrad3)">FIRE v5</text>
+    <text x="70" y="258" font-family="Arial, Helvetica, sans-serif" font-size="20" fill="#94a3b8" letter-spacing="1">Breakout · EMA Trend Filter · Risk-% Compounding — MT5</text>
+
+    <!-- Trust status badge: neutral tone, always the literal M7 value -->
+    <rect x="70" y="284" width="230" height="34" rx="17" fill="#1c2434" stroke="#283246" stroke-width="1"/>
+    <circle cx="90" cy="301" r="5" fill="#94a3b8"/>
+    <text x="104" y="307" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#94a3b8">Trust Status: INCONCLUSIVE</text>
+
+    <text x="70" y="350" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#7b889b">Real backtest evidence, independently verified.</text>
+    <text x="70" y="370" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#7b889b">Risk-% lot sizing compounds gains AND drawdowns — high risk.</text>
+  </g>
+
+  <!-- Right: real evidence stat tiles (from GOLDFIRE-v5.00-2025-BASELINE, M4/M5 verified) -->
+  <g font-family="Arial, Helvetica, sans-serif">
+    <g>
+      <rect x="900" y="70" width="300" height="120" rx="14" fill="#131826" stroke="#232b3d" stroke-width="1"/>
+      <text x="924" y="104" font-size="13" fill="#7b889b" letter-spacing="1">NET PROFIT (BACKTEST)</text>
+      <text x="924" y="150" font-size="34" font-weight="700" fill="#3fb27f">+2,517,815</text>
+      <text x="924" y="174" font-size="13" fill="#7b889b">863 trades · 2025.06–2026.08</text>
+    </g>
+    <g>
+      <rect x="1230" y="70" width="300" height="120" rx="14" fill="#131826" stroke="#232b3d" stroke-width="1"/>
+      <text x="1254" y="104" font-size="13" fill="#7b889b" letter-spacing="1">PROFIT FACTOR</text>
+      <text x="1254" y="150" font-size="36" font-weight="700" fill="url(#goldGrad3)">1.17</text>
+      <text x="1254" y="174" font-size="13" fill="#7b889b">Win rate 52.84%</text>
+    </g>
+    <g>
+      <rect x="900" y="210" width="300" height="120" rx="14" fill="#131826" stroke="#232b3d" stroke-width="1"/>
+      <text x="924" y="244" font-size="13" fill="#7b889b" letter-spacing="1">MAX DRAWDOWN</text>
+      <text x="924" y="290" font-size="36" font-weight="700" fill="#d1594a">65.89%</text>
+      <text x="924" y="314" font-size="13" fill="#7b889b">Equity-based · 36.77% per MT5 balance calc</text>
+    </g>
+    <g>
+      <rect x="1230" y="210" width="300" height="120" rx="14" fill="#131826" stroke="#232b3d" stroke-width="1"/>
+      <text x="1254" y="244" font-size="13" fill="#7b889b" letter-spacing="1">SAMPLE / WALK-FORWARD (M4)</text>
+      <text x="1254" y="290" font-size="36" font-weight="700" fill="#3fb27f">PASS</text>
+      <text x="1254" y="314" font-size="13" fill="#7b889b">Regime + parameter checks: open program-wide</text>
+    </g>
+  </g>
+
+  <text x="900" y="360" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#7b889b">Source: AT24 M2–M5 Evidence/Validation/Risk engines, real MT5 report. High drawdown is real, not smoothed — see Risk section on the listing page.</text>
+</svg>

@@ -1,0 +1,37 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e7c86b"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    <linearGradient id="flameGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#d4af37"/>
+      <stop offset="55%" stop-color="#e7c86b"/>
+      <stop offset="100%" stop-color="#fff2c8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Deep Black surface, rounded square - same convention as every other AT24 product icon -->
+  <rect x="8" y="8" width="496" height="496" rx="96" fill="#0b0f19"/>
+  <rect x="8" y="8" width="496" height="496" rx="96" fill="none" stroke="url(#goldGrad)" stroke-width="6"/>
+
+  <!-- Bullish candlestick (real chart element, not decoration) -->
+  <line x1="256" y1="150" x2="256" y2="220" stroke="#94a3b8" stroke-width="8" stroke-linecap="round"/>
+  <rect x="228" y="220" width="56" height="120" rx="6" fill="#3fb27f"/>
+  <line x1="256" y1="340" x2="256" y2="392" stroke="#94a3b8" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- Flame rising from the candle body - the real Gold Fire mark motif -->
+  <path d="M 256 220
+           C 232 190 236 158 258 128
+           C 250 152 268 158 272 138
+           C 284 162 282 190 264 210
+           C 274 206 282 194 284 182
+           C 296 200 292 224 268 236
+           C 280 232 288 224 292 214
+           C 296 236 282 258 256 258
+           C 232 258 220 238 224 218
+           C 226 224 232 228 238 228
+           C 226 212 230 194 244 178
+           C 240 196 244 210 256 220 Z"
+        fill="url(#flameGrad)"/>
+</svg>

@@ -4,5 +4,20 @@
     "tradingSystemId": "G01",
     "tradingSystemName": "G01 LiquiditySweep MSS FVG (Gold Auto Strategy)",
     "versionString": "v0.1"
+  },
+  "PDHPDL-GOLD-v2.0-TESTED-BASELINE": {
+    "tradingSystemId": "PDHPDL-GOLD",
+    "tradingSystemName": "PDH_PDL_Breakout_Gold (Product #1 candidate, M12 intake)",
+    "versionString": "v2.0 (as-tested configuration - see M12_decision_report.md for the source/report input-override reconciliation)"
+  },
+  "PDHPDL-GOLD-v2x-2025-2026-EXTENDED-RUN": {
+    "tradingSystemId": "PDHPDL-GOLD",
+    "tradingSystemName": "AT24 Gold Range Breaker (Product #1 candidate)",
+    "versionString": "as-tested configuration, 2025.01-2026.08 period, .xlsx report format - exact code version (pre/post v2.10 patch) NOT independently confirmed, magic number 100001 matches the earlier run not the v2.10 source's own default of 100002 - see the M13/qualification report for the open reconciliation question, same class of caveat as PDHPDL-GOLD-v2.0-TESTED-BASELINE"
+  },
+  "GOLDFIRE-v5.00-2025-BASELINE": {
+    "tradingSystemId": "GOLDFIRE",
+    "tradingSystemName": "Gold Fire v5 (Product #2 candidate, M13 intake)",
+    "versionString": "v5.00 as-tested configuration - InpLotMode=RISK_PERCENT(1), InpRiskPercent=0.50, XAUUSD M15, Exness, 2025.06-2026.08 - real MT5 .html Deals-table report, magic number 777999 matches source default. Note: risk-percent compounding sizing means the real max drawdown (65.89% equity-based / 36.77% MT5 balance-based) is severe - disclosed honestly, not smoothed over."
   }
 }
