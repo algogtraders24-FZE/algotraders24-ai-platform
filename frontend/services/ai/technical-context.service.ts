@@ -15,7 +15,7 @@ import type {
   VolatilityBand,
   ConfidenceBand,
 } from "@/types/technical-context";
-import { closes, rsi, ema, sma, atr, macd, bollinger, volumeMetrics } from "@/lib/market-data/indicators";
+import { closes, rsi, ema, sma, atr, macd, bollinger, volumeMetrics, recentPriceRange, keyPriceLevels } from "@/lib/market-data/indicators";
 
 // Enough candles for the core set (RSI-14, SMA-20, ATR-14, Bollinger-20).
 const CORE_MIN_CANDLES = 20;
@@ -57,12 +57,18 @@ export class TechnicalContextService {
       observations.push(`Latest volume is ${rel} its ${20}-period average (${indicators.volume.relative.toFixed(2)}x).`);
     }
 
+    const keyLevels = keyPriceLevels(recentPriceRange(candles));
+    if (keyLevels.resistance !== undefined && keyLevels.support !== undefined) {
+      observations.push(`Recent range: ${keyLevels.support.toFixed(5)} to ${keyLevels.resistance.toFixed(5)}.`);
+    }
+
     return {
       symbol,
       interval,
       candleCount: candles.length,
       hasSufficientData: candles.length >= CORE_MIN_CANDLES,
       indicators,
+      keyLevels,
       observations,
       computedAt,
     };

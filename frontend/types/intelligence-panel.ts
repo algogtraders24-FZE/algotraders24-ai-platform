@@ -26,12 +26,22 @@ export interface MarketStructureFields {
 }
 
 /**
- * Forward-compatible shape for price levels. Every value is undefined today:
- * no engine in this codebase computes support/resistance/invalidation/
- * breakout/pullback levels, and Sprint D2.2 (Phase 7) explicitly forbids
- * inventing them ("no synthetic trade setups, no invented support/
- * resistance"). The panel renders "Not available" per field rather than
- * hiding the section, so the gap is visible instead of silently dropped.
+ * Real price levels (Sprint D2.7.11 post-completion, 2026-08-25 - reverses
+ * Sprint D2.2 Phase 7's original "no invented support/resistance" rule
+ * with the user's own explicit sign-off, after an investigation confirmed
+ * this specific gap was a genuinely unbuilt calculation, not a data-
+ * provider limitation - see project_ai_intelligence_data_gaps_investigation
+ * memory). Every value is a REAL derivation, never invented:
+ * resistance/support are the real recent high/low over a real lookback
+ * window (lib/market-data/indicators.ts's recentPriceRange/
+ * keyPriceLevels - reused identically by both the CopilotAnalysis and
+ * DecisionContext pipelines, so the two can never disagree for the same
+ * symbol); pullback is the standard 61.8% Fibonacci retracement between
+ * them; invalidation/breakout are only derived when a real directional
+ * bias exists (the nearest opposing/matching level - see each
+ * pipeline's own deriveKeyLevels()). A field still renders "Not
+ * available" whenever there genuinely isn't enough data (too few
+ * candles, or no directional bias) - never a fabricated value.
  */
 export interface KeyLevels {
   resistance?: number;

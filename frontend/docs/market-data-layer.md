@@ -89,7 +89,11 @@ crypto mapping (it's an FX-only endpoint) - a crypto symbol correctly produces
 - An indicator without enough candles is **`undefined` → "Insufficient data"**,
   never estimated.
 - Absent provider fields stay absent (never a guessed 0/neutral default).
-- No synthetic trade setups, no invented support/resistance, no fabricated RSI.
+- No synthetic trade setups, no fabricated RSI. Support/Resistance/Pullback
+  (Sprint D2.7.11 post-completion, 2026-08-25) ARE now computed - but only
+  as a real recent high/low range and a real Fibonacci retracement, never
+  an invented level; see `lib/market-data/indicators.ts`'s
+  `keyPriceLevels()` and `types/intelligence-panel.ts`'s `KeyLevels`.
 - API keys never appear in logs, error messages, screenshots, or commits.
 
 ## Validation matrix (Sprint D2.2 Phase 8)

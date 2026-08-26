@@ -30,7 +30,7 @@ import StatField from "@/components/workspace/StatField";
 import type { IntelligencePanelData, MarketStatusLabel, RiskBand } from "@/types/intelligence-panel";
 import type { ConfidenceBand } from "@/types/technical-context";
 import { LIQUIDITY_DEFINITION } from "@/data/educational-terms";
-import { formatPercent } from "@/lib/financial-format";
+import { formatPercent, formatPrice } from "@/lib/financial-format";
 import { FIN_PRIMARY } from "@/components/ui/financial-typography";
 
 type LoadState = "loading" | "ready" | "unavailable" | "error";
@@ -246,13 +246,13 @@ export default function IntelligencePanel() {
             const value = data.keyLevels[f.key];
             return (
               <StatField key={f.key} label={f.label} dashed>
-                <span className="font-mono text-text-3">{value !== undefined ? value : "Not available"}</span>
+                <span className="font-mono text-text-3">{value !== undefined ? formatPrice(value, { maxDecimals: 5 }) : "Not available"}</span>
               </StatField>
             );
           })}
         </div>
         <p className="mt-1.5 text-[11px] text-text-3">
-          Not computed by the current engine — shown honestly rather than fabricated.
+          Resistance/Support are the real recent high/low; Pullback is the standard 61.8% retracement between them. Invalidation/Breakout need a real directional bias - shown honestly as &quot;Not available&quot; without one, never guessed.
         </p>
       </div>
 

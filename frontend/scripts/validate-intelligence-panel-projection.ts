@@ -158,8 +158,59 @@ function coreMappingTests(): void {
     assert.equal(panel.structure.bias, undefined);
   });
 
-  test("17: keyLevels is always empty, matching the Research panel's own no-synthetic-levels contract", () => {
-    assert.deepEqual(buildIntelligencePanelDataFromVerifiedAnswer(fixture()).keyLevels, {});
+  // Sprint D2.7.11 (post-completion) - Key Levels now REAL, reversing the
+  // D2.2 Phase 7 "no invented support/resistance" rule with the user's
+  // explicit sign-off (2026-08-25). Sourced from DecisionCurrentState.
+  // recentRange - already computed by market-state.service.ts, never
+  // recomputed here - via the SAME keyPriceLevels() derivation the legacy
+  // CopilotAnalysis pipeline uses, so the two panels can never disagree.
+
+  test("17: with no recentRange (too few candles upstream), resistance/support/pullback are honestly undefined - never fabricated", () => {
+    const panel = buildIntelligencePanelDataFromVerifiedAnswer(fixture());
+    assert.equal(panel.keyLevels.resistance, undefined);
+    assert.equal(panel.keyLevels.support, undefined);
+    assert.equal(panel.keyLevels.pullback, undefined);
+  });
+
+  test("17a: with a real recentRange, resistance/support are exactly its high/low - a real derivation, never invented", () => {
+    const panel = buildIntelligencePanelDataFromVerifiedAnswer(
+      fixture({ currentState: { ...fixture().currentState, recentRange: { high: 1.165, low: 1.145, lookbackBars: 20 } } }),
+    );
+    assert.equal(panel.keyLevels.resistance, 1.165);
+    assert.equal(panel.keyLevels.support, 1.145);
+  });
+
+  test("17b: pullback is exactly the standard 61.8% Fibonacci retracement between resistance and support - the same real ratio MT5's own Fibonacci Retracement tool defaults to", () => {
+    const panel = buildIntelligencePanelDataFromVerifiedAnswer(
+      fixture({ currentState: { ...fixture().currentState, recentRange: { high: 1.2, low: 1.0, lookbackBars: 20 } } }),
+    );
+    assert.ok(Math.abs((panel.keyLevels.pullback as number) - (1.2 - 0.2 * 0.618)) < 1e-9);
+  });
+
+  test("17c: with a bullish bias and a real range, invalidation is the real support and breakout is the real resistance", () => {
+    const panel = buildIntelligencePanelDataFromVerifiedAnswer(
+      fixture({ currentState: { ...fixture().currentState, trendDirection: "up", recentRange: { high: 1.165, low: 1.145, lookbackBars: 20 } } }),
+    );
+    assert.equal(panel.keyLevels.invalidation, 1.145);
+    assert.equal(panel.keyLevels.breakout, 1.165);
+  });
+
+  test("17d: with a bearish bias, invalidation/breakout mirror (invalidation = resistance, breakout = support)", () => {
+    const panel = buildIntelligencePanelDataFromVerifiedAnswer(
+      fixture({ currentState: { ...fixture().currentState, trendDirection: "down", recentRange: { high: 1.165, low: 1.145, lookbackBars: 20 } } }),
+    );
+    assert.equal(panel.keyLevels.invalidation, 1.165);
+    assert.equal(panel.keyLevels.breakout, 1.145);
+  });
+
+  test("17e: with a sideways/neutral bias, invalidation and breakout stay honestly undefined - no directional structure to invalidate or break out of", () => {
+    const panel = buildIntelligencePanelDataFromVerifiedAnswer(
+      fixture({ currentState: { ...fixture().currentState, trendDirection: "sideways", recentRange: { high: 1.165, low: 1.145, lookbackBars: 20 } } }),
+    );
+    assert.equal(panel.keyLevels.invalidation, undefined);
+    assert.equal(panel.keyLevels.breakout, undefined);
+    // resistance/support/pullback are still real - only the bias-dependent fields are gated
+    assert.equal(panel.keyLevels.resistance, 1.165);
   });
 
   test("18: evidence is the real supportingEvidence claims, capped at 4, never invented text", () => {

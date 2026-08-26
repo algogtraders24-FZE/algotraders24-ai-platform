@@ -25,9 +25,10 @@
 // own distinct scope (raw indicator confidence vs. full evidence-based
 // analysis), not touched by this projection.
 import type { VerifiedAnswerResponse } from "@/types/verified-answer-response";
-import type { IntelligencePanelData, MarketStatusLabel, MarketStructureFields } from "@/types/intelligence-panel";
+import type { IntelligencePanelData, KeyLevels, MarketStatusLabel, MarketStructureFields } from "@/types/intelligence-panel";
 import type { ConfidenceBand } from "@/types/technical-context";
 import type { TrendDirection } from "@/types/market";
+import { keyPriceLevels } from "@/lib/market-data/indicators";
 
 const MAX_EVIDENCE_ITEMS = 4;
 
@@ -51,6 +52,30 @@ function trendDirectionFromCurrentState(trend?: "up" | "down" | "sideways"): Tre
   if (trend === "down") return "bearish";
   if (trend === "sideways") return "neutral";
   return undefined;
+}
+
+// Sprint D2.7.11 (post-completion) - real Key Levels, sourced from
+// DecisionCurrentState.recentRange (D2.5.x, already computed by
+// market-state.service.ts's own computeRecentRange - a real 20-bar
+// high/low, never recomputed here) via the SAME keyPriceLevels()/
+// pullback-ratio math services/ai/intelligence-panel.service.ts's legacy
+// CopilotAnalysis pipeline uses - one shared derivation, never two that
+// could disagree for the same symbol (the exact class of bug this file's
+// own header comment already documents once happening). Invalidation/
+// breakout stay undefined without a real directional bias, same
+// reasoning as the legacy pipeline's own deriveKeyLevels().
+function deriveKeyLevels(recentRange: VerifiedAnswerResponse["currentState"]["recentRange"], bias?: TrendDirection): KeyLevels {
+  const { resistance, support, pullback } = keyPriceLevels(recentRange);
+  let invalidation: number | undefined;
+  let breakout: number | undefined;
+  if (bias === "bullish") {
+    invalidation = support;
+    breakout = resistance;
+  } else if (bias === "bearish") {
+    invalidation = resistance;
+    breakout = support;
+  }
+  return { resistance, support, pullback, invalidation, breakout };
 }
 
 // D2.5.5's own documented ceiling constant (CEILING_INSUFFICIENT_REGIME = 40)
@@ -100,7 +125,7 @@ export function buildIntelligencePanelDataFromVerifiedAnswer(va: VerifiedAnswerR
     confidence: { band: confidenceBandFromScore(overallScore), percent: overallScore ?? 0 },
     risk: { band: riskBandFromLevel(va.riskContext.overallLevel), explanation: va.riskContext.basis.join(" ") },
     structure,
-    keyLevels: {},
+    keyLevels: deriveKeyLevels(va.currentState.recentRange, trend),
     evidence: va.supportingEvidence.slice(0, MAX_EVIDENCE_ITEMS).map((item) => item.claim),
   };
 }

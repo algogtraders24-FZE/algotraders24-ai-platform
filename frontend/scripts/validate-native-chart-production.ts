@@ -145,9 +145,12 @@ async function seriesEquivalenceTests(): Promise<void> {
     assert.ok(series.every((v) => v === undefined));
   });
 
-  await test("13: sma()/ema()/rsi()/macd()/bollinger() scalar functions are byte-identical to before this sprint (still exported, still same signatures) - TechnicalContextService's import surface is untouched", () => {
+  await test("13: sma()/ema()/rsi()/macd()/bollinger() scalar functions are byte-identical to before this sprint (still exported, still same signatures) - TechnicalContextService still imports every original scalar function, alongside its later real Key Levels addition (recentPriceRange/keyPriceLevels, D2.7.11 post-completion) - never a replaced import", () => {
     const src = read("services/ai/technical-context.service.ts");
-    assert.ok(src.includes('import { closes, rsi, ema, sma, atr, macd, bollinger, volumeMetrics } from "@/lib/market-data/indicators"'));
+    const importLine = src.slice(src.indexOf('from "@/lib/market-data/indicators"') - 300, src.indexOf('from "@/lib/market-data/indicators"'));
+    for (const fn of ["closes", "rsi", "ema", "sma", "atr", "macd", "bollinger", "volumeMetrics"]) {
+      assert.ok(importLine.includes(fn), `missing original scalar import: ${fn}`);
+    }
   });
 
   await test("14: the *Series functions were added, never interleaved into/replacing the existing scalar function bodies", () => {

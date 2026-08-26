@@ -764,3 +764,58 @@ export function fractalsSeries(candles: readonly OhlcCandle[]): FractalsResult {
   }
   return { up, down };
 }
+
+// Sprint D2.7.11 (post-completion) - real Key Price Levels (Resistance/
+// Support/Pullback), reversing the D2.2 Phase 7 "no invented support/
+// resistance" rule with the user's explicit sign-off (2026-08-25 - see
+// project_ai_intelligence_data_gaps_investigation memory / the AI
+// Intelligence roadmap note). Every value here is a REAL derivation, never
+// invented: resistance/support are simply the real recent high/low over a
+// real lookback window; pullback is the standard 61.8% ("golden pocket")
+// Fibonacci retracement between them - MT5's own real default retracement
+// ratio (see FIBONACCI_LEVELS, lib/chart-engine/drawing/types.ts),
+// applied to a genuine recent high/low instead of a user-drawn selection.
+// Honestly {} when there aren't yet enough candles for a real range -
+// never a fabricated level.
+export interface RecentPriceRange {
+  high: number;
+  low: number;
+  lookbackBars: number;
+}
+
+// Matches services/intelligence/market-state/market-state.service.ts's own
+// BREAKOUT_LOOKBACK_BARS/computeRecentRange definition EXACTLY (20 bars,
+// excluding the latest/still-forming candle) - the same real "recent
+// range" concept, never a second, potentially-drifting definition. Kept
+// as its own small pure utility here (rather than importing that file's
+// private function) so this addition touches zero already-shipped D2.5.x/
+// D2.6.x code - the DecisionContext pipeline's own `currentState.
+// recentRange` (already computed there) is structurally identical to this
+// function's return shape and can be passed straight into
+// keyPriceLevels() below without recomputing anything.
+export const RECENT_RANGE_LOOKBACK_BARS_DEFAULT = 20;
+
+export function recentPriceRange(candles: readonly OhlcCandle[], lookbackBars = RECENT_RANGE_LOOKBACK_BARS_DEFAULT): RecentPriceRange | undefined {
+  if (candles.length <= lookbackBars) return undefined;
+  const window = candles.slice(candles.length - 1 - lookbackBars, candles.length - 1);
+  const high = Math.max(...window.map((c) => c.high));
+  const low = Math.min(...window.map((c) => c.low));
+  return { high, low, lookbackBars };
+}
+
+export interface KeyPriceLevels {
+  resistance?: number;
+  support?: number;
+  pullback?: number;
+}
+
+const PULLBACK_RETRACEMENT_RATIO = 0.618;
+
+export function keyPriceLevels(range: RecentPriceRange | undefined): KeyPriceLevels {
+  if (!range) return {};
+  return {
+    resistance: range.high,
+    support: range.low,
+    pullback: range.high - (range.high - range.low) * PULLBACK_RETRACEMENT_RATIO,
+  };
+}

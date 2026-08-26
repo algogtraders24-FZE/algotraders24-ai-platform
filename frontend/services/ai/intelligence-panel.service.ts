@@ -8,7 +8,8 @@
 // indicator and never invents a value the engine did not produce. Called once
 // per request from the API route - React only renders the result.
 import type { CopilotAnalysis } from "./trading-copilot.service";
-import type { IntelligencePanelData, MarketStatusLabel, MarketStructureFields, MomentumState } from "@/types/intelligence-panel";
+import type { IntelligencePanelData, KeyLevels, MarketStatusLabel, MarketStructureFields, MomentumState } from "@/types/intelligence-panel";
+import type { KeyPriceLevels } from "@/lib/market-data/indicators";
 import type { TrendDirection } from "@/types/market";
 
 const MAX_EVIDENCE_ITEMS = 4;
@@ -37,6 +38,27 @@ function deriveBias(trend?: TrendDirection, momentum?: MomentumState): TrendDire
   if (trend === "neutral") return "neutral";
   if (!momentum) return trend;
   return conflicts(trend, momentum) ? "neutral" : trend;
+}
+
+// Sprint D2.7.11 (post-completion) - invalidation/breakout are only
+// meaningful with a real directional bias: with no bias (neutral or
+// undefined) there is no structure to invalidate or break out of, so
+// both stay honestly undefined rather than guessing a direction. A
+// bullish bias' invalidation is the nearest real support (a close below
+// it invalidates the bullish read); its breakout is the nearest real
+// resistance (clearing it confirms continuation) - mirrored for bearish.
+function deriveKeyLevels(levels: KeyPriceLevels, bias?: TrendDirection): KeyLevels {
+  const { resistance, support, pullback } = levels;
+  let invalidation: number | undefined;
+  let breakout: number | undefined;
+  if (bias === "bullish") {
+    invalidation = support;
+    breakout = resistance;
+  } else if (bias === "bearish") {
+    invalidation = resistance;
+    breakout = support;
+  }
+  return { resistance, support, pullback, invalidation, breakout };
 }
 
 function deriveMarketStatus(
@@ -82,7 +104,7 @@ export function buildIntelligencePanelData(analysis: CopilotAnalysis): Intellige
     confidence: { band: confidence.band, percent },
     risk: { band: risk.volatility ?? "insufficient", explanation: risk.notes.join(" ") },
     structure,
-    keyLevels: {},
+    keyLevels: deriveKeyLevels(technical.keyLevels, bias),
     evidence: technical.observations.slice(0, MAX_EVIDENCE_ITEMS),
   };
 }
