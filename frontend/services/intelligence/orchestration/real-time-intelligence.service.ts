@@ -58,7 +58,7 @@ import { systemClock, type Clock } from "@/lib/market-data/cache";
 // Sprint D2.8.7 - reuses D2.8.6's own production microstructure boundary
 // verbatim (never a second provider instance, never re-implemented
 // fetch/validation/calculation logic).
-import { binanceMicrostructureProvider, microstructureSnapshots } from "@/services/microstructure/shared-instance";
+import { binanceMicrostructureProvider, microstructureSnapshots, BINANCE_MICROSTRUCTURE_DISABLED } from "@/services/microstructure/shared-instance";
 import { MicrostructureSnapshotService } from "@/services/microstructure/microstructure-snapshot.service";
 import type { MarketContextRequest } from "@/types/market-data-provider";
 
@@ -463,7 +463,17 @@ export class RealTimeIntelligenceService {
   // response.
   private async fetchMicrostructure(symbol: MarketSymbol): Promise<MicrostructureSnapshot | undefined> {
     const instrument = getCanonicalInstrument(symbol);
-    const binanceCapable = (instrument?.providerMappings ?? []).some((m) => m.provider === this.microstructureProvider.name && m.supportedCapabilities.includes("quote"));
+    // Post-completion (2026-08-26): the disable only applies when this
+    // service is genuinely about to call the REAL Binance singleton (the
+    // one confirmed crashing in production) - never when a test has
+    // injected its own fake microstructureProvider, so this stays a
+    // targeted production mitigation, not a change to this method's
+    // testable behavior. See shared-instance.ts's own comment for the
+    // full investigation.
+    const usingRealBinance = this.microstructureProvider === binanceMicrostructureProvider;
+    const binanceCapable =
+      !(usingRealBinance && BINANCE_MICROSTRUCTURE_DISABLED) &&
+      (instrument?.providerMappings ?? []).some((m) => m.provider === this.microstructureProvider.name && m.supportedCapabilities.includes("quote"));
     if (!binanceCapable) return undefined;
 
     const request: MarketContextRequest = { symbol };

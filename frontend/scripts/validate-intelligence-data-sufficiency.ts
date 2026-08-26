@@ -17,6 +17,7 @@ import { IntelligenceEnvelopeService } from "../services/intelligence/envelope/i
 import { DecisionContextService } from "../services/intelligence/decision/decision-context.service";
 import { RealTimeIntelligenceService } from "../services/intelligence/orchestration/real-time-intelligence.service";
 import { buildMicrostructureSnapshot } from "../services/microstructure/microstructure-snapshot.service";
+import { BINANCE_MICROSTRUCTURE_DISABLED } from "../services/microstructure/shared-instance";
 import type { Candle } from "../types/market-candle";
 import type { MarketSnapshot } from "../types/market-snapshot";
 import type { RawMicrostructureResult, RawMicrostructureEvidence } from "../types/microstructure";
@@ -302,12 +303,24 @@ async function main(): Promise<void> {
   // ============================================================
   // Section 6: missingInformation capability gating (D2.8.15 Phase 7 fix)
   // ============================================================
-  await test("missingInformation: BTCUSD (real Binance microstructure capability) has no volume-delta/liquidity-risk disclaimer", () => {
+  // Post-completion (2026-08-26): BINANCE_MICROSTRUCTURE_DISABLED
+  // (services/microstructure/shared-instance.ts) turns off Binance
+  // microstructure capability platform-wide after live production
+  // investigation found the real fetch consistently crashing the Vercel
+  // serverless function outright (a raw 502 with zero Vercel involvement,
+  // most plausibly Binance geo-blocking Vercel's IP range at a connection
+  // level no application-level try/catch can intercept). BTCUSD now
+  // honestly shows the SAME disclaimer every non-Binance-capable
+  // instrument shows - "capable in the catalog" no longer means "safe to
+  // actually call" while this flag is on. Flip this test back once the
+  // flag is retired.
+  await test("missingInformation: BTCUSD shows the volume-delta/liquidity-risk disclaimer while Binance microstructure is platform-wide disabled (BINANCE_MICROSTRUCTURE_DISABLED)", () => {
     const envelope = envelopeSvc.build({ marketState: richMarketState, regime: richRegime, hypotheses: richHypotheses, generatedAt: new Date(NOW_MS).toISOString() });
     const dc = decisionSvc.build(envelope);
     const descriptions = dc.missingInformation.map((m) => m.description);
-    assert.ok(!descriptions.some((d) => d.includes("volume delta")));
-    assert.ok(!descriptions.some((d) => d.includes("order book depth") || d.includes("Liquidity risk")));
+    assert.equal(BINANCE_MICROSTRUCTURE_DISABLED, true, "this test's expectation is tied to the flag's current value - update both together if the flag is ever flipped");
+    assert.ok(descriptions.some((d) => d.includes("volume delta")));
+    assert.ok(descriptions.some((d) => d.includes("order book depth") || d.includes("Liquidity risk")));
   });
 
   await test("missingInformation: EURUSD (no Binance-mapped microstructure capability) still shows the real disclaimer", () => {

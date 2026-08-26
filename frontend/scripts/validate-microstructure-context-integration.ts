@@ -18,6 +18,7 @@ import assert from "node:assert/strict";
 import { RealTimeIntelligenceService } from "../services/intelligence/orchestration/real-time-intelligence.service";
 import { DecisionContextService } from "../services/intelligence/decision/decision-context.service";
 import { MicrostructureSnapshotService } from "../services/microstructure/microstructure-snapshot.service";
+import { BINANCE_MICROSTRUCTURE_DISABLED } from "../services/microstructure/shared-instance";
 import { formatMicrostructureEvidence } from "../lib/microstructure/microstructure-presentation";
 import { MarketDataProviderError } from "../lib/market-data/errors";
 import type { MarketDataProvider, MarketContextRequest, MarketContextResult } from "../types/market-data-provider";
@@ -467,13 +468,19 @@ async function main(): Promise<void> {
     assert.ok(descriptions.some((d) => /execution risk/i.test(d)));
     // Sprint D2.8.15 - "liquidity risk (order book depth)" was a stale,
     // unconditional claim left over from before D2.8.5/D2.8.11 gave BTCUSD/
-    // ETHUSD real Binance depth/aggressor-flow evidence. It is now
-    // conditional on the instrument's real microstructure-provider
-    // capability (see decision-context.service.ts's buildMissingInformation())
-    // - BTCUSD is capable, so this disclaimer is correctly ABSENT here.
-    // scripts/validate-intelligence-data-sufficiency.ts covers the
-    // non-capable (EURUSD) case where it remains present.
-    assert.ok(!descriptions.some((d) => /liquidity risk.*order book/i.test(d)), "BTCUSD has real Binance microstructure capability - this disclaimer must not fabricate an unmeasured claim");
+    // ETHUSD real Binance depth/aggressor-flow evidence, and IS conditional
+    // on the instrument's real microstructure-provider capability (see
+    // decision-context.service.ts's buildMissingInformation()).
+    // Post-completion (2026-08-26): that capability is now platform-wide
+    // disabled (BINANCE_MICROSTRUCTURE_DISABLED, services/microstructure/
+    // shared-instance.ts) after live production investigation found the
+    // real Binance fetch consistently crashing the Vercel function outright
+    // (a raw 502 with zero Vercel involvement) - so BTCUSD now honestly
+    // shows the SAME disclaimer every non-Binance-capable instrument shows,
+    // same as scripts/validate-intelligence-data-sufficiency.ts's EURUSD
+    // case. Flip this assertion back once the flag is retired.
+    assert.equal(BINANCE_MICROSTRUCTURE_DISABLED, true, "this test's expectation is tied to the flag's current value - update both together if the flag is ever flipped");
+    assert.ok(descriptions.some((d) => /liquidity risk.*order book/i.test(d)), "with Binance microstructure disabled, BTCUSD must honestly show the same unmeasured disclaimer as any other non-capable instrument");
   });
 
   // ---------------------------------------------------------------------

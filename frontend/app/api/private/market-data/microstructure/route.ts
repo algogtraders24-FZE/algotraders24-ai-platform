@@ -35,7 +35,7 @@ import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { getCanonicalInstrument } from "@/lib/market-data/instrument-catalog";
 import { withReliability } from "@/lib/market-data/reliability";
-import { binanceMicrostructureProvider, microstructureSnapshots } from "@/services/microstructure/shared-instance";
+import { binanceMicrostructureProvider, microstructureSnapshots, isBinanceMicrostructureCapable } from "@/services/microstructure/shared-instance";
 import { assessMicrostructureEvidence } from "@/services/intelligence/microstructure/microstructure-evidence-assessment.service";
 import { MarketDataProviderError } from "@/lib/market-data/errors";
 import { toMarketDataErrorDTO, statusCodeForReason } from "@/lib/market-data/error-dto";
@@ -77,9 +77,7 @@ export const GET = withContext(async (req, ctx) => {
   const hypothesisType = parseHypothesisType(url.searchParams.get("hypothesisType"));
 
   const instrument = getCanonicalInstrument(symbol);
-  const binanceCapable = (instrument?.providerMappings ?? []).some(
-    (m) => m.provider === binanceMicrostructureProvider.name && m.supportedCapabilities.includes("quote"),
-  );
+  const binanceCapable = isBinanceMicrostructureCapable(instrument);
   if (!binanceCapable) {
     // Honest, explicit "not applicable" - never a fabricated MicrostructureSnapshot
     // shape with placeholder unavailable fields, and Binance is never called.
