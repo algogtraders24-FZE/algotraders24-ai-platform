@@ -1154,3 +1154,39 @@ model MarketplaceObservation {
   @@index([tradingSystemId, versionId])
   @@map("marketplace_observations")
 }
+
+// Paper Trading Engine, Phase P1 - a fully isolated, database-only
+// simulation (no real money, no live-account connectivity, never touches
+// the real Exness/MT5 account). One account per user, real leverage/margin
+// math, market orders filled at the REAL live bid/ask (never mid-price -
+// see services/paper-trading/paper-trading.service.ts). Phase P2 (limit
+// orders, automatic margin-call/stop-out) is explicitly deferred - see
+// docs/architecture/D2.7.11-native-chart-mt5-feature-parity-roadmap.md's
+// paper-trading section.
+model PaperTradingAccount {
+  id        String          @id @default(cuid())
+  userId    String          @unique
+  balance   Float           @default(10000)
+  leverage  Int             @default(100)
+  createdAt DateTime        @default(now())
+  resetAt   DateTime        @default(now())
+  positions PaperPosition[]
+}
+
+model PaperPosition {
+  id          String    @id @default(cuid())
+  accountId   String
+  account     PaperTradingAccount @relation(fields: [accountId], references: [id])
+  symbol      String
+  side        String
+  quantity    Float
+  entryPrice  Float
+  marginUsed  Float
+  status      String    @default("open")
+  exitPrice   Float?
+  realizedPnl Float?
+  openedAt    DateTime  @default(now())
+  closedAt    DateTime?
+
+  @@index([accountId, status])
+}

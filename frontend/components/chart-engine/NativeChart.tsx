@@ -64,6 +64,7 @@ import { useLiveQuote } from "./useLiveQuote";
 import ChartToolbar from "./ChartToolbar";
 import ChartHeader from "./ChartHeader";
 import MicrostructurePanel from "./MicrostructurePanel";
+import PaperTradingPanel from "./PaperTradingPanel";
 // MT5 feature-parity Phase 1 - Drawing Tools (trend line, horizontal
 // line, rectangle). See docs/architecture/D2.7.11-native-chart-mt5-
 // feature-parity-roadmap.md for the full phased plan this belongs to.
@@ -1111,6 +1112,7 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
     <div className={isFullscreen ? "fixed inset-0 z-50 flex flex-col gap-2 bg-ink p-4" : "flex flex-col gap-2"}>
       <ChartHeader displaySymbol={resolution.displaySymbol} instrumentName={name} timeframe={timeframe} series={result.series} />
       <MicrostructurePanel symbol={symbol} hypothesisType={symbol === activeSymbol ? hypothesisType : undefined} />
+      <PaperTradingPanel symbol={symbol} isActive={symbol === activeSymbol} />
       <ChartToolbar
         displaySymbol={resolution.displaySymbol}
         timeframe={timeframe}

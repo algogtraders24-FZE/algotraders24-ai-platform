@@ -71,6 +71,7 @@
     "validate:native-chart-bill-williams": "tsx scripts/validate-native-chart-bill-williams.ts",
     "validate:key-levels-engine": "tsx scripts/validate-key-levels-engine.ts",
     "validate:liquidity-zones-engine": "tsx scripts/validate-liquidity-zones-engine.ts",
+    "validate:paper-trading": "tsx scripts/validate-paper-trading.ts",
     "validate:intelligence-panel-projection": "tsx scripts/validate-intelligence-panel-projection.ts",
     "validate:market-regime-overview": "tsx scripts/validate-market-regime-overview.ts",
     "validate:workspace-header-symbol-switch": "tsx scripts/validate-workspace-header-symbol-switch.ts",
