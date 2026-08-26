@@ -106,10 +106,14 @@ export function buildIntelligencePanelDataFromVerifiedAnswer(va: VerifiedAnswerR
     momentum: undefined,
     volatility: va.currentState.volatilityBand,
     liquidity: undefined,
-    // D2.5.x's DecisionCurrentState carries no market-hours/session field
-    // (unlike the legacy CopilotAnalysis snapshot) - "unknown" is the honest
-    // reading, not a guess in either direction.
-    session: "unknown",
+    // Post-completion addition (2026-08-26) - real market-hours status,
+    // direct passthrough of DecisionCurrentState.marketStatus (itself a
+    // passthrough of MarketState.snapshot.marketStatus, a MarketSnapshot
+    // field every provider always supplies). Previously hardcoded
+    // "unknown" unconditionally even when the provider's own snapshot
+    // carried a real open/closed reading - the legacy CopilotAnalysis
+    // pipeline already read this correctly via snapshot.marketStatus.
+    session: va.currentState.marketStatus ?? "unknown",
     bias: trend,
   };
 

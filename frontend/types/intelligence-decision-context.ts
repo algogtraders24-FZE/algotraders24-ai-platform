@@ -20,6 +20,7 @@
 // rewritten here.
 import type { MarketSymbol } from "./market";
 import type { SignalTimeframe } from "./signal";
+import type { MarketStatus } from "./market-snapshot";
 import type { MarketStateVolatilityBand, MarketStateRecentRange } from "./intelligence-market-state";
 import type { SmcLiquidityZones } from "@/lib/market-data/indicators";
 import type { DataConfidence } from "./technical-context";
@@ -54,6 +55,8 @@ export interface DecisionCurrentState {
   breakoutSignal?: "breakout" | "breakdown";
   /** Post-completion addition (2026-08-26) - real SMC Equal High/Low liquidity zones, direct passthrough of MarketStateStructure.liquidityZones - never recomputed here. */
   liquidityZones?: SmcLiquidityZones;
+  /** Post-completion addition (2026-08-26) - real market-hours status, direct passthrough of MarketState.snapshot.marketStatus (a MarketSnapshot field that always exists) - never recomputed here. Fixes a real gap: this field was previously never read at all, forcing session to always render "Unknown" even when the provider's own snapshot carried a real open/closed reading (the legacy CopilotAnalysis pipeline already read this correctly via snapshot.marketStatus). */
+  marketStatus?: MarketStatus;
   dataQuality: DataConfidence;
   /** Deterministic, human-readable statements citing the real fields above - never empty. */
   basis: string[];

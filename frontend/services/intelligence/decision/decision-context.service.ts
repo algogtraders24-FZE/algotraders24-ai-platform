@@ -84,6 +84,7 @@ function buildCurrentState(marketState: MarketState): DecisionCurrentState {
     recentRange,
     breakoutSignal: marketState.structure?.breakoutSignal,
     liquidityZones,
+    marketStatus: marketState.snapshot.marketStatus,
     dataQuality: marketState.dataQuality,
     basis,
   };

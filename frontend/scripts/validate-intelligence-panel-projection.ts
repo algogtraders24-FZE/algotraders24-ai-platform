@@ -142,8 +142,16 @@ function coreMappingTests(): void {
     assert.equal(buildIntelligencePanelDataFromVerifiedAnswer(fixture()).structure.momentum, undefined);
   });
 
-  test("14: structure.session is always 'unknown' - D2.5.x has no market-hours field, honestly not guessed either way", () => {
-    assert.equal(buildIntelligencePanelDataFromVerifiedAnswer(fixture()).structure.session, "unknown");
+  test("14: structure.session is 'unknown' only when currentState.marketStatus is genuinely absent - honestly not guessed either way", () => {
+    const panel = buildIntelligencePanelDataFromVerifiedAnswer(fixture({ currentState: { ...fixture().currentState, marketStatus: undefined } }));
+    assert.equal(panel.structure.session, "unknown");
+  });
+
+  test("14a: structure.session is REAL once currentState.marketStatus is supplied (post-completion, 2026-08-26) - direct passthrough of MarketState.snapshot.marketStatus, never a fabricated default", () => {
+    const openPanel = buildIntelligencePanelDataFromVerifiedAnswer(fixture({ currentState: { ...fixture().currentState, marketStatus: "open" } }));
+    assert.equal(openPanel.structure.session, "open");
+    const closedPanel = buildIntelligencePanelDataFromVerifiedAnswer(fixture({ currentState: { ...fixture().currentState, marketStatus: "closed" } }));
+    assert.equal(closedPanel.structure.session, "closed");
   });
 
   test("15: structure.trend/bias derive from the real currentState.trendDirection ('up' -> 'bullish'), never a static default", () => {
