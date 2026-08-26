@@ -124,6 +124,53 @@ function opposingFromConflicts(evidence: EvidenceBundle | undefined, symbol: str
   return evidence.conflicts.filter((c) => c.symbol === symbol).map((c) => c.itemB);
 }
 
+// Post-completion addition (2026-08-26) - a second, independent real
+// source of opposingEvidence. opposingFromConflicts() above requires TWO
+// evidence items of the SAME EvidenceType from TWO DIFFERENT sources that
+// genuinely disagree (see EvidenceRankingService.detectConflicts) - with
+// this platform's single-market-data-provider-per-analysis pipeline, that
+// condition is honestly almost never met, which is why "OPPOSING: None
+// available" was the near-permanent default. This function adds a
+// DIFFERENT, equally real signal that needs no second provider at all:
+// RSI14 momentum disagreeing with a directional hypothesis's own claim -
+// a standard, universally-recognized technical-analysis caution (RSI
+// overbought against a bullish continuation claim, oversold against a
+// bearish one). The 70/30 thresholds are the exact same real, standard
+// convention this codebase already uses everywhere else (lib/chart-engine
+// /sub-panel-renderer.ts's own RSI_OVERBOUGHT/RSI_OVERSOLD reference
+// lines, services/ai/technical-context.service.ts's own "overbought
+// territory"/"oversold territory" observation text) - never a fresh,
+// invented threshold. Honestly [] (not a guess) when RSI isn't computable
+// or sits in the neutral 30-70 range - most of the time, correctly.
+const RSI_OVERBOUGHT_THRESHOLD = 70;
+const RSI_OVERSOLD_THRESHOLD = 30;
+
+function momentumDivergenceOpposingEvidence(marketState: MarketState, direction: "bullish" | "bearish"): EvidenceItem[] {
+  const rsi14 = marketState.technical?.rsi14;
+  if (rsi14 === undefined) return [];
+  if (direction === "bullish" && rsi14 >= RSI_OVERBOUGHT_THRESHOLD) {
+    return [
+      technicalEvidence(
+        `RSI14 (${rsi14.toFixed(2)}) is in overbought territory (>=${RSI_OVERBOUGHT_THRESHOLD}), a real momentum caution against continued bullish continuation.`,
+        marketState.symbol,
+        marketState.generatedAt,
+        rsi14,
+      ),
+    ];
+  }
+  if (direction === "bearish" && rsi14 <= RSI_OVERSOLD_THRESHOLD) {
+    return [
+      technicalEvidence(
+        `RSI14 (${rsi14.toFixed(2)}) is in oversold territory (<=${RSI_OVERSOLD_THRESHOLD}), a real momentum caution against continued bearish continuation.`,
+        marketState.symbol,
+        marketState.generatedAt,
+        rsi14,
+      ),
+    ];
+  }
+  return [];
+}
+
 function requiredEvidenceFor(type: HypothesisType): EvidenceType[] {
   switch (type) {
     case "trend-continuation-bullish":
@@ -193,7 +240,7 @@ function generateTrendContinuation(input: Required<Pick<GenerateHypothesesInput,
       referenceValue: wantDirection,
     },
     supportingEvidence,
-    opposingEvidence: opposingFromConflicts(evidence, marketState.symbol),
+    opposingEvidence: [...opposingFromConflicts(evidence, marketState.symbol), ...momentumDivergenceOpposingEvidence(marketState, direction)],
   });
 }
 
@@ -230,7 +277,7 @@ function generateBreakoutConfirmation(input: Required<Pick<GenerateHypothesesInp
       referenceValue: boundary,
     },
     supportingEvidence,
-    opposingEvidence: opposingFromConflicts(evidence, marketState.symbol),
+    opposingEvidence: [...opposingFromConflicts(evidence, marketState.symbol), ...momentumDivergenceOpposingEvidence(marketState, direction)],
   });
 }
 

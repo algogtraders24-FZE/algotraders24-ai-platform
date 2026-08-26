@@ -121,17 +121,23 @@ async function main(): Promise<void> {
   });
 
   // ---------------------------------------------------------------------
-  // 16/17: liquidityZones/volumeDelta not fabricated
+  // 16/17: volumeDelta remains honestly not fabricated; liquidityZones
+  // (post-completion, 2026-08-26) is now a real, price-action-derived SMC
+  // proxy (Equal High/Low) - this Dukascopy audit's own scope (D2.8.4) was
+  // about whether a genuine ORDER-BOOK/depth-of-market source exists,
+  // which is a completely separate concept liquidityZones never claims to
+  // be (see its own doc comment) - volumeDelta/bos/choch are the fields
+  // that remain genuinely unimplemented for that reason.
   // ---------------------------------------------------------------------
-  await test("16: liquidityZones remains honestly declared as not implemented", () => {
+  await test("16: volumeDelta remains honestly declared as not implemented (genuine order-book/DOM data still doesn't exist)", () => {
     const source = readFileSync(new URL("../types/intelligence-market-state.ts", import.meta.url), "utf8");
-    assert.ok(source.includes("liquidityZones"));
+    assert.ok(source.includes("volumeDelta"));
     assert.ok(/not implemented|never populated/i.test(source));
   });
-  await test("17: market-state.service.ts never assigns volumeDelta or liquidityZones", () => {
+  await test("17: market-state.service.ts never assigns volumeDelta (genuinely unimplemented); it now DOES assign a real liquidityZones (SMC Equal High/Low, not order-book depth)", () => {
     const source = readFileSync(new URL("../services/intelligence/market-state/market-state.service.ts", import.meta.url), "utf8");
     assert.ok(!/volumeDelta\s*:/.test(source));
-    assert.ok(!/liquidityZones\s*:/.test(source));
+    assert.ok(/liquidityZones\s*:\s*liquidityZones\(/.test(source));
   });
 
   // ---------------------------------------------------------------------

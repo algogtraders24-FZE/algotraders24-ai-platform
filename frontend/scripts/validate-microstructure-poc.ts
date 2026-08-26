@@ -67,12 +67,17 @@ async function main(): Promise<void> {
   });
 
   // ---------------------------------------------------------------------
-  // 5: no fabricated liquidityZones
+  // 5: liquidityZones is no longer fabricated-vs-unpopulated - it is now a
+  // real, price-action-derived SMC proxy (Equal High/Low), post-completion
+  // 2026-08-26. This is a genuinely different concept from the Binance-
+  // only order-book/DOM microstructure this POC audits (types/
+  // intelligence-market-state.ts's own updated doc comment says so
+  // explicitly) - not a regression of this sprint's own findings.
   // ---------------------------------------------------------------------
-  await test("5: types/intelligence-market-state.ts still declares liquidityZones as unpopulated/unsupported", () => {
+  await test("5: types/intelligence-market-state.ts's liquidityZones is now real (SMC proxy), explicitly documented as distinct from genuine order-book depth (still unavailable)", () => {
     const source = readFileSync(new URL("../types/intelligence-market-state.ts", import.meta.url), "utf8");
     assert.ok(source.includes("liquidityZones"));
-    assert.ok(/not implemented|never populated/i.test(source), "liquidityZones must still be honestly documented as not implemented");
+    assert.ok(/order-book depth/i.test(source), "the field's doc comment must still make clear real order-book depth is NOT what this field provides");
   });
 
   // ---------------------------------------------------------------------
@@ -82,10 +87,10 @@ async function main(): Promise<void> {
     const source = readFileSync(new URL("../types/intelligence-market-state.ts", import.meta.url), "utf8");
     assert.ok(source.includes("volumeDelta"));
   });
-  await test("6b: services/intelligence/market-state/market-state.service.ts never sets volumeDelta or liquidityZones", () => {
+  await test("6b: services/intelligence/market-state/market-state.service.ts never sets volumeDelta; it now DOES set a real liquidityZones (SMC proxy, not order-book depth)", () => {
     const source = readFileSync(new URL("../services/intelligence/market-state/market-state.service.ts", import.meta.url), "utf8");
     assert.ok(!/volumeDelta\s*:/.test(source), "market-state.service.ts must not assign a value to volumeDelta");
-    assert.ok(!/liquidityZones\s*:/.test(source), "market-state.service.ts must not assign a value to liquidityZones");
+    assert.ok(/liquidityZones\s*:\s*liquidityZones\(/.test(source), "market-state.service.ts should now assign the real liquidityZones() computation");
   });
 
   // ---------------------------------------------------------------------

@@ -21,6 +21,7 @@
 import type { MarketSymbol } from "./market";
 import type { SignalTimeframe } from "./signal";
 import type { MarketStateVolatilityBand, MarketStateRecentRange } from "./intelligence-market-state";
+import type { SmcLiquidityZones } from "@/lib/market-data/indicators";
 import type { DataConfidence } from "./technical-context";
 import type { RegimeType } from "./intelligence-regime";
 import type {
@@ -51,6 +52,8 @@ export interface DecisionCurrentState {
   volatilityBand?: MarketStateVolatilityBand;
   recentRange?: MarketStateRecentRange;
   breakoutSignal?: "breakout" | "breakdown";
+  /** Post-completion addition (2026-08-26) - real SMC Equal High/Low liquidity zones, direct passthrough of MarketStateStructure.liquidityZones - never recomputed here. */
+  liquidityZones?: SmcLiquidityZones;
   dataQuality: DataConfidence;
   /** Deterministic, human-readable statements citing the real fields above - never empty. */
   basis: string[];

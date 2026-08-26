@@ -9,6 +9,7 @@
 // "Not available" / "Insufficient data", never a guess.
 import type { TrendDirection } from "./market";
 import type { ConfidenceBand } from "./technical-context";
+import type { SmcLiquidityZones } from "@/lib/market-data/indicators";
 
 export type MarketStatusLabel = "bullish" | "bearish" | "neutral" | "transition" | "high_volatility" | "insufficient";
 export type MomentumState = "strengthening" | "weakening" | "neutral";
@@ -61,6 +62,21 @@ export interface IntelligencePanelData {
   risk: { band: RiskBand; explanation: string };
   structure: MarketStructureFields;
   keyLevels: KeyLevels;
+  /**
+   * Post-completion addition (2026-08-26) - real SMC (Smart Money
+   * Concepts) Equal High/Equal Low liquidity zones, a price-action proxy
+   * (NOT genuine order-book depth, which still doesn't exist anywhere in
+   * this platform - see MarketStructureFields.liquidity above, which
+   * remains correctly "Not available" for that unrelated, volume-based
+   * concept). Computed by lib/market-data/indicators.ts's
+   * liquidityZones(), directly ported from the user's own tested
+   * ea-research/G01_LiquiditySweep_MSS_FVG EA. Only wired through the
+   * DecisionContext/Workspace pipeline today - the legacy CopilotAnalysis
+   * pipeline (Trading Copilot) honestly supplies {} (not computed there),
+   * same "undefined where genuinely not computed" rule as every other
+   * field on this DTO.
+   */
+  liquidityZones: SmcLiquidityZones;
   /** Top evidence items only (already real, engine-produced observations) - never long-form paragraphs. */
   evidence: string[];
 }

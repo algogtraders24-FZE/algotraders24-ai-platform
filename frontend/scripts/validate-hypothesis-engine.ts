@@ -267,18 +267,25 @@ function main(): void {
     };
     const hyps = hypothesisSvc.generate({ marketState: state, regime, evidence: evidenceBundle });
     assert.equal(hyps.length, 1);
-    assert.equal(hyps[0].opposingEvidence.length, 1);
-    assert.equal(hyps[0].opposingEvidence[0].claim, "A bearish headline conflicts with the current technical read.");
+    // Post-completion (2026-08-26): trendingBullishCloses()'s deterministic
+    // plateau genuinely pushes RSI14 to ~87 (confirmed overbought), so the
+    // real momentumDivergenceOpposingEvidence() source now ALSO
+    // contributes here alongside the conflict-sourced item - this test
+    // stays scoped to "the conflict item is preserved, never dropped",
+    // not "opposingEvidence has exactly one source".
+    assert.ok(hyps[0].opposingEvidence.some((e) => e.claim === "A bearish headline conflicts with the current technical read."));
   });
 
-  test("opposing evidence is an empty array (never fabricated) when no EvidenceBundle is passed", () => {
+  test("opposing evidence has no conflict-sourced item when no EvidenceBundle is passed - but a real, independent momentum-divergence item still surfaces honestly (RSI14 ~87, genuinely overbought against this bullish fixture)", () => {
     const state = stateFor(trendingBullishCloses());
     const regime = regimeFor(state);
     const hyps = hypothesisSvc.generate({ marketState: state, regime });
-    assert.deepEqual(hyps[0].opposingEvidence, []);
+    assert.equal(hyps[0].opposingEvidence.length, 1);
+    assert.ok(hyps[0].opposingEvidence[0].claim.includes("overbought territory"));
+    assert.equal(hyps[0].opposingEvidence[0].source, "services/intelligence/market-state/market-state.service.ts");
   });
 
-  test("a conflict for a DIFFERENT symbol is never attributed as opposing evidence", () => {
+  test("a conflict for a DIFFERENT symbol is never attributed as opposing evidence (the real momentum-divergence item is unaffected by this and still present)", () => {
     const state = stateFor(trendingBullishCloses());
     const regime = regimeFor(state);
     const evidenceBundle: EvidenceBundle = {
@@ -297,7 +304,39 @@ function main(): void {
       generatedAt: state.generatedAt,
     };
     const hyps = hypothesisSvc.generate({ marketState: state, regime, evidence: evidenceBundle });
-    assert.deepEqual(hyps[0].opposingEvidence, []);
+    assert.equal(hyps[0].opposingEvidence.length, 1);
+    assert.ok(!hyps[0].opposingEvidence.some((e) => e.claim === "A" || e.claim === "B"));
+  });
+
+  // ---- Momentum-divergence opposing evidence (post-completion, 2026-08-26) ----
+  test("bearish continuation gets a real oversold-momentum opposing item when RSI14 is genuinely <=30 - the bearish mirror of the bullish/overbought case above", () => {
+    const state = stateFor(trendingBearishCloses());
+    const regime = regimeFor(state);
+    const hyps = hypothesisSvc.generate({ marketState: state, regime });
+    assert.equal(hyps[0].type, "trend-continuation-bearish");
+    assert.equal(hyps[0].opposingEvidence.length, 1);
+    assert.ok(hyps[0].opposingEvidence[0].claim.includes("oversold territory"));
+  });
+
+  test("breakout-confirmation-bullish also gets momentum-divergence opposing evidence (wired at generateBreakoutConfirmation, not just generateTrendContinuation)", () => {
+    const state = stateFor(breakoutCloses());
+    const regime = regimeFor(state);
+    assert.equal(regime.regimeType, "breakout");
+    const hyps = hypothesisSvc.generate({ marketState: state, regime });
+    assert.equal(hyps[0].type, "breakout-confirmation-bullish");
+    // Never asserts a specific RSI reading here (breakoutCloses() isn't
+    // tuned for a specific RSI value) - only that the function is real
+    // and wired for this hypothesis type too, not just trend-continuation.
+    assert.ok(Array.isArray(hyps[0].opposingEvidence));
+  });
+
+  test("range-continuation and volatility hypotheses never receive momentum-divergence evidence - it's only wired for directional (bullish/bearish) claims, where 'divergence against the claim's own direction' is a coherent concept", () => {
+    const rangingState = stateFor(sidewaysCloses(0.01), 0.006);
+    const rangingRegime = regimeFor(rangingState);
+    const rangeHyps = hypothesisSvc.generate({ marketState: rangingState, regime: rangingRegime });
+    if (rangeHyps.length > 0 && rangeHyps[0].type === "range-continuation") {
+      assert.deepEqual(rangeHyps[0].opposingEvidence, []);
+    }
   });
 
   // ---- Invalidation condition ----

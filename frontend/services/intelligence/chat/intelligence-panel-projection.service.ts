@@ -126,6 +126,10 @@ export function buildIntelligencePanelDataFromVerifiedAnswer(va: VerifiedAnswerR
     risk: { band: riskBandFromLevel(va.riskContext.overallLevel), explanation: va.riskContext.basis.join(" ") },
     structure,
     keyLevels: deriveKeyLevels(va.currentState.recentRange, trend),
+    // Post-completion addition (2026-08-26) - direct passthrough of
+    // DecisionCurrentState.liquidityZones (D2.5.x/D2.6.x's own real SMC
+    // Equal High/Low computation) - never recomputed here.
+    liquidityZones: va.currentState.liquidityZones ?? {},
     evidence: va.supportingEvidence.slice(0, MAX_EVIDENCE_ITEMS).map((item) => item.claim),
   };
 }

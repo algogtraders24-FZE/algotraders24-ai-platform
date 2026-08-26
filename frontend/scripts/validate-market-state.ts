@@ -140,11 +140,11 @@ function main(): void {
     assert.equal(state.dataQuality.computed, 6, "6/7 - every indicator except volume should still compute");
   });
 
-  test("structure.liquidityZones, volumeDelta, bos, choch are always undefined in D2.5.2 - never fabricated", () => {
+  test("structure.volumeDelta/bos/choch remain always undefined - genuinely no data source exists; structure.liquidityZones is now REAL (SMC Equal High/Low, post-completion 2026-08-26) but honestly {} when no real cluster exists in this fixture's candles", () => {
     const candles = makeCandles(fullDataCloses());
     const snapshot = snapshotFor(candles);
     const state = service.assemble({ symbol: "EURUSD", timeframe: "1h", snapshot, candles });
-    assert.equal(state.structure?.liquidityZones, undefined);
+    assert.deepEqual(state.structure?.liquidityZones, { equalHigh: undefined, equalLow: undefined });
     assert.equal(state.structure?.volumeDelta, undefined);
     assert.equal(state.structure?.bos, undefined);
     assert.equal(state.structure?.choch, undefined);

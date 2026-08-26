@@ -105,6 +105,11 @@ export function buildIntelligencePanelData(analysis: CopilotAnalysis): Intellige
     risk: { band: risk.volatility ?? "insufficient", explanation: risk.notes.join(" ") },
     structure,
     keyLevels: deriveKeyLevels(technical.keyLevels, bias),
+    // Post-completion addition (2026-08-26) - SMC Equal High/Low liquidity
+    // zones are only computed by the DecisionContext pipeline today (they
+    // need MarketState.structure, which TechnicalContext doesn't carry) -
+    // honestly {} here, never fabricated, matching this DTO's own rule.
+    liquidityZones: {},
     evidence: technical.observations.slice(0, MAX_EVIDENCE_ITEMS),
   };
 }

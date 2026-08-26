@@ -455,7 +455,15 @@ async function main(): Promise<void> {
     const decisionSvc = new DecisionContextService();
     const dc = decisionSvc.build(ctx.envelope!);
     const descriptions = dc.missingInformation.map((i) => i.description);
-    assert.ok(descriptions.some((d) => /liquidity zone/i.test(d)));
+    // Post-completion (2026-08-26): the "liquidity zone" disclaimer is no
+    // longer an unconditional permanent claim - real SMC Equal High/Low
+    // liquidity zones are now computed (market-state.service.ts's
+    // liquidityZones()), so this now asserts the disclaimer's presence
+    // matches whether a real cluster was actually found for BTCUSD's own
+    // candles here, rather than assuming either direction.
+    const hasRealCluster = Boolean(ctx.envelope!.marketState.structure?.liquidityZones?.equalHigh || ctx.envelope!.marketState.structure?.liquidityZones?.equalLow);
+    const flagsLiquidityZonesMissing = descriptions.some((d) => /equal high\/equal low liquidity cluster/i.test(d));
+    assert.equal(flagsLiquidityZonesMissing, !hasRealCluster, "the liquidity-zone missing-info item must appear if and only if no real cluster was detected");
     assert.ok(descriptions.some((d) => /execution risk/i.test(d)));
     // Sprint D2.8.15 - "liquidity risk (order book depth)" was a stale,
     // unconditional claim left over from before D2.8.5/D2.8.11 gave BTCUSD/

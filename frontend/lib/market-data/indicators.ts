@@ -819,3 +819,76 @@ export function keyPriceLevels(range: RecentPriceRange | undefined): KeyPriceLev
     pullback: range.high - (range.high - range.low) * PULLBACK_RETRACEMENT_RATIO,
   };
 }
+
+// Post-completion addition (2026-08-26) - real SMC (Smart Money Concepts)
+// Liquidity Zones: Equal High / Equal Low. This is a PRICE-ACTION-DERIVED
+// proxy, deliberately distinct from real order-book/depth-of-market
+// liquidity - which genuinely does not exist anywhere in this platform's
+// providers (see types/intelligence-market-state.ts's own long-standing
+// comment, and the project_ai_intelligence_data_gaps_investigation memory).
+// An Equal High/Low is >=2 confirmed swing extremes (this file's own
+// fractalsSeries(), the real MT5 5-bar structural-extreme definition)
+// clustered within a small tolerance - the real SMC/ICT concept of resting
+// stop-loss liquidity: retail shorts' stops rest just above a cluster of
+// equal highs (buy-side liquidity), retail longs' stops rest just below a
+// cluster of equal lows (sell-side liquidity). This is NOT invented here:
+// it is a direct, faithful port of ea-research/G01_LiquiditySweep_MSS_FVG/
+// Include/AT24_G01_Liquidity.mqh's own tested G01_DetectEqualHigh/
+// G01_DetectEqualLow (same algorithm - scan swing-point pairs from most
+// recent backwards, first pair within tolerance wins, reported level is
+// the pair's own real extreme) and its tuned InpEqualLevelATRTolerance
+// (0.10 x ATR14) - the user's own already-validated EA parameter, not a
+// fresh guess. Honestly {} when ATR14 isn't computable or no real pair
+// exists in the available candle history - never a fabricated level.
+// Named `Smc*`, not the plain `LiquidityZone(s)` a reader might reach for -
+// types/technical-analysis.ts already declares an unrelated, legacy/mock-
+// era `LiquidityZones` (buySide/sellSide/equalHighs number[] consumed only
+// by data/mock-market.ts's mock MarketAnalysis pipeline, never this real
+// D2.5.x/D2.6.x one) - different module, no compile collision, but a real
+// naming collision worth avoiding for anyone grepping the codebase.
+export interface SmcLiquidityZone {
+  price: number;
+  /** Always 2 in this MVP - the real "equal level" pair count (>=2 by definition). A future extension could track larger clusters. */
+  touches: number;
+}
+
+export interface SmcLiquidityZones {
+  /** Buy-side (resting stop-buy) liquidity - the real extreme of the most recent Equal High pair. */
+  equalHigh?: SmcLiquidityZone;
+  /** Sell-side (resting stop-sell) liquidity - the real extreme of the most recent Equal Low pair. */
+  equalLow?: SmcLiquidityZone;
+}
+
+const LIQUIDITY_LOOKBACK_BARS_DEFAULT = 50;
+const EQUAL_LEVEL_ATR_TOLERANCE_MULTIPLE = 0.1;
+
+function detectEqualLevel(points: readonly (number | undefined)[], tolerance: number, pick: "max" | "min"): number | undefined {
+  const present = points.map((price, index) => ({ price, index })).filter((p): p is { price: number; index: number } => p.price !== undefined);
+  for (let i = present.length - 1; i >= 1; i--) {
+    for (let j = i - 1; j >= 0; j--) {
+      if (Math.abs(present[i].price - present[j].price) <= tolerance) {
+        return pick === "max" ? Math.max(present[i].price, present[j].price) : Math.min(present[i].price, present[j].price);
+      }
+    }
+  }
+  return undefined;
+}
+
+export function liquidityZones(
+  candles: readonly OhlcCandle[],
+  atr14: number | undefined,
+  lookbackBars = LIQUIDITY_LOOKBACK_BARS_DEFAULT,
+): SmcLiquidityZones {
+  if (atr14 === undefined || atr14 <= 0 || candles.length < FRACTAL_WING_WIDTH * 2 + 3) return {};
+  const window = candles.length > lookbackBars ? candles.slice(candles.length - lookbackBars) : candles;
+  const fractals = fractalsSeries(window);
+  const tolerance = atr14 * EQUAL_LEVEL_ATR_TOLERANCE_MULTIPLE;
+
+  const equalHighPrice = detectEqualLevel(fractals.up, tolerance, "max");
+  const equalLowPrice = detectEqualLevel(fractals.down, tolerance, "min");
+
+  return {
+    equalHigh: equalHighPrice !== undefined ? { price: equalHighPrice, touches: 2 } : undefined,
+    equalLow: equalLowPrice !== undefined ? { price: equalLowPrice, touches: 2 } : undefined,
+  };
+}

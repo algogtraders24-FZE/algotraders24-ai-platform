@@ -256,6 +256,26 @@ export default function IntelligencePanel() {
         </p>
       </div>
 
+      {/* 5b: Liquidity Zones (SMC) */}
+      <div>
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-3">Liquidity Zones (SMC)</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <StatField label="Equal High (buy-side)" dashed>
+            <span className="font-mono text-text-3">
+              {data.liquidityZones.equalHigh !== undefined ? formatPrice(data.liquidityZones.equalHigh.price, { maxDecimals: 5 }) : "Not available"}
+            </span>
+          </StatField>
+          <StatField label="Equal Low (sell-side)" dashed>
+            <span className="font-mono text-text-3">
+              {data.liquidityZones.equalLow !== undefined ? formatPrice(data.liquidityZones.equalLow.price, { maxDecimals: 5 }) : "Not available"}
+            </span>
+          </StatField>
+        </div>
+        <p className="mt-1.5 text-[11px] text-text-3">
+          Real, price-action-derived liquidity (Smart Money Concepts): resting stop-loss clusters above/below &ge;2 equal swing highs/lows. Not order-book depth - no true order-book data exists for these instruments.
+        </p>
+      </div>
+
       {/* 6: Evidence Summary */}
       <div>
         <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-3">Evidence Summary</h3>

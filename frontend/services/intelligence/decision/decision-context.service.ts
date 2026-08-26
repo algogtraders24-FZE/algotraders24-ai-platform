@@ -68,6 +68,9 @@ function buildCurrentState(marketState: MarketState): DecisionCurrentState {
   if (trend) basis.push(...trend.basis);
   if (recentRange) basis.push(`Recent range over ${recentRange.lookbackBars} bars: high ${recentRange.high}, low ${recentRange.low}`);
   if (marketState.structure?.volatilityBand) basis.push(`Volatility band: ${marketState.structure.volatilityBand}`);
+  const liquidityZones = marketState.structure?.liquidityZones;
+  if (liquidityZones?.equalHigh) basis.push(`Equal High liquidity (buy-side): ${liquidityZones.equalHigh.price}`);
+  if (liquidityZones?.equalLow) basis.push(`Equal Low liquidity (sell-side): ${liquidityZones.equalLow.price}`);
   basis.push(marketState.dataQuality.note);
 
   return {
@@ -80,6 +83,7 @@ function buildCurrentState(marketState: MarketState): DecisionCurrentState {
     volatilityBand: marketState.structure?.volatilityBand,
     recentRange,
     breakoutSignal: marketState.structure?.breakoutSignal,
+    liquidityZones,
     dataQuality: marketState.dataQuality,
     basis,
   };
@@ -246,8 +250,13 @@ function buildMissingInformation(envelope: IntelligenceEnvelope): DecisionMissin
   const items: DecisionMissingInformationItem[] = [];
   const structure = envelope.marketState.structure;
 
-  // Permanent, structural non-implementations - never re-attempted, never penalized.
-  items.push({ kind: "unsupported", description: "Liquidity zone data is not implemented in this Intelligence Engine version", affectedArea: "currentState.recentRange" });
+  // Permanent, structural non-implementation - never re-attempted, never penalized.
+  // (Liquidity ZONE data - Equal High/Equal Low - is now real, see
+  // structure.liquidityZones below and lib/market-data/indicators.ts's
+  // liquidityZones(); this remaining line is specifically about genuine
+  // order-book/DOM depth, which still doesn't exist anywhere in this
+  // platform's providers - not the same concept as the price-action
+  // Equal High/Low proxy.)
   items.push({ kind: "unsupported", description: "Execution risk (spread/slippage/latency) is not integrated in this platform by design", affectedArea: "riskContext" });
 
   // Sprint D2.8.15 - volume delta / order-book depth ARE real, implemented
@@ -277,6 +286,9 @@ function buildMissingInformation(envelope: IntelligenceEnvelope): DecisionMissin
   // couldn't be computed) - `trend.direction` is the real signal.
   if (structure?.trend?.direction === undefined) items.push({ kind: "insufficient-data", description: "Trend could not be computed (insufficient EMA data)", affectedArea: "currentState.trendDirection" });
   if (!structure?.recentRange) items.push({ kind: "insufficient-data", description: "Recent range could not be computed (insufficient candle history)", affectedArea: "currentState.recentRange" });
+  if (!structure?.liquidityZones?.equalHigh && !structure?.liquidityZones?.equalLow) {
+    items.push({ kind: "insufficient-data", description: "No Equal High/Equal Low liquidity cluster was detected in the available candle history", affectedArea: "currentState.liquidityZones" });
+  }
   if (envelope.marketState.technical?.rsi14 === undefined) items.push({ kind: "insufficient-data", description: "RSI14 could not be computed (insufficient candles)", affectedArea: "currentState.rsi14" });
   if (envelope.marketState.technical?.atr14 === undefined) items.push({ kind: "insufficient-data", description: "ATR14 could not be computed (insufficient candles)", affectedArea: "currentState.atr14" });
 

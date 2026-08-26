@@ -28,7 +28,7 @@
 import type { MarketSymbol } from "./market";
 import type { SignalTimeframe } from "./signal";
 import type { MarketSnapshot } from "./market-snapshot";
-import type { MACDResult, BollingerResult, VolumeMetrics } from "@/lib/market-data/indicators";
+import type { MACDResult, BollingerResult, VolumeMetrics, SmcLiquidityZones } from "@/lib/market-data/indicators";
 import type { CandleValidationIssue } from "@/lib/market-data/candle-validation";
 import type { DataConfidence } from "./technical-context";
 
@@ -81,15 +81,28 @@ export interface MarketStateStructure {
   atrPercent?: number;
 
   /**
-   * NOT IMPLEMENTED in D2.5.2. No genuine order-book/liquidity data source
-   * exists anywhere in this platform's providers (confirmed by the D2.5.0
-   * audit and RiskEngineService's own long-standing design note that
-   * liquidity/execution risk is always unmeasured "by design"). Declared
-   * here, always undefined, so a future sprint with a real data-backed
-   * proxy can populate it without a breaking type change - never
-   * fabricated in the meantime.
+   * Post-completion addition (2026-08-26) - now REAL, but a PRICE-ACTION
+   * proxy, not genuine order-book depth: no true order-book/liquidity data
+   * source exists anywhere in this platform's providers, still confirmed
+   * true (D2.5.0 audit, RiskEngineService's own "liquidity/execution risk
+   * always unmeasured by design" note, and the
+   * project_ai_intelligence_data_gaps_investigation memory). What changed:
+   * this field was declared here specifically so "a future sprint with a
+   * real data-backed proxy can populate it without a breaking type
+   * change" - Smart Money Concepts' Equal High/Equal Low (>=2 clustered
+   * swing extremes, the real resting-stop-loss-liquidity concept) is
+   * exactly that real, data-backed proxy, computed by
+   * lib/market-data/indicators.ts's liquidityZones() and ported directly
+   * from ea-research/G01_LiquiditySweep_MSS_FVG/Include/AT24_G01_Liquidity
+   * .mqh's own tested G01_DetectEqualHigh/G01_DetectEqualLow. At most one
+   * "buy-side" (Equal High) and one "sell-side" (Equal Low) field - honestly
+   * {} when no real cluster exists in the available candle history, never
+   * fabricated. Distinct from `types/intelligence-panel.ts`'s unrelated
+   * `liquidity` band field - that field is a volume-based classifier and
+   * remains genuinely unavailable (no real traded-volume data exists
+   * either); this field never populates it.
    */
-  liquidityZones?: unknown[];
+  liquidityZones?: SmcLiquidityZones;
   /**
    * NOT IMPLEMENTED in D2.5.2. Real buy/sell volume delta requires
    * tick-level or order-flow data this platform's providers do not supply

@@ -358,13 +358,22 @@ async function main(): Promise<void> {
 
     const envelope = envelopeSvc.build({ marketState, regime, hypotheses, evidence, risk, generatedAt: GENERATED_AT });
 
-    // Sanity: nothing about this sprint's changes introduced these fields.
-    assert.equal((marketState.structure as unknown as Record<string, unknown>).liquidityZones, undefined);
+    // Sanity: this sprint's changes never introduced volumeDelta - still
+    // genuinely unimplemented, unlike liquidityZones (post-completion,
+    // 2026-08-26 - now a real SMC Equal High/Low proxy, see
+    // types/intelligence-market-state.ts's own doc comment).
     assert.equal((marketState.structure as unknown as Record<string, unknown>).volumeDelta, undefined);
 
     const dc = decisionSvc.build(envelope);
     const descriptions = dc.missingInformation.map((i) => i.description);
-    assert.ok(descriptions.some((d) => /liquidity zone/i.test(d)), "liquidity zone data must still be declared unsupported");
+    // liquidityZones is now conditional, not a permanent claim: present
+    // only when this fixture's own candles genuinely have no real Equal
+    // High/Low cluster, absent when they do (mirrors the recentRange
+    // pattern) - assert the disclaimer's presence matches the real,
+    // computed field exactly, rather than assuming either direction.
+    const hasRealCluster = Boolean(marketState.structure?.liquidityZones?.equalHigh || marketState.structure?.liquidityZones?.equalLow);
+    const flagsLiquidityZonesMissing = descriptions.some((d) => /equal high\/equal low liquidity cluster/i.test(d));
+    assert.equal(flagsLiquidityZonesMissing, !hasRealCluster, "the liquidity-zone missing-info item must appear if and only if no real cluster was detected");
     assert.ok(descriptions.some((d) => /buy\/sell volume delta/i.test(d)), "volume delta must still be declared unsupported");
     assert.ok(descriptions.some((d) => /execution risk/i.test(d)), "execution risk must still be declared unsupported");
     assert.ok(descriptions.some((d) => /liquidity risk.*order book/i.test(d)), "liquidity risk (order book depth) must still be declared unsupported");

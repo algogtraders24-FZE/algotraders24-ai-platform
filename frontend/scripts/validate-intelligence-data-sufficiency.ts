@@ -322,12 +322,26 @@ async function main(): Promise<void> {
     assert.ok(descriptions.some((d) => d.toLowerCase().includes("liquidity risk")));
   });
 
-  await test("missingInformation: liquidity-zone and execution-risk disclaimers are permanent - present for every instrument regardless of capability", () => {
+  await test("missingInformation: execution-risk disclaimer is permanent - present for every instrument regardless of capability", () => {
     const envelope = envelopeSvc.build({ marketState: richMarketState, regime: richRegime, hypotheses: richHypotheses, generatedAt: new Date(NOW_MS).toISOString() });
     const dc = decisionSvc.build(envelope);
     const descriptions = dc.missingInformation.map((m) => m.description);
-    assert.ok(descriptions.some((d) => d.includes("Liquidity zone data")));
     assert.ok(descriptions.some((d) => d.includes("Execution risk")));
+  });
+
+  // Post-completion (2026-08-26): the old unconditional "Liquidity zone
+  // data is not implemented" disclaimer is gone - real SMC Equal High/Low
+  // liquidity zones are now computed (see market-state.service.ts's
+  // liquidityZones()). The missingInformation item is now CONDITIONAL,
+  // same pattern as recentRange: present only when no real Equal
+  // High/Low cluster exists in the candle history, absent when one does.
+  await test("missingInformation: liquidity-zone disclaimer is now conditional (SMC Equal High/Low), never an unconditional permanent claim", () => {
+    const envelope = envelopeSvc.build({ marketState: richMarketState, regime: richRegime, hypotheses: richHypotheses, generatedAt: new Date(NOW_MS).toISOString() });
+    const dc = decisionSvc.build(envelope);
+    const descriptions = dc.missingInformation.map((m) => m.description);
+    const hasRealCluster = Boolean(richMarketState.structure?.liquidityZones?.equalHigh || richMarketState.structure?.liquidityZones?.equalLow);
+    const flagsMissing = descriptions.some((d) => d.includes("Equal High/Equal Low liquidity cluster"));
+    assert.equal(flagsMissing, !hasRealCluster, "the disclaimer must appear if and only if no real cluster was actually detected");
   });
 
   // ============================================================

@@ -18,6 +18,7 @@ import {
   macd,
   bollinger,
   volumeMetrics,
+  liquidityZones,
 } from "@/lib/market-data/indicators";
 import { validateCandles } from "@/lib/market-data/candle-validation";
 import type { Candle } from "@/types/market-candle";
@@ -185,8 +186,12 @@ export class MarketStateService {
       breakoutSignal,
       volatilityBand,
       atrPercent,
-      // liquidityZones, volumeDelta, bos, choch: intentionally omitted -
-      // never populated in D2.5.2, see types/intelligence-market-state.ts.
+      // Post-completion addition (2026-08-26) - real SMC Equal High/Low
+      // liquidity zones, see the field's own doc comment in
+      // types/intelligence-market-state.ts for the full grounding.
+      liquidityZones: liquidityZones(validCandles, technical.atr14),
+      // volumeDelta, bos, choch: still intentionally omitted - never
+      // populated, see types/intelligence-market-state.ts.
     };
 
     return {
