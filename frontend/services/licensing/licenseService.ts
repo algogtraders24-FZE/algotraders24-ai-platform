@@ -125,7 +125,22 @@ async function authenticateLicense(licenseId: string, rawApiKey: string): Promis
   return { ok: true, license };
 }
 
-function toPayload(license: { id: string; buyerId: string; tradingSystemId: string; versionId: string; releaseId: string; platform: string; issuedAt: Date; expiresAt: Date | null; activationPolicy: unknown; licenseStatus: string; licenseSchemaVersion: string }): LicensePayload {
+// Real bug found and fixed while building the E2E verification harness
+// (scripts/verify-license-e2e.ts): this function used to pass through the
+// license row's CURRENT (mutable) licenseStatus. But
+// licenseCore.ts's buildLicensePayload always hardcodes "ISSUED" into the
+// payload that actually gets signed at issuance (the signature is a
+// snapshot of the immutable facts, never re-signed on a status
+// transition) - so the moment a license moved past ISSUED (i.e. the very
+// first real activation, for every real buyer), toPayload() reconstructed
+// a payload with licenseStatus="ACTIVE" and verifyLicenseSignature()
+// correctly rejected it as tampered, since that is genuinely not what was
+// signed. Every subsequent /api/license/validate call would then fail
+// with SIGNATURE_INVALID forever. Live status (REVOKED/EXPIRED/etc.) is
+// already checked separately and correctly via storedLicenseStatus in
+// validateRuntime (licenseCore.ts) - this field only needs to match what
+// was actually signed.
+function toPayload(license: { id: string; buyerId: string; tradingSystemId: string; versionId: string; releaseId: string; platform: string; issuedAt: Date; expiresAt: Date | null; activationPolicy: unknown; licenseSchemaVersion: string }): LicensePayload {
   return {
     licenseId: license.id,
     buyerId: license.buyerId,
@@ -136,9 +151,32 @@ function toPayload(license: { id: string; buyerId: string; tradingSystemId: stri
     issuedAt: license.issuedAt.toISOString(),
     expiresAt: license.expiresAt ? license.expiresAt.toISOString() : null,
     activationPolicy: license.activationPolicy as unknown as ActivationPolicy,
-    licenseStatus: license.licenseStatus as LicenseStatus,
+    licenseStatus: "ISSUED" as LicenseStatus,
     licenseSchemaVersion: license.licenseSchemaVersion,
   };
+}
+
+// --- Buyer-facing: reveal/regenerate the runtime API key (private
+// dashboard route, browser-session-authenticated - not a /api/license/*
+// runtime endpoint). The raw apiKey is only ever knowable at the instant
+// issueLicenseForPurchase() creates it - after that, only its hash is
+// stored (same principle as a password), so there is no "show my
+// existing key" operation, only "issue me a new one and show it once."
+// Rotating always invalidates the previous key immediately (only one
+// apiKeyHash is ever stored per license).
+export type RegenerateKeyOutcome =
+  | { ok: true; rawApiKey: string }
+  | { ok: false; code: "NOT_FOUND" | "FORBIDDEN" };
+
+export async function regenerateApiKey(licenseId: string, requestingUserId: string): Promise<RegenerateKeyOutcome> {
+  const license = await prisma.license.findUnique({ where: { id: licenseId } });
+  if (!license) return { ok: false, code: "NOT_FOUND" };
+  if (license.buyerId !== requestingUserId) return { ok: false, code: "FORBIDDEN" };
+
+  const rawApiKey = generateApiKey();
+  await prisma.license.update({ where: { id: license.id }, data: { apiKeyHash: hashApiKey(rawApiKey) } });
+  await recordLicenseAudit({ actorUserId: requestingUserId, action: "license.key_regenerated", licenseId: license.id, metadata: { result: "OK" } });
+  return { ok: true, rawApiKey };
 }
 
 // --- POST /api/license/activate ---

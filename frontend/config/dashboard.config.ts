@@ -26,6 +26,12 @@ export const DASHBOARD_NAV: DashboardNavItem[] = [
   // right after Dashboard so it is the first destination after the overview.
   { label: "Workspace", href: "/dashboard/workspace", icon: "WS" },
   { label: "Licenses", href: "/dashboard/licenses", icon: "LC" },
+  // Sprint M13 (closing the marketplace delivery loop) - the real,
+  // DB-backed buyer purchase/license/download history. Distinct from
+  // "Licenses" above (pre-existing, reads mock data for an unrelated
+  // feature) - added as its own nav entry rather than replacing it, since
+  // that page's own real intent/audience was never determined this sprint.
+  { label: "My Purchases", href: "/dashboard/purchases", icon: "MPU" },
   // Sprint M12 branding follow-on - the seller backoffice
   // (app/marketplace/my-products) existed and was fully functional but had
   // no navigation entry anywhere, making it undiscoverable except by typing

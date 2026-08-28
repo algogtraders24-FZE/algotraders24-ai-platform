@@ -42,6 +42,7 @@ export type AuditAction =
   | "license.reinstated"
   | "license.revoked"
   | "license.expired"
+  | "license.key_regenerated"
   | "release.downloaded";
 
 export interface AuditLogEntry {

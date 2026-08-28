@@ -51,10 +51,13 @@ export const POST = withContext(async (req, ctx) => {
         // Marketplace product purchase (mode: "payment") - distinct flow
         // from the platform-subscription case below, branched on
         // metadata.type so the two never cross. Issues a real, signed
-        // License via the exact same issueLicenseForPurchase the M11
-        // architecture already defines - this webhook is its first real
-        // caller (previously "called only by the test suite", per that
-        // function's own comment).
+        // License via issueLicenseForPurchase. REQUIRES
+        // LICENSE_SIGNING_PRIVATE_KEY/PUBLIC_KEY to be set (see
+        // services/licensing/crypto.ts) - without them this throws, the
+        // catch below returns 500, and Stripe retries; a buyer could be
+        // charged with license issuance stuck retrying until the keys are
+        // set. Verify these are set in this deployment's real env before
+        // any real purchase can be expected to complete end-to-end.
         if (session.metadata?.type === "marketplace_purchase") {
           const m = session.metadata;
           if (m.buyerId && m.listingId && m.tradingSystemId && m.versionId && m.platform && m.releaseId) {
