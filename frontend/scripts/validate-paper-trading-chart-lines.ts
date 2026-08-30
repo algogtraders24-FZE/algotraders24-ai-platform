@@ -187,7 +187,12 @@ function wiringTests(): void {
   test("11: the trade-line click hit-test is gated on symbol === activeSymbol - a non-active tiled pane's clicks never quietly control a different pane's account", () => {
     const src = read("components/chart-engine/NativeChart.tsx");
     const idx = src.indexOf("paperTradingRef.current?.quickTrade");
-    const before = src.slice(Math.max(0, idx - 400), idx);
+    // Widened from 400: the e.preventDefault() comment (explaining why a
+    // canvas with tabIndex=0 needs it to stop its native pointerdown
+    // focus-default from stealing focus back from quickTrade()'s own
+    // quantityInputRef.focus() call) pushed the real distance to the
+    // symbol check further back - 900 comfortably covers it.
+    const before = src.slice(Math.max(0, idx - 900), idx);
     assert.ok(/symbol === activeSymbol/.test(before));
   });
 

@@ -746,10 +746,18 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
           const bidY = row.top + priceToY(liveQuote.bid, viewport, row.height);
           const TRADE_LINE_HIT_PX = 6;
           if (Math.abs(y - askY) <= TRADE_LINE_HIT_PX) {
+            // A canvas with tabIndex=0 (this one, for its own keyboard nav)
+            // has a native pointerdown default action of moving focus to
+            // itself - without preventDefault() here, that fires AFTER
+            // this handler returns and silently steals focus back from
+            // quickTrade()'s own quantityInputRef.focus() call whenever
+            // there's no real quantity yet to open the confirm modal with.
+            e.preventDefault();
             paperTradingRef.current?.quickTrade("buy");
             return;
           }
           if (Math.abs(y - bidY) <= TRADE_LINE_HIT_PX) {
+            e.preventDefault();
             paperTradingRef.current?.quickTrade("sell");
             return;
           }
