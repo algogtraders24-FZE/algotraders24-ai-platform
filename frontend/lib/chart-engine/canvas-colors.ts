@@ -34,6 +34,24 @@ export interface ChartColors {
   accent: string;
   /** MT5-style only: a single uniform volume-bar color (matching the user's live terminal reference, which shows plain green bars, not a bullish/bearish two-tone). Undefined for the "at24" theme, which keeps its existing bullish/bearish two-tone volume bars unchanged - see sub-panel-renderer.ts's drawVolumePanel(). */
   volume?: string;
+  /**
+   * Paper Trading (this session) - the Buy/Ask and Sell/Bid trade-line
+   * colors drawn when a live quote + the active paper-trading pane are
+   * present (renderer.ts's drawTradeLines()). Deliberately the SAME
+   * platform-wide --signal-up/--signal-down semantic every chart theme's
+   * `bullish`/`bearish` fields already read for "at24" - but defined as
+   * its own field rather than reused directly, because `bullish`/`bearish`
+   * are candle-BODY colors that intentionally diverge from that semantic
+   * in the mt5 theme (bearish=black, a hollow-candle outline choice, not a
+   * "down" signal color) and mt5-green (bearish=white). A trade-direction
+   * line needs a universal, always-green-for-buy/red-for-sell meaning,
+   * consistent with PaperTradingPanel.tsx's own P&L text/BUY-SELL badge
+   * colors (text-signal-up/text-signal-down) in every theme - so it is
+   * never confused with, or accidentally flipped by, this theme's own
+   * candle-body convention.
+   */
+  buyLine: string;
+  sellLine: string;
 }
 
 export type ChartTheme = "at24" | "mt5" | "mt5-green";
@@ -52,6 +70,8 @@ const FALLBACK_COLORS: ChartColors = {
   gold: "#d4af37", // --gold
   bearishOutline: "#d1594a",
   accent: "#d4af37",
+  buyLine: "#3fb27f",
+  sellLine: "#d1594a",
 };
 
 // MT5's real "Black" default scheme, matched against the user's own live
@@ -72,6 +92,8 @@ const MT5_COLORS: ChartColors = {
   gold: "#4fc3c8",
   accent: "#4fc3c8",
   volume: "#2e7d32",
+  buyLine: "#3fb27f",
+  sellLine: "#d1594a",
 };
 
 // Sprint D2.7.11 Phase 5c - MT5's real "Green on Black" built-in scheme
@@ -96,6 +118,8 @@ const MT5_GREEN_COLORS: ChartColors = {
   gold: "#00c000", // Last price line, RGB(0,192,0)
   accent: "#00c000",
   volume: "#32cd32", // LimeGreen
+  buyLine: "#3fb27f",
+  sellLine: "#d1594a",
 };
 
 let cached: Record<ChartTheme, ChartColors | null> = { at24: null, mt5: null, "mt5-green": null };
@@ -123,6 +147,8 @@ export function resolveChartColors(theme: ChartTheme = "at24"): ChartColors {
     gold: readVar(styles, "--gold", FALLBACK_COLORS.gold),
     bearishOutline: readVar(styles, "--signal-down", FALLBACK_COLORS.bearish),
     accent: readVar(styles, "--gold", FALLBACK_COLORS.gold),
+    buyLine: readVar(styles, "--signal-up", FALLBACK_COLORS.buyLine),
+    sellLine: readVar(styles, "--signal-down", FALLBACK_COLORS.sellLine),
   };
   cached.at24 = resolved;
   return resolved;

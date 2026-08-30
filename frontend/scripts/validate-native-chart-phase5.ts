@@ -228,11 +228,19 @@ function wiringTests(): void {
 
   test("10: NativeChart's draw() useMemo includes chartType in its dependency array and passes it to renderChart - switching chart type must actually trigger a redraw, never a stale canvas", () => {
     const src = read("components/chart-engine/NativeChart.tsx");
-    const drawBlock = src.slice(src.indexOf("const draw = useMemo"), src.indexOf("const draw = useMemo") + 2500);
+    // Post-completion phase - widened from 2500: the Paper Trading
+    // showTradeLines comment block pushed the deps array further from the
+    // slice's start; 3000 comfortably covers it again with margin to spare.
+    const drawBlock = src.slice(src.indexOf("const draw = useMemo"), src.indexOf("const draw = useMemo") + 3000);
     assert.ok(drawBlock.includes("chartType,"), "renderChart(...) call must pass chartType");
     assert.ok(
-      /\[candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme\]/.test(drawBlock),
-      "deps array must include chartType/showGrid/showPeriodSeparators/colorScheme",
+      // Post-completion phase - activeSymbol joined the deps array so
+      // showTradeLines (symbol === activeSymbol) actually recomputes when
+      // the workspace's active symbol changes - never a stale canvas.
+      /\[candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme, activeSymbol\]/.test(
+        drawBlock,
+      ),
+      "deps array must include chartType/showGrid/showPeriodSeparators/colorScheme/activeSymbol",
     );
   });
 

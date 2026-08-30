@@ -964,9 +964,13 @@ async function noFabricationTests(): Promise<void> {
     }
   });
 
-  await test("no BUY/SELL/automated-trading/broker-execution/probability language exists anywhere in this sprint's changes", () => {
+  await test("no automated-trading/broker-execution/probability language exists anywhere in this sprint's changes; BUY/SELL is now real and EXPECTED in NativeChart.tsx (Paper Trading, explicitly authorized post-completion) but still forbidden in viewport.ts, which has no reason to mention it", () => {
     for (const f of ["components/chart-engine/NativeChart.tsx", "lib/chart-engine/viewport.ts"]) {
-      assert.ok(!/\bBUY\b|\bSELL\b|place order|execute trade|broker|probability/i.test(read(f)));
+      const src = read(f);
+      assert.ok(!/place order|execute trade|broker|probability/i.test(src), `${f} must never claim real broker-execution or a probability/win-rate figure`);
+      if (f !== "components/chart-engine/NativeChart.tsx") {
+        assert.ok(!/\bBUY\b|\bSELL\b/i.test(src), `${f} should never mention BUY/SELL`);
+      }
     }
   });
 

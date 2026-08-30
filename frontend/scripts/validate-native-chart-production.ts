@@ -608,7 +608,7 @@ async function noFabricationTests(): Promise<void> {
     assert.ok(!/"EMA20"|"RSI14"|"MACD"/.test(src));
   });
 
-  await test("77: no BUY/SELL/probability-of-profit language exists anywhere in the new D2.7.3 chart-engine surface", () => {
+  await test("77: no probability-of-profit/win-rate language exists anywhere in the D2.7.3 chart-engine surface; BUY/SELL is now real and EXPECTED in NativeChart.tsx only (Paper Trading, explicitly authorized post-completion) - the pure indicator-computation files still have zero reason to mention either", () => {
     const files = [
       "lib/chart-engine/indicators/compute.ts",
       "lib/chart-engine/indicators/panel-registry.ts",
@@ -617,7 +617,10 @@ async function noFabricationTests(): Promise<void> {
     ];
     for (const f of files) {
       const src = read(f);
-      assert.ok(!/\bBUY\b|\bSELL\b|probability of profit|win rate/i.test(src));
+      assert.ok(!/probability of profit|win rate/i.test(src), `${f} must never claim a probability of profit or win rate`);
+      if (f !== "components/chart-engine/NativeChart.tsx") {
+        assert.ok(!/\bBUY\b|\bSELL\b/i.test(src), `${f} is a pure indicator-computation file and should never mention BUY/SELL`);
+      }
     }
   });
 

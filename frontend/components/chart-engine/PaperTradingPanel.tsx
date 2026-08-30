@@ -13,7 +13,7 @@
 // A fully isolated, database-only simulation - no real money, no
 // live-account connectivity. Market orders only in Phase P1 (limit
 // orders/automatic margin-call are Phase P2, not built here).
-import { useCallback, useEffect, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { usePaperTrading } from "@/context/PaperTradingContext";
 import { useLiveQuote } from "./useLiveQuote";
 import Badge from "@/components/ui/Badge";
@@ -26,6 +26,11 @@ import type { PaperPositionSide, PaperPositionView } from "@/types/paper-trading
 export interface PaperTradingPanelProps {
   symbol: string;
   isActive: boolean;
+}
+
+/** Post-completion phase - the imperative surface a chart click on the Buy/Ask or Sell/Bid trade line drives (NativeChart.tsx). Kept minimal and behavior-only (never a data getter) - it just does exactly what clicking the panel's own BUY/SELL toggle does. */
+export interface PaperTradingPanelHandle {
+  quickTrade: (side: PaperPositionSide) => void;
 }
 
 /** The real close-side price for a position: closing a Buy crosses the spread at bid, closing a Sell at ask - the same real spread-crossing convention paper-trading.service.ts's own closePosition() uses server-side. */
@@ -82,7 +87,7 @@ function PositionRow({
   );
 }
 
-export default function PaperTradingPanel({ symbol, isActive }: PaperTradingPanelProps) {
+const PaperTradingPanel = forwardRef<PaperTradingPanelHandle, PaperTradingPanelProps>(function PaperTradingPanel({ symbol, isActive }, ref) {
   const { account, loaded, openPosition, closePosition, reset } = usePaperTrading();
   const quote = useLiveQuote(symbol);
 
@@ -94,10 +99,34 @@ export default function PaperTradingPanel({ symbol, isActive }: PaperTradingPane
   const [closingId, setClosingId] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
   const [pnlById, setPnlById] = useState<Record<string, number | undefined>>({});
+  const quantityInputRef = useRef<HTMLInputElement>(null);
 
   const onPnlChange = useCallback((id: string, pnl: number | undefined) => {
     setPnlById((prev) => (prev[id] === pnl ? prev : { ...prev, [id]: pnl }));
   }, []);
+
+  // Post-completion phase - a chart trade-line click always sets the
+  // clicked direction; if a real quantity is already typed, it goes
+  // straight to the SAME confirm modal "Place Order" uses (never a
+  // separate, second order-submission path) - otherwise it just focuses
+  // the quantity input, since a quantity-less order can't be confirmed
+  // either way.
+  useImperativeHandle(
+    ref,
+    () => ({
+      quickTrade: (clickedSide: PaperPositionSide) => {
+        setSide(clickedSide);
+        setError(undefined);
+        const parsed = Number(quantity);
+        if (Number.isFinite(parsed) && parsed > 0) {
+          setConfirmOpen(true);
+        } else {
+          quantityInputRef.current?.focus();
+        }
+      },
+    }),
+    [quantity],
+  );
 
   if (!isActive) return null;
 
@@ -214,6 +243,7 @@ export default function PaperTradingPanel({ symbol, isActive }: PaperTradingPane
         <label className="flex flex-col gap-0.5">
           <span className={FIN_LABEL}>Quantity ({symbol})</span>
           <input
+            ref={quantityInputRef}
             type="number"
             min="0"
             step="any"
@@ -318,4 +348,6 @@ export default function PaperTradingPanel({ symbol, isActive }: PaperTradingPane
       </Modal>
     </div>
   );
-}
+});
+
+export default PaperTradingPanel;

@@ -432,9 +432,9 @@ async function latestPriceTests(): Promise<void> {
     assert.ok(!src.includes("Sprint D2.7.6"));
   });
 
-  await test("no BUY/SELL/trading-recommendation language was introduced near the latest-price rendering code (checking real phrases, not the bare word 'signal' which legitimately appears in this codebase's own --signal-up/--signal-down color token names)", () => {
+  await test("no trading-recommendation language exists anywhere in renderer.ts (checking real phrases, not the bare word 'signal' which legitimately appears in this codebase's own --signal-up/--signal-down color token names); BUY/SELL trade-line tags are now real and EXPECTED (Paper Trading, explicitly authorized post-completion) - never a claim of what the trader SHOULD do, only the two real, always-clickable current prices", () => {
     const src = read("lib/chart-engine/renderer.ts");
-    assert.ok(!/\bBUY\b|\bSELL\b|place order|execute trade|recommend(ed|ation)?\b/i.test(src));
+    assert.ok(!/place order|execute trade|recommend(ed|ation)?\b/i.test(src));
   });
 }
 
@@ -819,9 +819,13 @@ async function noFabricationTests(): Promise<void> {
     }
   });
 
-  await test("no BUY/SELL/automated-trading/broker-execution language exists anywhere in this sprint's changes", () => {
+  await test("no automated-trading/broker-execution language exists anywhere in this sprint's changes; BUY/SELL is now real and EXPECTED in renderer.ts (Paper Trading's trade lines, explicitly authorized post-completion) but still forbidden in sub-panel-renderer.ts, which has no reason to mention it", () => {
     for (const f of ["lib/chart-engine/renderer.ts", "lib/chart-engine/sub-panel-renderer.ts"]) {
-      assert.ok(!/\bBUY\b|\bSELL\b|place order|execute trade|broker/i.test(read(f)));
+      const src = read(f);
+      assert.ok(!/place order|execute trade|broker/i.test(src), `${f} must never claim real broker-execution/automated order placement`);
+      if (f !== "lib/chart-engine/renderer.ts") {
+        assert.ok(!/\bBUY\b|\bSELL\b/i.test(src), `${f} should never mention BUY/SELL`);
+      }
     }
   });
 

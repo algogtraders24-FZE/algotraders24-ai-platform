@@ -906,14 +906,18 @@ async function noFabricationTests(): Promise<void> {
     }
   });
 
-  await test("no BUY/SELL/automated-trading/broker-execution language exists anywhere in this sprint's changes", () => {
+  await test("no automated-trading/broker-execution language exists anywhere in this sprint's changes; BUY/SELL is now real and EXPECTED in NativeChart.tsx/renderer.ts (Paper Trading, explicitly authorized post-completion) but still forbidden in the pure data-fetching files", () => {
     for (const f of [
       "components/chart-engine/NativeChart.tsx",
       "components/chart-engine/ChartPanel.tsx",
       "components/chart-engine/useChartCandles.ts",
       "lib/chart-engine/renderer.ts",
     ]) {
-      assert.ok(!/\bBUY\b|\bSELL\b|place order|execute trade|broker/i.test(read(f)));
+      const src = read(f);
+      assert.ok(!/place order|execute trade|broker/i.test(src), `${f} must never claim real broker-execution/automated order placement`);
+      if (f === "components/chart-engine/ChartPanel.tsx" || f === "components/chart-engine/useChartCandles.ts") {
+        assert.ok(!/\bBUY\b|\bSELL\b/i.test(src), `${f} is pure data-fetching/layout and should never mention BUY/SELL`);
+      }
     }
   });
 

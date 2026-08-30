@@ -72,6 +72,19 @@ export interface RenderParams {
   showGrid?: boolean;
   /** Sprint D2.7.11 Phase 5b - MT5's "Show period separators" toggle. Defaults to false, matching real MT5's own default (verified against the user's live Properties dialog screenshot) - a new feature, so there is no prior "always on" behavior to preserve here. */
   showPeriodSeparators?: boolean;
+  /**
+   * Paper Trading, post-completion phase - MT5's real "Show Ask price
+   * line" feature (Properties > Show tab; the Bid line is MT5's own
+   * always-on default, verified via metatrader5.com's own help docs - see
+   * docs/architecture/D2.7.11 roadmap's Paper Trading section) plus a
+   * BUY/SELL tag on each line, enabling MT5's real "click the bid/ask
+   * price to open a position" One Click Trading interaction. Defaults to
+   * false so every existing caller/test renders byte-for-byte unchanged;
+   * NativeChart.tsx only passes true for the one pane with an active
+   * PaperTradingPanel (never a non-active tiled pane, which has no order
+   * form to open anyway).
+   */
+  showTradeLines?: boolean;
 }
 
 const AXIS_FONT_SIZE = 11;
@@ -105,6 +118,7 @@ export function renderChart(params: RenderParams): void {
     chartType = "candlestick",
     showGrid = true,
     showPeriodSeparators = false,
+    showTradeLines = false,
   } = params;
   const plotWidth = Math.max(0, dims.width - dims.priceAxisWidth);
   const plotHeight = Math.max(0, dims.height - dims.timeAxisHeight);
@@ -153,6 +167,7 @@ export function renderChart(params: RenderParams): void {
   drawOverlays(ctx, indicatorSeries, candles, indexRange, viewport, plotWidth, priceRow);
   drawPriceAxis(ctx, priceTicks, viewport, plotWidth, priceRow, colors);
   drawLatestPriceMarker(ctx, candles, viewport, plotWidth, priceRow, colors, priceTicks, liveQuote);
+  if (showTradeLines && liveQuote) drawTradeLines(ctx, viewport, plotWidth, priceRow, colors, liveQuote);
   if (symbolLabel) drawSymbolLabel(ctx, symbolLabel, priceRow, colors);
   if (drawingObjects.length > 0) drawDrawingObjects(ctx, drawingObjects, candles, indexRange, viewport, plotWidth, priceRow, selectedDrawingObjectId);
   if (drawingPreview) drawDrawingPreview(ctx, drawingPreview, candles, indexRange, viewport, colors.accent, plotWidth, priceRow);
@@ -444,6 +459,57 @@ function drawLatestPriceMarker(
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
   ctx.fillText(label, plotWidth + 4, y);
+}
+
+// Paper Trading, post-completion phase - MT5's real "Show Ask price line"
+// (Bid always shown - drawLatestPriceMarker above already does that
+// unchanged; this adds the Ask line, plus a BUY/SELL tag on each,
+// enabling MT5's own real "click the bid/ask price to open a position"
+// One Click Trading interaction (NativeChart.tsx's handlePointerDown does
+// the hit-testing, using the exact same priceToY() this function does -
+// they can never drift apart). Tags are drawn at the LEFT plot edge
+// (never the right, where drawLatestPriceMarker's own bid/ask label
+// already lives) so this is purely additive - zero pixels of the existing
+// marker are ever touched. Skips drawing when bid/ask land within 1px of
+// each other (a degenerate zero-spread edge case) so the two tags/lines
+// never visually overlap into an unreadable double-draw.
+function drawTradeLines(
+  ctx: CanvasRenderingContext2D,
+  viewport: Viewport,
+  plotWidth: number,
+  row: PanelRow,
+  colors: ChartColors,
+  liveQuote: { bid: number; ask: number },
+): void {
+  const askY = row.top + priceToY(liveQuote.ask, viewport, row.height);
+  const bidY = row.top + priceToY(liveQuote.bid, viewport, row.height);
+  drawTradeLine(ctx, plotWidth, row, colors.buyLine, askY, "BUY");
+  if (Math.abs(askY - bidY) >= 1) drawTradeLine(ctx, plotWidth, row, colors.sellLine, bidY, "SELL");
+}
+
+function drawTradeLine(ctx: CanvasRenderingContext2D, plotWidth: number, row: PanelRow, color: string, y: number, tag: "BUY" | "SELL"): void {
+  if (y < row.top - 1 || y > row.top + row.height + 1) return; // off-panel (zoomed/panned away) - never draw a marker outside its own panel
+
+  ctx.strokeStyle = color;
+  ctx.setLineDash([2, 2]);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, y);
+  ctx.lineTo(plotWidth, y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  const TAG_WIDTH_PX = 34;
+  ctx.fillStyle = color;
+  ctx.fillRect(4, y - 7, TAG_WIDTH_PX, 14);
+  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  // Always white text: buyLine/sellLine are both real, mid-saturation
+  // greens/reds (never a pale/light tone), so white stays legible against
+  // either without needing per-color contrast math.
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(tag, 4 + TAG_WIDTH_PX / 2, y);
 }
 
 function drawTimeAxis(

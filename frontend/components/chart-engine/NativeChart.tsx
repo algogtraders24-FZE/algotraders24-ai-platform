@@ -39,6 +39,7 @@ import { FIN_LABEL, FIN_PRIMARY, FIN_SECONDARY, FIN_TERTIARY, financialDirection
 import { resolveChartInstrument } from "@/lib/market-data/chart-instrument-resolver";
 import { resolveChartColors, CHART_THEME_LABELS, type ChartTheme } from "@/lib/chart-engine/canvas-colors";
 import { nearestCandleIndex } from "@/lib/chart-engine/crosshair";
+import { priceToY } from "@/lib/chart-engine/coordinate-system";
 import { renderChart } from "@/lib/chart-engine/renderer";
 import {
   candleStepMs,
@@ -64,7 +65,7 @@ import { useLiveQuote } from "./useLiveQuote";
 import ChartToolbar from "./ChartToolbar";
 import ChartHeader from "./ChartHeader";
 import MicrostructurePanel from "./MicrostructurePanel";
-import PaperTradingPanel from "./PaperTradingPanel";
+import PaperTradingPanel, { type PaperTradingPanelHandle } from "./PaperTradingPanel";
 // MT5 feature-parity Phase 1 - Drawing Tools (trend line, horizontal
 // line, rectangle). See docs/architecture/D2.7.11-native-chart-mt5-
 // feature-parity-roadmap.md for the full phased plan this belongs to.
@@ -279,6 +280,12 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
   // dragging, chart panning, and pinch-zoom are mutually exclusive
   // gestures, never combined.
   const objectDragRef = useRef<{ objectId: string; handle: DrawingHandle; startPoint: DrawingPoint; original: DrawingObject } | null>(null);
+  // Paper Trading, post-completion phase - imperative handle (not lifted
+  // React state) so PaperTradingPanel.tsx's own internal side/quantity
+  // state stays entirely its own; a chart click on the Buy/Ask or
+  // Sell/Bid line just calls straight into it, exactly like clicking the
+  // panel's own BUY/SELL toggle would.
+  const paperTradingRef = useRef<PaperTradingPanelHandle>(null);
   // Sprint D2.7.11 Phase 1b - readDrawingObjects/writeDrawingObjects are now
   // async (DB-backed, not sync sessionStorage). This tracks which
   // symbol|timeframe key's initial load has actually FINISHED, so the
@@ -414,9 +421,15 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
         chartType,
         showGrid,
         showPeriodSeparators,
+        // Paper Trading, post-completion phase - only the pane whose
+        // PaperTradingPanel is actually mounted (isActive={symbol ===
+        // activeSymbol}, NativeChart.tsx below) shows the Buy/Sell trade
+        // lines - a non-active tiled pane has no order form to open, so
+        // drawing clickable-looking lines there would be misleading.
+        showTradeLines: symbol === activeSymbol,
       });
     },
-    [candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme],
+    [candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme, activeSymbol],
   );
 
   // Resize: keep the canvas's real pixel buffer matched to its CSS size *
@@ -720,6 +733,27 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
       }
       const row = priceRow();
       if (y >= row.top && y <= row.top + row.height) {
+        // Paper Trading, post-completion phase - MT5's real "click the
+        // bid/ask price to open a position" One Click Trading interaction
+        // (see renderer.ts's drawTradeLines(), which draws these exact
+        // same lines at the exact same priceToY() coordinates - the two
+        // can never drift apart). Only live on the pane whose
+        // PaperTradingPanel is actually mounted, and only takes priority
+        // over drawing-object hit-testing when it genuinely hits a line -
+        // falls through to the existing object hit-test otherwise.
+        if (symbol === activeSymbol && liveQuote) {
+          const askY = row.top + priceToY(liveQuote.ask, viewport, row.height);
+          const bidY = row.top + priceToY(liveQuote.bid, viewport, row.height);
+          const TRADE_LINE_HIT_PX = 6;
+          if (Math.abs(y - askY) <= TRADE_LINE_HIT_PX) {
+            paperTradingRef.current?.quickTrade("buy");
+            return;
+          }
+          if (Math.abs(y - bidY) <= TRADE_LINE_HIT_PX) {
+            paperTradingRef.current?.quickTrade("sell");
+            return;
+          }
+        }
         const range = indexRangeForViewport(candles, viewport);
         const hit = hitTestObjects(drawingObjectsRef.current, x, y - row.top, candles, range, viewport, plotWidth(), row.height);
         if (hit) {
@@ -1112,7 +1146,7 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
     <div className={isFullscreen ? "fixed inset-0 z-50 flex flex-col gap-2 bg-ink p-4" : "flex flex-col gap-2"}>
       <ChartHeader displaySymbol={resolution.displaySymbol} instrumentName={name} timeframe={timeframe} series={result.series} />
       <MicrostructurePanel symbol={symbol} hypothesisType={symbol === activeSymbol ? hypothesisType : undefined} />
-      <PaperTradingPanel symbol={symbol} isActive={symbol === activeSymbol} />
+      <PaperTradingPanel ref={paperTradingRef} symbol={symbol} isActive={symbol === activeSymbol} />
       <ChartToolbar
         displaySymbol={resolution.displaySymbol}
         timeframe={timeframe}

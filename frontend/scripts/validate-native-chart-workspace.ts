@@ -817,7 +817,7 @@ async function noFabricationTests(): Promise<void> {
     }
   });
 
-  await test("no BUY/SELL/automated-trading/broker-execution language exists anywhere in this sprint's changes", () => {
+  await test("no automated-trading/broker-execution language exists anywhere in this sprint's changes; BUY/SELL is now real and EXPECTED in NativeChart.tsx (Paper Trading, explicitly authorized post-completion) but still forbidden everywhere else in this list", () => {
     for (const f of [
       "components/chart-engine/ChartHeader.tsx",
       "components/chart-engine/ChartToolbar.tsx",
@@ -827,7 +827,11 @@ async function noFabricationTests(): Promise<void> {
       "lib/chart-engine/range-change.ts",
       "lib/chart-engine/sub-panel-renderer.ts",
     ]) {
-      assert.ok(!/\bBUY\b|\bSELL\b|place order|execute trade|broker/i.test(read(f)));
+      const src = read(f);
+      assert.ok(!/place order|execute trade|broker/i.test(src), `${f} must never claim real broker-execution/automated order placement`);
+      if (f !== "components/chart-engine/NativeChart.tsx") {
+        assert.ok(!/\bBUY\b|\bSELL\b/i.test(src), `${f} should never mention BUY/SELL`);
+      }
     }
   });
 
@@ -856,9 +860,13 @@ async function noFabricationTests(): Promise<void> {
     }
   });
 
-  await test("no alerts/paper-trading/order-placement language exists anywhere in this sprint's changes", () => {
+  await test("no alerts/order-placement language exists anywhere in this sprint's changes; 'paper trading' is now real and EXPECTED in NativeChart.tsx (explicitly authorized post-completion) but still forbidden in ChartHeader.tsx/ChartToolbar.tsx, which have no reason to mention it", () => {
     for (const f of ["components/chart-engine/ChartHeader.tsx", "components/chart-engine/ChartToolbar.tsx", "components/chart-engine/NativeChart.tsx"]) {
-      assert.ok(!/paper trading|place an order|create alert/i.test(read(f)));
+      const src = read(f);
+      assert.ok(!/place an order|create alert/i.test(src), `${f} must never mention alerts or generic order-placement language`);
+      if (f !== "components/chart-engine/NativeChart.tsx") {
+        assert.ok(!/paper trading/i.test(src), `${f} should never mention paper trading`);
+      }
     }
   });
 }
