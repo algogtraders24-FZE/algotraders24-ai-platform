@@ -12,6 +12,7 @@ import { marketData } from "@/services/market-data/shared-instance";
 import { MarketDataProviderError } from "@/lib/market-data/errors";
 import { isEnabledMarket, listEnabledMarkets } from "@/lib/market-data/market-registry";
 import { toMarketDataErrorDTO, statusCodeForReason } from "@/lib/market-data/error-dto";
+import { paperTradingService } from "@/services/paper-trading/paper-trading.service";
 
 export const GET = withContext(async (req, ctx) => {
   const sessionUser = await getUserOrNull();
@@ -31,6 +32,21 @@ export const GET = withContext(async (req, ctx) => {
 
   try {
     const snapshot = await marketData.getSnapshot({ symbol });
+    // Paper Trading, Phase P2 - piggybacks limit-order fills and
+    // stop-out checks on this real price observation (see
+    // paper-trading.service.ts's own onPriceObserved() header comment
+    // for why here, not a dedicated poll). Awaited so it can't outlive
+    // this serverless invocation, but wrapped so it can never turn a
+    // real, successful snapshot into a failed response - every chart on
+    // the platform depends on this route staying reliable regardless of
+    // paper-trading's own internal state.
+    try {
+      await paperTradingService.onPriceObserved(symbol, snapshot.bid, snapshot.ask);
+    } catch {
+      // onPriceObserved() already logs its own failures internally -
+      // this outer catch exists only so an unexpected throw here can
+      // never reach the response below.
+    }
     return ApiResponse.success({ snapshot }, ctx.requestId, 200, ctx.startedAt);
   } catch (error) {
     if (error instanceof MarketDataProviderError) {

@@ -51,6 +51,14 @@ export async function closePosition(id: string): Promise<PaperPositionView> {
   return json.data.position as PaperPositionView;
 }
 
+/** Phase P2 - withdraws a pending limit order that hasn't filled yet. */
+export async function cancelPosition(id: string): Promise<PaperPositionView> {
+  const res = await fetch(`${BASE}/positions/${encodeURIComponent(id)}/cancel`, { method: "POST" });
+  if (!res.ok) throw new Error(await parseErrorMessage(res));
+  const json = await res.json();
+  return json.data.position as PaperPositionView;
+}
+
 export async function resetAccount(): Promise<PaperAccountSummary> {
   const res = await fetch(`${BASE}/account/reset`, { method: "POST" });
   if (!res.ok) throw new Error(await parseErrorMessage(res));
