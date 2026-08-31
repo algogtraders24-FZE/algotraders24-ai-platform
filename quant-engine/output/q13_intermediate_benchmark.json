@@ -1,0 +1,22 @@
+[
+  {
+    "timeframe": "1m",
+    "window": "18 months",
+    "start": "2024-02-01",
+    "end": "2025-08-01",
+    "status": "COMPLETED",
+    "trades": 7040,
+    "elapsedSeconds": 57.11,
+    "peakMemoryMb": 1048.5
+  },
+  {
+    "timeframe": "5m",
+    "window": "18 months",
+    "start": "2024-02-01",
+    "end": "2025-08-01",
+    "status": "COMPLETED",
+    "trades": 3168,
+    "elapsedSeconds": 45.44,
+    "peakMemoryMb": 639.6
+  }
+]

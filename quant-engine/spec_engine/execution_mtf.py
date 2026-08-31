@@ -103,15 +103,27 @@ def run_spec_backtest_mtf(df_signal: pd.DataFrame, df_exec: pd.DataFrame, spec: 
         if day != current_day:
             current_day, day_start_balance, daily_halted = day, balance, False
 
-        # advance signal pointer: fold in every signal bar whose close time
-        # is <= this minute's timestamp. cur_sig/prev_sig track the two most
-        # recently closed signal bars (evaluate_entry needs both, e.g. for
-        # cross_above/cross_below) - only the LAST bar closed this minute is
-        # evaluated for a fresh entry (if more than one closed in the same
-        # minute, e.g. a data gap, the earlier one(s) are folded past without
-        # a separate entry check, same simplification class as the SL/TP tie).
+        # advance signal pointer: fold in every signal bar that has
+        # ACTUALLY closed as of this minute's timestamp. sig_ts holds each
+        # bar's own START time (left-labeled, per scripts/import_exness.py's
+        # resample(..., label="left")) - a bar at sig_ts[k] is not closed
+        # until sig_ts[k+1] (the next bar's start), not at sig_ts[k] itself.
+        # Q0.6 fix: comparing against sig_ts[k] (as before) let a signal
+        # fire using a bar's already-known close value up to one full
+        # bar-period before that close time was real - a genuine look-ahead
+        # bug (Q0.5 finding), not merely an approximation. Comparing against
+        # the NEXT bar's start instead means the current (last, still-open)
+        # signal bar can never be marked closed - correct, since its real
+        # close time isn't in the data at all until the next bar appears.
+        #
+        # cur_sig/prev_sig track the two most recently closed signal bars
+        # (evaluate_entry needs both, e.g. for cross_above/cross_below) -
+        # only the LAST bar closed this minute is evaluated for a fresh
+        # entry (if more than one closed in the same minute, e.g. a data
+        # gap, the earlier one(s) are folded past without a separate entry
+        # check, same simplification class as the SL/TP tie).
         signal_advanced = False
-        while sig_ptr < len(sig_rows) and sig_ts[sig_ptr] <= ts_i:
+        while sig_ptr < len(sig_rows) - 1 and sig_ts[sig_ptr + 1] <= ts_i:
             cur_sig = sig_rows[sig_ptr]
             latest_atr = cur_sig.get(atr_id, latest_atr) if atr_id else latest_atr
             sig_ptr += 1

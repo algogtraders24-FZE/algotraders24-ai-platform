@@ -1,0 +1,122 @@
+[
+  {
+    "timeframe": "1m",
+    "window": "1 month",
+    "start": "2024-07-01",
+    "end": "2024-08-01",
+    "status": "COMPLETED",
+    "trades": 413,
+    "errorCode": null,
+    "elapsedSeconds": 18.94,
+    "peakMemoryMb": 225.8,
+    "resultReadSeconds": 0.01
+  },
+  {
+    "timeframe": "1m",
+    "window": "3 months",
+    "start": "2024-05-01",
+    "end": "2024-08-01",
+    "status": "COMPLETED",
+    "trades": 1000,
+    "errorCode": null,
+    "elapsedSeconds": 24.74,
+    "peakMemoryMb": 342.5,
+    "resultReadSeconds": 0.022
+  },
+  {
+    "timeframe": "1m",
+    "window": "6 months",
+    "start": "2024-02-01",
+    "end": "2024-08-01",
+    "status": "COMPLETED",
+    "trades": 2041,
+    "errorCode": null,
+    "elapsedSeconds": 14.02,
+    "peakMemoryMb": 414.8,
+    "resultReadSeconds": 0.031
+  },
+  {
+    "timeframe": "1m",
+    "window": "1 year",
+    "start": "2024-08-01",
+    "end": "2025-08-01",
+    "status": "COMPLETED",
+    "trades": 5105,
+    "errorCode": null,
+    "elapsedSeconds": 39.9,
+    "peakMemoryMb": 814.9,
+    "resultReadSeconds": 0.0709
+  },
+  {
+    "timeframe": "1m",
+    "window": "full history",
+    "start": "2024-01-01",
+    "end": "2026-08-21",
+    "status": "COMPLETED",
+    "trades": 7618,
+    "errorCode": null,
+    "elapsedSeconds": 81.56,
+    "peakMemoryMb": 1711.8,
+    "resultReadSeconds": 0.1225
+  },
+  {
+    "timeframe": "5m",
+    "window": "1 month",
+    "start": "2024-07-01",
+    "end": "2024-08-01",
+    "status": "COMPLETED",
+    "trades": 154,
+    "errorCode": null,
+    "elapsedSeconds": 5.43,
+    "peakMemoryMb": 127.9,
+    "resultReadSeconds": 0.002
+  },
+  {
+    "timeframe": "5m",
+    "window": "3 months",
+    "start": "2024-05-01",
+    "end": "2024-08-01",
+    "status": "COMPLETED",
+    "trades": 496,
+    "errorCode": null,
+    "elapsedSeconds": 12.9,
+    "peakMemoryMb": 190.1,
+    "resultReadSeconds": 0.011
+  },
+  {
+    "timeframe": "5m",
+    "window": "6 months",
+    "start": "2024-02-01",
+    "end": "2024-08-01",
+    "status": "COMPLETED",
+    "trades": 992,
+    "errorCode": null,
+    "elapsedSeconds": 16.41,
+    "peakMemoryMb": 264.4,
+    "resultReadSeconds": 0.018
+  },
+  {
+    "timeframe": "5m",
+    "window": "1 year",
+    "start": "2024-08-01",
+    "end": "2025-08-01",
+    "status": "COMPLETED",
+    "trades": 2176,
+    "errorCode": null,
+    "elapsedSeconds": 42.27,
+    "peakMemoryMb": 470.1,
+    "resultReadSeconds": 0.047
+  },
+  {
+    "timeframe": "5m",
+    "window": "full history",
+    "start": "2024-01-01",
+    "end": "2026-08-21",
+    "status": "COMPLETED",
+    "trades": 5477,
+    "errorCode": null,
+    "elapsedSeconds": 69.97,
+    "peakMemoryMb": 1039.4,
+    "resultReadSeconds": 0.0825
+  }
+]

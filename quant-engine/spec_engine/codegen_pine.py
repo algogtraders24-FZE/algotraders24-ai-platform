@@ -5,7 +5,23 @@ that drives codegen_mql5.py), so all three surfaces (Python backtest,
 MQL5 EA, Pine strategy) stay in lockstep with a single source of truth.
 """
 
+import re
+
 PRICE_REFS = {"close", "open", "high", "low"}
+
+# Q1.4 Part 18 - see codegen_mql5.py's identical comment: the strategy
+# `name` is free display text embedded into both a `//` comment and the
+# strategy("...") string-literal argument. A newline in the name was
+# confirmed to break out of the comment line into a fresh line of raw
+# (potentially unbalanced/injected) Pine source.
+_UNSAFE_NAME_CHARS = re.compile(r'[^A-Za-z0-9 _\-.,()]')
+
+
+def _sanitize_name(name, default="Generated Strategy", max_len=80):
+    name = str(name) if name else default
+    name = name.replace("\n", " ").replace("\r", " ")
+    name = _UNSAFE_NAME_CHARS.sub("", name).strip()
+    return name[:max_len] or default
 
 
 def _var_name(ref):
@@ -108,8 +124,7 @@ def generate_pine(spec: dict) -> str:
     else:
         tp_dist_expr = str(risk.get("tp_points", 6.0))
 
-    name = spec.get("name", "Generated Strategy")
-    title = name.replace('"', "'")
+    title = _sanitize_name(spec.get("name"))
 
     return f"""//@version=5
 // {title} — AUTO-GENERATED from spec by the AT24 idea-to-code engine.

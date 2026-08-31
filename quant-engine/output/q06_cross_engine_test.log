@@ -1,0 +1,45 @@
+df_1h rows: 5173  df_1m rows: 308196  symbol: XAUUSD_EXNESS  year: 2024
+
+[MACD Crossover | runner | run 1] elapsed=0s
+{'trades_total': 210, 'trade_cycles': 210, 'win_rate_pct': np.float64(41.9), 'profit_factor': np.float64(1.07), 'total_return_pct': np.float64(9.61), 'max_drawdown_pct': np.float64(-15.08), 'final_balance': np.float64(10961.38), 'account_blown': False}
+
+[MACD Crossover | runner | run 2] elapsed=0s
+{'trades_total': 210, 'trade_cycles': 210, 'win_rate_pct': np.float64(41.9), 'profit_factor': np.float64(1.07), 'total_return_pct': np.float64(9.61), 'max_drawdown_pct': np.float64(-15.08), 'final_balance': np.float64(10961.38), 'account_blown': False}
+[MACD Crossover | runner] determinism (run1==run2): True
+
+[MACD Crossover | execution_mtf | run 1] elapsed=10s
+{'trades_total': 208, 'trade_cycles': 208, 'win_rate_pct': np.float64(43.75), 'profit_factor': np.float64(1.15), 'total_return_pct': np.float64(19.61), 'max_drawdown_pct': np.float64(-10.42), 'final_balance': np.float64(11961.23), 'same_minute_sl_tp_conflicts': 0, 'account_blown': False}
+
+[MACD Crossover | execution_mtf | run 2] elapsed=8s
+{'trades_total': 208, 'trade_cycles': 208, 'win_rate_pct': np.float64(43.75), 'profit_factor': np.float64(1.15), 'total_return_pct': np.float64(19.61), 'max_drawdown_pct': np.float64(-10.42), 'final_balance': np.float64(11961.23), 'same_minute_sl_tp_conflicts': 0, 'account_blown': False}
+[MACD Crossover | execution_mtf] determinism (run1==run2): True
+
+[MACD Crossover | execution_tick | run 1] elapsed=1491s
+{'trades_total': 204, 'trade_cycles': 204, 'win_rate_pct': np.float64(53.43), 'profit_factor': np.float64(1.71), 'total_return_pct': np.float64(95.54), 'max_drawdown_pct': np.float64(-5.56), 'final_balance': np.float64(19553.95), 'same_tick_sl_tp_conflicts': 0, 'total_ticks_replayed': 34194748, 'account_blown': False}
+
+[MACD Crossover | execution_tick | run 2] elapsed=1276s
+{'trades_total': 204, 'trade_cycles': 204, 'win_rate_pct': np.float64(53.43), 'profit_factor': np.float64(1.71), 'total_return_pct': np.float64(95.54), 'max_drawdown_pct': np.float64(-5.56), 'final_balance': np.float64(19553.95), 'same_tick_sl_tp_conflicts': 0, 'total_ticks_replayed': 34194748, 'account_blown': False}
+[MACD Crossover | execution_tick] determinism (run1==run2): True
+
+[Bollinger Mean Reversion | runner | run 1] elapsed=0s
+{'trades_total': 331, 'trade_cycles': 331, 'win_rate_pct': np.float64(43.2), 'profit_factor': np.float64(1.0), 'total_return_pct': np.float64(-0.22), 'max_drawdown_pct': np.float64(-20.41), 'final_balance': np.float64(9978.31), 'account_blown': False}
+
+[Bollinger Mean Reversion | runner | run 2] elapsed=0s
+{'trades_total': 331, 'trade_cycles': 331, 'win_rate_pct': np.float64(43.2), 'profit_factor': np.float64(1.0), 'total_return_pct': np.float64(-0.22), 'max_drawdown_pct': np.float64(-20.41), 'final_balance': np.float64(9978.31), 'account_blown': False}
+[Bollinger Mean Reversion | runner] determinism (run1==run2): True
+
+[Bollinger Mean Reversion | execution_mtf | run 1] elapsed=6s
+{'trades_total': 334, 'trade_cycles': 334, 'win_rate_pct': np.float64(43.11), 'profit_factor': np.float64(0.99), 'total_return_pct': np.float64(-1.39), 'max_drawdown_pct': np.float64(-20.26), 'final_balance': np.float64(9861.23), 'same_minute_sl_tp_conflicts': 0, 'account_blown': False}
+
+[Bollinger Mean Reversion | execution_mtf | run 2] elapsed=7s
+{'trades_total': 334, 'trade_cycles': 334, 'win_rate_pct': np.float64(43.11), 'profit_factor': np.float64(0.99), 'total_return_pct': np.float64(-1.39), 'max_drawdown_pct': np.float64(-20.26), 'final_balance': np.float64(9861.23), 'same_minute_sl_tp_conflicts': 0, 'account_blown': False}
+[Bollinger Mean Reversion | execution_mtf] determinism (run1==run2): True
+
+[Bollinger Mean Reversion | execution_tick | run 1] elapsed=973s
+{'trades_total': 372, 'trade_cycles': 372, 'win_rate_pct': np.float64(17.74), 'profit_factor': np.float64(0.27), 'total_return_pct': np.float64(-88.84), 'max_drawdown_pct': np.float64(-89.22), 'final_balance': np.float64(1115.63), 'same_tick_sl_tp_conflicts': 0, 'total_ticks_replayed': 34194748, 'account_blown': False}
+
+[Bollinger Mean Reversion | execution_tick | run 2] elapsed=10039s
+{'trades_total': 372, 'trade_cycles': 372, 'win_rate_pct': np.float64(17.74), 'profit_factor': np.float64(0.27), 'total_return_pct': np.float64(-88.84), 'max_drawdown_pct': np.float64(-89.22), 'final_balance': np.float64(1115.63), 'same_tick_sl_tp_conflicts': 0, 'total_ticks_replayed': 34194748, 'account_blown': False}
+[Bollinger Mean Reversion | execution_tick] determinism (run1==run2): True
+
+Summary written: E:\algotraders24-ai-platform\quant-engine\scripts\..\output\q06\q05_summary.json

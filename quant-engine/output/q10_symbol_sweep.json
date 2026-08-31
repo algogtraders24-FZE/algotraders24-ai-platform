@@ -1,0 +1,178 @@
+[
+  {
+    "symbol": "XAUUSD_EXNESS",
+    "strategy": "EMA",
+    "expect_data": true,
+    "run1_status": "COMPLETED",
+    "run2_status": "COMPLETED",
+    "deterministic": true,
+    "trades_total": 80,
+    "error_code": null,
+    "run1_elapsed_s": 17.48
+  },
+  {
+    "symbol": "XAUUSD_EXNESS",
+    "strategy": "RSI",
+    "expect_data": true,
+    "run1_status": "COMPLETED",
+    "run2_status": "COMPLETED",
+    "deterministic": true,
+    "trades_total": 171,
+    "error_code": null,
+    "run1_elapsed_s": 12.94
+  },
+  {
+    "symbol": "EURUSD_EXNESS",
+    "strategy": "EMA",
+    "expect_data": true,
+    "run1_status": "COMPLETED",
+    "run2_status": "COMPLETED",
+    "deterministic": true,
+    "trades_total": 109,
+    "error_code": null,
+    "run1_elapsed_s": 21.72
+  },
+  {
+    "symbol": "EURUSD_EXNESS",
+    "strategy": "RSI",
+    "expect_data": true,
+    "run1_status": "COMPLETED",
+    "run2_status": "COMPLETED",
+    "deterministic": true,
+    "trades_total": 187,
+    "error_code": null,
+    "run1_elapsed_s": 22.81
+  },
+  {
+    "symbol": "GBPUSD_EXNESS",
+    "strategy": "EMA",
+    "expect_data": true,
+    "run1_status": "COMPLETED",
+    "run2_status": "COMPLETED",
+    "deterministic": true,
+    "trades_total": 87,
+    "error_code": null,
+    "run1_elapsed_s": 27.94
+  },
+  {
+    "symbol": "GBPUSD_EXNESS",
+    "strategy": "RSI",
+    "expect_data": true,
+    "run1_status": "COMPLETED",
+    "run2_status": "COMPLETED",
+    "deterministic": true,
+    "trades_total": 187,
+    "error_code": null,
+    "run1_elapsed_s": 26.98
+  },
+  {
+    "symbol": "USOIL_EXNESS",
+    "strategy": "EMA",
+    "expect_data": true,
+    "run1_status": "COMPLETED",
+    "run2_status": "COMPLETED",
+    "deterministic": true,
+    "trades_total": 111,
+    "error_code": null,
+    "run1_elapsed_s": 20.58
+  },
+  {
+    "symbol": "USOIL_EXNESS",
+    "strategy": "RSI",
+    "expect_data": true,
+    "run1_status": "COMPLETED",
+    "run2_status": "COMPLETED",
+    "deterministic": true,
+    "trades_total": 165,
+    "error_code": null,
+    "run1_elapsed_s": 13.97
+  },
+  {
+    "symbol": "BTCUSD_EXNESS",
+    "strategy": "EMA",
+    "expect_data": true,
+    "run1_status": "COMPLETED",
+    "run2_status": "COMPLETED",
+    "deterministic": true,
+    "trades_total": 23,
+    "error_code": null,
+    "run1_elapsed_s": 25.07
+  },
+  {
+    "symbol": "BTCUSD_EXNESS",
+    "strategy": "RSI",
+    "expect_data": true,
+    "run1_status": "COMPLETED",
+    "run2_status": "COMPLETED",
+    "deterministic": true,
+    "trades_total": 98,
+    "error_code": null,
+    "run1_elapsed_s": 22.89
+  },
+  {
+    "symbol": "XAUUSD_ZS_EXNESS",
+    "strategy": "EMA",
+    "expect_data": true,
+    "run1_status": "COMPLETED",
+    "run2_status": "COMPLETED",
+    "deterministic": true,
+    "trades_total": 72,
+    "error_code": null,
+    "run1_elapsed_s": 30.44
+  },
+  {
+    "symbol": "XAUUSD_ZS_EXNESS",
+    "strategy": "RSI",
+    "expect_data": true,
+    "run1_status": "COMPLETED",
+    "run2_status": "COMPLETED",
+    "deterministic": true,
+    "trades_total": 152,
+    "error_code": null,
+    "run1_elapsed_s": 17.06
+  },
+  {
+    "symbol": "XAUUSD",
+    "strategy": "EMA",
+    "expect_data": false,
+    "run1_status": "FAILED",
+    "run2_status": "FAILED",
+    "deterministic": false,
+    "trades_total": null,
+    "error_code": "DATA_UNAVAILABLE",
+    "run1_elapsed_s": 0.21
+  },
+  {
+    "symbol": "XAUUSD",
+    "strategy": "RSI",
+    "expect_data": false,
+    "run1_status": "FAILED",
+    "run2_status": "FAILED",
+    "deterministic": false,
+    "trades_total": null,
+    "error_code": "DATA_UNAVAILABLE",
+    "run1_elapsed_s": 0.22
+  },
+  {
+    "symbol": "EURUSD",
+    "strategy": "EMA",
+    "expect_data": false,
+    "run1_status": "FAILED",
+    "run2_status": "FAILED",
+    "deterministic": false,
+    "trades_total": null,
+    "error_code": "DATA_UNAVAILABLE",
+    "run1_elapsed_s": 0.24
+  },
+  {
+    "symbol": "EURUSD",
+    "strategy": "RSI",
+    "expect_data": false,
+    "run1_status": "FAILED",
+    "run2_status": "FAILED",
+    "deterministic": false,
+    "trades_total": null,
+    "error_code": "DATA_UNAVAILABLE",
+    "run1_elapsed_s": 0.22
+  }
+]
