@@ -1160,7 +1160,8 @@ model MarketplaceObservation {
 // the real Exness/MT5 account). One account per user, real leverage/margin
 // math, market orders filled at the REAL live bid/ask (never mid-price -
 // see services/paper-trading/paper-trading.service.ts). Phase P2 (limit
-// orders, automatic margin-call/stop-out) is explicitly deferred - see
+// orders + automatic margin-call/stop-out) is now also shipped - see this
+// file's own PaperPosition comment and
 // docs/architecture/D2.7.11-native-chart-mt5-feature-parity-roadmap.md's
 // paper-trading section.
 model PaperTradingAccount {
@@ -1173,20 +1174,36 @@ model PaperTradingAccount {
   positions PaperPosition[]
 }
 
+// Phase P2 additions - orderType/limitPrice/filledAt/closeReason, and
+// entryPrice/marginUsed are now NULLABLE: a "pending" limit order has
+// neither yet (real MT5 behavior - a pending order's margin is estimated
+// from its own limitPrice, computed at PLACEMENT time via
+// paper-trading.service.ts's own openPosition(), not left uncounted; its
+// real entryPrice is only set once the market genuinely reaches
+// limitPrice - see fillPendingLimitOrders(), triggered by real price
+// observations on /api/private/market-data/snapshot, never a background
+// poll of its own). closeReason distinguishes a real user-initiated close
+// ("manual") from an automatic one ("stop_out", checkStopOut()) - never
+// silently identical, so a user can tell their position was force-closed.
 model PaperPosition {
   id          String    @id @default(cuid())
   accountId   String
   account     PaperTradingAccount @relation(fields: [accountId], references: [id])
   symbol      String
   side        String
+  orderType   String    @default("market")
   quantity    Float
-  entryPrice  Float
-  marginUsed  Float
+  limitPrice  Float?
+  entryPrice  Float?
+  marginUsed  Float?
   status      String    @default("open")
   exitPrice   Float?
   realizedPnl Float?
+  closeReason String?
   openedAt    DateTime  @default(now())
+  filledAt    DateTime?
   closedAt    DateTime?
 
   @@index([accountId, status])
+  @@index([symbol, status])
 }

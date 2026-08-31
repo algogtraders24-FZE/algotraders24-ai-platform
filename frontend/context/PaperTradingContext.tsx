@@ -13,7 +13,13 @@
 // a full refetch after each action is simpler and safer than hand-patching
 // local state to match a server-computed margin/balance change.
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { fetchAccount, openPosition as openPositionRequest, closePosition as closePositionRequest, resetAccount as resetAccountRequest } from "@/lib/paper-trading/store";
+import {
+  fetchAccount,
+  openPosition as openPositionRequest,
+  closePosition as closePositionRequest,
+  cancelPosition as cancelPositionRequest,
+  resetAccount as resetAccountRequest,
+} from "@/lib/paper-trading/store";
 import type { PaperAccountSummary, OpenPositionInput } from "@/types/paper-trading";
 
 export interface PaperTradingContextValue {
@@ -22,6 +28,8 @@ export interface PaperTradingContextValue {
   refetch: () => Promise<void>;
   openPosition: (input: OpenPositionInput) => Promise<void>;
   closePosition: (id: string) => Promise<void>;
+  /** Phase P2 - withdraws a pending limit order that hasn't filled yet. */
+  cancelPosition: (id: string) => Promise<void>;
   reset: () => Promise<void>;
 }
 
@@ -57,13 +65,21 @@ export function PaperTradingProvider({ children }: { children: ReactNode }) {
     [refetch],
   );
 
+  const cancelPosition = useCallback(
+    async (id: string) => {
+      await cancelPositionRequest(id);
+      await refetch();
+    },
+    [refetch],
+  );
+
   const reset = useCallback(async () => {
     const summary = await resetAccountRequest();
     setAccount(summary);
   }, []);
 
   return (
-    <PaperTradingContext.Provider value={{ account, loaded, refetch, openPosition, closePosition, reset }}>
+    <PaperTradingContext.Provider value={{ account, loaded, refetch, openPosition, closePosition, cancelPosition, reset }}>
       {children}
     </PaperTradingContext.Provider>
   );
