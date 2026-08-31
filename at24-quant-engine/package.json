@@ -1,0 +1,26 @@
+{
+  "name": "@at24/quant-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AT24 Quant Engine - isolated deterministic strategy/backtest domain foundation (Q0). Not connected to M-Series.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "tsx --test test/*.test.ts",
+    "benchmark": "tsx scripts/benchmark.ts",
+    "benchmark:risk": "tsx scripts/benchmark-risk.ts",
+    "benchmark:simulation": "tsx scripts/benchmark-simulation.ts",
+    "benchmark:fidelity": "tsx scripts/benchmark-fidelity.ts",
+    "benchmark:reduction": "tsx scripts/benchmark-reduction.ts",
+    "benchmark:position-management": "tsx scripts/benchmark-position-management.ts",
+    "benchmark:order-types": "tsx scripts/benchmark-order-types.ts",
+    "benchmark:order-modification": "tsx scripts/benchmark-order-modification.ts",
+    "benchmark:pending-management": "tsx scripts/benchmark-pending-management.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "tsx": "^4.19.2",
+    "@types/node": "^22.10.5"
+  }
+}
