@@ -16,7 +16,8 @@
     "benchmark:position-management": "tsx scripts/benchmark-position-management.ts",
     "benchmark:order-types": "tsx scripts/benchmark-order-types.ts",
     "benchmark:order-modification": "tsx scripts/benchmark-order-modification.ts",
-    "benchmark:pending-management": "tsx scripts/benchmark-pending-management.ts"
+    "benchmark:pending-management": "tsx scripts/benchmark-pending-management.ts",
+    "benchmark:q14-full-pipeline": "tsx scripts/benchmark-q14-full-pipeline.ts"
   },
   "devDependencies": {
     "typescript": "^5.7.3",
