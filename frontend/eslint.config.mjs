@@ -11,6 +11,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // P3.2A.1 - vendor/at24-quant-engine/dist is a BUILT artifact (compiled
+    // output of a separate package's own TypeScript), not hand-written
+    // source of this app - same reasoning as ignoring node_modules.
+    "vendor/**",
   ]),
   // 15A.2: silence cosmetic rules newly enforced by Next 16.
   // set-state-in-effect is a false positive for fetch-on-mount ([] deps).
