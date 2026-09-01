@@ -97,9 +97,11 @@
     "validate:marketplace": "tsx scripts/validate-marketplace-platform.ts",
     "validate:marketplace-prod": "tsx scripts/validate-marketplace-production-smoke.ts",
     "validate:marketplace-factory": "tsx scripts/validate-marketplace-factory.ts",
-    "validate:license-security": "tsx scripts/validate-license-security.ts"
+    "validate:license-security": "tsx scripts/validate-license-security.ts",
+    "validate:algo-test-foundation": "tsx scripts/validate-algo-test-foundation.ts"
   },
   "dependencies": {
+    "at24-quant-engine": "file:../at24-quant-engine",
     "@google/genai": "^2.12.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",

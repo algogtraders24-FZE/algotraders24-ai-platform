@@ -47,3 +47,5 @@ export * from "./runtime/mql-importer/index.js";
 export * from "./runtime/reduction/index.js";
 
 export * from "./indicators/index.js";
+
+export * from "./reference/golden-strategy.js";
