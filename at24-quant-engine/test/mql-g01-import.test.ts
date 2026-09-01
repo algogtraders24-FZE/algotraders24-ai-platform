@@ -120,10 +120,35 @@ test("Q0.8.50: parsing/analyzing/generating the IR from the SAME G01 source 3 ti
   assert.equal(h2, h3);
 });
 
-test("Q0.8.39: real account/broker dependencies (AccountInfoDouble, SYMBOL_TRADE_STOPS_LEVEL/FREEZE_LEVEL) are recognized and separated from strategy semantics", () => {
+/**
+ * Q0.8.39 — BASELINE-REPAIR CORRECTED (see docs/Q0.8.39_BASELINE_CONTRACT_AUDIT.md
+ * for the full historical investigation). The original assertion here
+ * additionally required a `BROKER_CONSTRAINT_DEPENDENCY` finding
+ * (`SYMBOL_TRADE_STOPS_LEVEL`/`FREEZE_LEVEL`) — a fact that was true of a
+ * documented "v0.2 execution-integrity patch" revision of G01 that was
+ * NEVER actually committed to git. The only G01 revision that has ever
+ * existed in this repository's history (`6969885`, "v0.1 — Frozen
+ * Research Baseline") never contained those tokens — proven by direct
+ * inspection of the committed blob, not inferred. This test now asserts
+ * only what is TRUE of the actual committed source: `AccountInfoDouble`
+ * IS a real account dependency, correctly classified. The
+ * `BROKER_CONSTRAINT_DEPENDENCY` detector's own correctness (fires when
+ * the canonical tokens ARE present; never fires when they are absent) is
+ * proven separately, against small dedicated fixtures, in
+ * `test/q0.8.39-broker-constraint-contract.test.ts` — so the underlying
+ * contract remains fully tested even though G01 v0.1 itself doesn't
+ * happen to exercise it.
+ */
+test("Q0.8.39: real account dependencies (AccountInfoDouble) are recognized and separated from strategy semantics", () => {
   const { model } = importG01();
   assert.ok(model.unsupportedConstructs.some((u) => u.category === "ACCOUNT_DEPENDENCY" && u.functionName === "AccountInfoDouble"));
-  assert.ok(model.unsupportedConstructs.some((u) => u.category === "BROKER_CONSTRAINT_DEPENDENCY"));
+});
+
+test("Q0.8.39 regression: G01 v0.1's real SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) call is honestly reported as unresolved, never fabricated into a false BROKER_CONSTRAINT_DEPENDENCY finding — the exact false-positive shape the original (miscoupled) assertion could have masked", () => {
+  const { model } = importG01();
+  assert.equal(model.unsupportedConstructs.filter((u) => u.category === "BROKER_CONSTRAINT_DEPENDENCY").length, 0, "G01 v0.1 genuinely contains none of the five canonical broker-constraint tokens — this must never be silently fabricated to make a historical assertion pass");
+  const spreadRead = model.unsupportedConstructs.find((u) => u.category === "UNRESOLVED_CROSS_FILE_CALL" && u.functionName === "SymbolInfoInteger");
+  assert.ok(spreadRead, "the real SYMBOL_SPREAD read must still be honestly recorded as unresolved (a known, documented limitation — see docs/Q0.8.39_BASELINE_CONTRACT_AUDIT.md), never silently dropped");
 });
 
 test("Q0.8.37/38: G01's real source contains NO iCustom/DLL/WebRequest — correctly reports zero such findings (an honest negative, not an assumed one)", () => {
