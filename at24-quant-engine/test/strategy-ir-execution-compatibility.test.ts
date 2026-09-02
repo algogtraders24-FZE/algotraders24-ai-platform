@@ -18,8 +18,24 @@ test("ATR-based position sizing is UNSUPPORTED — matches Q0.5's documented res
   assert.equal(report.overallStatus, "UNSUPPORTED");
 });
 
-test("SIGNAL_EXIT is UNSUPPORTED — matches Q0.5's documented 'exitRules not evaluated' limitation exactly", () => {
+test("Q1.5.3: SIGNAL_EXIT with a real condition is SUPPORTED — exitRules ARE genuinely evaluated since Q1.5.3 (previously UNSUPPORTED pre-Q1.5, when they were accepted but never evaluated; see docs/Q1.5_EXIT_CONTRACT.md)", () => {
   const report = computeExecutionCompatibility(fixtureEMACrossover(), "D1_OHLC");
+  const signalExit = report.features.find((f) => f.feature.includes("SIGNAL_EXIT"));
+  assert.ok(signalExit);
+  assert.equal(signalExit.status, "SUPPORTED");
+});
+
+test("Q1.5.3: SIGNAL_EXIT with NO condition remains UNSUPPORTED — nothing to evaluate", () => {
+  const ir = fixtureEMACrossover();
+  const withoutCondition = {
+    ...ir,
+    exits: ir.exits.map((e) => {
+      if (e.kind !== "SIGNAL_EXIT") return e;
+      const { condition: _condition, ...rest } = e;
+      return rest;
+    }),
+  };
+  const report = computeExecutionCompatibility(withoutCondition, "D1_OHLC");
   const signalExit = report.features.find((f) => f.feature.includes("SIGNAL_EXIT"));
   assert.ok(signalExit);
   assert.equal(signalExit.status, "UNSUPPORTED");
