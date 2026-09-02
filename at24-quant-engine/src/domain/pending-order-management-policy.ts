@@ -102,19 +102,36 @@ export interface PendingOrderManagementPolicy {
 }
 
 /**
- * Q0.13 — the ONE MQL4 pending-order-type-constant mapping, shared by the
- * IR compiler (`ir-generator.ts`, which needs it to decide MODIFY_STOP vs
- * MODIFY_LIMIT when a rule's condition provably names the order's own
- * type) and the runtime evaluator (`runtime/simulation/pending-order-management.ts`,
+ * Q0.13 — the ONE pending-order-type-constant mapping (MQL4 `OP_*` and,
+ * since Q1.5.2, MQL5 `ORDER_TYPE_*`), shared by the IR compiler
+ * (`ir-generator.ts`, which needs it to decide MODIFY_STOP vs MODIFY_LIMIT
+ * when a rule's condition provably names the order's own type) and the
+ * runtime evaluator (`runtime/simulation/pending-order-management.ts`,
  * which needs the identical mapping to check a rule's target/condition
  * against a real `SimulationOrder`'s own type at evaluation time) — a
  * single source of truth, never two drifting copies.
+ *
+ * Q1.5.2 (additive): added the four MQL5 `ORDER_TYPE_*` pending-order
+ * constants, mapped consistently with their MQL4 `OP_*` equivalents. This
+ * is the piece that makes `OrderGetInteger(ORDER_TYPE)` recognition
+ * (`semantic-analyzer.ts`'s `resolveOrderTypeFilter`) actually executable
+ * at runtime — recognizing the call alone is not sufficient; without an
+ * entry here the resolved constant would fail this lookup and the rule
+ * would silently never fire (see docs/Q1.5_ORDER_TYPE_SEMANTICS.md).
+ * `ORDER_TYPE_BUY_STOP_LIMIT`/`ORDER_TYPE_SELL_STOP_LIMIT` (compound
+ * stop-limit types) are deliberately NOT mapped — this value type has no
+ * "STOP_LIMIT" case (mirrors MQL4's own `OP_BUY`/`OP_SELL` market orders
+ * being absent here too) and adding one is out of Q1.5's scope.
  */
 export const MQL_ORDER_TYPE_CONSTANT_MAP: Readonly<Record<string, { readonly orderType: "LIMIT" | "STOP"; readonly side: "BUY" | "SELL" }>> = {
   OP_BUYLIMIT: { orderType: "LIMIT", side: "BUY" },
   OP_SELLLIMIT: { orderType: "LIMIT", side: "SELL" },
   OP_BUYSTOP: { orderType: "STOP", side: "BUY" },
   OP_SELLSTOP: { orderType: "STOP", side: "SELL" },
+  ORDER_TYPE_BUY_LIMIT: { orderType: "LIMIT", side: "BUY" },
+  ORDER_TYPE_SELL_LIMIT: { orderType: "LIMIT", side: "SELL" },
+  ORDER_TYPE_BUY_STOP: { orderType: "STOP", side: "BUY" },
+  ORDER_TYPE_SELL_STOP: { orderType: "STOP", side: "SELL" },
 };
 
 export function hasPendingOrderManagement(policy: PendingOrderManagementPolicy | undefined): boolean {

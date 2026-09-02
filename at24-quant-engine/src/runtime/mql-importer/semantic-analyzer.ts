@@ -65,6 +65,20 @@ const POSITION_QUERY_FUNCTIONS = new Set([
 const SESSION_TIME_FUNCTIONS = new Set(["Hour", "TimeHour", "TimeToStruct", "DayOfWeek", "TimeCurrent", "TimeLocal"]);
 const ACCOUNT_FUNCTIONS = new Set(["AccountInfoDouble", "AccountBalance", "AccountEquity", "AccountMargin", "AccountFreeMargin"]);
 const BROKER_CONSTRAINT_TOKENS = new Set(["SYMBOL_TRADE_STOPS_LEVEL", "SYMBOL_TRADE_FREEZE_LEVEL", "SYMBOL_VOLUME_MIN", "SYMBOL_VOLUME_MAX", "SYMBOL_VOLUME_STEP"]);
+/**
+ * Q1.5.5 — MQL4 `MarketInfo(symbol, MODE_*)`'s broker-constraint modes,
+ * the exact MQL4 analogs of the five MQL5 `BROKER_CONSTRAINT_TOKENS`
+ * above (never a second, drifting category — both feed the SAME
+ * `BROKER_CONSTRAINT_DEPENDENCY` classification). `MODE_SPREAD` is
+ * DELIBERATELY excluded here — see docs/Q1.5_MARKETINFO_CLASSIFICATION.md:
+ * it is a live/dynamic value, not a static broker-side constraint, and is
+ * classified identically to MQL5's `SYMBOL_SPREAD` (honest
+ * `UNRESOLVED_CROSS_FILE_CALL`, never fabricated as a constraint).
+ * `MODE_BID`/`MODE_ASK` are likewise excluded (real MQL4 EAs use the bare
+ * `Bid`/`Ask` predefined variables, not this legacy idiom) and fall to the
+ * same honest unresolved default.
+ */
+const MARKETINFO_BROKER_CONSTRAINT_TOKENS = new Set(["MODE_STOPLEVEL", "MODE_FREEZELEVEL", "MODE_MINLOT", "MODE_MAXLOT", "MODE_LOTSTEP"]);
 
 function calleeName(callee: ExpressionNode): string | undefined {
   if (callee.kind === "Identifier") return callee.name;
@@ -488,10 +502,24 @@ class SemanticAnalyzer {
     }
   }
 
-  /** `OrderType() == <OP_CONST>` / `PositionGetInteger(POSITION_TYPE) == <CONST>`, either operand order — the ONE structural order-type filter shape this importer reconstructs (Q0.13.8). */
+  /**
+   * `OrderType() == <OP_CONST>` / `PositionGetInteger(POSITION_TYPE) == <CONST>` /
+   * `OrderGetInteger(ORDER_TYPE) == <ORDER_TYPE_CONST>`, either operand order —
+   * the structural order-type filter shapes this importer reconstructs
+   * (Q0.13.8, extended Q1.5.2 for MQL5's idiomatic `OrderGetInteger(ORDER_TYPE)`
+   * read). The `OrderGetInteger` check is an EXACT match on the single
+   * argument text (`=== "ORDER_TYPE"`), never `.includes()` — MQL5 has
+   * genuinely distinct sibling properties (`ORDER_TYPE_FILLING`,
+   * `ORDER_TYPE_TIME`) that must never be misclassified as an order-type
+   * filter merely because their name contains the substring "ORDER_TYPE".
+   */
   private resolveOrderTypeFilter(test: ExpressionNode): string | undefined {
     if (test.kind !== "BinaryExpression" || test.operator !== "==") return undefined;
-    const isTypeQuery = (e: ExpressionNode): boolean => e.kind === "CallExpression" && (calleeName(e.callee) === "OrderType" || (calleeName(e.callee) === "PositionGetInteger" && e.args.some((a) => argText(a)?.includes("POSITION_TYPE"))));
+    const isTypeQuery = (e: ExpressionNode): boolean =>
+      e.kind === "CallExpression" &&
+      (calleeName(e.callee) === "OrderType" ||
+        (calleeName(e.callee) === "PositionGetInteger" && e.args.some((a) => argText(a)?.includes("POSITION_TYPE"))) ||
+        (calleeName(e.callee) === "OrderGetInteger" && e.args.some((a) => argText(a) === "ORDER_TYPE")));
     const constText = (e: ExpressionNode): string | undefined => (e.kind === "Identifier" ? e.name : undefined);
     if (isTypeQuery(test.left)) return constText(test.right);
     if (isTypeQuery(test.right)) return constText(test.left);
@@ -1046,6 +1074,16 @@ class SemanticAnalyzer {
     // separately surfaced via the realtime-dependency heuristic above,
     // Q0.8.35) — not an unresolved cross-file call.
     if (name === "SymbolInfoDouble" && expr.args.some((a) => a.kind === "Identifier" && (a.name === "SYMBOL_BID" || a.name === "SYMBOL_ASK"))) {
+      return;
+    }
+    // Q1.5.5 — MQL4 MarketInfo(symbol, MODE_*) broker-constraint modes, the
+    // exact MQL4 analog of the MQL5 check immediately above. MODE_SPREAD/
+    // MODE_BID/MODE_ASK are intentionally NOT here (see
+    // MARKETINFO_BROKER_CONSTRAINT_TOKENS's own doc comment) — they fall
+    // through to the honest generic UNRESOLVED_CROSS_FILE_CALL bucket below,
+    // exactly like MQL5's SYMBOL_SPREAD already does.
+    if (name === "MarketInfo" && expr.args.some((a) => a.kind === "Identifier" && MARKETINFO_BROKER_CONSTRAINT_TOKENS.has(a.name))) {
+      this.pushUnsupported("BROKER_CONSTRAINT_DEPENDENCY", name, pos);
       return;
     }
 
