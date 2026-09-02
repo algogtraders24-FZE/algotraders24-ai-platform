@@ -67,7 +67,15 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
 ) {
   const [configOpen, setConfigOpen] = useState(false);
   const [startDate, setStartDate] = useState(() => isoDateNDaysAgo(7));
-  const [endDate, setEndDate] = useState(() => isoDateNDaysAgo(0));
+  // Live-verification finding (this sprint): defaulting to isoDateNDaysAgo(0)
+  // ("today") looked right but always failed - the server converts endDate
+  // to end-of-day UTC (toEngineTimestamp's endOfDay=true, "23:59:59Z"), which
+  // is later than "now" for essentially the entire current UTC day. A fresh,
+  // untouched form could never submit successfully. Defaulting to yesterday
+  // keeps the same 23:59:59Z end-of-day convention but is always safely in
+  // the past - "endTime cannot be in the future" (algo-test.service.ts's own
+  // validateRequest) never fires for the default range again.
+  const [endDate, setEndDate] = useState(() => isoDateNDaysAgo(1));
   const [initialBalance, setInitialBalance] = useState(String(DEFAULT_INITIAL_BALANCE));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
