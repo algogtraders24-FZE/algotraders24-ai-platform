@@ -169,6 +169,7 @@ def _find_active_by_request_hash(request_hash: str) -> Optional[dict]:
 # ---------------------------------------------------------------------------
 _ALLOWED_TOP_LEVEL_KEYS = {
     "jobId", "requestHash", "strategy", "symbol", "timeframe", "dateRange", "initialCapital", "riskPct",
+    "dataQuality",  # Q1.12 hotfix - opaque passthrough, echoed back verbatim in GET, never read for execution
 }
 
 
@@ -376,6 +377,18 @@ async def create_backtest(request: Request, authorization: Optional[str] = Heade
             "requestHash": request_hash,
             "status": "QUEUED",
             "createdAt": datetime.now(timezone.utc).isoformat(),
+            # Q1.12 hotfix - Vercel's own local job store is unreliable on
+            # serverless (ephemeral /tmp, not shared across invocations -
+            # see repoPaths.ts's own comment on this). This service's
+            # record is the real, persistent source of truth in remote
+            # mode, so it now echoes back the two display-only fields
+            # Vercel's GET route needs (the original strategy spec, for
+            # "Generate Code"; and dataQuality, computed by Vercel's own
+            # coverage check before ever reaching here) - both opaque,
+            # never used in this service's own execution logic beyond
+            # "strategy" already being spec/config's own source.
+            "strategy": body["strategy"],
+            "dataQuality": body.get("dataQuality"),
         }
         _write_record(job_id, record)
 
@@ -409,5 +422,7 @@ def get_backtest(job_id: str, authorization: Optional[str] = Header(None)) -> JS
         "durationMs": record.get("durationMs"),
         "result": record.get("result"),
         "error": record.get("error"),
+        "strategy": record.get("strategy"),
+        "dataQuality": record.get("dataQuality"),
     }
     return JSONResponse(body)

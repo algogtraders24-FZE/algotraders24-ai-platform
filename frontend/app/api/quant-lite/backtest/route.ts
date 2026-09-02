@@ -11,6 +11,7 @@ import { computeRequestHash } from "@/services/quant-lite/backend/requestHash";
 import { checkDataCoverage } from "@/services/quant-lite/backend/dataCoverage";
 import { createJob, findActiveJobByRequestHash } from "@/services/quant-lite/backend/jobStore";
 import { submitJob } from "@/services/quant-lite/backend/executionAdapter";
+import { isRemoteExecutionConfigured, submitRemoteJob, RemoteExecutionError } from "@/services/quant-lite/backend/remoteExecutionClient";
 import type { BacktestRequest } from "@/types/quant-lite";
 import type { BacktestJobRecord, CreateBacktestJobResponse } from "@/types/quant-lite-job";
 
@@ -41,6 +42,24 @@ export const POST = withContext(async (req, ctx) => {
   }
 
   const requestHash = computeRequestHash(request);
+
+  // Q1.12 hotfix - remote mode is a stateless proxy to the VPS's own real
+  // job store now (see remoteExecutionClient.ts's own header for why the
+  // old local-job-store-based flow broke in real production). Vercel
+  // never creates or touches a local job record for a remote-mode
+  // request - idempotency/status all live on the VPS, which already
+  // implements the identical requestHash-reuse contract.
+  if (isRemoteExecutionConfigured()) {
+    const jobId = crypto.randomUUID();
+    try {
+      const responseBody = await submitRemoteJob(jobId, request, requestHash, coverage.assessment);
+      return ApiResponse.success(responseBody, ctx.requestId, 202, ctx.startedAt);
+    } catch (e) {
+      const code = e instanceof RemoteExecutionError ? e.code : "ENGINE_ERROR";
+      const status = code === "ENGINE_UNREACHABLE" ? 503 : 500;
+      return ApiResponse.error({ code, message: e instanceof Error ? e.message : "could not submit the backtest" }, ctx.requestId, status, ctx.startedAt);
+    }
+  }
 
   const existing = findActiveJobByRequestHash(requestHash);
   if (existing) {
