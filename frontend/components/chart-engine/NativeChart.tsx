@@ -40,7 +40,7 @@ import { resolveChartInstrument } from "@/lib/market-data/chart-instrument-resol
 import { resolveChartColors, CHART_THEME_LABELS, type ChartTheme } from "@/lib/chart-engine/canvas-colors";
 import { nearestCandleIndex } from "@/lib/chart-engine/crosshair";
 import { priceToY } from "@/lib/chart-engine/coordinate-system";
-import { renderChart } from "@/lib/chart-engine/renderer";
+import { renderChart, type AlgoTestTradeMarker } from "@/lib/chart-engine/renderer";
 import {
   candleStepMs,
   clampViewportToCandleBounds,
@@ -66,6 +66,7 @@ import ChartToolbar from "./ChartToolbar";
 import ChartHeader from "./ChartHeader";
 import MicrostructurePanel from "./MicrostructurePanel";
 import PaperTradingPanel, { type PaperTradingPanelHandle } from "./PaperTradingPanel";
+import AlgoTestPanel, { type AlgoTestPanelHandle, type AlgoTestChartOverlay } from "./AlgoTestPanel";
 // MT5 feature-parity Phase 1 - Drawing Tools (trend line, horizontal
 // line, rectangle). See docs/architecture/D2.7.11-native-chart-mt5-
 // feature-parity-roadmap.md for the full phased plan this belongs to.
@@ -286,6 +287,16 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
   // Sell/Bid line just calls straight into it, exactly like clicking the
   // panel's own BUY/SELL toggle would.
   const paperTradingRef = useRef<PaperTradingPanelHandle>(null);
+  // P3.2B - Algo Testing. algoTestOverlay, once set, temporarily replaces
+  // this chart's LIVE candle feed with the exact historical bars the
+  // completed backtest ran against (see the `candles` useMemo below) - the
+  // only way trade entry/exit markers can land on real, matching candles
+  // when the test's date range isn't inside the live chart's rolling
+  // window (docs/P3.1-QUANT-CHART-INTEGRATION-ARCHITECTURE.md SS6).
+  // Cleared (back to live candles) via AlgoTestPanel's own "Clear results".
+  const algoTestRef = useRef<AlgoTestPanelHandle>(null);
+  const [algoTestOverlay, setAlgoTestOverlay] = useState<AlgoTestChartOverlay | null>(null);
+  const [selectedAlgoTestTradeId, setSelectedAlgoTestTradeId] = useState<string | null>(null);
   // Sprint D2.7.11 Phase 1b - readDrawingObjects/writeDrawingObjects are now
   // async (DB-backed, not sync sessionStorage). This tracks which
   // symbol|timeframe key's initial load has actually FINISHED, so the
@@ -359,7 +370,11 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
     return layout.find((r) => r.id === "price") ?? { id: "price" as const, top: 0, height: plotH };
   }
 
-  const candles = useMemo<ChartCandle[]>(() => result.series?.candles ?? [], [result.series]);
+  // P3.2B - while an Algo Test result is active, the chart shows THAT
+  // result's own historical candles instead of the live feed (see
+  // algoTestOverlay's own comment above) - reverts to live candles the
+  // instant the overlay is cleared.
+  const candles = useMemo<ChartCandle[]>(() => algoTestOverlay?.candles ?? result.series?.candles ?? [], [algoTestOverlay, result.series]);
 
   const activeConfigs = useMemo(
     () => DEFAULT_INDICATOR_CONFIGS.filter((cfg) => activeIndicatorKeys.has(cfg.key)),
@@ -427,9 +442,15 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
         // lines - a non-active tiled pane has no order form to open, so
         // drawing clickable-looking lines there would be misleading.
         showTradeLines: symbol === activeSymbol,
+        // P3.2B - only the pane whose AlgoTestPanel is actually mounted
+        // (isActive={symbol === activeSymbol}) can have an active overlay
+        // in the first place (algoTestOverlay is only ever set from that
+        // pane's own callback), so no extra guard is needed here.
+        algoTestTrades: algoTestOverlay?.trades,
+        selectedAlgoTestTradeId,
       });
     },
-    [candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme, activeSymbol],
+    [candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme, activeSymbol, algoTestOverlay, selectedAlgoTestTradeId],
   );
 
   // Resize: keep the canvas's real pixel buffer matched to its CSS size *
@@ -945,6 +966,40 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
     applyViewport(followLatest(viewport, candles));
   }
 
+  // P3.2B - trade <-> chart synchronization (sprint brief SS14). Composes
+  // the SAME existing viewport primitives fitToData/handleFit already use
+  // (priceRangeForWindow, clampViewportToCandleBounds) around the trade's
+  // own entry/exit time span, padded a few candle-widths on each side for
+  // context - never a new viewport system.
+  function jumpToAlgoTestTrade(trade: AlgoTestTradeMarker) {
+    if (candles.length === 0) return;
+    const step = candleStepMs(candles);
+    const pad = step * 8;
+    const minTime = Math.min(trade.entryTime, trade.exitTime) - pad;
+    const maxTime = Math.max(trade.entryTime, trade.exitTime) + pad;
+    const { minPrice, maxPrice } = priceRangeForWindow(candles, minTime, maxTime);
+    viewportRef.current = clampViewportToCandleBounds({ minTime, maxTime, minPrice, maxPrice }, candles);
+    draw();
+  }
+
+  function handleSelectAlgoTestTrade(tradeId: string | null) {
+    setSelectedAlgoTestTradeId(tradeId);
+    const trade = tradeId ? algoTestOverlay?.trades.find((t) => t.tradeId === tradeId) : undefined;
+    if (trade) jumpToAlgoTestTrade(trade);
+    else draw();
+  }
+
+  function handleAlgoTestOverlayChange(overlay: AlgoTestChartOverlay | null) {
+    setAlgoTestOverlay(overlay);
+    setSelectedAlgoTestTradeId(null);
+    // A fresh overlay means brand-new candles (a different historical
+    // window) - force the next candles-effect run to genuinely re-fit
+    // rather than "follow" whatever viewport was showing the previous
+    // (live or prior-test) data, the same fittedKeyRef reset fitToData's
+    // own symbol/timeframe-change path already relies on.
+    fittedKeyRef.current = "";
+  }
+
   // Sprint D2.7.11 Phase 5d - MT5's "Save as Picture" (right-click chart
   // menu). The canvas already has the ENTIRE chart drawn into it in one
   // pass (price panel, any active sub-panels, indicators, drawn objects -
@@ -1155,6 +1210,14 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
       <ChartHeader displaySymbol={resolution.displaySymbol} instrumentName={name} timeframe={timeframe} series={result.series} />
       <MicrostructurePanel symbol={symbol} hypothesisType={symbol === activeSymbol ? hypothesisType : undefined} />
       <PaperTradingPanel ref={paperTradingRef} symbol={symbol} isActive={symbol === activeSymbol} />
+      <AlgoTestPanel
+        ref={algoTestRef}
+        symbol={symbol}
+        isActive={symbol === activeSymbol}
+        onOverlayChange={handleAlgoTestOverlayChange}
+        selectedTradeId={selectedAlgoTestTradeId}
+        onSelectTrade={handleSelectAlgoTestTrade}
+      />
       <ChartToolbar
         displaySymbol={resolution.displaySymbol}
         timeframe={timeframe}
@@ -1174,6 +1237,7 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
         onOpenSaveTemplate={() => setSaveModalOpen(true)}
         onOpenProperties={() => setPropertiesModalOpen(true)}
         onSaveAsPicture={handleSaveAsPicture}
+        onOpenAlgoTest={() => algoTestRef.current?.openConfig()}
       />
 
       <Modal open={saveModalOpen} onClose={() => setSaveModalOpen(false)} title="Save as Template">

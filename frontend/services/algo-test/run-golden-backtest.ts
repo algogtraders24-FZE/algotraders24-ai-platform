@@ -21,7 +21,7 @@ import {
   type SimulationConfig,
   type SimulationResult,
 } from "at24-quant-engine";
-import type { HistoricalDataProvider } from "./historical-data/types.js";
+import type { HistoricalDataProvider } from "./historical-data/types";
 
 export interface GoldenBacktestRequest {
   symbol: string;
@@ -33,6 +33,8 @@ export interface GoldenBacktestRequest {
 
 export interface GoldenBacktestOutcome {
   result: SimulationResult;
+  /** P3.2B - the exact validated bars the engine ran against, so a caller (e.g. the Algo Test API) can render a chart consistent with the actual backtest window without a second provider call. */
+  bars: readonly OHLCVBar[];
   barsUsed: number;
   barsRejected: number;
   dataSource: string;
@@ -67,7 +69,7 @@ export async function runGoldenBacktest(request: GoldenBacktestRequest, provider
     instrument,
     timeframe: request.timeframe,
     initialBalance: request.initialBalance,
-    datasetId: `market-db:${request.symbol}:${request.timeframe}`,
+    datasetId: `${provider.id}:${request.symbol}:${request.timeframe}`,
     datasetVersion: `${request.startTime}..${request.endTime}`,
     dataFidelity: "D1",
     spreadModel: ZeroSpread,
@@ -81,6 +83,7 @@ export async function runGoldenBacktest(request: GoldenBacktestRequest, provider
 
   return {
     result,
+    bars,
     barsUsed: bars.length,
     barsRejected: rejected.length,
     dataSource: source,

@@ -23,8 +23,8 @@
 // the one string each symbol needs.
 import type { OHLCVBar, Timeframe } from "at24-quant-engine";
 import { loadTwelveDataEnv } from "@/lib/market-data/env";
-import type { HistoricalBarsRequest, HistoricalBarsResult, HistoricalDataProvider } from "./types.js";
-import { validateBars } from "./validate-bars.js";
+import type { HistoricalBarsRequest, HistoricalBarsResult, HistoricalDataProvider } from "./types";
+import { validateBars } from "./validate-bars";
 
 const TIMESERIES_URL = "https://api.twelvedata.com/time_series";
 
@@ -119,18 +119,24 @@ export class TwelveDataHistoricalDataProvider implements HistoricalDataProvider 
       // Never attach the raw transport error or echo the URL (it carries the key).
       throw new Error("TwelveDataHistoricalDataProvider: failed to reach Twelve Data.");
     }
-    if (!res.ok) {
-      throw new Error(`TwelveDataHistoricalDataProvider: Twelve Data returned HTTP ${res.status}.`);
-    }
-
-    let body: TwelveDataTimeSeriesResponse;
+    // Twelve Data sends a real, useful JSON error body (status/code/message)
+    // alongside a non-200 HTTP status (e.g. 400 for "no data available for
+    // this date range", confirmed live this sprint) - read the body FIRST
+    // and prefer its real message over a generic "HTTP {status}", the same
+    // "never lose the real reason" discipline the rest of this codebase's
+    // provider error handling already follows.
+    let body: TwelveDataTimeSeriesResponse | undefined;
     try {
       body = (await res.json()) as TwelveDataTimeSeriesResponse;
     } catch {
+      if (!res.ok) throw new Error(`TwelveDataHistoricalDataProvider: Twelve Data returned HTTP ${res.status}.`);
       throw new Error("TwelveDataHistoricalDataProvider: Twelve Data response was not valid JSON.");
     }
     if (body.status === "error" || typeof body.code === "number") {
       throw new Error(`TwelveDataHistoricalDataProvider: Twelve Data error (${body.code ?? "unknown"}): ${body.message ?? "unknown error"}`);
+    }
+    if (!res.ok) {
+      throw new Error(`TwelveDataHistoricalDataProvider: Twelve Data returned HTTP ${res.status}.`);
     }
 
     const rows = body.values ?? [];

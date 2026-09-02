@@ -11,8 +11,8 @@
 //   npm run validate:algo-test-production-data
 import assert from "node:assert/strict";
 import type { SimulationTrade } from "at24-quant-engine";
-import { twelveDataHistoricalDataProvider } from "../services/algo-test/historical-data/twelve-data-provider.js";
-import { runGoldenBacktest } from "../services/algo-test/run-golden-backtest.js";
+import { twelveDataHistoricalDataProvider } from "../services/algo-test/historical-data/twelve-data-provider";
+import { runGoldenBacktest } from "../services/algo-test/run-golden-backtest";
 
 let passed = 0;
 let failed = 0;

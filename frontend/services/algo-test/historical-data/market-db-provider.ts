@@ -25,9 +25,9 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import type { OHLCVBar } from "at24-quant-engine";
-import type { HistoricalBarsRequest, HistoricalBarsResult, HistoricalDataProvider } from "./types.js";
-import { toAssetClass, toMarketDbSymbol, toMarketDbTimeframe } from "./symbol-timeframe-map.js";
-import { validateBars } from "./validate-bars.js";
+import type { HistoricalBarsRequest, HistoricalBarsResult, HistoricalDataProvider } from "./types";
+import { toAssetClass, toMarketDbSymbol, toMarketDbTimeframe } from "./symbol-timeframe-map";
+import { validateBars } from "./validate-bars";
 
 const THIS_DIR = path.dirname(fileURLToPath(import.meta.url));
 /** services/algo-test/historical-data -> services/algo-test -> services -> frontend -> repo root. */

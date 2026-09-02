@@ -100,6 +100,8 @@
     "validate:license-security": "tsx scripts/validate-license-security.ts",
     "validate:algo-test-foundation": "tsx scripts/validate-algo-test-foundation.ts",
     "validate:algo-test-production-data": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-algo-test-production-data.ts",
+    "validate:algo-test-service": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-algo-test-service.ts",
+    "validate:algo-test-renderer": "tsx scripts/validate-algo-test-renderer.ts",
     "vendor:quant-engine": "node scripts/vendor-quant-engine.mjs"
   },
   "dependencies": {

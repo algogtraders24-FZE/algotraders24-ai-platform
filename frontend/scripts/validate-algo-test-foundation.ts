@@ -12,9 +12,9 @@
 import assert from "node:assert/strict";
 import type { OHLCVBar, SimulationTrade } from "at24-quant-engine";
 import { runSimulation, buildGoldenStrategySpec } from "at24-quant-engine";
-import { marketDbHistoricalDataProvider, resolveMarketDbPath } from "../services/algo-test/historical-data/market-db-provider.js";
-import { validateBars } from "../services/algo-test/historical-data/validate-bars.js";
-import { runGoldenBacktest } from "../services/algo-test/run-golden-backtest.js";
+import { marketDbHistoricalDataProvider, resolveMarketDbPath } from "../services/algo-test/historical-data/market-db-provider";
+import { validateBars } from "../services/algo-test/historical-data/validate-bars";
+import { runGoldenBacktest } from "../services/algo-test/run-golden-backtest";
 
 let passed = 0;
 let failed = 0;

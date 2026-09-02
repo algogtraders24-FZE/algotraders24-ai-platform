@@ -6,7 +6,7 @@
 // silently fabricated or silently dropped without a record - every
 // rejection is returned to the caller.
 import type { Instrument, OHLCVBar, Timeframe } from "at24-quant-engine";
-import type { BarRejection } from "./types.js";
+import type { BarRejection } from "./types";
 
 export interface ValidateBarsResult {
   /** In original order, minus any rejected bars. */
