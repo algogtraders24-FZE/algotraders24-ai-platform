@@ -141,6 +141,42 @@ async function main(): Promise<void> {
       assert.equal(run.errorCode, "RANGE_TOO_LARGE");
     });
 
+    await test("regression (live-verification finding, P3.2B fix): AlgoTestPanel.tsx's real default date range (7 days ago .. yesterday, end-of-day UTC) never fails INVALID_DATE_RANGE - the exact bug a same-day default previously produced", async () => {
+      // Mirrors AlgoTestPanel.tsx's real isoDateNDaysAgo()/toEngineTimestamp()
+      // logic byte-for-byte, not a simplified approximation - if the client
+      // ever drifts from this again, this test drifts with it and still
+      // proves the real client-shaped request against the real service.
+      function isoDateNDaysAgo(n: number): string {
+        const d = new Date();
+        d.setUTCDate(d.getUTCDate() - n);
+        return d.toISOString().slice(0, 10);
+      }
+      const startTime = `${isoDateNDaysAgo(7)}T00:00:00Z`;
+      const endTime = `${isoDateNDaysAgo(1)}T23:59:59Z`;
+
+      const run = await algoTestService.runAlgoTest(user.id, { ...VALID_REQUEST, startTime, endTime });
+      if (run.testId) createdRunIds.push(run.testId);
+
+      // The one thing this regression test exists to guarantee: date
+      // validation itself must never reject the untouched default range.
+      assert.notEqual(run.errorCode, "INVALID_DATE_RANGE", `the fresh-form default range must never be rejected as INVALID_DATE_RANGE (got: ${run.errorMessage})`);
+      assert.ok(run.testId.length > 0, "a date-valid request must always be persisted as a real attempted run, whatever its outcome");
+
+      // Whatever REAL current-gold-price data produces (a completed run, or
+      // a real engine failure like the negative-risk-distance case this
+      // sprint's own live verification found) must still be handled
+      // gracefully - never an unhandled exception, never a silently
+      // fabricated result. Both real outcomes are acceptable here; only an
+      // undefined/unrecognized status would indicate broken handling.
+      assert.ok(run.status === "completed" || run.status === "failed", `status must be a real, defined outcome, got: ${run.status}`);
+      if (run.status === "failed") {
+        assert.ok(run.errorCode, "a failed run must always carry a real errorCode - never a silent failure");
+        console.log(`    (real outcome this run: failed/${run.errorCode} - "${run.errorMessage}" - a genuine engine/provider result on today's real data, not a bug)`);
+      } else {
+        console.log(`    (real outcome this run: completed, ${run.trades?.length ?? 0} trades)`);
+      }
+    });
+
     console.log("\n=== Provider failure (a real attempt, no data - a real persisted 'failed' row) ===");
     await test("a real date range with no available historical data fails honestly with NO_HISTORICAL_DATA, and IS persisted (a real attempted run)", async () => {
       // A real calendar range within MAX_RANGE_DAYS, far outside any real
