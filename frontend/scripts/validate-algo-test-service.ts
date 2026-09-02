@@ -24,6 +24,8 @@
 import assert from "node:assert/strict";
 import { prisma } from "../lib/prisma";
 import { algoTestService, MAX_RANGE_DAYS } from "../services/algo-test/algo-test.service";
+import { STRATEGY_REGISTRY, getStrategyDefinition } from "../services/algo-test/strategy-registry";
+import { RESULT_CONTRACT_VERSION } from "../services/algo-test/result-contract";
 import type { AlgoTestRunRequest } from "../types/algo-test";
 
 const RUN_TAG = `algotest-${Date.now()}`;
@@ -73,21 +75,47 @@ async function main(): Promise<void> {
       assert.equal(run.resultHash?.length, 64);
       assert.ok(run.candles && run.candles.length > 1000, "a fresh run's response must include the real bars used for chart rendering");
 
+      // P3.3 - Strategy Versioning / Result Contract Hardening: every
+      // completed run records its exact strategyId+strategyVersion and the
+      // result contract/engine versions, all real (never a placeholder).
+      const golden = getStrategyDefinition("golden");
+      assert.ok(golden, "the Golden Strategy must be registered");
+      assert.equal(run.strategyVersion, golden!.strategyVersion);
+      assert.equal(run.resultVersion, RESULT_CONTRACT_VERSION);
+      assert.ok(run.engineVersion && run.engineVersion.length > 0, "engineVersion must be the engine's own real provenance.runtimeVersion, never blank");
+
       const row = await prisma.algoTestRun.findUnique({ where: { id: run.testId } });
       assert.ok(row, "the run must be persisted");
       assert.equal(row!.userId, user.id);
       assert.equal(row!.status, "completed");
+      assert.equal(row!.strategyVersion, golden!.strategyVersion);
+      assert.equal(row!.resultVersion, RESULT_CONTRACT_VERSION);
+      assert.ok(row!.engineVersion);
       assert.ok(row!.metrics, "metrics must be persisted");
       assert.ok(row!.trades, "trades must be persisted");
     });
 
-    await test("getAlgoTestRun() returns the persisted run for its real owner, WITHOUT candles (never persisted)", async () => {
+    await test("getAlgoTestRun() returns the persisted run for its real owner, WITH candles reconstructed (P3.3 reopen - never persisted in the row itself, but re-fetched live via the same read-only provider so a refresh can still render chart markers)", async () => {
       assert.ok(firstRun);
       const fetched = await algoTestService.getAlgoTestRun(user.id, firstRun!.testId);
       assert.ok(fetched);
       assert.equal(fetched!.status, "completed");
+      // Every canonical, engine-produced field must be BYTE-IDENTICAL to
+      // the original run's own response - a reopen never re-simulates.
       assert.equal(fetched!.resultHash, firstRun!.resultHash);
-      assert.equal(fetched!.candles, undefined, "candles must never be persisted/returned from a re-fetch");
+      assert.deepEqual(fetched!.metrics, firstRun!.metrics);
+      assert.equal(fetched!.trades?.length, firstRun!.trades?.length);
+      assert.equal(fetched!.strategyVersion, firstRun!.strategyVersion);
+      assert.equal(fetched!.resultVersion, firstRun!.resultVersion);
+      assert.equal(fetched!.engineVersion, firstRun!.engineVersion);
+      // Candles themselves are RECONSTRUCTED (a fresh provider fetch for
+      // the run's own persisted window), so must be present and shaped
+      // like a real chart-ready dataset, though not necessarily the exact
+      // same array instance/count as the original POST response.
+      assert.ok(fetched!.candles && fetched!.candles.length > 1000, "a reopened completed run must reconstruct real chart candles for its own persisted date range");
+
+      const row = await prisma.algoTestRun.findUnique({ where: { id: firstRun!.testId } });
+      assert.equal((row?.trades as unknown[] | null)?.length, firstRun!.trades?.length, "the DB row itself still never stores candles - only trades/metrics/equityCurve");
     });
 
     await test("getAlgoTestRun() returns null for a real run id owned by a DIFFERENT user - ownership is enforced server-side, never trusted from input", async () => {
@@ -101,11 +129,48 @@ async function main(): Promise<void> {
       }
     });
 
+    console.log("\n=== Strategy Registry / Capability Registry (P3.3) ===");
+    await test("the registry contains exactly the Golden Strategy, available, with real supportedSymbols/supportedTimeframes", async () => {
+      assert.equal(STRATEGY_REGISTRY.length, 1, "P3.3 registers exactly one strategy - no artificial second entry");
+      const golden = STRATEGY_REGISTRY[0]!;
+      assert.equal(golden.strategyId, "golden");
+      assert.equal(golden.status, "available");
+      assert.ok(golden.strategyVersion.length > 0, "strategyVersion must be a real, non-empty version string, read from the engine's own StrategySpec");
+      assert.deepEqual(golden.supportedSymbols, ["XAUUSD"]);
+      assert.deepEqual(golden.supportedTimeframes, ["5m"]);
+    });
+
     console.log("\n=== Invalid request handling (rejected before any row is created) ===");
     await test("unsupported strategy is rejected with INVALID_STRATEGY, no row created", async () => {
       const run = await algoTestService.runAlgoTest(user.id, { ...VALID_REQUEST, strategyId: "not-a-real-strategy" });
       assert.equal(run.testId, "");
       assert.equal(run.errorCode, "INVALID_STRATEGY");
+    });
+
+    await test("a mismatched strategyVersion is rejected with INVALID_STRATEGY_VERSION, no row created", async () => {
+      const run = await algoTestService.runAlgoTest(user.id, { ...VALID_REQUEST, strategyVersion: "999.0.0-does-not-exist" });
+      assert.equal(run.testId, "");
+      assert.equal(run.errorCode, "INVALID_STRATEGY_VERSION");
+    });
+
+    await test("the strategy's real current strategyVersion, when explicitly supplied, is accepted (not just when omitted)", async () => {
+      const golden = getStrategyDefinition("golden")!;
+      const run = await algoTestService.runAlgoTest(user.id, { ...VALID_REQUEST, strategyVersion: golden.strategyVersion });
+      createdRunIds.push(run.testId);
+      assert.equal(run.status, "completed");
+      assert.equal(run.strategyVersion, golden.strategyVersion);
+    });
+
+    await test("a zero initialBalance is rejected with INVALID_INITIAL_BALANCE", async () => {
+      const run = await algoTestService.runAlgoTest(user.id, { ...VALID_REQUEST, initialBalance: 0 });
+      assert.equal(run.testId, "");
+      assert.equal(run.errorCode, "INVALID_INITIAL_BALANCE");
+    });
+
+    await test("a negative initialBalance is rejected with INVALID_INITIAL_BALANCE", async () => {
+      const run = await algoTestService.runAlgoTest(user.id, { ...VALID_REQUEST, initialBalance: -500 });
+      assert.equal(run.testId, "");
+      assert.equal(run.errorCode, "INVALID_INITIAL_BALANCE");
     });
 
     await test("unsupported symbol is rejected with INVALID_SYMBOL", async () => {
@@ -200,6 +265,9 @@ async function main(): Promise<void> {
       assert.ok(firstRun);
       assert.equal(runB.resultHash, firstRun!.resultHash);
       assert.deepEqual(runB.metrics, firstRun!.metrics);
+      assert.equal(runB.strategyVersion, firstRun!.strategyVersion);
+      assert.equal(runB.resultVersion, firstRun!.resultVersion);
+      assert.equal(runB.engineVersion, firstRun!.engineVersion);
       assert.equal(runB.trades?.length, firstRun!.trades?.length);
       for (let i = 0; i < (runB.trades?.length ?? 0); i++) {
         assert.equal(runB.trades![i]!.tradeId, firstRun!.trades![i]!.tradeId);

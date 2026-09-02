@@ -2,7 +2,7 @@
 // P3.2B - thin client fetch wrapper over /api/private/algo-test/*, the
 // same "thin wrapper, mutation functions throw with a real message" shape
 // lib/paper-trading/store.ts already establishes.
-import type { AlgoTestRunRequest, AlgoTestRunView } from "@/types/algo-test";
+import type { AlgoTestRunRequest, AlgoTestRunView, AlgoTestStrategyDefinition } from "@/types/algo-test";
 
 const BASE = "/api/private/algo-test";
 
@@ -34,5 +34,17 @@ export async function fetchAlgoTestRun(testId: string): Promise<AlgoTestRunView 
     return json?.data?.run as AlgoTestRunView | undefined;
   } catch {
     return undefined;
+  }
+}
+
+/** P3.3 - the Strategy Registry's available strategies, for registry-backed config UI. Never throws - an empty array (rather than an error) is the honest "nothing usable yet" state for a picker to render. */
+export async function fetchAlgoTestStrategies(): Promise<AlgoTestStrategyDefinition[]> {
+  try {
+    const res = await fetch(`${BASE}/strategies`);
+    if (!res.ok) return [];
+    const json = await res.json();
+    return (json?.data?.strategies as AlgoTestStrategyDefinition[] | undefined) ?? [];
+  } catch {
+    return [];
   }
 }

@@ -97,7 +97,7 @@ export function runSimulation(bars, config) {
     if (bars.length > 0) {
         queue.enqueue({ timestamp: bars[0].timestamp, eventType: "MARKET_BAR", source: "SimulationEngine", payload: { bar: bars[0], barIndex: 0 } });
     }
-    function applyRealizedTrade(state, position, exitPrice, exitQuantity, grossPnl, fee, timestamp) {
+    function applyRealizedTrade(state, position, exitPrice, exitQuantity, grossPnl, fee, timestamp, exitReason) {
         const account = applyFill(state.account, grossPnl, fee, timestamp);
         const trade = buildTrade({
             tradeId: `${position.id}:${timestamp}:${state.ledger.length}`,
@@ -112,6 +112,7 @@ export function runSimulation(bars, config) {
             spreadModel: config.spreadModel.name,
             slippageModel: config.slippageModel.name,
             feeModel: config.feeModel.name,
+            ...(exitReason !== undefined ? { exitReason } : {}),
         });
         ledger.record(trade);
         return { ...state, account, ledger: ledger.all(), realizedPnlToday: state.realizedPnlToday + grossPnl - fee };
@@ -277,7 +278,7 @@ export function runSimulation(bars, config) {
                 else {
                     const reduceQty = Math.min(order.quantity, existing.quantity);
                     const { position: reduced, grossPnl } = reducePosition(existing, reduceQty, fillPrice, bar.timestamp, fee);
-                    state = applyRealizedTrade(state, existing, fillPrice, reduceQty, grossPnl, fee, bar.timestamp);
+                    state = applyRealizedTrade(state, existing, fillPrice, reduceQty, grossPnl, fee, bar.timestamp, "opposite-side order fill reduced/closed the position");
                     record(reduced.status === "CLOSED" ? "POSITION_CLOSED" : "POSITION_REDUCED", bar.timestamp, { positionId: reduced.id });
                     const leftover = order.quantity - reduceQty;
                     if (leftover > 0 && reduced.status === "CLOSED") {
@@ -321,7 +322,7 @@ export function runSimulation(bars, config) {
             if (exit.exited) {
                 const fee = config.feeModel.computeFee({ quantity: positionForProtectiveCheck.quantity, notional: exit.exitPrice * positionForProtectiveCheck.quantity });
                 const { position: closed, grossPnl } = closePosition(positionForProtectiveCheck, exit.exitPrice, bar.timestamp, fee);
-                state = applyRealizedTrade(state, positionForProtectiveCheck, exit.exitPrice, positionForProtectiveCheck.quantity, grossPnl, fee, bar.timestamp);
+                state = applyRealizedTrade(state, positionForProtectiveCheck, exit.exitPrice, positionForProtectiveCheck.quantity, grossPnl, fee, bar.timestamp, exit.reason);
                 state = { ...state, openPositions: mapWithout(state.openPositions, symbol) };
                 record("POSITION_CLOSED", bar.timestamp, { positionId: closed.id, reason: exit.reason, ambiguous: exit.ambiguous ?? false });
             }
@@ -463,7 +464,7 @@ export function runSimulation(bars, config) {
                 const reduceQty = currentPosition.quantity * (mapping.closePercent / 100);
                 const fee = config.feeModel.computeFee({ quantity: reduceQty, notional: bar.close * reduceQty });
                 const { position: reduced, grossPnl } = reducePosition(currentPosition, reduceQty, bar.close, bar.timestamp, fee);
-                state = applyRealizedTrade(state, currentPosition, bar.close, reduceQty, grossPnl, fee, bar.timestamp);
+                state = applyRealizedTrade(state, currentPosition, bar.close, reduceQty, grossPnl, fee, bar.timestamp, "risk engine partial close");
                 state = { ...state, partialCloseTriggered: setWith(state.partialCloseTriggered, currentPosition.id) };
                 state = {
                     ...state,
@@ -474,7 +475,7 @@ export function runSimulation(bars, config) {
             else if (mapping.kind === "FORCE_EXIT" && currentPosition) {
                 const fee = config.feeModel.computeFee({ quantity: currentPosition.quantity, notional: bar.close * currentPosition.quantity });
                 const { position: closed, grossPnl } = closePosition(currentPosition, bar.close, bar.timestamp, fee);
-                state = applyRealizedTrade(state, currentPosition, bar.close, currentPosition.quantity, grossPnl, fee, bar.timestamp);
+                state = applyRealizedTrade(state, currentPosition, bar.close, currentPosition.quantity, grossPnl, fee, bar.timestamp, "risk engine forced exit");
                 state = { ...state, openPositions: mapWithout(state.openPositions, symbol) };
                 record("POSITION_CLOSED", bar.timestamp, { positionId: closed.id });
             }

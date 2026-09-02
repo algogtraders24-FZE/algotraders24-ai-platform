@@ -22,14 +22,9 @@ import type {
 import type { ChartCandle } from "@/types/chart-data";
 import { twelveDataHistoricalDataProvider } from "./historical-data/twelve-data-provider";
 import { runGoldenBacktest } from "./run-golden-backtest";
+import { getStrategyDefinition, listAvailableStrategies, type StrategyDefinition } from "./strategy-registry";
+import { RESULT_CONTRACT_VERSION } from "./result-contract";
 
-// This sprint's deliberately narrow, explicit support surface (P3.2B brief
-// SS1: "Do not expand instrument/timeframe coverage yet"). Adding a second
-// strategy/symbol/timeframe later is additive here, never a rewrite.
-export const SUPPORTED_STRATEGY_IDS = ["golden"] as const;
-export const SUPPORTED_SYMBOLS = ["XAUUSD"] as const;
-/** SignalTimeframe-shaped (matches the rest of the app's request convention) - mapped to the engine's own Timeframe token below. */
-export const SUPPORTED_TIMEFRAMES = ["5m"] as const;
 export const DEFAULT_INITIAL_BALANCE = 10_000;
 
 // Gate 5 (P3.2A.1) established Twelve Data's practical single-request bar
@@ -50,16 +45,46 @@ interface ValidationFailure {
   message: string;
 }
 
-function validateRequest(request: AlgoTestRunRequest): ValidationFailure | { engineTimeframe: Timeframe; startTime: Date; endTime: Date; initialBalance: number } {
-  if (!SUPPORTED_STRATEGY_IDS.includes(request.strategyId as (typeof SUPPORTED_STRATEGY_IDS)[number])) {
-    return { code: "INVALID_STRATEGY", message: `Unsupported strategy '${request.strategyId}'. Only the Golden Strategy ("golden") is available this release.` };
+interface ValidatedRequest {
+  strategy: StrategyDefinition;
+  engineTimeframe: Timeframe;
+  startTime: Date;
+  endTime: Date;
+  initialBalance: number;
+}
+
+// P3.3 - centralized, server-side validation, run in this exact order
+// (strategy -> symbol -> timeframe -> dates -> balance) BEFORE any
+// historical-data fetch or simulation is attempted - the UI's own
+// registry-driven pickers (AlgoTestPanel.tsx) make most of these
+// unreachable in practice, but the UI is never trusted as the only
+// validation layer.
+function validateRequest(request: AlgoTestRunRequest): ValidationFailure | ValidatedRequest {
+  const strategy = getStrategyDefinition(request.strategyId);
+  if (!strategy || strategy.status !== "available") {
+    const available = listAvailableStrategies().map((s) => s.strategyId).join(", ") || "(none)";
+    return { code: "INVALID_STRATEGY", message: `Unsupported strategy '${request.strategyId}'. Available strategies this release: ${available}.` };
   }
-  if (!SUPPORTED_SYMBOLS.includes(request.symbol as (typeof SUPPORTED_SYMBOLS)[number])) {
-    return { code: "INVALID_SYMBOL", message: `Unsupported symbol '${request.symbol}'. Only ${SUPPORTED_SYMBOLS.join(", ")} is available this release.` };
+  if (request.strategyVersion !== undefined && request.strategyVersion !== strategy.strategyVersion) {
+    return {
+      code: "INVALID_STRATEGY_VERSION",
+      message: `Strategy '${strategy.strategyId}' is currently registered at version '${strategy.strategyVersion}', not '${request.strategyVersion}'.`,
+    };
+  }
+  if (!strategy.supportedSymbols.includes(request.symbol)) {
+    return { code: "INVALID_SYMBOL", message: `Unsupported symbol '${request.symbol}' for strategy '${strategy.strategyId}'. Supported: ${strategy.supportedSymbols.join(", ")}.` };
+  }
+  if (!strategy.supportedTimeframes.includes(request.timeframe)) {
+    return { code: "INVALID_TIMEFRAME", message: `Unsupported timeframe '${request.timeframe}' for strategy '${strategy.strategyId}'. Supported: ${strategy.supportedTimeframes.join(", ")}.` };
   }
   const engineTimeframe = SIGNAL_TIMEFRAME_TO_ENGINE_TIMEFRAME[request.timeframe];
   if (!engineTimeframe) {
-    return { code: "INVALID_TIMEFRAME", message: `Unsupported timeframe '${request.timeframe}'. Only ${SUPPORTED_TIMEFRAMES.join(", ")} is available this release.` };
+    // Structurally unreachable once a timeframe has passed the capability
+    // check above (every registry-declared timeframe has a mapping entry),
+    // kept as a real, typed guard rather than a non-null assertion so a
+    // future registry entry can never silently produce an unmapped engine
+    // token here.
+    return { code: "INVALID_TIMEFRAME", message: `Timeframe '${request.timeframe}' has no engine mapping.` };
   }
 
   const startTime = new Date(request.startTime);
@@ -80,10 +105,15 @@ function validateRequest(request: AlgoTestRunRequest): ValidationFailure | { eng
 
   const initialBalance = request.initialBalance ?? DEFAULT_INITIAL_BALANCE;
   if (!Number.isFinite(initialBalance) || initialBalance <= 0) {
-    return { code: "INVALID_DATE_RANGE", message: "initialBalance must be a positive number." };
+    // P3.3 fix: this was previously mis-coded as INVALID_DATE_RANGE (a
+    // P3.2B leftover unrelated to the actual field failing) - balance
+    // validation gets its own real error code, same "the code names the
+    // actual failing field" convention every other branch above already
+    // follows.
+    return { code: "INVALID_INITIAL_BALANCE", message: "initialBalance must be a finite, positive number." };
   }
 
-  return { engineTimeframe, startTime, endTime, initialBalance };
+  return { strategy, engineTimeframe, startTime, endTime, initialBalance };
 }
 
 // "no valid historical bars" is run-golden-backtest.ts's own thrown message
@@ -118,6 +148,11 @@ function toTradeView(trade: SimulationTrade): AlgoTestTradeView {
     grossPnl: trade.grossPnl,
     fees: trade.fees,
     rMultiple: trade.rMultiple,
+    // P3.3 - copied straight through from the engine's own SimulationTrade,
+    // never fabricated when the engine itself left them unset.
+    ...(trade.stopLoss !== undefined ? { stopLoss: trade.stopLoss } : {}),
+    ...(trade.takeProfit !== undefined ? { takeProfit: trade.takeProfit } : {}),
+    ...(trade.exitReason !== undefined ? { exitReason: trade.exitReason } : {}),
   };
 }
 
@@ -180,12 +215,17 @@ export const algoTestService = {
       };
     }
 
-    const { engineTimeframe, startTime, endTime, initialBalance } = validated;
+    const { strategy, engineTimeframe, startTime, endTime, initialBalance } = validated;
 
     const row = await prisma.algoTestRun.create({
       data: {
         userId,
-        strategyId: request.strategyId,
+        strategyId: strategy.strategyId,
+        // Always the server's own resolved, registered version - never the
+        // client-supplied string verbatim (already proven equal above when
+        // the client did supply one; when it didn't, this is where the
+        // exact version this run executed against first becomes recorded).
+        strategyVersion: strategy.strategyVersion,
         symbol: request.symbol,
         timeframe: request.timeframe,
         startTime,
@@ -205,12 +245,15 @@ export const algoTestService = {
       const trades = outcome.result.tradeLedger.map(toTradeView);
       const equityCurve = toEquityCurveView(outcome.equityCurve);
       const assumptions = buildAssumptions(outcome.result);
+      const engineVersion = outcome.result.provenance.runtimeVersion;
 
       await prisma.algoTestRun.update({
         where: { id: row.id },
         data: {
           status: "completed",
           resultHash: outcome.result.resultHash,
+          resultVersion: RESULT_CONTRACT_VERSION,
+          engineVersion,
           metrics: metrics as object,
           trades: trades as unknown as object,
           equityCurve: equityCurve as unknown as object,
@@ -222,7 +265,10 @@ export const algoTestService = {
       return {
         testId: row.id,
         status: "completed",
-        strategyId: request.strategyId,
+        strategyId: strategy.strategyId,
+        strategyVersion: strategy.strategyVersion,
+        resultVersion: RESULT_CONTRACT_VERSION,
+        engineVersion,
         symbol: request.symbol,
         timeframe: request.timeframe,
         startTime: request.startTime,
@@ -246,7 +292,8 @@ export const algoTestService = {
       return {
         testId: row.id,
         status: "failed",
-        strategyId: request.strategyId,
+        strategyId: strategy.strategyId,
+        strategyVersion: strategy.strategyVersion,
         symbol: request.symbol,
         timeframe: request.timeframe,
         startTime: request.startTime,
@@ -259,13 +306,29 @@ export const algoTestService = {
     }
   },
 
+  /**
+   * P3.3 - a persisted, completed run is reopenable independently of the
+   * original running session: every field below is reconstructed from the
+   * PERSISTED row alone, and the engine is never re-run. The one exception
+   * is `candles` - deliberately never persisted (see the field's own doc
+   * comment in types/algo-test.ts) - which is reconstructed here by
+   * re-fetching bars for this run's own persisted symbol/timeframe/date
+   * range through the SAME read-only historical provider used at run time.
+   * This is a read-only data fetch, not a second simulation - the trades/
+   * metrics/equityCurve/resultHash returned are 100% the original
+   * persisted values, untouched.
+   */
   async getAlgoTestRun(userId: string, testId: string): Promise<AlgoTestRunView | null> {
     const row = await prisma.algoTestRun.findFirst({ where: { id: testId, userId } });
     if (!row) return null;
-    return {
+
+    const view: AlgoTestRunView = {
       testId: row.id,
       status: row.status as "completed" | "failed",
       strategyId: row.strategyId,
+      strategyVersion: row.strategyVersion ?? undefined,
+      resultVersion: row.resultVersion ?? undefined,
+      engineVersion: row.engineVersion ?? undefined,
       symbol: row.symbol,
       timeframe: row.timeframe,
       startTime: row.startTime.toISOString(),
@@ -276,12 +339,32 @@ export const algoTestService = {
       trades: (row.trades as AlgoTestTradeView[] | null) ?? undefined,
       equityCurve: (row.equityCurve as AlgoTestEquityPoint[] | null) ?? undefined,
       assumptions: (row.assumptions as AlgoTestAssumptions | null) ?? undefined,
-      // Deliberately no `candles` here - see types/algo-test.ts's own doc
-      // comment: candles are only ever present on a fresh POST response.
       errorCode: (row.errorCode as AlgoTestErrorCode | null) ?? undefined,
       errorMessage: row.errorMessage ?? undefined,
       createdAt: row.createdAt.toISOString(),
     };
+
+    if (row.status === "completed") {
+      const engineTimeframe = SIGNAL_TIMEFRAME_TO_ENGINE_TIMEFRAME[row.timeframe];
+      if (engineTimeframe) {
+        try {
+          const { bars } = await twelveDataHistoricalDataProvider.getBars({
+            symbol: row.symbol,
+            timeframe: engineTimeframe,
+            startTime: row.startTime.toISOString(),
+            endTime: row.endTime.toISOString(),
+          });
+          view.candles = toChartCandles(bars);
+        } catch {
+          // Best-effort: a provider hiccup on reopen must never turn an
+          // already-successfully-persisted result into an error - the
+          // metrics/trades/equityCurve above remain fully intact either
+          // way, only the chart overlay is unavailable this reopen.
+        }
+      }
+    }
+
+    return view;
   },
 
   async listAlgoTestRuns(userId: string): Promise<AlgoTestRunView[]> {
@@ -290,6 +373,9 @@ export const algoTestService = {
       testId: row.id,
       status: row.status as "completed" | "failed",
       strategyId: row.strategyId,
+      strategyVersion: row.strategyVersion ?? undefined,
+      resultVersion: row.resultVersion ?? undefined,
+      engineVersion: row.engineVersion ?? undefined,
       symbol: row.symbol,
       timeframe: row.timeframe,
       startTime: row.startTime.toISOString(),
@@ -301,5 +387,10 @@ export const algoTestService = {
       errorMessage: row.errorMessage ?? undefined,
       createdAt: row.createdAt.toISOString(),
     }));
+  },
+
+  /** P3.3 - the Strategy Registry's own available-strategies list, for the registry-backed UI (GET /api/private/algo-test/strategies). */
+  listStrategies(): readonly StrategyDefinition[] {
+    return listAvailableStrategies();
   },
 };

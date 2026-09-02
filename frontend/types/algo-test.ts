@@ -9,10 +9,39 @@ import type { ChartCandle } from "./chart-data";
 /** Only "golden" is runnable this sprint - see algo-test.service.ts. Kept as a string, not a literal union, so a future strategy can be added without a type-level break. */
 export type AlgoTestStrategyId = string;
 
+/**
+ * P3.3 - the wire shape of one Strategy Registry entry
+ * (services/algo-test/strategy-registry.ts's own StrategyDefinition,
+ * structurally identical - kept as a separate type here so client code
+ * (lib/algo-test/store.ts, AlgoTestPanel.tsx) never imports from
+ * services/, matching this codebase's existing types/ vs services/
+ * boundary). Returned by GET /api/private/algo-test/strategies.
+ */
+export interface AlgoTestStrategyDefinition {
+  strategyId: AlgoTestStrategyId;
+  strategyVersion: string;
+  displayName: string;
+  description: string;
+  supportedSymbols: string[];
+  /** SignalTimeframe-shaped, e.g. "5m". */
+  supportedTimeframes: string[];
+  status: "available";
+}
+
 export type AlgoTestStatus = "completed" | "failed";
 
 export interface AlgoTestRunRequest {
   strategyId: AlgoTestStrategyId;
+  /**
+   * P3.3 - optional. When provided, must exactly match the strategy's
+   * currently-registered version (services/algo-test/strategy-registry.ts)
+   * or the request is rejected with INVALID_STRATEGY_VERSION - this lets a
+   * caller pin a version without the server ever silently substituting a
+   * different one. When omitted, the server resolves and records the
+   * strategy's current registered version itself; every run (with this
+   * field set or not) always persists an exact strategyVersion.
+   */
+  strategyVersion?: string;
   symbol: string;
   /** SignalTimeframe-shaped, e.g. "5m" - converted to the engine's own Timeframe token server-side (never exposed to the browser). */
   timeframe: string;
@@ -54,6 +83,22 @@ export interface AlgoTestTradeView {
   grossPnl: number;
   fees: number;
   rMultiple: number | null;
+  /**
+   * P3.3 - copied straight through from at24-quant-engine's SimulationTrade
+   * when the position that produced this trade actually had one; absent
+   * (never fabricated as e.g. 0) for a trade whose position had no
+   * stop-loss/take-profit.
+   */
+  stopLoss?: number;
+  takeProfit?: number;
+  /**
+   * P3.3 - a human-readable description of why the engine closed this
+   * position, present only when the engine's own close call site genuinely
+   * knew one (protective stop/take-profit resolution, a risk-engine
+   * forced/partial exit, or an opposite-side order fill) - never a guessed
+   * or default value when absent.
+   */
+  exitReason?: string;
 }
 
 export interface AlgoTestEquityPoint {
@@ -73,10 +118,12 @@ export interface AlgoTestAssumptions {
 export type AlgoTestErrorCode =
   | "UNAUTHORIZED"
   | "INVALID_STRATEGY"
+  | "INVALID_STRATEGY_VERSION"
   | "INVALID_SYMBOL"
   | "INVALID_TIMEFRAME"
   | "INVALID_DATE_RANGE"
   | "RANGE_TOO_LARGE"
+  | "INVALID_INITIAL_BALANCE"
   | "NO_HISTORICAL_DATA"
   | "PROVIDER_ERROR"
   | "INSUFFICIENT_DATA"
@@ -87,6 +134,12 @@ export interface AlgoTestRunView {
   testId: string;
   status: AlgoTestStatus;
   strategyId: AlgoTestStrategyId;
+  /** P3.3 - the exact registered strategy version this run executed against; undefined only for a pure validation failure that never resolved a strategy, or a pre-P3.3 persisted row. */
+  strategyVersion?: string;
+  /** P3.3 - this result record's own field-shape version (services/algo-test/result-contract.ts); undefined for a run that never reached a completed engine result, or a pre-P3.3 row. */
+  resultVersion?: string;
+  /** P3.3 - at24-quant-engine's own SimulationResult.provenance.runtimeVersion, copied verbatim; undefined under the same conditions as resultVersion. */
+  engineVersion?: string;
   symbol: string;
   timeframe: string;
   startTime: string;
@@ -99,10 +152,16 @@ export interface AlgoTestRunView {
   assumptions?: AlgoTestAssumptions;
   /**
    * The exact bars the engine ran against, for chart-overlay consistency
-   * (docs/P3.1-QUANT-CHART-INTEGRATION-ARCHITECTURE.md SS6). Present only on
-   * a freshly-completed run's own response - never persisted to the
-   * database (AlgoTestRun model's own header comment: "do not store
-   * unnecessarily huge raw datasets") and never returned by GET .../[id].
+   * (docs/P3.1-QUANT-CHART-INTEGRATION-ARCHITECTURE.md SS6). Present on a
+   * freshly-completed run's own POST response, AND (P3.3) reconstructed on
+   * a GET .../[id] reopen of a completed run - by re-fetching bars for the
+   * run's own persisted symbol/timeframe/date-range via the SAME read-only
+   * historical provider, never a re-simulation. Still never persisted to
+   * the database itself (AlgoTestRun model's own header comment: "do not
+   * store unnecessarily huge raw datasets") - reconstructed fresh on every
+   * reopen. Absent if that reconstruction fetch itself fails (best-effort:
+   * a provider hiccup on reopen must not turn an already-successful,
+   * fully-persisted result into an error).
    */
   candles?: ChartCandle[];
   errorCode?: AlgoTestErrorCode;
