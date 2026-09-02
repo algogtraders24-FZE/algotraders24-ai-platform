@@ -13,6 +13,8 @@ export interface RecordTradeInput {
     readonly spreadModel: string;
     readonly slippageModel: string;
     readonly feeModel: string;
+    /** Only set when the caller genuinely knows why this position closed (P3.3) — never invented here. */
+    readonly exitReason?: string;
 }
 /**
  * `rMultiple` reuses Q0.3's `computeRealizedR` (r-multiple.ts) — no

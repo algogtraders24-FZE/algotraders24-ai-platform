@@ -1223,6 +1223,13 @@ model AlgoTestRun {
   id             String    @id @default(cuid())
   userId         String
   strategyId     String
+  // P3.3 - the exact registered version of `strategyId` this run was
+  // executed against (services/algo-test/strategy-registry.ts), so a
+  // historical row stays identifiable even if the registry later adds a
+  // newer version of the same strategyId. Nullable: rows created before
+  // P3.3 (strategyId "golden" only, single version in existence at the
+  // time) genuinely predate this field - never backfilled with a guess.
+  strategyVersion String?
   symbol         String
   timeframe      String
   startTime      DateTime
@@ -1230,6 +1237,13 @@ model AlgoTestRun {
   initialBalance Float
   status         String
   resultHash     String?
+  // P3.3 - result-contract version (this row's own field-shape identity)
+  // and the at24-quant-engine runtime version that actually produced this
+  // result (SimulationResult.provenance.runtimeVersion, read verbatim -
+  // never a duplicated literal). Both null for pre-P3.3 rows and for a run
+  // that never reached a completed engine result.
+  resultVersion  String?
+  engineVersion  String?
   metrics        Json?
   trades         Json?
   equityCurve    Json?

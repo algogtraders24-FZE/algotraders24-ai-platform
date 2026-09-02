@@ -12,16 +12,19 @@
 // that calls at24-quant-engine - this component only ever renders numbers
 // the engine already computed (metrics/trades/equityCurve), never
 // recalculates any of them.
-import { forwardRef, useImperativeHandle, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import StatField from "@/components/workspace/StatField";
 import { FIN_LABEL, FIN_PRIMARY, FIN_SECONDARY, FIN_TERTIARY } from "@/components/ui/financial-typography";
 import { formatPrice, formatPercent, formatTimestamp } from "@/lib/financial-format";
-import { runAlgoTest } from "@/lib/algo-test/store";
-import type { AlgoTestRunView, AlgoTestTradeView } from "@/types/algo-test";
+import { runAlgoTest, fetchAlgoTestRun, fetchAlgoTestStrategies } from "@/lib/algo-test/store";
+import type { AlgoTestRunView, AlgoTestStrategyDefinition, AlgoTestTradeView } from "@/types/algo-test";
 import type { AlgoTestTradeMarker } from "@/lib/chart-engine/renderer";
 import type { ChartCandle } from "@/types/chart-data";
+
+/** P3.3 - the URL query param a completed run's id is round-tripped through, so a browser refresh reopens the same persisted result instead of losing it (Result Detail Page reopen requirement). */
+const REOPEN_QUERY_PARAM = "algoTestId";
 
 export interface AlgoTestChartOverlay {
   candles: ChartCandle[];
@@ -41,15 +44,20 @@ export interface AlgoTestPanelHandle {
   openConfig: () => void;
 }
 
-// This release's only supported combination (algo-test.service.ts's own
-// SUPPORTED_STRATEGY_IDS/SUPPORTED_SYMBOLS/SUPPORTED_TIMEFRAMES) - shown
-// here as fixed, disabled fields rather than a dropdown with one option,
-// so the UI is honest about what's actually selectable today.
-const FIXED_STRATEGY_LABEL = "Golden Strategy";
-const FIXED_SYMBOL = "XAUUSD";
-const FIXED_TIMEFRAME_LABEL = "M5";
+// P3.3 - fallback labels ONLY for the brief window before the real
+// Strategy Registry response arrives (or if that fetch fails) - the actual
+// selectable strategyId/symbol/timeframe sent to the server always come
+// from the registry-fetched `strategyDef` below, never from these
+// constants. This release's registry still declares exactly one strategy
+// (Golden Strategy / XAUUSD / M5), so these fallbacks and the real
+// registry values are expected to always agree.
+const FALLBACK_STRATEGY_LABEL = "Golden Strategy";
+const FALLBACK_SYMBOL = "XAUUSD";
+const FALLBACK_TIMEFRAME_LABEL = "M5";
 const DEFAULT_INITIAL_BALANCE = 10_000;
 const MAX_RANGE_DAYS = 14;
+
+const TIMEFRAME_DISPLAY_LABEL: Readonly<Record<string, string>> = { "5m": "M5", "15m": "M15", "1h": "H1" };
 
 function isoDateNDaysAgo(n: number): string {
   const d = new Date();
@@ -66,6 +74,12 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
   ref,
 ) {
   const [configOpen, setConfigOpen] = useState(false);
+  // P3.3 - fetched once from the Strategy Registry (GET
+  // /api/private/algo-test/strategies), not hardcoded - undefined only
+  // during the initial fetch or if it genuinely returned nothing
+  // available, in which case the fallback constants above render instead
+  // of leaving the panel blank.
+  const [strategyDef, setStrategyDef] = useState<AlgoTestStrategyDefinition | undefined>(undefined);
   const [startDate, setStartDate] = useState(() => isoDateNDaysAgo(7));
   // Live-verification finding (this sprint): defaulting to isoDateNDaysAgo(0)
   // ("today") looked right but always failed - the server converts endDate
@@ -80,20 +94,73 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const [run, setRun] = useState<AlgoTestRunView | undefined>(undefined);
+  const [reopening, setReopening] = useState(false);
 
   useImperativeHandle(ref, () => ({ openConfig: () => setConfigOpen(true) }), []);
 
+  // P3.3 - Strategy Registry, fetched once on mount. Symbol/timeframe
+  // pickers below render from strategyDef's own declared capability, never
+  // a second, independently-maintained list.
+  useEffect(() => {
+    let cancelled = false;
+    fetchAlgoTestStrategies().then((strategies) => {
+      if (cancelled) return;
+      const golden = strategies.find((s) => s.strategyId === "golden") ?? strategies[0];
+      if (golden) setStrategyDef(golden);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // P3.3 - Result Detail Page reopen: a persisted result survives a
+  // refresh because its testId round-trips through the URL query string
+  // (see handleSubmit's history.replaceState below). This re-fetches the
+  // PERSISTED run only - never re-runs the engine.
+  useEffect(() => {
+    const testId = new URLSearchParams(window.location.search).get(REOPEN_QUERY_PARAM);
+    if (!testId) return;
+    let cancelled = false;
+    setReopening(true);
+    fetchAlgoTestRun(testId).then((fetched) => {
+      if (cancelled || !fetched) {
+        setReopening(false);
+        return;
+      }
+      setRun(fetched);
+      setReopening(false);
+      if (fetched.status === "completed" && fetched.candles && fetched.trades) {
+        onOverlayChange({
+          candles: fetched.candles,
+          trades: fetched.trades.map(
+            (t): AlgoTestTradeMarker => ({ tradeId: t.tradeId, side: t.side, entryTime: t.entryTime, entryPrice: t.entryPrice, exitTime: t.exitTime, exitPrice: t.exitPrice }),
+          ),
+        });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reopen is a one-time, mount-time reconciliation of the URL's own testId, not a reaction to onOverlayChange identity
+  }, []);
+
   if (!isActive) return null;
 
-  // This release only supports XAUUSD (algo-test.service.ts's own
-  // SUPPORTED_SYMBOLS) - a pane showing any other symbol gets an honest
-  // "not yet" message rather than a config form that would only ever fail
-  // server-side validation.
-  if (symbol !== FIXED_SYMBOL) {
+  const activeSymbol = strategyDef?.supportedSymbols[0] ?? FALLBACK_SYMBOL;
+  const activeTimeframe = strategyDef?.supportedTimeframes[0] ?? "5m";
+  const strategyLabel = strategyDef?.displayName ?? FALLBACK_STRATEGY_LABEL;
+  const timeframeLabel = TIMEFRAME_DISPLAY_LABEL[activeTimeframe] ?? FALLBACK_TIMEFRAME_LABEL;
+
+  // The Capability Registry (strategyDef's own supportedSymbols) - a pane
+  // showing any other symbol gets an honest "not yet" message rather than
+  // a config form that would only ever fail server-side validation. The
+  // server independently re-validates this exact same rule - this check
+  // is a UX convenience, never the only enforcement.
+  if (symbol !== activeSymbol) {
     return (
       <div className="rounded-control border border-border bg-ink-3 px-3 py-2.5">
         <p className={FIN_LABEL}>Algo Testing (Pro)</p>
-        <p className={`${FIN_TERTIARY} mt-1`}>Only {FIXED_SYMBOL} is supported this release. Switch this pane&apos;s symbol to {FIXED_SYMBOL} to run a test.</p>
+        <p className={`${FIN_TERTIARY} mt-1`}>Only {activeSymbol} is supported this release. Switch this pane&apos;s symbol to {activeSymbol} to run a test.</p>
       </div>
     );
   }
@@ -109,9 +176,10 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
     setError(undefined);
     try {
       const result = await runAlgoTest({
-        strategyId: "golden",
-        symbol: FIXED_SYMBOL,
-        timeframe: "5m",
+        strategyId: strategyDef?.strategyId ?? "golden",
+        strategyVersion: strategyDef?.strategyVersion,
+        symbol: activeSymbol,
+        timeframe: activeTimeframe,
         startTime: toEngineTimestamp(startDate, false),
         endTime: toEngineTimestamp(endDate, true),
         initialBalance: parsedBalance,
@@ -126,6 +194,12 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
           ),
         });
         setConfigOpen(false);
+        // P3.3 - round-trip this completed run's id through the URL so a
+        // browser refresh reopens the exact same persisted result (see the
+        // reopen effect above) instead of losing it.
+        const url = new URL(window.location.href);
+        url.searchParams.set(REOPEN_QUERY_PARAM, result.testId);
+        window.history.replaceState(null, "", url.toString());
       } else {
         setError(result.errorMessage ?? "The test did not complete.");
       }
@@ -140,6 +214,9 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
     setRun(undefined);
     onSelectTrade(null);
     onOverlayChange(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete(REOPEN_QUERY_PARAM);
+    window.history.replaceState(null, "", url.toString());
   }
 
   return (
@@ -153,7 +230,11 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
         )}
       </div>
 
-      {!run && <p className={`${FIN_TERTIARY} mt-1`}>Run the Golden Strategy against real historical {FIXED_SYMBOL} data. Click &quot;Algo Test&quot; in the chart toolbar to configure a run.</p>}
+      {reopening && <p className={`${FIN_TERTIARY} mt-1`}>Reopening the saved result…</p>}
+
+      {!reopening && !run && (
+        <p className={`${FIN_TERTIARY} mt-1`}>Run the {strategyLabel} against real historical {activeSymbol} data. Click &quot;Algo Test&quot; in the chart toolbar to configure a run.</p>
+      )}
 
       {run && run.status === "completed" && run.metrics && (
         <AlgoTestResults run={run} selectedTradeId={selectedTradeId} onSelectTrade={onSelectTrade} />
@@ -163,11 +244,14 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
             <StatField label="Strategy" bare>
-              <span className={FIN_SECONDARY}>{FIXED_STRATEGY_LABEL}</span>
+              <span className={FIN_SECONDARY}>
+                {strategyLabel}
+                {strategyDef ? ` (v${strategyDef.strategyVersion})` : ""}
+              </span>
             </StatField>
             <StatField label="Symbol / Timeframe" bare>
               <span className={FIN_SECONDARY}>
-                {FIXED_SYMBOL} · {FIXED_TIMEFRAME_LABEL}
+                {activeSymbol} · {timeframeLabel}
               </span>
             </StatField>
           </div>

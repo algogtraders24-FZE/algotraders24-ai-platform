@@ -35,6 +35,12 @@ export function buildTrade(input) {
         fees: input.fees,
         netPnl: input.grossPnl - input.fees,
         rMultiple,
+        // P3.3 — copied straight through from the Position already on hand;
+        // no new computation, omitted (never fabricated) when the position
+        // never carried one.
+        ...(input.position.stopLoss !== undefined ? { stopLoss: input.position.stopLoss } : {}),
+        ...(input.position.takeProfit !== undefined ? { takeProfit: input.position.takeProfit } : {}),
+        ...(input.exitReason !== undefined ? { exitReason: input.exitReason } : {}),
         executionMetadata: {
             fillModel: input.fillModel,
             spreadModel: input.spreadModel,

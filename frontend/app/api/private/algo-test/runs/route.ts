@@ -33,8 +33,9 @@ export const POST = withContext(async (req, ctx) => {
   if (!body || typeof body !== "object") {
     throw Errors.validation("A JSON body with strategyId/symbol/timeframe/startTime/endTime is required");
   }
-  const { strategyId, symbol, timeframe, startTime, endTime, initialBalance } = body as Record<string, unknown>;
+  const { strategyId, strategyVersion, symbol, timeframe, startTime, endTime, initialBalance } = body as Record<string, unknown>;
   if (typeof strategyId !== "string" || strategyId.trim().length === 0) throw Errors.validation("strategyId is required");
+  if (strategyVersion !== undefined && typeof strategyVersion !== "string") throw Errors.validation("strategyVersion must be a string when provided");
   if (typeof symbol !== "string" || symbol.trim().length === 0) throw Errors.validation("symbol is required");
   if (typeof timeframe !== "string" || timeframe.trim().length === 0) throw Errors.validation("timeframe is required");
   if (typeof startTime !== "string" || startTime.trim().length === 0) throw Errors.validation("startTime (ISO 8601) is required");
@@ -43,6 +44,7 @@ export const POST = withContext(async (req, ctx) => {
 
   const request: AlgoTestRunRequest = {
     strategyId,
+    ...(typeof strategyVersion === "string" ? { strategyVersion } : {}),
     symbol,
     timeframe,
     startTime,

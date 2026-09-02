@@ -23,6 +23,16 @@ export interface TradeExecutionMetadata {
  * still-contract-only `BacktestResult`. This is the first REAL,
  * populated trade record Q0.5 actually produces — kept a distinct type
  * rather than colliding with or silently repurposing that placeholder.
+ *
+ * `stopLoss`/`takeProfit` (P3.3): the protective levels active on the
+ * position AT THE MOMENT IT CLOSED, copied straight through from the
+ * `Position` `buildTrade()` already receives — no new computation, and
+ * genuinely absent (never fabricated) for a position that never had a
+ * stop/target set. `exitReason` is likewise only ever populated with a
+ * reason the engine's own close call site already knows (protective
+ * stop/take-profit resolution, a risk-engine forced/partial exit, or an
+ * opposite-side order fill reducing/closing the position) — `undefined`
+ * is never backfilled with an invented label.
  */
 export interface SimulationTrade {
   readonly tradeId: string;
@@ -38,5 +48,8 @@ export interface SimulationTrade {
   readonly fees: number;
   readonly netPnl: number;
   readonly rMultiple: number | null;
+  readonly stopLoss?: number;
+  readonly takeProfit?: number;
+  readonly exitReason?: string;
   readonly executionMetadata: TradeExecutionMetadata;
 }
