@@ -36,6 +36,11 @@ const ERROR_COPY: Record<string, string> = {
   BACKTEST_FAILED: "The backtest could not complete.",
   BACKTEST_TIMEOUT: "The backtest took too long and was stopped.",
   ENGINE_ERROR: "The backtest engine encountered an unexpected error.",
+  // Q1.11 - the remote VPS execution service (see executionAdapter.ts's
+  // startJobRemote()) could not be reached at all - distinct from
+  // ENGINE_ERROR (which means the engine itself failed after being
+  // reached). Never shown as a fabricated result - an honest failure state.
+  ENGINE_UNREACHABLE: "The backtest execution service could not be reached. Please try again shortly.",
   RESULT_INVALID: "The engine's result could not be read.",
   UNKNOWN_ERROR: "An unknown error occurred.",
   NOT_FOUND: "This job could not be found.",

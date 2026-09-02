@@ -24,6 +24,7 @@ export type BacktestJobErrorCode =
   | "BACKTEST_FAILED"
   | "BACKTEST_TIMEOUT"
   | "ENGINE_ERROR"
+  | "ENGINE_UNREACHABLE"
   | "RESULT_INVALID"
   | "UNKNOWN_ERROR";
 

@@ -23,6 +23,18 @@ const MAX_CONCURRENT_BACKTESTS = Number(process.env.QUANT_LITE_MAX_CONCURRENT_BA
 const BACKTEST_TIMEOUT_MS = Number(process.env.QUANT_LITE_BACKTEST_TIMEOUT_MS) || 180_000;
 const STDERR_TAIL_LIMIT = 4000;
 
+// Q1.11 - when set, every backtest is forwarded to the remote VPS
+// execution service (quant-engine/service/quant_lite_execution_service.py)
+// over HTTPS instead of spawning python locally. Unset (the default) means
+// this file behaves EXACTLY as it always has - local spawn, no network
+// call, no behavior change for local dev or any deployment that hasn't
+// opted in. This is deliberately a drop-in swap of *where* the process
+// runs, not a rewrite of anything upstream (validation, job store,
+// coverage enforcement, result mapping all stay exactly as they are).
+const EXEC_SERVICE_URL = process.env.QUANT_LITE_EXEC_SERVICE_URL || "";
+const EXEC_SERVICE_SECRET = process.env.QUANT_LITE_EXEC_SECRET || "";
+const REMOTE_POLL_INTERVAL_MS = 1500;
+
 // Q0.4/Q0.6's own exact, already-regression-tested values - not yet a
 // user-configurable field on BacktestRequest (Q0.7 froze that contract
 // without spread/contract-size inputs), so kept as a named server-side
@@ -66,6 +78,123 @@ async function startJob(jobId: string): Promise<void> {
   const startedAt = new Date().toISOString();
   updateJob(jobId, { status: "RUNNING", startedAt });
 
+  if (EXEC_SERVICE_URL) {
+    await runRemote(job, startedAt);
+  } else {
+    await runLocal(job, startedAt);
+  }
+
+  runningCount--;
+  drainQueue();
+}
+
+/**
+ * Q1.11 - forwards the already-validated request to the remote VPS
+ * execution service instead of spawning python here. This function does
+ * NOT touch the filesystem, does NOT read market.db, and does NOT depend
+ * on any quant-engine sibling file - by design, per this sprint's own
+ * rule that Vercel must not do any of those things once remote execution
+ * is active. Everything it produces (job status transitions, the final
+ * BacktestResult, error codes) is written through the exact same
+ * updateJob()/fail() calls runLocal() uses, so nothing downstream (the
+ * job store, the GET route, the UI) can tell which path ran.
+ */
+async function runRemote(job: NonNullable<ReturnType<typeof getJob>>, startedAt: string): Promise<void> {
+  const jobId = job.jobId;
+  const body = {
+    jobId: job.jobId,
+    requestHash: job.requestHash,
+    strategy: job.request.strategy,
+    symbol: job.dbSymbol,
+    timeframe: job.request.timeframe,
+    dateRange: job.request.dateRange,
+    initialCapital: job.request.initialCapital,
+    riskPct: job.request.riskPct,
+    // spreadPrice/contractSize deliberately NOT sent - the remote service
+    // pins the same SPREAD_PRICE/CONTRACT_SIZE constants itself, exactly
+    // the same trust boundary as the local path (never client-configurable).
+  };
+
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (EXEC_SERVICE_SECRET) headers.Authorization = `Bearer ${EXEC_SERVICE_SECRET}`;
+
+  let remoteJobId: string;
+  try {
+    const submitRes = await fetch(`${EXEC_SERVICE_URL}/backtest`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15_000), // the submit call itself should be fast - this is not the backtest's own timeout
+    });
+    if (!submitRes.ok) {
+      const detail = await submitRes.text().catch(() => "");
+      // Never forward the remote service's own raw response body verbatim
+      // to the client - it may echo back request fields; a fixed, generic
+      // message is used instead, same discipline as every other
+      // client-facing error in this file.
+      fail(jobId, submitRes.status === 401 || submitRes.status === 503 ? "ENGINE_UNREACHABLE" : "ENGINE_ERROR", `remote execution service rejected the request (status ${submitRes.status})`);
+      void detail; // intentionally not surfaced to the client; available here only for server-side debugging if this file's own logs are inspected
+      return;
+    }
+    const submitBody = (await submitRes.json()) as { jobId: string };
+    remoteJobId = submitBody.jobId;
+  } catch (e) {
+    fail(jobId, "ENGINE_UNREACHABLE", `could not reach the remote execution service: ${e instanceof Error ? e.message : String(e)}`);
+    return;
+  }
+
+  const deadline = Date.now() + BACKTEST_TIMEOUT_MS + 15_000; // small grace buffer beyond the remote service's own timeout, for network/poll overhead
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, REMOTE_POLL_INTERVAL_MS));
+
+    let pollBody: { status: string; result?: unknown; error?: { code?: string; message?: string; details?: string[] } };
+    try {
+      const pollRes = await fetch(`${EXEC_SERVICE_URL}/backtest/${remoteJobId}`, {
+        headers: EXEC_SERVICE_SECRET ? { Authorization: `Bearer ${EXEC_SERVICE_SECRET}` } : {},
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!pollRes.ok) continue; // transient - keep polling until the deadline rather than failing on one bad poll
+      pollBody = await pollRes.json();
+    } catch {
+      continue; // transient network hiccup - keep polling until the deadline
+    }
+
+    if (pollBody.status === "QUEUED" || pollBody.status === "RUNNING") continue;
+
+    const durationMs = Date.now() - new Date(startedAt).getTime();
+
+    if (pollBody.status === "FAILED") {
+      const knownCodes: BacktestJobErrorCode[] = ["INVALID_REQUEST", "INVALID_STRATEGY", "DATA_UNAVAILABLE", "BACKTEST_FAILED", "BACKTEST_TIMEOUT", "ENGINE_ERROR", "ENGINE_UNREACHABLE", "RESULT_INVALID", "UNKNOWN_ERROR"];
+      const errCode = pollBody.error?.code;
+      const code = (knownCodes as string[]).includes(errCode ?? "") ? (errCode as BacktestJobErrorCode) : "UNKNOWN_ERROR";
+      updateJob(jobId, {
+        status: "FAILED",
+        error: { code, message: pollBody.error?.message ?? "backtest failed", details: pollBody.error?.details },
+        completedAt: new Date().toISOString(),
+        durationMs,
+      });
+      return;
+    }
+
+    if (pollBody.status === "COMPLETED") {
+      try {
+        const result = mapEngineOutputToResult(pollBody.result as RawEngineOutput, job.request.strategy.name || "Untitled strategy", job.dataQuality);
+        updateJob(jobId, { status: "COMPLETED", result, completedAt: new Date().toISOString(), durationMs });
+      } catch (e) {
+        fail(jobId, "RESULT_INVALID", `remote engine result could not be parsed into the result contract: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      return;
+    }
+
+    fail(jobId, "RESULT_INVALID", `remote execution service returned an unrecognized status: ${String(pollBody.status)}`);
+    return;
+  }
+
+  fail(jobId, "BACKTEST_TIMEOUT", `remote backtest did not complete within the expected time`);
+}
+
+async function runLocal(job: NonNullable<ReturnType<typeof getJob>>, startedAt: string): Promise<void> {
+  const jobId = job.jobId;
   const config = {
     jobId: job.jobId,
     requestHash: job.requestHash,
@@ -87,9 +216,7 @@ async function startJob(jobId: string): Promise<void> {
     configPath = writeJobConfig(jobId, config);
     outPath = jobResultOutPath(jobId);
   } catch (e) {
-    runningCount--;
     fail(jobId, "ENGINE_ERROR", `could not prepare job input: ${e instanceof Error ? e.message : String(e)}`);
-    drainQueue();
     return;
   }
 
@@ -206,7 +333,6 @@ async function startJob(jobId: string): Promise<void> {
   } catch {
     // non-fatal
   }
-
-  runningCount--;
-  drainQueue();
+  // runningCount-- / drainQueue() happen in the outer startJob() dispatcher
+  // now, not here - runLocal() and runRemote() are siblings under it.
 }
