@@ -54,6 +54,8 @@ export interface ChartToolbarProps {
   onOpenProperties: () => void;
   /** Sprint D2.7.11 Phase 5d - MT5's "Save as Picture" (right-click chart menu). */
   onSaveAsPicture: () => void;
+  /** P3.2B - opens the Algo Testing (Pro) configuration modal (AlgoTestPanel.tsx). */
+  onOpenAlgoTest: () => void;
 }
 
 const OVERLAY_CONFIGS = DEFAULT_INDICATOR_CONFIGS.filter((cfg) => INDICATOR_PANEL_ID[cfg.id] === "price");
@@ -78,6 +80,7 @@ export default function ChartToolbar({
   onOpenSaveTemplate,
   onOpenProperties,
   onSaveAsPicture,
+  onOpenAlgoTest,
 }: ChartToolbarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -224,6 +227,16 @@ export default function ChartToolbar({
             </div>
           )}
         </div>
+
+        <button
+          type="button"
+          onClick={onOpenAlgoTest}
+          title="Test a strategy against real historical data"
+          aria-label="Algo Test"
+          className="rounded-control border border-gold/40 bg-gold/10 px-2.5 py-1 text-[11px] font-semibold text-gold transition hover:bg-gold/20"
+        >
+          Algo Test
+        </button>
 
         <button
           type="button"

@@ -27,7 +27,7 @@ import { computePriceTicks, targetPriceTickCountForHeight, type PriceAxisTick } 
 import { computeTimeTicks, computePeriodSeparators, targetTimeTickCountForWidth, type PeriodSeparator, type TimeAxisTick } from "./time-axis";
 import type { ChartDimensions, ChartRenderType, CrosshairState, Viewport } from "./types";
 import { computePanelLayout, type PanelRow } from "./panel-layout";
-import { indexRangeForViewport, indexToX, type IndexRange } from "./index-scale";
+import { fractionalIndexForTime, indexRangeForViewport, indexToX, type IndexRange } from "./index-scale";
 import {
   drawOverlays,
   drawVolumePanel,
@@ -85,6 +85,26 @@ export interface RenderParams {
    * form to open anyway).
    */
   showTradeLines?: boolean;
+  /**
+   * P3.2B - completed Algo Test trades to overlay on the price panel
+   * (entry/exit markers + a connecting line), anchored in real time/price
+   * space exactly like DrawingObject (drawing-renderer.ts's own toPx
+   * pattern) - the SAME primitive, not a second rendering engine. Defaults
+   * to empty so every existing caller renders byte-for-byte unchanged.
+   */
+  algoTestTrades?: AlgoTestTradeMarker[];
+  /** The trade list's currently-selected row (algo-test-panel.tsx) - rendered with emphasis; every other trade renders at reduced opacity so the selected one reads clearly against the rest. */
+  selectedAlgoTestTradeId?: string | null;
+}
+
+/** P3.2B - one completed trade's chart-plottable fields (a strict subset of AlgoTestTradeView - the renderer never needs pnl/fees/etc.). */
+export interface AlgoTestTradeMarker {
+  tradeId: string;
+  side: "BUY" | "SELL";
+  entryTime: number;
+  entryPrice: number;
+  exitTime: number;
+  exitPrice: number;
 }
 
 const AXIS_FONT_SIZE = 11;
@@ -119,6 +139,8 @@ export function renderChart(params: RenderParams): void {
     showGrid = true,
     showPeriodSeparators = false,
     showTradeLines = false,
+    algoTestTrades = [],
+    selectedAlgoTestTradeId = null,
   } = params;
   const plotWidth = Math.max(0, dims.width - dims.priceAxisWidth);
   const plotHeight = Math.max(0, dims.height - dims.timeAxisHeight);
@@ -168,6 +190,7 @@ export function renderChart(params: RenderParams): void {
   drawPriceAxis(ctx, priceTicks, viewport, plotWidth, priceRow, colors);
   drawLatestPriceMarker(ctx, candles, viewport, plotWidth, priceRow, colors, priceTicks, liveQuote);
   if (showTradeLines && liveQuote) drawTradeLines(ctx, viewport, plotWidth, priceRow, colors, liveQuote);
+  if (algoTestTrades.length > 0) drawAlgoTestTrades(ctx, algoTestTrades, candles, indexRange, viewport, plotWidth, priceRow, colors, selectedAlgoTestTradeId);
   if (symbolLabel) drawSymbolLabel(ctx, symbolLabel, priceRow, colors);
   if (drawingObjects.length > 0) drawDrawingObjects(ctx, drawingObjects, candles, indexRange, viewport, plotWidth, priceRow, selectedDrawingObjectId);
   if (drawingPreview) drawDrawingPreview(ctx, drawingPreview, candles, indexRange, viewport, colors.accent, plotWidth, priceRow);
@@ -510,6 +533,92 @@ function drawTradeLine(ctx: CanvasRenderingContext2D, plotWidth: number, row: Pa
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(tag, 4 + TAG_WIDTH_PX / 2, y);
+}
+
+// P3.2B - completed Algo Test trade overlay. Reuses the exact same
+// (timestamp, price) -> pixel primitive drawing-renderer.ts's own toPx()
+// already establishes (fractionalIndexForTime + indexToX + priceToY) -
+// never a second coordinate system. Every trade is rendered every frame
+// (no viewport-intersection clustering yet - this sprint's bounded
+// MAX_RANGE_DAYS window keeps trade counts small, see
+// docs/P3.2B-RESULT-VISUALIZATION.md's own performance note); a future
+// wider-range release would need the clustering docs/P3.1-DATA-
+// COMPATIBILITY.md already named, not built here.
+const ALGO_TRADE_MARKER_RADIUS_PX = 4;
+const ALGO_TRADE_MARKER_RADIUS_SELECTED_PX = 6;
+
+function algoTradePx(time: number, price: number, candles: readonly ChartCandle[], indexRange: IndexRange, viewport: Viewport, plotWidth: number, row: PanelRow): { x: number; y: number } {
+  const index = fractionalIndexForTime(candles, time);
+  return { x: indexToX(index, indexRange, plotWidth), y: row.top + priceToY(price, viewport, row.height) };
+}
+
+function drawAlgoTestTrades(
+  ctx: CanvasRenderingContext2D,
+  trades: AlgoTestTradeMarker[],
+  candles: readonly ChartCandle[],
+  indexRange: IndexRange,
+  viewport: Viewport,
+  plotWidth: number,
+  row: PanelRow,
+  colors: ChartColors,
+  selectedTradeId: string | null,
+): void {
+  for (const trade of trades) {
+    const selected = trade.tradeId === selectedTradeId;
+    const color = trade.side === "BUY" ? colors.buyLine : colors.sellLine;
+    const entry = algoTradePx(trade.entryTime, trade.entryPrice, candles, indexRange, viewport, plotWidth, row);
+    const exit = algoTradePx(trade.exitTime, trade.exitPrice, candles, indexRange, viewport, plotWidth, row);
+
+    // Off-panel entirely (both ends outside this panel's row and outside
+    // the visible width) - skip drawing, matching drawTradeLine's own
+    // off-panel guard, just for x as well as y since these are fixed-time
+    // points, not full-width live-price lines.
+    const bothOffX = (entry.x < 0 && exit.x < 0) || (entry.x > plotWidth && exit.x > plotWidth);
+    if (bothOffX) continue;
+
+    ctx.globalAlpha = selectedTradeId === null || selected ? 1 : 0.35;
+
+    ctx.strokeStyle = color;
+    ctx.setLineDash([3, 3]);
+    ctx.lineWidth = selected ? 2 : 1;
+    ctx.beginPath();
+    ctx.moveTo(entry.x, entry.y);
+    ctx.lineTo(exit.x, exit.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const radius = selected ? ALGO_TRADE_MARKER_RADIUS_SELECTED_PX : ALGO_TRADE_MARKER_RADIUS_PX;
+
+    // Entry: a filled triangle pointing the trade's direction (up for BUY,
+    // down for SELL) - visually distinct from the exit's plain square, so
+    // "which end is entry" never depends on reading a label.
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    if (trade.side === "BUY") {
+      ctx.moveTo(entry.x, entry.y - radius);
+      ctx.lineTo(entry.x - radius, entry.y + radius);
+      ctx.lineTo(entry.x + radius, entry.y + radius);
+    } else {
+      ctx.moveTo(entry.x, entry.y + radius);
+      ctx.lineTo(entry.x - radius, entry.y - radius);
+      ctx.lineTo(entry.x + radius, entry.y - radius);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    // Exit: a filled square.
+    ctx.fillRect(exit.x - radius, exit.y - radius, radius * 2, radius * 2);
+
+    if (selected) {
+      ctx.strokeStyle = colors.accent;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(entry.x, entry.y, radius + 3, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    ctx.globalAlpha = 1;
+  }
 }
 
 function drawTimeAxis(

@@ -1207,3 +1207,37 @@ model PaperPosition {
   @@index([accountId, status])
   @@index([symbol, status])
 }
+
+// P3.2B - Algo Testing (Pro). One row per deterministic backtest run
+// against the canonical at24-quant-engine (docs/P3.1-*, P3.2A-*,
+// P3.2B-ALGO-TEST-E2E.md). Deliberately does NOT persist the historical
+// candles used (only metrics/trades/equityCurve - small, bounded by the
+// service's own MAX_RANGE_DAYS validation) - "do not store unnecessarily
+// huge raw datasets" (P3.2B brief SS16). Never stores provider API
+// credentials - those live only in TWELVEDATA_API_KEY server env, never
+// touch this row. `strategyId` is a stable identifier ("golden" today),
+// never the full StrategySpec - the spec itself lives in
+// at24-quant-engine's own src/reference/golden-strategy.ts, single
+// source of truth, never duplicated into the DB.
+model AlgoTestRun {
+  id             String    @id @default(cuid())
+  userId         String
+  strategyId     String
+  symbol         String
+  timeframe      String
+  startTime      DateTime
+  endTime        DateTime
+  initialBalance Float
+  status         String
+  resultHash     String?
+  metrics        Json?
+  trades         Json?
+  equityCurve    Json?
+  assumptions    Json?
+  errorCode      String?
+  errorMessage   String?
+  createdAt      DateTime  @default(now())
+  completedAt    DateTime?
+
+  @@index([userId, createdAt])
+}
