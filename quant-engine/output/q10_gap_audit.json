@@ -1,0 +1,407 @@
+[
+  {
+    "symbol": "BTCUSD_EXNESS",
+    "timeframe": "15m",
+    "monotonic": true,
+    "max_gap_minutes": 311055.0,
+    "expected_interval_minutes": 15,
+    "anomalous_gap_count": 8,
+    "anomalous_gap_threshold_minutes": 360
+  },
+  {
+    "symbol": "BTCUSD_EXNESS",
+    "timeframe": "1d",
+    "monotonic": true,
+    "max_gap_minutes": 312480.0,
+    "expected_interval_minutes": 1440,
+    "anomalous_gap_count": 502,
+    "anomalous_gap_threshold_minutes": 360
+  },
+  {
+    "symbol": "BTCUSD_EXNESS",
+    "timeframe": "1h",
+    "monotonic": true,
+    "max_gap_minutes": 311100.0,
+    "expected_interval_minutes": 60,
+    "anomalous_gap_count": 8,
+    "anomalous_gap_threshold_minutes": 360
+  },
+  {
+    "symbol": "BTCUSD_EXNESS",
+    "timeframe": "1m",
+    "monotonic": true,
+    "max_gap_minutes": 311041.0,
+    "expected_interval_minutes": 1,
+    "anomalous_gap_count": 8,
+    "anomalous_gap_threshold_minutes": 360
+  },
+  {
+    "symbol": "BTCUSD_EXNESS",
+    "timeframe": "30m",
+    "monotonic": true,
+    "max_gap_minutes": 311070.0,
+    "expected_interval_minutes": 30,
+    "anomalous_gap_count": 8,
+    "anomalous_gap_threshold_minutes": 360
+  },
+  {
+    "symbol": "BTCUSD_EXNESS",
+    "timeframe": "4h",
+    "monotonic": true,
+    "max_gap_minutes": 311280.0,
+    "expected_interval_minutes": 240,
+    "anomalous_gap_count": 10,
+    "anomalous_gap_threshold_minutes": 360
+  },
+  {
+    "symbol": "BTCUSD_EXNESS",
+    "timeframe": "5m",
+    "monotonic": true,
+    "max_gap_minutes": 311045.0,
+    "expected_interval_minutes": 5,
+    "anomalous_gap_count": 8,
+    "anomalous_gap_threshold_minutes": 360
+  },
+  {
+    "symbol": "EURUSD",
+    "timeframe": "1h",
+    "monotonic": true,
+    "max_gap_minutes": 4740.0,
+    "expected_interval_minutes": 60,
+    "anomalous_gap_count": 6,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "EURUSD_EXNESS",
+    "timeframe": "15m",
+    "monotonic": true,
+    "max_gap_minutes": 18915.0,
+    "expected_interval_minutes": 15,
+    "anomalous_gap_count": 1,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "EURUSD_EXNESS",
+    "timeframe": "1d",
+    "monotonic": true,
+    "max_gap_minutes": 20160.0,
+    "expected_interval_minutes": 1440,
+    "anomalous_gap_count": 1,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "EURUSD_EXNESS",
+    "timeframe": "1h",
+    "monotonic": true,
+    "max_gap_minutes": 18960.0,
+    "expected_interval_minutes": 60,
+    "anomalous_gap_count": 1,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "EURUSD_EXNESS",
+    "timeframe": "1m",
+    "monotonic": true,
+    "max_gap_minutes": 18902.0,
+    "expected_interval_minutes": 1,
+    "anomalous_gap_count": 1,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "EURUSD_EXNESS",
+    "timeframe": "30m",
+    "monotonic": true,
+    "max_gap_minutes": 18930.0,
+    "expected_interval_minutes": 30,
+    "anomalous_gap_count": 1,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "EURUSD_EXNESS",
+    "timeframe": "4h",
+    "monotonic": true,
+    "max_gap_minutes": 18960.0,
+    "expected_interval_minutes": 240,
+    "anomalous_gap_count": 1,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "EURUSD_EXNESS",
+    "timeframe": "5m",
+    "monotonic": true,
+    "max_gap_minutes": 18905.0,
+    "expected_interval_minutes": 5,
+    "anomalous_gap_count": 1,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "GBPUSD_EXNESS",
+    "timeframe": "15m",
+    "monotonic": true,
+    "max_gap_minutes": 18915.0,
+    "expected_interval_minutes": 15,
+    "anomalous_gap_count": 2,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "GBPUSD_EXNESS",
+    "timeframe": "1d",
+    "monotonic": true,
+    "max_gap_minutes": 20160.0,
+    "expected_interval_minutes": 1440,
+    "anomalous_gap_count": 2,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "GBPUSD_EXNESS",
+    "timeframe": "1h",
+    "monotonic": true,
+    "max_gap_minutes": 18960.0,
+    "expected_interval_minutes": 60,
+    "anomalous_gap_count": 2,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "GBPUSD_EXNESS",
+    "timeframe": "1m",
+    "monotonic": true,
+    "max_gap_minutes": 18902.0,
+    "expected_interval_minutes": 1,
+    "anomalous_gap_count": 2,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "GBPUSD_EXNESS",
+    "timeframe": "30m",
+    "monotonic": true,
+    "max_gap_minutes": 18930.0,
+    "expected_interval_minutes": 30,
+    "anomalous_gap_count": 2,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "GBPUSD_EXNESS",
+    "timeframe": "4h",
+    "monotonic": true,
+    "max_gap_minutes": 18960.0,
+    "expected_interval_minutes": 240,
+    "anomalous_gap_count": 2,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "GBPUSD_EXNESS",
+    "timeframe": "5m",
+    "monotonic": true,
+    "max_gap_minutes": 18905.0,
+    "expected_interval_minutes": 5,
+    "anomalous_gap_count": 2,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "USOIL_EXNESS",
+    "timeframe": "15m",
+    "monotonic": true,
+    "max_gap_minutes": 18915.0,
+    "expected_interval_minutes": 15,
+    "anomalous_gap_count": 4,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "USOIL_EXNESS",
+    "timeframe": "1d",
+    "monotonic": true,
+    "max_gap_minutes": 20160.0,
+    "expected_interval_minutes": 1440,
+    "anomalous_gap_count": 1,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "USOIL_EXNESS",
+    "timeframe": "1h",
+    "monotonic": true,
+    "max_gap_minutes": 18960.0,
+    "expected_interval_minutes": 60,
+    "anomalous_gap_count": 4,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "USOIL_EXNESS",
+    "timeframe": "1m",
+    "monotonic": true,
+    "max_gap_minutes": 18904.0,
+    "expected_interval_minutes": 1,
+    "anomalous_gap_count": 4,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "USOIL_EXNESS",
+    "timeframe": "30m",
+    "monotonic": true,
+    "max_gap_minutes": 18930.0,
+    "expected_interval_minutes": 30,
+    "anomalous_gap_count": 4,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "USOIL_EXNESS",
+    "timeframe": "4h",
+    "monotonic": true,
+    "max_gap_minutes": 18960.0,
+    "expected_interval_minutes": 240,
+    "anomalous_gap_count": 1,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "USOIL_EXNESS",
+    "timeframe": "5m",
+    "monotonic": true,
+    "max_gap_minutes": 18905.0,
+    "expected_interval_minutes": 5,
+    "anomalous_gap_count": 4,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "XAUUSD",
+    "timeframe": "1h",
+    "monotonic": true,
+    "max_gap_minutes": 4620.0,
+    "expected_interval_minutes": 60,
+    "anomalous_gap_count": 12,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "XAUUSD",
+    "timeframe": "4h",
+    "monotonic": true,
+    "max_gap_minutes": 4560.0,
+    "expected_interval_minutes": 240,
+    "anomalous_gap_count": 1,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "XAUUSD_EXNESS",
+    "timeframe": "15m",
+    "monotonic": true,
+    "max_gap_minutes": 243315.0,
+    "expected_interval_minutes": 15,
+    "anomalous_gap_count": 14,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "XAUUSD_EXNESS",
+    "timeframe": "1d",
+    "monotonic": true,
+    "max_gap_minutes": 243360.0,
+    "expected_interval_minutes": 1440,
+    "anomalous_gap_count": 12,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "XAUUSD_EXNESS",
+    "timeframe": "1h",
+    "monotonic": true,
+    "max_gap_minutes": 243360.0,
+    "expected_interval_minutes": 60,
+    "anomalous_gap_count": 14,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "XAUUSD_EXNESS",
+    "timeframe": "1m",
+    "monotonic": true,
+    "max_gap_minutes": 243306.0,
+    "expected_interval_minutes": 1,
+    "anomalous_gap_count": 14,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "XAUUSD_EXNESS",
+    "timeframe": "30m",
+    "monotonic": true,
+    "max_gap_minutes": 243330.0,
+    "expected_interval_minutes": 30,
+    "anomalous_gap_count": 14,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "XAUUSD_EXNESS",
+    "timeframe": "4h",
+    "monotonic": true,
+    "max_gap_minutes": 243360.0,
+    "expected_interval_minutes": 240,
+    "anomalous_gap_count": 12,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "XAUUSD_EXNESS",
+    "timeframe": "5m",
+    "monotonic": true,
+    "max_gap_minutes": 243310.0,
+    "expected_interval_minutes": 5,
+    "anomalous_gap_count": 14,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "XAUUSD_ZS_EXNESS",
+    "timeframe": "15m",
+    "monotonic": true,
+    "max_gap_minutes": 187155.0,
+    "expected_interval_minutes": 15,
+    "anomalous_gap_count": 40,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "XAUUSD_ZS_EXNESS",
+    "timeframe": "1d",
+    "monotonic": true,
+    "max_gap_minutes": 187200.0,
+    "expected_interval_minutes": 1440,
+    "anomalous_gap_count": 38,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "XAUUSD_ZS_EXNESS",
+    "timeframe": "1h",
+    "monotonic": true,
+    "max_gap_minutes": 187200.0,
+    "expected_interval_minutes": 60,
+    "anomalous_gap_count": 40,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "XAUUSD_ZS_EXNESS",
+    "timeframe": "1m",
+    "monotonic": true,
+    "max_gap_minutes": 187146.0,
+    "expected_interval_minutes": 1,
+    "anomalous_gap_count": 40,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "XAUUSD_ZS_EXNESS",
+    "timeframe": "30m",
+    "monotonic": true,
+    "max_gap_minutes": 187170.0,
+    "expected_interval_minutes": 30,
+    "anomalous_gap_count": 40,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "XAUUSD_ZS_EXNESS",
+    "timeframe": "4h",
+    "monotonic": true,
+    "max_gap_minutes": 187200.0,
+    "expected_interval_minutes": 240,
+    "anomalous_gap_count": 38,
+    "anomalous_gap_threshold_minutes": 4320
+  },
+  {
+    "symbol": "XAUUSD_ZS_EXNESS",
+    "timeframe": "5m",
+    "monotonic": true,
+    "max_gap_minutes": 187150.0,
+    "expected_interval_minutes": 5,
+    "anomalous_gap_count": 40,
+    "anomalous_gap_threshold_minutes": 4320
+  }
+]

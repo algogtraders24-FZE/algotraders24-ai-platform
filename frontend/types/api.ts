@@ -7,6 +7,7 @@ export type ApiStatus = "ok" | "error";
 export type HttpStatusCode =
   | 200
   | 201
+  | 202
   | 204
   | 400
   | 401
@@ -18,7 +19,8 @@ export type HttpStatusCode =
   | 429
   | 500
   | 502
-  | 503;
+  | 503
+  | 504;
 
 export interface ApiError {
   code: string;

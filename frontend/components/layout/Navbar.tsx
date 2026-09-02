@@ -38,6 +38,14 @@ const NAV_ITEMS: NavItem[] = [
   // sidebar, which is the seller-only backoffice, not this public browse
   // page.
   { label: "Marketplace", href: "/marketplace" },
+  // Sprint Q1.6 - same gap as Marketplace above had before M12: Quant Lite
+  // (app/quant-lite/**, built out across Q0.7-Q1.5) had zero entry point
+  // anywhere in site navigation - reachable only if you already knew the
+  // URL. A free, standalone strategy-builder product gets the same
+  // top-level, no-dropdown treatment as Marketplace (it isn't one of the
+  // Platform dropdown's AI-intelligence modules, and burying a free
+  // acquisition product under a submenu works against its own purpose).
+  { label: "Quant Lite", href: "/quant-lite" },
   {
     label: "Platform",
     href: "/platform",
@@ -81,14 +89,14 @@ const NAV_ITEMS: NavItem[] = [
 function DesktopDropdown({ item }: { item: NavItem }) {
   if (!item.children) {
     return (
-      <Link href={item.href} className="transition-colors hover:text-text">
+      <Link href={item.href} className="whitespace-nowrap transition-colors hover:text-text">
         {item.label}
       </Link>
     );
   }
   return (
     <div className="group relative">
-      <Link href={item.href} className="flex items-center gap-1 transition-colors hover:text-text">
+      <Link href={item.href} className="flex items-center gap-1 whitespace-nowrap transition-colors hover:text-text">
         {item.label}
         <ChevronDown className="h-3.5 w-3.5 transition-transform duration-200 group-hover:rotate-180" aria-hidden="true" />
       </Link>

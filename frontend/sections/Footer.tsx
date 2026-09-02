@@ -32,6 +32,10 @@
 //   - Platform's Automation/AI Agents/Trading Copilot link straight to
 //     their real /dashboard/* route (no dedicated marketing page yet),
 //     same pattern the /platform hub uses for the same three modules.
+//
+// Sprint Q1.6 - "Quant Lite (Free)" added as the first Products item
+// (/quant-lite, real and fully built since Q0.7-Q1.5) - it had no footer
+// presence at all before this, matching Navbar.tsx's same gap/fix.
 import Link from "next/link";
 import BrandLogo from "@/components/brand/BrandLogo";
 
@@ -75,6 +79,7 @@ const PLATFORM: FooterItem[] = [
 ];
 
 const PRODUCTS: FooterItem[] = [
+  { label: "Quant Lite (Free)", href: "/quant-lite" },
   { label: "MT5 Expert Advisors", href: "/products?category=mt5-expert-advisors" },
   { label: "TradingView Indicators", href: "/products?category=tradingview-indicators" },
   { label: "Crypto Bots", href: "/products?category=crypto-bots" },
