@@ -549,7 +549,12 @@ async function switchingTests(): Promise<void> {
 
   await test("no state leaks between symbols - resolution/candles are both re-derived fresh from the current `symbol`/`result.series` every render", () => {
     assert.ok(nativeSrc.includes("const resolution = resolveChartInstrument(symbol);"));
-    assert.ok(nativeSrc.includes("const candles = useMemo<ChartCandle[]>(() => result.series?.candles ?? [], [result.series]);"));
+    // P3.2B - candles now also falls back through algoTestOverlay (a completed
+    // Algo Test's own historical bars) before result.series - still re-derived
+    // fresh every render from `symbol`'s own already-fetched result.series
+    // (and the equally-fresh algoTestOverlay state) - no per-symbol state
+    // leak was introduced, just a second, higher-priority real source.
+    assert.ok(nativeSrc.includes("const candles = useMemo<ChartCandle[]>(() => algoTestOverlay?.candles ?? result.series?.candles ?? [], [algoTestOverlay, result.series]);"));
   });
 
   await test("ChartHeader (D2.7.5) still reads its price/change/freshness/provenance from the SAME already-fetched series - no stale header values possible across a switch", () => {

@@ -230,17 +230,22 @@ function wiringTests(): void {
     const src = read("components/chart-engine/NativeChart.tsx");
     // Post-completion phase - widened from 2500: the Paper Trading
     // showTradeLines comment block pushed the deps array further from the
-    // slice's start; 3000 comfortably covers it again with margin to spare.
-    const drawBlock = src.slice(src.indexOf("const draw = useMemo"), src.indexOf("const draw = useMemo") + 3000);
+    // slice's start; 3000 comfortably covered it again with margin to spare.
+    // P3.2B - widened again to 3500: the algoTestTrades/selectedAlgoTestTradeId
+    // fields (and their own explanatory comment) pushed it further still.
+    const drawBlock = src.slice(src.indexOf("const draw = useMemo"), src.indexOf("const draw = useMemo") + 3500);
     assert.ok(drawBlock.includes("chartType,"), "renderChart(...) call must pass chartType");
     assert.ok(
       // Post-completion phase - activeSymbol joined the deps array so
       // showTradeLines (symbol === activeSymbol) actually recomputes when
       // the workspace's active symbol changes - never a stale canvas.
-      /\[candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme, activeSymbol\]/.test(
+      // P3.2B - algoTestOverlay/selectedAlgoTestTradeId joined too, so an
+      // Algo Test trade-marker overlay/selection change also actually
+      // redraws - same "never a stale canvas" guarantee, one more real input.
+      /\[candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme, activeSymbol, algoTestOverlay, selectedAlgoTestTradeId\]/.test(
         drawBlock,
       ),
-      "deps array must include chartType/showGrid/showPeriodSeparators/colorScheme/activeSymbol",
+      "deps array must include chartType/showGrid/showPeriodSeparators/colorScheme/activeSymbol/algoTestOverlay/selectedAlgoTestTradeId",
     );
   });
 

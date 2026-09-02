@@ -1,21 +1,24 @@
 import type { Instrument, OHLCVBar, Timeframe } from "../../src/domain/market-data.js";
-import type { StrategySpec } from "../../src/domain/strategy-spec.js";
-import { indicator, indicatorKey } from "../../src/domain/indicator-reference.js";
-import { comparison, indicatorOperand, literal } from "../../src/domain/expression.js";
+import { indicatorKey } from "../../src/domain/indicator-reference.js";
 import { ZeroSpread } from "../../src/runtime/simulation/spread-model.js";
 import { ZeroSlippage } from "../../src/runtime/simulation/slippage-model.js";
 import { ZeroFee } from "../../src/runtime/simulation/fee-model.js";
 import { ZeroLatency } from "../../src/runtime/simulation/latency-model.js";
 import type { SimulationConfig } from "../../src/runtime/simulation/simulation-engine.js";
+import { GOLDEN_STRATEGY_PRICE_INDICATOR, buildGoldenStrategySpec } from "../../src/reference/golden-strategy.js";
 
 /**
- * A minimal "PRICE" pseudo-indicator whose series is just each bar's
- * close, supplied via `indicatorSeries` exactly like a real computed
- * indicator would be — this keeps the golden fixture's entry rule
- * (PRICE > 100) simple and independently hand-verifiable without needing
- * a real SMA/EMA warmup period to reason about.
+ * P3.2A: `buildGoldenStrategySpec()` (and the `PRICE` pseudo-indicator it
+ * references) now live in `src/reference/golden-strategy.ts` — a single,
+ * publicly exported, canonical definition. Both this test suite and any
+ * external consumer (e.g. the Native Chart Algo Test integration) import
+ * the exact same function, never a second copy. Re-exported here so
+ * every existing test file's `import { buildGoldenStrategySpec } from
+ * "./fixtures/simulation-fixtures.js"` keeps working unchanged, and
+ * `PRICE` keeps its established local name for the rest of this file.
  */
-export const PRICE = indicator("PRICE");
+export { buildGoldenStrategySpec };
+export const PRICE = GOLDEN_STRATEGY_PRICE_INDICATOR;
 
 export const SIM_INSTRUMENT: Instrument = { symbol: "SIMFIXTURE", assetClass: "other" };
 export const SIM_TIMEFRAME: Timeframe = "H1";
@@ -63,31 +66,6 @@ export const GOLDEN_BARS: readonly OHLCVBar[] = [
 
 /** Extends GOLDEN_BARS with two more bars where PRICE stays > 100, deliberately triggering a legitimate re-entry after the first exit. */
 export const GOLDEN_BARS_WITH_REENTRY: readonly OHLCVBar[] = [...GOLDEN_BARS, bar(6, 105, 106, 104, 105), bar(7, 105, 106, 104, 105)];
-
-export function buildGoldenStrategySpec(): StrategySpec {
-  return {
-    identity: { strategyId: "sim-golden", name: "Simulation Golden Fixture Strategy" },
-    version: "1.0.0",
-    metadata: { createdAt: BASE_TS },
-    instruments: [SIM_INSTRUMENT],
-    timeframes: [SIM_TIMEFRAME],
-    parameters: [],
-    entryRules: [
-      {
-        id: "entry-price-above-100",
-        direction: "BUY",
-        condition: comparison(">", indicatorOperand(PRICE), literal(100)),
-      },
-    ],
-    exitRules: [],
-    risk: {
-      sizing: { method: "fixed-quantity", quantity: 1 },
-      stopLoss: { type: "fixed-distance", distance: 5 },
-      takeProfit: { type: "risk-multiple", rMultiple: 2 },
-    },
-    execution: { fillModel: "next-bar-open", costsExplicitlyZero: true },
-  };
-}
 
 export function buildGoldenIndicatorSeries(bars: readonly OHLCVBar[] = GOLDEN_BARS): ReadonlyMap<string, readonly (number | boolean | undefined)[]> {
   return new Map([[indicatorKey(PRICE), bars.map((b) => b.close)]]);
