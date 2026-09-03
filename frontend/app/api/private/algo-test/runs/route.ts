@@ -33,9 +33,16 @@ export const POST = withContext(async (req, ctx) => {
   if (!body || typeof body !== "object") {
     throw Errors.validation("A JSON body with strategyId/symbol/timeframe/startTime/endTime is required");
   }
-  const { strategyId, strategyVersion, symbol, timeframe, startTime, endTime, initialBalance } = body as Record<string, unknown>;
+  const { strategyId, strategyVersion, parameters, symbol, timeframe, startTime, endTime, initialBalance } = body as Record<string, unknown>;
   if (typeof strategyId !== "string" || strategyId.trim().length === 0) throw Errors.validation("strategyId is required");
   if (strategyVersion !== undefined && typeof strategyVersion !== "string") throw Errors.validation("strategyVersion must be a string when provided");
+  // P3.4 - only a shape check here (a plain JSON object, or omitted). The
+  // actual per-parameter type/range/step validation against the
+  // authoritative registry schema happens exactly once, server-side, in
+  // algo-test.service.ts's validateRequest() - never duplicated here.
+  if (parameters !== undefined && (typeof parameters !== "object" || parameters === null || Array.isArray(parameters))) {
+    throw Errors.validation("parameters must be a JSON object when provided");
+  }
   if (typeof symbol !== "string" || symbol.trim().length === 0) throw Errors.validation("symbol is required");
   if (typeof timeframe !== "string" || timeframe.trim().length === 0) throw Errors.validation("timeframe is required");
   if (typeof startTime !== "string" || startTime.trim().length === 0) throw Errors.validation("startTime (ISO 8601) is required");
@@ -45,6 +52,7 @@ export const POST = withContext(async (req, ctx) => {
   const request: AlgoTestRunRequest = {
     strategyId,
     ...(typeof strategyVersion === "string" ? { strategyVersion } : {}),
+    ...(parameters !== undefined ? { parameters: parameters as Record<string, unknown> } : {}),
     symbol,
     timeframe,
     startTime,
