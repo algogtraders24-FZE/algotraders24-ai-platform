@@ -49,3 +49,4 @@ export * from "./runtime/reduction/index.js";
 export * from "./indicators/index.js";
 
 export * from "./reference/golden-strategy.js";
+export * from "./reference/ref-ema-crossover-strategy.js";

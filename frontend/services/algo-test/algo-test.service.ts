@@ -1,13 +1,21 @@
 // services/algo-test/algo-test.service.ts
 // P3.2B - orchestrates one Algo Test run: validates the request, fetches
 // real historical bars via the P3.2A.1 production provider (Twelve Data),
-// calls the EXISTING deterministic at24-quant-engine (via
-// run-golden-backtest.ts's already-proven composition - never a new
-// simulator, never duplicated execution/ledger/metrics/equity math - see
-// docs/P3.1-QUANT-CHART-CONTRACT.md and P3.2A-RESULT-CONTRACT.md), and
-// persists a bounded, non-huge result record. Every AlgoTestRun row is
-// owned by the requesting user's id - never trusted from client input
-// (matches paper-trading.service.ts's own ownership convention exactly).
+// calls the EXISTING deterministic at24-quant-engine (via run-backtest.ts's
+// already-proven composition - never a new simulator, never duplicated
+// execution/ledger/metrics/equity math - see docs/P3.1-QUANT-CHART-CONTRACT.md
+// and P3.2A-RESULT-CONTRACT.md), and persists a bounded, non-huge result
+// record. Every AlgoTestRun row is owned by the requesting user's id -
+// never trusted from client input (matches paper-trading.service.ts's own
+// ownership convention exactly).
+//
+// P3.6 (docs/ALGO_TESTING_PRO_ROADMAP.md section 7): this file is now
+// strategy-generic. `runAlgoTest` calls `strategy.buildSpec(parameters)`
+// and `strategy.buildIndicatorSeries` - both owned by whichever
+// StrategyDefinition the request resolved to (strategy-registry.ts) -
+// and hands the result to the generic runBacktest(). There is no
+// `strategyId === "golden"` branch anywhere in this file, and none is
+// needed for the registry's second strategy (ref-ema-crossover) either.
 import type { OHLCVBar, SimulationResult, SimulationTrade, Timeframe } from "at24-quant-engine";
 import { prisma } from "@/lib/prisma";
 import type {
@@ -22,7 +30,7 @@ import type {
 } from "@/types/algo-test";
 import type { ChartCandle } from "@/types/chart-data";
 import { twelveDataHistoricalDataProvider } from "./historical-data/twelve-data-provider";
-import { runGoldenBacktest } from "./run-golden-backtest";
+import { runBacktest } from "./run-backtest";
 import { getStrategyDefinition, listAvailableStrategies, validateParameterValues, type StrategyDefinition } from "./strategy-registry";
 import { RESULT_CONTRACT_VERSION } from "./result-contract";
 
@@ -124,7 +132,7 @@ function validateRequest(request: AlgoTestRunRequest): ValidationFailure | Valid
   return { strategy, engineTimeframe, startTime, endTime, initialBalance, parameters: parameterResult.normalized };
 }
 
-// "no valid historical bars" is run-golden-backtest.ts's own thrown message
+// "no valid historical bars" is run-backtest.ts's own thrown message
 // (a successful-but-empty provider response); "no data is available" is
 // Twelve Data's real HTTP 400 message for a date range outside its
 // coverage (confirmed live this sprint - a pre-1990 request genuinely
@@ -203,30 +211,6 @@ function toEquityCurveView(equityCurve: readonly { timestamp: number; balance: n
   return equityCurve.map((p) => ({ timestamp: p.timestamp, balance: p.balance }));
 }
 
-// P3.4/P3.5 - the ONE explicit place validated Strategy Parameters map onto
-// at24-quant-engine's own public buildGoldenStrategySpec() argument. This
-// is deliberately a small, named, per-strategy mapping function - never a
-// generic "spread the parameters object into the engine" pass-through -
-// so a future second strategy gets its own equally explicit mapping,
-// never an implicit contract with engine internals. Only ever called
-// with an already-validated AlgoTestParameterValues (validateRequest's
-// own validateParameterValues() has already run), so every field read
-// here is guaranteed to be a real, in-range number for the "golden"
-// strategy - never a raw, unchecked client value. P3.5 added the three
-// risk fields (positionSizeQuantity/stopLossDistance/takeProfitRMultiple)
-// alongside priceThreshold, same guarantee, same mapping shape.
-function toGoldenStrategyOverrides(
-  parameters: AlgoTestParameterValues,
-): { priceThreshold?: number; positionSizeQuantity?: number; stopLossDistance?: number; takeProfitRMultiple?: number } {
-  const { priceThreshold, positionSizeQuantity, stopLossDistance, takeProfitRMultiple } = parameters;
-  return {
-    ...(typeof priceThreshold === "number" ? { priceThreshold } : {}),
-    ...(typeof positionSizeQuantity === "number" ? { positionSizeQuantity } : {}),
-    ...(typeof stopLossDistance === "number" ? { stopLossDistance } : {}),
-    ...(typeof takeProfitRMultiple === "number" ? { takeProfitRMultiple } : {}),
-  };
-}
-
 export const algoTestService = {
   async runAlgoTest(userId: string, request: AlgoTestRunRequest): Promise<AlgoTestRunView> {
     const validated = validateRequest(request);
@@ -273,14 +257,19 @@ export const algoTestService = {
     });
 
     try {
-      const outcome = await runGoldenBacktest(
+      const outcome = await runBacktest(
         {
           symbol: request.symbol,
           timeframe: engineTimeframe,
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
           initialBalance,
-          ...toGoldenStrategyOverrides(parameters),
+          // P3.6 - the strategy's own buildSpec/buildIndicatorSeries, not a
+          // strategyId branch here. `parameters` is already the fully-
+          // normalized, already-validated snapshot from validateRequest()
+          // above (validateParameterValues() has run).
+          strategySpec: strategy.buildSpec(parameters),
+          buildIndicatorSeries: strategy.buildIndicatorSeries,
         },
         twelveDataHistoricalDataProvider,
       );

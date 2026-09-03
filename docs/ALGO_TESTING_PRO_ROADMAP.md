@@ -49,18 +49,18 @@ Every phase must preserve invariants P3.1–P3.4 already established and verifie
 5. `npm test` inside `at24-quant-engine/` passes with zero regressions to the pre-P3.5 count; `npx tsc --noEmit` clean.
 6. No change to `quant-engine/` (Quant Lite, §2) or to D2.6 Decision Context files (§3).
 
-## 7. Phase P3.6 — Multi-strategy Registry + Generic Strategy Contract
+## 7. Phase P3.6 — Multi-strategy Registry + Generic Strategy Contract — COMPLETE, scope revised
 
-Replace the single hardcoded `STRATEGY_REGISTRY` entry with a real registry backed by the existing MQL4/MQL5 importer → `StrategyIR` → `ir-to-spec-reducer` pipeline (Q0.8–Q1.5), so an imported EA becomes a second, third, Nth registrable strategy under the same reproducibility guarantees P3.1–P3.5 already proved — never a second, parallel execution path.
+**Status: implemented** (`docs/P3.6-MULTI-STRATEGY-REGISTRY.md`). Replaced the single hardcoded `STRATEGY_REGISTRY` entry with a real, generic `StrategyDefinition` contract (`source`, `reproducibility`, `buildSpec`, `buildIndicatorSeries`) proven with TWO structurally-different-sourced strategies — Golden Strategy (engine-authored) and a new `ref-ema-crossover` strategy (a real MQL5 import through the existing importer → `StrategyIR` → `ir-to-spec-reducer` pipeline, Q0.8–Q1.5). `algo-test.service.ts` contains zero strategy-specific conditionals.
 
-**Target proof point**: a **frozen G01 checkpoint** (a specific, tagged commit of the G01 EA source — chosen once G01's Sprint 2 research reaches a stable milestone, e.g. after Phase 4A entry-forensics closes), not G01's actively-moving research branch. Integrating against a moving target would make P3.6's own tests non-reproducible, which contradicts §5's principles.
+**Revised proof point — G01 is NOT part of this phase, by deliberate decision, not omission.** Before writing any registry code, the real, frozen G01 v0.1 baseline was run through the actual importer. Result: 34 `UNRESOLVED_CROSS_FILE_CALL` diagnostics (G01's real logic lives in 12 `#include` files the importer never resolves) and a structurally-unreachable entry condition even setting that aside (G01 dispatches through a state-machine `switch` the importer's AST does not model at all — a separate, pre-existing limitation). Registering this would have produced an inert strategy wearing G01's name, not a meaningful proof. Full investigation, findings, and the substitute strategy's own design are in `docs/P3.6-MULTI-STRATEGY-REGISTRY.md` sections 2–3. G01 import is now its own roadmap item — section 13 below.
 
-### Acceptance criteria (P3.6)
+### Acceptance criteria (P3.6) — final status
 
-1. At least one non-Golden-Strategy strategy (the frozen G01 checkpoint) is registered, importable, and runnable through the identical simulation/evidence pipeline as the Golden Strategy — same `StrategyDefinition` contract, no strategy-specific execution code path.
-2. `StrategyDefinition`/registry contract explicitly includes: identity, source, execution model, Strategy IR reference, parameters, risk configuration, supported symbols/timeframes, reproducibility metadata (per the structure agreed in this roadmap's design discussion).
-3. Registering a new strategy requires no changes to `algo-test.service.ts`'s validation/persistence logic — only a new registry entry (mirrors P3.3's own stated design goal for the single-strategy case, now proven for N strategies).
-4. Full regression suite green; G01's own frozen-checkpoint import produces a reproducible `strategyHash`.
+1. At least one non-Golden-Strategy strategy is registered, importable, and runnable through the identical simulation/evidence pipeline as the Golden Strategy — same `StrategyDefinition` contract, no strategy-specific execution code path. **YES** — `ref-ema-crossover`, not G01 (see above).
+2. `StrategyDefinition`/registry contract explicitly includes: identity, source, parameters, risk configuration, supported symbols/timeframes, reproducibility metadata. **YES.**
+3. Registering a new strategy requires no changes to `algo-test.service.ts`'s validation/persistence logic — only a new registry entry. **YES**, proven directly by this phase's own diff.
+4. Full regression suite green; the registered import produces a reproducible `strategyHash`. **YES** — 1205/1205, both typechecks clean.
 
 ## 8. Phase P3.7 — Generic Parameter Engine
 
@@ -68,7 +68,7 @@ Replace the single hardcoded `STRATEGY_REGISTRY` entry with a real registry back
 
 ### Acceptance criteria (P3.7)
 
-1. Two differently-parameterized registered strategies (Golden Strategy + the P3.6 G01 checkpoint) render correct, different parameter panels with zero strategy-specific UI code.
+1. Two differently-parameterized registered strategies (Golden Strategy + the P3.6 `ref-ema-crossover` import, or a further strategy registered by then) render correct, different parameter panels with zero strategy-specific UI code.
 2. Adding a new parameter to a strategy's declared schema requires no `AlgoTestPanel.tsx` changes.
 
 ## 9. Phase P3.8 — Validation / Evidence Gate
@@ -78,7 +78,7 @@ Before arbitrary imported strategies (P3.6+) are treated as equally trustworthy 
 ### Acceptance criteria (P3.8)
 
 1. Every registry entry exposes its current status from the list above; the UI surfaces it, never hides or defaults it to "verified."
-2. The G01 checkpoint from P3.6 is carried through this pipeline and reaches (or explicitly fails to reach) `EVIDENCE VERIFIED` with a real, inspectable reason either way.
+2. The `ref-ema-crossover` strategy from P3.6 is carried through this pipeline and reaches (or explicitly fails to reach) `EVIDENCE VERIFIED` with a real, inspectable reason either way. A frozen G01 checkpoint joins this evaluation only once section 13's own capabilities exist.
 
 ## 10. Phase P4 — Natural Language → Universal Strategy IR
 
@@ -91,3 +91,18 @@ Named default-on risk rails, idempotent order IDs, a replayable audit trail, and
 ## 12. Sequencing discipline
 
 Do not skip ahead to P4's chat UX before P3.5–P3.8 remove the static single-strategy/single-parameter boundary. The interface should not imitate a dynamic strategy system before one genuinely exists underneath it.
+
+## 13. Future: G01 Full Import Fidelity
+
+Deliberately separated out of P3.6 (see section 7) rather than attempted with a hollow, partial result. Not scheduled against any phase above — a named, independent item, picked up only when a real need justifies it.
+
+**Required capabilities**, none of which exist today:
+
+- Recursive `#include` resolution — an actual preprocessing stage before tokenization (read each included file's content, splice it in place of the `#include` directive, respecting include order and avoiding double-inclusion for local `"..."`-style includes; angle-bracket `<...>` standard-library includes like `<Trade\Trade.mqh>` stay opaque, exactly as today — the importer already recognizes `CTrade` method calls by name pattern without needing that library's own source).
+- An include dependency graph / deterministic source assembly — the same file, correctly assembled, must always produce the same combined source text (a reproducibility requirement, not just a parsing one).
+- Cross-file symbol/function resolution — once includes are inlined, the semantic analyzer must actually trace calls into the assembled body, not just record their names.
+- State-machine modeling — `switch`/`case` AST support (`src/runtime/mql-importer/parser.ts`'s minimal AST, Q0.8.5, currently skips `switch` structurally). G01's entire state dispatch lives inside one.
+- Faithful translation of G01's actual execution semantics — sweep detection, MSS, FVG, displacement, session/news filters, ATR-based SL buffer, lot sizing — not an approximation that happens to compile.
+- Regression comparison against the frozen G01 v0.1 baseline (`ea-research/G01_LiquiditySweep_MSS_FVG/`) — the acceptance bar is **behavioral equivalence under the defined simulation contract**, not merely "the importer accepts the file without error." An import that produces a structurally-valid IR with materially different trade outcomes than the real EA is not a successful import — it is a plausible-looking wrong answer, worse than an honest refusal.
+
+**When to pick this up**: once there is a real, specific need for it (e.g. P3.8's evidence pipeline needs a genuine G01 entry, or G01's own research reaches a point where automated backtesting through Algo Testing Pro's infrastructure — rather than MetaTrader's own Strategy Tester — becomes valuable). Not a default next step after P3.6.
