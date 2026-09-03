@@ -1,13 +1,21 @@
 // components/product/ProductCard.tsx
-// Sprint D2.4.A5 - richer "App Store"-style card, built entirely from real
-// data already in data/products.ts (features, supportedPlatforms, rating,
-// downloads) plus a category icon badge (data/categories.ts, reusing the
-// same icons sections/Platforms/index.tsx uses for each ecosystem). No
-// product screenshot or logo: none exist for any of the 10 products (every
-// entry's `images` field is still the shared placeholder.png), and
-// fabricating one per product would misrepresent a real screenshot as
-// existing when it doesn't - this card is honest about what's real without
-// looking bare, not a substitute for real product imagery arriving later.
+// Sprint D2.4.A5 - "App Store"-style card, built from data/products.ts
+// (features, supportedPlatforms) plus a category icon badge (data/
+// categories.ts, reusing the same icons sections/Platforms/index.tsx uses
+// for each ecosystem). No product screenshot or logo: none exist for any
+// of the 10 products (every entry's `images` field is still the shared
+// placeholder.png), and fabricating one per product would misrepresent a
+// real screenshot as existing when it doesn't - this card is honest about
+// what's real without looking bare, not a substitute for real product
+// imagery arriving later.
+//
+// M14 fix - rating/downloads were NEVER real (this comment's own prior
+// wording wrongly called them "real data"): every one of the 10 rows was
+// hand-seeded with an invented star rating and download count, with no
+// real review or download-tracking system behind either number. Removed
+// from display rather than left showing fabricated social proof - same
+// principle the real Marketplace (components/marketplace/
+// MarketplaceListingCard.tsx) was built around from the start.
 import Link from "next/link";
 import type { Product } from "@/types/product";
 import { CATEGORIES } from "@/data/categories";
@@ -77,12 +85,6 @@ export default function ProductCard({ product }: ProductCardProps) {
       )}
 
       <div className="flex-grow" />
-
-      {/* Rating + downloads */}
-      <div className="flex items-center gap-4 mt-4 text-sm text-text-2">
-        <span className="text-warning">★ {product.rating.toFixed(1)}</span>
-        <span>{product.downloads.toLocaleString()} downloads</span>
-      </div>
 
       {/* Bottom: price + button */}
       <div className="flex items-center justify-between mt-6">
