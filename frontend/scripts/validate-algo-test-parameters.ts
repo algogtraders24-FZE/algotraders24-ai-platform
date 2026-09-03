@@ -14,8 +14,8 @@
 // for why the real registry stays deliberately narrower than what this
 // validator generically supports.
 import assert from "node:assert/strict";
-import { STRATEGY_REGISTRY, getStrategyDefinition, validateParameterValues, type StrategyDefinition } from "../services/algo-test/strategy-registry";
-import { GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD } from "at24-quant-engine";
+import { STRATEGY_REGISTRY, getStrategyDefinition, validateParameterValues, pickNumericOverrides, type StrategyDefinition } from "../services/algo-test/strategy-registry";
+import { GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD, GOLDEN_STRATEGY_DEFAULT_STOP_LOSS_DISTANCE } from "at24-quant-engine";
 
 let passed = 0;
 let failed = 0;
@@ -50,10 +50,10 @@ const FIXTURE_STRATEGY: StrategyDefinition = {
   supportedTimeframes: ["5m"],
   status: "available",
   parameters: [
-    { id: "requiredNumber", label: "Required Number", description: "", type: "number", defaultValue: 10, required: true },
-    { id: "steppedInteger", label: "Stepped Integer", description: "", type: "integer", defaultValue: 5, min: 0, max: 100, step: 5, required: false },
-    { id: "mode", label: "Mode", description: "", type: "select", defaultValue: "A", options: ["A", "B", "C"], required: false },
-    { id: "enabled", label: "Enabled", description: "", type: "boolean", defaultValue: true, required: false },
+    { id: "requiredNumber", label: "Required Number", description: "", type: "number", category: "signal", defaultValue: 10, required: true },
+    { id: "steppedInteger", label: "Stepped Integer", description: "", type: "integer", category: "signal", defaultValue: 5, min: 0, max: 100, step: 5, required: false },
+    { id: "mode", label: "Mode", description: "", type: "select", category: "signal", defaultValue: "A", options: ["A", "B", "C"], required: false },
+    { id: "enabled", label: "Enabled", description: "", type: "boolean", category: "signal", defaultValue: true, required: false },
   ],
   // P3.6 - the generic contract's other required fields (strategy-registry.ts's
   // own StrategyDefinition). Not exercised by this file's own tests (they only
@@ -200,6 +200,35 @@ function main(): void {
   test("no arbitrary code execution path exists - a string payload where a number is expected is rejected as a type error, never evaluated", () => {
     const result = validateParameterValues(golden!, { priceThreshold: "100; require('child_process').execSync('echo pwned')" as unknown as number });
     assert.equal(result.ok, false);
+  });
+
+  console.log("\n=== P3.7 Generic Parameter Engine ===");
+  test("pickNumericOverrides is strategy-agnostic - a wholly synthetic parameter-id list neither golden nor ref-ema-crossover declares still works with zero new mapping code", () => {
+    const syntheticIds = ["fooRisk", "barSignal", "bazUnused"] as const;
+    const picked = pickNumericOverrides(syntheticIds, { fooRisk: 42, barSignal: 7, notDeclared: 999 });
+    assert.deepEqual(picked, { fooRisk: 42, barSignal: 7 }, "only declared ids are picked, undeclared submitted keys are silently ignored (validateParameterValues already rejected them upstream - this function trusts that contract, doesn't re-enforce it)");
+  });
+
+  test("pickNumericOverrides ignores a non-numeric value for a declared id, rather than coercing or throwing", () => {
+    const picked = pickNumericOverrides(["x"] as const, { x: "not-a-number" });
+    assert.deepEqual(picked, {}, "defensive only - validateParameterValues would already have rejected this upstream in real use");
+  });
+
+  test("golden.buildSpec() end to end: the SAME generic mechanism, exercised through the real registry entry, produces a spec with genuinely overridden risk - not just a unit-tested helper in isolation", () => {
+    const overridden = golden!.buildSpec({ stopLossDistance: 9, takeProfitRMultiple: 3 });
+    assert.equal(overridden.risk.stopLoss?.type, "fixed-distance");
+    assert.equal(overridden.risk.stopLoss && "distance" in overridden.risk.stopLoss ? overridden.risk.stopLoss.distance : undefined, 9);
+    const defaulted = golden!.buildSpec({});
+    assert.equal(defaulted.risk.stopLoss && "distance" in defaulted.risk.stopLoss ? defaulted.risk.stopLoss.distance : undefined, GOLDEN_STRATEGY_DEFAULT_STOP_LOSS_DISTANCE, "omitting an override reproduces the engine's own default, same guarantee P3.5 already proved at the engine level - now proven again at the registry's generic-wiring layer");
+  });
+
+  test("every registered engine-reference strategy's parameters all declare a real category - no uncategorized signal-affecting parameter slips through", () => {
+    for (const strategy of STRATEGY_REGISTRY) {
+      if (strategy.source.kind !== "engine-reference") continue;
+      for (const param of strategy.parameters) {
+        assert.ok(["signal", "risk", "execution", "provider"].includes(param.category), `strategy "${strategy.strategyId}" parameter "${param.id}" has an invalid or missing category`);
+      }
+    }
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);

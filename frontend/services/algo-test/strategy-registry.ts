@@ -12,6 +12,18 @@
 // and runs whatever comes back. Adding a third strategy means adding one
 // more array entry with its own `buildSpec` - never touching this file's
 // validation/lookup logic, never a strategyId branch anywhere else.
+// P3.7 - Generic Parameter Engine (docs/ALGO_TESTING_PRO_ROADMAP.md
+// section 8, docs/P3.7-GENERIC-PARAMETER-ENGINE.md): for ENGINE-REFERENCE
+// strategies specifically (see that doc for why MQL-imported strategies
+// are explicitly out of scope this phase), the per-strategy hand-written
+// override-mapping function (P3.4/P3.5/P3.6's own `toGoldenStrategyOverrides`)
+// is replaced by ONE generic function, `pickNumericOverrides`, driven
+// entirely by the strategy's own declared parameter metadata - adding a
+// new engine-reference strategy's numeric parameter needs a metadata
+// entry and nothing else, no new per-field mapping code. `category` is
+// now a real, formal field on StrategyParameterDefinition (P3.4's own
+// signal/risk/execution/provider taxonomy, previously only prose in
+// comments).
 //
 // The explicit, server-side source of truth for "which strategies exist,
 // which version are they at, and which symbol/timeframe combinations do
@@ -84,11 +96,27 @@ export interface StrategyReproducibility {
  */
 export type StrategyParameterType = "number" | "integer" | "boolean" | "select";
 
+/**
+ * P3.7 - P3.4's own audit taxonomy (docs/P3.4-STRATEGY-PARAMETERS.md
+ * section 1), formalized as a real field instead of only prose in
+ * comments: "signal" = a category-#1 genuine, signal-affecting parameter
+ * (safely exposable - e.g. Golden's `priceThreshold`). "risk" =
+ * category-#2 execution/risk configuration (position sizing,
+ * stop-loss/take-profit - e.g. Golden's other three parameters).
+ * "execution"/"provider" are reserved for category #3/#4
+ * (engine-internals / data-provider configuration) - no registered
+ * parameter uses them today, since P3.4's audit never found a safely-
+ * exposable one of either kind, but the taxonomy names them so a future
+ * parameter is classified deliberately, never left uncategorized.
+ */
+export type StrategyParameterCategory = "signal" | "risk" | "execution" | "provider";
+
 export interface StrategyParameterDefinition {
   readonly id: string;
   readonly label: string;
   readonly description: string;
   readonly type: StrategyParameterType;
+  readonly category: StrategyParameterCategory;
   readonly defaultValue: number | boolean | string;
   readonly min?: number;
   readonly max?: number;
@@ -151,6 +179,68 @@ export interface StrategyDefinition {
 const goldenSpec = buildGoldenStrategySpec();
 const refEmaCrossoverSpec = buildRefEmaCrossoverSpec();
 
+/**
+ * P3.4 - the ONE genuine, signal-affecting strategy parameter this
+ * strategy has (`priceThreshold`, defaultValue read from the engine's
+ * own exported constant, never a duplicated literal). P3.5 adds the
+ * three risk/execution parameters P3.4 deliberately excluded from that
+ * sprint's scope (docs/P3.4-STRATEGY-PARAMETERS.md's audit) - these are
+ * real StrategyParameterDefinition entries now, same mechanism, same
+ * validateParameterValues() below, no new parameter-type system. See
+ * docs/P3.5-RISK-CONFIGURATION.md. P3.7 - extracted to a named constant
+ * (previously inline in the registry array) so `buildSpec` below can
+ * derive its own parameter-id list from this SAME array - one list, not
+ * two kept in sync by hand.
+ */
+const GOLDEN_PARAMETERS: readonly StrategyParameterDefinition[] = [
+  {
+    id: "priceThreshold",
+    label: "Entry Price Threshold",
+    description:
+      "The entry condition requires the reference price to close strictly above this value. Defaults to 100 - for XAUUSD (which trades far above 100) the default makes this condition always true, matching the exact P3.3 canonical behavior. Raising it above the instrument's real price range will make the strategy never enter for that range - a genuine, well-defined outcome, not an error.",
+    type: "number",
+    category: "signal",
+    defaultValue: GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD,
+    min: 0,
+    max: 1_000_000,
+    required: false,
+  },
+  {
+    id: "positionSizeQuantity",
+    label: "Position Size (quantity)",
+    description: "Fixed quantity opened per entry (risk.sizing, method fixed-quantity). Defaults to 1 - the P3.4-and-earlier hardcoded value.",
+    type: "number",
+    category: "risk",
+    defaultValue: GOLDEN_STRATEGY_DEFAULT_POSITION_SIZE_QUANTITY,
+    min: 0.0001,
+    max: 1_000_000,
+    required: false,
+  },
+  {
+    id: "stopLossDistance",
+    label: "Stop-Loss Distance",
+    description:
+      "Protective stop, expressed as a price distance from the signal price (risk.stopLoss, type fixed-distance). Defaults to 5 - the P3.4-and-earlier hardcoded value. A smaller distance closes losing positions sooner; changing it changes the run's reproducible strategy identity (strategyHash), not just its display.",
+    type: "number",
+    category: "risk",
+    defaultValue: GOLDEN_STRATEGY_DEFAULT_STOP_LOSS_DISTANCE,
+    min: 0.0001,
+    max: 1_000_000,
+    required: false,
+  },
+  {
+    id: "takeProfitRMultiple",
+    label: "Take-Profit (R-multiple)",
+    description: "Profit target expressed as a multiple of the stop-loss distance (risk.takeProfit, type risk-multiple). Defaults to 2 - the P3.4-and-earlier hardcoded value.",
+    type: "number",
+    category: "risk",
+    defaultValue: GOLDEN_STRATEGY_DEFAULT_TAKE_PROFIT_R_MULTIPLE,
+    min: 0.0001,
+    max: 1_000_000,
+    required: false,
+  },
+];
+
 /** Golden Strategy's own PRICE pseudo-indicator (its series is just each bar's close) - identical logic to run-golden-backtest.ts's own buildPriceIndicatorSeries(), duplicated deliberately rather than shared: each registry entry owns its own indicator-building logic end to end (the same discipline `buildSpec` follows), never a shared function multiple entries reach into. */
 function buildGoldenIndicatorSeries(bars: readonly OHLCVBar[]): ReadonlyMap<string, readonly (number | boolean | undefined)[]> {
   return new Map([[indicatorKey(GOLDEN_STRATEGY_PRICE_INDICATOR), bars.map((b) => b.close)]]);
@@ -166,19 +256,32 @@ function buildRefEmaCrossoverIndicatorSeries(bars: readonly OHLCVBar[]): Readonl
   ]);
 }
 
-function toGoldenStrategyOverrides(overrides: Readonly<Record<string, number | boolean | string>>): {
-  priceThreshold?: number;
-  positionSizeQuantity?: number;
-  stopLossDistance?: number;
-  takeProfitRMultiple?: number;
-} {
-  const { priceThreshold, positionSizeQuantity, stopLossDistance, takeProfitRMultiple } = overrides;
-  return {
-    ...(typeof priceThreshold === "number" ? { priceThreshold } : {}),
-    ...(typeof positionSizeQuantity === "number" ? { positionSizeQuantity } : {}),
-    ...(typeof stopLossDistance === "number" ? { stopLossDistance } : {}),
-    ...(typeof takeProfitRMultiple === "number" ? { takeProfitRMultiple } : {}),
-  };
+/**
+ * P3.7 - the ONE generic mechanism every engine-reference strategy uses to
+ * turn already-validated overrides into its own typed build-params
+ * object, replacing P3.4/P3.5/P3.6's hand-written, per-strategy
+ * `toGoldenStrategyOverrides()`. Relies on one formal, now-documented
+ * contract (see docs/P3.7-GENERIC-PARAMETER-ENGINE.md): a
+ * StrategyParameterDefinition's `id` must equal the corresponding
+ * optional field name in the strategy's own build-params interface
+ * (e.g. `GoldenStrategyParams`), and today's engine-reference strategies'
+ * build-params are all `number | undefined`. `overrides` is already
+ * guaranteed by `validateParameterValues()` to carry only declared ids
+ * with already-type-checked values - this function's own `typeof`
+ * check is therefore redundant defense against a caller that bypassed
+ * that contract, not a place new business logic lives. Given this,
+ * adding a new engine-reference strategy's numeric parameter needs a
+ * metadata entry (with a matching build-params field) and ONE call site
+ * referencing its own parameter-id list - never a new hand-written
+ * mapping function.
+ */
+export function pickNumericOverrides<K extends string>(parameterIds: readonly K[], overrides: Readonly<Record<string, number | boolean | string>>): Partial<Record<K, number>> {
+  const picked: Partial<Record<K, number>> = {};
+  for (const id of parameterIds) {
+    const value = overrides[id];
+    if (typeof value === "number") picked[id] = value;
+  }
+  return picked;
 }
 
 /**
@@ -201,60 +304,14 @@ export const STRATEGY_REGISTRY: readonly StrategyDefinition[] = [
     supportedTimeframes: ["5m"],
     source: { kind: "engine-reference", module: "at24-quant-engine/reference/golden-strategy" },
     reproducibility: { baseContentHash: computeSemanticStrategyHash(goldenSpec) },
-    buildSpec: (overrides) => buildGoldenStrategySpec(toGoldenStrategyOverrides(overrides)),
+    // P3.7 - the generic mechanism: derive the parameter-id list from
+    // THIS strategy's own declared metadata (GOLDEN_PARAMETERS, the exact
+    // array assigned to `parameters:` below - never a second, independent
+    // id list), pick matching numeric overrides generically, pass them to
+    // the engine's own typed build function. No per-field mapping code.
+    buildSpec: (overrides) => buildGoldenStrategySpec(pickNumericOverrides(GOLDEN_PARAMETERS.map((p) => p.id), overrides)),
     buildIndicatorSeries: buildGoldenIndicatorSeries,
-    // P3.4 - the ONE genuine, signal-affecting strategy parameter this
-    // strategy has (`priceThreshold`, defaultValue read from the engine's
-    // own exported constant, never a duplicated literal). P3.5 adds the
-    // three risk/execution parameters P3.4 deliberately excluded from that
-    // sprint's scope (docs/P3.4-STRATEGY-PARAMETERS.md's audit) - these are
-    // real StrategyParameterDefinition entries now, same mechanism, same
-    // validateParameterValues() below, no new parameter-type system. See
-    // docs/P3.5-RISK-CONFIGURATION.md.
-    parameters: [
-      {
-        id: "priceThreshold",
-        label: "Entry Price Threshold",
-        description:
-          "The entry condition requires the reference price to close strictly above this value. Defaults to 100 - for XAUUSD (which trades far above 100) the default makes this condition always true, matching the exact P3.3 canonical behavior. Raising it above the instrument's real price range will make the strategy never enter for that range - a genuine, well-defined outcome, not an error.",
-        type: "number",
-        defaultValue: GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD,
-        min: 0,
-        max: 1_000_000,
-        required: false,
-      },
-      {
-        id: "positionSizeQuantity",
-        label: "Position Size (quantity)",
-        description: "Fixed quantity opened per entry (risk.sizing, method fixed-quantity). Defaults to 1 - the P3.4-and-earlier hardcoded value.",
-        type: "number",
-        defaultValue: GOLDEN_STRATEGY_DEFAULT_POSITION_SIZE_QUANTITY,
-        min: 0.0001,
-        max: 1_000_000,
-        required: false,
-      },
-      {
-        id: "stopLossDistance",
-        label: "Stop-Loss Distance",
-        description:
-          "Protective stop, expressed as a price distance from the signal price (risk.stopLoss, type fixed-distance). Defaults to 5 - the P3.4-and-earlier hardcoded value. A smaller distance closes losing positions sooner; changing it changes the run's reproducible strategy identity (strategyHash), not just its display.",
-        type: "number",
-        defaultValue: GOLDEN_STRATEGY_DEFAULT_STOP_LOSS_DISTANCE,
-        min: 0.0001,
-        max: 1_000_000,
-        required: false,
-      },
-      {
-        id: "takeProfitRMultiple",
-        label: "Take-Profit (R-multiple)",
-        description: "Profit target expressed as a multiple of the stop-loss distance (risk.takeProfit, type risk-multiple). Defaults to 2 - the P3.4-and-earlier hardcoded value.",
-        type: "number",
-        defaultValue: GOLDEN_STRATEGY_DEFAULT_TAKE_PROFIT_R_MULTIPLE,
-        min: 0.0001,
-        max: 1_000_000,
-        required: false,
-      },
-    ],
+    parameters: GOLDEN_PARAMETERS,
     status: "available",
   },
   {
