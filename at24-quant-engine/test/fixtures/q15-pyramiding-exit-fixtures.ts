@@ -103,3 +103,80 @@ export function signalExitRule(direction: "BUY" | "SELL", threshold: number, app
   const condition = direction === "BUY" ? comparison("<", indicatorOperand(PRICE), literal(threshold)) : comparison(">", indicatorOperand(PRICE), literal(threshold));
   return { id: "exit-1", condition, ...(appliesTo !== undefined ? { appliesTo } : {}) };
 }
+
+// ============================================================================
+// Q1.5 VERIFICATION CLOSURE — genuine (non-empty) D2/D3 intrabar fixture.
+// Mirrors test/fixtures/fidelity-fixtures.ts's own Fixture-A pattern
+// (H1 parent / M15 child), reused here rather than inventing a second
+// fidelity fixture style. Proves fills resolve at REAL child-bar open
+// prices (not parent opens, not FALLBACK_TO_D1), while SIGNAL_EXIT and
+// the entry/pyramid DECISION remain parent-bar-only — exactly as
+// docs/Q1.5_EXIT_CONTRACT.md documents, an honest, non-parity-claiming
+// fidelity difference, not a bug.
+// ============================================================================
+const QUARTER_MS = 900_000; // M15
+
+/** Builds one child bar `slot` (0-3) inside parent index `parentIndex`'s (open, close] window, at `childTimeframe`. */
+function realChildBar(parentIndex: number, slot: 0 | 1 | 2 | 3, open: number, high: number, low: number, close: number, childTimeframe: Timeframe = "M15"): OHLCVBar {
+  const parentCloseTs = BASE_TS + parentIndex * HOUR_MS;
+  const timestamp = parentCloseTs - HOUR_MS + (slot + 1) * QUARTER_MS;
+  return { timestamp, instrument: Q15_INSTRUMENT, timeframe: childTimeframe, open, high, low, close, volume: 250 };
+}
+
+/**
+ * Parent bars: P0 entry signal fires; P1/P2 carry REAL child data (fills
+ * must resolve at the child's own open, not the parent's); P3 SIGNAL_EXIT
+ * fires; P4 is a trailing, deliberately-irrelevant bar used ONLY by the
+ * look-ahead test (its own children must never affect P0-P3's outcome).
+ */
+export const Q15_INTRABAR_PARENT_BARS: readonly OHLCVBar[] = [
+  bar(0, 101, 101, 101, 101), // entry signal (PRICE > 100)
+  bar(1, 101, 112, 100, 101), // still true at close; real children below resolve the P0 order + decide the pyramid signal
+  bar(2, 101, 115, 100, 101), // still true at close; real children below resolve the pyramid order; cap (maxEntries=2) reached this bar's Step 4
+  bar(3, 99, 99, 99, 99), // SIGNAL_EXIT (PRICE < 100) fires, parent-bar granularity
+  bar(4, 500, 500, 500, 500), // look-ahead bait — see Q15_INTRABAR_CHILD_BARS_WITH_LOOKAHEAD_BAIT
+];
+
+/** P1's real children: the P0-created order fills at child(1,0)'s OPEN = 105 (not P1's own open, 101). */
+const CHILDREN_P1: readonly OHLCVBar[] = [
+  realChildBar(1, 0, 105, 106, 104, 105),
+  realChildBar(1, 1, 105, 107, 105, 106),
+  realChildBar(1, 2, 106, 107, 105, 106),
+  realChildBar(1, 3, 106, 107, 105, 106),
+];
+/** P2's real children: the P1-decided pyramid order fills at child(2,0)'s OPEN = 110 (not P2's own open, 101). */
+const CHILDREN_P2: readonly OHLCVBar[] = [
+  realChildBar(2, 0, 110, 111, 109, 110),
+  realChildBar(2, 1, 110, 112, 109, 111),
+  realChildBar(2, 2, 111, 112, 110, 111),
+  realChildBar(2, 3, 111, 112, 110, 111),
+];
+/** P4's children: a huge, un-derivable price (500) that would corrupt P0-P3's outcome if the provider ever leaked it backward. */
+const CHILDREN_P4: readonly OHLCVBar[] = [
+  realChildBar(4, 0, 500, 501, 499, 500),
+  realChildBar(4, 1, 500, 501, 499, 500),
+  realChildBar(4, 2, 500, 501, 499, 500),
+  realChildBar(4, 3, 500, 501, 499, 500),
+];
+
+export const Q15_INTRABAR_CHILD_BARS: readonly OHLCVBar[] = [...CHILDREN_P1, ...CHILDREN_P2];
+export const Q15_INTRABAR_CHILD_BARS_WITH_LOOKAHEAD_BAIT: readonly OHLCVBar[] = [...CHILDREN_P1, ...CHILDREN_P2, ...CHILDREN_P4];
+
+export const Q15_INTRABAR_OPTS: Q15SpecOptions = {
+  direction: "BUY",
+  exitRules: [signalExitRule("BUY", 100)],
+  pyramiding: { allowPyramiding: true, maxEntries: 2, sameDirectionBehavior: "ACCUMULATE", oppositeDirectionBehavior: "REVERSAL" },
+};
+
+/** A genuine, non-empty D2/D3 config — `fidelity` selects D2_LOWER_TIMEFRAME or D3_M1; both route through the SAME runFidelityAwareSimulation code path (multi-fidelity-engine.ts). `includeLookaheadBait` appends P4's children to the SAME backing provider array (never removed from `parentBars`, matching FIXTURE_EF's own established look-ahead-proof pattern). */
+export function buildQ15IntrabarConfig(fidelity: "D2_LOWER_TIMEFRAME" | "D3_M1", includeLookaheadBait = false): MultiFidelityConfig {
+  const childTimeframe: Timeframe = fidelity === "D3_M1" ? "M1" : "M15";
+  const children = (includeLookaheadBait ? Q15_INTRABAR_CHILD_BARS_WITH_LOOKAHEAD_BAIT : Q15_INTRABAR_CHILD_BARS).map((c) => ({ ...c, timeframe: childTimeframe }));
+  return {
+    base: buildQ15Config(Q15_INTRABAR_PARENT_BARS, Q15_INTRABAR_OPTS),
+    fidelity,
+    detailProvider: createStaticBarDetailProvider(children, childTimeframe, `Q15Fixture-${fidelity}`),
+    detailTimeframe: childTimeframe,
+    missingDetailPolicy: "FALLBACK_TO_D1",
+  };
+}
