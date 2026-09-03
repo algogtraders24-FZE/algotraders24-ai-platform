@@ -34,5 +34,10 @@
     "tradingSystemId": "QUANTUMPULSE-BTC",
     "tradingSystemName": "QuantumPulse BTC (M14 catalog-import, Product #3 candidate)",
     "versionString": "v1.26 as-shipped - same faithful Python-port methodology as Quantum Gold AI (see that registry entry), BTCUSD_EXNESS H1/H4/M15, ATR_SL_Mult=3.0/ATR_TP_Mult=5.0 (this EA's own real defaults)."
+  },
+  "GLOBAL-COMMODITY-MATRIX-v1.62-2026-07-03": {
+    "tradingSystemId": "GLOBAL-COMMODITY-MATRIX",
+    "tradingSystemName": "Global Commodity Matrix (M14 catalog-import, Product #3 candidate) - GOLD-mode evidence only",
+    "versionString": "v1.62 as-shipped - this Evidence covers ONLY the Gold (XAUUSD) auto-tune profile. Verified line-for-line identical QuantumWave()/MConfirm() engine code AND identical ATR_SL_Mult=2.0/ATR_TP_Mult=3.2 Gold profile to Quantum Gold AI's own dedicated engine (see GLOBAL_COMMODITY_MATRIX.mq5 lines 221/688-772 vs QUANTUM_GOLD_AI.mq5) - the same real backtest trades (quantum_gold_ai_trades.json) are honestly reused rather than re-running an identical computation twice. This EA also auto-tunes for Silver/Oil/Bitcoin when attached to those charts - those modes are NOT covered by this Evidence (Silver: no XAGUSD data available; Oil/BTC: separately evidenced under their own dedicated-EA versionIds, not yet cross-attributed here)."
   }
 }
