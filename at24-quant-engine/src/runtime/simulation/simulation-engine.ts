@@ -11,7 +11,7 @@ import type { SpreadModel, SlippageModel, FeeModel, LatencyModel } from "../../d
 import type { RiskEvaluationInput } from "../../domain/risk-evaluation.js";
 
 import { validateMarketSeries } from "../../domain/market-series.js";
-import { generateSignal } from "../signal-generator.js";
+import { generateSignal, firstMatchingExitRule } from "../signal-generator.js";
 import { evaluateRisk } from "../risk/pipeline.js";
 import { computeTradingDayKey } from "../risk/daily-loss.js";
 import { computeCanonicalHash } from "../determinism.js";
@@ -95,6 +95,7 @@ function createInitialState(initialBalance: number, asOf: number): SimulationSta
     realizedPnlToday: 0,
     equityAtDayStart: initialBalance,
     orderCreationBarIndex: new Map(),
+    entryCountByPosition: new Map(),
   };
 }
 
@@ -344,17 +345,26 @@ export function runSimulation(bars: readonly OHLCVBar[], config: SimulationConfi
             ...state,
             openPositions: mapWith(state.openPositions, symbol, position),
             entryBarIndexByPosition: mapWith(state.entryBarIndexByPosition, position.id, barIndex),
+            // Q1.5.4 — a brand-new position always starts its own entry-fill count at 1.
+            entryCountByPosition: mapWith(state.entryCountByPosition, position.id, 1),
           };
           record("POSITION_OPENED", bar.timestamp, { positionId: position.id });
         } else if (existing.side === order.side) {
           const updated = increasePosition(existing, order.quantity, fillPrice, bar.timestamp, fee);
-          state = { ...state, openPositions: mapWith(state.openPositions, symbol, updated) };
+          state = {
+            ...state,
+            openPositions: mapWith(state.openPositions, symbol, updated),
+            // Q1.5.4 — a pyramided same-direction fill increments the SAME position id's count (position.id never changes across increasePosition).
+            entryCountByPosition: mapWith(state.entryCountByPosition, updated.id, (state.entryCountByPosition.get(existing.id) ?? 1) + 1),
+          };
           record("POSITION_MODIFIED", bar.timestamp, { positionId: updated.id });
         } else {
           const reduceQty = Math.min(order.quantity, existing.quantity);
           const { position: reduced, grossPnl } = reducePosition(existing, reduceQty, fillPrice, bar.timestamp, fee);
           state = applyRealizedTrade(state, existing, fillPrice, reduceQty, grossPnl, fee, bar.timestamp, "opposite-side order fill reduced/closed the position");
           record(reduced.status === "CLOSED" ? "POSITION_CLOSED" : "POSITION_REDUCED", bar.timestamp, { positionId: reduced.id });
+          // Q1.5.4 — the counter must not survive a complete position lifecycle: once fully closed, remove it (a later fresh entry, including the reversal leg below, starts its own count at 1).
+          if (reduced.status === "CLOSED") state = { ...state, entryCountByPosition: mapWithout(state.entryCountByPosition, existing.id) };
 
           const leftover = order.quantity - reduceQty;
           if (leftover > 0 && reduced.status === "CLOSED") {
@@ -374,6 +384,7 @@ export function runSimulation(bars: readonly OHLCVBar[], config: SimulationConfi
               ...state,
               openPositions: mapWith(state.openPositions, symbol, reversal),
               entryBarIndexByPosition: mapWith(state.entryBarIndexByPosition, reversal.id, barIndex),
+              entryCountByPosition: mapWith(state.entryCountByPosition, reversal.id, 1),
             };
             record("POSITION_OPENED", bar.timestamp, { positionId: reversal.id });
           } else {
@@ -398,8 +409,40 @@ export function runSimulation(bars: readonly OHLCVBar[], config: SimulationConfi
         const fee = config.feeModel.computeFee({ quantity: positionForProtectiveCheck.quantity, notional: exit.exitPrice! * positionForProtectiveCheck.quantity });
         const { position: closed, grossPnl } = closePosition(positionForProtectiveCheck, exit.exitPrice!, bar.timestamp, fee);
         state = applyRealizedTrade(state, positionForProtectiveCheck, exit.exitPrice!, positionForProtectiveCheck.quantity, grossPnl, fee, bar.timestamp, exit.reason);
-        state = { ...state, openPositions: mapWithout(state.openPositions, symbol) };
+        state = { ...state, openPositions: mapWithout(state.openPositions, symbol), entryCountByPosition: mapWithout(state.entryCountByPosition, closed.id) };
         record("POSITION_CLOSED", bar.timestamp, { positionId: closed.id, reason: exit.reason, ambiguous: exit.ambiguous ?? false });
+      }
+    }
+
+    // --- Step 1c (Q1.5.3): evaluate SIGNAL_EXIT against the position that
+    // survived Step 1b, using the SAME closed-bar MarketState entries use
+    // (built here, once, and reused unchanged by Step 4 below — never a
+    // second, divergent notion of "current market state"). Deliberately
+    // sequenced BEFORE Step 4's entry-signal generation, mirroring Step
+    // 1b's own established precedent (a protective exit closing the
+    // position already makes it visible as flat to Step 4/Step 2 on the
+    // SAME bar) — this is the documented, tested, deterministic
+    // same-bar policy: exit-before-entry, sequential, never simultaneous.
+    // See docs/Q1.5_EXIT_CONTRACT.md.
+    const indicatorValues = buildIndicatorMap(config.indicatorSeries, barIndex);
+    const previousIndicatorValues = barIndex > 0 ? buildIndicatorMap(config.indicatorSeries, barIndex - 1) : undefined;
+    const marketState: MarketState = {
+      instrument: config.instrument,
+      timeframe: config.timeframe,
+      asOf: bar.timestamp,
+      bars: bars.slice(0, barIndex + 1),
+      indicatorValues,
+      ...(previousIndicatorValues !== undefined ? { previousIndicatorValues } : {}),
+    };
+    const positionForSignalExit = state.openPositions.get(symbol);
+    if (positionForSignalExit && config.strategySpec.exitRules.length > 0) {
+      const matchedExit = firstMatchingExitRule(config.strategySpec.exitRules, positionForSignalExit.side, marketState);
+      if (matchedExit) {
+        const fee = config.feeModel.computeFee({ quantity: positionForSignalExit.quantity, notional: bar.close * positionForSignalExit.quantity });
+        const { position: closed, grossPnl } = closePosition(positionForSignalExit, bar.close, bar.timestamp, fee);
+        state = applyRealizedTrade(state, positionForSignalExit, bar.close, positionForSignalExit.quantity, grossPnl, fee, bar.timestamp, `SIGNAL_EXIT rule "${matchedExit.id}"`);
+        state = { ...state, openPositions: mapWithout(state.openPositions, symbol), entryCountByPosition: mapWithout(state.entryCountByPosition, closed.id) };
+        record("POSITION_CLOSED", bar.timestamp, { positionId: closed.id, reason: `SIGNAL_EXIT rule "${matchedExit.id}"` });
       }
     }
 
@@ -417,20 +460,22 @@ export function runSimulation(bars: readonly OHLCVBar[], config: SimulationConfi
     }
 
     // --- Step 4: strategy calculation (ON_BAR_CLOSE only) ---
-    const indicatorValues = buildIndicatorMap(config.indicatorSeries, barIndex);
-    const previousIndicatorValues = barIndex > 0 ? buildIndicatorMap(config.indicatorSeries, barIndex - 1) : undefined;
-    const marketState: MarketState = {
-      instrument: config.instrument,
-      timeframe: config.timeframe,
-      asOf: bar.timestamp,
-      bars: bars.slice(0, barIndex + 1),
-      indicatorValues,
-      ...(previousIndicatorValues !== undefined ? { previousIndicatorValues } : {}),
-    };
     const signal = generateSignal(config.strategySpec, marketState);
     const currentPosition = state.openPositions.get(symbol);
+    // Q1.5.4 — pyramiding admission context: absent strategySpec.pyramiding
+    // (every pre-Q1.5 strategy, and every Q1.5 strategy with
+    // allowPyramiding:false) means `undefined`, which buildDecision never
+    // admits a pyramid entry for — byte-identical to pre-Q1.5 behavior.
+    const pyramidingAdmission: import("./decision-builder.js").PyramidingAdmission | undefined = config.strategySpec.pyramiding
+      ? {
+          allowPyramiding: config.strategySpec.pyramiding.allowPyramiding,
+          ...(config.strategySpec.pyramiding.maxEntries !== undefined ? { maxEntries: config.strategySpec.pyramiding.maxEntries } : {}),
+          currentEntryCount: currentPosition ? (state.entryCountByPosition.get(currentPosition.id) ?? 0) : 0,
+          ...(currentPosition ? { openPositionSide: currentPosition.side } : {}),
+        }
+      : undefined;
     const hasPendingOrderForSymbol = [...state.pendingOrders.values()].some((o) => o.instrument.symbol === symbol);
-    const decision = buildDecision(signal, currentPosition !== undefined, hasPendingOrderForSymbol);
+    const decision = buildDecision(signal, currentPosition !== undefined, hasPendingOrderForSymbol, pyramidingAdmission);
     record("STRATEGY_CALCULATED", bar.timestamp, { strategyHash, signal, decision });
 
     // --- Step 5: risk evaluation ---
@@ -456,7 +501,24 @@ export function runSimulation(bars: readonly OHLCVBar[], config: SimulationConfi
         portfolio: { openPositionCount: state.openPositions.size },
         dailyLoss: { realizedPnlToday: state.realizedPnlToday, equityAtDayStart: state.equityAtDayStart },
       };
-    } else if (decision.action === "ENTER") {
+    }
+
+    // Q1.5.4 — a SEPARATE, independent entry evaluation, built whenever
+    // `decision.action === "ENTER"` — this now covers BOTH the pre-Q1.5
+    // "flat, no position" case AND the new pyramid-entry case (position
+    // already open, admitted by buildDecision above). Deliberately a
+    // SECOND `RiskEvaluationInput`/`evaluateRisk()` call, never merged
+    // into `riskInput` above — `RiskEvaluationInput`'s own contract
+    // (domain/risk-evaluation.ts) is explicit that a single input drives
+    // EITHER an entry evaluation OR a management evaluation, never both;
+    // Q0.3's evaluateRisk() itself is untouched (frozen). On a pyramid-entry
+    // bar, BOTH evaluations run: management (using the position as it was
+    // at the start of Step 5) and entry (this one) — matching the
+    // documented flow `entry signal -> position already open? ->
+    // allowPyramiding? -> entry count below maxEntries? -> ENTER ->
+    // existing order/fill pipeline -> increasePosition()`.
+    let entryRiskInput: RiskEvaluationInput | undefined;
+    if (decision.action === "ENTER") {
       const direction = signal.direction as "BUY" | "SELL";
       // Q0.11 — the matched EntryRule's own executionType/limitPrice/stopPrice
       // (absent means MARKET, Q0's original assumption, unchanged). A
@@ -484,7 +546,7 @@ export function runSimulation(bars: readonly OHLCVBar[], config: SimulationConfi
         ...(stopLossPrice !== undefined ? { stopLossPrice } : {}),
         equity: state.account.equity,
       });
-      riskInput = {
+      entryRiskInput = {
         asOf: bar.timestamp,
         riskSpecification: config.strategySpec.risk,
         instrument: config.instrument,
@@ -507,18 +569,26 @@ export function runSimulation(bars: readonly OHLCVBar[], config: SimulationConfi
       };
     }
 
-    if (riskInput) {
-      const riskResult = evaluateRisk(riskInput);
+    // Q1.5.4 — processes ONE evaluateRisk() outcome's mapping. Extracted so
+    // both the management evaluation (`riskInput`) and the independent
+    // entry evaluation (`entryRiskInput`) apply through the IDENTICAL
+    // handling code — never two diverging copies. `currentPosition` is
+    // read from the enclosing closure exactly as before Q1.5 (only ever
+    // non-null for the management call's MODIFY_STOP/REDUCE_POSITION/
+    // FORCE_EXIT branches, which is guaranteed by construction: those
+    // mapping kinds only ever arise from an existingPosition-shaped input).
+    function processRiskInput(input: RiskEvaluationInput): void {
+      const riskResult = evaluateRisk(input);
       const mapping = mapRiskAction(riskResult.action);
 
       if (mapping.kind === "CREATE_ENTRY_ORDER") {
-        const entry = riskInput.proposedEntry!;
+        const entry = input.proposedEntry!;
         const createdEvt = record("ORDER_CREATED", bar.timestamp, {});
         const order: SimulationOrder = createOrder(
           {
             strategyVersion: config.strategySpec.version,
             instrument: config.instrument,
-            side: riskInput.direction,
+            side: input.direction,
             quantity: entry.quantity,
             orderType: mapping.orderType,
             ...(mapping.limitPrice !== undefined ? { limitPrice: mapping.limitPrice } : {}),
@@ -551,17 +621,21 @@ export function runSimulation(bars: readonly OHLCVBar[], config: SimulationConfi
         state = {
           ...state,
           openPositions: reduced.status === "CLOSED" ? mapWithout(state.openPositions, symbol) : mapWith(state.openPositions, symbol, reduced),
+          // Q1.5.4 — the counter must not survive a complete position lifecycle.
+          ...(reduced.status === "CLOSED" ? { entryCountByPosition: mapWithout(state.entryCountByPosition, currentPosition.id) } : {}),
         };
         record(reduced.status === "CLOSED" ? "POSITION_CLOSED" : "POSITION_REDUCED", bar.timestamp, { positionId: reduced.id });
       } else if (mapping.kind === "FORCE_EXIT" && currentPosition) {
         const fee = config.feeModel.computeFee({ quantity: currentPosition.quantity, notional: bar.close * currentPosition.quantity });
         const { position: closed, grossPnl } = closePosition(currentPosition, bar.close, bar.timestamp, fee);
         state = applyRealizedTrade(state, currentPosition, bar.close, currentPosition.quantity, grossPnl, fee, bar.timestamp, "risk engine forced exit");
-        state = { ...state, openPositions: mapWithout(state.openPositions, symbol) };
+        state = { ...state, openPositions: mapWithout(state.openPositions, symbol), entryCountByPosition: mapWithout(state.entryCountByPosition, closed.id) };
         record("POSITION_CLOSED", bar.timestamp, { positionId: closed.id });
       }
       // NO_OP / REJECT_ENTRY: nothing to do.
     }
+    if (riskInput) processRiskInput(riskInput);
+    if (entryRiskInput) processRiskInput(entryRiskInput);
 
     // Enqueue the NEXT bar only now, after every derived event this bar
     // produced has already consumed its sequence number — see the
