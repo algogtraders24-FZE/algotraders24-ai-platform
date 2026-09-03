@@ -121,6 +121,18 @@ async function main(): Promise<void> {
       assert.equal(run.metrics!.tradeCount, P3_3_CANONICAL_TRADE_COUNT, "the default (no parameters submitted) canonical run must still produce exactly the P3.3 baseline's 26 trades");
       assert.equal(run.resultHash, P3_3_CANONICAL_RESULT_HASH, "the default configuration's resultHash must be BYTE-IDENTICAL to the live-verified P3.3 canonical baseline - a P3.4 implementation detail must never change what P3.3 already proved correct");
 
+      // P3.8 - the real, live-verified lifecycle: a real completed run
+      // against real historical data, with real trades, must reach
+      // EVIDENCE_VERIFIED and be reported fullyVerified - the strongest,
+      // most end-to-end proof this phase's mechanism actually works (the
+      // engine-level tests already prove the individual stages; this
+      // proves the full composition against production infrastructure).
+      assert.ok(run.lifecycle, "a completed run's response must include its lifecycle");
+      assert.equal(run.lifecycle!.reachedStage, "EVIDENCE_VERIFIED");
+      assert.equal(run.lifecycle!.fullyVerified, true);
+      const evidenceStage = run.lifecycle!.stages.find((s) => s.stage === "EVIDENCE_VERIFIED");
+      assert.ok(evidenceStage?.detail?.includes(`${P3_3_CANONICAL_TRADE_COUNT} trade`), `EVIDENCE_VERIFIED's own detail must name the real trade count, not a generic pass message - got: ${evidenceStage?.detail}`);
+
       // P3.4 - the fully-normalized parameter snapshot is always present
       // and persisted, even when the caller submitted none at all (the
       // registered default is what was actually used, and that fact is

@@ -15,6 +15,7 @@ export * from "./domain/position-management.js";
 export * from "./domain/pending-order-management-policy.js";
 export * from "./domain/execution-specification.js";
 export * from "./domain/strategy-spec.js";
+export * from "./domain/strategy-lifecycle.js";
 export * from "./domain/strategy-version.js";
 export * from "./domain/strategy-taxonomy.js";
 export * from "./domain/backtest-config.js";

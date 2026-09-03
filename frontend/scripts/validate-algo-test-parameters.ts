@@ -66,6 +66,7 @@ const FIXTURE_STRATEGY: StrategyDefinition = {
     throw new Error("FIXTURE_STRATEGY.buildSpec must never actually be called - this fixture only exercises validateParameterValues()");
   },
   buildIndicatorSeries: () => new Map(),
+  importLifecycle: [],
 };
 
 function main(): void {
@@ -229,6 +230,29 @@ function main(): void {
         assert.ok(["signal", "risk", "execution", "provider"].includes(param.category), `strategy "${strategy.strategyId}" parameter "${param.id}" has an invalid or missing category`);
       }
     }
+  });
+
+  console.log("\n=== P3.8 Validation / Evidence Gate ===");
+  test("every registered strategy's own importLifecycle covers exactly IMPORTED/PARSED/IR_VALID/EXECUTION_VALID, in that order, and none of them are FAILED (a FAILED-import-lifecycle strategy would never be safe to register at all)", () => {
+    for (const strategy of STRATEGY_REGISTRY) {
+      assert.deepEqual(
+        strategy.importLifecycle.map((s) => s.stage),
+        ["IMPORTED", "PARSED", "IR_VALID", "EXECUTION_VALID"],
+        `strategy "${strategy.strategyId}"'s importLifecycle must cover exactly these 4 stages, in order`,
+      );
+      for (const stage of strategy.importLifecycle) {
+        assert.notEqual(stage.outcome, "FAILED", `strategy "${strategy.strategyId}" stage "${stage.stage}" is FAILED - a strategy whose own import lifecycle fails must never be registered/available`);
+      }
+    }
+  });
+
+  test("golden's importLifecycle is NOT_APPLICABLE for all 4 stages (never imported); ref-ema-crossover's is PASSED for all 4 (a real MQL5 import) - the two real, different `source.kind`s produce genuinely different, correct lifecycle outcomes", () => {
+    const goldenStages = golden!.importLifecycle.map((s) => s.outcome);
+    assert.deepEqual(goldenStages, ["NOT_APPLICABLE", "NOT_APPLICABLE", "NOT_APPLICABLE", "NOT_APPLICABLE"]);
+    const refEmaCrossover = getStrategyDefinition("ref-ema-crossover");
+    assert.ok(refEmaCrossover);
+    const refStages = refEmaCrossover!.importLifecycle.map((s) => s.outcome);
+    assert.deepEqual(refStages, ["PASSED", "PASSED", "PASSED", "PASSED"]);
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);

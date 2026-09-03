@@ -1,4 +1,7 @@
 import type { StrategySpec } from "../domain/strategy-spec.js";
+import { type StageResult } from "../domain/strategy-lifecycle.js";
+/** P3.8 — this strategy's IMPORTED/PARSED/IR_VALID/EXECUTION_VALID lifecycle stages, all NOT_APPLICABLE (see engineReferenceImportStages' own doc comment — Golden Strategy is authored directly, never imported). In canonical stage order, ready for a caller (strategy-registry.ts) to combine with the per-run stages (DATA_VALID onward) it computes separately. */
+export declare const GOLDEN_STRATEGY_IMPORT_STAGES: readonly StageResult[];
 /**
  * P3.2A — the canonical "Golden Strategy" reference definition, moved
  * here (from test/fixtures/simulation-fixtures.ts) so it has a single,

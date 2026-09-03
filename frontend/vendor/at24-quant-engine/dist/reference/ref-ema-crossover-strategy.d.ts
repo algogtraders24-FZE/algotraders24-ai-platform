@@ -1,5 +1,6 @@
 import type { StrategySpec } from "../domain/strategy-spec.js";
 import type { StrategyIR } from "../domain/strategy-ir/strategy-ir.js";
+import type { StageResult } from "../domain/strategy-lifecycle.js";
 /**
  * P3.6 — the deliberately small, single-file, genuinely-importable
  * reference strategy proving the real MQL5 -> IR -> registry ->
@@ -45,7 +46,9 @@ export declare const REF_EMA_CROSSOVER_SOURCE_FILE_NAME = "AT24_REF_EMA_CROSSOVE
 export declare const REF_EMA_CROSSOVER_DIALECT: "MQL5";
 /** Deterministic (Q0.8.50/51) — the same function Q0.8's own import pipeline uses, exported here so a registry entry can record it as reproducibility metadata without recomputing it a second way. */
 export declare const REF_EMA_CROSSOVER_SOURCE_HASH: string;
-/** The real, imported Universal Strategy IR — kept for introspection/evidence (P3.8's future validation/evidence-gate work), not just discarded after reduction. */
+/** In canonical stage order — see golden-strategy.ts's GOLDEN_STRATEGY_IMPORT_STAGES for the engine-reference-strategy equivalent. */
+export declare const REF_EMA_CROSSOVER_IMPORT_STAGES: readonly StageResult[];
+/** The real, imported Universal Strategy IR — kept for introspection/evidence (P3.8's validation/evidence-gate work), not just discarded after reduction. */
 export declare const REF_EMA_CROSSOVER_IR: StrategyIR;
 /** The reduced, directly-executable StrategySpec — computed once at module load (the import pipeline is pure/deterministic, Q0.8.50/51), never re-imported per call. */
 export declare const REF_EMA_CROSSOVER_SPEC: StrategySpec;
