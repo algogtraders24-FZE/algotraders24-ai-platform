@@ -14,7 +14,13 @@
 // P3.3 registers exactly ONE strategy, deliberately: the Golden Strategy.
 // No artificial second entry is added just to prove the registry is
 // "really" a registry - see docs/P3.3-STRATEGY-REGISTRY.md.
-import { buildGoldenStrategySpec, GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD } from "at24-quant-engine";
+import {
+  buildGoldenStrategySpec,
+  GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD,
+  GOLDEN_STRATEGY_DEFAULT_POSITION_SIZE_QUANTITY,
+  GOLDEN_STRATEGY_DEFAULT_STOP_LOSS_DISTANCE,
+  GOLDEN_STRATEGY_DEFAULT_TAKE_PROFIT_R_MULTIPLE,
+} from "at24-quant-engine";
 
 /** SignalTimeframe-shaped (matches the rest of the app's request convention, e.g. "5m") - see algo-test.service.ts's own SIGNAL_TIMEFRAME_TO_ENGINE_TIMEFRAME mapping for the engine-token conversion. */
 export type AlgoTestCapabilityTimeframe = string;
@@ -81,12 +87,14 @@ export const STRATEGY_REGISTRY: readonly StrategyDefinition[] = [
     description: "AT24's canonical reference strategy (at24-quant-engine's buildGoldenStrategySpec()) - the same strategy validated end-to-end in P3.2B, unchanged.",
     supportedSymbols: ["XAUUSD"],
     supportedTimeframes: ["5m"],
-    // P3.4 - exactly the ONE genuine, signal-affecting strategy parameter
-    // this strategy has (see docs/P3.4-STRATEGY-PARAMETERS.md's audit for
-    // why position-sizing/stop-loss-distance/take-profit-rMultiple are
-    // deliberately excluded - they are risk configuration, not strategy
-    // parameters). `defaultValue` is read from the engine's own exported
-    // constant, never a duplicated literal.
+    // P3.4 - the ONE genuine, signal-affecting strategy parameter this
+    // strategy has (`priceThreshold`, defaultValue read from the engine's
+    // own exported constant, never a duplicated literal). P3.5 adds the
+    // three risk/execution parameters P3.4 deliberately excluded from that
+    // sprint's scope (docs/P3.4-STRATEGY-PARAMETERS.md's audit) - these are
+    // real StrategyParameterDefinition entries now, same mechanism, same
+    // validateParameterValues() below, no new parameter-type system. See
+    // docs/P3.5-RISK-CONFIGURATION.md.
     parameters: [
       {
         id: "priceThreshold",
@@ -96,6 +104,37 @@ export const STRATEGY_REGISTRY: readonly StrategyDefinition[] = [
         type: "number",
         defaultValue: GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD,
         min: 0,
+        max: 1_000_000,
+        required: false,
+      },
+      {
+        id: "positionSizeQuantity",
+        label: "Position Size (quantity)",
+        description: "Fixed quantity opened per entry (risk.sizing, method fixed-quantity). Defaults to 1 - the P3.4-and-earlier hardcoded value.",
+        type: "number",
+        defaultValue: GOLDEN_STRATEGY_DEFAULT_POSITION_SIZE_QUANTITY,
+        min: 0.0001,
+        max: 1_000_000,
+        required: false,
+      },
+      {
+        id: "stopLossDistance",
+        label: "Stop-Loss Distance",
+        description:
+          "Protective stop, expressed as a price distance from the signal price (risk.stopLoss, type fixed-distance). Defaults to 5 - the P3.4-and-earlier hardcoded value. A smaller distance closes losing positions sooner; changing it changes the run's reproducible strategy identity (strategyHash), not just its display.",
+        type: "number",
+        defaultValue: GOLDEN_STRATEGY_DEFAULT_STOP_LOSS_DISTANCE,
+        min: 0.0001,
+        max: 1_000_000,
+        required: false,
+      },
+      {
+        id: "takeProfitRMultiple",
+        label: "Take-Profit (R-multiple)",
+        description: "Profit target expressed as a multiple of the stop-loss distance (risk.takeProfit, type risk-multiple). Defaults to 2 - the P3.4-and-earlier hardcoded value.",
+        type: "number",
+        defaultValue: GOLDEN_STRATEGY_DEFAULT_TAKE_PROFIT_R_MULTIPLE,
+        min: 0.0001,
         max: 1_000_000,
         required: false,
       },

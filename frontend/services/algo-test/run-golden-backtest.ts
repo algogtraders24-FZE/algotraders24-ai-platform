@@ -37,6 +37,10 @@ export interface GoldenBacktestRequest {
    * to buildGoldenStrategySpec() unchanged, never re-validated here.
    */
   priceThreshold?: number;
+  /** P3.5 - same already-validated/already-normalized contract as priceThreshold, for the three risk parameters. */
+  positionSizeQuantity?: number;
+  stopLossDistance?: number;
+  takeProfitRMultiple?: number;
 }
 
 export interface GoldenBacktestOutcome {
@@ -73,7 +77,12 @@ export async function runGoldenBacktest(request: GoldenBacktestRequest, provider
   const indicatorSeries = buildPriceIndicatorSeries(bars);
 
   const config: SimulationConfig = {
-    strategySpec: buildGoldenStrategySpec(request.priceThreshold !== undefined ? { priceThreshold: request.priceThreshold } : {}),
+    strategySpec: buildGoldenStrategySpec({
+      ...(request.priceThreshold !== undefined ? { priceThreshold: request.priceThreshold } : {}),
+      ...(request.positionSizeQuantity !== undefined ? { positionSizeQuantity: request.positionSizeQuantity } : {}),
+      ...(request.stopLossDistance !== undefined ? { stopLossDistance: request.stopLossDistance } : {}),
+      ...(request.takeProfitRMultiple !== undefined ? { takeProfitRMultiple: request.takeProfitRMultiple } : {}),
+    }),
     instrument,
     timeframe: request.timeframe,
     initialBalance: request.initialBalance,

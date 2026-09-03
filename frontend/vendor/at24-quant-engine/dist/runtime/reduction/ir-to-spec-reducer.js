@@ -80,13 +80,20 @@ export function reduceStrategyIRToSpec(ir) {
         ...(e.limitPrice !== undefined ? { limitPrice: e.limitPrice } : {}),
         ...(e.stopPrice !== undefined ? { stopPrice: e.stopPrice } : {}),
     }));
-    // --- Exits (Q0.9.14) — eligibility already excluded SIGNAL_EXIT/SESSION_EXIT and unresolved SL/TP.
-    // STOP_LOSS/TAKE_PROFIT/TIME_EXIT/RISK_EXIT are all risk-driven (Q0.3's
-    // evaluateRisk()), never condition-based — StrategySpec.exitRules stays
-    // empty; the actual price/duration values already live on `ir.risk`
-    // (Q0.7.27's direct passthrough, see below), which IS what Q0.5
-    // evaluates.
-    const exitRules = [];
+    // --- Exits (Q0.9.14, extended Q1.5.3) — eligibility already excluded
+    // SESSION_EXIT and unresolved SL/TP. STOP_LOSS/TAKE_PROFIT/TIME_EXIT/
+    // RISK_EXIT are all risk-driven (Q0.3's evaluateRisk()), never
+    // condition-based — they never populate StrategySpec.exitRules; the
+    // actual price/duration values already live on `ir.risk` (Q0.7.27's
+    // direct passthrough, see below), which IS what Q0.5 evaluates.
+    // SIGNAL_EXIT is the ONE exit kind that DOES belong here — since Q1.5.3
+    // it is genuinely evaluated by the simulation engines (never before:
+    // pre-Q1.5, eligibility unconditionally blocked SIGNAL_EXIT, so this
+    // array was always empty in every prior sprint). A direct structural
+    // passthrough, same pattern as entryRules above — condition/appliesTo
+    // are field-for-field identical between ExitIR and StrategySpec's
+    // ExitRule by design.
+    const exitRules = ir.exits.filter((e) => e.kind === "SIGNAL_EXIT" && e.condition).map((e) => ({ id: e.id, condition: e.condition, ...(e.appliesTo !== undefined ? { appliesTo: e.appliesTo } : {}) }));
     const strategySpec = {
         identity,
         version: ir.strategyVersion,
@@ -102,6 +109,13 @@ export function reduceStrategyIRToSpec(ir) {
         execution: ir.execution.declared,
         // Q0.13 — direct structural passthrough, see toPendingOrderManagementRule's own doc comment.
         ...(ir.pendingOrderManagement && ir.pendingOrderManagement.rules.length > 0 ? { pendingOrderManagement: { rules: ir.pendingOrderManagement.rules.map(toPendingOrderManagementRule) } } : {}),
+        // Q1.5.4 — direct structural passthrough of the pyramiding policy, only
+        // when pyramiding is actually enabled (absent means "no pyramiding,"
+        // identical to every pre-Q1.5 StrategySpec — see strategy-spec.ts's own
+        // doc comment on this field). Eligibility already guarantees
+        // sameDirectionBehavior === "ACCUMULATE" whenever allowPyramiding is
+        // true and this code is reached.
+        ...(ir.positionManagement.pyramiding.allowPyramiding ? { pyramiding: ir.positionManagement.pyramiding } : {}),
     };
     const specValidation = validateStrategySpec(strategySpec);
     if (!specValidation.valid) {
@@ -115,9 +129,11 @@ export function reduceStrategyIRToSpec(ir) {
         { specField: "timeframes", irFeature: "timeframes" },
         { specField: "parameters", irFeature: "parameters" },
         ...ir.entries.map((e) => ({ specField: `entryRules[${e.id}]`, irFeature: `entries[${e.id}]` })),
+        ...exitRules.map((e) => ({ specField: `exitRules[${e.id}]`, irFeature: `exits[${e.id}] (SIGNAL_EXIT, Q1.5.3)` })),
         { specField: "risk", irFeature: "risk (direct passthrough)" },
         { specField: "execution", irFeature: "execution.declared (direct passthrough)" },
         ...(ir.pendingOrderManagement && ir.pendingOrderManagement.rules.length > 0 ? [{ specField: "pendingOrderManagement", irFeature: "pendingOrderManagement (direct passthrough)" }] : []),
+        ...(ir.positionManagement.pyramiding.allowPyramiding ? [{ specField: "pyramiding", irFeature: "positionManagement.pyramiding (direct passthrough, Q1.5.4)" }] : []),
     ];
     const hasNonBlockingGaps = unsupportedFeatures.length > 0 || approximations.length > 0;
     const severity = hasNonBlockingGaps ? "REVIEW_REQUIRED" : "SAFE";
