@@ -59,12 +59,17 @@ const FIXTURE_STRATEGY: StrategyDefinition = {
 
 function main(): void {
   console.log("=== Registry contents (real, production) ===");
-  test("STRATEGY_REGISTRY registers exactly one strategy (golden), with exactly its one genuine parameter", () => {
+  test("STRATEGY_REGISTRY registers exactly one strategy (golden), with its P3.4 entry-parameter plus P3.5's three risk parameters", () => {
     assert.equal(STRATEGY_REGISTRY.length, 1);
-    assert.equal(golden!.parameters.length, 1);
-    assert.equal(golden!.parameters[0]!.id, "priceThreshold");
-    assert.equal(golden!.parameters[0]!.defaultValue, GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD);
-    assert.equal(golden!.parameters[0]!.required, false);
+    assert.equal(golden!.parameters.length, 4);
+    const priceThreshold = golden!.parameters.find((p) => p.id === "priceThreshold");
+    assert.equal(priceThreshold?.defaultValue, GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD);
+    assert.equal(priceThreshold?.required, false);
+    for (const id of ["positionSizeQuantity", "stopLossDistance", "takeProfitRMultiple"]) {
+      const param = golden!.parameters.find((p) => p.id === id);
+      assert.ok(param, `expected a registered parameter with id "${id}"`);
+      assert.equal(param!.required, false);
+    }
   });
 
   console.log("\n=== Valid parameters (real 'golden' registry entry) ===");

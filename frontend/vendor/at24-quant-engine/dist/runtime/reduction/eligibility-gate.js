@@ -21,7 +21,15 @@ export function checkReductionEligibility(ir) {
     if (ir.positionManagement.accountingMode !== "NETTING") {
         reasons.push(`positionManagement.accountingMode "${ir.positionManagement.accountingMode}" is not supported — Q0.5/Q0.6 implement NETTING only`);
     }
-    // Q0.5's engine unconditionally accumulates same-direction fills (position-engine.ts's increasePosition) — it has no "reject repeat entry" configuration point.
+    // Q0.5's engine only ever accumulates same-direction fills via ACCUMULATE
+    // (position-engine.ts's increasePosition) — it has no "reject repeat
+    // entry"/"ignore repeat entry" configuration point for REJECT/IGNORE.
+    // NOTE (Q1.5.4 correction): prior to Q1.5, ACCUMULATE itself was
+    // structurally accepted here but never actually reachable at runtime —
+    // decision-builder.ts unconditionally blocked any second ENTER while a
+    // position was open, regardless of this policy. Since Q1.5.4,
+    // ACCUMULATE is genuinely executable when `allowPyramiding: true`,
+    // bounded by `maxEntries` (see docs/Q1.5_PYRAMIDING_POLICY.md).
     if (ir.positionManagement.pyramiding.sameDirectionBehavior !== "ACCUMULATE") {
         reasons.push(`positionManagement.pyramiding.sameDirectionBehavior "${ir.positionManagement.pyramiding.sameDirectionBehavior}" is not supported — Q0.5's engine always accumulates same-direction fills, never rejects or ignores them`);
     }
@@ -40,7 +48,16 @@ export function checkReductionEligibility(ir) {
     // Q0.9.14 — exits that Q0.5 structurally never evaluates, or that declare a leg risk itself cannot resolve.
     for (const exit of ir.exits) {
         if (exit.kind === "SIGNAL_EXIT") {
-            reasons.push(`exit "${exit.id}" kind SIGNAL_EXIT is never evaluated by Q0.5's engine (StrategySpec.exitRules are accepted but not evaluated — docs/Q0.5_EXECUTION_MODEL.md)`);
+            // Q1.5.3 — SIGNAL_EXIT is now genuinely evaluated by both simulation
+            // engines (simulation-engine.ts/multi-fidelity-engine.ts), reusing
+            // the same Expression evaluator entries use — see
+            // docs/Q1.5_EXIT_CONTRACT.md. A SIGNAL_EXIT is eligible ONLY when it
+            // carries a real, structurally valid `condition` (validated above by
+            // validateStrategyIR) — an exit declared without one can never be
+            // evaluated and stays explicitly blocked, never silently dropped.
+            if (exit.condition === undefined) {
+                reasons.push(`exit "${exit.id}" kind SIGNAL_EXIT has no condition — a condition-authored exit with nothing to evaluate can never be executed`);
+            }
         }
         if (exit.kind === "SESSION_EXIT") {
             reasons.push(`exit "${exit.id}" kind SESSION_EXIT has no forced-exit-at-session-end evaluator in Q0.3's evaluateRisk()`);

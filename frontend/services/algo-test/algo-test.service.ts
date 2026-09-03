@@ -203,19 +203,28 @@ function toEquityCurveView(equityCurve: readonly { timestamp: number; balance: n
   return equityCurve.map((p) => ({ timestamp: p.timestamp, balance: p.balance }));
 }
 
-// P3.4 - the ONE explicit place validated Strategy Parameters map onto
+// P3.4/P3.5 - the ONE explicit place validated Strategy Parameters map onto
 // at24-quant-engine's own public buildGoldenStrategySpec() argument. This
 // is deliberately a small, named, per-strategy mapping function - never a
 // generic "spread the parameters object into the engine" pass-through -
 // so a future second strategy gets its own equally explicit mapping,
 // never an implicit contract with engine internals. Only ever called
 // with an already-validated AlgoTestParameterValues (validateRequest's
-// own validateParameterValues() has already run), so `priceThreshold`
+// own validateParameterValues() has already run), so every field read
 // here is guaranteed to be a real, in-range number for the "golden"
-// strategy - never a raw, unchecked client value.
-function toGoldenStrategyOverrides(parameters: AlgoTestParameterValues): { priceThreshold?: number } {
-  const { priceThreshold } = parameters;
-  return typeof priceThreshold === "number" ? { priceThreshold } : {};
+// strategy - never a raw, unchecked client value. P3.5 added the three
+// risk fields (positionSizeQuantity/stopLossDistance/takeProfitRMultiple)
+// alongside priceThreshold, same guarantee, same mapping shape.
+function toGoldenStrategyOverrides(
+  parameters: AlgoTestParameterValues,
+): { priceThreshold?: number; positionSizeQuantity?: number; stopLossDistance?: number; takeProfitRMultiple?: number } {
+  const { priceThreshold, positionSizeQuantity, stopLossDistance, takeProfitRMultiple } = parameters;
+  return {
+    ...(typeof priceThreshold === "number" ? { priceThreshold } : {}),
+    ...(typeof positionSizeQuantity === "number" ? { positionSizeQuantity } : {}),
+    ...(typeof stopLossDistance === "number" ? { stopLossDistance } : {}),
+    ...(typeof takeProfitRMultiple === "number" ? { takeProfitRMultiple } : {}),
+  };
 }
 
 export const algoTestService = {

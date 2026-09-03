@@ -25,12 +25,28 @@ export const GOLDEN_STRATEGY_PRICE_INDICATOR = indicator("PRICE");
  * P3.4 — the Golden Strategy's ONE genuine, signal-affecting strategy
  * parameter: the entry condition is `PRICE > priceThreshold`. Everything
  * else configurable-looking in this spec (position-sizing quantity,
- * stop-loss distance, take-profit R-multiple) is risk/execution
- * configuration, not a strategy parameter — deliberately NOT exposed here;
- * see docs/P3.4-STRATEGY-PARAMETERS.md's audit section for the full
- * category-by-category reasoning.
+ * stop-loss distance, take-profit R-multiple) was risk/execution
+ * configuration, not a strategy parameter, and was deliberately NOT
+ * exposed in P3.4 — see docs/P3.4-STRATEGY-PARAMETERS.md's audit section
+ * for the full category-by-category reasoning. P3.5 (below) is the
+ * sprint that deliberately opens that category-#2 slot up, on its own
+ * terms — see docs/P3.5-RISK-CONFIGURATION.md.
  */
 export const GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD = 100;
+/**
+ * P3.5 — the three risk/execution values P3.4 identified as category #2
+ * ("real, currently-hardcoded configuration values... not exposed" —
+ * P3.4-STRATEGY-PARAMETERS.md section 1) and deliberately left out of
+ * that sprint's scope. Threaded through the SAME shapes already declared
+ * by domain/risk-specification.ts (sizing.method stays "fixed-quantity",
+ * stopLoss.type stays "fixed-distance", takeProfit.type stays
+ * "risk-multiple") — P3.5 does not invent a new risk representation, it
+ * makes the existing hardcoded one configurable. See
+ * docs/P3.5-RISK-CONFIGURATION.md.
+ */
+export const GOLDEN_STRATEGY_DEFAULT_POSITION_SIZE_QUANTITY = 1;
+export const GOLDEN_STRATEGY_DEFAULT_STOP_LOSS_DISTANCE = 5;
+export const GOLDEN_STRATEGY_DEFAULT_TAKE_PROFIT_R_MULTIPLE = 2;
 /**
  * P3.4 (additive, backward-compatible): gained an optional `params`
  * argument. `buildGoldenStrategySpec()` and `buildGoldenStrategySpec({})`
@@ -50,6 +66,9 @@ export const GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD = 100;
  */
 export function buildGoldenStrategySpec(params = {}) {
     const priceThreshold = params.priceThreshold ?? GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD;
+    const positionSizeQuantity = params.positionSizeQuantity ?? GOLDEN_STRATEGY_DEFAULT_POSITION_SIZE_QUANTITY;
+    const stopLossDistance = params.stopLossDistance ?? GOLDEN_STRATEGY_DEFAULT_STOP_LOSS_DISTANCE;
+    const takeProfitRMultiple = params.takeProfitRMultiple ?? GOLDEN_STRATEGY_DEFAULT_TAKE_PROFIT_R_MULTIPLE;
     return {
         identity: { strategyId: "sim-golden", name: "Simulation Golden Fixture Strategy" },
         version: "1.0.0",
@@ -66,9 +85,9 @@ export function buildGoldenStrategySpec(params = {}) {
         ],
         exitRules: [],
         risk: {
-            sizing: { method: "fixed-quantity", quantity: 1 },
-            stopLoss: { type: "fixed-distance", distance: 5 },
-            takeProfit: { type: "risk-multiple", rMultiple: 2 },
+            sizing: { method: "fixed-quantity", quantity: positionSizeQuantity },
+            stopLoss: { type: "fixed-distance", distance: stopLossDistance },
+            takeProfit: { type: "risk-multiple", rMultiple: takeProfitRMultiple },
         },
         execution: { fillModel: "next-bar-open", costsExplicitlyZero: true },
     };

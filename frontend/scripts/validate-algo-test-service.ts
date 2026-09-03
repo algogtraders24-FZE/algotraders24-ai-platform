@@ -26,8 +26,27 @@ import { prisma } from "../lib/prisma";
 import { algoTestService, MAX_RANGE_DAYS } from "../services/algo-test/algo-test.service";
 import { STRATEGY_REGISTRY, getStrategyDefinition } from "../services/algo-test/strategy-registry";
 import { RESULT_CONTRACT_VERSION } from "../services/algo-test/result-contract";
-import { GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD } from "at24-quant-engine";
+import {
+  GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD,
+  GOLDEN_STRATEGY_DEFAULT_POSITION_SIZE_QUANTITY,
+  GOLDEN_STRATEGY_DEFAULT_STOP_LOSS_DISTANCE,
+  GOLDEN_STRATEGY_DEFAULT_TAKE_PROFIT_R_MULTIPLE,
+} from "at24-quant-engine";
+
 import type { AlgoTestRunRequest } from "../types/algo-test";
+
+// P3.5 - validateParameterValues() always returns every declared parameter,
+// defaults filled in, never a partial object - see strategy-registry.ts's
+// own doc comment. This is the one place that full default snapshot is
+// spelled out for the "golden" registry entry, reused by every assertion
+// below that checks a persisted/returned `parameters` object against "the
+// registered defaults, nothing submitted".
+const GOLDEN_DEFAULT_PARAMETERS = {
+  priceThreshold: GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD,
+  positionSizeQuantity: GOLDEN_STRATEGY_DEFAULT_POSITION_SIZE_QUANTITY,
+  stopLossDistance: GOLDEN_STRATEGY_DEFAULT_STOP_LOSS_DISTANCE,
+  takeProfitRMultiple: GOLDEN_STRATEGY_DEFAULT_TAKE_PROFIT_R_MULTIPLE,
+};
 
 // P3.4 section 22 - the EXACT resultHash this exact canonical request
 // (VALID_REQUEST below: Golden Strategy defaults, XAUUSD/M5,
@@ -106,7 +125,7 @@ async function main(): Promise<void> {
       // and persisted, even when the caller submitted none at all (the
       // registered default is what was actually used, and that fact is
       // recorded, not left implicit).
-      assert.deepEqual(run.parameters, { priceThreshold: GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD });
+      assert.deepEqual(run.parameters, GOLDEN_DEFAULT_PARAMETERS);
 
       // P3.3 - Strategy Versioning / Result Contract Hardening: every
       // completed run records its exact strategyId+strategyVersion and the
@@ -124,7 +143,7 @@ async function main(): Promise<void> {
       assert.equal(row!.strategyVersion, golden!.strategyVersion);
       assert.equal(row!.resultVersion, RESULT_CONTRACT_VERSION);
       assert.ok(row!.engineVersion);
-      assert.deepEqual(row!.parameters, { priceThreshold: GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD }, "the parameter snapshot must be persisted on the row itself, not just in the response");
+      assert.deepEqual(row!.parameters, GOLDEN_DEFAULT_PARAMETERS, "the parameter snapshot must be persisted on the row itself, not just in the response");
       assert.ok(row!.metrics, "metrics must be persisted");
       assert.ok(row!.trades, "trades must be persisted");
     });
@@ -180,12 +199,12 @@ async function main(): Promise<void> {
       const run = await algoTestService.runAlgoTest(user.id, { ...VALID_REQUEST, parameters: { priceThreshold: 2100 } });
       createdRunIds.push(run.testId);
       assert.equal(run.status, "completed", `expected a completed (not failed) run - got errorCode ${run.errorCode}: ${run.errorMessage}`);
-      assert.deepEqual(run.parameters, { priceThreshold: 2100 }, "the exact submitted value must be what's recorded, not the default");
+      assert.deepEqual(run.parameters, { ...GOLDEN_DEFAULT_PARAMETERS, priceThreshold: 2100 }, "the exact submitted value must be what's recorded (other fields still get their own registered defaults filled in), not the default");
       assert.equal(run.metrics!.tradeCount, 0, "2100 is above every real bar's close in this window - the entry condition must never fire, a genuine zero-trade result, not an error");
       assert.notEqual(run.resultHash, P3_3_CANONICAL_RESULT_HASH, "a genuinely different parameter that changes execution must produce a genuinely different resultHash");
 
       const row = await prisma.algoTestRun.findUnique({ where: { id: run.testId } });
-      assert.deepEqual(row?.parameters, { priceThreshold: 2100 });
+      assert.deepEqual(row?.parameters, { ...GOLDEN_DEFAULT_PARAMETERS, priceThreshold: 2100 });
     });
 
     // A dedicated second real network call proving determinism specifically
