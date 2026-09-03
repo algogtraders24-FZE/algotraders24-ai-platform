@@ -19,5 +19,20 @@
     "tradingSystemId": "GOLDFIRE",
     "tradingSystemName": "Gold Fire v5 (Product #2 candidate, M13 intake)",
     "versionString": "v5.00 as-tested configuration - InpLotMode=RISK_PERCENT(1), InpRiskPercent=0.50, XAUUSD M15, Exness, 2025.06-2026.08 - real MT5 .html Deals-table report, magic number 777999 matches source default. Note: risk-percent compounding sizing means the real max drawdown (65.89% equity-based / 36.77% MT5 balance-based) is severe - disclosed honestly, not smoothed over."
+  },
+  "QUANTUM-GOLD-AI-v1.37-2026-07-03": {
+    "tradingSystemId": "QUANTUM-GOLD-AI",
+    "tradingSystemName": "Quantum Gold AI (M14 catalog-import, Product #3 candidate)",
+    "versionString": "v1.37 as-shipped - real backtest evidence is a FAITHFUL PYTHON PORT of the real .mq5 QuantumWave()/MConfirm()/GetSLTP() engine (default inputs), run against real XAUUSD_EXNESS H1/H4/M15 candles from quant_engine/market.db (2024.01-2026.05) - NOT a native MT5 Strategy Tester report (the user's own MT5 terminal was actively in use for other testing at the time). sourceAdapter=python-quantum-engine-backtest-v1 discloses this plainly. See m14-catalog-import/quantum_gold_ai_backtest.py for every simplification (bar-close entries, SL-before-TP-on-same-bar assumption, no spread/commission model)."
+  },
+  "NEXUSMINING-EXPLORATION-ALGO-v1.26-2026-07-03": {
+    "tradingSystemId": "NEXUSMINING-EXPLORATION-ALGO",
+    "tradingSystemName": "Nexusmining Exploration Algo (M14 catalog-import, Product #3 candidate)",
+    "versionString": "v1.26 as-shipped - same faithful Python-port methodology as Quantum Gold AI (see that registry entry), USOIL_EXNESS H1/H4/M15, ATR_SL_Mult=2.2/ATR_TP_Mult=3.5 (this EA's own real defaults, distinct from Gold's 2.0/3.2)."
+  },
+  "QUANTUMPULSE-BTC-v1.26-2026-07-03": {
+    "tradingSystemId": "QUANTUMPULSE-BTC",
+    "tradingSystemName": "QuantumPulse BTC (M14 catalog-import, Product #3 candidate)",
+    "versionString": "v1.26 as-shipped - same faithful Python-port methodology as Quantum Gold AI (see that registry entry), BTCUSD_EXNESS H1/H4/M15, ATR_SL_Mult=3.0/ATR_TP_Mult=5.0 (this EA's own real defaults)."
   }
 }

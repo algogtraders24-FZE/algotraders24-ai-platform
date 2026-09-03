@@ -494,10 +494,18 @@ def analyze_loss_streaks_and_recovery(evidence: dict[str, Any], trades: list[dic
     else:
         recovery_note = "Recovery timing is reconstructed from the same balance-level (trade-close) equity curve as drawdown -- not intraday equity. See drawdown section."
 
+    # Real bug found via M14 catalog-import (Nexusmining Oil real data):
+    # `recovered` being non-empty does NOT guarantee any episode in it has a
+    # computed durationDays (e.g. every recovered episode still has
+    # durationDays=None from an upstream data-quality gap) -- the old guard
+    # checked `recovered` itself, not the actually-filtered list, so
+    # statistics.mean([]) crashed instead of honestly reporting "no
+    # computable durations" as None. Fixed to check the filtered list.
+    recovered_durations = [e["durationDays"] for e in recovered if e["durationDays"] is not None]
     recovery_summary = {
         "recoveryEpisodes": len(recovered),
         "unrecoveredEpisodesAtEndOfPeriod": len(unrecovered),
-        "averageRecoveryDurationDays": round(statistics.mean([e["durationDays"] for e in recovered if e["durationDays"] is not None]), 1) if recovered else None,
+        "averageRecoveryDurationDays": round(statistics.mean(recovered_durations), 1) if recovered_durations else None,
         "percentOfPeriodBelowPriorPeak": round(days_in_drawdown / total_days, 4) if total_days > 0 else None,
         "dataQuality": ("AVAILABLE" if has_real_curve else "LIMITED") if episodes else "UNAVAILABLE",
         "note": recovery_note,
