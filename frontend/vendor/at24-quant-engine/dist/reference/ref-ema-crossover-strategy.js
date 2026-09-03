@@ -1,6 +1,5 @@
-import { validateStrategyIRStructure } from "../domain/strategy-ir/strategy-ir.js";
 import { importMQLSource, computeSourceHash } from "../runtime/mql-importer/mql-importer.js";
-import { checkReductionEligibility } from "../runtime/reduction/eligibility-gate.js";
+import { mqlImportLifecycleStages } from "../runtime/mql-importer/lifecycle.js";
 import { reduceStrategyIRToSpec } from "../runtime/reduction/ir-to-spec-reducer.js";
 /**
  * P3.6 — the deliberately small, single-file, genuinely-importable
@@ -109,20 +108,37 @@ const importResult = importMQLSource({
         importedAt: Date.parse("2026-09-03T00:00:00Z"),
     },
 });
-const structuralValidation = validateStrategyIRStructure(importResult.ir);
-if (!structuralValidation.valid) {
+/**
+ * P3.8 — the ONE place this module's IMPORTED/PARSED/IR_VALID/
+ * EXECUTION_VALID facts are computed (mqlImportLifecycleStages() reads
+ * `importResult.report`/`.ir` directly - see that function's own doc
+ * comment for exactly which existing engine capability backs each
+ * stage). Exported below as REF_EMA_CROSSOVER_IMPORT_STAGES for a
+ * caller (strategy-registry.ts) to combine with the per-run stages it
+ * computes separately, AND used here, at load time, as the single
+ * source of truth for the same fail-fast invariant this module already
+ * enforced pre-P3.8 (structural validity + execution eligibility) - no
+ * longer two separate, redundant computations of the same underlying
+ * checks.
+ */
+const importStages = mqlImportLifecycleStages(importResult);
+if (importStages.PARSED.outcome === "FAILED") {
+    throw new Error(`ref-ema-crossover-strategy: PARSED stage failed: ${importStages.PARSED.detail}`);
+}
+if (importStages.IR_VALID.outcome === "FAILED") {
+    throw new Error(`ref-ema-crossover-strategy: IR_VALID stage failed: ${importStages.IR_VALID.detail}`);
+}
+if (importStages.EXECUTION_VALID.outcome === "FAILED") {
     // A hard, load-time invariant, not a runtime possibility: this exact
     // source string is committed, reviewed, and covered by
     // test/ref-ema-crossover-strategy.test.ts — if it ever stops importing
     // cleanly (e.g. an importer regression), every consumer of this module
     // must fail loudly and immediately, never silently serve a broken spec.
-    throw new Error(`ref-ema-crossover-strategy: imported IR failed structural validation: ${JSON.stringify(structuralValidation)}`);
+    throw new Error(`ref-ema-crossover-strategy: EXECUTION_VALID stage failed: ${importStages.EXECUTION_VALID.detail}`);
 }
-const eligibility = checkReductionEligibility(importResult.ir);
-if (!eligibility.eligible) {
-    throw new Error(`ref-ema-crossover-strategy: imported IR is not execution-eligible: ${eligibility.blockingReasons.join("; ")}`);
-}
-/** The real, imported Universal Strategy IR — kept for introspection/evidence (P3.8's future validation/evidence-gate work), not just discarded after reduction. */
+/** In canonical stage order — see golden-strategy.ts's GOLDEN_STRATEGY_IMPORT_STAGES for the engine-reference-strategy equivalent. */
+export const REF_EMA_CROSSOVER_IMPORT_STAGES = [importStages.IMPORTED, importStages.PARSED, importStages.IR_VALID, importStages.EXECUTION_VALID];
+/** The real, imported Universal Strategy IR — kept for introspection/evidence (P3.8's validation/evidence-gate work), not just discarded after reduction. */
 export const REF_EMA_CROSSOVER_IR = importResult.ir;
 const reduction = reduceStrategyIRToSpec(importResult.ir);
 if (reduction.status === "BLOCKED" || !reduction.strategySpec) {

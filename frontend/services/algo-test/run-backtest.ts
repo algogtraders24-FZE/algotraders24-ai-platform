@@ -46,6 +46,18 @@ export interface BacktestOutcome {
    * calculation path.
    */
   readonly equityCurve: readonly { timestamp: number; balance: number }[];
+  /**
+   * P3.8 - REAL, not assumed: `runSimulation()` is called a SECOND time
+   * with the identical `config`/`bars` (already fetched, no second
+   * provider call) and its own `resultHash` is compared to the first
+   * run's. `docs/ALGO_TESTING_PRO_ROADMAP.md` section 5 already states
+   * "identical inputs -> identical resultHash" as an established
+   * invariant proven by unit tests at the engine level (Q0.5.36, P3.5's
+   * own determinism tests) - this field proves it again, live, for THIS
+   * specific run, not just for the engine in the abstract. `false` here
+   * would be a genuine engine-level regression, not an expected outcome.
+   */
+  readonly reproducible: boolean;
 }
 
 export async function runBacktest(request: BacktestRequest, provider: HistoricalDataProvider): Promise<BacktestOutcome> {
@@ -78,6 +90,13 @@ export async function runBacktest(request: BacktestRequest, provider: Historical
   };
 
   const result = runSimulation(bars, config);
+  // P3.8 - the real reproducibility check. Cheap: no network, no second
+  // provider call, just a second local computation over the same
+  // already-fetched bars/config - config is a plain object, safe to reuse
+  // as-is (runSimulation never mutates its input, an existing Q0
+  // invariant this call relies on, not re-verifies).
+  const secondResult = runSimulation(bars, config);
+  const reproducible = secondResult.resultHash === result.resultHash;
 
   return {
     result,
@@ -86,6 +105,7 @@ export async function runBacktest(request: BacktestRequest, provider: Historical
     barsRejected: rejected.length,
     dataSource: source,
     equityCurve: deriveEquityCurve(result, request.initialBalance),
+    reproducible,
   };
 }
 

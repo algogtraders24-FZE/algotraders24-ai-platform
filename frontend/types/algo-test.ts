@@ -45,6 +45,25 @@ export interface AlgoTestParameterDefinition {
   required: boolean;
 }
 
+/** P3.8 - mirrors at24-quant-engine's STRATEGY_LIFECYCLE_STAGES exactly (docs/P3.8-VALIDATION-EVIDENCE-GATE.md). */
+export const ALGO_TEST_LIFECYCLE_STAGES = ["IMPORTED", "PARSED", "IR_VALID", "EXECUTION_VALID", "DATA_VALID", "BACKTEST_VALID", "REPRODUCIBLE", "EVIDENCE_VERIFIED"] as const;
+export type AlgoTestLifecycleStage = (typeof ALGO_TEST_LIFECYCLE_STAGES)[number];
+
+/** P3.8 - mirrors at24-quant-engine's StageOutcome exactly. */
+export type AlgoTestStageOutcome = "PASSED" | "NOT_APPLICABLE" | "FAILED";
+
+export interface AlgoTestStageResult {
+  stage: AlgoTestLifecycleStage;
+  outcome: AlgoTestStageOutcome;
+  detail?: string;
+}
+
+export interface AlgoTestLifecycleResult {
+  stages: readonly AlgoTestStageResult[];
+  reachedStage: AlgoTestLifecycleStage;
+  fullyVerified: boolean;
+}
+
 export interface AlgoTestStrategyDefinition {
   strategyId: AlgoTestStrategyId;
   strategyVersion: string;
@@ -56,6 +75,8 @@ export interface AlgoTestStrategyDefinition {
   /** P3.4 - this strategyVersion's immutable parameter schema; empty array for a strategy with no genuine, safely-exposable strategy parameters. */
   parameters: AlgoTestParameterDefinition[];
   status: "available";
+  /** P3.8 - this strategy's own IMPORTED/PARSED/IR_VALID/EXECUTION_VALID stages (docs/P3.8-VALIDATION-EVIDENCE-GATE.md), known independent of any specific backtest run. */
+  importLifecycle: readonly AlgoTestStageResult[];
 }
 
 /** P3.4 - a parameter id -> the value actually used for one run. Every declared parameter is always present (defaults filled in server-side) - never a partial object. */
@@ -219,6 +240,20 @@ export interface AlgoTestRunView {
    * fully-persisted result into an error).
    */
   candles?: ChartCandle[];
+  /**
+   * P3.8 - Validation / Evidence Gate (docs/P3.8-VALIDATION-EVIDENCE-GATE.md).
+   * Present on a freshly-completed OR freshly-failed run's own POST
+   * response (`runAlgoTest`) - naming exactly which of the 8 lifecycle
+   * stages (IMPORTED/PARSED/IR_VALID/EXECUTION_VALID/DATA_VALID/
+   * BACKTEST_VALID/REPRODUCIBLE/EVIDENCE_VERIFIED) this specific request
+   * reached, and the real, specific reason for the first one that failed,
+   * if any. Deliberately NOT reconstructed on GET .../[id] reopen or in
+   * the run-list view this phase (REPRODUCIBLE would require re-running
+   * the simulation a second time on every reopen, which this phase does
+   * not do) - `undefined` there means "not (yet) recomputed on reopen,"
+   * never "this run had no lifecycle."
+   */
+  lifecycle?: AlgoTestLifecycleResult;
   errorCode?: AlgoTestErrorCode;
   errorMessage?: string;
   createdAt: string;

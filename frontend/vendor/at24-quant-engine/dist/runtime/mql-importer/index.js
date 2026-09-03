@@ -4,3 +4,4 @@ export * from "./dialect-detector.js";
 export * from "./semantic-analyzer.js";
 export * from "./ir-generator.js";
 export * from "./mql-importer.js";
+export * from "./lifecycle.js";

@@ -41,10 +41,12 @@ import {
   GOLDEN_STRATEGY_DEFAULT_STOP_LOSS_DISTANCE,
   GOLDEN_STRATEGY_DEFAULT_TAKE_PROFIT_R_MULTIPLE,
   GOLDEN_STRATEGY_PRICE_INDICATOR,
+  GOLDEN_STRATEGY_IMPORT_STAGES,
   buildRefEmaCrossoverSpec,
   REF_EMA_CROSSOVER_SOURCE_HASH,
   REF_EMA_CROSSOVER_SOURCE_FILE_NAME,
   REF_EMA_CROSSOVER_DIALECT,
+  REF_EMA_CROSSOVER_IMPORT_STAGES,
   computeSemanticStrategyHash,
   calculateSeries,
   ema,
@@ -52,6 +54,7 @@ import {
   indicatorKey,
   type StrategySpec,
   type OHLCVBar,
+  type StageResult,
 } from "at24-quant-engine";
 
 /** SignalTimeframe-shaped (matches the rest of the app's request convention, e.g. "5m") - see algo-test.service.ts's own SIGNAL_TIMEFRAME_TO_ENGINE_TIMEFRAME mapping for the engine-token conversion. */
@@ -174,6 +177,15 @@ export interface StrategyDefinition {
    * `buildSpec`.
    */
   readonly buildIndicatorSeries: (bars: readonly OHLCVBar[]) => ReadonlyMap<string, readonly (number | boolean | undefined)[]>;
+  /**
+   * P3.8 - the IMPORTED/PARSED/IR_VALID/EXECUTION_VALID lifecycle stages
+   * (docs/P3.8-VALIDATION-EVIDENCE-GATE.md), in canonical order, computed
+   * ONCE by the strategy's own reference module (GOLDEN_STRATEGY_IMPORT_STAGES
+   * / REF_EMA_CROSSOVER_IMPORT_STAGES - never recomputed here, never a
+   * second source of truth). algo-test.service.ts combines these with the
+   * per-run stages (DATA_VALID onward) it computes for a specific request.
+   */
+  readonly importLifecycle: readonly StageResult[];
 }
 
 const goldenSpec = buildGoldenStrategySpec();
@@ -311,6 +323,7 @@ export const STRATEGY_REGISTRY: readonly StrategyDefinition[] = [
     // the engine's own typed build function. No per-field mapping code.
     buildSpec: (overrides) => buildGoldenStrategySpec(pickNumericOverrides(GOLDEN_PARAMETERS.map((p) => p.id), overrides)),
     buildIndicatorSeries: buildGoldenIndicatorSeries,
+    importLifecycle: GOLDEN_STRATEGY_IMPORT_STAGES,
     parameters: GOLDEN_PARAMETERS,
     status: "available",
   },
@@ -345,6 +358,7 @@ export const STRATEGY_REGISTRY: readonly StrategyDefinition[] = [
     // signature identical for every registry entry.
     buildSpec: () => refEmaCrossoverSpec,
     buildIndicatorSeries: buildRefEmaCrossoverIndicatorSeries,
+    importLifecycle: REF_EMA_CROSSOVER_IMPORT_STAGES,
   },
 ];
 
