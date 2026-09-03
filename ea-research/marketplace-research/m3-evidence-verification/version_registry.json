@@ -39,5 +39,10 @@
     "tradingSystemId": "GLOBAL-COMMODITY-MATRIX",
     "tradingSystemName": "Global Commodity Matrix (M14 catalog-import, Product #3 candidate) - GOLD-mode evidence only",
     "versionString": "v1.62 as-shipped - this Evidence covers ONLY the Gold (XAUUSD) auto-tune profile. Verified line-for-line identical QuantumWave()/MConfirm() engine code AND identical ATR_SL_Mult=2.0/ATR_TP_Mult=3.2 Gold profile to Quantum Gold AI's own dedicated engine (see GLOBAL_COMMODITY_MATRIX.mq5 lines 221/688-772 vs QUANTUM_GOLD_AI.mq5) - the same real backtest trades (quantum_gold_ai_trades.json) are honestly reused rather than re-running an identical computation twice. This EA also auto-tunes for Silver/Oil/Bitcoin when attached to those charts - those modes are NOT covered by this Evidence (Silver: no XAGUSD data available; Oil/BTC: separately evidenced under their own dedicated-EA versionIds, not yet cross-attributed here)."
+  },
+  "AT24-TREND-MASTER-v1.00-XAUUSD-2026": {
+    "tradingSystemId": "AT24-TREND-MASTER",
+    "tradingSystemName": "AT24 AI Trend Master (M15 real /products build-out, Product #1) - XAUUSD evidence",
+    "versionString": "v1.00 - real, newly-written EA (not a rebrand of an existing product), replacing the fabricated /products placeholder listing of the same concept. Honest naming note: despite the original placeholder's \"AI/deep-learning\" marketing, this is a disclosed rule-based system (H4 macro EMA(50/200) trend filter + H1 EMA(21/55)/ADX(14) entry gate + RSI(14) pullback timing, ATR-adaptive risk-% sizing) - no trained model exists. Evidence is a faithful Python port of the real .mq5 engine run against real XAUUSD_EXNESS H1/H4 candles from quant_engine/market.db (2024.01-2026.05). A second real run on EURUSD_EXNESS (195 trades, profit factor 0.98, essentially breakeven) is disclosed in the product description but not separately evidenced under its own versionId yet."
   }
 }

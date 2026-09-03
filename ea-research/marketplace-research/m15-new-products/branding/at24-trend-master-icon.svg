@@ -1,0 +1,56 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19"/>
+      <stop offset="100%" stop-color="#0d1420"/>
+    </linearGradient>
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e7c86b"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="36%" r="48%">
+      <stop offset="0%" stop-color="#3fb27f" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#3fb27f" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="lineGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#94a3b8"/>
+      <stop offset="100%" stop-color="#3fb27f"/>
+    </linearGradient>
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fff3d1"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="url(#bg)"/>
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="none" stroke="url(#borderGrad)" stroke-width="6"/>
+
+  <ellipse cx="256" cy="180" rx="150" ry="120" fill="url(#glow)"/>
+
+  <!-- two EMAs crossing into an uptrend, with a rising trend channel -->
+  <g filter="url(#softGlow)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 100 240 C 150 236 180 220 210 200 C 240 180 260 150 300 130 C 330 115 370 108 412 96" stroke="#5b7a9c" stroke-width="6" opacity="0.85"/>
+    <path d="M 100 224 C 150 226 190 216 224 192 C 258 168 274 138 308 118 C 336 102 372 96 412 84" stroke="url(#lineGrad)" stroke-width="8"/>
+  </g>
+  <!-- crossover point marker -->
+  <circle cx="224" cy="192" r="7" fill="#3fb27f"/>
+  <!-- breakout arrowhead -->
+  <path d="M 412 84 L 388 92 M 412 84 L 404 108" fill="none" stroke="url(#lineGrad)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- small bullish candles along the trend -->
+  <g fill="#3fb27f">
+    <rect x="150" y="216" width="10" height="24" rx="2"/>
+    <rect x="190" y="196" width="10" height="26" rx="2"/>
+    <rect x="270" y="150" width="10" height="28" rx="2"/>
+    <rect x="330" y="112" width="10" height="26" rx="2"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="256" y="352" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="800" letter-spacing="1" fill="#ffffff">AT24</text>
+  <text x="256" y="392" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="800" letter-spacing="0.5" fill="url(#textGrad)">TREND MASTER</text>
+  <text x="256" y="424" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" letter-spacing="2" fill="#94a3b8">EMA/ADX TREND-FOLLOWING · MT5</text>
+</svg>
