@@ -62,14 +62,18 @@ Every phase must preserve invariants P3.1–P3.4 already established and verifie
 3. Registering a new strategy requires no changes to `algo-test.service.ts`'s validation/persistence logic — only a new registry entry. **YES**, proven directly by this phase's own diff.
 4. Full regression suite green; the registered import produces a reproducible `strategyHash`. **YES** — 1205/1205, both typechecks clean.
 
-## 8. Phase P3.7 — Generic Parameter Engine
+## 8. Phase P3.7 — Generic Parameter Engine — COMPLETE, scope revised
 
-`StrategySpec.parameters` (the engine-level declarative field, part of `StrategySpec` since Q0, confirmed by P3.4's own audit to have **zero runtime consumers** anywhere in the engine) becomes an actual read path: the frontend Strategy Registry's parameter metadata is generated from whatever a strategy genuinely declares, rather than one hand-wired `StrategyParameterDefinition` array per strategy. UI must not hardcode "Golden Strategy has a field called `priceThreshold`" — it renders whatever the registered strategy's schema says.
+**Status: implemented** (`docs/P3.7-GENERIC-PARAMETER-ENGINE.md`). Investigated before implementing, exactly as P3.6's G01 question was: does `StrategySpec.parameters` (the engine field P3.4's audit found with zero runtime consumers) behave any better for an *imported* strategy than for Golden's hand-authored one? Traced directly against `ref-ema-crossover` — the importer auto-populates it from raw MQL `input` declarations with **zero category filtering** (it produced an entry for `InpLotSize`, a category-#2 field Golden's own curated list correctly excludes), and it is **completely disconnected from execution** (`risk.sizing.quantity` stays hardcoded regardless of what's in `parameters`). Making this genuinely metadata-driven for imported strategies would require real importer/codegen work (categorizing inputs, wiring an accepted override back into the specific field it came from) — a genuine engine redesign, not a wiring fix.
 
-### Acceptance criteria (P3.7)
+**Revised scope, confirmed with the user before implementation**: P3.7 formalizes the generic parameter mechanism for **engine-reference strategies only** (Golden Strategy; any future TypeScript-authored strategy). A single generic function, `pickNumericOverrides(parameterIds, overrides)`, driven entirely by a strategy's own declared parameter-id list, replaces the hand-written per-strategy override-mapping function (`toGoldenStrategyOverrides`) — proven strategy-agnostic directly, with a wholly synthetic parameter-id list neither registered strategy declares. `category` (P3.4's own signal/risk/execution/provider taxonomy) is now a real, required field on `StrategyParameterDefinition`, not just prose. MQL-imported strategies' `spec.parameters` stays informational-only and uncategorized — recorded as a real, explicit gap (not silently dropped), and folded into section 13's "Future: G01 Full Import Fidelity" scope (recursive `#include` resolution and state-machine support would need to come with real input categorization and override-wiring, not a bolt-on afterward).
 
-1. Two differently-parameterized registered strategies (Golden Strategy + the P3.6 `ref-ema-crossover` import, or a further strategy registered by then) render correct, different parameter panels with zero strategy-specific UI code.
-2. Adding a new parameter to a strategy's declared schema requires no `AlgoTestPanel.tsx` changes.
+### Acceptance criteria (P3.7) — final status
+
+1. Parameter metadata (name/type/default/min/max/step/category/description) understood generically by the application, for engine-reference strategies. **YES.**
+2. Adding a new engine-reference strategy's numeric parameter requires no new per-field mapping code — only a metadata entry. **YES**, proven directly.
+3. `AlgoTestPanel.tsx` changes. **NONE** — confirmed, not assumed.
+4. MQL-imported strategy parameter handling. **Unchanged, explicitly out of scope** this phase.
 
 ## 9. Phase P3.8 — Validation / Evidence Gate
 

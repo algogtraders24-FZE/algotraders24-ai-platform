@@ -20,6 +20,9 @@ export type AlgoTestStrategyId = string;
 /** P3.4 - mirrors services/algo-test/strategy-registry.ts's StrategyParameterType exactly (see that file for why only these four). */
 export type AlgoTestParameterType = "number" | "integer" | "boolean" | "select";
 
+/** P3.7 - mirrors services/algo-test/strategy-registry.ts's StrategyParameterCategory exactly (P3.4's own signal/risk/execution/provider taxonomy, now a real field). */
+export type AlgoTestParameterCategory = "signal" | "risk" | "execution" | "provider";
+
 /**
  * P3.4 - the wire shape of one Strategy Parameter definition (mirrors
  * services/algo-test/strategy-registry.ts's StrategyParameterDefinition).
@@ -33,6 +36,7 @@ export interface AlgoTestParameterDefinition {
   label: string;
   description: string;
   type: AlgoTestParameterType;
+  category: AlgoTestParameterCategory;
   defaultValue: number | boolean | string;
   min?: number;
   max?: number;
