@@ -13,7 +13,7 @@ import type { FidelityQuality } from "../../domain/fidelity/fidelity-quality.js"
 import type { MultiFidelityConfig } from "./multi-fidelity-config.js";
 
 import { validateMarketSeries } from "../../domain/market-series.js";
-import { generateSignal } from "../signal-generator.js";
+import { generateSignal, firstMatchingExitRule } from "../signal-generator.js";
 import { evaluateRisk } from "../risk/pipeline.js";
 import { computeTradingDayKey } from "../risk/daily-loss.js";
 import { computeCanonicalHash } from "../determinism.js";
@@ -79,6 +79,7 @@ function createInitialState(initialBalance: number, asOf: number): SimulationSta
     realizedPnlToday: 0,
     equityAtDayStart: initialBalance,
     orderCreationBarIndex: new Map(),
+    entryCountByPosition: new Map(),
   };
 }
 
@@ -321,17 +322,27 @@ function runFidelityAwareSimulation(bars: readonly OHLCVBar[], config: MultiFide
               ...(order.attachedTakeProfit !== undefined ? { takeProfit: order.attachedTakeProfit } : {}),
               fee,
             });
-            state = { ...state, openPositions: mapWith(state.openPositions, symbol, position), entryBarIndexByPosition: mapWith(state.entryBarIndexByPosition, position.id, barIndex) };
+            state = {
+              ...state,
+              openPositions: mapWith(state.openPositions, symbol, position),
+              entryBarIndexByPosition: mapWith(state.entryBarIndexByPosition, position.id, barIndex),
+              entryCountByPosition: mapWith(state.entryCountByPosition, position.id, 1),
+            };
             record("POSITION_OPENED", childBar.timestamp, { positionId: position.id });
           } else if (existing.side === order.side) {
             const updated = increasePosition(existing, order.quantity, fillPrice, childBar.timestamp, fee);
-            state = { ...state, openPositions: mapWith(state.openPositions, symbol, updated) };
+            state = {
+              ...state,
+              openPositions: mapWith(state.openPositions, symbol, updated),
+              entryCountByPosition: mapWith(state.entryCountByPosition, updated.id, (state.entryCountByPosition.get(existing.id) ?? 1) + 1),
+            };
             record("POSITION_MODIFIED", childBar.timestamp, { positionId: updated.id });
           } else {
             const reduceQty = Math.min(order.quantity, existing.quantity);
             const { position: reduced, grossPnl } = reducePosition(existing, reduceQty, fillPrice, childBar.timestamp, fee);
             state = applyRealizedTrade(state, existing, fillPrice, reduceQty, grossPnl, fee, childBar.timestamp);
             record(reduced.status === "CLOSED" ? "POSITION_CLOSED" : "POSITION_REDUCED", childBar.timestamp, { positionId: reduced.id });
+            if (reduced.status === "CLOSED") state = { ...state, entryCountByPosition: mapWithout(state.entryCountByPosition, existing.id) };
 
             const leftover = order.quantity - reduceQty;
             if (leftover > 0 && reduced.status === "CLOSED") {
@@ -347,7 +358,12 @@ function runFidelityAwareSimulation(bars: readonly OHLCVBar[], config: MultiFide
                 ...(order.attachedTakeProfit !== undefined ? { takeProfit: order.attachedTakeProfit } : {}),
                 fee: 0,
               });
-              state = { ...state, openPositions: mapWith(state.openPositions, symbol, reversal), entryBarIndexByPosition: mapWith(state.entryBarIndexByPosition, reversal.id, barIndex) };
+              state = {
+                ...state,
+                openPositions: mapWith(state.openPositions, symbol, reversal),
+                entryBarIndexByPosition: mapWith(state.entryBarIndexByPosition, reversal.id, barIndex),
+                entryCountByPosition: mapWith(state.entryCountByPosition, reversal.id, 1),
+              };
               record("POSITION_OPENED", childBar.timestamp, { positionId: reversal.id });
             } else {
               state = { ...state, openPositions: reduced.status === "CLOSED" ? mapWithout(state.openPositions, symbol) : mapWith(state.openPositions, symbol, reduced) };
@@ -369,9 +385,39 @@ function runFidelityAwareSimulation(bars: readonly OHLCVBar[], config: MultiFide
           const fee = base.feeModel.computeFee({ quantity: positionForProtectiveCheck.quantity, notional: exit.exitPrice! * positionForProtectiveCheck.quantity });
           const { position: closed, grossPnl } = closePosition(positionForProtectiveCheck, exit.exitPrice!, childBar.timestamp, fee);
           state = applyRealizedTrade(state, positionForProtectiveCheck, exit.exitPrice!, positionForProtectiveCheck.quantity, grossPnl, fee, childBar.timestamp);
-          state = { ...state, openPositions: mapWithout(state.openPositions, symbol) };
+          state = { ...state, openPositions: mapWithout(state.openPositions, symbol), entryCountByPosition: mapWithout(state.entryCountByPosition, closed.id) };
           record("POSITION_CLOSED", childBar.timestamp, { positionId: closed.id, reason: exit.reason, ambiguous: exit.ambiguous ?? false });
         }
+      }
+    }
+
+    // --- Step 1c (Q1.5.3): SIGNAL_EXIT, PARENT bar only — mirrors D1's
+    // identical placement exactly (evaluated once per parent bar, same
+    // granularity as entry-signal generation below, never per intrabar
+    // child observation — SIGNAL_EXIT is a condition over the strategy's
+    // OWN timeframe/indicators, exactly like entry conditions, not an
+    // intrabar price-level trigger like protective SL/TP above). Built
+    // BEFORE Step 4 so a same-bar exit-then-entry is visible to Step 4,
+    // exactly mirroring Step 1b's own established precedent.
+    const indicatorValues = buildIndicatorMap(base.indicatorSeries, barIndex);
+    const previousIndicatorValues = barIndex > 0 ? buildIndicatorMap(base.indicatorSeries, barIndex - 1) : undefined;
+    const marketState: MarketState = {
+      instrument: base.instrument,
+      timeframe: base.timeframe,
+      asOf: bar.timestamp,
+      bars: bars.slice(0, barIndex + 1),
+      indicatorValues,
+      ...(previousIndicatorValues !== undefined ? { previousIndicatorValues } : {}),
+    };
+    const positionForSignalExit = state.openPositions.get(symbol);
+    if (positionForSignalExit && base.strategySpec.exitRules.length > 0) {
+      const matchedExit = firstMatchingExitRule(base.strategySpec.exitRules, positionForSignalExit.side, marketState);
+      if (matchedExit) {
+        const fee = base.feeModel.computeFee({ quantity: positionForSignalExit.quantity, notional: bar.close * positionForSignalExit.quantity });
+        const { position: closed, grossPnl } = closePosition(positionForSignalExit, bar.close, bar.timestamp, fee);
+        state = applyRealizedTrade(state, positionForSignalExit, bar.close, positionForSignalExit.quantity, grossPnl, fee, bar.timestamp);
+        state = { ...state, openPositions: mapWithout(state.openPositions, symbol), entryCountByPosition: mapWithout(state.entryCountByPosition, closed.id) };
+        record("POSITION_CLOSED", bar.timestamp, { positionId: closed.id, reason: `SIGNAL_EXIT rule "${matchedExit.id}"` });
       }
     }
 
@@ -389,20 +435,18 @@ function runFidelityAwareSimulation(bars: readonly OHLCVBar[], config: MultiFide
     }
 
     // --- Step 4: strategy calculation (ON_BAR_CLOSE, PARENT bar only — unchanged from D1) ---
-    const indicatorValues = buildIndicatorMap(base.indicatorSeries, barIndex);
-    const previousIndicatorValues = barIndex > 0 ? buildIndicatorMap(base.indicatorSeries, barIndex - 1) : undefined;
-    const marketState: MarketState = {
-      instrument: base.instrument,
-      timeframe: base.timeframe,
-      asOf: bar.timestamp,
-      bars: bars.slice(0, barIndex + 1),
-      indicatorValues,
-      ...(previousIndicatorValues !== undefined ? { previousIndicatorValues } : {}),
-    };
     const signal = generateSignal(base.strategySpec, marketState);
     const currentPosition = state.openPositions.get(symbol);
+    const pyramidingAdmission: import("../simulation/decision-builder.js").PyramidingAdmission | undefined = base.strategySpec.pyramiding
+      ? {
+          allowPyramiding: base.strategySpec.pyramiding.allowPyramiding,
+          ...(base.strategySpec.pyramiding.maxEntries !== undefined ? { maxEntries: base.strategySpec.pyramiding.maxEntries } : {}),
+          currentEntryCount: currentPosition ? (state.entryCountByPosition.get(currentPosition.id) ?? 0) : 0,
+          ...(currentPosition ? { openPositionSide: currentPosition.side } : {}),
+        }
+      : undefined;
     const hasPendingOrderForSymbol = [...state.pendingOrders.values()].some((o) => o.instrument.symbol === symbol);
-    const decision = buildDecision(signal, currentPosition !== undefined, hasPendingOrderForSymbol);
+    const decision = buildDecision(signal, currentPosition !== undefined, hasPendingOrderForSymbol, pyramidingAdmission);
     record("STRATEGY_CALCULATED", bar.timestamp, { strategyHash, signal, decision });
 
     // --- Step 5: risk evaluation (PARENT bar only — unchanged from D1) ---
@@ -428,7 +472,15 @@ function runFidelityAwareSimulation(bars: readonly OHLCVBar[], config: MultiFide
         portfolio: { openPositionCount: state.openPositions.size },
         dailyLoss: { realizedPnlToday: state.realizedPnlToday, equityAtDayStart: state.equityAtDayStart },
       };
-    } else if (decision.action === "ENTER") {
+    }
+
+    // Q1.5.4 — a SEPARATE, independent entry evaluation, mirroring
+    // simulation-engine.ts's identical Step 5 restructuring exactly (Q0.6's
+    // own established pattern: duplicate outer control-flow shape, reuse
+    // frozen inner functions directly). Covers BOTH the pre-Q1.5 "flat, no
+    // position" case AND the new pyramid-entry case.
+    let entryRiskInput: RiskEvaluationInput | undefined;
+    if (decision.action === "ENTER") {
       const direction = signal.direction as "BUY" | "SELL";
       // Q0.11 — mirrors simulation-engine.ts's identical Step 5 addition exactly
       // (Q0.6's own established pattern: duplicate outer control-flow shape,
@@ -449,7 +501,7 @@ function runFidelityAwareSimulation(bars: readonly OHLCVBar[], config: MultiFide
         ...(stopLossPrice !== undefined ? { stopLossPrice } : {}),
         equity: state.account.equity,
       });
-      riskInput = {
+      entryRiskInput = {
         asOf: bar.timestamp,
         riskSpecification: base.strategySpec.risk,
         instrument: base.instrument,
@@ -468,18 +520,21 @@ function runFidelityAwareSimulation(bars: readonly OHLCVBar[], config: MultiFide
       };
     }
 
-    if (riskInput) {
-      const riskResult = evaluateRisk(riskInput);
+    // Q1.5.4 — see simulation-engine.ts's identical `processRiskInput` for
+    // the full rationale; extracted so management (`riskInput`) and entry
+    // (`entryRiskInput`) apply through IDENTICAL handling code.
+    function processRiskInput(input: RiskEvaluationInput): void {
+      const riskResult = evaluateRisk(input);
       const mapping = mapRiskAction(riskResult.action);
 
       if (mapping.kind === "CREATE_ENTRY_ORDER") {
-        const entry = riskInput.proposedEntry!;
+        const entry = input.proposedEntry!;
         const createdEvt = record("ORDER_CREATED", bar.timestamp, {});
         const order: SimulationOrder = createOrder(
           {
             strategyVersion: base.strategySpec.version,
             instrument: base.instrument,
-            side: riskInput.direction,
+            side: input.direction,
             quantity: entry.quantity,
             orderType: mapping.orderType,
             ...(mapping.limitPrice !== undefined ? { limitPrice: mapping.limitPrice } : {}),
@@ -509,16 +564,22 @@ function runFidelityAwareSimulation(bars: readonly OHLCVBar[], config: MultiFide
         const { position: reduced, grossPnl } = reducePosition(currentPosition, reduceQty, bar.close, bar.timestamp, fee);
         state = applyRealizedTrade(state, currentPosition, bar.close, reduceQty, grossPnl, fee, bar.timestamp);
         state = { ...state, partialCloseTriggered: setWith(state.partialCloseTriggered, currentPosition.id) };
-        state = { ...state, openPositions: reduced.status === "CLOSED" ? mapWithout(state.openPositions, symbol) : mapWith(state.openPositions, symbol, reduced) };
+        state = {
+          ...state,
+          openPositions: reduced.status === "CLOSED" ? mapWithout(state.openPositions, symbol) : mapWith(state.openPositions, symbol, reduced),
+          ...(reduced.status === "CLOSED" ? { entryCountByPosition: mapWithout(state.entryCountByPosition, currentPosition.id) } : {}),
+        };
         record(reduced.status === "CLOSED" ? "POSITION_CLOSED" : "POSITION_REDUCED", bar.timestamp, { positionId: reduced.id });
       } else if (mapping.kind === "FORCE_EXIT" && currentPosition) {
         const fee = base.feeModel.computeFee({ quantity: currentPosition.quantity, notional: bar.close * currentPosition.quantity });
         const { position: closed, grossPnl } = closePosition(currentPosition, bar.close, bar.timestamp, fee);
         state = applyRealizedTrade(state, currentPosition, bar.close, currentPosition.quantity, grossPnl, fee, bar.timestamp);
-        state = { ...state, openPositions: mapWithout(state.openPositions, symbol) };
+        state = { ...state, openPositions: mapWithout(state.openPositions, symbol), entryCountByPosition: mapWithout(state.entryCountByPosition, closed.id) };
         record("POSITION_CLOSED", bar.timestamp, { positionId: closed.id });
       }
     }
+    if (riskInput) processRiskInput(riskInput);
+    if (entryRiskInput) processRiskInput(entryRiskInput);
 
     if (barIndex + 1 < bars.length) {
       const nextBar = bars[barIndex + 1]!;
