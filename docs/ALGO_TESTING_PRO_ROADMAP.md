@@ -88,9 +88,15 @@ Proven with G01's own real, frozen source, not a synthetic strawman — and the 
 1. Every registry entry exposes its current status from the list above. **YES** — `strategy.importLifecycle`, wired into the API response (`AlgoTestStrategyDefinition.importLifecycle`); a run's own response additionally carries the full 8-stage `lifecycle`. Not yet surfaced in `AlgoTestPanel.tsx`'s UI — the data is real and available, rendering it is deferred, consistent with P3.6/P3.7's own "backend architecture ahead of UX" pattern.
 2. The `ref-ema-crossover` strategy from P3.6 is carried through this pipeline and reaches `EVIDENCE_VERIFIED` with real, inspectable reasons at every stage. **YES**, proven at the engine level (7 tests) and the registry level (2 tests); live end-to-end proof requires a real DB/data connection this environment doesn't have (script updated, honestly disclosed as not run here). A frozen G01 checkpoint joins this evaluation only once section 13's own capabilities exist — and section 13 itself gained a concrete new data point this phase (the version-string finding).
 
-## 10. Phase P4 — Natural Language → Universal Strategy IR
+## 10. Phase P4 — Natural Language → Universal Strategy IR — Phase 1 COMPLETE
 
-Only after P3.5–P3.8 establish a real multi-strategy, real-parameter, validated foundation: a chat/description-to-`StrategyIR` generator. UX rule, non-negotiable: **chat changes logic, the structured panel changes numbers** — a parameter tweak never triggers regeneration, mirroring the pattern independently validated in the LuxAlgo competitive research (`AT24_LuxAlgo_RnD_Plan.pdf`, Finding 2). Output is always `StrategyIR`, validated exactly as an imported EA is validated (§4) — never directly-executed generated code.
+**Status: Phase 1 implemented** (`docs/P4-NL-STRATEGY-COMPILER.md`). NL → `compileAIStrategyToIR()` (an existing Q0.7 boundary — P4 didn't invent it) → the same `validateStrategyIRStructure()`/`checkReductionEligibility()` P3.8 already established → a reviewable `StrategySpec`. A real bug was found and fixed in the process: `compileAIStrategyToIR()` had never been called through the real eligibility gate before P4, and hardcoded two literals that made it fail unconditionally for every input — corrected to what Q0.5's engine has actually required since Q1.5.4, verified with two new tests (real eligibility pass + real trades under a real signal).
+
+Output is always `StrategyIR`, validated exactly as an imported EA is validated (§4) — never directly-executed generated code, never a looser check for AI output than any other source.
+
+**Phase 1 boundary, deliberate**: compiles and validates through `EXECUTION_VALID`, returns a reviewable `StrategySpec` — does not yet wire backtest execution (the compiled spec is structurally ready to hand to the existing, unmodified generic `run-backtest.ts`), no persistence, no UI. The next increment.
+
+**Still to come**: chat+chart+parameter-panel+backtest combined into one cohesive experience — the UX rule for that layer, non-negotiable: **chat changes logic, the structured panel changes numbers** — a parameter tweak never triggers regeneration, mirroring the pattern independently validated in the LuxAlgo competitive research (`AT24_LuxAlgo_RnD_Plan.pdf`, Finding 2).
 
 ## 11. Phase P5 — Live Execution Safety / Trade Relay Pattern
 
