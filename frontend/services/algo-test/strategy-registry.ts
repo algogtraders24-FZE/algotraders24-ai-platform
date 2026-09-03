@@ -1,5 +1,17 @@
 // services/algo-test/strategy-registry.ts
 // P3.3 - Algo Test Productization & Strategy Registry.
+// P3.6 - Multi-Strategy Registry + Generic Strategy Contract
+// (docs/ALGO_TESTING_PRO_ROADMAP.md section 7,
+// docs/P3.6-MULTI-STRATEGY-REGISTRY.md): this is no longer "the Golden
+// Strategy registry that happens to be shaped like a registry" - every
+// entry (Golden Strategy's own engine-authored spec, and the P3.6
+// reference strategy's genuinely MQL5-imported spec) is produced through
+// the exact same StrategyDefinition contract and the exact same
+// `buildSpec(overrides)` mechanism. algo-test.service.ts never asks
+// "which strategy is this" - it calls `strategy.buildSpec(parameters)`
+// and runs whatever comes back. Adding a third strategy means adding one
+// more array entry with its own `buildSpec` - never touching this file's
+// validation/lookup logic, never a strategyId branch anywhere else.
 //
 // The explicit, server-side source of truth for "which strategies exist,
 // which version are they at, and which symbol/timeframe combinations do
@@ -10,20 +22,59 @@
 // build a second execution engine - every registered strategy still runs
 // through at24-quant-engine's own runSimulation()/StrategySpec, exactly as
 // P3.2B already proved for the Golden Strategy.
-//
-// P3.3 registers exactly ONE strategy, deliberately: the Golden Strategy.
-// No artificial second entry is added just to prove the registry is
-// "really" a registry - see docs/P3.3-STRATEGY-REGISTRY.md.
 import {
   buildGoldenStrategySpec,
   GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD,
   GOLDEN_STRATEGY_DEFAULT_POSITION_SIZE_QUANTITY,
   GOLDEN_STRATEGY_DEFAULT_STOP_LOSS_DISTANCE,
   GOLDEN_STRATEGY_DEFAULT_TAKE_PROFIT_R_MULTIPLE,
+  GOLDEN_STRATEGY_PRICE_INDICATOR,
+  buildRefEmaCrossoverSpec,
+  REF_EMA_CROSSOVER_SOURCE_HASH,
+  REF_EMA_CROSSOVER_SOURCE_FILE_NAME,
+  REF_EMA_CROSSOVER_DIALECT,
+  computeSemanticStrategyHash,
+  calculateSeries,
+  ema,
+  indicator,
+  indicatorKey,
+  type StrategySpec,
+  type OHLCVBar,
 } from "at24-quant-engine";
 
 /** SignalTimeframe-shaped (matches the rest of the app's request convention, e.g. "5m") - see algo-test.service.ts's own SIGNAL_TIMEFRAME_TO_ENGINE_TIMEFRAME mapping for the engine-token conversion. */
 export type AlgoTestCapabilityTimeframe = string;
+
+/**
+ * P3.6 - where a registered strategy's StrategySpec actually comes from.
+ * "engine-reference" = authored directly as TypeScript in
+ * at24-quant-engine/src/reference/ (Golden Strategy). "mql-import" =
+ * produced by running a real MQL4/MQL5 source string through
+ * importMQLSource() -> reduceStrategyIRToSpec() (see
+ * ref-ema-crossover-strategy.ts). Every future adapter this roadmap names
+ * (cTrader/cBot, NinjaScript, Pine, natural language, direct IR - see
+ * docs/ALGO_TESTING_PRO_ROADMAP.md's architecture diagram) adds its own
+ * `kind` here, never a special case in the code that CONSUMES `source` -
+ * nothing outside this type declaration and the two display strings in
+ * algo-test-formatting (frontend-only, informational) branches on `kind`.
+ */
+export type StrategySource =
+  | { readonly kind: "engine-reference"; readonly module: string }
+  | { readonly kind: "mql-import"; readonly dialect: "MQL4" | "MQL5"; readonly sourceFileName: string; readonly sourceHash: string };
+
+/**
+ * P3.6 - reproducibility metadata (docs/ALGO_TESTING_PRO_ROADMAP.md
+ * section 5). `baseContentHash` is `computeSemanticStrategyHash()` of the
+ * strategy's DEFAULT-parameter StrategySpec, computed once at registry
+ * load time - a fixed, inspectable fingerprint of "what this registry
+ * entry's unmodified behavior actually is," independent of whatever
+ * parameters a given run later overrides (a run's own `strategyHash`,
+ * P3.5's own finding, already reflects THOSE overrides - this field is
+ * about the registry entry's own pinned identity, not any one run).
+ */
+export interface StrategyReproducibility {
+  readonly baseContentHash: string;
+}
 
 /**
  * P3.4 - the only three parameter types the Golden Strategy actually
@@ -70,14 +121,75 @@ export interface StrategyDefinition {
    */
   readonly parameters: readonly StrategyParameterDefinition[];
   readonly status: "available";
+  /** P3.6 - see StrategySource's own doc comment. */
+  readonly source: StrategySource;
+  /** P3.6 - see StrategyReproducibility's own doc comment. */
+  readonly reproducibility: StrategyReproducibility;
+  /**
+   * P3.6 - the ONE piece of genuinely per-strategy logic the generic
+   * contract still needs: turning already-validated parameter overrides
+   * into this strategy's own StrategySpec. Every strategy owns its own
+   * `buildSpec` - algo-test.service.ts calls it identically for all of
+   * them (`strategy.buildSpec(parameters)`), never branching on
+   * `strategyId`. Called ONLY with output from validateParameterValues()
+   * below (every declared parameter present, already type/range-checked)
+   * - never a raw, unchecked client value.
+   */
+  readonly buildSpec: (overrides: Readonly<Record<string, number | boolean | string>>) => StrategySpec;
+  /**
+   * P3.6 - the OTHER genuinely per-strategy piece of logic the generic
+   * contract needs: which indicators this strategy's entry conditions
+   * actually reference, computed from real bars via at24-quant-engine's
+   * own `calculateSeries()` (runtime/indicator-engine.ts) - never a
+   * second, divergent indicator-math implementation. Same "each entry
+   * owns it, run-backtest.ts never branches on strategyId" discipline as
+   * `buildSpec`.
+   */
+  readonly buildIndicatorSeries: (bars: readonly OHLCVBar[]) => ReadonlyMap<string, readonly (number | boolean | undefined)[]>;
 }
 
 const goldenSpec = buildGoldenStrategySpec();
+const refEmaCrossoverSpec = buildRefEmaCrossoverSpec();
+
+/** Golden Strategy's own PRICE pseudo-indicator (its series is just each bar's close) - identical logic to run-golden-backtest.ts's own buildPriceIndicatorSeries(), duplicated deliberately rather than shared: each registry entry owns its own indicator-building logic end to end (the same discipline `buildSpec` follows), never a shared function multiple entries reach into. */
+function buildGoldenIndicatorSeries(bars: readonly OHLCVBar[]): ReadonlyMap<string, readonly (number | boolean | undefined)[]> {
+  return new Map([[indicatorKey(GOLDEN_STRATEGY_PRICE_INDICATOR), bars.map((b) => b.close)]]);
+}
+
+/** ref-ema-crossover's own EMA(9)/EMA(21) series, computed from real bars via the engine's own calculateSeries() fold over the real `ema` IndicatorDefinition (indicators/ema.ts) - not a second, hand-rolled EMA implementation. `null` (still-warming-up) maps to `undefined`, matching indicatorSeries' own established convention elsewhere in this codebase. */
+function buildRefEmaCrossoverIndicatorSeries(bars: readonly OHLCVBar[]): ReadonlyMap<string, readonly (number | boolean | undefined)[]> {
+  const fast = calculateSeries(ema, bars, { period: 9 }).map((v) => v ?? undefined);
+  const slow = calculateSeries(ema, bars, { period: 21 }).map((v) => v ?? undefined);
+  return new Map([
+    [indicatorKey(indicator("EMA", 9)), fast],
+    [indicatorKey(indicator("EMA", 21)), slow],
+  ]);
+}
+
+function toGoldenStrategyOverrides(overrides: Readonly<Record<string, number | boolean | string>>): {
+  priceThreshold?: number;
+  positionSizeQuantity?: number;
+  stopLossDistance?: number;
+  takeProfitRMultiple?: number;
+} {
+  const { priceThreshold, positionSizeQuantity, stopLossDistance, takeProfitRMultiple } = overrides;
+  return {
+    ...(typeof priceThreshold === "number" ? { priceThreshold } : {}),
+    ...(typeof positionSizeQuantity === "number" ? { positionSizeQuantity } : {}),
+    ...(typeof stopLossDistance === "number" ? { stopLossDistance } : {}),
+    ...(typeof takeProfitRMultiple === "number" ? { takeProfitRMultiple } : {}),
+  };
+}
 
 /**
- * The registry. Adding a second strategy later means adding one more
- * entry here (and, separately, a real StrategySpec for it to run against)
- * - never touching the validation/persistence code that reads this array.
+ * The registry. Adding a strategy means adding one more entry here (and,
+ * separately, a real StrategySpec-producing function for it to run
+ * against) - never touching the validation/persistence code that reads
+ * this array. Proven by this exact file: P3.6 added a second, genuinely
+ * different strategy (an MQL5 import, not another engine-reference
+ * function) without changing validateParameterValues(),
+ * getStrategyDefinition(), listAvailableStrategies(), or
+ * isStrategyAvailable() at all.
  */
 export const STRATEGY_REGISTRY: readonly StrategyDefinition[] = [
   {
@@ -87,6 +199,10 @@ export const STRATEGY_REGISTRY: readonly StrategyDefinition[] = [
     description: "AT24's canonical reference strategy (at24-quant-engine's buildGoldenStrategySpec()) - the same strategy validated end-to-end in P3.2B, unchanged.",
     supportedSymbols: ["XAUUSD"],
     supportedTimeframes: ["5m"],
+    source: { kind: "engine-reference", module: "at24-quant-engine/reference/golden-strategy" },
+    reproducibility: { baseContentHash: computeSemanticStrategyHash(goldenSpec) },
+    buildSpec: (overrides) => buildGoldenStrategySpec(toGoldenStrategyOverrides(overrides)),
+    buildIndicatorSeries: buildGoldenIndicatorSeries,
     // P3.4 - the ONE genuine, signal-affecting strategy parameter this
     // strategy has (`priceThreshold`, defaultValue read from the engine's
     // own exported constant, never a duplicated literal). P3.5 adds the
@@ -140,6 +256,38 @@ export const STRATEGY_REGISTRY: readonly StrategyDefinition[] = [
       },
     ],
     status: "available",
+  },
+  {
+    strategyId: "ref-ema-crossover",
+    strategyVersion: refEmaCrossoverSpec.version,
+    displayName: "Reference: EMA Crossover (MQL5 import)",
+    description:
+      "P3.6's generic-import proof point: a real, single-file MQL5 EA (EMA(9)/EMA(21) crossover, no #include dependencies, no state machine) imported through at24-quant-engine's actual MQL importer - importMQLSource() -> reduceStrategyIRToSpec() - not authored directly as TypeScript like Golden Strategy. Deliberately not G01 - G01's real production EA (multi-file, state-machine dispatch) is not importable with today's importer; see docs/ALGO_TESTING_PRO_ROADMAP.md's \"Future: G01 Full Import Fidelity\" item.",
+    supportedSymbols: ["XAUUSD"],
+    supportedTimeframes: ["5m"],
+    // No exposed Strategy Parameters: the source's one input
+    // (InpLotSize) is category #2 (execution/risk configuration, P3.4's
+    // own taxonomy), and there is no category-#1 signal parameter in
+    // this source (the EMA periods 9/21 are compiled directly into the
+    // imported IR, not exposed as MQL inputs) - see
+    // ref-ema-crossover-strategy.ts's own doc comment.
+    parameters: [],
+    status: "available",
+    source: {
+      kind: "mql-import",
+      dialect: REF_EMA_CROSSOVER_DIALECT,
+      sourceFileName: REF_EMA_CROSSOVER_SOURCE_FILE_NAME,
+      sourceHash: REF_EMA_CROSSOVER_SOURCE_HASH,
+    },
+    reproducibility: { baseContentHash: computeSemanticStrategyHash(refEmaCrossoverSpec) },
+    // Overrides are intentionally ignored - see the "no exposed
+    // parameters" note above. validateParameterValues() already rejects
+    // any submitted key that isn't declared (this entry declares none),
+    // so `buildSpec` is only ever called with an empty object in
+    // practice; accepting the parameter keeps the generic-contract
+    // signature identical for every registry entry.
+    buildSpec: () => refEmaCrossoverSpec,
+    buildIndicatorSeries: buildRefEmaCrossoverIndicatorSeries,
   },
 ];
 

@@ -55,12 +55,31 @@ const FIXTURE_STRATEGY: StrategyDefinition = {
     { id: "mode", label: "Mode", description: "", type: "select", defaultValue: "A", options: ["A", "B", "C"], required: false },
     { id: "enabled", label: "Enabled", description: "", type: "boolean", defaultValue: true, required: false },
   ],
+  // P3.6 - the generic contract's other required fields (strategy-registry.ts's
+  // own StrategyDefinition). Not exercised by this file's own tests (they only
+  // call validateParameterValues(), which reads `parameters` alone) - present
+  // only so this synthetic, never-registered fixture still type-checks against
+  // the real contract every actual registry entry must satisfy.
+  source: { kind: "engine-reference", module: "test-fixture-only" },
+  reproducibility: { baseContentHash: "fixture-only" },
+  buildSpec: () => {
+    throw new Error("FIXTURE_STRATEGY.buildSpec must never actually be called - this fixture only exercises validateParameterValues()");
+  },
+  buildIndicatorSeries: () => new Map(),
 };
 
 function main(): void {
   console.log("=== Registry contents (real, production) ===");
-  test("STRATEGY_REGISTRY registers exactly one strategy (golden), with its P3.4 entry-parameter plus P3.5's three risk parameters", () => {
-    assert.equal(STRATEGY_REGISTRY.length, 1);
+  test("STRATEGY_REGISTRY registers two strategies (golden + P3.6's ref-ema-crossover import), through the same generic contract", () => {
+    assert.equal(STRATEGY_REGISTRY.length, 2);
+    assert.equal(golden!.source.kind, "engine-reference");
+    const refEmaCrossover = getStrategyDefinition("ref-ema-crossover");
+    assert.ok(refEmaCrossover, "expected the P3.6 reference strategy to be registered");
+    assert.equal(refEmaCrossover!.source.kind, "mql-import");
+    assert.ok(refEmaCrossover!.reproducibility.baseContentHash.length > 0, "an imported strategy must still carry real reproducibility metadata");
+  });
+
+  test("golden's P3.4 entry-parameter and P3.5's three risk parameters are all present", () => {
     assert.equal(golden!.parameters.length, 4);
     const priceThreshold = golden!.parameters.find((p) => p.id === "priceThreshold");
     assert.equal(priceThreshold?.defaultValue, GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD);
