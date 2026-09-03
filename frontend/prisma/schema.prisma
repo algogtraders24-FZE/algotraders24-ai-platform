@@ -1244,6 +1244,14 @@ model AlgoTestRun {
   // that never reached a completed engine result.
   resultVersion  String?
   engineVersion  String?
+  // P3.4 - the exact, fully-normalized parameter configuration (every
+  // declared parameter present, defaults filled in) this run actually
+  // executed with - an immutable snapshot of what was used, never
+  // re-derived from the registry after the fact. Null for a run whose
+  // strategy has no declared parameters AND for every pre-P3.4 row
+  // (never backfilled with a guessed value - see
+  // docs/P3.4-STRATEGY-PARAMETERS.md's backward-compatibility section).
+  parameters     Json?
   metrics        Json?
   trades         Json?
   equityCurve    Json?

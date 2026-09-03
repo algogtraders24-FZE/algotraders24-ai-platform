@@ -15,6 +15,7 @@ import type {
   AlgoTestEquityPoint,
   AlgoTestErrorCode,
   AlgoTestMetricsView,
+  AlgoTestParameterValues,
   AlgoTestRunRequest,
   AlgoTestRunView,
   AlgoTestTradeView,
@@ -22,7 +23,7 @@ import type {
 import type { ChartCandle } from "@/types/chart-data";
 import { twelveDataHistoricalDataProvider } from "./historical-data/twelve-data-provider";
 import { runGoldenBacktest } from "./run-golden-backtest";
-import { getStrategyDefinition, listAvailableStrategies, type StrategyDefinition } from "./strategy-registry";
+import { getStrategyDefinition, listAvailableStrategies, validateParameterValues, type StrategyDefinition } from "./strategy-registry";
 import { RESULT_CONTRACT_VERSION } from "./result-contract";
 
 export const DEFAULT_INITIAL_BALANCE = 10_000;
@@ -51,6 +52,8 @@ interface ValidatedRequest {
   startTime: Date;
   endTime: Date;
   initialBalance: number;
+  /** P3.4 - every declared parameter present, defaults filled in, already type/range/step-validated against the strategy's own registered schema. */
+  parameters: AlgoTestParameterValues;
 }
 
 // P3.3 - centralized, server-side validation, run in this exact order
@@ -71,6 +74,11 @@ function validateRequest(request: AlgoTestRunRequest): ValidationFailure | Valid
       message: `Strategy '${strategy.strategyId}' is currently registered at version '${strategy.strategyVersion}', not '${request.strategyVersion}'.`,
     };
   }
+  const parameterResult = validateParameterValues(strategy, request.parameters);
+  if (!parameterResult.ok) {
+    return { code: "INVALID_PARAMETERS", message: parameterResult.errors.map((e) => `${e.field}: ${e.message}`).join("; ") };
+  }
+
   if (!strategy.supportedSymbols.includes(request.symbol)) {
     return { code: "INVALID_SYMBOL", message: `Unsupported symbol '${request.symbol}' for strategy '${strategy.strategyId}'. Supported: ${strategy.supportedSymbols.join(", ")}.` };
   }
@@ -113,7 +121,7 @@ function validateRequest(request: AlgoTestRunRequest): ValidationFailure | Valid
     return { code: "INVALID_INITIAL_BALANCE", message: "initialBalance must be a finite, positive number." };
   }
 
-  return { strategy, engineTimeframe, startTime, endTime, initialBalance };
+  return { strategy, engineTimeframe, startTime, endTime, initialBalance, parameters: parameterResult.normalized };
 }
 
 // "no valid historical bars" is run-golden-backtest.ts's own thrown message
@@ -195,6 +203,21 @@ function toEquityCurveView(equityCurve: readonly { timestamp: number; balance: n
   return equityCurve.map((p) => ({ timestamp: p.timestamp, balance: p.balance }));
 }
 
+// P3.4 - the ONE explicit place validated Strategy Parameters map onto
+// at24-quant-engine's own public buildGoldenStrategySpec() argument. This
+// is deliberately a small, named, per-strategy mapping function - never a
+// generic "spread the parameters object into the engine" pass-through -
+// so a future second strategy gets its own equally explicit mapping,
+// never an implicit contract with engine internals. Only ever called
+// with an already-validated AlgoTestParameterValues (validateRequest's
+// own validateParameterValues() has already run), so `priceThreshold`
+// here is guaranteed to be a real, in-range number for the "golden"
+// strategy - never a raw, unchecked client value.
+function toGoldenStrategyOverrides(parameters: AlgoTestParameterValues): { priceThreshold?: number } {
+  const { priceThreshold } = parameters;
+  return typeof priceThreshold === "number" ? { priceThreshold } : {};
+}
+
 export const algoTestService = {
   async runAlgoTest(userId: string, request: AlgoTestRunRequest): Promise<AlgoTestRunView> {
     const validated = validateRequest(request);
@@ -215,7 +238,7 @@ export const algoTestService = {
       };
     }
 
-    const { strategy, engineTimeframe, startTime, endTime, initialBalance } = validated;
+    const { strategy, engineTimeframe, startTime, endTime, initialBalance, parameters } = validated;
 
     const row = await prisma.algoTestRun.create({
       data: {
@@ -226,6 +249,11 @@ export const algoTestService = {
         // the client did supply one; when it didn't, this is where the
         // exact version this run executed against first becomes recorded).
         strategyVersion: strategy.strategyVersion,
+        // P3.4 - the fully-normalized snapshot (every declared parameter
+        // present, defaults filled in) - persisted BEFORE the engine even
+        // runs, so the exact configuration attempted is on record even if
+        // the run itself later fails.
+        parameters: parameters as object,
         symbol: request.symbol,
         timeframe: request.timeframe,
         startTime,
@@ -237,7 +265,14 @@ export const algoTestService = {
 
     try {
       const outcome = await runGoldenBacktest(
-        { symbol: request.symbol, timeframe: engineTimeframe, startTime: startTime.toISOString(), endTime: endTime.toISOString(), initialBalance },
+        {
+          symbol: request.symbol,
+          timeframe: engineTimeframe,
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          initialBalance,
+          ...toGoldenStrategyOverrides(parameters),
+        },
         twelveDataHistoricalDataProvider,
       );
 
@@ -269,6 +304,7 @@ export const algoTestService = {
         strategyVersion: strategy.strategyVersion,
         resultVersion: RESULT_CONTRACT_VERSION,
         engineVersion,
+        parameters,
         symbol: request.symbol,
         timeframe: request.timeframe,
         startTime: request.startTime,
@@ -294,6 +330,7 @@ export const algoTestService = {
         status: "failed",
         strategyId: strategy.strategyId,
         strategyVersion: strategy.strategyVersion,
+        parameters,
         symbol: request.symbol,
         timeframe: request.timeframe,
         startTime: request.startTime,
@@ -329,6 +366,11 @@ export const algoTestService = {
       strategyVersion: row.strategyVersion ?? undefined,
       resultVersion: row.resultVersion ?? undefined,
       engineVersion: row.engineVersion ?? undefined,
+      // P3.4 - undefined for a pre-P3.4 row (never backfilled) exactly as
+      // undefined for a strategy with no declared parameters - both are
+      // honest "no snapshot to show," never conflated with "used today's
+      // defaults." See types/algo-test.ts's own doc comment on this field.
+      parameters: (row.parameters as AlgoTestParameterValues | null) ?? undefined,
       symbol: row.symbol,
       timeframe: row.timeframe,
       startTime: row.startTime.toISOString(),
@@ -376,6 +418,7 @@ export const algoTestService = {
       strategyVersion: row.strategyVersion ?? undefined,
       resultVersion: row.resultVersion ?? undefined,
       engineVersion: row.engineVersion ?? undefined,
+      parameters: (row.parameters as AlgoTestParameterValues | null) ?? undefined,
       symbol: row.symbol,
       timeframe: row.timeframe,
       startTime: row.startTime.toISOString(),

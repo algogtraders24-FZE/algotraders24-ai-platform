@@ -19,7 +19,7 @@ import StatField from "@/components/workspace/StatField";
 import { FIN_LABEL, FIN_PRIMARY, FIN_SECONDARY, FIN_TERTIARY } from "@/components/ui/financial-typography";
 import { formatPrice, formatPercent, formatTimestamp } from "@/lib/financial-format";
 import { runAlgoTest, fetchAlgoTestRun, fetchAlgoTestStrategies } from "@/lib/algo-test/store";
-import type { AlgoTestRunView, AlgoTestStrategyDefinition, AlgoTestTradeView } from "@/types/algo-test";
+import type { AlgoTestParameterDefinition, AlgoTestRunView, AlgoTestStrategyDefinition, AlgoTestTradeView } from "@/types/algo-test";
 import type { AlgoTestTradeMarker } from "@/lib/chart-engine/renderer";
 import type { ChartCandle } from "@/types/chart-data";
 
@@ -69,6 +69,49 @@ function toEngineTimestamp(dateOnly: string, endOfDay: boolean): string {
   return `${dateOnly}T${endOfDay ? "23:59:59" : "00:00:00"}Z`;
 }
 
+/**
+ * P3.4 - form state for parameter inputs is always string-keyed/string-
+ * valued (React controlled-input convention), regardless of the
+ * parameter's real type - converted to its real type only at submit time
+ * (toParameterPayload below). Seeding this from `param.defaultValue` is
+ * the ONLY place a default is read from - never a second, hand-typed
+ * default living in this component.
+ */
+function defaultFormValues(parameters: readonly AlgoTestParameterDefinition[]): Record<string, string> {
+  const values: Record<string, string> = {};
+  for (const p of parameters) values[p.id] = String(p.defaultValue);
+  return values;
+}
+
+/** Client-side mirror of the server's own per-type validation (algo-test.service.ts's validateParameterValues) - a UX convenience for inline error text; the server independently re-validates and remains the sole authority. */
+function validateParamFormValue(param: AlgoTestParameterDefinition, raw: string): string | undefined {
+  if (raw.trim().length === 0) return param.required ? "Required." : undefined;
+  if (param.type === "number" || param.type === "integer") {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return "Must be a number.";
+    if (param.type === "integer" && !Number.isInteger(n)) return "Must be a whole number.";
+    if (param.min !== undefined && n < param.min) return `Must be >= ${param.min}.`;
+    if (param.max !== undefined && n > param.max) return `Must be <= ${param.max}.`;
+    return undefined;
+  }
+  if (param.type === "select" && param.options && !param.options.includes(raw)) return `Must be one of: ${param.options.join(", ")}.`;
+  return undefined;
+}
+
+/** Converts the form's string-keyed values into the real (number|boolean|string)-typed payload the API expects - only for parameters the user actually touched away from a blank/invalid state; an untouched or invalid field is simply omitted so the server falls back to its own registered default rather than receiving a bad value. */
+function toParameterPayload(parameters: readonly AlgoTestParameterDefinition[], formValues: Record<string, string>): Record<string, unknown> {
+  const payload: Record<string, unknown> = {};
+  for (const p of parameters) {
+    const raw = formValues[p.id];
+    if (raw === undefined || raw.trim().length === 0) continue;
+    if (validateParamFormValue(p, raw) !== undefined) continue;
+    if (p.type === "number" || p.type === "integer") payload[p.id] = Number(raw);
+    else if (p.type === "boolean") payload[p.id] = raw === "true";
+    else payload[p.id] = raw;
+  }
+  return payload;
+}
+
 const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(function AlgoTestPanel(
   { symbol, isActive, onOverlayChange, selectedTradeId, onSelectTrade },
   ref,
@@ -80,6 +123,10 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
   // available, in which case the fallback constants above render instead
   // of leaving the panel blank.
   const [strategyDef, setStrategyDef] = useState<AlgoTestStrategyDefinition | undefined>(undefined);
+  // P3.4 - string-keyed form state for the registry-declared parameters,
+  // seeded from the registry's own defaultValue once strategyDef loads
+  // (see the mount effect below) - never a second, hand-typed default.
+  const [paramValues, setParamValues] = useState<Record<string, string>>({});
   const [startDate, setStartDate] = useState(() => isoDateNDaysAgo(7));
   // Live-verification finding (this sprint): defaulting to isoDateNDaysAgo(0)
   // ("today") looked right but always failed - the server converts endDate
@@ -106,7 +153,10 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
     fetchAlgoTestStrategies().then((strategies) => {
       if (cancelled) return;
       const golden = strategies.find((s) => s.strategyId === "golden") ?? strategies[0];
-      if (golden) setStrategyDef(golden);
+      if (golden) {
+        setStrategyDef(golden);
+        setParamValues(defaultFormValues(golden.parameters));
+      }
     });
     return () => {
       cancelled = true;
@@ -165,11 +215,23 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
     );
   }
 
+  const parameters = strategyDef?.parameters ?? [];
+  const paramErrors: Record<string, string> = {};
+  for (const p of parameters) {
+    const err = validateParamFormValue(p, paramValues[p.id] ?? "");
+    if (err) paramErrors[p.id] = err;
+  }
+  const parametersValid = Object.keys(paramErrors).length === 0;
+
   const rangeDays = (new Date(endDate).getTime() - new Date(startDate).getTime()) / 86_400_000;
   const parsedBalance = Number(initialBalance);
   const balanceValid = Number.isFinite(parsedBalance) && parsedBalance > 0;
   const rangeValid = rangeDays > 0 && rangeDays <= MAX_RANGE_DAYS;
-  const canSubmit = balanceValid && rangeValid && !submitting;
+  const canSubmit = balanceValid && rangeValid && parametersValid && !submitting;
+
+  function handleResetParameters() {
+    setParamValues(defaultFormValues(parameters));
+  }
 
   async function handleSubmit() {
     setSubmitting(true);
@@ -178,6 +240,7 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
       const result = await runAlgoTest({
         strategyId: strategyDef?.strategyId ?? "golden",
         strategyVersion: strategyDef?.strategyVersion,
+        parameters: toParameterPayload(parameters, paramValues),
         symbol: activeSymbol,
         timeframe: activeTimeframe,
         startTime: toEngineTimestamp(startDate, false),
@@ -237,7 +300,7 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
       )}
 
       {run && run.status === "completed" && run.metrics && (
-        <AlgoTestResults run={run} selectedTradeId={selectedTradeId} onSelectTrade={onSelectTrade} />
+        <AlgoTestResults run={run} strategyDef={strategyDef} selectedTradeId={selectedTradeId} onSelectTrade={onSelectTrade} />
       )}
 
       <Modal open={configOpen} onClose={() => setConfigOpen(false)} title="Configure Algo Test">
@@ -255,6 +318,27 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
               </span>
             </StatField>
           </div>
+
+          {parameters.length > 0 && (
+            <div className="space-y-2 rounded-control border border-border bg-ink px-2.5 py-2">
+              <div className="flex items-baseline justify-between">
+                <span className={FIN_LABEL}>Parameters</span>
+                <button type="button" onClick={handleResetParameters} className="text-[11px] text-text-3 underline decoration-dotted hover:text-text-2">
+                  Reset to defaults
+                </button>
+              </div>
+              {parameters.map((p) => (
+                <ParameterField
+                  key={p.id}
+                  param={p}
+                  value={paramValues[p.id] ?? String(p.defaultValue)}
+                  error={paramErrors[p.id]}
+                  onChange={(v) => setParamValues((prev) => ({ ...prev, [p.id]: v }))}
+                />
+              ))}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-2">
             <label className="flex flex-col gap-0.5">
               <span className={FIN_LABEL}>Start Date</span>
@@ -316,12 +400,69 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
 
 export default AlgoTestPanel;
 
+/**
+ * P3.4 - one registry-declared parameter, rendered with the control
+ * appropriate to its `type` (never a raw JSON textbox - section 13's own
+ * "do not expose raw JSON to normal users"). Only "number" is exercised
+ * by the Golden Strategy today; boolean/select are implemented so a
+ * future registered parameter of that type needs no new UI code, not
+ * because this release invents a use for them.
+ */
+function ParameterField({
+  param,
+  value,
+  error,
+  onChange,
+}: {
+  param: AlgoTestParameterDefinition;
+  value: string;
+  error: string | undefined;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="flex flex-col gap-0.5" title={param.description}>
+      <span className={FIN_LABEL}>
+        {param.label}
+        {param.required ? " *" : ""}
+      </span>
+      {param.type === "boolean" ? (
+        <select value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-control border border-border bg-ink-3 px-2 py-1.5 text-sm text-text">
+          <option value="true">On</option>
+          <option value="false">Off</option>
+        </select>
+      ) : param.type === "select" ? (
+        <select value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-control border border-border bg-ink-3 px-2 py-1.5 text-sm text-text">
+          {(param.options ?? []).map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <input
+          type="number"
+          step={param.step ?? (param.type === "integer" ? 1 : "any")}
+          min={param.min}
+          max={param.max}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full rounded-control border border-border bg-ink-3 px-2 py-1.5 text-sm text-text"
+        />
+      )}
+      {error && <span className="text-[11px] text-danger">{error}</span>}
+      {!error && <span className="text-[11px] text-text-3">{param.description}</span>}
+    </label>
+  );
+}
+
 function AlgoTestResults({
   run,
+  strategyDef,
   selectedTradeId,
   onSelectTrade,
 }: {
   run: AlgoTestRunView;
+  strategyDef: AlgoTestStrategyDefinition | undefined;
   selectedTradeId: string | null;
   onSelectTrade: (tradeId: string | null) => void;
 }) {
@@ -332,6 +473,12 @@ function AlgoTestResults({
   return (
     <div className="mt-2 space-y-2.5">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-6">
+        <StatField label="Strategy">
+          <span className={FIN_SECONDARY}>
+            {strategyDef?.displayName ?? run.strategyId}
+            {run.strategyVersion ? ` v${run.strategyVersion}` : ""}
+          </span>
+        </StatField>
         <StatField label="Total Trades">
           <span className={FIN_PRIMARY}>{metrics.tradeCount}</span>
         </StatField>
@@ -351,6 +498,8 @@ function AlgoTestResults({
           <span className={FIN_PRIMARY}>{formatPrice(run.initialBalance + metrics.netProfit, { maxDecimals: 2 })}</span>
         </StatField>
       </div>
+
+      <ParameterSnapshot run={run} strategyDef={strategyDef} />
 
       <ExecutionAssumptions assumptions={run.assumptions} />
 
@@ -405,6 +554,50 @@ function TradeRow({ index, trade, selected, onSelect }: { index: number; trade: 
       </td>
       <td className={`py-1 pr-2 ${FIN_SECONDARY}`}>{trade.rMultiple === null ? "—" : `${trade.rMultiple.toFixed(2)}R`}</td>
     </tr>
+  );
+}
+
+/**
+ * P3.4 - the exact, persisted parameter snapshot this run executed with
+ * (section 11: "the user must be able to determine exactly what
+ * configuration produced the result"). `run.parameters === undefined`
+ * covers two genuinely different, both-honest cases, told apart by
+ * whether the strategy has ANY declared parameters at all: if it does,
+ * undefined means "predates P3.4, no snapshot exists" (rendered as an
+ * explicit note, never silently assumed to be today's defaults); if it
+ * doesn't, there is nothing to show and nothing is rendered.
+ */
+function ParameterSnapshot({ run, strategyDef }: { run: AlgoTestRunView; strategyDef: AlgoTestStrategyDefinition | undefined }) {
+  const declared = strategyDef?.parameters ?? [];
+  if (declared.length === 0) return null;
+
+  if (!run.parameters) {
+    return (
+      <div className="rounded-control border border-dashed border-border bg-ink px-2.5 py-2">
+        <p className={FIN_LABEL}>Parameters</p>
+        <p className="mt-1 text-[11px] text-text-3">Not recorded - this result predates P3.4 parameter tracking (produced using the strategy&apos;s fixed pre-P3.4 behavior, not necessarily today&apos;s registered defaults).</p>
+      </div>
+    );
+  }
+
+  const entries = Object.entries(run.parameters);
+  if (entries.length === 0) return null;
+
+  return (
+    <div className="rounded-control border border-dashed border-border bg-ink px-2.5 py-2">
+      <p className={FIN_LABEL}>Parameters</p>
+      <dl className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] sm:grid-cols-4">
+        {entries.map(([id, value]) => {
+          const def = declared.find((p) => p.id === id);
+          return (
+            <div key={id}>
+              <dt className="text-text-3">{def?.label ?? id}</dt>
+              <dd className="text-text-2">{String(value)}</dd>
+            </div>
+          );
+        })}
+      </dl>
+    </div>
   );
 }
 

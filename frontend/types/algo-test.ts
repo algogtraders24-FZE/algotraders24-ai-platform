@@ -17,6 +17,30 @@ export type AlgoTestStrategyId = string;
  * services/, matching this codebase's existing types/ vs services/
  * boundary). Returned by GET /api/private/algo-test/strategies.
  */
+/** P3.4 - mirrors services/algo-test/strategy-registry.ts's StrategyParameterType exactly (see that file for why only these four). */
+export type AlgoTestParameterType = "number" | "integer" | "boolean" | "select";
+
+/**
+ * P3.4 - the wire shape of one Strategy Parameter definition (mirrors
+ * services/algo-test/strategy-registry.ts's StrategyParameterDefinition).
+ * This is metadata ONLY (label/type/default/range/options) - the UI
+ * renders controls from this, but the server is the sole authority on
+ * what a submitted value actually validates against; the client never
+ * gets to define or override this shape (section 15/16 of P3.4's spec).
+ */
+export interface AlgoTestParameterDefinition {
+  id: string;
+  label: string;
+  description: string;
+  type: AlgoTestParameterType;
+  defaultValue: number | boolean | string;
+  min?: number;
+  max?: number;
+  step?: number;
+  options?: string[];
+  required: boolean;
+}
+
 export interface AlgoTestStrategyDefinition {
   strategyId: AlgoTestStrategyId;
   strategyVersion: string;
@@ -25,8 +49,13 @@ export interface AlgoTestStrategyDefinition {
   supportedSymbols: string[];
   /** SignalTimeframe-shaped, e.g. "5m". */
   supportedTimeframes: string[];
+  /** P3.4 - this strategyVersion's immutable parameter schema; empty array for a strategy with no genuine, safely-exposable strategy parameters. */
+  parameters: AlgoTestParameterDefinition[];
   status: "available";
 }
+
+/** P3.4 - a parameter id -> the value actually used for one run. Every declared parameter is always present (defaults filled in server-side) - never a partial object. */
+export type AlgoTestParameterValues = Record<string, number | boolean | string>;
 
 export type AlgoTestStatus = "completed" | "failed";
 
@@ -42,6 +71,15 @@ export interface AlgoTestRunRequest {
    * field set or not) always persists an exact strategyVersion.
    */
   strategyVersion?: string;
+  /**
+   * P3.4 - raw, client-submitted parameter values (parameter id -> value).
+   * Optional entirely, and any individual declared parameter may be
+   * omitted (its registered default is used) - never required to submit
+   * every parameter explicitly. The server re-resolves the authoritative
+   * schema from the registry and validates/normalizes every value; this
+   * object is NEVER trusted as a schema, only as submitted values.
+   */
+  parameters?: Record<string, unknown>;
   symbol: string;
   /** SignalTimeframe-shaped, e.g. "5m" - converted to the engine's own Timeframe token server-side (never exposed to the browser). */
   timeframe: string;
@@ -124,6 +162,7 @@ export type AlgoTestErrorCode =
   | "INVALID_DATE_RANGE"
   | "RANGE_TOO_LARGE"
   | "INVALID_INITIAL_BALANCE"
+  | "INVALID_PARAMETERS"
   | "NO_HISTORICAL_DATA"
   | "PROVIDER_ERROR"
   | "INSUFFICIENT_DATA"
@@ -140,6 +179,18 @@ export interface AlgoTestRunView {
   resultVersion?: string;
   /** P3.3 - at24-quant-engine's own SimulationResult.provenance.runtimeVersion, copied verbatim; undefined under the same conditions as resultVersion. */
   engineVersion?: string;
+  /**
+   * P3.4 - the exact, fully-normalized parameter configuration (every
+   * declared parameter present, defaults filled in) this run actually
+   * executed with - an immutable snapshot, never re-derived from the
+   * CURRENT registry after the fact. `undefined` means one of two
+   * genuinely different things, both honest: (a) this run's own strategy
+   * has no declared parameters, or (b) this row predates P3.4 and no
+   * snapshot was ever recorded - the UI must not assume (b) means "used
+   * today's defaults," only that no snapshot exists (see
+   * docs/P3.4-STRATEGY-PARAMETERS.md's backward-compatibility section).
+   */
+  parameters?: AlgoTestParameterValues;
   symbol: string;
   timeframe: string;
   startTime: string;

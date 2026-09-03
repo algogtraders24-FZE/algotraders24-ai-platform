@@ -1,0 +1,185 @@
+// scripts/validate-algo-test-parameters.ts
+// P3.4 - pure unit tests (no DB, no network) for
+// services/algo-test/strategy-registry.ts's validateParameterValues() -
+// the ONE authoritative place submitted parameter values are validated
+// (section 7 of the P3.4 spec: "the frontend must not be the authoritative
+// validator"). Real integration tests (a full run against the real DB and
+// real Twelve Data, with a real parameter actually affecting the real
+// engine result) live in validate-algo-test-service.ts instead - this
+// file is deliberately narrower and faster, exercising the validator
+// function directly, including synthetic fixture parameters (a
+// step-constrained one, a select one, a required one) that the real
+// Golden Strategy registry entry does not itself declare - see this
+// file's own fixtures below and docs/P3.4-STRATEGY-PARAMETERS.md's audit
+// for why the real registry stays deliberately narrower than what this
+// validator generically supports.
+import assert from "node:assert/strict";
+import { STRATEGY_REGISTRY, getStrategyDefinition, validateParameterValues, type StrategyDefinition } from "../services/algo-test/strategy-registry";
+import { GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD } from "at24-quant-engine";
+
+let passed = 0;
+let failed = 0;
+
+function test(name: string, fn: () => void): void {
+  try {
+    fn();
+    passed += 1;
+    console.log(`  ok - ${name}`);
+  } catch (err) {
+    failed += 1;
+    console.error(`  FAIL - ${name}`);
+    console.error(err instanceof Error ? `    ${err.message}` : `    ${String(err)}`);
+  }
+}
+
+const golden = getStrategyDefinition("golden");
+if (!golden) throw new Error("the 'golden' strategy must be registered");
+
+// A synthetic, test-only strategy fixture - NOT part of the real registry
+// - exercising the parameter TYPES/constraints (required, step, select)
+// the real Golden Strategy entry doesn't itself need, per this sprint's
+// own "only implement what's proven necessary" discipline. Testing the
+// generic validator against a fixture is not the same as registering a
+// fake parameter in production.
+const FIXTURE_STRATEGY: StrategyDefinition = {
+  strategyId: "fixture-only",
+  strategyVersion: "0.0.1",
+  displayName: "Fixture (test-only, never registered)",
+  description: "test fixture",
+  supportedSymbols: ["XAUUSD"],
+  supportedTimeframes: ["5m"],
+  status: "available",
+  parameters: [
+    { id: "requiredNumber", label: "Required Number", description: "", type: "number", defaultValue: 10, required: true },
+    { id: "steppedInteger", label: "Stepped Integer", description: "", type: "integer", defaultValue: 5, min: 0, max: 100, step: 5, required: false },
+    { id: "mode", label: "Mode", description: "", type: "select", defaultValue: "A", options: ["A", "B", "C"], required: false },
+    { id: "enabled", label: "Enabled", description: "", type: "boolean", defaultValue: true, required: false },
+  ],
+};
+
+function main(): void {
+  console.log("=== Registry contents (real, production) ===");
+  test("STRATEGY_REGISTRY registers exactly one strategy (golden), with exactly its one genuine parameter", () => {
+    assert.equal(STRATEGY_REGISTRY.length, 1);
+    assert.equal(golden!.parameters.length, 1);
+    assert.equal(golden!.parameters[0]!.id, "priceThreshold");
+    assert.equal(golden!.parameters[0]!.defaultValue, GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD);
+    assert.equal(golden!.parameters[0]!.required, false);
+  });
+
+  console.log("\n=== Valid parameters (real 'golden' registry entry) ===");
+  test("omitting parameters entirely accepts the registered default", () => {
+    const result = validateParameterValues(golden!, undefined);
+    assert.ok(result.ok);
+    if (result.ok) assert.equal(result.normalized.priceThreshold, GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD);
+  });
+
+  test("a valid custom value is accepted and normalized", () => {
+    const result = validateParameterValues(golden!, { priceThreshold: 4200 });
+    assert.ok(result.ok);
+    if (result.ok) assert.equal(result.normalized.priceThreshold, 4200);
+  });
+
+  test("the min boundary itself (0) is accepted, not rejected as 'below minimum'", () => {
+    const result = validateParameterValues(golden!, { priceThreshold: 0 });
+    assert.ok(result.ok);
+  });
+
+  test("the max boundary itself (1,000,000) is accepted, not rejected as 'above maximum'", () => {
+    const result = validateParameterValues(golden!, { priceThreshold: 1_000_000 });
+    assert.ok(result.ok);
+  });
+
+  console.log("\n=== Invalid parameters (real 'golden' registry entry) ===");
+  test("an unknown parameter key is rejected", () => {
+    const result = validateParameterValues(golden!, { notARealParameter: 1 });
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.ok(result.errors.some((e) => e.field === "notARealParameter"));
+  });
+
+  test("a wrong-typed value (string where a number is required) is rejected, never coerced", () => {
+    const result = validateParameterValues(golden!, { priceThreshold: "100" as unknown as number });
+    assert.equal(result.ok, false);
+  });
+
+  test("a non-finite value (NaN/Infinity) is rejected", () => {
+    const result = validateParameterValues(golden!, { priceThreshold: Number.POSITIVE_INFINITY });
+    assert.equal(result.ok, false);
+  });
+
+  test("below minimum is rejected", () => {
+    const result = validateParameterValues(golden!, { priceThreshold: -1 });
+    assert.equal(result.ok, false);
+  });
+
+  test("above maximum is rejected", () => {
+    const result = validateParameterValues(golden!, { priceThreshold: 2_000_000 });
+    assert.equal(result.ok, false);
+  });
+
+  console.log("\n=== Invalid parameters (synthetic fixture - exercises required/step/select, which the real registry doesn't need today) ===");
+  test("a missing required parameter is rejected", () => {
+    const result = validateParameterValues(FIXTURE_STRATEGY, {});
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.ok(result.errors.some((e) => e.field === "requiredNumber"));
+  });
+
+  test("a value violating its declared step is rejected", () => {
+    const result = validateParameterValues(FIXTURE_STRATEGY, { requiredNumber: 10, steppedInteger: 7 });
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.ok(result.errors.some((e) => e.field === "steppedInteger"));
+  });
+
+  test("a value exactly on-step is accepted", () => {
+    const result = validateParameterValues(FIXTURE_STRATEGY, { requiredNumber: 10, steppedInteger: 15 });
+    assert.ok(result.ok);
+  });
+
+  test("an invalid select option is rejected", () => {
+    const result = validateParameterValues(FIXTURE_STRATEGY, { requiredNumber: 10, mode: "Z" });
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.ok(result.errors.some((e) => e.field === "mode"));
+  });
+
+  test("a non-boolean value for a boolean parameter is rejected", () => {
+    const result = validateParameterValues(FIXTURE_STRATEGY, { requiredNumber: 10, enabled: "yes" as unknown as boolean });
+    assert.equal(result.ok, false);
+  });
+
+  test("a fully valid fixture submission normalizes every declared parameter, defaults filled in for the ones omitted", () => {
+    const result = validateParameterValues(FIXTURE_STRATEGY, { requiredNumber: 42 });
+    assert.ok(result.ok);
+    if (result.ok) {
+      assert.equal(result.normalized.requiredNumber, 42);
+      assert.equal(result.normalized.steppedInteger, 5); // default
+      assert.equal(result.normalized.mode, "A"); // default
+      assert.equal(result.normalized.enabled, true); // default
+    }
+  });
+
+  console.log("\n=== Security ===");
+  test("the client cannot redefine the schema - submitting schema-shaped keys (min/options/etc) alongside a real value has zero effect on validation rules", () => {
+    const maliciousSubmission = { priceThreshold: 50, min: -999_999, max: 999_999, options: ["evil"], type: "string" } as unknown as Record<string, unknown>;
+    const result = validateParameterValues(golden!, maliciousSubmission);
+    // priceThreshold=50 is genuinely valid, but the extra schema-shaped
+    // keys are still unknown parameters and must still be rejected -
+    // there is no way for a client submission to loosen or replace the
+    // server's own registered constraints.
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      const fields = result.errors.map((e) => e.field);
+      assert.ok(fields.includes("min"));
+      assert.ok(fields.includes("options"));
+    }
+  });
+
+  test("no arbitrary code execution path exists - a string payload where a number is expected is rejected as a type error, never evaluated", () => {
+    const result = validateParameterValues(golden!, { priceThreshold: "100; require('child_process').execSync('echo pwned')" as unknown as number });
+    assert.equal(result.ok, false);
+  });
+
+  console.log(`\n${passed} passed, ${failed} failed`);
+  if (failed > 0) process.exit(1);
+}
+
+main();
