@@ -1,0 +1,55 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19"/>
+      <stop offset="100%" stop-color="#171008"/>
+    </linearGradient>
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e7c86b"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="36%" r="48%">
+      <stop offset="0%" stop-color="#d1594a" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#d1594a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fff3d1"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="url(#bg)"/>
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="none" stroke="url(#borderGrad)" stroke-width="6"/>
+
+  <ellipse cx="256" cy="180" rx="150" ry="120" fill="url(#glow)"/>
+
+  <!-- swing-high resistance line, broken by a fast breakout stop entry -->
+  <line x1="100" y1="150" x2="330" y2="150" stroke="#94a3b8" stroke-width="5" stroke-dasharray="10 8" opacity="0.65"/>
+
+  <!-- candlesticks approaching then breaking the level -->
+  <g filter="url(#softGlow)">
+    <rect x="120" y="196" width="16" height="34" rx="3" fill="#5b7a9c"/>
+    <line x1="128" y1="188" x2="128" y2="238" stroke="#5b7a9c" stroke-width="4"/>
+    <rect x="160" y="182" width="16" height="36" rx="3" fill="#5b7a9c"/>
+    <line x1="168" y1="172" x2="168" y2="226" stroke="#5b7a9c" stroke-width="4"/>
+    <rect x="200" y="160" width="16" height="40" rx="3" fill="#94a3b8"/>
+    <line x1="208" y1="150" x2="208" y2="208" stroke="#94a3b8" stroke-width="4"/>
+    <!-- breakout candle -->
+    <rect x="248" y="96" width="20" height="60" rx="3" fill="#3fb27f"/>
+    <line x1="258" y1="80" x2="258" y2="164" stroke="#3fb27f" stroke-width="5"/>
+    <rect x="296" y="70" width="20" height="52" rx="3" fill="#3fb27f"/>
+    <line x1="306" y1="56" x2="306" y2="130" stroke="#3fb27f" stroke-width="5"/>
+  </g>
+
+  <!-- speed/lightning accent - fast execution -->
+  <path d="M 352 108 L 330 148 L 348 148 L 326 190 L 366 138 L 346 138 Z" fill="url(#textGrad)" filter="url(#softGlow)"/>
+
+  <!-- Wordmark -->
+  <text x="256" y="352" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="800" letter-spacing="1" fill="#ffffff">AT24</text>
+  <text x="256" y="392" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="27" font-weight="800" letter-spacing="0.5" fill="url(#textGrad)">GOLD BREAKOUT SCALPER</text>
+  <text x="256" y="424" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" letter-spacing="2" fill="#94a3b8">SWING-BREAKOUT · TIGHT TRAIL · MT5</text>
+</svg>
