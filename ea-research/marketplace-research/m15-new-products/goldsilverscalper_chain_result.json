@@ -1,0 +1,873 @@
+{
+  "_provenance": {
+    "generatedBy": "generate_goldsilverscalper_chain.py (M15 seller-provided EA)",
+    "generatedAt": "2026-09-04T10:50:45.305758Z",
+    "note": "Real, deterministic M3/M4/M5/M7 result from the seller's own real MT5 Strategy Tester .xlsx export - not fabricated, not a mock fixture."
+  },
+  "tradingSystemId": "GOLDSILVERSCALPER",
+  "versionId": "GOLDSILVERSCALPER-v1.01-2026-BASELINE",
+  "m3": {
+    "status": "VERIFIED",
+    "evidenceId": "2090e91ecdc3ac86",
+    "warnings": [
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'spreadModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'commissionModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'swapModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'tickDataQuality' is null"
+    ]
+  },
+  "m4": {
+    "overallStatus": "INCONCLUSIVE",
+    "evidenceId": "2090e91ecdc3ac86",
+    "recordStatuses": {
+      "SAMPLE_SIZE": "PASS",
+      "OUT_OF_SAMPLE": "PASS",
+      "WALK_FORWARD": "PASS",
+      "TEMPORAL_STABILITY": "PASS",
+      "REGIME_COVERAGE": "INCONCLUSIVE",
+      "PERFORMANCE_DISTRIBUTION": "PASS",
+      "PARAMETER_SENSITIVITY": "INCONCLUSIVE"
+    }
+  },
+  "m5": {
+    "status": "PARTIAL",
+    "riskAnalysisId": "17baefbf8debeea5",
+    "riskAnalysisHash": "17baefbf8debeea5",
+    "dataQuality": {
+      "drawdown": "LIMITED",
+      "lossDistribution": "AVAILABLE",
+      "winDistribution": "AVAILABLE",
+      "expectancy": "AVAILABLE",
+      "lossStreaks": "AVAILABLE",
+      "recovery": "LIMITED",
+      "tailRisk": "AVAILABLE",
+      "concentration": "AVAILABLE",
+      "temporalRisk": "AVAILABLE",
+      "regimeRisk": "UNAVAILABLE",
+      "exposureRisk": "AVAILABLE",
+      "costRisk": "AVAILABLE"
+    }
+  },
+  "m7": {
+    "status": "INCONCLUSIVE",
+    "reasonCode": "VALIDATION_INCONCLUSIVE",
+    "explanation": "Evidence integrity is verified, but the current Validation (M4) result is INCONCLUSIVE (overallStatus=INCONCLUSIVE) -- validation types not conclusively completed: REGIME_COVERAGE, PARAMETER_SENSITIVITY",
+    "id": "07a50522667754c3",
+    "generatedAt": "2026-09-04T10:50:47.265201Z"
+  },
+  "evidenceId": "2090e91ecdc3ac86",
+  "evidenceHash": "2090e91ecdc3ac86",
+  "validationId": "2090e91ecdc3ac86",
+  "validationHash": "2090e91ecdc3ac86",
+  "riskAnalysisId": "17baefbf8debeea5",
+  "riskAnalysisHash": "17baefbf8debeea5",
+  "trustStatusId": "07a50522667754c3",
+  "lastEvidenceAt": "2026-08-07T19:21:52",
+  "m4_full": {
+    "evidenceId": "2090e91ecdc3ac86",
+    "versionId": "GOLDSILVERSCALPER-v1.01-2026-BASELINE",
+    "datasetHash": "a4a90e246898f808",
+    "engineVersion": "AT24-M4-Validation-Engine-v1.0",
+    "methodologyVersion": "M4-methodology-v1",
+    "overallStatus": "INCONCLUSIVE",
+    "records": [
+      {
+        "validationId": "SAMPLE_SIZE:2090e91ecdc3ac86",
+        "versionId": "GOLDSILVERSCALPER-v1.01-2026-BASELINE",
+        "evidenceId": "2090e91ecdc3ac86",
+        "validationType": "SAMPLE_SIZE",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "a4a90e246898f808",
+        "inputEvidenceHash": "2090e91ecdc3ac86",
+        "startedAt": "2026-09-04T10:50:30.893601Z",
+        "completedAt": "2026-09-04T10:50:31.600772Z",
+        "methodology": "Direct count/duration measurement, no acceptance threshold applied.",
+        "parameters": {},
+        "metrics": {
+          "tradeCount": 22484,
+          "profitTradeCount": 11349,
+          "lossTradeCount": 11007,
+          "breakEvenTradeCount": 128,
+          "durationDays": 582,
+          "tradesPerMonth": 1175.97,
+          "observationsPerYear": {
+            "2025": 16504,
+            "2026": 5980
+          }
+        },
+        "findings": [
+          "22484 trades over 582 days (1.6 years) across 2 distinct calendar years."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "OUT_OF_SAMPLE:2090e91ecdc3ac86",
+        "versionId": "GOLDSILVERSCALPER-v1.01-2026-BASELINE",
+        "evidenceId": "2090e91ecdc3ac86",
+        "validationType": "OUT_OF_SAMPLE",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "a4a90e246898f808",
+        "inputEvidenceHash": "2090e91ecdc3ac86",
+        "startedAt": "2026-09-04T10:50:31.601771Z",
+        "completedAt": "2026-09-04T10:50:34.671436Z",
+        "methodology": "Time-based split at 80% of [first trade, last trade] duration (M4-methodology-v1).",
+        "parameters": {
+          "splitRatio": 0.8,
+          "boundary": "2026-04-13T05:43:29.600000"
+        },
+        "metrics": {
+          "inSampleMetrics": {
+            "netProfit": 17493.64,
+            "profitFactor": 1.1545,
+            "winRate": 0.5029,
+            "avgTrade": 0.9,
+            "expectedPayoff": 0.9,
+            "maxDrawdown": {
+              "absolute": 4155.06,
+              "percent": 0.4623
+            },
+            "recoveryFactor": 4.2102,
+            "sharpe": 0.0284,
+            "sortino": 0.0349,
+            "largestWin": 1171.97,
+            "largestLoss": -519.32,
+            "consecutiveWins": 11,
+            "consecutiveLosses": 14,
+            "tradeCount": 19420,
+            "_annualized": false,
+            "_depositUsedForDrawdown": 1000.0,
+            "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+          },
+          "outOfSampleMetrics": {
+            "netProfit": 3209.11,
+            "profitFactor": 1.1518,
+            "winRate": 0.5166,
+            "avgTrade": 1.05,
+            "expectedPayoff": 1.05,
+            "maxDrawdown": {
+              "absolute": 1112.13,
+              "percent": 0.369
+            },
+            "recoveryFactor": 2.8856,
+            "sharpe": 0.0343,
+            "sortino": 0.0453,
+            "largestWin": 500.72,
+            "largestLoss": -264.57,
+            "consecutiveWins": 9,
+            "consecutiveLosses": 10,
+            "tradeCount": 3064,
+            "_annualized": false,
+            "_depositUsedForDrawdown": 1000.0,
+            "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+          },
+          "inSampleTradeCount": 19420,
+          "outOfSampleTradeCount": 3064
+        },
+        "findings": [
+          "Split boundary (time-based, 80% in-sample): 2026-04-13T05:43:29.600000",
+          "In-sample: 19420 trades. Out-of-sample: 3064 trades.",
+          "In-sample and out-of-sample metrics computed independently and are reported separately below -- never combined into one number."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "WALK_FORWARD:2090e91ecdc3ac86",
+        "versionId": "GOLDSILVERSCALPER-v1.01-2026-BASELINE",
+        "evidenceId": "2090e91ecdc3ac86",
+        "validationType": "WALK_FORWARD",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "a4a90e246898f808",
+        "inputEvidenceHash": "2090e91ecdc3ac86",
+        "startedAt": "2026-09-04T10:50:34.671436Z",
+        "completedAt": "2026-09-04T10:50:36.274119Z",
+        "methodology": "Expanding-window, one test window per calendar year (M4-methodology-v1). Never collapsed into a single score.",
+        "parameters": {
+          "windowDefinition": "calendar-year",
+          "windowCount": 1
+        },
+        "metrics": {
+          "windows": [
+            {
+              "testYear": 2026,
+              "trainStart": "2025-01-01T23:10:00",
+              "trainEnd": "2025-12-24T15:06:32",
+              "testStart": "2026-01-01T00:00:00",
+              "testEnd": "2026-12-31T23:59:59",
+              "trainTradeCount": 16504,
+              "testTradeCount": 5980,
+              "trainMetrics": {
+                "netProfit": 14324.71,
+                "profitFactor": 1.1916,
+                "winRate": 0.5033,
+                "avgTrade": 0.87,
+                "expectedPayoff": 0.87,
+                "maxDrawdown": {
+                  "absolute": 2528.46,
+                  "percent": 0.4623
+                },
+                "recoveryFactor": 5.6654,
+                "sharpe": 0.0414,
+                "sortino": 0.0497,
+                "largestWin": 319.07,
+                "largestLoss": -355.99,
+                "consecutiveWins": 11,
+                "consecutiveLosses": 14,
+                "tradeCount": 16504,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 1000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "testMetrics": {
+                "netProfit": 6378.04,
+                "profitFactor": 1.107,
+                "winRate": 0.5089,
+                "avgTrade": 1.07,
+                "expectedPayoff": 1.07,
+                "maxDrawdown": {
+                  "absolute": 4155.06,
+                  "percent": 0.7523
+                },
+                "recoveryFactor": 1.535,
+                "sharpe": 0.0212,
+                "sortino": 0.0275,
+                "largestWin": 1171.97,
+                "largestLoss": -519.32,
+                "consecutiveWins": 9,
+                "consecutiveLosses": 10,
+                "tradeCount": 5980,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 1000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "configurationVersion": "GOLDSILVERSCALPER-v1.01-2026-BASELINE",
+              "status": "PASS"
+            }
+          ]
+        },
+        "findings": [
+          "1 walk-forward windows (one per calendar year from 2026 to 2026, 2025 reserved as the initial training-only period). Same configuration (GOLDSILVERSCALPER-v1.01-2026-BASELINE) used in every window -- no re-optimization between windows."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "TEMPORAL_STABILITY:2090e91ecdc3ac86",
+        "versionId": "GOLDSILVERSCALPER-v1.01-2026-BASELINE",
+        "evidenceId": "2090e91ecdc3ac86",
+        "validationType": "TEMPORAL_STABILITY",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "a4a90e246898f808",
+        "inputEvidenceHash": "2090e91ecdc3ac86",
+        "startedAt": "2026-09-04T10:50:36.277121Z",
+        "completedAt": "2026-09-04T10:50:37.182655Z",
+        "methodology": "Calendar-period aggregation (month/quarter/year) plus inter-trade gap and best-single-period concentration.",
+        "parameters": {},
+        "metrics": {
+          "monthly": {
+            "2025-01": {
+              "tradeCount": 720,
+              "netProfit": 48.0
+            },
+            "2025-02": {
+              "tradeCount": 1376,
+              "netProfit": 1865.69
+            },
+            "2025-03": {
+              "tradeCount": 1246,
+              "netProfit": 737.92
+            },
+            "2025-04": {
+              "tradeCount": 1488,
+              "netProfit": 860.33
+            },
+            "2025-05": {
+              "tradeCount": 1596,
+              "netProfit": -1099.26
+            },
+            "2025-06": {
+              "tradeCount": 1572,
+              "netProfit": 414.37
+            },
+            "2025-07": {
+              "tradeCount": 1636,
+              "netProfit": 434.58
+            },
+            "2025-08": {
+              "tradeCount": 1486,
+              "netProfit": 240.38
+            },
+            "2025-09": {
+              "tradeCount": 1580,
+              "netProfit": 2492.98
+            },
+            "2025-10": {
+              "tradeCount": 1544,
+              "netProfit": 3923.07
+            },
+            "2025-11": {
+              "tradeCount": 1398,
+              "netProfit": 4215.36
+            },
+            "2025-12": {
+              "tradeCount": 862,
+              "netProfit": 191.29
+            },
+            "2026-01": {
+              "tradeCount": 1530,
+              "netProfit": 4454.76
+            },
+            "2026-02": {
+              "tradeCount": 1134,
+              "netProfit": -3066.38
+            },
+            "2026-03": {
+              "tradeCount": 250,
+              "netProfit": 1645.04
+            },
+            "2026-04": {
+              "tradeCount": 2,
+              "netProfit": 135.51
+            },
+            "2026-06": {
+              "tradeCount": 928,
+              "netProfit": 1299.78
+            },
+            "2026-07": {
+              "tradeCount": 1788,
+              "netProfit": 1430.99
+            },
+            "2026-08": {
+              "tradeCount": 348,
+              "netProfit": 478.34
+            }
+          },
+          "quarterly": {
+            "2025-Q1": {
+              "tradeCount": 3342,
+              "netProfit": 2651.61
+            },
+            "2025-Q2": {
+              "tradeCount": 4656,
+              "netProfit": 175.44
+            },
+            "2025-Q3": {
+              "tradeCount": 4702,
+              "netProfit": 3167.94
+            },
+            "2025-Q4": {
+              "tradeCount": 3804,
+              "netProfit": 8329.72
+            },
+            "2026-Q1": {
+              "tradeCount": 2914,
+              "netProfit": 3033.42
+            },
+            "2026-Q2": {
+              "tradeCount": 930,
+              "netProfit": 1435.29
+            },
+            "2026-Q3": {
+              "tradeCount": 2136,
+              "netProfit": 1909.33
+            }
+          },
+          "yearly": {
+            "2025": {
+              "tradeCount": 16504,
+              "netProfit": 14324.71
+            },
+            "2026": {
+              "tradeCount": 5980,
+              "netProfit": 6378.04
+            }
+          },
+          "longestInactiveGapDays": 56,
+          "bestMonthShareOfPositiveMonths": 0.1791,
+          "winningMonths": 17,
+          "losingMonths": 2,
+          "flatMonths": 0
+        },
+        "findings": [
+          "19 distinct months, 2 distinct years represented.",
+          "Longest gap with zero trades: 56 days.",
+          "The single best month accounts for 17.9% of all positive monthly profit -- reported as a fact, no pass/fail threshold applied."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "REGIME_COVERAGE:2090e91ecdc3ac86",
+        "versionId": "GOLDSILVERSCALPER-v1.01-2026-BASELINE",
+        "evidenceId": "2090e91ecdc3ac86",
+        "validationType": "REGIME_COVERAGE",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "a4a90e246898f808",
+        "inputEvidenceHash": "2090e91ecdc3ac86",
+        "startedAt": "2026-09-04T10:50:37.188660Z",
+        "completedAt": "2026-09-04T10:50:37.196657Z",
+        "methodology": "Per-regime trade grouping using Trade.marketRegime, when present.",
+        "parameters": {},
+        "metrics": {
+          "regimesRepresented": [],
+          "tradeCountByRegime": {}
+        },
+        "findings": [
+          "No trades in this Evidence carry a marketRegime tag -- regime coverage cannot be computed for this Evidence. No regime classifier exists yet in this research program (see design doc section 11); this is reported honestly, not fabricated."
+        ],
+        "warnings": [],
+        "status": "INCONCLUSIVE",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "PERFORMANCE_DISTRIBUTION:2090e91ecdc3ac86",
+        "versionId": "GOLDSILVERSCALPER-v1.01-2026-BASELINE",
+        "evidenceId": "2090e91ecdc3ac86",
+        "validationType": "PERFORMANCE_DISTRIBUTION",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "a4a90e246898f808",
+        "inputEvidenceHash": "2090e91ecdc3ac86",
+        "startedAt": "2026-09-04T10:50:37.196657Z",
+        "completedAt": "2026-09-04T10:50:37.478500Z",
+        "methodology": "Distribution statistics beyond total return: median, expectancy, streaks, top-decile concentration.",
+        "parameters": {},
+        "metrics": {
+          "profitFactor": 1.154,
+          "winRate": 0.5048,
+          "avgTrade": 0.92,
+          "medianTrade": 0.01,
+          "expectancy": 0.9208,
+          "maxDrawdown": {
+            "absolute": 4155.06,
+            "percent": 0.4623
+          },
+          "largestWin": 1171.97,
+          "largestLoss": -519.32,
+          "consecutiveWins": 11,
+          "consecutiveLosses": 14,
+          "topDecileWinShareOfGrossProfit": 0.5696
+        },
+        "findings": [
+          "Median trade P&L: 0.01. Expectancy per trade: 0.9208.",
+          "Best 10% of winning trades account for 57.0% of total gross profit -- a concentration fact, not a pass/fail judgment."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "PARAMETER_SENSITIVITY:2090e91ecdc3ac86",
+        "versionId": "GOLDSILVERSCALPER-v1.01-2026-BASELINE",
+        "evidenceId": "2090e91ecdc3ac86",
+        "validationType": "PARAMETER_SENSITIVITY",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "n/a",
+        "datasetHash": "a4a90e246898f808",
+        "inputEvidenceHash": "2090e91ecdc3ac86",
+        "startedAt": "2026-09-04T10:50:37.479502Z",
+        "completedAt": "2026-09-04T10:50:37.479502Z",
+        "methodology": "Baseline-vs-perturbed-configuration comparison (framework only -- see design doc section 12).",
+        "parameters": {},
+        "metrics": {},
+        "findings": [
+          "Not executed for this Evidence: real parameter-sensitivity analysis requires new backtests with perturbed EA inputs, which this sprint's guardrails explicitly forbid ('Do not optimize G01. Do not change G01 parameters.'). The framework itself is built and verified against synthetic configurations (see test_validation_engine.py Test H). Deferred to a future sprint that explicitly authorizes new runs."
+        ],
+        "warnings": [],
+        "status": "INCONCLUSIVE",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      }
+    ]
+  },
+  "m5_full": {
+    "riskAnalysisId": "17baefbf8debeea5",
+    "versionId": "GOLDSILVERSCALPER-v1.01-2026-BASELINE",
+    "evidenceId": "2090e91ecdc3ac86",
+    "validationId": "a167c755a11f1101",
+    "rulesetVersion": "none-defined",
+    "methodologyVersion": "M5-methodology-v1",
+    "inputEvidenceHash": "2090e91ecdc3ac86",
+    "inputValidationHash": "a167c755a11f1101",
+    "generatedAt": "2026-09-04T10:50:44.988559Z",
+    "drawdown": {
+      "curveType": "balance (trade-close), NOT intraday equity -- see design doc section 8",
+      "equityDrawdownAvailable": false,
+      "balanceDrawdownAvailable": true,
+      "maxDrawdown": 4155.06,
+      "maxDrawdownPercent": 0.2093,
+      "maxDrawdownDurationDays": 142,
+      "averageDrawdown": 60.03,
+      "medianDrawdown": 6.1,
+      "drawdownFrequency": 612,
+      "episodeCount": 612,
+      "unrecoveredEpisodes": 1,
+      "dataQuality": "LIMITED",
+      "note": "DRAWDOWN_ANALYSIS_LIMITED: no intraday/tick equity series exists in this Evidence (Evidence.curves is empty) -- figures above are BALANCE drawdown (closed trades only), not EQUITY drawdown."
+    },
+    "lossDistribution": {
+      "count": 11007,
+      "largestLoss": -519.32,
+      "averageLoss": -12.21,
+      "medianLoss": -2.05,
+      "stdevLoss": 25.49,
+      "percentiles": {
+        "P50": 2.05,
+        "P75": 14.46,
+        "P90": 34.12,
+        "P95": 52.7,
+        "P99": 113.63
+      },
+      "maxConsecutiveLosses": 14,
+      "averageConsecutiveLossLength": 1.61,
+      "lossStreakEpisodes": 6841,
+      "clusteredLossShare": 0.6208,
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "winDistribution": {
+      "count": 11349,
+      "largestWin": 1171.97,
+      "averageWin": 13.67,
+      "medianWin": 2.11,
+      "stdevWin": 31.9,
+      "percentiles": {
+        "P50": 2.11,
+        "P75": 15.78,
+        "P90": 36.85,
+        "P95": 58.05,
+        "P99": 134.23
+      },
+      "maxConsecutiveWins": 11,
+      "averageConsecutiveWinLength": 1.66,
+      "winStreakEpisodes": 6850,
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "expectancy": {
+      "expectancyPerTrade": 0.9208,
+      "averageWin": 13.67,
+      "averageLoss": -12.21,
+      "winLossRatio": 1.1193,
+      "profitFactorNet": 1.154,
+      "grossProfitNet": 155094.02,
+      "grossLossNet": -134391.27,
+      "netResult": 20702.75,
+      "grossProfitRaw": 155094.02,
+      "grossLossRaw": -134391.27,
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "lossStreaks": {
+      "maxConsecutiveLosses": 14,
+      "maxLossStreakDurationDays": 0,
+      "capitalImpactOfLongestLossStreak": -157.72,
+      "capitalImpactPctOfDeposit": 0.1577,
+      "dataQuality": "AVAILABLE"
+    },
+    "recovery": {
+      "recoveryEpisodes": 611,
+      "unrecoveredEpisodesAtEndOfPeriod": 1,
+      "averageRecoveryDurationDays": 0.8,
+      "percentOfPeriodBelowPriorPeak": 0.8505,
+      "dataQuality": "LIMITED",
+      "note": "Recovery timing is reconstructed from the same balance-level (trade-close) equity curve as drawdown -- not intraday equity. See drawdown section."
+    },
+    "tailRisk": {
+      "worst1Trade": -519.32,
+      "worst5Trades": -2158.83,
+      "worst10Trades": -3765.56,
+      "worst1SharePctOfGrossLoss": 0.0039,
+      "worst5SharePctOfGrossLoss": 0.0161,
+      "worst10SharePctOfGrossLoss": 0.028,
+      "P95Loss": 52.7,
+      "P99Loss": 113.63,
+      "largestDrawdown": 4155.06,
+      "worstLossStreakCapitalImpact": -157.72,
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "concentration": {
+      "top1PctWinnersShareOfGrossProfit": 0.1591,
+      "top5PctWinnersShareOfGrossProfit": 0.4027,
+      "dataQuality": "AVAILABLE",
+      "bestYear": {
+        "year": "2025",
+        "tradeCount": 16504,
+        "netProfit": 14324.71
+      },
+      "worstYear": {
+        "year": "2026",
+        "tradeCount": 5980,
+        "netProfit": 6378.04
+      },
+      "bestMonth": {
+        "month": "2026-01",
+        "tradeCount": 1530,
+        "netProfit": 4454.76
+      },
+      "worstMonth": {
+        "month": "2026-02",
+        "tradeCount": 1134,
+        "netProfit": -3066.38
+      },
+      "positivePeriodsCount": 17,
+      "negativePeriodsCount": 2,
+      "source": "reused from M4 TEMPORAL_STABILITY record (not recomputed)"
+    },
+    "temporalRisk": {
+      "perYear": {
+        "2025": {
+          "tradeCount": 16504,
+          "maxDrawdownWithinYear": 2528.46,
+          "maxConsecutiveLossesWithinYear": 14
+        },
+        "2026": {
+          "tradeCount": 5980,
+          "maxDrawdownWithinYear": 4155.06,
+          "maxConsecutiveLossesWithinYear": 10
+        }
+      },
+      "worstDrawdownYear": "2026",
+      "dataQuality": "AVAILABLE",
+      "note": "Per-year drawdown/loss-streak computed fresh here (not in M4's TEMPORAL_STABILITY, which only tracked net profit/PF per period)."
+    },
+    "regimeRisk": {
+      "dataQuality": "UNAVAILABLE",
+      "note": "REGIME_DATA_UNAVAILABLE: no trades in this Evidence carry a marketRegime tag. No regime classifier exists yet in this research program -- not inferred.",
+      "riskByRegime": {}
+    },
+    "exposureRisk": {
+      "positionSize": {
+        "maxPositionSize": 0.02,
+        "averagePositionSize": 0.0104,
+        "positionSizeStdev": 0.0019,
+        "topDecilePositionShareOfTotalVolume": 0.1311
+      },
+      "directionalConcentration": {
+        "long": 11231,
+        "short": 11253,
+        "longSharePct": 0.4995
+      },
+      "simultaneousExposure": {
+        "maxSimultaneousPositions": 2,
+        "hadOverlappingPositions": true,
+        "totalOverlapDurationHours": 1432.96
+      },
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "costRisk": {
+      "totalCommission": 0.0,
+      "totalSwap": 0.0,
+      "totalCost": 0.0,
+      "costPerTrade": 0.0,
+      "costAsPctOfGrossProfit": 0.0,
+      "costAsPctOfGrossLoss": 0.0,
+      "spreadModel": "UNKNOWN",
+      "dataQuality": "AVAILABLE",
+      "note": "spreadModel is UNKNOWN (not zero) -- the source report doesn't expose it; commission/swap above are real measured values, independent of this gap."
+    },
+    "dataQuality": {
+      "drawdown": "LIMITED",
+      "lossDistribution": "AVAILABLE",
+      "winDistribution": "AVAILABLE",
+      "expectancy": "AVAILABLE",
+      "lossStreaks": "AVAILABLE",
+      "recovery": "LIMITED",
+      "tailRisk": "AVAILABLE",
+      "concentration": "AVAILABLE",
+      "temporalRisk": "AVAILABLE",
+      "regimeRisk": "UNAVAILABLE",
+      "exposureRisk": "AVAILABLE",
+      "costRisk": "AVAILABLE"
+    },
+    "findings": [
+      "Max drawdown (balance): 4155.06 (0.2093), 612 drawdown episodes, 1 unrecovered at end of period.",
+      "Expectancy per trade: 0.9208. Max consecutive losses: 14."
+    ],
+    "warnings": [],
+    "limitations": [
+      "DRAWDOWN_ANALYSIS_LIMITED: no intraday/tick equity series exists in this Evidence (Evidence.curves is empty) -- figures above are BALANCE drawdown (closed trades only), not EQUITY drawdown.",
+      "Recovery timing is reconstructed from the same balance-level (trade-close) equity curve as drawdown -- not intraday equity. See drawdown section.",
+      "REGIME_DATA_UNAVAILABLE: no trades in this Evidence carry a marketRegime tag. No regime classifier exists yet in this research program -- not inferred.",
+      "spreadModel is UNKNOWN (not zero) -- the source report doesn't expose it; commission/swap above are real measured values, independent of this gap."
+    ],
+    "status": "PARTIAL",
+    "riskAnalysisHash": "17baefbf8debeea5",
+    "createdBy": "AT24-M5-Risk-Analysis-Engine-v1.0"
+  },
+  "m6_full": [
+    {
+      "tradingSystemId": "GOLDSILVERSCALPER",
+      "versionId": "GOLDSILVERSCALPER-v1.01-2026-BASELINE",
+      "evidenceId": null,
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "SYSTEM_CREATED",
+      "observedAt": "2026-09-04T10:50:45.305758Z",
+      "recordedAt": "2026-09-04T10:50:45.305758Z",
+      "source": "AT24-M6-History-Engine-v1.0",
+      "sourceHash": null,
+      "payload": {
+        "tradingSystemId": "GOLDSILVERSCALPER"
+      },
+      "previousEventId": null,
+      "previousEventHash": null,
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "210139f36bc17c7a",
+      "contentHash": "210139f36bc17c7a"
+    },
+    {
+      "tradingSystemId": "GOLDSILVERSCALPER",
+      "versionId": "GOLDSILVERSCALPER-v1.01-2026-BASELINE",
+      "evidenceId": null,
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "VERSION_CREATED",
+      "observedAt": "2026-09-04T10:50:45.305758Z",
+      "recordedAt": "2026-09-04T10:50:45.305758Z",
+      "source": "AT24-M6-History-Engine-v1.0",
+      "sourceHash": null,
+      "payload": {
+        "versionId": "GOLDSILVERSCALPER-v1.01-2026-BASELINE"
+      },
+      "previousEventId": "210139f36bc17c7a",
+      "previousEventHash": "210139f36bc17c7a",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "29b3e51474f4cdb6",
+      "contentHash": "29b3e51474f4cdb6"
+    },
+    {
+      "tradingSystemId": "GOLDSILVERSCALPER",
+      "versionId": "GOLDSILVERSCALPER-v1.01-2026-BASELINE",
+      "evidenceId": "2090e91ecdc3ac86",
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "EVIDENCE_ADDED",
+      "observedAt": "2026-08-07T19:21:52",
+      "recordedAt": "2026-09-04T10:50:45.305758Z",
+      "source": "AT24-M2-Evidence-Engine-v0.2",
+      "sourceHash": "2090e91ecdc3ac86",
+      "payload": {
+        "sourceAdapter": "mt5-deals-table-xlsx-v1",
+        "tradeCount": 22484
+      },
+      "previousEventId": "29b3e51474f4cdb6",
+      "previousEventHash": "29b3e51474f4cdb6",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "ab25e15383a608ac",
+      "contentHash": "ab25e15383a608ac"
+    },
+    {
+      "tradingSystemId": "GOLDSILVERSCALPER",
+      "versionId": "GOLDSILVERSCALPER-v1.01-2026-BASELINE",
+      "evidenceId": "2090e91ecdc3ac86",
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "EVIDENCE_VERIFIED",
+      "observedAt": "2026-09-04T10:50:45.305758Z",
+      "recordedAt": "2026-09-04T10:50:45.305758Z",
+      "source": "AT24-M3-Evidence-Verifier-v1.0",
+      "sourceHash": "2090e91ecdc3ac86",
+      "payload": {
+        "m3Status": "VERIFIED",
+        "warnings": [
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'spreadModel' is null",
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'commissionModel' is null",
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'swapModel' is null",
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'tickDataQuality' is null"
+        ]
+      },
+      "previousEventId": "ab25e15383a608ac",
+      "previousEventHash": "ab25e15383a608ac",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "6e5bb2e1016919ca",
+      "contentHash": "6e5bb2e1016919ca"
+    },
+    {
+      "tradingSystemId": "GOLDSILVERSCALPER",
+      "versionId": "GOLDSILVERSCALPER-v1.01-2026-BASELINE",
+      "evidenceId": "2090e91ecdc3ac86",
+      "validationId": "2090e91ecdc3ac86",
+      "riskAnalysisId": null,
+      "eventType": "VALIDATION_COMPLETED",
+      "observedAt": "2026-09-04T10:50:45.305758Z",
+      "recordedAt": "2026-09-04T10:50:45.305758Z",
+      "source": "AT24-M4-Validation-Engine-v1.0",
+      "sourceHash": "2090e91ecdc3ac86",
+      "payload": {
+        "overallStatus": "INCONCLUSIVE",
+        "recordStatuses": {
+          "SAMPLE_SIZE": "PASS",
+          "OUT_OF_SAMPLE": "PASS",
+          "WALK_FORWARD": "PASS",
+          "TEMPORAL_STABILITY": "PASS",
+          "REGIME_COVERAGE": "INCONCLUSIVE",
+          "PERFORMANCE_DISTRIBUTION": "PASS",
+          "PARAMETER_SENSITIVITY": "INCONCLUSIVE"
+        }
+      },
+      "previousEventId": "6e5bb2e1016919ca",
+      "previousEventHash": "6e5bb2e1016919ca",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "b8e715e6f4f7ab87",
+      "contentHash": "b8e715e6f4f7ab87"
+    },
+    {
+      "tradingSystemId": "GOLDSILVERSCALPER",
+      "versionId": "GOLDSILVERSCALPER-v1.01-2026-BASELINE",
+      "evidenceId": "2090e91ecdc3ac86",
+      "validationId": "2090e91ecdc3ac86",
+      "riskAnalysisId": "17baefbf8debeea5",
+      "eventType": "RISK_ANALYSIS_COMPLETED",
+      "observedAt": "2026-09-04T10:50:45.305758Z",
+      "recordedAt": "2026-09-04T10:50:45.305758Z",
+      "source": "AT24-M5-Risk-Analysis-Engine-v1.0",
+      "sourceHash": "17baefbf8debeea5",
+      "payload": {
+        "status": "PARTIAL",
+        "dataQuality": {
+          "drawdown": "LIMITED",
+          "lossDistribution": "AVAILABLE",
+          "winDistribution": "AVAILABLE",
+          "expectancy": "AVAILABLE",
+          "lossStreaks": "AVAILABLE",
+          "recovery": "LIMITED",
+          "tailRisk": "AVAILABLE",
+          "concentration": "AVAILABLE",
+          "temporalRisk": "AVAILABLE",
+          "regimeRisk": "UNAVAILABLE",
+          "exposureRisk": "AVAILABLE",
+          "costRisk": "AVAILABLE"
+        }
+      },
+      "previousEventId": "b8e715e6f4f7ab87",
+      "previousEventHash": "b8e715e6f4f7ab87",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "c005a00a6a2d34e4",
+      "contentHash": "c005a00a6a2d34e4"
+    }
+  ]
+}
