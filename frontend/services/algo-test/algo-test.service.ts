@@ -30,9 +30,17 @@ import type {
 } from "@/types/algo-test";
 import type { ChartCandle } from "@/types/chart-data";
 import { twelveDataHistoricalDataProvider } from "./historical-data/twelve-data-provider";
+import type { HistoricalDataProvider } from "./historical-data/types";
 import { runBacktest } from "./run-backtest";
 import { getStrategyDefinition, listAvailableStrategies, validateParameterValues, type StrategyDefinition } from "./strategy-registry";
 import { RESULT_CONTRACT_VERSION } from "./result-contract";
+// P4 Phase 2 - AI-compiled strategies reuse this EXACT generic backtest
+// path (runBacktest, above) - never a separate "AI backtester". See
+// docs/P4-PHASE2-BACKTEST-WIRING.md.
+import { ClaudeProvider } from "@/lib/ai/providers/claude.provider";
+import type { AIProvider } from "@/lib/ai/provider.interface";
+import { compileNaturalLanguageStrategy } from "./nl-strategy-compiler.service";
+import type { AiCompileAndRunRequest } from "@/types/algo-test";
 
 export const DEFAULT_INITIAL_BALANCE = 10_000;
 
@@ -161,9 +169,16 @@ function toAlgoTestErrorCode(message: string): AlgoTestErrorCode {
  * equivalent evidentiary weight to a real, populated trade ledger - see
  * that stage's own comment below.
  */
-function buildRunLifecycle(strategy: StrategyDefinition, outcome: { barsUsed: number; result: SimulationResult; reproducible: boolean }) {
+// P4 Phase 2 - takes `importLifecycle` directly (a strategy's own 4-stage
+// IMPORTED/PARSED/IR_VALID/EXECUTION_VALID array) rather than a full
+// StrategyDefinition, so this SAME function serves both a registry entry
+// (strategy.importLifecycle) and an AI-compiled strategy
+// (compileNaturalLanguageStrategy()'s own `stages`, which has the exact
+// same shape) - one lifecycle-building function for every strategy
+// source, never a second one written for AI-generated runs.
+function buildRunLifecycle(importLifecycle: readonly StageResult[], outcome: { barsUsed: number; result: SimulationResult; reproducible: boolean }) {
   const byName = {} as Record<StrategyLifecycleStage, StageResult>;
-  for (const s of strategy.importLifecycle) byName[s.stage] = s;
+  for (const s of importLifecycle) byName[s.stage] = s;
 
   byName.DATA_VALID = { stage: "DATA_VALID", outcome: "PASSED", detail: `${outcome.barsUsed} bar(s) used` };
   byName.BACKTEST_VALID = { stage: "BACKTEST_VALID", outcome: "PASSED", detail: `simulation completed, resultHash ${outcome.result.resultHash.slice(0, 16)}...` };
@@ -259,6 +274,24 @@ function toEquityCurveView(equityCurve: readonly { timestamp: number; balance: n
   return equityCurve.map((p) => ({ timestamp: p.timestamp, balance: p.balance }));
 }
 
+// P4 Phase 2 - extracted from runAlgoTest's own catch block (unchanged
+// behavior, just now shared with compileAndRunAiStrategy below) - a
+// request that never reaches a completed backtest stops the lifecycle at
+// the strategy's own last import-time stage with DATA_VALID marked
+// FAILED: neither NO_HISTORICAL_DATA nor the more general PROVIDER_ERROR
+// ever represents a genuine engine/strategy problem - both mean "a valid
+// StrategySpec existed but no valid data could be obtained to run it
+// against," which is exactly what DATA_VALID is for.
+function buildDataValidFailureLifecycle(importLifecycle: readonly StageResult[], message: string) {
+  const byName = {} as Record<StrategyLifecycleStage, StageResult>;
+  for (const s of importLifecycle) byName[s.stage] = s;
+  byName.DATA_VALID = { stage: "DATA_VALID", outcome: "FAILED", detail: message };
+  for (const s of ["BACKTEST_VALID", "REPRODUCIBLE", "EVIDENCE_VERIFIED"] as const) {
+    byName[s] = { stage: s, outcome: "FAILED", detail: "not evaluated — DATA_VALID already failed" };
+  }
+  return buildLifecycleResult(byName);
+}
+
 export const algoTestService = {
   async runAlgoTest(userId: string, request: AlgoTestRunRequest): Promise<AlgoTestRunView> {
     const validated = validateRequest(request);
@@ -327,7 +360,7 @@ export const algoTestService = {
       const equityCurve = toEquityCurveView(outcome.equityCurve);
       const assumptions = buildAssumptions(outcome.result);
       const engineVersion = outcome.result.provenance.runtimeVersion;
-      const lifecycle = buildRunLifecycle(strategy, outcome);
+      const lifecycle = buildRunLifecycle(strategy.importLifecycle, outcome);
 
       await prisma.algoTestRun.update({
         where: { id: row.id },
@@ -369,22 +402,7 @@ export const algoTestService = {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       const code = toAlgoTestErrorCode(message);
-      // P3.8 - a request that never reaches a completed backtest stops the
-      // lifecycle at the strategy's own last import-time stage (which, for
-      // both registered strategies today, always passes/NOT_APPLICABLEs
-      // through EXECUTION_VALID - see strategy-registry.ts) with DATA_VALID
-      // marked FAILED: neither NO_HISTORICAL_DATA nor the more general
-      // PROVIDER_ERROR ever represents a genuine engine/strategy problem -
-      // both mean "a valid StrategySpec existed but no valid data could be
-      // obtained to run it against," which is exactly what DATA_VALID is
-      // for.
-      const byName = {} as Record<StrategyLifecycleStage, StageResult>;
-      for (const s of strategy.importLifecycle) byName[s.stage] = s;
-      byName.DATA_VALID = { stage: "DATA_VALID", outcome: "FAILED", detail: message };
-      for (const s of ["BACKTEST_VALID", "REPRODUCIBLE", "EVIDENCE_VERIFIED"] as const) {
-        byName[s] = { stage: s, outcome: "FAILED", detail: "not evaluated — DATA_VALID already failed" };
-      }
-      const lifecycle = buildLifecycleResult(byName);
+      const lifecycle = buildDataValidFailureLifecycle(strategy.importLifecycle, message);
       await prisma.algoTestRun.update({
         where: { id: row.id },
         data: { status: "failed", errorCode: code, errorMessage: message, completedAt: new Date() },
@@ -500,5 +518,165 @@ export const algoTestService = {
   /** P3.3 - the Strategy Registry's own available-strategies list, for the registry-backed UI (GET /api/private/algo-test/strategies). */
   listStrategies(): readonly StrategyDefinition[] {
     return listAvailableStrategies();
+  },
+
+  /**
+   * P4 Phase 2 (docs/P4-PHASE2-BACKTEST-WIRING.md) - takes the compiled
+   * StrategySpec P4 Phase 1's own `compileNaturalLanguageStrategy()`
+   * produces and routes it through the EXACT SAME generic `runBacktest()`
+   * every registry-based strategy already uses (P3.6) - not a second,
+   * AI-specific backtest path. `deps` is injectable purely for testing
+   * (a fake AIProvider/HistoricalDataProvider, mirroring
+   * validate-nl-strategy-compiler.ts's own P4 Phase 1 convention) -
+   * production callers never pass it, defaulting to the real
+   * ClaudeProvider/twelveDataHistoricalDataProvider.
+   */
+  async compileAndRunAiStrategy(userId: string, request: AiCompileAndRunRequest, deps?: { provider?: AIProvider; historicalDataProvider?: HistoricalDataProvider }): Promise<AlgoTestRunView> {
+    const startTime = new Date(request.startTime);
+    const endTime = new Date(request.endTime);
+    const fail = (code: AlgoTestErrorCode, message: string): AlgoTestRunView => ({
+      testId: "",
+      status: "failed",
+      strategyId: "ai-generated",
+      symbol: "",
+      timeframe: "",
+      startTime: request.startTime,
+      endTime: request.endTime,
+      initialBalance: request.initialBalance ?? DEFAULT_INITIAL_BALANCE,
+      errorCode: code,
+      errorMessage: message,
+      createdAt: new Date().toISOString(),
+    });
+    if (typeof request.intent !== "string" || request.intent.trim().length === 0) return fail("INVALID_PARAMETERS", "intent must be a non-empty string");
+    if (Number.isNaN(startTime.getTime()) || Number.isNaN(endTime.getTime())) return fail("INVALID_DATE_RANGE", "startTime/endTime could not be parsed as dates.");
+    if (startTime.getTime() >= endTime.getTime()) return fail("INVALID_DATE_RANGE", "startTime must be before endTime.");
+    if (endTime.getTime() > Date.now()) return fail("INVALID_DATE_RANGE", "endTime cannot be in the future - this is a historical backtest, not a live/forward test.");
+    const rangeDays = (endTime.getTime() - startTime.getTime()) / 86_400_000;
+    if (rangeDays > MAX_RANGE_DAYS) return fail("RANGE_TOO_LARGE", `Date range spans ${rangeDays.toFixed(1)} days; the maximum supported range is ${MAX_RANGE_DAYS} days per test.`);
+    const initialBalance = request.initialBalance ?? DEFAULT_INITIAL_BALANCE;
+    if (!Number.isFinite(initialBalance) || initialBalance <= 0) return fail("INVALID_INITIAL_BALANCE", "initialBalance must be a finite, positive number.");
+
+    const provider = deps?.provider ?? new ClaudeProvider();
+    const historicalDataProvider = deps?.historicalDataProvider ?? twelveDataHistoricalDataProvider;
+    const compiledAt = Date.now();
+    const compilation = await compileNaturalLanguageStrategy(request.intent, provider, {
+      strategyId: `ai-${userId}-${compiledAt}`,
+      strategyVersion: "1.0.0",
+      name: request.intent.slice(0, 80),
+      strategyTimezone: "UTC",
+      createdAt: compiledAt,
+    });
+
+    const symbol = compilation.compiledSpec?.instruments[0]?.symbol ?? "";
+    const timeframe = compilation.compiledSpec?.timeframes[0] ?? "";
+
+    const row = await prisma.algoTestRun.create({
+      data: {
+        userId,
+        strategyId: "ai-generated",
+        strategyVersion: "1.0.0",
+        parameters: { intent: request.intent } as object,
+        symbol,
+        timeframe,
+        startTime,
+        endTime,
+        initialBalance,
+        status: "pending",
+      },
+    });
+
+    if (!compilation.compiledSpec || !compilation.buildIndicatorSeries) {
+      const byName = {} as Record<StrategyLifecycleStage, StageResult>;
+      for (const s of compilation.stages) byName[s.stage] = s;
+      for (const s of ["DATA_VALID", "BACKTEST_VALID", "REPRODUCIBLE", "EVIDENCE_VERIFIED"] as const) {
+        byName[s] = { stage: s, outcome: "FAILED", detail: "not evaluated — compilation did not reach EXECUTION_VALID" };
+      }
+      const lifecycle = buildLifecycleResult(byName);
+      const message = compilation.stages.find((s) => s.outcome === "FAILED")?.detail ?? "Compilation did not reach EXECUTION_VALID";
+      await prisma.algoTestRun.update({ where: { id: row.id }, data: { status: "failed", errorCode: "INVALID_STRATEGY", errorMessage: message, completedAt: new Date() } });
+      return { testId: row.id, status: "failed", strategyId: "ai-generated", parameters: { intent: request.intent }, symbol, timeframe, startTime: request.startTime, endTime: request.endTime, initialBalance, errorCode: "INVALID_STRATEGY", errorMessage: message, lifecycle, createdAt: row.createdAt.toISOString() };
+    }
+
+    try {
+      const outcome = await runBacktest(
+        {
+          symbol,
+          timeframe: timeframe as Timeframe,
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          initialBalance,
+          strategySpec: compilation.compiledSpec,
+          buildIndicatorSeries: compilation.buildIndicatorSeries,
+        },
+        historicalDataProvider,
+      );
+
+      const metrics = toMetricsView(outcome.result);
+      const trades = outcome.result.tradeLedger.map(toTradeView);
+      const equityCurve = toEquityCurveView(outcome.equityCurve);
+      const assumptions = buildAssumptions(outcome.result);
+      const engineVersion = outcome.result.provenance.runtimeVersion;
+      const lifecycle = buildRunLifecycle(compilation.stages, outcome);
+
+      await prisma.algoTestRun.update({
+        where: { id: row.id },
+        data: {
+          status: "completed",
+          resultHash: outcome.result.resultHash,
+          resultVersion: RESULT_CONTRACT_VERSION,
+          engineVersion,
+          metrics: metrics as object,
+          trades: trades as unknown as object,
+          equityCurve: equityCurve as unknown as object,
+          assumptions: assumptions as object,
+          completedAt: new Date(),
+        },
+      });
+
+      return {
+        testId: row.id,
+        status: "completed",
+        strategyId: "ai-generated",
+        strategyVersion: "1.0.0",
+        resultVersion: RESULT_CONTRACT_VERSION,
+        engineVersion,
+        parameters: { intent: request.intent },
+        symbol,
+        timeframe,
+        startTime: request.startTime,
+        endTime: request.endTime,
+        initialBalance,
+        resultHash: outcome.result.resultHash,
+        metrics,
+        trades,
+        equityCurve,
+        assumptions,
+        candles: toChartCandles(outcome.bars),
+        lifecycle,
+        compiledStrategy: compilation.compiledSpec,
+        createdAt: row.createdAt.toISOString(),
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const code = toAlgoTestErrorCode(message);
+      const lifecycle = buildDataValidFailureLifecycle(compilation.stages, message);
+      await prisma.algoTestRun.update({ where: { id: row.id }, data: { status: "failed", errorCode: code, errorMessage: message, completedAt: new Date() } });
+      return {
+        testId: row.id,
+        status: "failed",
+        strategyId: "ai-generated",
+        parameters: { intent: request.intent },
+        symbol,
+        timeframe,
+        startTime: request.startTime,
+        endTime: request.endTime,
+        initialBalance,
+        errorCode: code,
+        errorMessage: message,
+        lifecycle,
+        compiledStrategy: compilation.compiledSpec,
+        createdAt: row.createdAt.toISOString(),
+      };
+    }
   },
 };

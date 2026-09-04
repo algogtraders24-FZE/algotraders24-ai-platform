@@ -61,16 +61,48 @@ export interface BacktestOutcome {
 }
 
 export async function runBacktest(request: BacktestRequest, provider: HistoricalDataProvider): Promise<BacktestOutcome> {
-  const { bars, rejected, source } = await provider.getBars({
+  const { bars: fetchedBars, rejected, source } = await provider.getBars({
     symbol: request.symbol,
     timeframe: request.timeframe,
     startTime: request.startTime,
     endTime: request.endTime,
   });
 
-  if (bars.length === 0) {
+  if (fetchedBars.length === 0) {
     throw new Error(`runBacktest: no valid historical bars for ${request.symbol}/${request.timeframe} in [${request.startTime}, ${request.endTime}] (source: ${source}, ${rejected.length} rejected)`);
   }
+
+  const fetchedSeries = request.buildIndicatorSeries(fetchedBars);
+
+  // P4 Phase 2 - warmup-bar slicing (docs/P4-PHASE2-BACKTEST-WIRING.md).
+  // Q0.5's frozen signal-generator.ts evaluates every bar starting at
+  // index 0 and THROWS if a referenced indicator's value is still
+  // `undefined` (still warming up) - `at24-quant-engine`'s own Q0.9
+  // simulation-adapter.ts (buildIndicatorSeriesFromIR/compileToSimulation)
+  // already documents and fixes this exact problem for the MQL-import
+  // compilation path by slicing `bars` and every indicator series by a
+  // computed `warmupBars` offset before simulating. This generic path
+  // never went through that adapter (it builds `indicatorSeries` itself,
+  // above) and had no equivalent slicing - undetected until this phase,
+  // because Golden Strategy's own "indicator" is the raw close price
+  // (always defined, no warmup) and ref-ema-crossover's real EMA(9)/
+  // EMA(21) series had never actually been run through `runBacktest()`
+  // end to end (P3.6/P3.8's own tests checked registry/lifecycle
+  // structure only, never called runBacktest() for it). Computed here
+  // generically from the already-built series - not per indicator family,
+  // not hardcoded to EMA - so it applies equally to every registry
+  // strategy and every AI-compiled one.
+  let warmupBars = 0;
+  for (const values of fetchedSeries.values()) {
+    let firstDefined = 0;
+    while (firstDefined < values.length && values[firstDefined] === undefined) firstDefined += 1;
+    warmupBars = Math.max(warmupBars, firstDefined);
+  }
+  if (fetchedBars.length <= warmupBars) {
+    throw new Error(`runBacktest: insufficient bars for indicator warmup (need > ${warmupBars}, got ${fetchedBars.length}) for ${request.symbol}/${request.timeframe} in [${request.startTime}, ${request.endTime}]`);
+  }
+  const bars = warmupBars > 0 ? fetchedBars.slice(warmupBars) : fetchedBars;
+  const indicatorSeries = warmupBars > 0 ? new Map([...fetchedSeries].map(([key, values]) => [key, values.slice(warmupBars)] as const)) : fetchedSeries;
 
   const instrument: Instrument = bars[0]!.instrument;
 
@@ -86,7 +118,7 @@ export async function runBacktest(request: BacktestRequest, provider: Historical
     slippageModel: ZeroSlippage,
     feeModel: ZeroFee,
     latencyModel: ZeroLatency,
-    indicatorSeries: request.buildIndicatorSeries(bars),
+    indicatorSeries,
   };
 
   const result = runSimulation(bars, config);

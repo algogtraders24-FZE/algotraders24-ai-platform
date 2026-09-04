@@ -257,4 +257,24 @@ export interface AlgoTestRunView {
   errorCode?: AlgoTestErrorCode;
   errorMessage?: string;
   createdAt: string;
+  /**
+   * P4 Phase 2 (docs/P4-PHASE2-BACKTEST-WIRING.md) - present ONLY for an
+   * AI-compiled run (`strategyId === "ai-generated"`). The exact compiled
+   * StrategySpec this run actually executed - lets a caller confirm the
+   * result corresponds to what the natural-language request actually
+   * produced (e.g. an "EMA 9/21" request really did compile and run
+   * different entry rules than an "EMA 20/50" one), not just that SOME
+   * backtest completed. Absent for every registry-based run (Golden
+   * Strategy, ref-ema-crossover) - those already have `strategyId`
+   * itself as the identity signal.
+   */
+  compiledStrategy?: unknown;
+}
+
+/** P4 Phase 2 - POST /api/private/algo-test/ai-runs. `startTime`/`endTime` are the backtest window (ISO 8601 UTC); the strategy's own symbol/timeframe come FROM the compiled StrategySpec (the natural-language intent itself names the market, e.g. "...for XAUUSD M15..."), never a second, separately-submitted field that could disagree with what was actually compiled. */
+export interface AiCompileAndRunRequest {
+  intent: string;
+  startTime: string;
+  endTime: string;
+  initialBalance?: number;
 }
