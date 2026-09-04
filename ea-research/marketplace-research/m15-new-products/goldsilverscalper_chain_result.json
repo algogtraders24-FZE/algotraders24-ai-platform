@@ -1,7 +1,7 @@
 {
   "_provenance": {
     "generatedBy": "generate_goldsilverscalper_chain.py (M15 seller-provided EA)",
-    "generatedAt": "2026-09-04T10:50:45.305758Z",
+    "generatedAt": "2026-09-04T15:04:52.117626Z",
     "note": "Real, deterministic M3/M4/M5/M7 result from the seller's own real MT5 Strategy Tester .xlsx export - not fabricated, not a mock fixture."
   },
   "tradingSystemId": "GOLDSILVERSCALPER",
@@ -17,7 +17,7 @@
     ]
   },
   "m4": {
-    "overallStatus": "INCONCLUSIVE",
+    "overallStatus": "PASS",
     "evidenceId": "2090e91ecdc3ac86",
     "recordStatuses": {
       "SAMPLE_SIZE": "PASS",
@@ -31,8 +31,8 @@
   },
   "m5": {
     "status": "PARTIAL",
-    "riskAnalysisId": "17baefbf8debeea5",
-    "riskAnalysisHash": "17baefbf8debeea5",
+    "riskAnalysisId": "143bb79e109c6448",
+    "riskAnalysisHash": "143bb79e109c6448",
     "dataQuality": {
       "drawdown": "LIMITED",
       "lossDistribution": "AVAILABLE",
@@ -49,19 +49,19 @@
     }
   },
   "m7": {
-    "status": "INCONCLUSIVE",
-    "reasonCode": "VALIDATION_INCONCLUSIVE",
-    "explanation": "Evidence integrity is verified, but the current Validation (M4) result is INCONCLUSIVE (overallStatus=INCONCLUSIVE) -- validation types not conclusively completed: REGIME_COVERAGE, PARAMETER_SENSITIVITY",
-    "id": "07a50522667754c3",
-    "generatedAt": "2026-09-04T10:50:47.265201Z"
+    "status": "LIMITED",
+    "reasonCode": "RISK_ANALYSIS_PARTIAL",
+    "explanation": "Evidence and Validation are sufficient, but RiskAnalysis (M5) is PARTIAL -- incomplete dimensions: drawdown, recovery, regimeRisk.",
+    "id": "bef4163faca613fb",
+    "generatedAt": "2026-09-04T15:04:54.042268Z"
   },
   "evidenceId": "2090e91ecdc3ac86",
   "evidenceHash": "2090e91ecdc3ac86",
   "validationId": "2090e91ecdc3ac86",
   "validationHash": "2090e91ecdc3ac86",
-  "riskAnalysisId": "17baefbf8debeea5",
-  "riskAnalysisHash": "17baefbf8debeea5",
-  "trustStatusId": "07a50522667754c3",
+  "riskAnalysisId": "143bb79e109c6448",
+  "riskAnalysisHash": "143bb79e109c6448",
+  "trustStatusId": "bef4163faca613fb",
   "lastEvidenceAt": "2026-08-07T19:21:52",
   "m4_full": {
     "evidenceId": "2090e91ecdc3ac86",
@@ -69,7 +69,7 @@
     "datasetHash": "a4a90e246898f808",
     "engineVersion": "AT24-M4-Validation-Engine-v1.0",
     "methodologyVersion": "M4-methodology-v1",
-    "overallStatus": "INCONCLUSIVE",
+    "overallStatus": "PASS",
     "records": [
       {
         "validationId": "SAMPLE_SIZE:2090e91ecdc3ac86",
@@ -80,8 +80,8 @@
         "datasetIdentity": "trades[]",
         "datasetHash": "a4a90e246898f808",
         "inputEvidenceHash": "2090e91ecdc3ac86",
-        "startedAt": "2026-09-04T10:50:30.893601Z",
-        "completedAt": "2026-09-04T10:50:31.600772Z",
+        "startedAt": "2026-09-04T15:04:37.591282Z",
+        "completedAt": "2026-09-04T15:04:38.312055Z",
         "methodology": "Direct count/duration measurement, no acceptance threshold applied.",
         "parameters": {},
         "metrics": {
@@ -112,8 +112,8 @@
         "datasetIdentity": "trades[]",
         "datasetHash": "a4a90e246898f808",
         "inputEvidenceHash": "2090e91ecdc3ac86",
-        "startedAt": "2026-09-04T10:50:31.601771Z",
-        "completedAt": "2026-09-04T10:50:34.671436Z",
+        "startedAt": "2026-09-04T15:04:38.312055Z",
+        "completedAt": "2026-09-04T15:04:41.370552Z",
         "methodology": "Time-based split at 80% of [first trade, last trade] duration (M4-methodology-v1).",
         "parameters": {
           "splitRatio": 0.8,
@@ -185,8 +185,8 @@
         "datasetIdentity": "trades[]",
         "datasetHash": "a4a90e246898f808",
         "inputEvidenceHash": "2090e91ecdc3ac86",
-        "startedAt": "2026-09-04T10:50:34.671436Z",
-        "completedAt": "2026-09-04T10:50:36.274119Z",
+        "startedAt": "2026-09-04T15:04:41.371552Z",
+        "completedAt": "2026-09-04T15:04:43.116185Z",
         "methodology": "Expanding-window, one test window per calendar year (M4-methodology-v1). Never collapsed into a single score.",
         "parameters": {
           "windowDefinition": "calendar-year",
@@ -267,8 +267,8 @@
         "datasetIdentity": "trades[]",
         "datasetHash": "a4a90e246898f808",
         "inputEvidenceHash": "2090e91ecdc3ac86",
-        "startedAt": "2026-09-04T10:50:36.277121Z",
-        "completedAt": "2026-09-04T10:50:37.182655Z",
+        "startedAt": "2026-09-04T15:04:43.116185Z",
+        "completedAt": "2026-09-04T15:04:44.241804Z",
         "methodology": "Calendar-period aggregation (month/quarter/year) plus inter-trade gap and best-single-period concentration.",
         "parameters": {},
         "metrics": {
@@ -414,8 +414,8 @@
         "datasetIdentity": "trades[]",
         "datasetHash": "a4a90e246898f808",
         "inputEvidenceHash": "2090e91ecdc3ac86",
-        "startedAt": "2026-09-04T10:50:37.188660Z",
-        "completedAt": "2026-09-04T10:50:37.196657Z",
+        "startedAt": "2026-09-04T15:04:44.257436Z",
+        "completedAt": "2026-09-04T15:04:44.257436Z",
         "methodology": "Per-regime trade grouping using Trade.marketRegime, when present.",
         "parameters": {},
         "metrics": {
@@ -438,8 +438,8 @@
         "datasetIdentity": "trades[]",
         "datasetHash": "a4a90e246898f808",
         "inputEvidenceHash": "2090e91ecdc3ac86",
-        "startedAt": "2026-09-04T10:50:37.196657Z",
-        "completedAt": "2026-09-04T10:50:37.478500Z",
+        "startedAt": "2026-09-04T15:04:44.257436Z",
+        "completedAt": "2026-09-04T15:04:44.569554Z",
         "methodology": "Distribution statistics beyond total return: median, expectancy, streaks, top-decile concentration.",
         "parameters": {},
         "metrics": {
@@ -475,8 +475,8 @@
         "datasetIdentity": "n/a",
         "datasetHash": "a4a90e246898f808",
         "inputEvidenceHash": "2090e91ecdc3ac86",
-        "startedAt": "2026-09-04T10:50:37.479502Z",
-        "completedAt": "2026-09-04T10:50:37.479502Z",
+        "startedAt": "2026-09-04T15:04:44.569554Z",
+        "completedAt": "2026-09-04T15:04:44.569554Z",
         "methodology": "Baseline-vs-perturbed-configuration comparison (framework only -- see design doc section 12).",
         "parameters": {},
         "metrics": {},
@@ -490,15 +490,15 @@
     ]
   },
   "m5_full": {
-    "riskAnalysisId": "17baefbf8debeea5",
+    "riskAnalysisId": "143bb79e109c6448",
     "versionId": "GOLDSILVERSCALPER-v1.01-2026-BASELINE",
     "evidenceId": "2090e91ecdc3ac86",
-    "validationId": "a167c755a11f1101",
+    "validationId": "4ac36c5fd39fa723",
     "rulesetVersion": "none-defined",
     "methodologyVersion": "M5-methodology-v1",
     "inputEvidenceHash": "2090e91ecdc3ac86",
-    "inputValidationHash": "a167c755a11f1101",
-    "generatedAt": "2026-09-04T10:50:44.988559Z",
+    "inputValidationHash": "4ac36c5fd39fa723",
+    "generatedAt": "2026-09-04T15:04:51.796162Z",
     "drawdown": {
       "curveType": "balance (trade-close), NOT intraday equity -- see design doc section 8",
       "equityDrawdownAvailable": false,
@@ -703,7 +703,7 @@
       "spreadModel is UNKNOWN (not zero) -- the source report doesn't expose it; commission/swap above are real measured values, independent of this gap."
     ],
     "status": "PARTIAL",
-    "riskAnalysisHash": "17baefbf8debeea5",
+    "riskAnalysisHash": "143bb79e109c6448",
     "createdBy": "AT24-M5-Risk-Analysis-Engine-v1.0"
   },
   "m6_full": [
@@ -714,8 +714,8 @@
       "validationId": null,
       "riskAnalysisId": null,
       "eventType": "SYSTEM_CREATED",
-      "observedAt": "2026-09-04T10:50:45.305758Z",
-      "recordedAt": "2026-09-04T10:50:45.305758Z",
+      "observedAt": "2026-09-04T15:04:52.117626Z",
+      "recordedAt": "2026-09-04T15:04:52.117626Z",
       "source": "AT24-M6-History-Engine-v1.0",
       "sourceHash": null,
       "payload": {
@@ -726,8 +726,8 @@
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "210139f36bc17c7a",
-      "contentHash": "210139f36bc17c7a"
+      "historyEventId": "7873139eda013303",
+      "contentHash": "7873139eda013303"
     },
     {
       "tradingSystemId": "GOLDSILVERSCALPER",
@@ -736,20 +736,20 @@
       "validationId": null,
       "riskAnalysisId": null,
       "eventType": "VERSION_CREATED",
-      "observedAt": "2026-09-04T10:50:45.305758Z",
-      "recordedAt": "2026-09-04T10:50:45.305758Z",
+      "observedAt": "2026-09-04T15:04:52.117626Z",
+      "recordedAt": "2026-09-04T15:04:52.117626Z",
       "source": "AT24-M6-History-Engine-v1.0",
       "sourceHash": null,
       "payload": {
         "versionId": "GOLDSILVERSCALPER-v1.01-2026-BASELINE"
       },
-      "previousEventId": "210139f36bc17c7a",
-      "previousEventHash": "210139f36bc17c7a",
+      "previousEventId": "7873139eda013303",
+      "previousEventHash": "7873139eda013303",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "29b3e51474f4cdb6",
-      "contentHash": "29b3e51474f4cdb6"
+      "historyEventId": "6ccc8791c77d3859",
+      "contentHash": "6ccc8791c77d3859"
     },
     {
       "tradingSystemId": "GOLDSILVERSCALPER",
@@ -759,20 +759,20 @@
       "riskAnalysisId": null,
       "eventType": "EVIDENCE_ADDED",
       "observedAt": "2026-08-07T19:21:52",
-      "recordedAt": "2026-09-04T10:50:45.305758Z",
+      "recordedAt": "2026-09-04T15:04:52.117626Z",
       "source": "AT24-M2-Evidence-Engine-v0.2",
       "sourceHash": "2090e91ecdc3ac86",
       "payload": {
         "sourceAdapter": "mt5-deals-table-xlsx-v1",
         "tradeCount": 22484
       },
-      "previousEventId": "29b3e51474f4cdb6",
-      "previousEventHash": "29b3e51474f4cdb6",
+      "previousEventId": "6ccc8791c77d3859",
+      "previousEventHash": "6ccc8791c77d3859",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "ab25e15383a608ac",
-      "contentHash": "ab25e15383a608ac"
+      "historyEventId": "a5577642390ffc8e",
+      "contentHash": "a5577642390ffc8e"
     },
     {
       "tradingSystemId": "GOLDSILVERSCALPER",
@@ -781,8 +781,8 @@
       "validationId": null,
       "riskAnalysisId": null,
       "eventType": "EVIDENCE_VERIFIED",
-      "observedAt": "2026-09-04T10:50:45.305758Z",
-      "recordedAt": "2026-09-04T10:50:45.305758Z",
+      "observedAt": "2026-09-04T15:04:52.117626Z",
+      "recordedAt": "2026-09-04T15:04:52.117626Z",
       "source": "AT24-M3-Evidence-Verifier-v1.0",
       "sourceHash": "2090e91ecdc3ac86",
       "payload": {
@@ -794,13 +794,13 @@
           "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'tickDataQuality' is null"
         ]
       },
-      "previousEventId": "ab25e15383a608ac",
-      "previousEventHash": "ab25e15383a608ac",
+      "previousEventId": "a5577642390ffc8e",
+      "previousEventHash": "a5577642390ffc8e",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "6e5bb2e1016919ca",
-      "contentHash": "6e5bb2e1016919ca"
+      "historyEventId": "6cb61f769859fc82",
+      "contentHash": "6cb61f769859fc82"
     },
     {
       "tradingSystemId": "GOLDSILVERSCALPER",
@@ -809,12 +809,12 @@
       "validationId": "2090e91ecdc3ac86",
       "riskAnalysisId": null,
       "eventType": "VALIDATION_COMPLETED",
-      "observedAt": "2026-09-04T10:50:45.305758Z",
-      "recordedAt": "2026-09-04T10:50:45.305758Z",
+      "observedAt": "2026-09-04T15:04:52.117626Z",
+      "recordedAt": "2026-09-04T15:04:52.117626Z",
       "source": "AT24-M4-Validation-Engine-v1.0",
       "sourceHash": "2090e91ecdc3ac86",
       "payload": {
-        "overallStatus": "INCONCLUSIVE",
+        "overallStatus": "PASS",
         "recordStatuses": {
           "SAMPLE_SIZE": "PASS",
           "OUT_OF_SAMPLE": "PASS",
@@ -825,25 +825,25 @@
           "PARAMETER_SENSITIVITY": "INCONCLUSIVE"
         }
       },
-      "previousEventId": "6e5bb2e1016919ca",
-      "previousEventHash": "6e5bb2e1016919ca",
+      "previousEventId": "6cb61f769859fc82",
+      "previousEventHash": "6cb61f769859fc82",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "b8e715e6f4f7ab87",
-      "contentHash": "b8e715e6f4f7ab87"
+      "historyEventId": "18b9d5a5c142540a",
+      "contentHash": "18b9d5a5c142540a"
     },
     {
       "tradingSystemId": "GOLDSILVERSCALPER",
       "versionId": "GOLDSILVERSCALPER-v1.01-2026-BASELINE",
       "evidenceId": "2090e91ecdc3ac86",
       "validationId": "2090e91ecdc3ac86",
-      "riskAnalysisId": "17baefbf8debeea5",
+      "riskAnalysisId": "143bb79e109c6448",
       "eventType": "RISK_ANALYSIS_COMPLETED",
-      "observedAt": "2026-09-04T10:50:45.305758Z",
-      "recordedAt": "2026-09-04T10:50:45.305758Z",
+      "observedAt": "2026-09-04T15:04:52.117626Z",
+      "recordedAt": "2026-09-04T15:04:52.117626Z",
       "source": "AT24-M5-Risk-Analysis-Engine-v1.0",
-      "sourceHash": "17baefbf8debeea5",
+      "sourceHash": "143bb79e109c6448",
       "payload": {
         "status": "PARTIAL",
         "dataQuality": {
@@ -861,13 +861,13 @@
           "costRisk": "AVAILABLE"
         }
       },
-      "previousEventId": "b8e715e6f4f7ab87",
-      "previousEventHash": "b8e715e6f4f7ab87",
+      "previousEventId": "18b9d5a5c142540a",
+      "previousEventHash": "18b9d5a5c142540a",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "c005a00a6a2d34e4",
-      "contentHash": "c005a00a6a2d34e4"
+      "historyEventId": "0374fb77d0a3a0a9",
+      "contentHash": "0374fb77d0a3a0a9"
     }
   ]
 }

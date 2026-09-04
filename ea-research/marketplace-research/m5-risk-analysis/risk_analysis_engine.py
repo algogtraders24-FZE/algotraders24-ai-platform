@@ -28,6 +28,23 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "m3-evidence-verification"
 from evidence_engine import compute_metrics  # noqa: E402
 from evidence_verifier import load_evidence_package, verify_evidence_package  # noqa: E402
 
+# Sprint M15 (v3 policy, user-directed, 2026-09-04) -- regimeRisk depends on
+# the same real market-regime classification infrastructure M4's
+# REGIME_COVERAGE check needs (see analyze_regime_risk's own note) and does
+# not exist yet. It has come back UNAVAILABLE on every real submission
+# processed so far, which meant COMPLETE could never be reached for ANY
+# product under the "every dimension AVAILABLE" bar below -- an unbuilt-
+# capability gap, not a per-product data-quality problem. Explicit,
+# disclosed business decision (same style as M4's ADVISORY_ONLY_VALIDATION_
+# TYPES): regimeRisk's own dataQuality no longer counts toward the COMPLETE
+# bar. Its real, computed value (UNAVAILABLE, never faked as AVAILABLE) is
+# still recorded in dataQuality/limitations exactly as before. Every OTHER
+# dimension (drawdown, recovery, etc.) still counts fully -- their LIMITED/
+# UNAVAILABLE states reflect genuine per-submission data richness, not a
+# categorical AT24 infrastructure gap, so they are not exempted. Revisit
+# once real regime-classification infrastructure exists.
+ADVISORY_ONLY_RISK_DIMENSIONS = frozenset({"regimeRisk"})
+
 ENGINE_VERSION = "AT24-M5-Risk-Analysis-Engine-v1.0"
 METHODOLOGY_VERSION = "M5-methodology-v1"
 CALCULATION_VERSION = "M5-calc-v1"
@@ -801,8 +818,9 @@ def run_risk_analysis(
                      f"{drawdown.get('episodeCount', 0)} drawdown episodes, {drawdown.get('unrecoveredEpisodes', 0)} unrecovered at end of period.")
     findings.append(f"Expectancy per trade: {expectancy.get('expectancyPerTrade')}. Max consecutive losses: {loss_streaks.get('maxConsecutiveLosses')}.")
 
-    available_count = sum(1 for v in data_quality.values() if v == "AVAILABLE")
-    total_dims = len(data_quality)
+    core_quality = {k: v for k, v in data_quality.items() if k not in ADVISORY_ONLY_RISK_DIMENSIONS}
+    available_count = sum(1 for v in core_quality.values() if v == "AVAILABLE")
+    total_dims = len(core_quality)
     if not trades:
         status = "FAILED"
     elif available_count == total_dims:

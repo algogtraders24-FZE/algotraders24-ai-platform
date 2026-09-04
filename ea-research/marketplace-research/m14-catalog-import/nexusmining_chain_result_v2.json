@@ -1,0 +1,999 @@
+{
+  "_provenance": {
+    "generatedBy": "assemble_and_chain.py (M14 catalog-import real backtest)",
+    "generatedAt": "2026-09-04T15:37:21.981482Z",
+    "note": "Real M3/M4/M5/M7 result computed from a faithful Python port of the real .mq5 signal engine, run against real market.db candles (Exness feed) - not fabricated, not a mock fixture."
+  },
+  "tradingSystemId": "NEXUSMINING-EXPLORATION-ALGO",
+  "versionId": "NEXUSMINING-EXPLORATION-ALGO-v1.26-2026-07-03",
+  "m3": {
+    "status": "VERIFIED",
+    "evidenceId": "2596fa56783ed475",
+    "warnings": [
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'spreadModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'commissionModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'swapModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'tickDataQuality' is null"
+    ]
+  },
+  "m4": {
+    "overallStatus": "PASS",
+    "evidenceId": "2596fa56783ed475",
+    "recordStatuses": {
+      "SAMPLE_SIZE": "PASS",
+      "OUT_OF_SAMPLE": "PASS",
+      "WALK_FORWARD": "PASS",
+      "TEMPORAL_STABILITY": "PASS",
+      "REGIME_COVERAGE": "INCONCLUSIVE",
+      "PERFORMANCE_DISTRIBUTION": "PASS",
+      "PARAMETER_SENSITIVITY": "INCONCLUSIVE"
+    }
+  },
+  "m5": {
+    "status": "PARTIAL",
+    "riskAnalysisId": "20c07c559d5754fb",
+    "riskAnalysisHash": "20c07c559d5754fb",
+    "dataQuality": {
+      "drawdown": "LIMITED",
+      "lossDistribution": "AVAILABLE",
+      "winDistribution": "AVAILABLE",
+      "expectancy": "AVAILABLE",
+      "lossStreaks": "AVAILABLE",
+      "recovery": "LIMITED",
+      "tailRisk": "AVAILABLE",
+      "concentration": "AVAILABLE",
+      "temporalRisk": "AVAILABLE",
+      "regimeRisk": "UNAVAILABLE",
+      "exposureRisk": "LIMITED",
+      "costRisk": "UNKNOWN"
+    }
+  },
+  "m7": {
+    "status": "LIMITED",
+    "reasonCode": "RISK_ANALYSIS_PARTIAL",
+    "explanation": "Evidence and Validation are sufficient, but RiskAnalysis (M5) is PARTIAL -- incomplete dimensions: drawdown, recovery, regimeRisk, exposureRisk, costRisk.",
+    "id": "9c8da1db758c0630",
+    "generatedAt": "2026-09-04T15:37:35.787599Z"
+  },
+  "evidenceId": "2596fa56783ed475",
+  "evidenceHash": "2596fa56783ed475",
+  "validationId": "2596fa56783ed475",
+  "validationHash": "2596fa56783ed475",
+  "riskAnalysisId": "20c07c559d5754fb",
+  "riskAnalysisHash": "20c07c559d5754fb",
+  "trustStatusId": "9c8da1db758c0630",
+  "lastEvidenceAt": "2026-08-19T18:00:00",
+  "m4_full": {
+    "evidenceId": "2596fa56783ed475",
+    "versionId": "NEXUSMINING-EXPLORATION-ALGO-v1.26-2026-07-03",
+    "datasetHash": "af6de9437d4e01e1",
+    "engineVersion": "AT24-M4-Validation-Engine-v1.0",
+    "methodologyVersion": "M4-methodology-v1",
+    "overallStatus": "PASS",
+    "records": [
+      {
+        "validationId": "SAMPLE_SIZE:2596fa56783ed475",
+        "versionId": "NEXUSMINING-EXPLORATION-ALGO-v1.26-2026-07-03",
+        "evidenceId": "2596fa56783ed475",
+        "validationType": "SAMPLE_SIZE",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "af6de9437d4e01e1",
+        "inputEvidenceHash": "2596fa56783ed475",
+        "startedAt": "2026-09-04T15:37:08.269986Z",
+        "completedAt": "2026-09-04T15:37:08.304985Z",
+        "methodology": "Direct count/duration measurement, no acceptance threshold applied.",
+        "parameters": {},
+        "metrics": {
+          "tradeCount": 778,
+          "profitTradeCount": 291,
+          "lossTradeCount": 487,
+          "breakEvenTradeCount": 0,
+          "durationDays": 959,
+          "tradesPerMonth": 24.69,
+          "observationsPerYear": {
+            "2024": 303,
+            "2025": 292,
+            "2026": 183
+          }
+        },
+        "findings": [
+          "778 trades over 959 days (2.6 years) across 3 distinct calendar years."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "OUT_OF_SAMPLE:2596fa56783ed475",
+        "versionId": "NEXUSMINING-EXPLORATION-ALGO-v1.26-2026-07-03",
+        "evidenceId": "2596fa56783ed475",
+        "validationType": "OUT_OF_SAMPLE",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "af6de9437d4e01e1",
+        "inputEvidenceHash": "2596fa56783ed475",
+        "startedAt": "2026-09-04T15:37:08.304985Z",
+        "completedAt": "2026-09-04T15:37:08.447897Z",
+        "methodology": "Time-based split at 80% of [first trade, last trade] duration (M4-methodology-v1).",
+        "parameters": {
+          "splitRatio": 0.8,
+          "boundary": "2026-02-08T21:24:00"
+        },
+        "metrics": {
+          "inSampleMetrics": {
+            "netProfit": -274.74,
+            "profitFactor": 0.8709,
+            "winRate": 0.374,
+            "avgTrade": -0.44,
+            "expectedPayoff": -0.44,
+            "maxDrawdown": {
+              "absolute": 277.59,
+              "percent": 0.0278
+            },
+            "recoveryFactor": -0.9897,
+            "sharpe": -0.0561,
+            "sortino": -0.1288,
+            "largestWin": 28.39,
+            "largestLoss": -23.14,
+            "consecutiveWins": 6,
+            "consecutiveLosses": 15,
+            "tradeCount": 631,
+            "_annualized": false,
+            "_depositUsedForDrawdown": 10000.0,
+            "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+          },
+          "outOfSampleMetrics": {
+            "netProfit": -133.94,
+            "profitFactor": 0.9026,
+            "winRate": 0.3741,
+            "avgTrade": -0.91,
+            "expectedPayoff": -0.91,
+            "maxDrawdown": {
+              "absolute": 627.8,
+              "percent": 0.0619
+            },
+            "recoveryFactor": -0.2133,
+            "sharpe": -0.0393,
+            "sortino": -0.0754,
+            "largestWin": 93.42,
+            "largestLoss": -68.53,
+            "consecutiveWins": 4,
+            "consecutiveLosses": 12,
+            "tradeCount": 147,
+            "_annualized": false,
+            "_depositUsedForDrawdown": 10000.0,
+            "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+          },
+          "inSampleTradeCount": 631,
+          "outOfSampleTradeCount": 147
+        },
+        "findings": [
+          "Split boundary (time-based, 80% in-sample): 2026-02-08T21:24:00",
+          "In-sample: 631 trades. Out-of-sample: 147 trades.",
+          "In-sample and out-of-sample metrics computed independently and are reported separately below -- never combined into one number."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "WALK_FORWARD:2596fa56783ed475",
+        "versionId": "NEXUSMINING-EXPLORATION-ALGO-v1.26-2026-07-03",
+        "evidenceId": "2596fa56783ed475",
+        "validationType": "WALK_FORWARD",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "af6de9437d4e01e1",
+        "inputEvidenceHash": "2596fa56783ed475",
+        "startedAt": "2026-09-04T15:37:08.447897Z",
+        "completedAt": "2026-09-04T15:37:08.558857Z",
+        "methodology": "Expanding-window, one test window per calendar year (M4-methodology-v1). Never collapsed into a single score.",
+        "parameters": {
+          "windowDefinition": "calendar-year",
+          "windowCount": 2
+        },
+        "metrics": {
+          "windows": [
+            {
+              "testYear": 2025,
+              "trainStart": "2024-01-03T11:00:00",
+              "trainEnd": "2024-12-31T15:00:00",
+              "testStart": "2025-01-01T00:00:00",
+              "testEnd": "2025-12-31T23:59:59",
+              "trainTradeCount": 303,
+              "testTradeCount": 292,
+              "trainMetrics": {
+                "netProfit": -237.69,
+                "profitFactor": 0.7779,
+                "winRate": 0.3564,
+                "avgTrade": -0.78,
+                "expectedPayoff": -0.78,
+                "maxDrawdown": {
+                  "absolute": 250.3,
+                  "percent": 0.025
+                },
+                "recoveryFactor": -0.9496,
+                "sharpe": -0.1036,
+                "sortino": -0.2462,
+                "largestWin": 20.84,
+                "largestLoss": -14.43,
+                "consecutiveWins": 5,
+                "consecutiveLosses": 13,
+                "tradeCount": 303,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "testMetrics": {
+                "netProfit": 26.73,
+                "profitFactor": 1.0299,
+                "winRate": 0.4007,
+                "avgTrade": 0.09,
+                "expectedPayoff": 0.09,
+                "maxDrawdown": {
+                  "absolute": 112.57,
+                  "percent": 0.0111
+                },
+                "recoveryFactor": 0.2375,
+                "sharpe": 0.0117,
+                "sortino": 0.0261,
+                "largestWin": 28.39,
+                "largestLoss": -23.14,
+                "consecutiveWins": 6,
+                "consecutiveLosses": 15,
+                "tradeCount": 292,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "configurationVersion": "NEXUSMINING-EXPLORATION-ALGO-v1.26-2026-07-03",
+              "status": "PASS"
+            },
+            {
+              "testYear": 2026,
+              "trainStart": "2024-01-03T11:00:00",
+              "trainEnd": "2025-12-31T15:00:00",
+              "testStart": "2026-01-01T00:00:00",
+              "testEnd": "2026-12-31T23:59:59",
+              "trainTradeCount": 595,
+              "testTradeCount": 183,
+              "trainMetrics": {
+                "netProfit": -210.96,
+                "profitFactor": 0.8925,
+                "winRate": 0.3782,
+                "avgTrade": -0.35,
+                "expectedPayoff": -0.35,
+                "maxDrawdown": {
+                  "absolute": 258.02,
+                  "percent": 0.0258
+                },
+                "recoveryFactor": -0.8176,
+                "sharpe": -0.0461,
+                "sortino": -0.106,
+                "largestWin": 28.39,
+                "largestLoss": -23.14,
+                "consecutiveWins": 6,
+                "consecutiveLosses": 15,
+                "tradeCount": 595,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "testMetrics": {
+                "netProfit": -197.72,
+                "profitFactor": 0.8717,
+                "winRate": 0.3607,
+                "avgTrade": -1.08,
+                "expectedPayoff": -1.08,
+                "maxDrawdown": {
+                  "absolute": 627.8,
+                  "percent": 0.0623
+                },
+                "recoveryFactor": -0.3149,
+                "sharpe": -0.0512,
+                "sortino": -0.095,
+                "largestWin": 93.42,
+                "largestLoss": -68.53,
+                "consecutiveWins": 4,
+                "consecutiveLosses": 12,
+                "tradeCount": 183,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "configurationVersion": "NEXUSMINING-EXPLORATION-ALGO-v1.26-2026-07-03",
+              "status": "PASS"
+            }
+          ]
+        },
+        "findings": [
+          "2 walk-forward windows (one per calendar year from 2025 to 2026, 2024 reserved as the initial training-only period). Same configuration (NEXUSMINING-EXPLORATION-ALGO-v1.26-2026-07-03) used in every window -- no re-optimization between windows."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "TEMPORAL_STABILITY:2596fa56783ed475",
+        "versionId": "NEXUSMINING-EXPLORATION-ALGO-v1.26-2026-07-03",
+        "evidenceId": "2596fa56783ed475",
+        "validationType": "TEMPORAL_STABILITY",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "af6de9437d4e01e1",
+        "inputEvidenceHash": "2596fa56783ed475",
+        "startedAt": "2026-09-04T15:37:08.558857Z",
+        "completedAt": "2026-09-04T15:37:08.599310Z",
+        "methodology": "Calendar-period aggregation (month/quarter/year) plus inter-trade gap and best-single-period concentration.",
+        "parameters": {},
+        "metrics": {
+          "monthly": {
+            "2024-01": {
+              "tradeCount": 26,
+              "netProfit": -58.34
+            },
+            "2024-02": {
+              "tradeCount": 24,
+              "netProfit": -58.83
+            },
+            "2024-03": {
+              "tradeCount": 24,
+              "netProfit": -15.21
+            },
+            "2024-04": {
+              "tradeCount": 26,
+              "netProfit": -42.95
+            },
+            "2024-05": {
+              "tradeCount": 26,
+              "netProfit": -25.42
+            },
+            "2024-06": {
+              "tradeCount": 26,
+              "netProfit": 42.67
+            },
+            "2024-07": {
+              "tradeCount": 32,
+              "netProfit": 39.02
+            },
+            "2024-08": {
+              "tradeCount": 22,
+              "netProfit": -11.59
+            },
+            "2024-09": {
+              "tradeCount": 24,
+              "netProfit": -37.59
+            },
+            "2024-10": {
+              "tradeCount": 25,
+              "netProfit": 26.92
+            },
+            "2024-11": {
+              "tradeCount": 24,
+              "netProfit": -66.55
+            },
+            "2024-12": {
+              "tradeCount": 24,
+              "netProfit": -29.82
+            },
+            "2025-01": {
+              "tradeCount": 32,
+              "netProfit": -17.48
+            },
+            "2025-02": {
+              "tradeCount": 17,
+              "netProfit": 21.14
+            },
+            "2025-03": {
+              "tradeCount": 23,
+              "netProfit": 15.43
+            },
+            "2025-04": {
+              "tradeCount": 26,
+              "netProfit": 43.93
+            },
+            "2025-05": {
+              "tradeCount": 29,
+              "netProfit": 0.88
+            },
+            "2025-06": {
+              "tradeCount": 28,
+              "netProfit": 17.06
+            },
+            "2025-07": {
+              "tradeCount": 22,
+              "netProfit": -22.65
+            },
+            "2025-08": {
+              "tradeCount": 20,
+              "netProfit": -9.22
+            },
+            "2025-09": {
+              "tradeCount": 27,
+              "netProfit": -0.47
+            },
+            "2025-10": {
+              "tradeCount": 22,
+              "netProfit": 53.78
+            },
+            "2025-11": {
+              "tradeCount": 18,
+              "netProfit": -60.02
+            },
+            "2025-12": {
+              "tradeCount": 28,
+              "netProfit": -15.65
+            },
+            "2026-01": {
+              "tradeCount": 28,
+              "netProfit": -12.56
+            },
+            "2026-02": {
+              "tradeCount": 25,
+              "netProfit": -97.66
+            },
+            "2026-03": {
+              "tradeCount": 33,
+              "netProfit": -259.97
+            },
+            "2026-04": {
+              "tradeCount": 26,
+              "netProfit": 29.65
+            },
+            "2026-05": {
+              "tradeCount": 10,
+              "netProfit": 99.26
+            },
+            "2026-06": {
+              "tradeCount": 24,
+              "netProfit": 68.97
+            },
+            "2026-07": {
+              "tradeCount": 28,
+              "netProfit": -66.26
+            },
+            "2026-08": {
+              "tradeCount": 9,
+              "netProfit": 40.85
+            }
+          },
+          "quarterly": {
+            "2024-Q1": {
+              "tradeCount": 74,
+              "netProfit": -132.38
+            },
+            "2024-Q2": {
+              "tradeCount": 78,
+              "netProfit": -25.7
+            },
+            "2024-Q3": {
+              "tradeCount": 78,
+              "netProfit": -10.16
+            },
+            "2024-Q4": {
+              "tradeCount": 73,
+              "netProfit": -69.45
+            },
+            "2025-Q1": {
+              "tradeCount": 72,
+              "netProfit": 19.09
+            },
+            "2025-Q2": {
+              "tradeCount": 83,
+              "netProfit": 61.87
+            },
+            "2025-Q3": {
+              "tradeCount": 69,
+              "netProfit": -32.34
+            },
+            "2025-Q4": {
+              "tradeCount": 68,
+              "netProfit": -21.89
+            },
+            "2026-Q1": {
+              "tradeCount": 86,
+              "netProfit": -370.19
+            },
+            "2026-Q2": {
+              "tradeCount": 60,
+              "netProfit": 197.88
+            },
+            "2026-Q3": {
+              "tradeCount": 37,
+              "netProfit": -25.41
+            }
+          },
+          "yearly": {
+            "2024": {
+              "tradeCount": 303,
+              "netProfit": -237.69
+            },
+            "2025": {
+              "tradeCount": 292,
+              "netProfit": 26.73
+            },
+            "2026": {
+              "tradeCount": 183,
+              "netProfit": -197.72
+            }
+          },
+          "longestInactiveGapDays": 16,
+          "bestMonthShareOfPositiveMonths": 0.1987,
+          "winningMonths": 13,
+          "losingMonths": 19,
+          "flatMonths": 0
+        },
+        "findings": [
+          "32 distinct months, 3 distinct years represented.",
+          "Longest gap with zero trades: 16 days.",
+          "The single best month accounts for 19.9% of all positive monthly profit -- reported as a fact, no pass/fail threshold applied."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "REGIME_COVERAGE:2596fa56783ed475",
+        "versionId": "NEXUSMINING-EXPLORATION-ALGO-v1.26-2026-07-03",
+        "evidenceId": "2596fa56783ed475",
+        "validationType": "REGIME_COVERAGE",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "af6de9437d4e01e1",
+        "inputEvidenceHash": "2596fa56783ed475",
+        "startedAt": "2026-09-04T15:37:08.599310Z",
+        "completedAt": "2026-09-04T15:37:08.599310Z",
+        "methodology": "Per-regime trade grouping using Trade.marketRegime, when present.",
+        "parameters": {},
+        "metrics": {
+          "regimesRepresented": [],
+          "tradeCountByRegime": {}
+        },
+        "findings": [
+          "No trades in this Evidence carry a marketRegime tag -- regime coverage cannot be computed for this Evidence. No regime classifier exists yet in this research program (see design doc section 11); this is reported honestly, not fabricated."
+        ],
+        "warnings": [],
+        "status": "INCONCLUSIVE",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "PERFORMANCE_DISTRIBUTION:2596fa56783ed475",
+        "versionId": "NEXUSMINING-EXPLORATION-ALGO-v1.26-2026-07-03",
+        "evidenceId": "2596fa56783ed475",
+        "validationType": "PERFORMANCE_DISTRIBUTION",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "af6de9437d4e01e1",
+        "inputEvidenceHash": "2596fa56783ed475",
+        "startedAt": "2026-09-04T15:37:08.599310Z",
+        "completedAt": "2026-09-04T15:37:08.607305Z",
+        "methodology": "Distribution statistics beyond total return: median, expectancy, streaks, top-decile concentration.",
+        "parameters": {},
+        "metrics": {
+          "profitFactor": 0.8834,
+          "winRate": 0.374,
+          "avgTrade": -0.53,
+          "medianTrade": -2.45,
+          "expectancy": -0.5253,
+          "maxDrawdown": {
+            "absolute": 763.54,
+            "percent": 0.0763
+          },
+          "largestWin": 93.42,
+          "largestLoss": -68.53,
+          "consecutiveWins": 6,
+          "consecutiveLosses": 15,
+          "topDecileWinShareOfGrossProfit": 0.3412
+        },
+        "findings": [
+          "Median trade P&L: -2.45. Expectancy per trade: -0.5253.",
+          "Best 10% of winning trades account for 34.1% of total gross profit -- a concentration fact, not a pass/fail judgment."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "PARAMETER_SENSITIVITY:2596fa56783ed475",
+        "versionId": "NEXUSMINING-EXPLORATION-ALGO-v1.26-2026-07-03",
+        "evidenceId": "2596fa56783ed475",
+        "validationType": "PARAMETER_SENSITIVITY",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "n/a",
+        "datasetHash": "af6de9437d4e01e1",
+        "inputEvidenceHash": "2596fa56783ed475",
+        "startedAt": "2026-09-04T15:37:08.607305Z",
+        "completedAt": "2026-09-04T15:37:08.607305Z",
+        "methodology": "Baseline-vs-perturbed-configuration comparison (framework only -- see design doc section 12).",
+        "parameters": {},
+        "metrics": {},
+        "findings": [
+          "Not executed for this Evidence: real parameter-sensitivity analysis requires new backtests with perturbed EA inputs, which this sprint's guardrails explicitly forbid ('Do not optimize G01. Do not change G01 parameters.'). The framework itself is built and verified against synthetic configurations (see test_validation_engine.py Test H). Deferred to a future sprint that explicitly authorizes new runs."
+        ],
+        "warnings": [],
+        "status": "INCONCLUSIVE",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      }
+    ]
+  },
+  "m5_full": {
+    "riskAnalysisId": "20c07c559d5754fb",
+    "versionId": "NEXUSMINING-EXPLORATION-ALGO-v1.26-2026-07-03",
+    "evidenceId": "2596fa56783ed475",
+    "validationId": "af6ae7e9090d52c2",
+    "rulesetVersion": "none-defined",
+    "methodologyVersion": "M5-methodology-v1",
+    "inputEvidenceHash": "2596fa56783ed475",
+    "inputValidationHash": "af6ae7e9090d52c2",
+    "generatedAt": "2026-09-04T15:37:21.971491Z",
+    "drawdown": {
+      "curveType": "balance (trade-close), NOT intraday equity -- see design doc section 8",
+      "equityDrawdownAvailable": false,
+      "balanceDrawdownAvailable": true,
+      "maxDrawdown": 763.54,
+      "maxDrawdownPercent": 0.0763,
+      "maxDrawdownDurationDays": 957,
+      "averageDrawdown": 386.8,
+      "medianDrawdown": 386.8,
+      "drawdownFrequency": 2,
+      "episodeCount": 2,
+      "unrecoveredEpisodes": 1,
+      "dataQuality": "LIMITED",
+      "note": "DRAWDOWN_ANALYSIS_LIMITED: no intraday/tick equity series exists in this Evidence (Evidence.curves is empty) -- figures above are BALANCE drawdown (closed trades only), not EQUITY drawdown."
+    },
+    "lossDistribution": {
+      "count": 487,
+      "largestLoss": -68.53,
+      "averageLoss": -7.2,
+      "medianLoss": -5.77,
+      "stdevLoss": 7.13,
+      "percentiles": {
+        "P50": 5.77,
+        "P75": 8.39,
+        "P90": 13.13,
+        "P95": 19.63,
+        "P99": 35.22
+      },
+      "maxConsecutiveLosses": 15,
+      "averageConsecutiveLossLength": 2.85,
+      "lossStreakEpisodes": 171,
+      "clusteredLossShare": 0.885,
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "winDistribution": {
+      "count": 291,
+      "largestWin": 93.42,
+      "averageWin": 10.64,
+      "medianWin": 8.91,
+      "stdevWin": 10.84,
+      "percentiles": {
+        "P50": 8.91,
+        "P75": 13.25,
+        "P90": 20.84,
+        "P95": 33.71,
+        "P99": 47.95
+      },
+      "maxConsecutiveWins": 6,
+      "averageConsecutiveWinLength": 1.7,
+      "winStreakEpisodes": 171,
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "expectancy": {
+      "expectancyPerTrade": -0.5253,
+      "averageWin": 10.64,
+      "averageLoss": -7.2,
+      "winLossRatio": 1.4783,
+      "profitFactorNet": 0.8834,
+      "grossProfitNet": 3095.31,
+      "grossLossNet": -3503.99,
+      "netResult": -408.68,
+      "grossProfitRaw": "UNKNOWN",
+      "grossLossRaw": "UNKNOWN",
+      "dataQuality": "AVAILABLE",
+      "note": "Per-trade gross (pre-cost) figures are UNKNOWN for this Evidence's adapter -- only net-of-cost figures are available (UNKNOWN, not assumed equal to net)."
+    },
+    "lossStreaks": {
+      "maxConsecutiveLosses": 15,
+      "maxLossStreakDurationDays": 26,
+      "capitalImpactOfLongestLossStreak": -79.47,
+      "capitalImpactPctOfDeposit": 0.0079,
+      "dataQuality": "AVAILABLE"
+    },
+    "recovery": {
+      "recoveryEpisodes": 1,
+      "unrecoveredEpisodesAtEndOfPeriod": 1,
+      "averageRecoveryDurationDays": null,
+      "percentOfPeriodBelowPriorPeak": 0.9979,
+      "dataQuality": "LIMITED",
+      "note": "Recovery timing is reconstructed from the same balance-level (trade-close) equity curve as drawdown -- not intraday equity. See drawdown section."
+    },
+    "tailRisk": {
+      "worst1Trade": -68.53,
+      "worst5Trades": -237.1,
+      "worst10Trades": -406.34,
+      "worst1SharePctOfGrossLoss": 0.0196,
+      "worst5SharePctOfGrossLoss": 0.0677,
+      "worst10SharePctOfGrossLoss": 0.116,
+      "P95Loss": 19.63,
+      "P99Loss": 35.22,
+      "largestDrawdown": 763.54,
+      "worstLossStreakCapitalImpact": -79.47,
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "concentration": {
+      "top1PctWinnersShareOfGrossProfit": 0.0632,
+      "top5PctWinnersShareOfGrossProfit": 0.2154,
+      "dataQuality": "AVAILABLE",
+      "bestYear": {
+        "year": "2025",
+        "tradeCount": 292,
+        "netProfit": 26.73
+      },
+      "worstYear": {
+        "year": "2024",
+        "tradeCount": 303,
+        "netProfit": -237.69
+      },
+      "bestMonth": {
+        "month": "2026-05",
+        "tradeCount": 10,
+        "netProfit": 99.26
+      },
+      "worstMonth": {
+        "month": "2026-03",
+        "tradeCount": 33,
+        "netProfit": -259.97
+      },
+      "positivePeriodsCount": 13,
+      "negativePeriodsCount": 19,
+      "source": "reused from M4 TEMPORAL_STABILITY record (not recomputed)"
+    },
+    "temporalRisk": {
+      "perYear": {
+        "2024": {
+          "tradeCount": 303,
+          "maxDrawdownWithinYear": 250.3,
+          "maxConsecutiveLossesWithinYear": 13
+        },
+        "2025": {
+          "tradeCount": 292,
+          "maxDrawdownWithinYear": 112.57,
+          "maxConsecutiveLossesWithinYear": 15
+        },
+        "2026": {
+          "tradeCount": 183,
+          "maxDrawdownWithinYear": 627.8,
+          "maxConsecutiveLossesWithinYear": 12
+        }
+      },
+      "worstDrawdownYear": "2026",
+      "dataQuality": "AVAILABLE",
+      "note": "Per-year drawdown/loss-streak computed fresh here (not in M4's TEMPORAL_STABILITY, which only tracked net profit/PF per period)."
+    },
+    "regimeRisk": {
+      "dataQuality": "UNAVAILABLE",
+      "note": "REGIME_DATA_UNAVAILABLE: no trades in this Evidence carry a marketRegime tag. No regime classifier exists yet in this research program -- not inferred.",
+      "riskByRegime": {}
+    },
+    "exposureRisk": {
+      "positionSize": {
+        "maxPositionSize": 0.01,
+        "averagePositionSize": 0.01,
+        "positionSizeStdev": 0.0,
+        "topDecilePositionShareOfTotalVolume": 0.1003
+      },
+      "directionalConcentration": {
+        "long": 424,
+        "short": 354,
+        "longSharePct": 0.545
+      },
+      "simultaneousExposure": null,
+      "dataQuality": "LIMITED",
+      "note": "EXPOSURE_ANALYSIS_LIMITED: durationSeconds is not populated for every trade in this Evidence -- simultaneous-position reconstruction skipped rather than guessed."
+    },
+    "costRisk": {
+      "dataQuality": "UNKNOWN",
+      "totalCommission": "UNKNOWN",
+      "totalSwap": "UNKNOWN",
+      "spreadModel": "UNKNOWN",
+      "note": "Per-trade commission/swap are not populated for every trade in this Evidence's adapter -- reported UNKNOWN, not assumed zero (M0.1: UNKNOWN != ZERO)."
+    },
+    "dataQuality": {
+      "drawdown": "LIMITED",
+      "lossDistribution": "AVAILABLE",
+      "winDistribution": "AVAILABLE",
+      "expectancy": "AVAILABLE",
+      "lossStreaks": "AVAILABLE",
+      "recovery": "LIMITED",
+      "tailRisk": "AVAILABLE",
+      "concentration": "AVAILABLE",
+      "temporalRisk": "AVAILABLE",
+      "regimeRisk": "UNAVAILABLE",
+      "exposureRisk": "LIMITED",
+      "costRisk": "UNKNOWN"
+    },
+    "findings": [
+      "Max drawdown (balance): 763.54 (0.0763), 2 drawdown episodes, 1 unrecovered at end of period.",
+      "Expectancy per trade: -0.5253. Max consecutive losses: 15."
+    ],
+    "warnings": [],
+    "limitations": [
+      "DRAWDOWN_ANALYSIS_LIMITED: no intraday/tick equity series exists in this Evidence (Evidence.curves is empty) -- figures above are BALANCE drawdown (closed trades only), not EQUITY drawdown.",
+      "Recovery timing is reconstructed from the same balance-level (trade-close) equity curve as drawdown -- not intraday equity. See drawdown section.",
+      "REGIME_DATA_UNAVAILABLE: no trades in this Evidence carry a marketRegime tag. No regime classifier exists yet in this research program -- not inferred.",
+      "EXPOSURE_ANALYSIS_LIMITED: durationSeconds is not populated for every trade in this Evidence -- simultaneous-position reconstruction skipped rather than guessed.",
+      "Per-trade commission/swap are not populated for every trade in this Evidence's adapter -- reported UNKNOWN, not assumed zero (M0.1: UNKNOWN != ZERO)."
+    ],
+    "status": "PARTIAL",
+    "riskAnalysisHash": "20c07c559d5754fb",
+    "createdBy": "AT24-M5-Risk-Analysis-Engine-v1.0"
+  },
+  "m6_full": [
+    {
+      "tradingSystemId": "NEXUSMINING-EXPLORATION-ALGO",
+      "versionId": "NEXUSMINING-EXPLORATION-ALGO-v1.26-2026-07-03",
+      "evidenceId": null,
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "SYSTEM_CREATED",
+      "observedAt": "2026-09-04T15:37:21.981482Z",
+      "recordedAt": "2026-09-04T15:37:21.981482Z",
+      "source": "AT24-M6-History-Engine-v1.0",
+      "sourceHash": null,
+      "payload": {
+        "tradingSystemId": "NEXUSMINING-EXPLORATION-ALGO"
+      },
+      "previousEventId": null,
+      "previousEventHash": null,
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "150f999790adb8ed",
+      "contentHash": "150f999790adb8ed"
+    },
+    {
+      "tradingSystemId": "NEXUSMINING-EXPLORATION-ALGO",
+      "versionId": "NEXUSMINING-EXPLORATION-ALGO-v1.26-2026-07-03",
+      "evidenceId": null,
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "VERSION_CREATED",
+      "observedAt": "2026-09-04T15:37:21.981482Z",
+      "recordedAt": "2026-09-04T15:37:21.981482Z",
+      "source": "AT24-M6-History-Engine-v1.0",
+      "sourceHash": null,
+      "payload": {
+        "versionId": "NEXUSMINING-EXPLORATION-ALGO-v1.26-2026-07-03"
+      },
+      "previousEventId": "150f999790adb8ed",
+      "previousEventHash": "150f999790adb8ed",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "7230436ef6ebbffc",
+      "contentHash": "7230436ef6ebbffc"
+    },
+    {
+      "tradingSystemId": "NEXUSMINING-EXPLORATION-ALGO",
+      "versionId": "NEXUSMINING-EXPLORATION-ALGO-v1.26-2026-07-03",
+      "evidenceId": "2596fa56783ed475",
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "EVIDENCE_ADDED",
+      "observedAt": "2026-08-19T18:00:00",
+      "recordedAt": "2026-09-04T15:37:21.981482Z",
+      "source": "AT24-M2-Evidence-Engine-v0.2",
+      "sourceHash": "2596fa56783ed475",
+      "payload": {
+        "sourceAdapter": "python-quantum-engine-backtest-v1",
+        "tradeCount": 778
+      },
+      "previousEventId": "7230436ef6ebbffc",
+      "previousEventHash": "7230436ef6ebbffc",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "afd6e2cd340fe89f",
+      "contentHash": "afd6e2cd340fe89f"
+    },
+    {
+      "tradingSystemId": "NEXUSMINING-EXPLORATION-ALGO",
+      "versionId": "NEXUSMINING-EXPLORATION-ALGO-v1.26-2026-07-03",
+      "evidenceId": "2596fa56783ed475",
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "EVIDENCE_VERIFIED",
+      "observedAt": "2026-09-04T15:37:21.981482Z",
+      "recordedAt": "2026-09-04T15:37:21.981482Z",
+      "source": "AT24-M3-Evidence-Verifier-v1.0",
+      "sourceHash": "2596fa56783ed475",
+      "payload": {
+        "m3Status": "VERIFIED",
+        "warnings": [
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'spreadModel' is null",
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'commissionModel' is null",
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'swapModel' is null",
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'tickDataQuality' is null"
+        ]
+      },
+      "previousEventId": "afd6e2cd340fe89f",
+      "previousEventHash": "afd6e2cd340fe89f",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "dc98f34000117188",
+      "contentHash": "dc98f34000117188"
+    },
+    {
+      "tradingSystemId": "NEXUSMINING-EXPLORATION-ALGO",
+      "versionId": "NEXUSMINING-EXPLORATION-ALGO-v1.26-2026-07-03",
+      "evidenceId": "2596fa56783ed475",
+      "validationId": "2596fa56783ed475",
+      "riskAnalysisId": null,
+      "eventType": "VALIDATION_COMPLETED",
+      "observedAt": "2026-09-04T15:37:21.981482Z",
+      "recordedAt": "2026-09-04T15:37:21.981482Z",
+      "source": "AT24-M4-Validation-Engine-v1.0",
+      "sourceHash": "2596fa56783ed475",
+      "payload": {
+        "overallStatus": "PASS",
+        "recordStatuses": {
+          "SAMPLE_SIZE": "PASS",
+          "OUT_OF_SAMPLE": "PASS",
+          "WALK_FORWARD": "PASS",
+          "TEMPORAL_STABILITY": "PASS",
+          "REGIME_COVERAGE": "INCONCLUSIVE",
+          "PERFORMANCE_DISTRIBUTION": "PASS",
+          "PARAMETER_SENSITIVITY": "INCONCLUSIVE"
+        }
+      },
+      "previousEventId": "dc98f34000117188",
+      "previousEventHash": "dc98f34000117188",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "be679a9f83d286c5",
+      "contentHash": "be679a9f83d286c5"
+    },
+    {
+      "tradingSystemId": "NEXUSMINING-EXPLORATION-ALGO",
+      "versionId": "NEXUSMINING-EXPLORATION-ALGO-v1.26-2026-07-03",
+      "evidenceId": "2596fa56783ed475",
+      "validationId": "2596fa56783ed475",
+      "riskAnalysisId": "20c07c559d5754fb",
+      "eventType": "RISK_ANALYSIS_COMPLETED",
+      "observedAt": "2026-09-04T15:37:21.981482Z",
+      "recordedAt": "2026-09-04T15:37:21.981482Z",
+      "source": "AT24-M5-Risk-Analysis-Engine-v1.0",
+      "sourceHash": "20c07c559d5754fb",
+      "payload": {
+        "status": "PARTIAL",
+        "dataQuality": {
+          "drawdown": "LIMITED",
+          "lossDistribution": "AVAILABLE",
+          "winDistribution": "AVAILABLE",
+          "expectancy": "AVAILABLE",
+          "lossStreaks": "AVAILABLE",
+          "recovery": "LIMITED",
+          "tailRisk": "AVAILABLE",
+          "concentration": "AVAILABLE",
+          "temporalRisk": "AVAILABLE",
+          "regimeRisk": "UNAVAILABLE",
+          "exposureRisk": "LIMITED",
+          "costRisk": "UNKNOWN"
+        }
+      },
+      "previousEventId": "be679a9f83d286c5",
+      "previousEventHash": "be679a9f83d286c5",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "041ee06b67811b27",
+      "contentHash": "041ee06b67811b27"
+    }
+  ]
+}

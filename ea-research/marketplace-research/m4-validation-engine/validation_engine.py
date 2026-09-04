@@ -34,6 +34,25 @@ ENGINE_VERSION = "AT24-M4-Validation-Engine-v1.0"
 METHODOLOGY_VERSION = "M4-methodology-v1"
 ACCEPTANCE_RULESET_VERSION = "none-defined"  # deliberate -- see design doc section 9
 
+# Sprint M15 (v3 policy, user-directed, 2026-09-04) -- REGIME_COVERAGE and
+# PARAMETER_SENSITIVITY are the two validation types AT24 does not yet have
+# real infrastructure to compute (no market-regime classifier tagging
+# Trade.marketRegime; no multi-parameter-configuration test runner -- see
+# each function's own findings text). Every real submission processed so
+# far has come back INCONCLUSIVE on exactly these two checks and nothing
+# else, which meant overallStatus could never reach PASS for ANY product
+# regardless of how strong its actual evidence was -- an unbuilt-capability
+# gap masquerading as a per-product quality problem. Explicit, disclosed
+# business decision (same style as M7's MIN_OBSERVATIONS_FOR_VALIDATED v2
+# policy): an INCONCLUSIVE verdict on ONLY these two types no longer
+# single-handedly caps overallStatus. They still run for real every time,
+# their real per-check result is still recorded and fully visible in
+# `records` (never hidden, never faked as PASS) -- any genuine FAIL or
+# WARNING anywhere, including on these two types once real infra exists,
+# still gates overallStatus exactly as before. Revisit and re-tighten once
+# real regime-classification / parameter-sweep infrastructure exists.
+ADVISORY_ONLY_VALIDATION_TYPES = frozenset({"REGIME_COVERAGE", "PARAMETER_SENSITIVITY"})
+
 
 # ---------------------------------------------------------------------------
 # Errors -- each maps 1:1 to a named failure state in the design doc
@@ -577,11 +596,12 @@ def run_validation_suite(
     ]
 
     statuses = [r.status for r in records]
+    blocking_statuses = [r.status for r in records if r.validationType not in ADVISORY_ONLY_VALIDATION_TYPES]
     if "FAIL" in statuses:
         overall = "FAIL"
     elif "WARNING" in statuses:
         overall = "WARNING"
-    elif "INCONCLUSIVE" in statuses:
+    elif "INCONCLUSIVE" in blocking_statuses:
         overall = "INCONCLUSIVE"
     else:
         overall = "PASS"

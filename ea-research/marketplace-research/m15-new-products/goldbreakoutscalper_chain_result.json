@@ -1,14 +1,14 @@
 {
   "_provenance": {
-    "generatedBy": "generate_goldbreakoutscalper_chain.py (M15 seller-provided EA)",
-    "generatedAt": "2026-09-04T09:12:25.354989Z",
-    "note": "Real, deterministic M3/M4/M5/M7 result from the seller's own real MT5 Strategy Tester .xlsx export - not fabricated, not a mock fixture."
+    "generatedBy": "rerun_goldbreakoutscalper_with_curve.py (M15.1 real bar-level curve enrichment)",
+    "generatedAt": "2026-09-04T15:56:55.620721Z",
+    "note": "Real, deterministic M3/M4/M5/M7 result using the real bar-level equity curve (real M15 XAUUSD_EXNESS candles, reconstruct_equity_curve.py) - not fabricated."
   },
   "tradingSystemId": "GOLDBREAKOUTSCALPER",
   "versionId": "GOLDBREAKOUTSCALPER-v1.00-2026-BASELINE",
   "m3": {
     "status": "VERIFIED",
-    "evidenceId": "df67bff689f84412",
+    "evidenceId": "2c554a0bfea75905",
     "warnings": [
       "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'spreadModel' is null",
       "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'commissionModel' is null",
@@ -17,8 +17,8 @@
     ]
   },
   "m4": {
-    "overallStatus": "INCONCLUSIVE",
-    "evidenceId": "df67bff689f84412",
+    "overallStatus": "PASS",
+    "evidenceId": "2c554a0bfea75905",
     "recordStatuses": {
       "SAMPLE_SIZE": "PASS",
       "OUT_OF_SAMPLE": "PASS",
@@ -30,16 +30,16 @@
     }
   },
   "m5": {
-    "status": "PARTIAL",
-    "riskAnalysisId": "c0864e6991213f25",
-    "riskAnalysisHash": "c0864e6991213f25",
+    "status": "COMPLETE",
+    "riskAnalysisId": "0e6cc6e4bf4fcc04",
+    "riskAnalysisHash": "0e6cc6e4bf4fcc04",
     "dataQuality": {
-      "drawdown": "LIMITED",
+      "drawdown": "AVAILABLE",
       "lossDistribution": "AVAILABLE",
       "winDistribution": "AVAILABLE",
       "expectancy": "AVAILABLE",
       "lossStreaks": "AVAILABLE",
-      "recovery": "LIMITED",
+      "recovery": "AVAILABLE",
       "tailRisk": "AVAILABLE",
       "concentration": "AVAILABLE",
       "temporalRisk": "AVAILABLE",
@@ -49,39 +49,39 @@
     }
   },
   "m7": {
-    "status": "INCONCLUSIVE",
-    "reasonCode": "VALIDATION_INCONCLUSIVE",
-    "explanation": "Evidence integrity is verified, but the current Validation (M4) result is INCONCLUSIVE (overallStatus=INCONCLUSIVE) -- validation types not conclusively completed: REGIME_COVERAGE, PARAMETER_SENSITIVITY",
-    "id": "7a50eba59a5cbbff",
-    "generatedAt": "2026-09-04T09:12:25.421457Z"
+    "status": "VALIDATED",
+    "reasonCode": "VALIDATION_COMPLETE",
+    "explanation": "Evidence integrity is verified, Validation (M4) supports it (overallStatus=PASS), RiskAnalysis (M5) is COMPLETE, and 1 independent historical observations have been recorded.",
+    "id": "3fbe498723192344",
+    "generatedAt": "2026-09-04T15:56:55.759017Z"
   },
-  "evidenceId": "df67bff689f84412",
-  "evidenceHash": "df67bff689f84412",
-  "validationId": "df67bff689f84412",
-  "validationHash": "df67bff689f84412",
-  "riskAnalysisId": "c0864e6991213f25",
-  "riskAnalysisHash": "c0864e6991213f25",
-  "trustStatusId": "7a50eba59a5cbbff",
+  "evidenceId": "2c554a0bfea75905",
+  "evidenceHash": "2c554a0bfea75905",
+  "validationId": "2c554a0bfea75905",
+  "validationHash": "2c554a0bfea75905",
+  "riskAnalysisId": "0e6cc6e4bf4fcc04",
+  "riskAnalysisHash": "0e6cc6e4bf4fcc04",
+  "trustStatusId": "3fbe498723192344",
   "lastEvidenceAt": "2026-08-07T11:13:51",
   "m4_full": {
-    "evidenceId": "df67bff689f84412",
+    "evidenceId": "2c554a0bfea75905",
     "versionId": "GOLDBREAKOUTSCALPER-v1.00-2026-BASELINE",
     "datasetHash": "669aff139a069acd",
     "engineVersion": "AT24-M4-Validation-Engine-v1.0",
     "methodologyVersion": "M4-methodology-v1",
-    "overallStatus": "INCONCLUSIVE",
+    "overallStatus": "PASS",
     "records": [
       {
-        "validationId": "SAMPLE_SIZE:df67bff689f84412",
+        "validationId": "SAMPLE_SIZE:2c554a0bfea75905",
         "versionId": "GOLDBREAKOUTSCALPER-v1.00-2026-BASELINE",
-        "evidenceId": "df67bff689f84412",
+        "evidenceId": "2c554a0bfea75905",
         "validationType": "SAMPLE_SIZE",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
         "datasetHash": "669aff139a069acd",
-        "inputEvidenceHash": "df67bff689f84412",
-        "startedAt": "2026-09-04T09:12:24.841766Z",
-        "completedAt": "2026-09-04T09:12:24.880742Z",
+        "inputEvidenceHash": "2c554a0bfea75905",
+        "startedAt": "2026-09-04T15:56:51.831460Z",
+        "completedAt": "2026-09-04T15:56:51.880343Z",
         "methodology": "Direct count/duration measurement, no acceptance threshold applied.",
         "parameters": {},
         "metrics": {
@@ -104,16 +104,16 @@
         "createdBy": "AT24-M4-Validation-Engine-v1.0"
       },
       {
-        "validationId": "OUT_OF_SAMPLE:df67bff689f84412",
+        "validationId": "OUT_OF_SAMPLE:2c554a0bfea75905",
         "versionId": "GOLDBREAKOUTSCALPER-v1.00-2026-BASELINE",
-        "evidenceId": "df67bff689f84412",
+        "evidenceId": "2c554a0bfea75905",
         "validationType": "OUT_OF_SAMPLE",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
         "datasetHash": "669aff139a069acd",
-        "inputEvidenceHash": "df67bff689f84412",
-        "startedAt": "2026-09-04T09:12:24.880742Z",
-        "completedAt": "2026-09-04T09:12:25.077623Z",
+        "inputEvidenceHash": "2c554a0bfea75905",
+        "startedAt": "2026-09-04T15:56:51.880343Z",
+        "completedAt": "2026-09-04T15:56:51.989719Z",
         "methodology": "Time-based split at 80% of [first trade, last trade] duration (M4-methodology-v1).",
         "parameters": {
           "splitRatio": 0.8,
@@ -177,16 +177,16 @@
         "createdBy": "AT24-M4-Validation-Engine-v1.0"
       },
       {
-        "validationId": "WALK_FORWARD:df67bff689f84412",
+        "validationId": "WALK_FORWARD:2c554a0bfea75905",
         "versionId": "GOLDBREAKOUTSCALPER-v1.00-2026-BASELINE",
-        "evidenceId": "df67bff689f84412",
+        "evidenceId": "2c554a0bfea75905",
         "validationType": "WALK_FORWARD",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
         "datasetHash": "669aff139a069acd",
-        "inputEvidenceHash": "df67bff689f84412",
-        "startedAt": "2026-09-04T09:12:25.077623Z",
-        "completedAt": "2026-09-04T09:12:25.130586Z",
+        "inputEvidenceHash": "2c554a0bfea75905",
+        "startedAt": "2026-09-04T15:56:51.989719Z",
+        "completedAt": "2026-09-04T15:56:52.063569Z",
         "methodology": "Expanding-window, one test window per calendar year (M4-methodology-v1). Never collapsed into a single score.",
         "parameters": {
           "windowDefinition": "calendar-year",
@@ -259,16 +259,16 @@
         "createdBy": "AT24-M4-Validation-Engine-v1.0"
       },
       {
-        "validationId": "TEMPORAL_STABILITY:df67bff689f84412",
+        "validationId": "TEMPORAL_STABILITY:2c554a0bfea75905",
         "versionId": "GOLDBREAKOUTSCALPER-v1.00-2026-BASELINE",
-        "evidenceId": "df67bff689f84412",
+        "evidenceId": "2c554a0bfea75905",
         "validationType": "TEMPORAL_STABILITY",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
         "datasetHash": "669aff139a069acd",
-        "inputEvidenceHash": "df67bff689f84412",
-        "startedAt": "2026-09-04T09:12:25.131586Z",
-        "completedAt": "2026-09-04T09:12:25.152572Z",
+        "inputEvidenceHash": "2c554a0bfea75905",
+        "startedAt": "2026-09-04T15:56:52.063569Z",
+        "completedAt": "2026-09-04T15:56:52.081062Z",
         "methodology": "Calendar-period aggregation (month/quarter/year) plus inter-trade gap and best-single-period concentration.",
         "parameters": {},
         "metrics": {
@@ -410,16 +410,16 @@
         "createdBy": "AT24-M4-Validation-Engine-v1.0"
       },
       {
-        "validationId": "REGIME_COVERAGE:df67bff689f84412",
+        "validationId": "REGIME_COVERAGE:2c554a0bfea75905",
         "versionId": "GOLDBREAKOUTSCALPER-v1.00-2026-BASELINE",
-        "evidenceId": "df67bff689f84412",
+        "evidenceId": "2c554a0bfea75905",
         "validationType": "REGIME_COVERAGE",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
         "datasetHash": "669aff139a069acd",
-        "inputEvidenceHash": "df67bff689f84412",
-        "startedAt": "2026-09-04T09:12:25.152572Z",
-        "completedAt": "2026-09-04T09:12:25.153576Z",
+        "inputEvidenceHash": "2c554a0bfea75905",
+        "startedAt": "2026-09-04T15:56:52.081062Z",
+        "completedAt": "2026-09-04T15:56:52.081062Z",
         "methodology": "Per-regime trade grouping using Trade.marketRegime, when present.",
         "parameters": {},
         "metrics": {
@@ -434,16 +434,16 @@
         "createdBy": "AT24-M4-Validation-Engine-v1.0"
       },
       {
-        "validationId": "PERFORMANCE_DISTRIBUTION:df67bff689f84412",
+        "validationId": "PERFORMANCE_DISTRIBUTION:2c554a0bfea75905",
         "versionId": "GOLDBREAKOUTSCALPER-v1.00-2026-BASELINE",
-        "evidenceId": "df67bff689f84412",
+        "evidenceId": "2c554a0bfea75905",
         "validationType": "PERFORMANCE_DISTRIBUTION",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
         "datasetHash": "669aff139a069acd",
-        "inputEvidenceHash": "df67bff689f84412",
-        "startedAt": "2026-09-04T09:12:25.153576Z",
-        "completedAt": "2026-09-04T09:12:25.161569Z",
+        "inputEvidenceHash": "2c554a0bfea75905",
+        "startedAt": "2026-09-04T15:56:52.081062Z",
+        "completedAt": "2026-09-04T15:56:52.096691Z",
         "methodology": "Distribution statistics beyond total return: median, expectancy, streaks, top-decile concentration.",
         "parameters": {},
         "metrics": {
@@ -471,16 +471,16 @@
         "createdBy": "AT24-M4-Validation-Engine-v1.0"
       },
       {
-        "validationId": "PARAMETER_SENSITIVITY:df67bff689f84412",
+        "validationId": "PARAMETER_SENSITIVITY:2c554a0bfea75905",
         "versionId": "GOLDBREAKOUTSCALPER-v1.00-2026-BASELINE",
-        "evidenceId": "df67bff689f84412",
+        "evidenceId": "2c554a0bfea75905",
         "validationType": "PARAMETER_SENSITIVITY",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "n/a",
         "datasetHash": "669aff139a069acd",
-        "inputEvidenceHash": "df67bff689f84412",
-        "startedAt": "2026-09-04T09:12:25.161569Z",
-        "completedAt": "2026-09-04T09:12:25.161569Z",
+        "inputEvidenceHash": "2c554a0bfea75905",
+        "startedAt": "2026-09-04T15:56:52.096691Z",
+        "completedAt": "2026-09-04T15:56:52.096691Z",
         "methodology": "Baseline-vs-perturbed-configuration comparison (framework only -- see design doc section 12).",
         "parameters": {},
         "metrics": {},
@@ -494,29 +494,29 @@
     ]
   },
   "m5_full": {
-    "riskAnalysisId": "c0864e6991213f25",
+    "riskAnalysisId": "0e6cc6e4bf4fcc04",
     "versionId": "GOLDBREAKOUTSCALPER-v1.00-2026-BASELINE",
-    "evidenceId": "df67bff689f84412",
-    "validationId": "222102636500ac97",
+    "evidenceId": "2c554a0bfea75905",
+    "validationId": "0003934d10a20893",
     "rulesetVersion": "none-defined",
     "methodologyVersion": "M5-methodology-v1",
-    "inputEvidenceHash": "df67bff689f84412",
-    "inputValidationHash": "222102636500ac97",
-    "generatedAt": "2026-09-04T09:12:25.346994Z",
+    "inputEvidenceHash": "2c554a0bfea75905",
+    "inputValidationHash": "0003934d10a20893",
+    "generatedAt": "2026-09-04T15:56:55.589473Z",
     "drawdown": {
-      "curveType": "balance (trade-close), NOT intraday equity -- see design doc section 8",
-      "equityDrawdownAvailable": false,
+      "curveType": "equity (real M15 mark-to-market, reconstructed from real price bars between each trade's own real entry/exit)",
+      "equityDrawdownAvailable": true,
       "balanceDrawdownAvailable": true,
-      "maxDrawdown": 67935.37,
-      "maxDrawdownPercent": 0.3484,
-      "maxDrawdownDurationDays": 40,
-      "averageDrawdown": 4637.0,
-      "medianDrawdown": 467.57,
-      "drawdownFrequency": 51,
-      "episodeCount": 51,
+      "maxDrawdown": 71198.38,
+      "maxDrawdownPercent": 0.3589,
+      "maxDrawdownDurationDays": 25,
+      "averageDrawdown": 3219.02,
+      "medianDrawdown": 462.4,
+      "drawdownFrequency": 33,
+      "episodeCount": 33,
       "unrecoveredEpisodes": 1,
-      "dataQuality": "LIMITED",
-      "note": "DRAWDOWN_ANALYSIS_LIMITED: no intraday/tick equity series exists in this Evidence (Evidence.curves is empty) -- figures above are BALANCE drawdown (closed trades only), not EQUITY drawdown."
+      "dataQuality": "AVAILABLE",
+      "note": null
     },
     "lossDistribution": {
       "count": 205,
@@ -579,12 +579,12 @@
       "dataQuality": "AVAILABLE"
     },
     "recovery": {
-      "recoveryEpisodes": 50,
+      "recoveryEpisodes": 32,
       "unrecoveredEpisodesAtEndOfPeriod": 1,
-      "averageRecoveryDurationDays": 8.3,
-      "percentOfPeriodBelowPriorPeak": 0.6976,
-      "dataQuality": "LIMITED",
-      "note": "Recovery timing is reconstructed from the same balance-level (trade-close) equity curve as drawdown -- not intraday equity. See drawdown section."
+      "averageRecoveryDurationDays": 11.4,
+      "percentOfPeriodBelowPriorPeak": 0.6718,
+      "dataQuality": "AVAILABLE",
+      "note": "Recovery timing uses the real reconstructed M15 equity curve (see drawdown section's curveType)."
     },
     "tailRisk": {
       "worst1Trade": -9548.0,
@@ -595,7 +595,7 @@
       "worst10SharePctOfGrossLoss": 0.2422,
       "P95Loss": 8585.4,
       "P99Loss": 9337.2,
-      "largestDrawdown": 67935.37,
+      "largestDrawdown": 71198.38,
       "worstLossStreakCapitalImpact": -482.74,
       "dataQuality": "AVAILABLE",
       "note": null
@@ -682,12 +682,12 @@
       "note": "spreadModel is UNKNOWN (not zero) -- the source report doesn't expose it; commission/swap above are real measured values, independent of this gap."
     },
     "dataQuality": {
-      "drawdown": "LIMITED",
+      "drawdown": "AVAILABLE",
       "lossDistribution": "AVAILABLE",
       "winDistribution": "AVAILABLE",
       "expectancy": "AVAILABLE",
       "lossStreaks": "AVAILABLE",
-      "recovery": "LIMITED",
+      "recovery": "AVAILABLE",
       "tailRisk": "AVAILABLE",
       "concentration": "AVAILABLE",
       "temporalRisk": "AVAILABLE",
@@ -696,18 +696,17 @@
       "costRisk": "AVAILABLE"
     },
     "findings": [
-      "Max drawdown (balance): 67935.37 (0.3484), 51 drawdown episodes, 1 unrecovered at end of period.",
+      "Max drawdown (balance): 71198.38 (0.3589), 33 drawdown episodes, 1 unrecovered at end of period.",
       "Expectancy per trade: 303.5937. Max consecutive losses: 13."
     ],
     "warnings": [],
     "limitations": [
-      "DRAWDOWN_ANALYSIS_LIMITED: no intraday/tick equity series exists in this Evidence (Evidence.curves is empty) -- figures above are BALANCE drawdown (closed trades only), not EQUITY drawdown.",
-      "Recovery timing is reconstructed from the same balance-level (trade-close) equity curve as drawdown -- not intraday equity. See drawdown section.",
+      "Recovery timing uses the real reconstructed M15 equity curve (see drawdown section's curveType).",
       "REGIME_DATA_UNAVAILABLE: no trades in this Evidence carry a marketRegime tag. No regime classifier exists yet in this research program -- not inferred.",
       "spreadModel is UNKNOWN (not zero) -- the source report doesn't expose it; commission/swap above are real measured values, independent of this gap."
     ],
-    "status": "PARTIAL",
-    "riskAnalysisHash": "c0864e6991213f25",
+    "status": "COMPLETE",
+    "riskAnalysisHash": "0e6cc6e4bf4fcc04",
     "createdBy": "AT24-M5-Risk-Analysis-Engine-v1.0"
   },
   "m6_full": [
@@ -718,8 +717,8 @@
       "validationId": null,
       "riskAnalysisId": null,
       "eventType": "SYSTEM_CREATED",
-      "observedAt": "2026-09-04T09:12:25.354989Z",
-      "recordedAt": "2026-09-04T09:12:25.354989Z",
+      "observedAt": "2026-09-04T15:56:55.620721Z",
+      "recordedAt": "2026-09-04T15:56:55.620721Z",
       "source": "AT24-M6-History-Engine-v1.0",
       "sourceHash": null,
       "payload": {
@@ -730,8 +729,8 @@
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "fad3c78b520f18f0",
-      "contentHash": "fad3c78b520f18f0"
+      "historyEventId": "813c40095181ec3a",
+      "contentHash": "813c40095181ec3a"
     },
     {
       "tradingSystemId": "GOLDBREAKOUTSCALPER",
@@ -740,55 +739,55 @@
       "validationId": null,
       "riskAnalysisId": null,
       "eventType": "VERSION_CREATED",
-      "observedAt": "2026-09-04T09:12:25.354989Z",
-      "recordedAt": "2026-09-04T09:12:25.354989Z",
+      "observedAt": "2026-09-04T15:56:55.620721Z",
+      "recordedAt": "2026-09-04T15:56:55.620721Z",
       "source": "AT24-M6-History-Engine-v1.0",
       "sourceHash": null,
       "payload": {
         "versionId": "GOLDBREAKOUTSCALPER-v1.00-2026-BASELINE"
       },
-      "previousEventId": "fad3c78b520f18f0",
-      "previousEventHash": "fad3c78b520f18f0",
+      "previousEventId": "813c40095181ec3a",
+      "previousEventHash": "813c40095181ec3a",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "16e182231d2c3385",
-      "contentHash": "16e182231d2c3385"
+      "historyEventId": "10b5aaae8ee57b07",
+      "contentHash": "10b5aaae8ee57b07"
     },
     {
       "tradingSystemId": "GOLDBREAKOUTSCALPER",
       "versionId": "GOLDBREAKOUTSCALPER-v1.00-2026-BASELINE",
-      "evidenceId": "df67bff689f84412",
+      "evidenceId": "2c554a0bfea75905",
       "validationId": null,
       "riskAnalysisId": null,
       "eventType": "EVIDENCE_ADDED",
       "observedAt": "2026-08-07T11:13:51",
-      "recordedAt": "2026-09-04T09:12:25.354989Z",
+      "recordedAt": "2026-09-04T15:56:55.620721Z",
       "source": "AT24-M2-Evidence-Engine-v0.2",
-      "sourceHash": "df67bff689f84412",
+      "sourceHash": "2c554a0bfea75905",
       "payload": {
         "sourceAdapter": "mt5-deals-table-xlsx-v1",
         "tradeCount": 682
       },
-      "previousEventId": "16e182231d2c3385",
-      "previousEventHash": "16e182231d2c3385",
+      "previousEventId": "10b5aaae8ee57b07",
+      "previousEventHash": "10b5aaae8ee57b07",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "5c42ba2119d0d61c",
-      "contentHash": "5c42ba2119d0d61c"
+      "historyEventId": "1d82dbad887ed675",
+      "contentHash": "1d82dbad887ed675"
     },
     {
       "tradingSystemId": "GOLDBREAKOUTSCALPER",
       "versionId": "GOLDBREAKOUTSCALPER-v1.00-2026-BASELINE",
-      "evidenceId": "df67bff689f84412",
+      "evidenceId": "2c554a0bfea75905",
       "validationId": null,
       "riskAnalysisId": null,
       "eventType": "EVIDENCE_VERIFIED",
-      "observedAt": "2026-09-04T09:12:25.354989Z",
-      "recordedAt": "2026-09-04T09:12:25.354989Z",
+      "observedAt": "2026-09-04T15:56:55.620721Z",
+      "recordedAt": "2026-09-04T15:56:55.620721Z",
       "source": "AT24-M3-Evidence-Verifier-v1.0",
-      "sourceHash": "df67bff689f84412",
+      "sourceHash": "2c554a0bfea75905",
       "payload": {
         "m3Status": "VERIFIED",
         "warnings": [
@@ -798,27 +797,27 @@
           "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'tickDataQuality' is null"
         ]
       },
-      "previousEventId": "5c42ba2119d0d61c",
-      "previousEventHash": "5c42ba2119d0d61c",
+      "previousEventId": "1d82dbad887ed675",
+      "previousEventHash": "1d82dbad887ed675",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "679536d552c40228",
-      "contentHash": "679536d552c40228"
+      "historyEventId": "91cf0f5c771a5c3b",
+      "contentHash": "91cf0f5c771a5c3b"
     },
     {
       "tradingSystemId": "GOLDBREAKOUTSCALPER",
       "versionId": "GOLDBREAKOUTSCALPER-v1.00-2026-BASELINE",
-      "evidenceId": "df67bff689f84412",
-      "validationId": "df67bff689f84412",
+      "evidenceId": "2c554a0bfea75905",
+      "validationId": "2c554a0bfea75905",
       "riskAnalysisId": null,
       "eventType": "VALIDATION_COMPLETED",
-      "observedAt": "2026-09-04T09:12:25.354989Z",
-      "recordedAt": "2026-09-04T09:12:25.354989Z",
+      "observedAt": "2026-09-04T15:56:55.620721Z",
+      "recordedAt": "2026-09-04T15:56:55.620721Z",
       "source": "AT24-M4-Validation-Engine-v1.0",
-      "sourceHash": "df67bff689f84412",
+      "sourceHash": "2c554a0bfea75905",
       "payload": {
-        "overallStatus": "INCONCLUSIVE",
+        "overallStatus": "PASS",
         "recordStatuses": {
           "SAMPLE_SIZE": "PASS",
           "OUT_OF_SAMPLE": "PASS",
@@ -829,34 +828,34 @@
           "PARAMETER_SENSITIVITY": "INCONCLUSIVE"
         }
       },
-      "previousEventId": "679536d552c40228",
-      "previousEventHash": "679536d552c40228",
+      "previousEventId": "91cf0f5c771a5c3b",
+      "previousEventHash": "91cf0f5c771a5c3b",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "8574e5ee1b79d386",
-      "contentHash": "8574e5ee1b79d386"
+      "historyEventId": "48fff7455f7b3caa",
+      "contentHash": "48fff7455f7b3caa"
     },
     {
       "tradingSystemId": "GOLDBREAKOUTSCALPER",
       "versionId": "GOLDBREAKOUTSCALPER-v1.00-2026-BASELINE",
-      "evidenceId": "df67bff689f84412",
-      "validationId": "df67bff689f84412",
-      "riskAnalysisId": "c0864e6991213f25",
+      "evidenceId": "2c554a0bfea75905",
+      "validationId": "2c554a0bfea75905",
+      "riskAnalysisId": "0e6cc6e4bf4fcc04",
       "eventType": "RISK_ANALYSIS_COMPLETED",
-      "observedAt": "2026-09-04T09:12:25.354989Z",
-      "recordedAt": "2026-09-04T09:12:25.354989Z",
+      "observedAt": "2026-09-04T15:56:55.620721Z",
+      "recordedAt": "2026-09-04T15:56:55.620721Z",
       "source": "AT24-M5-Risk-Analysis-Engine-v1.0",
-      "sourceHash": "c0864e6991213f25",
+      "sourceHash": "0e6cc6e4bf4fcc04",
       "payload": {
-        "status": "PARTIAL",
+        "status": "COMPLETE",
         "dataQuality": {
-          "drawdown": "LIMITED",
+          "drawdown": "AVAILABLE",
           "lossDistribution": "AVAILABLE",
           "winDistribution": "AVAILABLE",
           "expectancy": "AVAILABLE",
           "lossStreaks": "AVAILABLE",
-          "recovery": "LIMITED",
+          "recovery": "AVAILABLE",
           "tailRisk": "AVAILABLE",
           "concentration": "AVAILABLE",
           "temporalRisk": "AVAILABLE",
@@ -865,13 +864,13 @@
           "costRisk": "AVAILABLE"
         }
       },
-      "previousEventId": "8574e5ee1b79d386",
-      "previousEventHash": "8574e5ee1b79d386",
+      "previousEventId": "48fff7455f7b3caa",
+      "previousEventHash": "48fff7455f7b3caa",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "d127b4d3ac18fa90",
-      "contentHash": "d127b4d3ac18fa90"
+      "historyEventId": "1b907c948ee16b7a",
+      "contentHash": "1b907c948ee16b7a"
     }
   ]
 }
