@@ -258,17 +258,23 @@ export interface AlgoTestRunView {
   errorMessage?: string;
   createdAt: string;
   /**
-   * P4 Phase 2 (docs/P4-PHASE2-BACKTEST-WIRING.md) - present ONLY for an
-   * AI-compiled run (`strategyId === "ai-generated"`). The exact compiled
-   * StrategySpec this run actually executed - lets a caller confirm the
-   * result corresponds to what the natural-language request actually
-   * produced (e.g. an "EMA 9/21" request really did compile and run
-   * different entry rules than an "EMA 20/50" one), not just that SOME
-   * backtest completed. Absent for every registry-based run (Golden
-   * Strategy, ref-ema-crossover) - those already have `strategyId`
-   * itself as the identity signal.
+   * P4 Phase 2 (docs/P4-PHASE2-BACKTEST-WIRING.md), narrowed to a real
+   * wire-safe view AND generalized to every strategy source in P4.3 - the
+   * exact StrategySpec this run actually executed (registry OR
+   * AI-compiled - `toCompiledStrategyView()` is the ONE function that
+   * builds this for both, never a second AI-only code path), rendered
+   * human-readable. This is what lets a caller confirm a result
+   * corresponds to what was actually going to run (e.g. an "EMA 9/21"
+   * request really did compile and run different entry rules than an
+   * "EMA 20/50" one), not just that SOME backtest completed. Absent only
+   * when there is genuinely no StrategySpec to show - a pure validation
+   * failure, or an AI compilation that never reached EXECUTION_VALID. Not
+   * persisted - see `lifecycle`'s own doc comment above; the same
+   * "undefined on reopen means not recomputed, not absent" rule applies.
    */
-  compiledStrategy?: unknown;
+  compiledStrategy?: AlgoTestCompiledStrategyView;
+  /** P4.3 - see AlgoTestStrategyHash's own doc comment. Present for both registry and AI-compiled runs that reached EXECUTION_VALID; not persisted. */
+  strategyHash?: AlgoTestStrategyHash;
 }
 
 /** P4 Phase 2 - POST /api/private/algo-test/ai-runs. `startTime`/`endTime` are the backtest window (ISO 8601 UTC); the strategy's own symbol/timeframe come FROM the compiled StrategySpec (the natural-language intent itself names the market, e.g. "...for XAUUSD M15..."), never a second, separately-submitted field that could disagree with what was actually compiled. */
@@ -278,3 +284,63 @@ export interface AiCompileAndRunRequest {
   endTime: string;
   initialBalance?: number;
 }
+
+/**
+ * P4.3 - one declared parameter of the compiled StrategySpec
+ * (at24-quant-engine's own StrategyParameterDefinition, narrowed to the
+ * wire-safe fields a review UI needs). Genuinely often EMPTY for an
+ * AI-compiled strategy - the AI compiler bakes concrete numbers directly
+ * into entry/exit conditions and risk rather than declaring adjustable
+ * named parameters (unlike Golden Strategy's own buildSpec(overrides)
+ * pattern) - an empty array here is real, not an omission.
+ */
+export interface AlgoTestCompiledParameterView {
+  key: string;
+  defaultValue: number | boolean | string;
+  min?: number;
+  max?: number;
+}
+
+/**
+ * P4.3 (docs/P4.3-SURFACE-THE-FOUNDATION.md) - a human-readable projection
+ * of the real StrategySpec a run actually executed, built server-side
+ * (algo-test.service.ts's own toCompiledStrategyView()) from
+ * at24-quant-engine's real StrategySpec fields ONLY - every string here is
+ * derived directly from a real entryRules/exitRules/risk field, never
+ * invented. There is deliberately no separate "filters" field: the real
+ * StrategySpec has no structurally distinct filter concept (a filter is
+ * just another AND-ed clause inside the same entry condition) - inventing
+ * one would violate P4.3's own "do not fabricate fields that are not
+ * present in StrategySpec" rule, so filter-like conditions surface
+ * naturally inside longEntry/shortEntry instead.
+ */
+export interface AlgoTestCompiledStrategyView {
+  name: string;
+  version: string;
+  symbol?: string;
+  timeframe?: string;
+  /** Human-readable description of every BUY entryRule's condition, joined; absent if the spec declares no BUY entry rule. */
+  longEntry?: string;
+  /** Human-readable description of every SELL entryRule's condition, joined; absent if the spec declares no SELL entry rule. */
+  shortEntry?: string;
+  /** Human-readable description of exitRules; explicitly states "no separate exit rule" (a real, common, correct StrategySpec shape - e.g. reversal-on-opposite-signal) rather than being silently absent. */
+  exit: string;
+  positionSizing: string;
+  stopLoss?: string;
+  takeProfit?: string;
+  parameters: AlgoTestCompiledParameterView[];
+}
+
+/**
+ * P4.3 - the semantic identity of the StrategySpec a run actually
+ * executed (at24-quant-engine's own computeSemanticStrategyHash(), reused
+ * verbatim - never a new hashing scheme). Present on a freshly-completed
+ * OR freshly-failed-after-EXECUTION_VALID run's own POST response, for
+ * BOTH registry and AI-compiled strategies - the same "one mechanism for
+ * every strategy source" discipline P3.8/P4 Phase 2 already established
+ * for `lifecycle`. Like `lifecycle` and `compiledStrategy`, this is NOT
+ * persisted (see AlgoTestRunView.lifecycle's own doc comment for why) -
+ * `undefined` on a reopened run means "not (yet) recomputed on reopen,"
+ * never "this strategy has no identity."
+ */
+export type AlgoTestStrategyHash = string;
