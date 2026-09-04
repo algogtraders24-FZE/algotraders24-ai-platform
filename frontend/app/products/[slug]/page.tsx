@@ -6,7 +6,6 @@ import { notFound } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
 import ProductHero from "@/components/product/ProductHero";
-import ProductGallery from "@/components/product/ProductGallery";
 import ProductFeatures from "@/components/product/ProductFeatures";
 import ProductSpecifications from "@/components/product/ProductSpecifications";
 import SupportedPlatforms from "@/components/product/SupportedPlatforms";
@@ -44,7 +43,6 @@ export default async function ProductDetailPage({
       <Navbar />
 
       <ProductHero product={product} />
-      <ProductGallery product={product} />
 
       {/* Overview */}
       <section className="px-6 mb-16">
