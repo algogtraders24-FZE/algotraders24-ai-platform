@@ -26,7 +26,6 @@ import { prisma } from "../lib/prisma";
 import { algoTestService } from "../services/algo-test/algo-test.service";
 import { getStrategyDefinition } from "../services/algo-test/strategy-registry";
 import { runBacktest } from "../services/algo-test/run-backtest";
-import { computeSemanticStrategyHash } from "at24-quant-engine";
 import type { AIProvider } from "../lib/ai/provider.interface";
 import type { AICompletionResponse } from "../lib/ai/types";
 import type { HistoricalDataProvider } from "../services/algo-test/historical-data/types";
@@ -172,7 +171,17 @@ async function main(): Promise<void> {
       assert.equal(run.strategyId, "ai-generated");
       assert.ok(run.trades && run.trades.length > 0, "a genuine, sustained uptrend must produce at least one real EMA(9)-crosses-above-EMA(21) trade");
       assert.equal(run.resultHash?.length, 64);
-      assert.ok(run.compiledStrategy, "the compiled StrategySpec that actually ran must be returned for review/audit");
+      // P4.3 - the human-readable compiled-strategy view (the UI's own
+      // "Compiled Strategy" card) and the real semantic identity hash both
+      // returned - the review/audit surface, not the raw StrategySpec
+      // object itself.
+      assert.ok(run.compiledStrategy, "the compiled strategy that actually ran must be returned for review/audit");
+      // symbol/timeframe live on `run` itself, not `run.compiledStrategy`
+      // (a real, screenshot-caught P4.3 finding - see
+      // AlgoTestCompiledStrategyView's own doc comment).
+      assert.equal(run.symbol, "XAUUSD");
+      assert.ok(run.compiledStrategy?.longEntry?.includes("cross_above"), "the real entry condition operator must appear, not a paraphrase");
+      assert.equal(run.strategyHash?.length, 64);
     });
 
     await test("P3.8 evidence/lifecycle data remains fully attached to an AI-compiled run - not a looser check than a registry-based one", async () => {
@@ -201,10 +210,23 @@ async function main(): Promise<void> {
       assert.equal(runFast.status, "completed");
       assert.equal(runSlow.status, "completed");
 
-      const hashFast = computeSemanticStrategyHash(runFast.compiledStrategy as never);
-      const hashSlow = computeSemanticStrategyHash(runSlow.compiledStrategy as never);
-      assert.notEqual(hashFast, hashSlow, "changing the requested EMA periods must produce a genuinely different compiled strategy identity, not the same spec with different labels");
+      // P4.3 - `strategyHash` is the server's own computeSemanticStrategyHash()
+      // over the REAL StrategySpec (services/algo-test/algo-test.service.ts's
+      // toCompiledStrategyView() narrows `compiledStrategy` itself to a
+      // human-readable display view, no longer the raw spec - the identity
+      // proof belongs on the dedicated hash field, not on re-hashing display
+      // strings client-side).
+      assert.equal(runFast.strategyHash?.length, 64);
+      assert.notEqual(runFast.strategyHash, runSlow.strategyHash, "changing the requested EMA periods must produce a genuinely different compiled strategy identity, not the same spec with different labels");
       assert.notEqual(runFast.resultHash, runSlow.resultHash, "a different strategy identity must also produce a different, independently reproducible backtest resultHash");
+
+      // The human-readable projection itself must ALSO genuinely differ -
+      // proving the UI's own "Compiled Strategy" card would show different
+      // text, not just an invisible hash difference behind an identical
+      // display.
+      assert.ok(runFast.compiledStrategy?.longEntry?.includes("EMA(9") && runFast.compiledStrategy.longEntry.includes("EMA(21"));
+      assert.ok(runSlow.compiledStrategy?.longEntry?.includes("EMA(5") && runSlow.compiledStrategy.longEntry.includes("EMA(10"));
+      assert.notEqual(runFast.compiledStrategy?.longEntry, runSlow.compiledStrategy?.longEntry);
     });
 
     console.log("\n=== The warmup-slicing fix this phase made, proven against the REGISTRY path too (not just the AI-compiled one) ===");

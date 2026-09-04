@@ -2,7 +2,7 @@
 // P3.2B - thin client fetch wrapper over /api/private/algo-test/*, the
 // same "thin wrapper, mutation functions throw with a real message" shape
 // lib/paper-trading/store.ts already establishes.
-import type { AlgoTestRunRequest, AlgoTestRunView, AlgoTestStrategyDefinition } from "@/types/algo-test";
+import type { AiCompileAndRunRequest, AlgoTestRunRequest, AlgoTestRunView, AlgoTestStrategyDefinition } from "@/types/algo-test";
 
 const BASE = "/api/private/algo-test";
 
@@ -47,4 +47,26 @@ export async function fetchAlgoTestStrategies(): Promise<AlgoTestStrategyDefinit
   } catch {
     return [];
   }
+}
+
+/**
+ * P4.3 (docs/P4.3-SURFACE-THE-FOUNDATION.md) - the existing P4.2 AI-run
+ * endpoint (POST /api/private/algo-test/ai-runs), a thin wrapper matching
+ * runAlgoTest's own shape exactly - not a second, parallel AI execution
+ * path. Throws with the real server-supplied message on a genuine
+ * transport/auth/503 failure (e.g. ANTHROPIC_API_KEY not configured); a
+ * compile/validation/backtest failure that the server DID handle comes
+ * back as a normal 200/201 AlgoTestRunView with status:"failed" and a
+ * real errorMessage - identical to runAlgoTest's own failure contract -
+ * never thrown for that case.
+ */
+export async function compileAndRunAiStrategy(request: AiCompileAndRunRequest): Promise<AlgoTestRunView> {
+  const res = await fetch(`${BASE}/ai-runs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+  if (!res.ok) throw new Error(await parseErrorMessage(res));
+  const json = await res.json();
+  return json.data.run as AlgoTestRunView;
 }

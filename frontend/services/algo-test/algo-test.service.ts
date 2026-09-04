@@ -16,10 +16,25 @@
 // and hands the result to the generic runBacktest(). There is no
 // `strategyId === "golden"` branch anywhere in this file, and none is
 // needed for the registry's second strategy (ref-ema-crossover) either.
-import { buildLifecycleResult, type OHLCVBar, type SimulationResult, type SimulationTrade, type StageResult, type StrategyLifecycleStage, type Timeframe } from "at24-quant-engine";
+import {
+  buildLifecycleResult,
+  computeSemanticStrategyHash,
+  type Expression,
+  type Operand,
+  type OHLCVBar,
+  type RiskSpecification,
+  type SimulationResult,
+  type SimulationTrade,
+  type StageResult,
+  type StrategyLifecycleStage,
+  type StrategySpec,
+  type Timeframe,
+} from "at24-quant-engine";
 import { prisma } from "@/lib/prisma";
 import type {
   AlgoTestAssumptions,
+  AlgoTestCompiledParameterView,
+  AlgoTestCompiledStrategyView,
   AlgoTestEquityPoint,
   AlgoTestErrorCode,
   AlgoTestMetricsView,
@@ -274,6 +289,104 @@ function toEquityCurveView(equityCurve: readonly { timestamp: number; balance: n
   return equityCurve.map((p) => ({ timestamp: p.timestamp, balance: p.balance }));
 }
 
+// P4.3 (docs/P4.3-SURFACE-THE-FOUNDATION.md) - a generic, recursive
+// renderer over the REAL StrategySpec Expression tree
+// (at24-quant-engine's own Expression/Operand union) - never a
+// per-strategy special case, so it renders any registry OR AI-compiled
+// strategy's real condition identically. Every branch reads directly off
+// a real field; there is no "unknown expression shape" fallback that
+// invents text - an exhaustive switch means a future Expression variant
+// this function doesn't yet handle fails to typecheck here rather than
+// silently rendering nothing.
+function describeOperand(op: Operand): string {
+  if (op.kind === "literal") return String(op.value);
+  if (op.kind === "series") return `${op.ref.series}[${op.ref.offset}]`;
+  // op.kind === "indicator"
+  const { name, params } = op.ref;
+  return params.length > 0 ? `${name}(${params.join(",")})` : name;
+}
+
+function describeExpression(expr: Expression): string {
+  if (expr.type === "comparison") {
+    return `${describeOperand(expr.left)} ${expr.operator} ${describeOperand(expr.right)}`;
+  }
+  if (expr.type === "boolean-reference") {
+    const { name, params } = expr.ref;
+    return params.length > 0 ? `${name}(${params.join(",")})` : name;
+  }
+  // expr.type === "logical"
+  if (expr.operator === "NOT") return `NOT (${describeExpression(expr.operands[0]!)})`;
+  return expr.operands.map((o) => `(${describeExpression(o)})`).join(` ${expr.operator} `);
+}
+
+function describeSizing(risk: RiskSpecification): string {
+  const s = risk.sizing;
+  if (s.method === "fixed-quantity") return `Fixed quantity: ${s.quantity}`;
+  if (s.method === "fixed-lot") return `Fixed lot: ${s.lots}`;
+  if (s.method === "percent-equity-risk") return `Percent equity risk: ${s.percent}%`;
+  return `ATR-based: ${s.atrMultiple}x ATR(${s.atrPeriod})`;
+}
+
+function describeStopLoss(risk: RiskSpecification): string | undefined {
+  const sl = risk.stopLoss;
+  if (!sl) return undefined;
+  if (sl.type === "fixed-price") return `Fixed price: ${sl.price}`;
+  if (sl.type === "fixed-distance") return `Fixed distance: ${sl.distance}`;
+  return `ATR multiple: ${sl.atrMultiple}x ATR(${sl.atrPeriod})`;
+}
+
+function describeTakeProfit(risk: RiskSpecification): string | undefined {
+  const tp = risk.takeProfit;
+  if (!tp) return undefined;
+  if (tp.type === "fixed-price") return `Fixed price: ${tp.price}`;
+  if (tp.type === "fixed-distance") return `Fixed distance: ${tp.distance}`;
+  return `Risk multiple: ${tp.rMultiple}R`;
+}
+
+/**
+ * P4.3 - the ONE place a real StrategySpec (registry OR AI-compiled,
+ * never branched on which) is projected into the wire-safe, human-
+ * readable AlgoTestCompiledStrategyView. Deliberately no "Filters" field
+ * (see that type's own doc comment) - a compound entry condition's
+ * AND-ed clauses surface naturally inside longEntry/shortEntry instead of
+ * a fabricated separate field the real StrategySpec does not have.
+ */
+// P4.3 - exported (not otherwise needed outside this module) so
+// scripts/validate-algo-test-compiled-strategy-view.ts can prove this ONE
+// projection function is genuinely used for both a registry StrategySpec
+// and an AI-compiled one, offline, without needing runAlgoTest's own
+// hardcoded (non-injectable) twelveDataHistoricalDataProvider.
+export function toCompiledStrategyView(spec: StrategySpec): AlgoTestCompiledStrategyView {
+  const longEntries = spec.entryRules.filter((r) => r.direction === "BUY").map((r) => describeExpression(r.condition));
+  const shortEntries = spec.entryRules.filter((r) => r.direction === "SELL").map((r) => describeExpression(r.condition));
+  const exit =
+    spec.exitRules.length > 0
+      ? spec.exitRules.map((r) => describeExpression(r.condition)).join("; ")
+      : "No separate exit rule declared — position reverses on an opposite-direction entry signal (Q0.5's own atomic reduce-then-reopen behavior).";
+
+  const parameters: AlgoTestCompiledParameterView[] = spec.parameters.map((p) => ({
+    key: p.key,
+    defaultValue: p.defaultValue,
+    ...(p.min !== undefined ? { min: p.min } : {}),
+    ...(p.max !== undefined ? { max: p.max } : {}),
+  }));
+
+  return {
+    name: spec.identity.name,
+    version: spec.version,
+    // No symbol/timeframe here - see AlgoTestCompiledStrategyView's own
+    // doc comment. AlgoTestRunView.symbol/.timeframe (set from the real
+    // request, for every strategy source) is the one authoritative field.
+    ...(longEntries.length > 0 ? { longEntry: longEntries.join("; ") } : {}),
+    ...(shortEntries.length > 0 ? { shortEntry: shortEntries.join("; ") } : {}),
+    exit,
+    positionSizing: describeSizing(spec.risk),
+    ...(describeStopLoss(spec.risk) !== undefined ? { stopLoss: describeStopLoss(spec.risk) } : {}),
+    ...(describeTakeProfit(spec.risk) !== undefined ? { takeProfit: describeTakeProfit(spec.risk) } : {}),
+    parameters,
+  };
+}
+
 // P4 Phase 2 - extracted from runAlgoTest's own catch block (unchanged
 // behavior, just now shared with compileAndRunAiStrategy below) - a
 // request that never reaches a completed backtest stops the lifecycle at
@@ -337,6 +450,15 @@ export const algoTestService = {
       },
     });
 
+    // P3.6 - the strategy's own buildSpec, not a strategyId branch here.
+    // `parameters` is already the fully-normalized, already-validated
+    // snapshot from validateRequest() above (validateParameterValues() has
+    // run). Captured in a variable (P4.3) so the SAME built spec feeds
+    // both runBacktest() and the strategy-hash/compiled-strategy view
+    // below - never rebuilt a second time (which could theoretically
+    // diverge if buildSpec ever became non-pure).
+    const strategySpec = strategy.buildSpec(parameters);
+
     try {
       const outcome = await runBacktest(
         {
@@ -345,11 +467,7 @@ export const algoTestService = {
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
           initialBalance,
-          // P3.6 - the strategy's own buildSpec/buildIndicatorSeries, not a
-          // strategyId branch here. `parameters` is already the fully-
-          // normalized, already-validated snapshot from validateRequest()
-          // above (validateParameterValues() has run).
-          strategySpec: strategy.buildSpec(parameters),
+          strategySpec,
           buildIndicatorSeries: strategy.buildIndicatorSeries,
         },
         twelveDataHistoricalDataProvider,
@@ -397,6 +515,8 @@ export const algoTestService = {
         assumptions,
         candles: toChartCandles(outcome.bars),
         lifecycle,
+        compiledStrategy: toCompiledStrategyView(strategySpec),
+        strategyHash: computeSemanticStrategyHash(strategySpec),
         createdAt: row.createdAt.toISOString(),
       };
     } catch (err) {
@@ -421,6 +541,13 @@ export const algoTestService = {
         errorCode: code,
         errorMessage: message,
         lifecycle,
+        // P4.3 - the strategy itself was successfully built (this is a
+        // DATA_VALID failure, not an EXECUTION_VALID one) - showing it
+        // lets the user see exactly what was ABOUT to run even though no
+        // data was available to run it against, rather than an empty
+        // "strategy" section next to an otherwise-informative failure.
+        compiledStrategy: toCompiledStrategyView(strategySpec),
+        strategyHash: computeSemanticStrategyHash(strategySpec),
         createdAt: row.createdAt.toISOString(),
       };
     }
@@ -653,7 +780,8 @@ export const algoTestService = {
         assumptions,
         candles: toChartCandles(outcome.bars),
         lifecycle,
-        compiledStrategy: compilation.compiledSpec,
+        compiledStrategy: toCompiledStrategyView(compilation.compiledSpec),
+        strategyHash: computeSemanticStrategyHash(compilation.compiledSpec),
         createdAt: row.createdAt.toISOString(),
       };
     } catch (err) {
@@ -666,6 +794,11 @@ export const algoTestService = {
         status: "failed",
         strategyId: "ai-generated",
         parameters: { intent: request.intent },
+        // P4.3 - the compiled strategy DID exist here (this is a
+        // DATA_VALID failure, after EXECUTION_VALID already passed) - see
+        // the identical rationale on runAlgoTest's own catch block above.
+        compiledStrategy: toCompiledStrategyView(compilation.compiledSpec),
+        strategyHash: computeSemanticStrategyHash(compilation.compiledSpec),
         symbol,
         timeframe,
         startTime: request.startTime,
@@ -674,7 +807,6 @@ export const algoTestService = {
         errorCode: code,
         errorMessage: message,
         lifecycle,
-        compiledStrategy: compilation.compiledSpec,
         createdAt: row.createdAt.toISOString(),
       };
     }
