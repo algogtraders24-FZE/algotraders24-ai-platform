@@ -733,16 +733,208 @@ def run_pipeline_from_deals_table(report_path: Path, version_id: str, out_dir: P
     return write_immutable_evidence(record, trades, out_dir)
 
 
+# ---------------------------------------------------------------------------
+# Stage 1d (M2.4): MT5's own "Save as Report -> Excel" .xlsx export. Same
+# underlying report data as the .htm export (same Settings/Results/Deals
+# sections), different container format. Rebuilt from scratch (the prior
+# version of this adapter was lost from this actively-shared file - see
+# this function group's own git history) using only the stdlib (zipfile +
+# regex over the raw OOXML XML), matching this module's own stdlib-only
+# discipline; no openpyxl dependency. MT5 writes these XML parts as
+# UTF-16 (like its .htm export), not the OOXML-typical UTF-8.
+# ---------------------------------------------------------------------------
+
+import zipfile
+from xml.sax.saxutils import unescape as _xml_unescape
+
+
+def _read_xlsx_shared_strings(z: zipfile.ZipFile) -> list[str]:
+    try:
+        raw = z.read("xl/sharedStrings.xml")
+    except KeyError:
+        return []
+    text = raw.decode("utf-16") if raw[:2] in (b"\xff\xfe", b"\xfe\xff") else raw.decode("utf-8")
+    # Each <si> is one shared-string entry; a plain <t>...</t> is the common
+    # case, but MT5 can also emit rich-text runs (<si><r><t>...</t></r>...
+    # </si>) - concatenate every <t> inside the <si> block either way.
+    entries = re.findall(r"<si>(.*?)</si>", text, re.S)
+    out: list[str] = []
+    for entry in entries:
+        parts = re.findall(r"<t[^>]*>(.*?)</t>", entry, re.S)
+        out.append(_xml_unescape("".join(parts)))
+    return out
+
+
+def _col_letters_to_index(letters: str) -> int:
+    idx = 0
+    for ch in letters:
+        idx = idx * 26 + (ord(ch) - ord("A") + 1)
+    return idx - 1  # 0-based
+
+
+def _first_worksheet_path(z: zipfile.ZipFile) -> str:
+    for name in z.namelist():
+        if re.fullmatch(r"xl/worksheets/sheet\d+\.xml", name):
+            return name
+    raise ValueError("No worksheet found inside this .xlsx file -- not a valid MT5 Excel report export")
+
+
+_XLSX_ROW_RE = re.compile(r'<row[^>]*>(.*?)</row>', re.S)
+_XLSX_CELL_RE = re.compile(r'<c\s+([^>]*?)(?:/>|>(.*?)</c>)', re.S)
+_XLSX_ATTR_RE = re.compile(r'(\w+)="([^"]*)"')
+_XLSX_VALUE_RE = re.compile(r'<v>(.*?)</v>', re.S)
+_XLSX_CELLREF_RE = re.compile(r'([A-Z]+)(\d+)')
+
+
+def read_mt5_xlsx_rows(path: Path) -> list[list[str]]:
+    """Parses the report's single worksheet into one list-of-strings per
+    row, resolving shared-string cells and leaving numeric/plain cells as
+    their raw text (every value this module needs is re-parsed through
+    the same _clean_number()/_parse_timestamp() helpers the .htm adapter
+    already uses, so raw text is the correct shape here, not a float)."""
+    with zipfile.ZipFile(path) as z:
+        shared = _read_xlsx_shared_strings(z)
+        sheet_path = _first_worksheet_path(z)
+        raw = z.read(sheet_path)
+        sheet_xml = raw.decode("utf-16") if raw[:2] in (b"\xff\xfe", b"\xfe\xff") else raw.decode("utf-8")
+
+    rows: list[list[str]] = []
+    for row_body in _XLSX_ROW_RE.findall(sheet_xml):
+        cells: dict[int, str] = {}
+        max_col = -1
+        for attr_str, inner in _XLSX_CELL_RE.findall(row_body):
+            attrs = dict(_XLSX_ATTR_RE.findall(attr_str))
+            ref_match = _XLSX_CELLREF_RE.match(attrs.get("r", ""))
+            if not ref_match:
+                continue
+            col_idx = _col_letters_to_index(ref_match.group(1))
+            max_col = max(max_col, col_idx)
+            value_match = _XLSX_VALUE_RE.search(inner) if inner else None
+            if value_match is None:
+                continue
+            raw_value = _xml_unescape(value_match.group(1))
+            cells[col_idx] = shared[int(raw_value)] if attrs.get("t") == "s" else raw_value
+        rows.append([cells.get(i, "") for i in range(max_col + 1)])
+    return rows
+
+
+def parse_mt5_report_xlsx_settings(rows: list[list[str]]) -> dict[str, Any]:
+    """Stage 1a (xlsx variant): the Settings/Results section, bounded to
+    before the Orders/Deals tables begin, same reasoning as
+    parse_mt5_report_html's own boundary (a bare column header like
+    'Symbol' inside the Deals table would otherwise silently overwrite the
+    real Settings-section value)."""
+    raw: dict[str, str] = {}
+    for row in rows:
+        if not row:
+            continue
+        label = (row[0] or "").strip()
+        if label in ("Orders", "Deals"):
+            break
+        if not label.endswith(":"):
+            continue
+        key = label[:-1]
+        # The value is whichever non-empty cell follows the label on this
+        # row - MT5's xlsx layout right-pads the label's own merged cells
+        # with the same style before the real value cell.
+        value = next((c.strip() for c in row[1:] if c.strip()), None)
+        if key not in raw and value is not None:
+            raw[key] = value
+
+    mapped: dict[str, Any] = {"raw_fields": raw}
+    for label, key in MT5_LABEL_MAP.items():
+        mapped[key] = raw.get(label)
+    return mapped
+
+
+def parse_mt5_deals_table_xlsx(rows: list[list[str]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Stage 1c (xlsx variant): the same real Deals table parse_mt5_deals_table
+    extracts from the .htm export, read from the worksheet's own rows
+    instead. Column order (A..M) is verified to match DEALS_COLUMNS
+    exactly against a real report (Time, Deal, Symbol, Type, Direction,
+    Volume, Price, Order, Commission, Swap, Profit, Balance, Comment)."""
+    header_idx = None
+    for i, row in enumerate(rows):
+        if row and (row[0] or "").strip() == "Deals":
+            header_idx = i + 1
+            break
+    if header_idx is None or header_idx >= len(rows):
+        raise ValueError("No 'Deals' section found in this .xlsx report -- malformed or unsupported report format")
+
+    header = [c.strip() for c in rows[header_idx][:len(DEALS_COLUMNS)]]
+    if header[:2] != ["Time", "Deal"]:
+        raise ValueError(f"'Deals' header row does not match the expected MT5 layout (Time, Deal, ...): {header}")
+
+    trade_rows: list[dict[str, Any]] = []
+    balance_row: dict[str, Any] | None = None
+    for row in rows[header_idx + 1:]:
+        if not row or not (row[0] or "").strip():
+            continue  # blank row - end of the Deals section
+        cells = (row + [""] * len(DEALS_COLUMNS))[:len(DEALS_COLUMNS)]
+        record = dict(zip(DEALS_COLUMNS, cells))
+        if record["type"] == "balance":
+            balance_row = record
+            continue
+        if record["type"] not in ("buy", "sell"):
+            continue
+        trade_rows.append(record)
+
+    if not trade_rows:
+        raise ValueError("'Deals' section parsed but contains zero buy/sell deal rows -- cannot become Evidence")
+
+    return trade_rows, {
+        "initial_deposit": _clean_number(balance_row["balance"]) if balance_row else None,
+        "raw_deal_row_count": len(trade_rows),
+    }
+
+
+def run_pipeline_from_xlsx(report_path: Path, version_id: str, out_dir: Path) -> Path:
+    """M2.4 adapter: MT5's own 'Save as Report -> Excel' .xlsx export,
+    parsed stdlib-only (zipfile + regex over the OOXML XML). Same shape,
+    same integrity/cross-check discipline as run_pipeline_from_deals_table
+    (the .htm variant) -- this is a different FILE FORMAT for the same
+    underlying report data, not a different data source or a lower-rigor
+    path."""
+    rows = read_mt5_xlsx_rows(report_path)
+    report_meta = parse_mt5_report_xlsx_settings(rows)
+
+    deal_rows, deals_meta = parse_mt5_deals_table_xlsx(rows)
+    trades = reconcile_deals_to_trades(deal_rows)
+
+    report_total_deals = _clean_number(report_meta.get("report_total_deals"))
+    if report_total_deals is not None and int(report_total_deals) != deals_meta["raw_deal_row_count"]:
+        raise ValueError(
+            f"Deal count mismatch: report states Total Deals={int(report_total_deals)}, "
+            f"but {deals_meta['raw_deal_row_count']} buy/sell deal rows were parsed from the Deals section."
+        )
+    deposit_from_settings = _clean_number(report_meta.get("initial_deposit"))
+    initial_deposit = deposit_from_settings if deposit_from_settings is not None else deals_meta.get("initial_deposit")
+    if deposit_from_settings is None:
+        report_meta["initial_deposit"] = deals_meta.get("initial_deposit")
+
+    integrity = run_data_integrity_checks(trades)
+    if not integrity.ok:
+        raise ValueError("Data integrity check failed:\n  - " + "\n  - ".join(integrity.issues))
+
+    provenance = build_provenance(report_meta, report_path, {"kind": "deals_table_xlsx", "file": None})
+    metrics = compute_metrics(trades, initial_deposit=initial_deposit)
+    record = assemble_evidence_record(version_id, trades, metrics, provenance, report_meta, source_adapter="mt5-deals-table-xlsx-v1")
+    return write_immutable_evidence(record, trades, out_dir)
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description="M2 Backtest Evidence Engine")
-    p.add_argument("--report", required=True, type=Path, help="Path to native MT5 Strategy Tester .htm report")
-    p.add_argument("--tradelog", type=Path, help="Path to AT24_G01_ResearchLog.csv (or compatible). Omit to use --source deals instead.")
-    p.add_argument("--source", choices=["csv", "deals"], default="csv", help="Trade-log source: separate CSV (default) or the report's own Deals table (M2.1)")
+    p.add_argument("--report", required=True, type=Path, help="Path to a native MT5 Strategy Tester report (.htm/.html or .xlsx)")
+    p.add_argument("--tradelog", type=Path, help="Path to AT24_G01_ResearchLog.csv (or compatible). Omit to use --source deals/xlsx instead.")
+    p.add_argument("--source", choices=["csv", "deals", "xlsx"], default="csv",
+                    help="Trade-log source: separate CSV (default), the .htm report's own Deals table (M2.1), or the .xlsx report export (M2.4)")
     p.add_argument("--version-id", required=True, help="M1 Version.id this Evidence belongs to")
     p.add_argument("--out-dir", required=True, type=Path, help="Output directory for the Evidence JSON")
     args = p.parse_args()
 
-    if args.source == "deals":
+    if args.source == "xlsx":
+        out_path = run_pipeline_from_xlsx(args.report, args.version_id, args.out_dir)
+    elif args.source == "deals":
         out_path = run_pipeline_from_deals_table(args.report, args.version_id, args.out_dir)
     else:
         if not args.tradelog:
