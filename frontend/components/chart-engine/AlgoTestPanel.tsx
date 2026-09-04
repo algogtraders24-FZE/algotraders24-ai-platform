@@ -40,6 +40,7 @@ import { formatPrice, formatPercent, formatTimestamp } from "@/lib/financial-for
 import { runAlgoTest, compileAndRunAiStrategy, fetchAlgoTestRun, fetchAlgoTestStrategies } from "@/lib/algo-test/store";
 import { ALGO_TEST_LIFECYCLE_STAGES as LIFECYCLE_STAGES } from "@/types/algo-test";
 import type {
+  AlgoTestAnalyticsView,
   AlgoTestCompiledStrategyView,
   AlgoTestLifecycleResult,
   AlgoTestLifecycleStage,
@@ -670,8 +671,13 @@ function AlgoTestResults({
             <StatField label="Profit Factor">
               <span className={FIN_SECONDARY}>{Number.isFinite(metrics.profitFactor) ? metrics.profitFactor.toFixed(2) : "∞"}</span>
             </StatField>
+            {/* P4.4 audit finding, fixed: at24-quant-engine's own computeCoreMetrics() has always
+                computed maxDrawdown as a PERCENTAGE (100 * (peak-equity)/peak - see metrics.ts's
+                own formula doc comment), never currency - this was rendering that percentage
+                through the currency formatter (e.g. showing "2.32" styled/labeled as a price) since
+                P3.2B. formatPercent is the correct, real unit this field has always carried. */}
             <StatField label="Max Drawdown">
-              <span className={FIN_SECONDARY}>{formatPrice(metrics.maxDrawdown, { maxDecimals: 2 })}</span>
+              <span className={FIN_SECONDARY}>{formatPercent(metrics.maxDrawdown, { signed: false })}</span>
             </StatField>
             <StatField label="Final Equity">
               <span className={FIN_PRIMARY}>{formatPrice(run.initialBalance + metrics.netProfit, { maxDecimals: 2 })}</span>
@@ -715,6 +721,8 @@ function AlgoTestResults({
               </table>
             )}
           </div>
+
+          <AnalyticsSection analytics={run.analytics} />
         </>
       )}
 
@@ -791,6 +799,216 @@ function ParameterSnapshot({ run }: { run: AlgoTestRunView }) {
           );
         })}
       </dl>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------
+// P4.4 (docs/P4.4-ADVANCED-ANALYTICS-FOUNDATION.md) - Advanced Analytics
+// Foundation. Every component below renders ONLY real fields from
+// run.analytics (algo-test-analytics.ts's own Tier 1 projections +
+// at24-quant-engine's computeRiskRatios()) - no new local computation,
+// no strategy-specific branch. null renders as an em dash, never a
+// fabricated 0/blank. Deliberately plain, small, functional visuals
+// (inline SVG, the same minimal aesthetic EquityCurveSparkline already
+// established) - this phase is analytics functionality, not a visual
+// overhaul.
+// ---------------------------------------------------------------------
+
+function AnalyticsSection({ analytics }: { analytics: AlgoTestAnalyticsView | undefined }) {
+  if (!analytics) return null;
+  return (
+    <div className="space-y-2.5">
+      <p className={FIN_LABEL}>Analytics</p>
+      <RiskRatiosCard riskRatios={analytics.riskRatios} />
+      <SideBreakdownCard sideBreakdown={analytics.sideBreakdown} />
+      <PnlDistributionCard distribution={analytics.pnlDistribution} />
+      <DurationVsPnlChart points={analytics.durationVsPnl} />
+      <CalendarStrip days={analytics.calendar} />
+    </div>
+  );
+}
+
+function ratioText(v: number | null): string {
+  return v === null ? "—" : v.toFixed(3);
+}
+
+/** Every field is at24-quant-engine's own computeRiskRatios() output, per-trade (not annualized), 0-risk-free-rate - see that function's own formula doc comment for the exact definition of each. */
+function RiskRatiosCard({ riskRatios }: { riskRatios: AlgoTestAnalyticsView["riskRatios"] }) {
+  return (
+    <div className="rounded-control border border-dashed border-border bg-ink px-2.5 py-2">
+      <p className={FIN_LABEL}>Risk Ratios (per-trade, 0% risk-free rate - not annualized)</p>
+      <dl className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] sm:grid-cols-5">
+        <div>
+          <dt className="text-text-3">Sharpe</dt>
+          <dd className="text-text-2">{ratioText(riskRatios.sharpeRatio)}</dd>
+        </div>
+        <div>
+          <dt className="text-text-3">Sortino</dt>
+          <dd className="text-text-2">{ratioText(riskRatios.sortinoRatio)}</dd>
+        </div>
+        <div>
+          <dt className="text-text-3">Calmar</dt>
+          <dd className="text-text-2">{ratioText(riskRatios.calmarRatio)}</dd>
+        </div>
+        <div>
+          <dt className="text-text-3">Recovery Factor</dt>
+          <dd className="text-text-2">{ratioText(riskRatios.recoveryFactor)}</dd>
+        </div>
+        <div>
+          <dt className="text-text-3">Ulcer Index</dt>
+          <dd className="text-text-2">{ratioText(riskRatios.ulcerIndex)}</dd>
+        </div>
+      </dl>
+      <p className="mt-1.5 text-[11px] text-text-3">An em dash means genuinely undefined for this run (too few trades, zero variance, zero drawdown, or no losing trades) - never a misleading 0.</p>
+    </div>
+  );
+}
+
+function SideBreakdownCard({ sideBreakdown }: { sideBreakdown: AlgoTestAnalyticsView["sideBreakdown"] }) {
+  const { buy, sell } = sideBreakdown;
+  return (
+    <div className="rounded-control border border-dashed border-border bg-ink px-2.5 py-2">
+      <p className={FIN_LABEL}>Side Breakdown</p>
+      <table className="mt-1 w-full text-left text-[11px]">
+        <thead>
+          <tr className="text-text-3">
+            <th className="pb-1 pr-2 font-normal"></th>
+            <th className="pb-1 pr-2 font-normal">Trades</th>
+            <th className="pb-1 pr-2 font-normal">Win Rate</th>
+            <th className="pb-1 pr-2 font-normal">Net P&amp;L</th>
+            <th className="pb-1 pr-2 font-normal">Avg P&amp;L</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[buy, sell].map((s) => (
+            <tr key={s.side} className="border-t border-border">
+              <td className="py-1 pr-2">
+                <Badge tone={s.side === "BUY" ? "success" : "danger"}>{s.side}</Badge>
+              </td>
+              <td className="py-1 pr-2 text-text-2">{s.tradeCount}</td>
+              <td className="py-1 pr-2 text-text-2">{formatPercent(s.winRate, { signed: false })}</td>
+              <td className={`py-1 pr-2 fin-num font-mono ${s.netPnl >= 0 ? "text-signal-up" : "text-signal-down"}`}>{formatPrice(s.netPnl, { maxDecimals: 2 })}</td>
+              <td className="py-1 pr-2 text-text-2">{s.averagePnl === null ? "—" : formatPrice(s.averagePnl, { maxDecimals: 2 })}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function PnlDistributionCard({ distribution }: { distribution: AlgoTestAnalyticsView["pnlDistribution"] }) {
+  const { winCount, lossCount, winSum, lossSum, winAverage, lossAverage, winMedian, lossMedian, buckets } = distribution;
+  return (
+    <div className="rounded-control border border-dashed border-border bg-ink px-2.5 py-2">
+      <p className={FIN_LABEL}>P&amp;L Distribution</p>
+      <dl className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] sm:grid-cols-4">
+        <div>
+          <dt className="text-text-3">Winners</dt>
+          <dd className="text-signal-up">
+            {winCount} &middot; {formatPrice(winSum, { maxDecimals: 2 })}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-text-3">Losers</dt>
+          <dd className="text-signal-down">
+            {lossCount} &middot; {formatPrice(lossSum, { maxDecimals: 2 })}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-text-3">Avg win / loss</dt>
+          <dd className="text-text-2">
+            {winAverage === null ? "—" : formatPrice(winAverage, { maxDecimals: 2 })} / {lossAverage === null ? "—" : formatPrice(lossAverage, { maxDecimals: 2 })}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-text-3">Median win / loss</dt>
+          <dd className="text-text-2">
+            {winMedian === null ? "—" : formatPrice(winMedian, { maxDecimals: 2 })} / {lossMedian === null ? "—" : formatPrice(lossMedian, { maxDecimals: 2 })}
+          </dd>
+        </div>
+      </dl>
+      {buckets.length > 0 && <PnlHistogram buckets={buckets} />}
+    </div>
+  );
+}
+
+/** A plain inline-SVG bar histogram - the same minimal, no-library aesthetic EquityCurveSparkline already established. Bucket boundaries come straight from algo-test-analytics.ts's own buildPnlDistribution(), never recomputed here. */
+function PnlHistogram({ buckets }: { buckets: AlgoTestAnalyticsView["pnlDistribution"]["buckets"] }) {
+  const WIDTH = 560;
+  const HEIGHT = 56;
+  const GAP = 2;
+  const maxCount = Math.max(...buckets.map((b) => b.count), 1);
+  const barWidth = (WIDTH - GAP * (buckets.length - 1)) / buckets.length;
+  return (
+    <div className="mt-1.5">
+      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-14 w-full" preserveAspectRatio="none" role="img" aria-label="P&amp;L distribution histogram">
+        {buckets.map((b, i) => {
+          const barHeight = (b.count / maxCount) * (HEIGHT - 2);
+          const x = i * (barWidth + GAP);
+          const positive = b.rangeStart >= 0;
+          return <rect key={i} x={x} y={HEIGHT - barHeight} width={barWidth} height={barHeight} fill={positive ? "#3fb27f" : "#d1594a"} opacity={0.85} />;
+        })}
+      </svg>
+    </div>
+  );
+}
+
+/** A plain inline-SVG scatter - x = duration, y = P&L, one dot per trade. Real per-trade points from algo-test-analytics.ts's buildDurationVsPnl(), no aggregation. */
+function DurationVsPnlChart({ points }: { points: AlgoTestAnalyticsView["durationVsPnl"] }) {
+  if (points.length === 0) return null;
+  const WIDTH = 560;
+  const HEIGHT = 90;
+  const PAD = 6;
+  const maxDuration = Math.max(...points.map((p) => p.durationMs), 1);
+  const maxAbsPnl = Math.max(...points.map((p) => Math.abs(p.pnl)), 1);
+  return (
+    <div className="rounded-control border border-dashed border-border bg-ink px-2.5 py-2">
+      <p className={FIN_LABEL}>Duration vs. P&amp;L ({points.length} trade{points.length === 1 ? "" : "s"})</p>
+      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="mt-1 h-[90px] w-full" preserveAspectRatio="none" role="img" aria-label="Duration versus P&amp;L scatter">
+        <line x1={PAD} y1={HEIGHT / 2} x2={WIDTH - PAD} y2={HEIGHT / 2} stroke="#3a3f4c" strokeWidth={1} />
+        {points.map((p) => {
+          const x = PAD + (p.durationMs / maxDuration) * (WIDTH - PAD * 2);
+          const y = HEIGHT / 2 - (p.pnl / maxAbsPnl) * (HEIGHT / 2 - PAD);
+          return <circle key={p.tradeId} cx={x} cy={y} r={2.5} fill={p.pnl >= 0 ? "#3fb27f" : "#d1594a"} opacity={0.85} />;
+        })}
+      </svg>
+      <p className="mt-1 text-[11px] text-text-3">Horizontal axis: trade duration (longer trades further right). Vertical axis: P&amp;L (winners above the line, losers below).</p>
+    </div>
+  );
+}
+
+const OUTCOME_COLOR: Readonly<Record<AlgoTestAnalyticsView["calendar"][number]["outcome"], string>> = {
+  winning: "bg-signal-up/70",
+  losing: "bg-signal-down/70",
+  breakeven: "bg-text-3/50",
+};
+
+/**
+ * A chronological strip of only the days that actually had trades - never
+ * a full calendar-month grid with fabricated zero-trade cells (see
+ * algo-test-analytics.ts's own buildCalendar() doc comment for why: a
+ * grid would require inventing a date range to fill). A day absent from
+ * this strip had zero trades.
+ */
+function CalendarStrip({ days }: { days: AlgoTestAnalyticsView["calendar"] }) {
+  if (days.length === 0) return null;
+  return (
+    <div className="rounded-control border border-dashed border-border bg-ink px-2.5 py-2">
+      <p className={FIN_LABEL}>Calendar ({days.length} trading day{days.length === 1 ? "" : "s"})</p>
+      <div className="mt-1.5 flex flex-wrap gap-1">
+        {days.map((d) => (
+          <div
+            key={d.date}
+            title={`${d.date}: ${d.tradeCount} trade${d.tradeCount === 1 ? "" : "s"}, ${formatPrice(d.netPnl, { maxDecimals: 2 })}`}
+            className={`flex h-7 w-7 items-center justify-center rounded-control text-[9px] font-semibold text-ink ${OUTCOME_COLOR[d.outcome]}`}
+          >
+            {d.tradeCount}
+          </div>
+        ))}
+      </div>
+      <p className="mt-1.5 text-[11px] text-text-3">Only days with at least one trade are shown, in order - any date not shown had zero trades this run.</p>
     </div>
   );
 }

@@ -23,7 +23,15 @@
 // established.
 import assert from "node:assert/strict";
 import { prisma } from "../lib/prisma";
-import { algoTestService, MAX_RANGE_DAYS } from "../services/algo-test/algo-test.service";
+import { algoTestService, maxRangeDaysFor } from "../services/algo-test/algo-test.service";
+
+// P4.4 Phase C - MAX_RANGE_DAYS was a flat, M5-only constant; the range
+// cap is now timeframe-aware (maxRangeDaysFor). This script's own
+// VALID_REQUEST is Golden Strategy on M5 (the only timeframe the
+// registry path supports today), so `maxRangeDaysFor("M5")` is the exact
+// same numeric value (14) MAX_RANGE_DAYS always was - not a behavior
+// change for this script, just following the new policy's own naming.
+const MAX_RANGE_DAYS = maxRangeDaysFor("M5");
 import { STRATEGY_REGISTRY, getStrategyDefinition } from "../services/algo-test/strategy-registry";
 import { RESULT_CONTRACT_VERSION } from "../services/algo-test/result-contract";
 import {

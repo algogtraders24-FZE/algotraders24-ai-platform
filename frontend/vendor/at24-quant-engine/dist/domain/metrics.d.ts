@@ -34,3 +34,66 @@ export interface SimpleTrade {
  *                 order to initialEquity) of 100 * (peakSoFar - equity) / peakSoFar
  */
 export declare function computeCoreMetrics(trades: readonly SimpleTrade[], initialEquity: number): Record<CoreMetricName, number>;
+/**
+ * P4.4 - fills the ReservedMetricName slot this file declared, unused,
+ * since Q0.2. A completely SEPARATE function from computeCoreMetrics
+ * (never merged into it, never called from simulation-engine.ts's own
+ * runSimulation() call site) - a deliberate boundary: this is pure,
+ * additive, post-hoc analysis over an ALREADY-PRODUCED trade list/equity
+ * curve, not a change to what runSimulation() itself computes or returns.
+ *
+ * Every ratio here is PER-TRADE, not annualized: trades are not evenly
+ * time-spaced (a backtest's own trade cadence, not a fixed daily/weekly
+ * bar count), so "annualizing" would require inventing a trades-per-year
+ * factor this function does not invent. Every ratio assumes a 0
+ * risk-free rate - a disclosed assumption, the same "declare it, never
+ * claim realism" convention this program already uses for
+ * ZeroSpread/ZeroSlippage/ZeroFee. `null` (never a fabricated 0) means
+ * the ratio is genuinely mathematically undefined for this input, not
+ * merely "worked out to zero."
+ *
+ * Formulas:
+ *
+ * tradeReturn[i]   = trade[i].pnl / equityBeforeTrade[i]     (a per-trade
+ *                    percentage return, since this program has no fixed-
+ *                    period equity samples - only one equity point per
+ *                    closed trade)
+ * sharpeRatio      = mean(tradeReturn) / sampleStdDev(tradeReturn)
+ *                    null if fewer than 2 trades, or sampleStdDev = 0
+ *                    (a single repeated return has no variance to divide
+ *                    by)
+ * sortinoRatio     = mean(tradeReturn) / downsideDeviation
+ *                    downsideDeviation = sqrt(mean(min(tradeReturn[i],0)^2))
+ *                    over EVERY trade (the standard definition - a
+ *                    winning trade contributes 0, not excluded)
+ *                    null if fewer than 2 trades, or downsideDeviation = 0
+ *                    (no trade ever went negative - Sortino is undefined,
+ *                    not infinite)
+ * calmarRatio      = totalReturn(%) / maxDrawdown(%)         (both already
+ *                    percentage-denominated on CoreMetricName - see this
+ *                    file's own computeCoreMetrics doc comment)
+ *                    null if maxDrawdown = 0
+ * recoveryFactor   = netProfit (currency) / maxDrawdownCurrency
+ *                    maxDrawdownCurrency is walked independently from the
+ *                    equity curve (currency units, NOT the % maxDrawdown
+ *                    Calmar uses - a currency/currency ratio is a
+ *                    genuinely different number from a %/% one)
+ *                    null if maxDrawdownCurrency = 0
+ * ulcerIndex       = sqrt(mean(drawdownPercent[i]^2)) over EVERY equity
+ *                    curve point (not just the single worst one
+ *                    maxDrawdown uses) - the standard Ulcer Index
+ *                    definition, rewarding a smooth equity curve over one
+ *                    with the same maxDrawdown but many deep dips
+ *                    null if the equity curve has fewer than 1 point
+ */
+export interface RiskRatios {
+    readonly sharpeRatio: number | null;
+    readonly sortinoRatio: number | null;
+    readonly calmarRatio: number | null;
+    readonly recoveryFactor: number | null;
+    readonly ulcerIndex: number | null;
+}
+export interface EquityPoint {
+    readonly balance: number;
+}
+export declare function computeRiskRatios(trades: readonly SimpleTrade[], equityCurve: readonly EquityPoint[], coreMetrics: Pick<Record<CoreMetricName, number>, "totalReturn" | "maxDrawdown" | "netProfit">): RiskRatios;

@@ -275,6 +275,17 @@ export interface AlgoTestRunView {
   compiledStrategy?: AlgoTestCompiledStrategyView;
   /** P4.3 - see AlgoTestStrategyHash's own doc comment. Present for both registry and AI-compiled runs that reached EXECUTION_VALID; not persisted. */
   strategyHash?: AlgoTestStrategyHash;
+  /**
+   * P4.4 - present whenever `status === "completed"` and `trades`/
+   * `equityCurve`/`metrics` are present, for EVERY strategy source (no
+   * strategy-specific branch) - on a fresh run AND, unlike lifecycle/
+   * compiledStrategy/strategyHash, on a REOPENED one too, because every
+   * input this needs (trades/equityCurve/metrics/initialBalance) is
+   * already a persisted column on the AlgoTestRun row - `analytics`
+   * itself is never persisted, only recomputed on demand from data that
+   * already is.
+   */
+  analytics?: AlgoTestAnalyticsView;
 }
 
 /** P4 Phase 2 - POST /api/private/algo-test/ai-runs. `startTime`/`endTime` are the backtest window (ISO 8601 UTC); the strategy's own symbol/timeframe come FROM the compiled StrategySpec (the natural-language intent itself names the market, e.g. "...for XAUUSD M15..."), never a second, separately-submitted field that could disagree with what was actually compiled. */
@@ -355,3 +366,94 @@ export interface AlgoTestCompiledStrategyView {
  * never "this strategy has no identity."
  */
 export type AlgoTestStrategyHash = string;
+
+// =========================================================================
+// P4.4 (docs/P4.4-ADVANCED-ANALYTICS-FOUNDATION.md) - Advanced Analytics
+// Foundation. Every field below is a PURE PROJECTION of already-persisted
+// data (trades/equityCurve/metrics/initialBalance) - unlike lifecycle/
+// compiledStrategy/strategyHash (P4.3), `analytics` IS reconstructable on
+// a reopened run, because its inputs are already stored on the row. See
+// services/algo-test/algo-test-analytics.ts for the projection functions
+// and at24-quant-engine's computeRiskRatios() for the 5 risk ratios.
+// =========================================================================
+
+/** One equal-width bucket of the P&L distribution histogram. `rangeEnd` is exclusive except on the last bucket (inclusive), matching a standard half-open-interval histogram convention. */
+export interface AlgoTestPnlBucket {
+  rangeStart: number;
+  rangeEnd: number;
+  count: number;
+}
+
+/** P4.4 Tier 1 - winning vs. losing trades, real counts/sums/averages/medians, plus a deterministic histogram. `null` (never a fabricated 0) whenever the underlying group is empty. */
+export interface AlgoTestPnlDistributionView {
+  winCount: number;
+  lossCount: number;
+  winSum: number;
+  lossSum: number;
+  winAverage: number | null;
+  lossAverage: number | null;
+  winMedian: number | null;
+  lossMedian: number | null;
+  /** Equal-width buckets spanning [min(pnl), max(pnl)] across ALL trades (winners and losers together) - up to 10 buckets, fewer only when there are fewer than 10 trades. A single trade (or every trade sharing the exact same P&L) produces exactly one bucket covering that value - never a divide-by-zero-width bucket. Empty when there are no trades. */
+  buckets: AlgoTestPnlBucket[];
+}
+
+/** P4.4 Tier 1 - one side's (BUY or SELL) own aggregate. `averagePnl` is `null`, never 0, when `tradeCount` is 0. */
+export interface AlgoTestSideBreakdownEntry {
+  side: "BUY" | "SELL";
+  tradeCount: number;
+  /** 0-100; 0 when tradeCount is 0 (matches CoreMetricName's own winRate convention - a real, defined "no trades yet" 0, not a divide-by-zero). */
+  winRate: number;
+  netPnl: number;
+  averagePnl: number | null;
+}
+
+export interface AlgoTestSideBreakdownView {
+  buy: AlgoTestSideBreakdownEntry;
+  sell: AlgoTestSideBreakdownEntry;
+}
+
+/** P4.4 Tier 1 - one scatter-ready point: how long a trade was open vs. what it made/lost. Derived, not persisted anywhere else - AlgoTestTradeView itself carries only entryTime/exitTime. */
+export interface AlgoTestDurationPnlPoint {
+  tradeId: string;
+  durationMs: number;
+  pnl: number;
+  side: "BUY" | "SELL";
+}
+
+/** P4.4 Tier 1 - one real calendar day that had at least one trade close on it (UTC date bucket, deterministic regardless of viewer timezone). A day with NO entry in `calendar` had zero trades - never fabricated as an explicit zero-value entry (see algo-test-analytics.ts's own doc comment on why); a calendar-grid UI renders an absent date as its own "zero-trade day" state. */
+export interface AlgoTestCalendarDayEntry {
+  /** YYYY-MM-DD, UTC. */
+  date: string;
+  tradeCount: number;
+  netPnl: number;
+  outcome: "winning" | "losing" | "breakeven";
+}
+
+/**
+ * P4.4 Tier 2 - at24-quant-engine's own computeRiskRatios(), copied
+ * through verbatim. Every field is `number | null` - `null` means
+ * genuinely undefined (insufficient trades, zero variance, zero
+ * drawdown, no losing trades for Sortino's downside deviation), NEVER a
+ * misleading fabricated 0. See metrics.ts's own formula documentation
+ * for the exact, explicit definition of each ratio - all are PER-TRADE
+ * (not annualized: trades are not evenly time-spaced, so no
+ * trades-per-year factor is invented) and assume a 0 risk-free rate (a
+ * disclosed assumption, matching this program's ZeroSpread/ZeroSlippage/
+ * ZeroFee convention elsewhere).
+ */
+export interface AlgoTestRiskRatiosView {
+  sharpeRatio: number | null;
+  sortinoRatio: number | null;
+  calmarRatio: number | null;
+  recoveryFactor: number | null;
+  ulcerIndex: number | null;
+}
+
+export interface AlgoTestAnalyticsView {
+  pnlDistribution: AlgoTestPnlDistributionView;
+  sideBreakdown: AlgoTestSideBreakdownView;
+  durationVsPnl: AlgoTestDurationPnlPoint[];
+  calendar: AlgoTestCalendarDayEntry[];
+  riskRatios: AlgoTestRiskRatiosView;
+}
