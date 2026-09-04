@@ -18,6 +18,7 @@
 // needed for the registry's second strategy (ref-ema-crossover) either.
 import {
   buildLifecycleResult,
+  computeRiskRatios,
   computeSemanticStrategyHash,
   type Expression,
   type Operand,
@@ -32,6 +33,7 @@ import {
 } from "at24-quant-engine";
 import { prisma } from "@/lib/prisma";
 import type {
+  AlgoTestAnalyticsView,
   AlgoTestAssumptions,
   AlgoTestCompiledParameterView,
   AlgoTestCompiledStrategyView,
@@ -56,6 +58,8 @@ import { ClaudeProvider } from "@/lib/ai/providers/claude.provider";
 import type { AIProvider } from "@/lib/ai/provider.interface";
 import { compileNaturalLanguageStrategy } from "./nl-strategy-compiler.service";
 import type { AiCompileAndRunRequest } from "@/types/algo-test";
+// P4.4 (docs/P4.4-ADVANCED-ANALYTICS-FOUNDATION.md) - Tier 1 projections.
+import { buildCalendar, buildDurationVsPnl, buildPnlDistribution, buildSideBreakdown, toRiskRatiosView } from "./algo-test-analytics";
 
 export const DEFAULT_INITIAL_BALANCE = 10_000;
 
@@ -63,10 +67,68 @@ export const DEFAULT_INITIAL_BALANCE = 10_000;
 // cap is comfortably above the ~1,344-bar week this program has already
 // verified; 5,000 bars/request is the vendor-documented ceiling this
 // codebase has not independently re-verified beyond that one real test.
-// M5 = 288 bars/day (24h * 12), so 5,000 bars ~= 17.4 days - MAX_RANGE_DAYS
-// is set below that theoretical ceiling with real margin, not at it, so a
-// request never lands exactly on a provider truncation boundary.
-export const MAX_RANGE_DAYS = 14;
+// M5 = 288 bars/day (24h * 12), so 5,000 bars ~= 17.4 days - the original,
+// pre-P4.4 MAX_RANGE_DAYS(=14) was set below that theoretical ceiling with
+// real margin, not at it, so a request never lands exactly on a provider
+// truncation boundary. Kept below, unchanged, ONLY as the historical
+// reference point the P4.4 policy is derived FROM - every live range
+// check now goes through maxRangeDaysFor() instead.
+const HISTORICAL_M5_MAX_RANGE_DAYS = 14;
+
+/**
+ * P4.4 Phase C (docs/P4.4-ADVANCED-ANALYTICS-FOUNDATION.md) - replaces
+ * the flat, M5-only 14-day cap with a timeframe-aware one, derived from
+ * the SAME methodology the original M5 value already used (a real margin
+ * below Twelve Data's 5,000-bar/request ceiling), not a newly-invented
+ * number. Bars/day * HISTORICAL_M5_MAX_RANGE_DAYS(14) is a CONSTANT
+ * "day-budget" for every timeframe: 288 bars/day * 14 days = 4,032 bars
+ * - the exact real margin this program already shipped and live-verified
+ * for M5. Every other timeframe's own cap is that SAME 4,032-bar budget
+ * divided by its own bars/day rate, floored - not a per-timeframe guess.
+ *
+ * Disclosed limitation, honestly: only the M5 value (14 days) has ever
+ * been live-verified against the real Twelve Data API (Gate 5,
+ * P3.2A.1). The other 6 timeframes' caps are computed via the identical,
+ * documented formula, but have NOT been independently re-verified live
+ * in this program - and the 5,000-bars-per-REQUEST ceiling this is all
+ * derived from is a request-SIZE limit, not a historical-DEPTH limit;
+ * D1's own resulting ~4,032-day (~11 year) cap may still exceed what
+ * Twelve Data actually has D1 history for on this account's plan, a
+ * separate, unverified question this formula does not and cannot answer.
+ */
+// Partial, not exhaustive over every Timeframe: at24-quant-engine's own
+// Timeframe union also declares "W1"/"MN1" (weekly/monthly), but neither
+// the real historical-data provider (twelve-data-provider.ts's
+// ENGINE_TIMEFRAME_TO_TWELVE_DATA_INTERVAL) nor the AI compiler
+// (schema.ts's AI_COMPILER_SUPPORTED_TIMEFRAMES) reaches them today -
+// deliberately NOT given a bar-count entry here, rather than inventing
+// one for a timeframe this program cannot actually fetch data for (the
+// same "do not invent new provider capabilities" boundary this phase's
+// own hard constraints name explicitly).
+const BARS_PER_DAY: Partial<Readonly<Record<Timeframe, number>>> = {
+  M1: 1440,
+  M5: 288,
+  M15: 96,
+  M30: 48,
+  H1: 24,
+  H4: 6,
+  D1: 1,
+};
+const DAY_BUDGET_BARS = BARS_PER_DAY.M5! * HISTORICAL_M5_MAX_RANGE_DAYS; // 4,032 - the real, shipped, live-verified M5 margin, reused as the constant across every timeframe.
+
+/**
+ * Throws for a timeframe this program has no real provider coverage for
+ * (W1/MN1) - a real, typed guard rather than a silent NaN/Infinity, so a
+ * future caller passing one of those fails loudly here instead of
+ * producing a meaningless range cap.
+ */
+export function maxRangeDaysFor(engineTimeframe: Timeframe): number {
+  const barsPerDay = BARS_PER_DAY[engineTimeframe];
+  if (barsPerDay === undefined) {
+    throw new Error(`maxRangeDaysFor: no bar-count data for Timeframe "${engineTimeframe}" - this program's historical-data provider does not support it.`);
+  }
+  return Math.floor(DAY_BUDGET_BARS / barsPerDay);
+}
 
 const SIGNAL_TIMEFRAME_TO_ENGINE_TIMEFRAME: Readonly<Record<string, Timeframe>> = {
   "5m": "M5",
@@ -138,8 +200,9 @@ function validateRequest(request: AlgoTestRunRequest): ValidationFailure | Valid
     return { code: "INVALID_DATE_RANGE", message: "endTime cannot be in the future - this is a historical backtest, not a live/forward test." };
   }
   const rangeDays = (endTime.getTime() - startTime.getTime()) / 86_400_000;
-  if (rangeDays > MAX_RANGE_DAYS) {
-    return { code: "RANGE_TOO_LARGE", message: `Date range spans ${rangeDays.toFixed(1)} days; the maximum supported range is ${MAX_RANGE_DAYS} days per test.` };
+  const maxRangeDays = maxRangeDaysFor(engineTimeframe);
+  if (rangeDays > maxRangeDays) {
+    return { code: "RANGE_TOO_LARGE", message: `Date range spans ${rangeDays.toFixed(1)} days; the maximum supported range for ${engineTimeframe} is ${maxRangeDays} days per test.` };
   }
 
   const initialBalance = request.initialBalance ?? DEFAULT_INITIAL_BALANCE;
@@ -287,6 +350,31 @@ function buildAssumptions(result: SimulationResult): AlgoTestAssumptions {
 
 function toEquityCurveView(equityCurve: readonly { timestamp: number; balance: number }[]): AlgoTestEquityPoint[] {
   return equityCurve.map((p) => ({ timestamp: p.timestamp, balance: p.balance }));
+}
+
+/**
+ * P4.4 - the ONE place a completed run's Tier 1 + Tier 2 analytics are
+ * assembled, for every strategy source (no strategyId branch) - called
+ * from runAlgoTest's own success path, compileAndRunAiStrategy's own
+ * success path, AND getAlgoTestRun's reopen path (see
+ * AlgoTestRunView.analytics's own doc comment for why reopen works here
+ * unlike lifecycle/compiledStrategy/strategyHash). Every input is data
+ * already computed/persisted elsewhere - trades/equityCurve/metrics -
+ * this function performs no I/O and mutates nothing.
+ */
+function buildAnalyticsView(trades: readonly AlgoTestTradeView[], equityCurve: readonly AlgoTestEquityPoint[], metrics: AlgoTestMetricsView): AlgoTestAnalyticsView {
+  const riskRatios = computeRiskRatios(
+    trades.map((t) => ({ pnl: t.pnl })),
+    equityCurve.map((p) => ({ balance: p.balance })),
+    { totalReturn: metrics.totalReturn, maxDrawdown: metrics.maxDrawdown, netProfit: metrics.netProfit },
+  );
+  return {
+    pnlDistribution: buildPnlDistribution(trades),
+    sideBreakdown: buildSideBreakdown(trades),
+    durationVsPnl: buildDurationVsPnl(trades),
+    calendar: buildCalendar(trades),
+    riskRatios: toRiskRatiosView(riskRatios),
+  };
 }
 
 // P4.3 (docs/P4.3-SURFACE-THE-FOUNDATION.md) - a generic, recursive
@@ -517,6 +605,7 @@ export const algoTestService = {
         lifecycle,
         compiledStrategy: toCompiledStrategyView(strategySpec),
         strategyHash: computeSemanticStrategyHash(strategySpec),
+        analytics: buildAnalyticsView(trades, equityCurve, metrics),
         createdAt: row.createdAt.toISOString(),
       };
     } catch (err) {
@@ -595,6 +684,17 @@ export const algoTestService = {
       errorMessage: row.errorMessage ?? undefined,
       createdAt: row.createdAt.toISOString(),
     };
+
+    // P4.4 - unlike candles (below, a live re-fetch) and unlike
+    // lifecycle/compiledStrategy/strategyHash (P4.3, never reconstructed
+    // on reopen at all), analytics needs no network call and no data
+    // this row doesn't already persist - trades/equityCurve/metrics are
+    // real, already-stored JSON columns. Computed unconditionally
+    // whenever all three are present, regardless of whether the
+    // best-effort candle re-fetch below succeeds.
+    if (row.status === "completed" && view.trades && view.equityCurve && view.metrics) {
+      view.analytics = buildAnalyticsView(view.trades, view.equityCurve, view.metrics);
+    }
 
     if (row.status === "completed") {
       const engineTimeframe = SIGNAL_TIMEFRAME_TO_ENGINE_TIMEFRAME[row.timeframe];
@@ -678,8 +778,15 @@ export const algoTestService = {
     if (Number.isNaN(startTime.getTime()) || Number.isNaN(endTime.getTime())) return fail("INVALID_DATE_RANGE", "startTime/endTime could not be parsed as dates.");
     if (startTime.getTime() >= endTime.getTime()) return fail("INVALID_DATE_RANGE", "startTime must be before endTime.");
     if (endTime.getTime() > Date.now()) return fail("INVALID_DATE_RANGE", "endTime cannot be in the future - this is a historical backtest, not a live/forward test.");
-    const rangeDays = (endTime.getTime() - startTime.getTime()) / 86_400_000;
-    if (rangeDays > MAX_RANGE_DAYS) return fail("RANGE_TOO_LARGE", `Date range spans ${rangeDays.toFixed(1)} days; the maximum supported range is ${MAX_RANGE_DAYS} days per test.`);
+    // P4.4 Phase C - the range cap is now timeframe-aware (maxRangeDaysFor),
+    // and the AI compiler - unlike a registry request, which already names
+    // its own timeframe - does not know which real engine Timeframe it
+    // will choose until AFTER compilation completes (the natural-language
+    // request itself names the market/timeframe, e.g. "...on XAUUSD
+    // M15..."). The date-range-vs-cap check is therefore deliberately
+    // deferred to just after compilation succeeds, below, once `timeframe`
+    // is a real, known value - never checked against a guessed or
+    // worst-case timeframe here.
     const initialBalance = request.initialBalance ?? DEFAULT_INITIAL_BALANCE;
     if (!Number.isFinite(initialBalance) || initialBalance <= 0) return fail("INVALID_INITIAL_BALANCE", "initialBalance must be a finite, positive number.");
 
@@ -722,6 +829,38 @@ export const algoTestService = {
       const message = compilation.stages.find((s) => s.outcome === "FAILED")?.detail ?? "Compilation did not reach EXECUTION_VALID";
       await prisma.algoTestRun.update({ where: { id: row.id }, data: { status: "failed", errorCode: "INVALID_STRATEGY", errorMessage: message, completedAt: new Date() } });
       return { testId: row.id, status: "failed", strategyId: "ai-generated", parameters: { intent: request.intent }, symbol, timeframe, startTime: request.startTime, endTime: request.endTime, initialBalance, errorCode: "INVALID_STRATEGY", errorMessage: message, lifecycle, createdAt: row.createdAt.toISOString() };
+    }
+
+    // P4.4 Phase C - now that compilation succeeded and `timeframe` is a
+    // real, known engine Timeframe, the deferred range-vs-cap check (see
+    // this function's own top, above) finally runs. A real StrategySpec
+    // was already compiled here - this is genuinely a DATA_VALID-stage
+    // failure (a valid strategy, no valid window to run it in), not an
+    // EXECUTION_VALID one, so it reuses buildDataValidFailureLifecycle
+    // exactly like a real provider/data error would.
+    const rangeDays = (endTime.getTime() - startTime.getTime()) / 86_400_000;
+    const maxRangeDays = maxRangeDaysFor(timeframe as Timeframe);
+    if (rangeDays > maxRangeDays) {
+      const message = `Date range spans ${rangeDays.toFixed(1)} days; the maximum supported range for ${timeframe} is ${maxRangeDays} days per test.`;
+      const lifecycle = buildDataValidFailureLifecycle(compilation.stages, message);
+      await prisma.algoTestRun.update({ where: { id: row.id }, data: { status: "failed", errorCode: "RANGE_TOO_LARGE", errorMessage: message, completedAt: new Date() } });
+      return {
+        testId: row.id,
+        status: "failed",
+        strategyId: "ai-generated",
+        parameters: { intent: request.intent },
+        compiledStrategy: toCompiledStrategyView(compilation.compiledSpec),
+        strategyHash: computeSemanticStrategyHash(compilation.compiledSpec),
+        symbol,
+        timeframe,
+        startTime: request.startTime,
+        endTime: request.endTime,
+        initialBalance,
+        errorCode: "RANGE_TOO_LARGE",
+        errorMessage: message,
+        lifecycle,
+        createdAt: row.createdAt.toISOString(),
+      };
     }
 
     try {
@@ -782,6 +921,7 @@ export const algoTestService = {
         lifecycle,
         compiledStrategy: toCompiledStrategyView(compilation.compiledSpec),
         strategyHash: computeSemanticStrategyHash(compilation.compiledSpec),
+        analytics: buildAnalyticsView(trades, equityCurve, metrics),
         createdAt: row.createdAt.toISOString(),
       };
     } catch (err) {
