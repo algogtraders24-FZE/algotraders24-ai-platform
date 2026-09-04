@@ -202,14 +202,14 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
   // P3.3 - Result Detail Page reopen: a persisted result survives a
   // refresh because its testId round-trips through the URL query string
   // (see handleSubmit's history.replaceState below). This re-fetches the
-  // PERSISTED run only - never re-runs the engine. P4.3 audit finding
-  // (docs/P4.3-SURFACE-THE-FOUNDATION.md section 11): `lifecycle`,
-  // `compiledStrategy` and `strategyHash` are NOT persisted to the
-  // AlgoTestRun row (a deliberate, disclosed P3.8/P4.2 scope choice -
-  // see those fields' own doc comments in types/algo-test.ts) - a
-  // reopened run genuinely comes back WITHOUT them. The result
-  // components below render an explicit "unavailable on a reopened run"
-  // state for exactly this case, never a fabricated one.
+  // PERSISTED run only - never re-runs the engine. P4.3 disclosed that
+  // `lifecycle`, `compiledStrategy` and `strategyHash` were NOT persisted
+  // to the AlgoTestRun row; P4.5 (docs/P4.5-STRATEGY-RUN-IDENTITY-PERSISTENCE.md)
+  // closed that gap - all three now round-trip through a reopen for any
+  // run created after this phase shipped. A pre-P4.5 row genuinely still
+  // comes back WITHOUT them (never backfilled with a guess), and the
+  // result components below still render an explicit "unavailable" state
+  // for exactly that case, never a fabricated one.
   useEffect(() => {
     const testId = new URLSearchParams(window.location.search).get(REOPEN_QUERY_PARAM);
     if (!testId) return;
@@ -1146,7 +1146,7 @@ function LifecycleSection({ lifecycle }: { lifecycle: AlgoTestLifecycleResult | 
       <div className="rounded-control border border-dashed border-border bg-ink px-2.5 py-2">
         <p className={FIN_LABEL}>Validation &amp; Evidence</p>
         <p className="mt-1 text-[11px] text-text-3">
-          Unavailable - lifecycle/evidence data is not persisted across a page reload this phase (see docs/P4.3-SURFACE-THE-FOUNDATION.md section 11). Re-run to see it again.
+          Unavailable - this run predates lifecycle/evidence persistence (see docs/P4.5-STRATEGY-RUN-IDENTITY-PERSISTENCE.md). Re-run to record it.
         </p>
       </div>
     );
@@ -1242,7 +1242,7 @@ function CompiledStrategyCard({ strategy, strategyName, run }: { strategy: AlgoT
     return (
       <div className="rounded-control border border-dashed border-border bg-ink px-2.5 py-2">
         <p className={FIN_LABEL}>Compiled Strategy</p>
-        <p className="mt-1 text-[11px] text-text-3">Unavailable - not persisted across a page reload this phase (see the Validation &amp; Evidence note above).</p>
+        <p className="mt-1 text-[11px] text-text-3">Unavailable - this run predates compiled-strategy persistence (see the Validation &amp; Evidence note above).</p>
       </div>
     );
   }

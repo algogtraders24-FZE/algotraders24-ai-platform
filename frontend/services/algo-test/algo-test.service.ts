@@ -39,6 +39,7 @@ import type {
   AlgoTestCompiledStrategyView,
   AlgoTestEquityPoint,
   AlgoTestErrorCode,
+  AlgoTestLifecycleResult,
   AlgoTestMetricsView,
   AlgoTestParameterValues,
   AlgoTestRunRequest,
@@ -567,6 +568,8 @@ export const algoTestService = {
       const assumptions = buildAssumptions(outcome.result);
       const engineVersion = outcome.result.provenance.runtimeVersion;
       const lifecycle = buildRunLifecycle(strategy.importLifecycle, outcome);
+      const compiledStrategy = toCompiledStrategyView(strategySpec);
+      const strategyHash = computeSemanticStrategyHash(strategySpec);
 
       await prisma.algoTestRun.update({
         where: { id: row.id },
@@ -579,6 +582,12 @@ export const algoTestService = {
           trades: trades as unknown as object,
           equityCurve: equityCurve as unknown as object,
           assumptions: assumptions as object,
+          // P4.5 - already computed above for the response below; written
+          // once, here, at the same completion write - never a second
+          // round trip.
+          strategyHash,
+          lifecycle: lifecycle as unknown as object,
+          compiledStrategy: compiledStrategy as unknown as object,
           completedAt: new Date(),
         },
       });
@@ -603,8 +612,8 @@ export const algoTestService = {
         assumptions,
         candles: toChartCandles(outcome.bars),
         lifecycle,
-        compiledStrategy: toCompiledStrategyView(strategySpec),
-        strategyHash: computeSemanticStrategyHash(strategySpec),
+        compiledStrategy,
+        strategyHash,
         analytics: buildAnalyticsView(trades, equityCurve, metrics),
         createdAt: row.createdAt.toISOString(),
       };
@@ -612,9 +621,27 @@ export const algoTestService = {
       const message = err instanceof Error ? err.message : String(err);
       const code = toAlgoTestErrorCode(message);
       const lifecycle = buildDataValidFailureLifecycle(strategy.importLifecycle, message);
+      // P4.3 - the strategy itself was successfully built (this is a
+      // DATA_VALID failure, not an EXECUTION_VALID one) - showing it lets
+      // the user see exactly what was ABOUT to run even though no data
+      // was available to run it against, rather than an empty "strategy"
+      // section next to an otherwise-informative failure.
+      const compiledStrategy = toCompiledStrategyView(strategySpec);
+      const strategyHash = computeSemanticStrategyHash(strategySpec);
       await prisma.algoTestRun.update({
         where: { id: row.id },
-        data: { status: "failed", errorCode: code, errorMessage: message, completedAt: new Date() },
+        data: {
+          status: "failed",
+          errorCode: code,
+          errorMessage: message,
+          // P4.5 - a DATA_VALID failure still has a real, resolved
+          // strategy identity worth persisting - same rationale as the
+          // response fields below, just also written to the row.
+          strategyHash,
+          lifecycle: lifecycle as unknown as object,
+          compiledStrategy: compiledStrategy as unknown as object,
+          completedAt: new Date(),
+        },
       });
       return {
         testId: row.id,
@@ -630,13 +657,8 @@ export const algoTestService = {
         errorCode: code,
         errorMessage: message,
         lifecycle,
-        // P4.3 - the strategy itself was successfully built (this is a
-        // DATA_VALID failure, not an EXECUTION_VALID one) - showing it
-        // lets the user see exactly what was ABOUT to run even though no
-        // data was available to run it against, rather than an empty
-        // "strategy" section next to an otherwise-informative failure.
-        compiledStrategy: toCompiledStrategyView(strategySpec),
-        strategyHash: computeSemanticStrategyHash(strategySpec),
+        compiledStrategy,
+        strategyHash,
         createdAt: row.createdAt.toISOString(),
       };
     }
@@ -682,16 +704,24 @@ export const algoTestService = {
       assumptions: (row.assumptions as AlgoTestAssumptions | null) ?? undefined,
       errorCode: (row.errorCode as AlgoTestErrorCode | null) ?? undefined,
       errorMessage: row.errorMessage ?? undefined,
+      // P4.5 - genuinely persisted (docs/P4.5-STRATEGY-RUN-IDENTITY-PERSISTENCE.md).
+      // `undefined` here means this row predates P4.5 and was never
+      // backfilled with a guess - never "this run had no identity."
+      strategyHash: row.strategyHash ?? undefined,
+      lifecycle: (row.lifecycle as AlgoTestLifecycleResult | null) ?? undefined,
+      compiledStrategy: (row.compiledStrategy as AlgoTestCompiledStrategyView | null) ?? undefined,
       createdAt: row.createdAt.toISOString(),
     };
 
-    // P4.4 - unlike candles (below, a live re-fetch) and unlike
-    // lifecycle/compiledStrategy/strategyHash (P4.3, never reconstructed
-    // on reopen at all), analytics needs no network call and no data
-    // this row doesn't already persist - trades/equityCurve/metrics are
-    // real, already-stored JSON columns. Computed unconditionally
-    // whenever all three are present, regardless of whether the
-    // best-effort candle re-fetch below succeeds.
+    // P4.4 - unlike candles (below, a live re-fetch), analytics needs no
+    // network call and no data this row doesn't already persist -
+    // trades/equityCurve/metrics are real, already-stored JSON columns.
+    // Computed unconditionally whenever all three are present, regardless
+    // of whether the best-effort candle re-fetch below succeeds. (Before
+    // P4.5 this was the one field that survived reopen while
+    // lifecycle/compiledStrategy/strategyHash did not - P4.5 closed that
+    // gap for the other three above by reading persisted columns instead
+    // of recomputing; analytics itself is still never persisted.)
     if (row.status === "completed" && view.trades && view.equityCurve && view.metrics) {
       view.analytics = buildAnalyticsView(view.trades, view.equityCurve, view.metrics);
     }
@@ -738,6 +768,13 @@ export const algoTestService = {
       metrics: (row.metrics as AlgoTestMetricsView | null) ?? undefined,
       errorCode: (row.errorCode as AlgoTestErrorCode | null) ?? undefined,
       errorMessage: row.errorMessage ?? undefined,
+      // P4.5 - the one identity field worth including in the lightweight
+      // list view: small (a string, not a JSON blob like
+      // lifecycle/compiledStrategy, which stay out of this summary - same
+      // reasoning that already excludes trades/equityCurve here), and
+      // exactly the grouping/comparison key a future run-history/library
+      // feature needs. `undefined` for a pre-P4.5 row, never fabricated.
+      strategyHash: row.strategyHash ?? undefined,
       createdAt: row.createdAt.toISOString(),
     }));
   },
@@ -827,7 +864,9 @@ export const algoTestService = {
       }
       const lifecycle = buildLifecycleResult(byName);
       const message = compilation.stages.find((s) => s.outcome === "FAILED")?.detail ?? "Compilation did not reach EXECUTION_VALID";
-      await prisma.algoTestRun.update({ where: { id: row.id }, data: { status: "failed", errorCode: "INVALID_STRATEGY", errorMessage: message, completedAt: new Date() } });
+      // P4.5 - genuinely no compiledStrategy/strategyHash to persist here
+      // (no StrategySpec was ever produced) - only `lifecycle` is real.
+      await prisma.algoTestRun.update({ where: { id: row.id }, data: { status: "failed", errorCode: "INVALID_STRATEGY", errorMessage: message, lifecycle: lifecycle as unknown as object, completedAt: new Date() } });
       return { testId: row.id, status: "failed", strategyId: "ai-generated", parameters: { intent: request.intent }, symbol, timeframe, startTime: request.startTime, endTime: request.endTime, initialBalance, errorCode: "INVALID_STRATEGY", errorMessage: message, lifecycle, createdAt: row.createdAt.toISOString() };
     }
 
@@ -843,14 +882,27 @@ export const algoTestService = {
     if (rangeDays > maxRangeDays) {
       const message = `Date range spans ${rangeDays.toFixed(1)} days; the maximum supported range for ${timeframe} is ${maxRangeDays} days per test.`;
       const lifecycle = buildDataValidFailureLifecycle(compilation.stages, message);
-      await prisma.algoTestRun.update({ where: { id: row.id }, data: { status: "failed", errorCode: "RANGE_TOO_LARGE", errorMessage: message, completedAt: new Date() } });
+      const compiledStrategy = toCompiledStrategyView(compilation.compiledSpec);
+      const strategyHash = computeSemanticStrategyHash(compilation.compiledSpec);
+      await prisma.algoTestRun.update({
+        where: { id: row.id },
+        data: {
+          status: "failed",
+          errorCode: "RANGE_TOO_LARGE",
+          errorMessage: message,
+          strategyHash,
+          lifecycle: lifecycle as unknown as object,
+          compiledStrategy: compiledStrategy as unknown as object,
+          completedAt: new Date(),
+        },
+      });
       return {
         testId: row.id,
         status: "failed",
         strategyId: "ai-generated",
         parameters: { intent: request.intent },
-        compiledStrategy: toCompiledStrategyView(compilation.compiledSpec),
-        strategyHash: computeSemanticStrategyHash(compilation.compiledSpec),
+        compiledStrategy,
+        strategyHash,
         symbol,
         timeframe,
         startTime: request.startTime,
@@ -883,6 +935,8 @@ export const algoTestService = {
       const assumptions = buildAssumptions(outcome.result);
       const engineVersion = outcome.result.provenance.runtimeVersion;
       const lifecycle = buildRunLifecycle(compilation.stages, outcome);
+      const compiledStrategy = toCompiledStrategyView(compilation.compiledSpec);
+      const strategyHash = computeSemanticStrategyHash(compilation.compiledSpec);
 
       await prisma.algoTestRun.update({
         where: { id: row.id },
@@ -895,6 +949,9 @@ export const algoTestService = {
           trades: trades as unknown as object,
           equityCurve: equityCurve as unknown as object,
           assumptions: assumptions as object,
+          strategyHash,
+          lifecycle: lifecycle as unknown as object,
+          compiledStrategy: compiledStrategy as unknown as object,
           completedAt: new Date(),
         },
       });
@@ -919,8 +976,8 @@ export const algoTestService = {
         assumptions,
         candles: toChartCandles(outcome.bars),
         lifecycle,
-        compiledStrategy: toCompiledStrategyView(compilation.compiledSpec),
-        strategyHash: computeSemanticStrategyHash(compilation.compiledSpec),
+        compiledStrategy,
+        strategyHash,
         analytics: buildAnalyticsView(trades, equityCurve, metrics),
         createdAt: row.createdAt.toISOString(),
       };
@@ -928,17 +985,30 @@ export const algoTestService = {
       const message = err instanceof Error ? err.message : String(err);
       const code = toAlgoTestErrorCode(message);
       const lifecycle = buildDataValidFailureLifecycle(compilation.stages, message);
-      await prisma.algoTestRun.update({ where: { id: row.id }, data: { status: "failed", errorCode: code, errorMessage: message, completedAt: new Date() } });
+      // P4.3 - the compiled strategy DID exist here (this is a
+      // DATA_VALID failure, after EXECUTION_VALID already passed) - see
+      // the identical rationale on runAlgoTest's own catch block above.
+      const compiledStrategy = toCompiledStrategyView(compilation.compiledSpec);
+      const strategyHash = computeSemanticStrategyHash(compilation.compiledSpec);
+      await prisma.algoTestRun.update({
+        where: { id: row.id },
+        data: {
+          status: "failed",
+          errorCode: code,
+          errorMessage: message,
+          strategyHash,
+          lifecycle: lifecycle as unknown as object,
+          compiledStrategy: compiledStrategy as unknown as object,
+          completedAt: new Date(),
+        },
+      });
       return {
         testId: row.id,
         status: "failed",
         strategyId: "ai-generated",
         parameters: { intent: request.intent },
-        // P4.3 - the compiled strategy DID exist here (this is a
-        // DATA_VALID failure, after EXECUTION_VALID already passed) - see
-        // the identical rationale on runAlgoTest's own catch block above.
-        compiledStrategy: toCompiledStrategyView(compilation.compiledSpec),
-        strategyHash: computeSemanticStrategyHash(compilation.compiledSpec),
+        compiledStrategy,
+        strategyHash,
         symbol,
         timeframe,
         startTime: request.startTime,

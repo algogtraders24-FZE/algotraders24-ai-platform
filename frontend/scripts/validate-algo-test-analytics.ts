@@ -243,13 +243,14 @@ async function main() {
     assert.equal(run.analytics!.pnlDistribution.winCount + run.analytics!.pnlDistribution.lossCount <= run.trades!.length, true);
   });
 
-  await test("reopening the SAME run recomputes analytics from persisted trades/equity/metrics - unlike lifecycle/compiledStrategy/strategyHash, which stay absent on reopen (the P4.3-established gap)", async () => {
+  await test("reopening the SAME run recomputes analytics from persisted trades/equity/metrics, AND (as of P4.5) reconstructs lifecycle/compiledStrategy/strategyHash from their own now-persisted columns - the P4.3-established gap this test used to document was closed by docs/P4.5-STRATEGY-RUN-IDENTITY-PERSISTENCE.md", async () => {
     const reopened = await algoTestService.getAlgoTestRun(user.id, freshRun!.testId);
     assert.ok(reopened);
     assert.ok(reopened!.analytics, "analytics must survive a reopen - all its inputs (trades/equityCurve/metrics) are already persisted columns");
     assert.deepEqual(reopened!.analytics, freshRun!.analytics, "recomputing from the same persisted inputs must be deterministic - byte-identical to the original response");
-    assert.equal(reopened!.lifecycle, undefined, "lifecycle is still genuinely NOT reconstructed on reopen (P4.3's own disclosed gap) - P4.4 must not have silently changed that");
-    assert.equal(reopened!.compiledStrategy, undefined);
+    assert.deepEqual(reopened!.lifecycle, freshRun!.lifecycle, "P4.5 - lifecycle is now read back from its own persisted column, byte-identical to the original response");
+    assert.deepEqual(reopened!.compiledStrategy, freshRun!.compiledStrategy, "P4.5 - compiledStrategy is now read back from its own persisted column, byte-identical to the original response");
+    assert.equal(reopened!.strategyHash, freshRun!.strategyHash);
   });
 
   await test("Phase C proof: a 60-day range is REJECTED for a fast timeframe's flat old cap but ACCEPTED once the AI compiles to a slower timeframe (H1, real cap 168 days) - the exact behavior change this phase makes", async () => {
