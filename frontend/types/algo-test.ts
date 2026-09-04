@@ -247,11 +247,17 @@ export interface AlgoTestRunView {
    * stages (IMPORTED/PARSED/IR_VALID/EXECUTION_VALID/DATA_VALID/
    * BACKTEST_VALID/REPRODUCIBLE/EVIDENCE_VERIFIED) this specific request
    * reached, and the real, specific reason for the first one that failed,
-   * if any. Deliberately NOT reconstructed on GET .../[id] reopen or in
-   * the run-list view this phase (REPRODUCIBLE would require re-running
-   * the simulation a second time on every reopen, which this phase does
-   * not do) - `undefined` there means "not (yet) recomputed on reopen,"
-   * never "this run had no lifecycle."
+   * if any.
+   *
+   * P4.5 (docs/P4.5-STRATEGY-RUN-IDENTITY-PERSISTENCE.md) - now genuinely
+   * PERSISTED, closing the gap this comment used to describe (REPRODUCIBLE
+   * is still never re-verified by re-running the simulation on reopen -
+   * the persisted value is the ORIGINAL run's own lifecycle result,
+   * written once and read back verbatim, never re-derived from strategyId
+   * after the fact so a later registry change can't alter a past run's
+   * recorded lifecycle). `undefined` on a reopened run now means exactly
+   * one honest thing: this row predates P4.5 and was never backfilled
+   * with a guess - never "this run had no lifecycle."
    */
   lifecycle?: AlgoTestLifecycleResult;
   errorCode?: AlgoTestErrorCode;
@@ -268,22 +274,27 @@ export interface AlgoTestRunView {
    * request really did compile and run different entry rules than an
    * "EMA 20/50" one), not just that SOME backtest completed. Absent only
    * when there is genuinely no StrategySpec to show - a pure validation
-   * failure, or an AI compilation that never reached EXECUTION_VALID. Not
-   * persisted - see `lifecycle`'s own doc comment above; the same
-   * "undefined on reopen means not recomputed, not absent" rule applies.
+   * failure, or an AI compilation that never reached EXECUTION_VALID.
+   *
+   * P4.5 - now genuinely persisted; see `lifecycle`'s own doc comment
+   * above for the same "undefined on reopen means pre-P4.5, not absent"
+   * rule.
    */
   compiledStrategy?: AlgoTestCompiledStrategyView;
-  /** P4.3 - see AlgoTestStrategyHash's own doc comment. Present for both registry and AI-compiled runs that reached EXECUTION_VALID; not persisted. */
+  /** P4.3 - see AlgoTestStrategyHash's own doc comment. Present for both registry and AI-compiled runs that reached EXECUTION_VALID. P4.5 - now genuinely persisted and indexed (AlgoTestRun_userId_strategyHash_idx); see `lifecycle`'s own doc comment for the reopen convention. */
   strategyHash?: AlgoTestStrategyHash;
   /**
    * P4.4 - present whenever `status === "completed"` and `trades`/
    * `equityCurve`/`metrics` are present, for EVERY strategy source (no
-   * strategy-specific branch) - on a fresh run AND, unlike lifecycle/
-   * compiledStrategy/strategyHash, on a REOPENED one too, because every
-   * input this needs (trades/equityCurve/metrics/initialBalance) is
-   * already a persisted column on the AlgoTestRun row - `analytics`
-   * itself is never persisted, only recomputed on demand from data that
-   * already is.
+   * strategy-specific branch) - on a fresh run AND on a reopened one too,
+   * because every input this needs (trades/equityCurve/metrics/
+   * initialBalance) is already a persisted column on the AlgoTestRun row -
+   * `analytics` itself is never persisted, only recomputed on demand from
+   * data that already is. (Before P4.5 this was the one field that
+   * survived reopen while lifecycle/compiledStrategy/strategyHash did
+   * not; P4.5 closed that gap for the other three by persisting them
+   * directly instead of recomputing them - a different mechanism, the
+   * same reopen guarantee.)
    */
   analytics?: AlgoTestAnalyticsView;
 }
@@ -360,9 +371,14 @@ export interface AlgoTestCompiledStrategyView {
  * OR freshly-failed-after-EXECUTION_VALID run's own POST response, for
  * BOTH registry and AI-compiled strategies - the same "one mechanism for
  * every strategy source" discipline P3.8/P4 Phase 2 already established
- * for `lifecycle`. Like `lifecycle` and `compiledStrategy`, this is NOT
- * persisted (see AlgoTestRunView.lifecycle's own doc comment for why) -
- * `undefined` on a reopened run means "not (yet) recomputed on reopen,"
+ * for `lifecycle`.
+ *
+ * P4.5 - now persisted verbatim (AlgoTestRun.strategyHash) and indexed
+ * per-user (AlgoTestRun_userId_strategyHash_idx), so a future run-history/
+ * library/optimization feature can group or compare a user's own runs by
+ * exact strategy identity. Deliberately still the SAME hash function and
+ * SAME semantic meaning - P4.5 added persistence, not a new identity
+ * concept. `undefined` on a reopened run means the row predates P4.5,
  * never "this strategy has no identity."
  */
 export type AlgoTestStrategyHash = string;

@@ -1256,10 +1256,41 @@ model AlgoTestRun {
   trades         Json?
   equityCurve    Json?
   assumptions    Json?
+  // P4.5 - Strategy & Run Identity Persistence. All three were already
+  // COMPUTED on every request since P3.8/P4.3 (buildRunLifecycle /
+  // toCompiledStrategyView / computeSemanticStrategyHash) but never
+  // written to this row - a disclosed P4.3 gap: a reopened run genuinely
+  // could not show them. Written exactly once, at the same update() call
+  // that already sets metrics/trades/equityCurve above - never a second
+  // write, never recomputed differently after the fact. Nullable: every
+  // pre-P4.5 row genuinely predates this field and is never backfilled
+  // with a guess, same convention as `parameters` (P3.4) above.
+  //
+  // strategyHash: the semantic identity of the exact StrategySpec this
+  // run executed (computeSemanticStrategyHash - excludes metadata,
+  // INCLUDES risk/parameter values, since those are nested StrategySpec
+  // fields). Deliberately reuses this one, already-real, already-wired
+  // function - not the separate, still-unconsumed
+  // computeStrategyIdentityHash/computeExperimentIdentityHash the engine
+  // also declares (Q0.2.10/Q0.2.12 - reserved for a future
+  // experiment/optimization identity, out of P4.5's bounded scope).
+  // Indexed (see @@index below) so a future run-history/library/
+  // optimization feature can group or compare runs by exact strategy
+  // identity without a new abstraction.
+  strategyHash     String?
+  // lifecycle: the full 8-stage StrategyLifecycleResult (P3.8) this run
+  // reached, exactly as first computed - not re-derived from strategyId
+  // after the fact (a later registry change must never alter a past
+  // run's own recorded lifecycle).
+  lifecycle        Json?
+  // compiledStrategy: the human-readable AlgoTestCompiledStrategyView
+  // (P4.3) of the exact resolved StrategySpec this run executed.
+  compiledStrategy Json?
   errorCode      String?
   errorMessage   String?
   createdAt      DateTime  @default(now())
   completedAt    DateTime?
 
   @@index([userId, createdAt])
+  @@index([userId, strategyHash])
 }
