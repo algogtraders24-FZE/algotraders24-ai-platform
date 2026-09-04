@@ -317,8 +317,19 @@ export interface AlgoTestCompiledParameterView {
 export interface AlgoTestCompiledStrategyView {
   name: string;
   version: string;
-  symbol?: string;
-  timeframe?: string;
+  /**
+   * Deliberately NO symbol/timeframe field here. A real, this-session
+   * finding (caught by an actual UI screenshot, not by the offline
+   * scripts): `StrategySpec.instruments`/`timeframes` are reliable as
+   * "the real market this run traded" for an AI-compiled strategy, but
+   * for an engine-reference registry strategy they can be the engine's
+   * OWN internal fixture identity (e.g. Golden Strategy's real spec
+   * declares `instruments: [{symbol:"SIMFIXTURE"}]`, `timeframes:["H1"]`
+   * - at24-quant-engine/src/reference/golden-strategy.ts - unrelated to
+   * what it actually ran against). `AlgoTestRunView.symbol`/`.timeframe`
+   * are the one authoritative source for every strategy source (always
+   * set from the real request), never re-derived from the spec here.
+   */
   /** Human-readable description of every BUY entryRule's condition, joined; absent if the spec declares no BUY entry rule. */
   longEntry?: string;
   /** Human-readable description of every SELL entryRule's condition, joined; absent if the spec declares no SELL entry rule. */

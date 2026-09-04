@@ -374,8 +374,9 @@ export function toCompiledStrategyView(spec: StrategySpec): AlgoTestCompiledStra
   return {
     name: spec.identity.name,
     version: spec.version,
-    ...(spec.instruments[0]?.symbol ? { symbol: spec.instruments[0].symbol } : {}),
-    ...(spec.timeframes[0] ? { timeframe: spec.timeframes[0] } : {}),
+    // No symbol/timeframe here - see AlgoTestCompiledStrategyView's own
+    // doc comment. AlgoTestRunView.symbol/.timeframe (set from the real
+    // request, for every strategy source) is the one authoritative field.
     ...(longEntries.length > 0 ? { longEntry: longEntries.join("; ") } : {}),
     ...(shortEntries.length > 0 ? { shortEntry: shortEntries.join("; ") } : {}),
     exit,

@@ -303,9 +303,16 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
       // silently dropped: results still render below, just not
       // overlaid on a mismatched chart.
       setConfigOpen(false);
-    } else {
-      setError(result.errorMessage ?? "The test did not complete.");
     }
+    // A handled `status: "failed"` result is NOT set as the top-level
+    // `error` (a real bug this phase's own visual QA caught: doing so
+    // hid AlgoTestResults - and with it the failure's real lifecycle
+    // detail and any compiled-strategy-before-the-failure - behind a
+    // duplicate, less informative banner). `run` already holds the
+    // failed result; AlgoTestResults renders its own, more detailed
+    // failure state from it. `error` stays reserved for a genuinely
+    // thrown exception (handleSubmit's catch block, below), where no
+    // `run` object exists at all to render.
   }
 
   async function handleSubmit() {
@@ -371,13 +378,12 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
         </p>
       )}
 
-      {!reopening && run && error === undefined && (
-        <AlgoTestResults run={run} fallbackStrategyLabel={strategyLabel} selectedTradeId={selectedTradeId} onSelectTrade={onSelectTrade} activePaneSymbol={symbol} />
-      )}
+      {!reopening && run && <AlgoTestResults run={run} fallbackStrategyLabel={strategyLabel} selectedTradeId={selectedTradeId} onSelectTrade={onSelectTrade} activePaneSymbol={symbol} />}
 
+      {/* `error` is reserved for a genuinely thrown exception (network/transport failure) - handleSubmit's catch block, where no `run` object exists at all. A HANDLED `run.status === "failed"` result renders its own, more detailed failure state inside AlgoTestResults above, never here. */}
       {error && (
         <div className="mt-2 rounded-control border border-danger/30 bg-danger/10 px-2.5 py-2">
-          <p className={`${FIN_LABEL} text-danger`}>Run failed</p>
+          <p className={`${FIN_LABEL} text-danger`}>Request failed</p>
           <p className="mt-1 text-[11px] text-danger">{error}</p>
         </div>
       )}
@@ -499,7 +505,10 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
             Real historical data via Twelve Data. Execution assumptions (spread/slippage/fees are zero-cost placeholders; margin is not enforced) are shown with every result - never
             claimed to be broker-realistic.
           </p>
-          {error && <p className="text-[11px] text-danger">{error}</p>}
+          {/* Both a thrown exception (`error`) and the last HANDLED failed run's own real errorMessage surface here, so the modal itself always explains a failed attempt without needing to be closed first - the fuller failure detail (lifecycle, compiled-strategy-if-any) is in AlgoTestResults, below the modal, once closed. */}
+          {(error ?? (run?.status === "failed" ? run.errorMessage : undefined)) && (
+            <p className="text-[11px] text-danger">{error ?? run?.errorMessage}</p>
+          )}
           <div className="flex justify-end gap-2 pt-1">
             <button type="button" onClick={() => setConfigOpen(false)} className="rounded-control border border-border px-3 py-1.5 text-xs text-text-2">
               Cancel
@@ -982,7 +991,8 @@ function CompiledStrategyCard({ strategy, strategyName, run }: { strategy: AlgoT
           {strategy.name} <span className="text-text-3">v{strategy.version}</span>
         </p>
         <dl className="mt-1.5 grid grid-cols-1 gap-x-3 gap-y-1 text-[11px] sm:grid-cols-2">
-          <Field label="Symbol / Timeframe" value={strategy.symbol && strategy.timeframe ? `${strategy.symbol} · ${timeframeLabel(strategy.timeframe)}` : undefined} />
+          {/* run.symbol/.timeframe, NOT strategy.symbol/.timeframe - see AlgoTestCompiledStrategyView's own doc comment for why (a registry strategy's real StrategySpec can carry an internal fixture identity here, unrelated to what it actually traded). */}
+          <Field label="Symbol / Timeframe" value={run.symbol && run.timeframe ? `${run.symbol} · ${timeframeLabel(run.timeframe)}` : undefined} />
           <Field label="Position sizing" value={strategy.positionSizing} />
           <Field label="Long entry" value={strategy.longEntry} />
           <Field label="Short entry" value={strategy.shortEntry} />

@@ -35,7 +35,14 @@ test("golden's real StrategySpec projects to a real, non-fabricated compiled-str
   const view = toCompiledStrategyView(spec);
   assert.equal(view.name, spec.identity.name);
   assert.equal(view.version, spec.version);
-  assert.equal(view.symbol, spec.instruments[0]?.symbol);
+  // Deliberately no view.symbol/view.timeframe assertion - a real,
+  // screenshot-caught finding: golden's own real StrategySpec declares
+  // instruments/timeframes as an internal engine fixture identity
+  // ({symbol:"SIMFIXTURE"}, timeframes:["H1"]), unrelated to what it
+  // actually trades - AlgoTestCompiledStrategyView deliberately omits
+  // this field entirely; AlgoTestRunView.symbol/.timeframe is the one
+  // authoritative source instead. See that type's own doc comment.
+  assert.ok(!("symbol" in view) && !("timeframe" in view), "must never expose a spec-derived symbol/timeframe that can be an internal fixture placeholder for a registry strategy");
   assert.ok(view.positionSizing.length > 0, "positionSizing must describe the real RiskSpecification.sizing, never be blank");
   assert.ok(view.longEntry !== undefined || view.shortEntry !== undefined, "golden declares real entry rules - at least one direction must be described");
   // The real StrategySpec has no distinct "filters" field (see the type's

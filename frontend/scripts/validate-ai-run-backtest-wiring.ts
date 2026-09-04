@@ -176,7 +176,10 @@ async function main(): Promise<void> {
       // returned - the review/audit surface, not the raw StrategySpec
       // object itself.
       assert.ok(run.compiledStrategy, "the compiled strategy that actually ran must be returned for review/audit");
-      assert.equal(run.compiledStrategy?.symbol, "XAUUSD");
+      // symbol/timeframe live on `run` itself, not `run.compiledStrategy`
+      // (a real, screenshot-caught P4.3 finding - see
+      // AlgoTestCompiledStrategyView's own doc comment).
+      assert.equal(run.symbol, "XAUUSD");
       assert.ok(run.compiledStrategy?.longEntry?.includes("cross_above"), "the real entry condition operator must appear, not a paraphrase");
       assert.equal(run.strategyHash?.length, 64);
     });
