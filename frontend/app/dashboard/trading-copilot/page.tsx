@@ -65,10 +65,10 @@ export default function TradingCopilotPage() {
 
   return (
     <div className="min-h-screen bg-ink p-6 text-text">
-      <div className="mx-auto max-w-5xl space-y-6">
+      <div className="mx-auto max-w-6xl space-y-6">
         <header>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold">Trading Copilot</p>
-          <h1 className="mt-2 font-display text-3xl font-medium">Real technical analysis</h1>
+          <h1 className="mt-2 text-2xl font-bold text-text">Real technical analysis</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-text-2">
             Live market data → real indicators (RSI, EMA, SMA, ATR, MACD, Bollinger) → an AI explanation of the
             computed evidence. Nothing is estimated: where history is too short, values show{" "}

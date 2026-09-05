@@ -9,7 +9,7 @@ export default async function LicensesPage() {
   const licenses = licenseManagementService.getMyLicenses(user?.id ?? "");
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <h1 className="text-2xl font-bold text-text">My Licenses</h1>
       {licenses.length === 0 ? (
         <EmptyState

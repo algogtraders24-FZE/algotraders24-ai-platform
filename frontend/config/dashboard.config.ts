@@ -62,10 +62,15 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
     items: [
       {
         label: "Quant",
-        // Sprint IA1 - the umbrella has no page of its own (Quant Lite and
-        // Quant Pro are, and stay, separate products/engines per the
-        // sprint's explicit boundary); it links to the free entry product.
-        href: "/quant-lite",
+        // Sprint IA1 - had no umbrella page of its own yet, so this linked
+        // straight to the free entry product (Quant Lite and Quant Pro
+        // are, and stay, separate products/engines per the sprint's
+        // explicit boundary).
+        // Sprint IA2 - now a real umbrella landing page (app/quant/page.tsx)
+        // that states the Lite/Pro boundary explicitly before routing to
+        // either product, using the same feature lists /quant-lite/upgrade
+        // already showed (data/quant-positioning.ts, one source of truth).
+        href: "/quant",
         icon: "QT",
         children: [
           { label: "Quant Lite", href: "/quant-lite" },
@@ -151,9 +156,12 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       // fabricated history feature:
       { label: "Strategies", href: "/quant-lite/builder", icon: "ST" },
       { label: "Backtests", href: "/quant-lite/backtest", icon: "BT" },
-      // The Strategy Library - a fixed, evidence-style set of backtest
-      // results; it already discloses its own fixed/legacy nature on-page.
-      { label: "Results", href: "/quant-lite/library", icon: "RE" },
+      // Sprint IA2 - was temporarily mapped to the Strategy Library (a
+      // fixed, unrelated sample set) since there was no real "my results"
+      // surface at all. Now points at a real one: a per-browser recent-
+      // runs list (services/quant-lite/recentRuns.ts) - honest given the
+      // backend has no per-account job history to build a real one from.
+      { label: "Results", href: "/quant-lite/results", icon: "RE" },
     ],
   },
   {
@@ -187,10 +195,28 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
   },
 ];
 
-// Sprint IA1 - `/dashboard/orders` (services/order.service.ts, static
-// data/orders.ts mock) is a legacy duplicate of the real, DB-backed
-// Purchases page (same class of gap Sprint L2.5 removed for Payments) - no
-// nav entry given to it in the new IA. The route itself is left untouched
-// (deleting/migrating it is a data/functionality change, out of scope for
-// a navigation sprint) - flagged in the sprint report for a follow-up
-// cleanup pass, not silently dropped.
+// Sprint IA2 - real breadcrumb label for DashboardHeader, replacing the
+// hardcoded literal "Dashboard" string every page previously showed. Walks
+// the same nav data the sidebar renders (one source of truth for "what is
+// this page called"), matching top-level items and their children first,
+// then falling back to the longest href prefix for dynamic sub-routes
+// (e.g. /dashboard/licenses/[licenseId]) that have no nav entry of their own.
+export function getBreadcrumbLabel(pathname: string): string {
+  const allItems = DASHBOARD_NAV_GROUPS.flatMap((group) =>
+    group.items.flatMap((item) => [
+      { label: item.label, href: item.href, parent: group.label },
+      ...(item.children ?? []).map((child) => ({ label: child.label, href: child.href, parent: item.label })),
+    ])
+  );
+
+  const exact = allItems.find((entry) => entry.href === pathname);
+  if (exact) return exact.parent ? `${exact.parent} / ${exact.label}` : exact.label;
+
+  const prefixMatches = allItems
+    .filter((entry) => entry.href !== "/dashboard" && pathname.startsWith(`${entry.href}/`))
+    .sort((a, b) => b.href.length - a.href.length);
+  const prefix = prefixMatches[0];
+  if (prefix) return prefix.parent ? `${prefix.parent} / ${prefix.label}` : prefix.label;
+
+  return "Dashboard";
+}
