@@ -785,6 +785,11 @@ export const algoTestService = {
       // feature needs. `undefined` for a pre-P4.5 row, never fabricated.
       strategyHash: row.strategyHash ?? undefined,
       createdAt: row.createdAt.toISOString(),
+      // P4.7-T1 - the row's own `completedAt` (DateTime?), already
+      // written at every completion/failure site since P3.2B - genuinely
+      // new to this WIRE contract only, not a new persisted value or a
+      // new write. `undefined` for a run with no terminal timestamp yet.
+      completedAt: row.completedAt?.toISOString() ?? undefined,
     }));
   },
 

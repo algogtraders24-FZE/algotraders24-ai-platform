@@ -288,6 +288,19 @@ export interface AlgoTestRunView {
   errorMessage?: string;
   createdAt: string;
   /**
+   * P4.7-T1 (docs/P4.7-RUN-HISTORY.md) - the Prisma row's own `completedAt`
+   * (`DateTime?`), which every completion/failure write site has already
+   * set since P3.2B - genuinely new to the WIRE contract only, not a new
+   * persisted value. Optional (`string`, never `null`) for two honest
+   * reasons: (a) a run that is still pending/never reached a terminal
+   * state, or (b) - not currently reachable in practice, since this
+   * column has always been written at every completion/failure path, but
+   * kept optional for the same defensive convention `strategyVersion`/
+   * `resultVersion` above already use for a hypothetical pre-this-field
+   * row. Never fabricated when absent.
+   */
+  completedAt?: string;
+  /**
    * P4 Phase 2 (docs/P4-PHASE2-BACKTEST-WIRING.md), narrowed to a real
    * wire-safe view AND generalized to every strategy source in P4.3 - the
    * exact StrategySpec this run actually executed (registry OR
