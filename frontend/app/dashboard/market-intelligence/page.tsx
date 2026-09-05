@@ -68,10 +68,10 @@ export default function MarketIntelligencePage() {
 
   return (
     <div className="min-h-screen bg-ink p-6 text-text">
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-6xl">
         <header className="mb-8">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold">Market Intelligence</p>
-          <h1 className="mt-2 font-display text-3xl font-medium">Run a real analysis</h1>
+          <h1 className="mt-2 text-2xl font-bold text-text">Run a real analysis</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-text-2">
             Powered by the deterministic evidence → reasoning → risk → confidence → explainable-analysis pipeline.
             More markets are being added as data sources are connected.

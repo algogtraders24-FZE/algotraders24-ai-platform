@@ -17,6 +17,7 @@ import ExecutionAssumptionsPanel from "@/components/quant-lite/ExecutionAssumpti
 import CoverageAssessmentPanel from "@/components/quant-lite/CoverageAssessmentPanel";
 import { QUANT_LITE_CAPABILITY } from "@/data/quant-lite-capability";
 import { createBacktestJob, getCoverageAssessment, loadDraftSpec, QuantLiteApiError } from "@/services/quant-lite/QuantLiteBacktestService";
+import { recordRecentRun } from "@/services/quant-lite/recentRuns";
 import { validateInitialCapital, validateRiskPct } from "@/services/quant-lite/validateStrategySpec";
 import type { StrategySpec } from "@/types/quant-lite";
 import type { CoverageAssessment } from "@/types/quant-lite-coverage";
@@ -110,6 +111,13 @@ export default function BacktestSetupForm() {
         dateRange: { start: startDate, end: endDate },
         initialCapital: capital,
         riskPct,
+      });
+      recordRecentRun({
+        jobId: job.jobId,
+        name: draft.spec.name || "Untitled strategy",
+        symbol: draft.spec.symbol,
+        timeframe: draft.spec.timeframe,
+        submittedAt: new Date().toISOString(),
       });
       router.push(`/quant-lite/results/${job.jobId}`);
     } catch (e) {

@@ -9,18 +9,25 @@
 // signOutAction server action directly from a client onSelect handler
 // (rather than only via a <form action>) is a supported Next.js pattern;
 // its internal redirect() still runs the same as before.
+// Sprint IA2 - the breadcrumb label is now real (getBreadcrumbLabel reads
+// the same DASHBOARD_NAV_GROUPS data the sidebar renders), replacing the
+// hardcoded literal "Dashboard" that every single page previously showed.
+import { usePathname } from "next/navigation";
 import { signOutAction } from "@/app/(auth)/actions/auth.actions";
+import { getBreadcrumbLabel } from "@/config/dashboard.config";
 import Dropdown from "@/components/ui/Dropdown";
 import MobileNav from "@/components/dashboard/MobileNav";
 
 export default function DashboardHeader({ userName }: { userName: string }) {
+  const pathname = usePathname();
+
   return (
     <header className="flex items-center justify-between border-b border-border px-6 py-4">
       {/* Sprint D2.3 (P3): MobileNav is the only dashboard navigation on < md,
           where the sidebar is hidden. It sits before the breadcrumb label. */}
       <div className="flex items-center gap-3">
         <MobileNav />
-        <span className="text-sm text-text-3">Dashboard</span>
+        <span className="text-sm text-text-3">{getBreadcrumbLabel(pathname)}</span>
       </div>
       <Dropdown
         trigger={

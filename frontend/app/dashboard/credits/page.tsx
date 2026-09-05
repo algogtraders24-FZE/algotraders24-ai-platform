@@ -7,10 +7,18 @@
 // states that status honestly and points at what IS real today (plan-based
 // access, managed in Billing) - the same disclosure pattern already used
 // by /quant-lite/upgrade for the not-yet-built Quant Pro.
+// Sprint IA2 - "give Credits a ready structure for the future AI-credit
+// system, without implementing fake metering." The structure is
+// types/credits.ts (an inert type skeleton + CREDIT_ACTION_LABELS, nothing
+// reads/writes it) plus the roadmap list below, sourced from that same
+// labels map - still zero numbers, zero fake balance, just naming what the
+// categories will be so a future metering sprint isn't designing from
+// scratch.
 import type { Metadata } from "next";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import ButtonLink from "@/components/ui/ButtonLink";
+import { CREDIT_ACTION_LABELS } from "@/types/credits";
 
 export const metadata: Metadata = {
   title: "Credits",
@@ -38,6 +46,21 @@ export default function CreditsPage() {
           Today, access to AI features is governed by your plan, not by individual credits. Deterministic Quant
           backtesting is not credit-metered.
         </p>
+      </Card>
+
+      <Card padding="lg">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-text-3">What's planned</h2>
+        <p className="mt-1 text-sm text-text-2">
+          Actions expected to consume credits once metering ships - listed for transparency, not yet active:
+        </p>
+        <ul className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1.5 text-sm text-text-2 sm:grid-cols-2">
+          {Object.values(CREDIT_ACTION_LABELS).map((label) => (
+            <li key={label} className="flex items-center gap-2">
+              <span className="h-1 w-1 rounded-full bg-text-3" aria-hidden="true" />
+              {label}
+            </li>
+          ))}
+        </ul>
       </Card>
 
       <Card padding="lg">
