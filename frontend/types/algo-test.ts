@@ -162,6 +162,30 @@ export interface AlgoTestTradeView {
    * or default value when absent.
    */
   exitReason?: string;
+  /**
+   * P4.6-T2.1 - copied straight through from at24-quant-engine's
+   * SimulationTrade.mfeR/maeR (P4.6-T1, docs/P4.6-MFE-MAE-EXCURSION-TRACKING.md)
+   * - Maximum Favorable/Adverse Excursion, in R. ALWAYS present (never
+   * optionally-spread), mirroring `rMultiple` above exactly - both are
+   * `number | null`, never `undefined`. `null` means the engine's own
+   * risk-distance normalization could not produce a valid R for this
+   * trade (no stop-loss, or a pyramiding-only risk-distance edge case -
+   * see the engine's own `tryComputeR` doc comment) - never a fabricated
+   * 0, which would falsely imply the trade experienced no excursion. This
+   * layer performs NO conversion or recalculation - it transports the
+   * engine's own value unchanged.
+   */
+  mfeR: number | null;
+  maeR: number | null;
+  /**
+   * The bar timestamp (epoch ms, matching `entryTime`/`exitTime` above)
+   * the corresponding extreme occurred on. Optional - present if and only
+   * if its own R value is non-null (the engine's own pairing rule,
+   * SimulationTrade's own doc comment) - never independently absent or
+   * present relative to its R value.
+   */
+  mfeTimestamp?: number;
+  maeTimestamp?: number;
 }
 
 export interface AlgoTestEquityPoint {

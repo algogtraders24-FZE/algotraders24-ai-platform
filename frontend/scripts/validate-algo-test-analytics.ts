@@ -48,6 +48,10 @@ function trade(overrides: Partial<AlgoTestTradeView>): AlgoTestTradeView {
     tradeId: "t", symbol: "XAUUSD", side: "BUY", quantity: 1,
     entryTime: 0, entryPrice: 100, exitTime: 0, exitPrice: 100,
     pnl: 0, grossPnl: 0, fees: 0, rMultiple: null,
+    // P4.6-T2.1 - always-present fields (mirrors rMultiple above); this
+    // fixture predates MFE/MAE entirely, so null is the honest default -
+    // never fabricated as 0.
+    mfeR: null, maeR: null,
     ...overrides,
   };
 }

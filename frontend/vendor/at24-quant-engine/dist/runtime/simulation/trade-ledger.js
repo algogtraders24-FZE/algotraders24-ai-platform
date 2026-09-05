@@ -1,4 +1,4 @@
-import { computeRealizedR } from "../risk/r-multiple.js";
+import { computeRealizedR, tryComputeR } from "../risk/r-multiple.js";
 /**
  * `rMultiple` reuses Q0.3's `computeRealizedR` (r-multiple.ts) — no
  * second R formula (Q0.5.24). It is `null`, never 0/NaN, when the
@@ -16,11 +16,40 @@ import { computeRealizedR } from "../risk/r-multiple.js";
  * a well-defined (correctly large) R-multiple. See
  * docs/Q0.10_POSITION_MANAGEMENT_AUDIT.md.
  */
+/**
+ * `mfeR`/`maeR` (P4.6, docs/P4.6-MFE-MAE-EXCURSION-TRACKING.md): the
+ * SAME `riskBasisStop` above, but via `tryComputeR` (null-safe — see
+ * that function's own doc comment) rather than `computeRealizedR`, since
+ * MFE/MAE must stay total even in the one case `rMultiple` above does
+ * not defend against (a pyramided position's risk distance going
+ * non-positive). `Position.highestPriceSinceEntry`/`lowestPriceSinceEntry`
+ * are side-agnostic (position-engine.ts); the favorable/adverse mapping
+ * is applied exactly HERE, once: for BUY, favorable=high/adverse=low;
+ * for SELL, favorable=low/adverse=high — mirroring `resolveProtectiveExit`'s
+ * own established side-aware convention (bar-fill-model.ts). A
+ * timestamp is included if and only if its own R value is non-null —
+ * never independently.
+ */
+function buildExcursion(position, riskBasisStop) {
+    const favorablePrice = position.side === "BUY" ? position.highestPriceSinceEntry : position.lowestPriceSinceEntry;
+    const favorableTimestamp = position.side === "BUY" ? position.highestPriceSinceEntryTimestamp : position.lowestPriceSinceEntryTimestamp;
+    const adversePrice = position.side === "BUY" ? position.lowestPriceSinceEntry : position.highestPriceSinceEntry;
+    const adverseTimestamp = position.side === "BUY" ? position.lowestPriceSinceEntryTimestamp : position.highestPriceSinceEntryTimestamp;
+    const mfeR = riskBasisStop !== undefined && favorablePrice !== undefined ? tryComputeR(position.side, position.entryPrice, riskBasisStop, favorablePrice) : null;
+    const maeR = riskBasisStop !== undefined && adversePrice !== undefined ? tryComputeR(position.side, position.entryPrice, riskBasisStop, adversePrice) : null;
+    return {
+        mfeR,
+        maeR,
+        ...(mfeR !== null && favorableTimestamp !== undefined ? { mfeTimestamp: favorableTimestamp } : {}),
+        ...(maeR !== null && adverseTimestamp !== undefined ? { maeTimestamp: adverseTimestamp } : {}),
+    };
+}
 export function buildTrade(input) {
     const riskBasisStop = input.position.initialStopLoss ?? input.position.stopLoss;
     const rMultiple = riskBasisStop !== undefined
         ? computeRealizedR(input.position.side, input.position.entryPrice, riskBasisStop, input.exitPrice)
         : null;
+    const excursion = buildExcursion(input.position, riskBasisStop);
     return {
         tradeId: input.tradeId,
         strategyVersion: input.strategyVersion,
@@ -47,6 +76,7 @@ export function buildTrade(input) {
             slippageModel: input.slippageModel,
             feeModel: input.feeModel,
         },
+        ...excursion,
     };
 }
 /**
