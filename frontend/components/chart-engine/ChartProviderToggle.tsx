@@ -5,11 +5,18 @@
 // brief requires: the Workspace lets the user pick which visualization
 // renders, "native" or "tradingview" - neither is a silent fallback for
 // the other (see ChartPanel.tsx, the only place this choice is consumed).
+//
+// Sprint D2.9.6 - Native is no longer "(Beta)": the D2.9.1-D2.9.5 hardening
+// pass (light theme, cross-pane crosshair sync, mobile verification, trade
+// clustering, equity overlay) closed the gaps that label was tracking, and
+// ChartPanel.tsx's own default flipped to "native" in the same sprint.
+// TradingView keeps its plain label - it's the explicit fallback now, not
+// mislabeled as anything else; it never needed a qualifier to begin with.
 import type { ChartProviderKind } from "@/types/chart-data";
 
 const OPTIONS: { value: ChartProviderKind; label: string }[] = [
   { value: "tradingview", label: "TradingView" },
-  { value: "native", label: "Native (Beta)" },
+  { value: "native", label: "Native" },
 ];
 
 export interface ChartProviderToggleProps {

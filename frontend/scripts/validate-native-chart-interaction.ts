@@ -603,7 +603,7 @@ async function crosshairTests(): Promise<void> {
 async function tooltipTests(): Promise<void> {
   await test("the tooltip displays Open/High/Low/Close using formatPrice, the shared financial formatter - never a raw toFixed/toString", () => {
     const src = nativeChartSrc();
-    const readoutBlock = src.slice(src.indexOf("hoveredCandle ? ("), src.indexOf("Native chart (beta)"));
+    const readoutBlock = src.slice(src.indexOf("hoveredCandle ? ("), src.indexOf(">Native chart</span>"));
     assert.ok(!/\.toFixed\(/.test(readoutBlock));
     assert.ok(readoutBlock.includes("formatPrice("));
   });
@@ -625,13 +625,13 @@ async function tooltipTests(): Promise<void> {
 
   await test("no change/range figure is shown in the tooltip that isn't deterministically derivable from the loaded candle data - the readout only ever shows O/H/L/C/V/indicator values, all real fields of the hovered candle", () => {
     const src = nativeChartSrc();
-    const readoutBlock = src.slice(src.indexOf("hoveredCandle ? ("), src.indexOf("Native chart (beta)"));
+    const readoutBlock = src.slice(src.indexOf("hoveredCandle ? ("), src.indexOf(">Native chart</span>"));
     assert.ok(!/change|Δ|percent/i.test(readoutBlock));
   });
 
   await test("indicator values in the tooltip are read via valueAtIndex from an already-computed series - never recomputed or interpolated for the tooltip specifically", () => {
     const src = nativeChartSrc();
-    const readoutBlock = src.slice(src.indexOf("hoveredCandle ? ("), src.indexOf("Native chart (beta)"));
+    const readoutBlock = src.slice(src.indexOf("hoveredCandle ? ("), src.indexOf(">Native chart</span>"));
     assert.ok(readoutBlock.includes("valueAtIndex(series, hoveredIndex)"));
   });
 }

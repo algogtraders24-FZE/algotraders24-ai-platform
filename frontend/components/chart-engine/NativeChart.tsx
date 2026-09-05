@@ -1394,7 +1394,7 @@ export default function NativeChart({
           })}
         </div>
       ) : (
-        <span className={FIN_LABEL}>Native chart (beta)</span>
+        <span className={FIN_LABEL}>Native chart</span>
       )}
 
       <div
