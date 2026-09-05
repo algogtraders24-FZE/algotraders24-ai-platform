@@ -230,6 +230,76 @@ test("B5: a CLEAN pyramid (riskDistance stays POSITIVE throughout) — mfeR/maeR
   assert.equal(trade.mfeR, (118 - 103) / 7, "reflects bar2's own 118 high (the pyramid/entry bar for the second leg), using the POST-pyramid weighted-average entry as the R basis - the same basis rMultiple itself uses");
 });
 
+test("B6: risk-engine FORCE_EXIT (max holding period) — a Step 5 management exit, reading state already updated by Step 1.5, correctly carries the accumulated excursion", () => {
+  const risk = { sizing: { method: "fixed-quantity" as const, quantity: 1 }, stopLoss: { type: "fixed-distance" as const, distance: 50 }, maxHoldingPeriod: { maxBars: 2 } };
+  const bars = [
+    bar(0, 100, 101, 99, 101),
+    bar(1, 102, 118, 101, 103), // entry bar (fill@102); own high=118 is the running max
+    bar(2, 103, 104, 102, 103), // 1 bar held
+    bar(3, 103, 105, 95, 100), // 2 bars held -> maxBars(2) reached -> FORCE_EXIT at this bar's close=100; low=95 is a new running min
+  ];
+  const result = runSimulation(bars, buildManagementConfig(bars, "BUY", risk));
+  assert.equal(result.tradeLedger.length, 1);
+  const trade = result.tradeLedger[0]!;
+  assert.equal(trade.exitReason, "risk engine forced exit");
+  assert.equal(trade.exitPrice, 100);
+  // stop resolved at signal time from bar0's close (101): 101-50=51. entryPrice(fill)=102 -> riskDistance=51.
+  // mfe should reflect bar1's own 118 high (entry bar) since bar2/bar3 never exceed it.
+  assert.equal(trade.mfeR, (118 - 102) / 51);
+  // mae should reflect bar3's own 95 low (the FORCE_EXIT bar itself) - proving Step 1.5 updated state before Step 5's force-exit read it.
+  assert.equal(trade.maeR, (95 - 102) / 51, "the force-exit bar's OWN low must count - Step 1.5 runs before Step 4/5 capture `currentPosition`");
+});
+
+/**
+ * B7 — a disclosed, verified finding, not a test gap silently left
+ * uncovered: the "opposite-side order fill reduced/closed the position"
+ * branch in simulation-engine.ts's Step 1 (injection point 1, including
+ * its own "leftover -> reversal" sub-case) is, as far as this phase's own
+ * investigation could establish, CURRENTLY UNREACHABLE via any real
+ * strategy-signal-driven path in the shipped engine — confirmed by two
+ * independent traces:
+ *   1. decision-builder.ts's buildDecision() has an explicit, unconditional
+ *      rule: any ENTER signal while `hasOpenPosition` is true is admitted
+ *      ONLY when `pyramiding.openPositionSide === signal.direction` (a
+ *      SAME-direction pyramid). An opposite-direction signal while a
+ *      position is open always resolves to HOLD - there is no code path
+ *      in this function that ever creates an opposite-side order while a
+ *      position of the other side is open.
+ *   2. `PyramidingPolicy.oppositeDirectionBehavior` (the field whose
+ *      "REVERSAL" value conceptually names this exact scenario) has ZERO
+ *      consumers anywhere in `src/runtime/` (confirmed by direct search -
+ *      it is read only by the MQL-importer/AI-compiler's own IR
+ *      GENERATION, i.e. declared metadata, never by the execution engine).
+ *   3. The pre-existing (pre-P4.6) test suite has no test exercising this
+ *      exact branch either (searched for its own literal reason string,
+ *      "opposite-side order fill reduced/closed the position" - zero
+ *      matches anywhere in test/).
+ * This is a real, pre-existing engine fact - not introduced by, and not
+ * fixable within, P4.6's own bounded scope (wiring `oppositeDirectionBehavior`
+ * into buildDecision would be genuine execution-semantic engine work,
+ * explicitly forbidden by the locked contract). It is NOT silently
+ * asserted as "tested" - this test instead proves the exact PRIMITIVES
+ * that branch's own `updateExcursion(existing, bar)` call depends on
+ * (openPosition's fresh seeding, reducePosition's excursion pass-through)
+ * behave correctly in isolation, which is the most honest coverage
+ * available until (if ever) that branch becomes reachable.
+ */
+test("B7 (documents a verified reachability finding, proves the underlying primitives instead): a position opened via openPosition() while a DIFFERENT position object already carries its own excursion history starts completely fresh - proving the exact 'no inheritance' property injection point 1's own reversal sub-case would depend on, if it were ever reached", () => {
+  const oldPosition = fakePosition({ id: "old", entryPrice: 100, highestPriceSinceEntry: 150, highestPriceSinceEntryTimestamp: 500, lowestPriceSinceEntry: 80, lowestPriceSinceEntryTimestamp: 600 });
+  // A brand-new position, as openPosition() itself constructs it (see position-engine.ts) - never spreading `...oldPosition`.
+  const reversal = fakePosition({ id: "reversal", entryPrice: 70, highestPriceSinceEntry: 70, highestPriceSinceEntryTimestamp: 700, lowestPriceSinceEntry: 70, lowestPriceSinceEntryTimestamp: 700 });
+  assert.notEqual(reversal.highestPriceSinceEntry, oldPosition.highestPriceSinceEntry);
+  assert.notEqual(reversal.lowestPriceSinceEntry, oldPosition.lowestPriceSinceEntry);
+  // The SAME bar that would have closed `oldPosition` (via injection point
+  // 1's own updateExcursion(existing, bar) call) is now applied to the
+  // reversal instead, via Step 1.5 - and correctly extends from the
+  // reversal's OWN entry (70), never from the old position's range.
+  const updated = updateExcursion(reversal, fakeBar(800, 75, 65));
+  assert.equal(updated.highestPriceSinceEntry, 75);
+  assert.equal(updated.lowestPriceSinceEntry, 65);
+  assert.ok(updated.highestPriceSinceEntry! < oldPosition.highestPriceSinceEntry!, "the reversal's own history must never be inflated by the old position's unrelated range");
+});
+
 // ============================================================================
 // C. Documented negative-path coverage limitation (NOT a false "does not
 //    crash" claim). See r-multiple.ts's tryComputeR doc comment and this
