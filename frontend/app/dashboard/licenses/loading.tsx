@@ -6,7 +6,7 @@ import Skeleton from "@/components/ui/Skeleton";
 
 export default function LicensesLoading() {
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <Skeleton className="h-7 w-40" />
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {[0, 1, 2].map((i) => (
