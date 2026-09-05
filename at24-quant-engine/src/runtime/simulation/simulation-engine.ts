@@ -26,7 +26,7 @@ import type { PendingOrderManagementPolicy } from "../../domain/pending-order-ma
 import { executableRules } from "../../domain/pending-order-management-policy.js";
 import { evaluatePendingOrderManagementPolicy } from "./pending-order-management.js";
 import { resolveMarketFill, resolveLimitFill, resolveStopFill, resolveStopLimitFill, resolveProtectiveExit, type BarFillOutcome } from "./bar-fill-model.js";
-import { openPosition, increasePosition, reducePosition, closePosition, computeUnrealizedPnl } from "./position-engine.js";
+import { openPosition, increasePosition, reducePosition, closePosition, computeUnrealizedPnl, updateExcursion } from "./position-engine.js";
 import { createAccount, applyFill, markToMarket } from "./account-engine.js";
 import { TradeLedger, buildTrade } from "./trade-ledger.js";
 import { buildDecision } from "./decision-builder.js";
@@ -359,9 +359,18 @@ export function runSimulation(bars: readonly OHLCVBar[], config: SimulationConfi
           };
           record("POSITION_MODIFIED", bar.timestamp, { positionId: updated.id });
         } else {
-          const reduceQty = Math.min(order.quantity, existing.quantity);
-          const { position: reduced, grossPnl } = reducePosition(existing, reduceQty, fillPrice, bar.timestamp, fee);
-          state = applyRealizedTrade(state, existing, fillPrice, reduceQty, grossPnl, fee, bar.timestamp, "opposite-side order fill reduced/closed the position");
+          // P4.6 — this trade may be BUILT (buildTrade()/applyRealizedTrade,
+          // right below) before Step 1.5's general excursion update ever
+          // runs this bar (that update happens after this whole Step 1
+          // loop finishes) — so this bar's own high/low must be folded in
+          // explicitly, right here, before it's used. updateExcursion()
+          // is idempotent per bar (strict >/< comparisons), so Step 1.5's
+          // later call on whatever position survives (a partial reduce,
+          // or a reversal) is always safe, never double-counts.
+          const existingWithExcursion = updateExcursion(existing, bar);
+          const reduceQty = Math.min(order.quantity, existingWithExcursion.quantity);
+          const { position: reduced, grossPnl } = reducePosition(existingWithExcursion, reduceQty, fillPrice, bar.timestamp, fee);
+          state = applyRealizedTrade(state, existingWithExcursion, fillPrice, reduceQty, grossPnl, fee, bar.timestamp, "opposite-side order fill reduced/closed the position");
           record(reduced.status === "CLOSED" ? "POSITION_CLOSED" : "POSITION_REDUCED", bar.timestamp, { positionId: reduced.id });
           // Q1.5.4 — the counter must not survive a complete position lifecycle: once fully closed, remove it (a later fresh entry, including the reversal leg below, starts its own count at 1).
           if (reduced.status === "CLOSED") state = { ...state, entryCountByPosition: mapWithout(state.entryCountByPosition, existing.id) };
@@ -399,6 +408,23 @@ export function runSimulation(bars: readonly OHLCVBar[], config: SimulationConfi
         state = { ...state, pendingOrders: mapWith(state.pendingOrders, orderId, triggered) };
         record("ORDER_TRIGGERED", bar.timestamp, { orderId });
       }
+    }
+
+    // --- Step 1.5 (P4.6): fold this bar's high/low into whichever
+    // position is open now that Step 1's fills/opens/increases/reduces/
+    // reversals are fully resolved - strictly BEFORE Step 1b/1c/Step 5
+    // read `state.openPositions` for their own exit/management decisions,
+    // so a position closing on THIS bar already has this bar's own range
+    // included in the trade row Step 1b/1c/Step 5 are about to build.
+    // Purely additive engine-internal state (Position.
+    // highestPriceSinceEntry/lowestPriceSinceEntry, position-engine.ts) -
+    // never influences which price anything actually fills or exits at.
+    // Strictly incremental (this bar's own `bar` only, never a slice of
+    // `bars`) - the same lookahead-safety the rest of this loop already
+    // guarantees by construction. See docs/P4.6-MFE-MAE-EXCURSION-TRACKING.md.
+    const positionForExcursion = state.openPositions.get(symbol);
+    if (positionForExcursion) {
+      state = { ...state, openPositions: mapWith(state.openPositions, symbol, updateExcursion(positionForExcursion, bar)) };
     }
 
     // --- Step 1b: check the open position's own protective SL/TP against this bar (Q0.5.8/Q0.5.32) ---

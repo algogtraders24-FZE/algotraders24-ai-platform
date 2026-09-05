@@ -33,6 +33,35 @@ export interface TradeExecutionMetadata {
  * stop/take-profit resolution, a risk-engine forced/partial exit, or an
  * opposite-side order fill reducing/closing the position) — `undefined`
  * is never backfilled with an invented label.
+ *
+ * `mfeR`/`maeR` (P4.6, docs/P4.6-MFE-MAE-EXCURSION-TRACKING.md): this
+ * trade row's own Maximum Favorable/Adverse Excursion, expressed in R
+ * (the SAME risk-distance basis — `initialStopLoss` falling back to
+ * `stopLoss` — that `rMultiple` above already uses; not a second,
+ * divergent risk concept). Deliberately R-multiple only, never a raw
+ * price/currency excursion field: MFE/MAE's own locked semantic contract
+ * treats price as engine-internal derivation state (`Position.
+ * highestPriceSinceEntry`/`lowestPriceSinceEntry`), not a canonical
+ * public field. `null` — never a fabricated 0, never a thrown
+ * exception — in EITHER of two distinct undefined-R cases: (1) no
+ * stop-loss was ever set (mirrors `rMultiple`'s own null-when-no-stop
+ * convention exactly), or (2) a stop-loss exists but the computed risk
+ * distance is <= 0 (a real, pyramiding-only case where a
+ * volume-weighted-average `entryPrice` shift can cross the fixed
+ * `initialStopLoss`). IMPORTANT, disclosed limitation: this null-guard is
+ * total and non-throwing at the `tryComputeR()` helper boundary
+ * (r-multiple.ts) — but it cannot currently be OBSERVED via case (2)
+ * through a real `runSimulation()` call, because `rMultiple` above
+ * computes the identical underlying risk distance FIRST, unconditionally,
+ * in the same `buildTrade()` call, and throws before this guard is ever
+ * reached (a real, pre-existing, deliberately out-of-scope-for-P4.6
+ * defect this phase's own audit surfaced but did not fix — see
+ * `tryComputeR`'s own doc comment for the full explanation). `mfeTimestamp`/
+ * `maeTimestamp` record the bar timestamp the extreme occurred on — the
+ * finest fidelity this D1/OHLC-only engine actually has; never a
+ * manufactured sub-bar/intrabar timestamp implying precision the engine
+ * does not possess. Present together with their R value, or absent
+ * together — never independently.
  */
 export interface SimulationTrade {
   readonly tradeId: string;
@@ -52,4 +81,8 @@ export interface SimulationTrade {
   readonly takeProfit?: number;
   readonly exitReason?: string;
   readonly executionMetadata: TradeExecutionMetadata;
+  readonly mfeR: number | null;
+  readonly maeR: number | null;
+  readonly mfeTimestamp?: number;
+  readonly maeTimestamp?: number;
 }
