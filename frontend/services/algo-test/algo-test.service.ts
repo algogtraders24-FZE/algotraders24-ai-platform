@@ -311,6 +311,15 @@ function toTradeView(trade: SimulationTrade): AlgoTestTradeView {
     ...(trade.stopLoss !== undefined ? { stopLoss: trade.stopLoss } : {}),
     ...(trade.takeProfit !== undefined ? { takeProfit: trade.takeProfit } : {}),
     ...(trade.exitReason !== undefined ? { exitReason: trade.exitReason } : {}),
+    // P4.6-T2.1 - always present (never optionally-spread), mirroring
+    // rMultiple immediately above - the engine's own value, transported
+    // unchanged, no conversion/recalculation here. Timestamps stay
+    // optionally-spread since the engine itself only sets them alongside
+    // a non-null R value.
+    mfeR: trade.mfeR,
+    maeR: trade.maeR,
+    ...(trade.mfeTimestamp !== undefined ? { mfeTimestamp: trade.mfeTimestamp } : {}),
+    ...(trade.maeTimestamp !== undefined ? { maeTimestamp: trade.maeTimestamp } : {}),
   };
 }
 
