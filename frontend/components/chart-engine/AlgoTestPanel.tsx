@@ -711,6 +711,8 @@ function AlgoTestResults({
                     <th className="pb-1 pr-2">Exit</th>
                     <th className="pb-1 pr-2">P&amp;L</th>
                     <th className="pb-1 pr-2">R</th>
+                    <th className="pb-1 pr-2" title="Maximum Favorable Excursion - the best this trade ever looked, in R, before its actual exit">MFE</th>
+                    <th className="pb-1 pr-2" title="Maximum Adverse Excursion - the worst this trade ever looked, in R, before its actual exit">MAE</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -753,6 +755,8 @@ function TradeRow({ index, trade, selected, onSelect }: { index: number; trade: 
         {formatPrice(trade.pnl, { maxDecimals: 2 })}
       </td>
       <td className={`py-1 pr-2 ${FIN_SECONDARY}`}>{trade.rMultiple === null ? "—" : `${trade.rMultiple.toFixed(2)}R`}</td>
+      <td className={`py-1 pr-2 ${FIN_SECONDARY}`}>{trade.mfeR === null ? "—" : `${trade.mfeR.toFixed(2)}R`}</td>
+      <td className={`py-1 pr-2 ${FIN_SECONDARY}`}>{trade.maeR === null ? "—" : `${trade.maeR.toFixed(2)}R`}</td>
     </tr>
   );
 }
