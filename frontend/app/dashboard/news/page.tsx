@@ -1,4 +1,11 @@
 // app/dashboard/news/page.tsx
+// Sprint IA3 - the "· mock data" trailing the subtitle was easy to miss for
+// a page whose entire content (services/ai/news.service.ts reads a static
+// data/news.ts array - no real news API) is fabricated articles, not real
+// coverage. Not a functionality change (a real news integration is new
+// backend work, out of scope this sprint) - just making the same honest
+// disclosure impossible to miss, via the shared Alert primitive instead of
+// three trailing words.
 "use client";
 
 import { useMemo, useState } from "react";
@@ -10,6 +17,7 @@ import NewsCard from "@/components/news/NewsCard";
 import EconomicCalendar from "@/components/news/EconomicCalendar";
 import HeadlineSummary from "@/components/news/HeadlineSummary";
 import NewsFilter from "@/components/news/NewsFilter";
+import Alert from "@/components/ui/Alert";
 
 export default function NewsPage() {
   const [category, setCategory] = useState<NewsCategory | "all">("all");
@@ -28,8 +36,13 @@ export default function NewsPage() {
       <div className="mx-auto max-w-6xl">
         <header className="mb-6">
           <h1 className="text-2xl font-bold">AI Financial News</h1>
-          <p className="text-sm text-text-3">AI-analyzed headlines & economic calendar · mock data</p>
+          <p className="text-sm text-text-3">AI-analyzed headlines & economic calendar</p>
         </header>
+
+        <Alert tone="info" title="Preview data" className="mb-6">
+          The headlines and events below are sample content, not a live news feed - a real market-news integration
+          is not connected yet. Nothing here should be read as current market information.
+        </Alert>
 
         <div className="mb-6">
           <HeadlineSummary summary={summary} />

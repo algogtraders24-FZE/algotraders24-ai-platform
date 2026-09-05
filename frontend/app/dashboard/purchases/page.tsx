@@ -1,9 +1,10 @@
 // app/dashboard/purchases/page.tsx
 // Sprint M13 (closing the marketplace delivery loop) - real, DB-backed
 // list of the current buyer's own Marketplace purchases (Purchase ->
-// Entitlement -> License, see services/licensing/myPurchases.ts). Distinct
-// from app/dashboard/licenses (pre-existing, reads mock data for an
-// unrelated feature) - never conflated with it.
+// Entitlement -> License, see services/licensing/myPurchases.ts).
+// Sprint IA3 - app/dashboard/licenses is now also wired to this same real
+// service (a license-centric view vs. this purchase-centric one) - the
+// mock chain that used to live there is gone.
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/protectedRoute";
 import { getMyPurchases } from "@/services/licensing/myPurchases";
