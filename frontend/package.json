@@ -69,6 +69,7 @@
     "validate:native-chart-tiling": "tsx scripts/validate-native-chart-tiling.ts",
     "validate:native-chart-phase5": "tsx scripts/validate-native-chart-phase5.ts",
     "validate:native-chart-bill-williams": "tsx scripts/validate-native-chart-bill-williams.ts",
+    "validate:native-chart-d2.9-hardening": "tsx scripts/validate-native-chart-d2.9-hardening.ts",
     "validate:key-levels-engine": "tsx scripts/validate-key-levels-engine.ts",
     "validate:liquidity-zones-engine": "tsx scripts/validate-liquidity-zones-engine.ts",
     "validate:paper-trading": "tsx scripts/validate-paper-trading.ts",

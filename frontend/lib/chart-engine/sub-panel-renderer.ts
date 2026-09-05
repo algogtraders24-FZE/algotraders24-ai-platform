@@ -21,7 +21,7 @@ import type { ChartCandle } from "@/types/chart-data";
 import type { IndicatorSeries } from "./indicators/types";
 import { priceToY } from "./coordinate-system";
 import { canvasMonoFont } from "./canvas-typography";
-import { formatCompactVolume } from "@/lib/financial-format";
+import { formatCompactVolume, formatPrice } from "@/lib/financial-format";
 import type { ChartColors } from "./canvas-colors";
 import { resolveIndicatorColor } from "./canvas-colors";
 import type { PanelRow } from "./panel-layout";
@@ -342,6 +342,50 @@ export function drawAtrPanel(
   ctx.textAlign = "right";
   ctx.textBaseline = "top";
   ctx.fillText(maxValue.toFixed(decimals), plotWidth - 4, row.top + 2);
+}
+
+/** Sprint D2.9.4 - a completed Algo Test run's own real, already-computed running-balance series (never re-derived/re-simulated here). One real dollar value per point, so this needs its own dynamic min/max scale exactly like ATR's own instrument-magnitude scale above - never the price panel's own Viewport, and never a fixed 0-based range (balance fluctuates around whatever the run's initial balance was, not from zero). */
+export interface ChartEquityPoint {
+  timestamp: number;
+  balance: number;
+}
+
+export function drawEquityPanel(
+  ctx: CanvasRenderingContext2D,
+  equityCurve: ChartEquityPoint[] | undefined,
+  candles: ChartCandle[],
+  indexRange: IndexRange,
+  plotWidth: number,
+  row: PanelRow,
+  colors: ChartColors,
+): void {
+  drawPanelFrame(ctx, row, plotWidth, colors, "Equity");
+  if (!equityCurve || equityCurve.length === 0) return;
+
+  const values = equityCurve.map((p) => p.balance);
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  // A degenerate flat/single-point curve has no real span to pad a
+  // percentage of - the same zero-span fallback viewport.ts's own
+  // padRange() uses for the price panel.
+  const pad = maxValue === minValue ? Math.abs(maxValue) * 0.05 || 1 : (maxValue - minValue) * 0.1;
+  const panelVp: Viewport = {
+    minTime: candles[0]?.time ?? 0,
+    maxTime: candles[candles.length - 1]?.time ?? 0,
+    minPrice: minValue - pad,
+    maxPrice: maxValue + pad,
+  };
+
+  const points = equityCurve.map((p) => ({ time: p.timestamp, value: p.balance }));
+  drawLine(ctx, points, candles, indexRange, panelVp, plotWidth, row, colors.accent);
+
+  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  ctx.fillStyle = colors.textTertiary;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "top";
+  ctx.fillText(formatPrice(maxValue, { maxDecimals: 2 }), plotWidth - 4, row.top + 2);
+  ctx.textBaseline = "bottom";
+  ctx.fillText(formatPrice(minValue, { maxDecimals: 2 }), plotWidth - 4, row.top + row.height - 2);
 }
 
 /** Stochastic Oscillator (Phase 2) - a fixed 0-100 scale like RSI, but with the real, DIFFERENT 80/20 overbought/oversold convention (never RSI's 70/30) and two lines: %K (the smoothed "Slow Stochastic" main line - see indicators.ts's stochasticSeries() for why it's already smoothed by MT5's real default Slowing period) and %D (its own further-smoothed signal line). */

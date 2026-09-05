@@ -483,7 +483,11 @@ async function emptyVolumeTests(): Promise<void> {
 
   await test("the max-volume label uses the SAME formatCompactVolume every other volume figure on the platform uses - never a second formatter", () => {
     const src = read("lib/chart-engine/sub-panel-renderer.ts");
-    assert.ok(src.includes('import { formatCompactVolume } from "@/lib/financial-format"'));
+    // D2.9.4 - this same import line also pulls in formatPrice for the new
+    // equity sub-panel's own labels (PaperTradingPanel's own balance-display
+    // convention) - still the one real financial-format module, never a
+    // second formatter.
+    assert.ok(src.includes("import { formatCompactVolume, formatPrice } from \"@/lib/financial-format\";"));
   });
 
   await test("drawVolumePanel with real volume data renders without throwing and draws at least one text label (the panel title + the new max-volume label)", () => {

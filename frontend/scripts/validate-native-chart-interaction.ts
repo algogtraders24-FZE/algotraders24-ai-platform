@@ -564,7 +564,10 @@ async function crosshairTests(): Promise<void> {
     const src = nativeChartSrc();
     const moveHandler = src.slice(src.indexOf("function handlePointerMove"), src.indexOf("function releasePointer"));
     assert.ok(moveHandler.includes("x > plotWidth()"));
-    assert.ok(moveHandler.includes("crosshairRef.current = null;"));
+    // D2.9.2 - crosshairRef is now only ever mutated through setCrosshairState
+    // (which also notifies ChartPanel for cross-pane crosshair sync) - never
+    // a direct assignment inside this handler anymore.
+    assert.ok(moveHandler.includes("setCrosshairState(null)"));
   });
 
   await test("Escape clears an active crosshair - a real, previously-missing keyboard escape hatch for a transient interaction state", () => {
@@ -576,7 +579,9 @@ async function crosshairTests(): Promise<void> {
     // the original fixed window covered).
     const keyFn = src.slice(src.indexOf("function handleKeyDown"), src.indexOf("function handleKeyDown") + 1400);
     assert.ok(keyFn.includes('if (e.key === "Escape") {'));
-    assert.ok(keyFn.includes("crosshairRef.current = null;"));
+    // D2.9.2 - see the moveHandler assertion above: crosshairRef is now only
+    // ever mutated through setCrosshairState.
+    assert.ok(keyFn.includes("setCrosshairState(null)"));
   });
 
   await test("pointer movement never triggers indicator recomputation - computeIndicatorSeries is never called from inside handlePointerMove", () => {

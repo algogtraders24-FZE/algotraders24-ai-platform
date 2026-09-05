@@ -144,8 +144,10 @@ function main(): void {
     assert.equal(fillCalls, 1);
   });
 
-  test("two trades draw exactly two entry-marker triangles", () => {
-    const { fillCalls } = renderWith(candles, { algoTestTrades: [buyTrade, sellTrade] });
+  test("two trades whose entries land far apart draw exactly two entry-marker triangles (D2.9.4 - clustering only activates when entries land within TRADE_CLUSTER_BUCKET_PX of each other; buyTrade/sellTrade share the same entryTime deliberately for the OTHER tests in this file, so this test uses its own well-separated pair)", () => {
+    const farCandle = candles[CANDLE_COUNT - 5]!;
+    const spreadSellTrade: AlgoTestTradeMarker = { ...sellTrade, entryTime: farCandle.time, entryPrice: farCandle.close - 2 };
+    const { fillCalls } = renderWith(candles, { algoTestTrades: [buyTrade, spreadSellTrade] });
     assert.equal(fillCalls, 2);
   });
 
