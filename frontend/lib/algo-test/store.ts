@@ -50,6 +50,28 @@ export async function fetchAlgoTestStrategies(): Promise<AlgoTestStrategyDefinit
 }
 
 /**
+ * P4.7-T1 (docs/P4.7-RUN-HISTORY.md) - the authenticated user's own runs,
+ * most recent first, from the already-real `GET /api/private/algo-test/runs`
+ * (no new API surface - this is the first client-side consumer of that
+ * endpoint). Mirrors `fetchAlgoTestStrategies()`'s own never-throws
+ * convention exactly: an empty array (never a thrown error) is the
+ * honest "nothing to show yet / a transient fetch failure" state for a
+ * list to render - the same reasoning already applied to the strategy
+ * picker. Server-side pagination stays fixed at 50 rows (unchanged) -
+ * this wrapper does not add pagination, filtering, or sorting.
+ */
+export async function fetchAlgoTestRuns(): Promise<AlgoTestRunView[]> {
+  try {
+    const res = await fetch(`${BASE}/runs`);
+    if (!res.ok) return [];
+    const json = await res.json();
+    return (json?.data?.runs as AlgoTestRunView[] | undefined) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * P4.3 (docs/P4.3-SURFACE-THE-FOUNDATION.md) - the existing P4.2 AI-run
  * endpoint (POST /api/private/algo-test/ai-runs), a thin wrapper matching
  * runAlgoTest's own shape exactly - not a second, parallel AI execution
