@@ -102,7 +102,11 @@ const PAN_KEY_STEP_CANDLES = 5;
 // picker only offers the two real, screenshot-grounded MT5 schemes
 // (canvas-colors.ts) - deliberately never "at24" here, since that's the
 // platform's own generic token-driven theme, not an MT5 scheme choice.
-const COLOR_SCHEMES: ChartTheme[] = ["mt5", "mt5-green"];
+// Sprint D2.9.1 - "light" added: AT24's own white/light canvas scheme, not
+// an MT5-grounded one, but offered alongside them since all three are
+// equally chart-only preferences independent of the (permanently dark)
+// app chrome.
+const COLOR_SCHEMES: ChartTheme[] = ["mt5", "mt5-green", "light"];
 
 export interface NativeChartProps {
   /**
@@ -140,9 +144,30 @@ export interface NativeChartProps {
   onToggleIndicator: (key: string) => void;
   /** Sprint D2.7.11 Phase 4 - replaces the WHOLE active indicator set at once (applying a saved template), never a series of individual toggles. */
   onApplyIndicatorKeys: (keys: readonly string[]) => void;
+  /**
+   * Sprint D2.9.2 - cross-pane crosshair time sync (tiled layouts only).
+   * `onCrosshairTimeChange` fires with a real time (ms) whenever THIS
+   * pane's own local crosshair hover starts/moves, and `null` when it
+   * ends - ChartPanel fans the latest value out to every OTHER pane's
+   * `externalCrosshairTime` prop. Both optional so a single, non-tiled
+   * chart (or any caller that predates this sprint) behaves exactly as
+   * before - no callback, no external line ever drawn.
+   */
+  onCrosshairTimeChange?: (time: number | null) => void;
+  externalCrosshairTime?: number | null;
 }
 
-export default function NativeChart({ symbol, name, timeframe, onTimeframeChange, activeIndicatorKeys, onToggleIndicator, onApplyIndicatorKeys }: NativeChartProps) {
+export default function NativeChart({
+  symbol,
+  name,
+  timeframe,
+  onTimeframeChange,
+  activeIndicatorKeys,
+  onToggleIndicator,
+  onApplyIndicatorKeys,
+  onCrosshairTimeChange,
+  externalCrosshairTime = null,
+}: NativeChartProps) {
   // Sprint D2.8.13 - `hypothesisType` is the real, already-fetched active
   // hypothesis WorkspaceResearch found for this same symbol (D2.8.13's own
   // WorkspaceContext addition) - reused here verbatim, never a second
@@ -389,8 +414,14 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
   const activePanels = useMemo<ChartPanelId[]>(() => {
     const panels = new Set<ChartPanelId>();
     for (const series of indicatorSeries) if (series.panel !== "price") panels.add(series.panel);
+    // Sprint D2.9.4 - the equity panel isn't an indicator (no toggle in the
+    // Indicators menu); it appears automatically exactly when a completed
+    // Algo Test run actually has a real equity curve to show, and
+    // disappears the moment that overlay is cleared - never a user-
+    // togglable, potentially-empty panel.
+    if (algoTestOverlay?.equityCurve && algoTestOverlay.equityCurve.length > 0) panels.add("equity");
     return Array.from(panels);
-  }, [indicatorSeries]);
+  }, [indicatorSeries, algoTestOverlay]);
 
   const draw = useMemo(
     () => () => {
@@ -409,6 +440,7 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
         viewport,
         timeframe,
         crosshair: crosshairRef.current,
+        externalCrosshairTime,
         // MT5-style theme (D2.7.2) - the Native Chart's canvas matches the
         // user's own live MetaTrader 5 terminal rather than AT24's original
         // token-driven palette. See canvas-colors.ts's header comment for
@@ -447,10 +479,11 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
         // in the first place (algoTestOverlay is only ever set from that
         // pane's own callback), so no extra guard is needed here.
         algoTestTrades: algoTestOverlay?.trades,
+        equityCurve: algoTestOverlay?.equityCurve,
         selectedAlgoTestTradeId,
       });
     },
-    [candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme, activeSymbol, algoTestOverlay, selectedAlgoTestTradeId],
+    [candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme, activeSymbol, algoTestOverlay, selectedAlgoTestTradeId, externalCrosshairTime],
   );
 
   // Resize: keep the canvas's real pixel buffer matched to its CSS size *
@@ -498,7 +531,7 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
       // render with real data for this same key still gets a genuine fit
       // instead of "following" this placeholder.
       viewportRef.current = fitToData(candles);
-      crosshairRef.current = null;
+      setCrosshairState(null);
       setHoveredIndex(-1);
       setIsLive(true);
       draw();
@@ -510,7 +543,7 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
     if (!alreadyFittedForThisKey || !previousViewport) {
       viewportRef.current = fitToData(candles);
       fittedKeyRef.current = key;
-      crosshairRef.current = null;
+      setCrosshairState(null);
       setHoveredIndex(-1);
       setIsLive(true);
     } else if (isAtRightEdge(previousViewport, candles)) {
@@ -522,6 +555,7 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
       setIsLive(false);
     }
     draw();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setCrosshairState is a plain function recreated every render (not memoized, since it closes over the current candles/onCrosshairTimeChange); including it would re-run this effect on every render, breaking its deliberate "only on a real symbol/timeframe/candles change" scope.
   }, [candles, symbol, timeframe, draw]);
 
   // MT5 feature-parity Phase 1 - drawn objects are per symbol+timeframe
@@ -818,6 +852,18 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
     }
   }
 
+  // Sprint D2.9.2 - the one place crosshairRef is ever assigned, so every
+  // site that changes this pane's LOCAL hover state also notifies the
+  // parent (ChartPanel) of the real time to fan out to other tiled panes
+  // as a ghost line (renderer.ts's externalCrosshairTime). Converts index
+  // -> time via the same fractionalIndexToTime already used for the pinch
+  // anchor above - no second coordinate system, and a no-op (undefined
+  // callback) for the common single-pane case.
+  function setCrosshairState(next: CrosshairState | null) {
+    crosshairRef.current = next;
+    onCrosshairTimeChange?.(next ? fractionalIndexToTime(candles, next.index) : null);
+  }
+
   function handlePointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -889,14 +935,14 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
 
     const viewport = viewportRef.current;
     if (!viewport || candles.length === 0 || x > plotWidth()) {
-      crosshairRef.current = null;
+      setCrosshairState(null);
       scheduleHoverUpdate(-1);
       scheduleDraw();
       return;
     }
     const index = nearestCandleIndex(candles, viewport, x, plotWidth());
     if (index === -1) return;
-    crosshairRef.current = { index, x, y };
+    setCrosshairState({ index, x, y });
     scheduleHoverUpdate(index);
     scheduleDraw();
   }
@@ -942,7 +988,7 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
   // Only the idle crosshair-hover state is cleared here.
   function handlePointerLeave() {
     if (dragRef.current || pinchRef.current) return;
-    crosshairRef.current = null;
+    setCrosshairState(null);
     scheduleHoverUpdate(-1);
     scheduleDraw();
   }
@@ -1107,7 +1153,7 @@ export default function NativeChart({ symbol, name, timeframe, onTimeframeChange
       objectDragRef.current = null;
       if (activeTool) setActiveTool(null);
       if (crosshairRef.current) {
-        crosshairRef.current = null;
+        setCrosshairState(null);
         scheduleHoverUpdate(-1);
         draw();
       } else if (hadPendingDrawing) {

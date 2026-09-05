@@ -281,8 +281,8 @@ async function panelLayoutTests(): Promise<void> {
   // renderer.ts's drawAtrPanel/drawStochasticPanel/drawAdxPanel/
   // drawCciPanel/drawWilliamsRPanel), not an uncontrolled/unregistered
   // addition.
-  await test("32: panel-registry.ts's panel ids are exactly Phase 8's original set plus Phase 2's and D2.7.11's additions - never an untracked addition. D2.7.11 - Bill Williams' Awesome Oscillator added its own real sub-panel ('awesome-oscillator'); Alligator/Fractals are price overlays, no new panel id needed for them.", () => {
-    assert.deepEqual(Object.keys(PANEL_REGISTRY).sort(), ["adx", "atr", "awesome-oscillator", "cci", "macd", "price", "rsi", "stochastic", "volume", "williams-r"]);
+  await test("32: panel-registry.ts's panel ids are exactly Phase 8's original set plus Phase 2's, D2.7.11's, and D2.9.4's additions - never an untracked addition. D2.7.11 - Bill Williams' Awesome Oscillator added its own real sub-panel ('awesome-oscillator'); Alligator/Fractals are price overlays, no new panel id needed for them. D2.9.4 - 'equity' is Algo Test's own real running-balance overlay panel, not an indicator (see ChartPanelId's own comment), added automatically only while a completed run's equity curve is actually present.", () => {
+    assert.deepEqual(Object.keys(PANEL_REGISTRY).sort(), ["adx", "atr", "awesome-oscillator", "cci", "equity", "macd", "price", "rsi", "stochastic", "volume", "williams-r"]);
   });
 }
 

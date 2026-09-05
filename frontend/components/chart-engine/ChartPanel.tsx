@@ -91,6 +91,15 @@ export default function ChartPanel() {
   const [layout, setLayoutState] = useState<ChartLayout>(1);
   const [panes, setPanes] = useState<ChartPaneState[]>(() => [makePane(contextSymbol)]);
   const [primaryPaneId, setPrimaryPaneId] = useState<string>(() => panes[0].id);
+  // Sprint D2.9.2 - cross-pane crosshair time sync. A single shared value,
+  // not per-pane-tracked: whichever pane is actually hovering keeps
+  // drawing its own real local crosshair (NativeChart's crosshairRef takes
+  // precedence over externalCrosshairTime in renderer.ts), so broadcasting
+  // the same time to every pane - including the one that produced it - is
+  // safe and needs no "which pane originated this" bookkeeping. Ephemeral
+  // interaction state, deliberately not persisted with the rest of this
+  // file's durable layout.
+  const [syncedCrosshairTime, setSyncedCrosshairTime] = useState<number | null>(null);
   const hydratedRef = useRef(false);
 
   // Restore saved session state once, after mount (see this file's own
@@ -235,6 +244,8 @@ export default function ChartPanel() {
               onToggleIndicator={(key) => togglePaneIndicator(pane.id, key)}
               onApplyIndicatorKeys={(keys) => applyPaneIndicatorKeys(pane.id, keys)}
               onSetPrimary={() => setPrimary(pane.id)}
+              onCrosshairTimeChange={setSyncedCrosshairTime}
+              externalCrosshairTime={syncedCrosshairTime}
             />
           ))}
         </div>

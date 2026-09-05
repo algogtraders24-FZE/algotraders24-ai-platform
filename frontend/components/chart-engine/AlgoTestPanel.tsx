@@ -42,6 +42,7 @@ import { ALGO_TEST_LIFECYCLE_STAGES as LIFECYCLE_STAGES } from "@/types/algo-tes
 import type {
   AlgoTestAnalyticsView,
   AlgoTestCompiledStrategyView,
+  AlgoTestEquityPoint,
   AlgoTestLifecycleResult,
   AlgoTestLifecycleStage,
   AlgoTestParameterDefinition,
@@ -58,6 +59,8 @@ const REOPEN_QUERY_PARAM = "algoTestId";
 export interface AlgoTestChartOverlay {
   candles: ChartCandle[];
   trades: AlgoTestTradeMarker[];
+  /** Sprint D2.9.4 - the run's own real, already-computed running-balance series (never derived/re-simulated here) - renders as a dedicated equity sub-panel. Absent exactly when the run itself has none (never backfilled with a guess). */
+  equityCurve?: AlgoTestEquityPoint[];
 }
 
 export interface AlgoTestPanelProps {
@@ -228,6 +231,7 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
           trades: fetched.trades.map(
             (t): AlgoTestTradeMarker => ({ tradeId: t.tradeId, side: t.side, entryTime: t.entryTime, entryPrice: t.entryPrice, exitTime: t.exitTime, exitPrice: t.exitPrice }),
           ),
+          equityCurve: fetched.equityCurve,
         });
       }
     });
@@ -290,6 +294,7 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
         trades: result.trades.map(
           (t): AlgoTestTradeMarker => ({ tradeId: t.tradeId, side: t.side, entryTime: t.entryTime, entryPrice: t.entryPrice, exitTime: t.exitTime, exitPrice: t.exitPrice }),
         ),
+        equityCurve: result.equityCurve,
       });
       setConfigOpen(false);
       // P3.3 - round-trip this completed run's id through the URL so a
