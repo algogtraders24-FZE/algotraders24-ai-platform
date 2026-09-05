@@ -7,6 +7,17 @@
 // <AdvancedChart/>, but AdvancedChart itself is untouched and still the
 // default - this sprint adds a coexisting option, never a replacement.
 //
+// Sprint D2.9.6 - the default flips to "native", after the D2.9.1-D2.9.5
+// hardening pass closed the concrete gaps (light theme, cross-pane
+// crosshair sync, mobile verification, trade clustering, equity overlay)
+// that kept Native labeled "(Beta)" and secondary. AdvancedChart
+// (TradingView) remains fully intact and reachable via the toggle - an
+// explicit fallback now, never removed by this change. A session that had
+// already saved "tradingview" via ChartWorkspaceLayout keeps seeing it -
+// this only changes the default for a session with no saved preference yet
+// (see the restore effect below, which overwrites this default the moment
+// a real saved value resolves).
+//
 // Sprint D2.7.4 - now OWNS the native chart's timeframe/active-indicator
 // selection (lifted up from NativeChart's own former local state). Fixes a
 // real Phase 11 bug: NativeChart previously reset to its defaults ("1h",
@@ -87,7 +98,7 @@ function layoutForRestoredCount(count: number): ChartLayout {
 
 export default function ChartPanel() {
   const { symbol: contextSymbol, setSymbol: setContextSymbol } = useWorkspace();
-  const [provider, setProvider] = useState<ChartProviderKind>("tradingview");
+  const [provider, setProvider] = useState<ChartProviderKind>("native");
   const [layout, setLayoutState] = useState<ChartLayout>(1);
   const [panes, setPanes] = useState<ChartPaneState[]>(() => [makePane(contextSymbol)]);
   const [primaryPaneId, setPrimaryPaneId] = useState<string>(() => panes[0].id);
