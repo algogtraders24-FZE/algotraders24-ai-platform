@@ -197,11 +197,12 @@ export function isAgentStepKind(value: unknown): value is AgentStepKind {
 
 export type AgentStepStatus = "ok" | "error" | "skipped";
 
-/** An append-only, ordered record of one thing the runtime did. */
+/** An append-only, ordered record of one thing the runtime did. Immutable
+ *  once written - no update path, no soft-delete (A3 persistence). */
 export interface AgentStep {
   id: string;
   runId: string;
-  /** 0-based, strictly increasing, no gaps. */
+  /** 0-based, strictly increasing, no gaps. Unique with runId. */
   index: number;
   kind: AgentStepKind;
   status: AgentStepStatus;
@@ -212,9 +213,13 @@ export interface AgentStep {
   completedAt: string;
   durationMs: number;
   creditsConsumed: number;
+  /** DB-authoritative row write time (distinct from startedAt, which is the
+   *  runtime's own clock reading). Append-only. */
+  createdAt: string;
 }
 
-/** An append-only record of one tool invocation (maps to ToolResultStatus). */
+/** An append-only record of one tool invocation (maps to ToolResultStatus).
+ *  Immutable once written. */
 export interface AgentToolCall {
   id: string;
   runId: string;
@@ -232,6 +237,8 @@ export interface AgentToolCall {
   durationMs: number;
   /** ids of the AgentEvidence rows this call produced. */
   evidenceIds: string[];
+  /** DB-authoritative row write time. Append-only. */
+  createdAt: string;
 }
 
 // ---- The run row -------------------------------------------------
@@ -260,8 +267,17 @@ export interface AgentRun {
   completedAt?: string | null;
   /** engine versions, supervisor version, pipelineVersion, ... */
   metadata: Readonly<Record<string, unknown>>;
+  /** Opaque runtime checkpoint for the resumable tick() model (A4): where to
+   *  pick up after a lost serverless invocation, what is pending approval,
+   *  retries used, etc. Its shape is owned by the runtime, not this contract.
+   *  Null before the first tick and after a terminal status. Resumability is
+   *  a property of the RUN, never of a tool's executionMode. */
+  resumeState?: Readonly<Record<string, unknown>> | null;
   createdAt: string;
   updatedAt: string;
+  /** Soft-delete: only AgentRun carries this. Steps / tool calls / evidence
+   *  are append-only with no delete path. */
+  deletedAt?: string | null;
 }
 
 /** A fully assembled run trace (read model for GET /runs/:id/trace). */
