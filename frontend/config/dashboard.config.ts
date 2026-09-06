@@ -84,7 +84,18 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       // no standalone page: it's a toolbar/panel inside the Native Chart
       // workspace, scoped today to XAUUSD/M5. Links to that real surface
       // rather than inventing a dedicated page around it.
-      { label: "Algo Testing Pro", href: "/dashboard/workspace", icon: "AT" },
+      // P4.7-T2 - gained a real second surface (Run History,
+      // app/dashboard/algo-test-history) - nested the same way "Quant"
+      // nests Quant Lite/Pro and "AI Assistant" nests Trading Copilot/
+      // Knowledge Base, per this file's own established children
+      // convention (a sub-capability of the parent, not a distinct
+      // locked top-level slot). The parent href is unchanged.
+      {
+        label: "Algo Testing Pro",
+        href: "/dashboard/workspace",
+        icon: "AT",
+        children: [{ label: "Run History", href: "/dashboard/algo-test-history" }],
+      },
       {
         label: "Marketplace",
         href: "/marketplace",
