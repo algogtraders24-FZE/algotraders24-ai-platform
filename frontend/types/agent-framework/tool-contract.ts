@@ -32,6 +32,7 @@ import type { PermissionKey } from "./permission-contract";
 import { isPermissionKey } from "./permission-contract";
 import type { AutonomyLevel } from "./autonomy-contract";
 import { isAutonomyLevel } from "./autonomy-contract";
+import { type AgentEvidenceType, isAgentEvidenceType } from "./evidence-contract";
 
 export type ToolCategory =
   | "MARKET_DATA"
@@ -60,6 +61,26 @@ export const TOOL_CATEGORIES: readonly ToolCategory[] = [
 
 export type ToolStatus = "active" | "deprecated" | "disabled";
 
+/** Whether one invocation completes within a single request (`sync`) or must
+ *  be driven across multiple `tick()` steps by the resumable runtime (A4).
+ *  Declared here so the planner/runtime can schedule correctly; every A2
+ *  tool is `sync`. */
+export type ToolExecutionMode = "sync" | "resumable";
+
+/** What real, cited evidence a tool's result can back. Consumed by the
+ *  EvidenceRecorder (A6) and the output-integrity check (A4). */
+export interface ToolEvidenceSpec {
+  /** True when a successful call yields at least one AgentEvidence row. */
+  producesEvidence: boolean;
+  /** The AgentEvidence `type` values this tool can emit. */
+  evidenceTypes: AgentEvidenceType[];
+  /** The `provenance.producer` label every evidence row from this tool
+   *  carries (e.g. "intelligence-pipeline", "at24-quant-engine",
+   *  "market-data-service"). Never a vendor name in the contract - the
+   *  concrete provider is an implementation detail of the handler. */
+  provenanceProducer: string;
+}
+
 /** How a tool call's credit cost is determined. `estimated` names an
  *  estimator by id (resolved in the runtime, A9) and carries a hard ceiling
  *  so a bad estimate can never authorize unbounded spend. */
@@ -86,11 +107,24 @@ export interface ToolDefinition {
   /** Minimum agent autonomy level to invoke this tool. */
   autonomyFloor: AutonomyLevel;
   creditCost: ToolCreditCost;
+  /** Whether the call is single-request or must be resumed across ticks. */
+  executionMode: ToolExecutionMode;
+  /** What cited evidence a successful call produces. */
+  evidence: ToolEvidenceSpec;
   status: ToolStatus;
   /** Free-text pointer to the existing AT24 service this tool wraps, e.g.
    *  "services/intelligence/orchestration/real-time-intelligence.service.ts".
    *  Declared here for traceability; it is documentation, not a code import. */
   wraps: string;
+}
+
+/** Thrown by the registry's `require` lookup for an id that is not
+ *  registered. Deterministic unknown-tool rejection (G02 requirement 10). */
+export class UnknownToolError extends Error {
+  constructor(public readonly toolId: string) {
+    super(`Unknown tool "${toolId}".`);
+    this.name = "UnknownToolError";
+  }
 }
 
 // ---- The three-role boundary (Planner != Registry != Executor) ---------
@@ -205,6 +239,34 @@ export function validateToolDefinition(tool: ToolDefinition): ContractValidation
     v.push({ path: "autonomyFloor", message: "autonomyFloor must be an AutonomyLevel (0-4)." });
   }
   validateCreditCost(tool.creditCost, v);
+
+  if (tool.executionMode !== "sync" && tool.executionMode !== "resumable") {
+    v.push({ path: "executionMode", message: 'executionMode must be "sync" or "resumable".' });
+  }
+
+  if (!tool.evidence || typeof tool.evidence !== "object") {
+    v.push({ path: "evidence", message: "evidence (ToolEvidenceSpec) is required." });
+  } else {
+    if (typeof tool.evidence.producesEvidence !== "boolean") {
+      v.push({ path: "evidence.producesEvidence", message: "producesEvidence must be a boolean." });
+    }
+    if (!Array.isArray(tool.evidence.evidenceTypes)) {
+      v.push({ path: "evidence.evidenceTypes", message: "evidenceTypes must be an array." });
+    } else {
+      for (const t of tool.evidence.evidenceTypes) {
+        if (!isAgentEvidenceType(t)) {
+          v.push({ path: "evidence.evidenceTypes", message: `Unknown evidence type "${String(t)}".` });
+        }
+      }
+    }
+    if (!isNonEmptyString(tool.evidence.provenanceProducer)) {
+      v.push({ path: "evidence.provenanceProducer", message: "provenanceProducer is required." });
+    }
+    if (tool.evidence.producesEvidence === true && tool.evidence.evidenceTypes.length === 0) {
+      v.push({ path: "evidence.evidenceTypes", message: "a tool that producesEvidence must declare at least one evidence type." });
+    }
+  }
+
   if (!isToolStatus(tool.status)) {
     v.push({ path: "status", message: 'status must be "active", "deprecated" or "disabled".' });
   }

@@ -101,6 +101,31 @@ export interface EvidenceRef {
   evidenceId: string;
 }
 
+/** What a tool handler emits: everything about a piece of evidence EXCEPT
+ *  the identity/linkage fields the runtime assigns when it persists the row
+ *  (id, runId, stepId, toolCallId, createdAt). The EvidenceRecorder (A6)
+ *  turns a draft into a full AgentEvidence row. */
+export type AgentEvidenceDraft = Omit<
+  AgentEvidence,
+  "id" | "runId" | "stepId" | "toolCallId" | "createdAt"
+>;
+
+/** Validate a draft (same rules as a full record, minus the runtime-
+ *  assigned fields). Pure. */
+export function validateAgentEvidenceDraft(draft: AgentEvidenceDraft): ContractValidationResult {
+  const stub = draft as AgentEvidence;
+  const full = validateAgentEvidence({
+    ...stub,
+    id: "draft",
+    runId: "draft",
+    stepId: "draft",
+    createdAt: stub.timestamp,
+  });
+  // Drop violations for the fields a draft legitimately omits.
+  const runtimeAssigned = new Set(["id", "runId", "stepId", "toolCallId", "createdAt"]);
+  return contractResult(full.violations.filter((x) => !runtimeAssigned.has(x.path)));
+}
+
 export function isAgentEvidenceType(value: unknown): value is AgentEvidenceType {
   return typeof value === "string" && (AGENT_EVIDENCE_TYPES as readonly string[]).includes(value);
 }

@@ -156,6 +156,8 @@ function validTool(overrides: Partial<ToolDefinition> = {}): ToolDefinition {
     requiredPermissions: ["CAN_READ_MARKET_DATA"],
     autonomyFloor: 0,
     creditCost: { model: "flat", credits: 2 },
+    executionMode: "sync",
+    evidence: { producesEvidence: true, evidenceTypes: ["market_data"], provenanceProducer: "intelligence-pipeline" },
     status: "active",
     wraps: "services/intelligence/orchestration/real-time-intelligence.service.ts",
     ...overrides,
@@ -294,6 +296,10 @@ async function main(): Promise<void> {
       [{ creditCost: { model: "flat", credits: -1 } }, "creditCost.credits"],
       [{ creditCost: { model: "estimated", estimatorId: "", ceiling: 0 } }, "creditCost.estimatorId"],
       [{ wraps: "" }, "wraps"],
+      [{ executionMode: "batch" as never }, "executionMode"],
+      [{ evidence: undefined as never }, "evidence"],
+      [{ evidence: { producesEvidence: true, evidenceTypes: [], provenanceProducer: "x" } }, "evidence.evidenceTypes"],
+      [{ evidence: { producesEvidence: true, evidenceTypes: ["nope" as never], provenanceProducer: "x" } }, "evidence.evidenceTypes"],
     ];
     for (const [override, expectedPath] of cases) {
       const res = validateToolDefinition(validTool(override));
