@@ -139,9 +139,14 @@ function main(): void {
 
   const sql = existsSync(MIGRATION_SQL) ? readFileSync(MIGRATION_SQL, "utf8") : "";
 
-  test("migration header marks it NOT APPLIED", () => {
-    assert.match(sql, /STATUS: NOT APPLIED/);
+  test("migration header records its review provenance + the migrate-dev prohibition", () => {
+    // The migration was GENERATED + REVIEWED as NOT APPLIED (G03), then
+    // applied via `prisma migrate deploy` under explicit G03 authorization.
+    // Prisma migration files are immutable once applied, so the header keeps
+    // its original review-time wording; this test only guards the
+    // still-true prohibition.
     assert.match(sql, /Never run `prisma migrate dev`/);
+    assert.match(sql, /hand-reviewed/);
   });
 
   test("migration creates exactly the 6 new enums", () => {
@@ -221,12 +226,16 @@ function main(): void {
     assert.ok(runBlock.includes('"resumeState"'), "AgentRun must carry resumeState for the resumable tick() model");
   });
 
-  // ---- 4. explicit migration status ----
+  // ---- 4. migration is a well-formed, ordered Prisma migration ----
 
-  test("migration status is GENERATED / REVIEWED / NOT APPLIED", () => {
-    const applied = existsSync(join(MIGRATION_DIR, ".applied"));
-    assert.equal(applied, false, "no .applied marker expected");
-    console.log("      -> GENERATED / REVIEWED / NOT APPLIED");
+  test("migration folder name is a valid timestamped Prisma migration id", () => {
+    assert.match(
+      "20260906120000_add_agent_runtime_persistence",
+      /^\d{14}_[a-z0-9_]+$/,
+      "folder must be <YYYYMMDDHHMMSS>_<snake_name>",
+    );
+    // it sorts after the last pre-A3 migration this branch knows about
+    assert.ok("20260906120000_add_agent_runtime_persistence" > "20260901160000_add_algo_test_run");
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);

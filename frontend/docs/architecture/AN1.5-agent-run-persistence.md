@@ -3,12 +3,15 @@
 **Sprint:** AT24 AI Agents — Agent Framework Foundation
 **Step:** A3 — Agent Run / Step / ToolCall / Evidence persistence
 **Depends on:** AN1.1–AN1.4, `AF-v1` contracts, G02 (closed)
-**Gate:** G03 — schema + generated SQL review. **Migration NOT applied.**
+**Gate:** G03 — **CLOSED / APPROVED**. Migration **applied under G03 authorization**.
 
-> **Migration status: `GENERATED / REVIEWED / NOT APPLIED`.**
+> **Migration status: `GENERATED → REVIEWED → APPLIED → VERIFIED`.**
 > `prisma/migrations/20260906120000_add_agent_runtime_persistence/migration.sql`
-> exists and is hand-reviewed. It has not been run against any database.
-> Applying it needs an explicit go-ahead (AN1.2 P1). Never `prisma migrate dev`.
+> was generated offline, hand-reviewed (§3), reviewed and approved by the owner
+> (G03), then applied with `prisma migrate deploy` (never `prisma migrate dev`).
+> Post-apply verification against the live database is in §9. The migration
+> file keeps its original review-time header wording — Prisma migration files
+> are immutable once applied.
 
 ---
 
@@ -254,13 +257,47 @@ the legacy agents UI + API, every other route/service.
 
 ---
 
-## 8. Stopping point
+## 8. Migration-history note (worktree topology)
 
-**A3 stops here.** The migration is generated and SQL-reviewed. It is **not
-applied** and no runtime code reads or writes these tables yet (that is A4).
+This branch (`feat/agent-framework-foundation`, off `083cae5`) predates 4
+migrations that already exist on the shared database and on other worktrees:
+`20260902120000_add_algo_test_contract_versioning`,
+`20260903090000_add_algo_test_parameters`,
+`20260904120000_add_algo_test_identity`,
+`20260906040000_add_ai_news_pipeline` — all in unrelated domains (Algo Test,
+AI News). `prisma migrate deploy` applied **only** this branch's one pending
+migration alongside them with **zero collision** (different tables entirely).
+`prisma migrate status` → *"Database schema is up to date"*. When this branch
+merges to `main` all migration files reunite; the DB already has every one.
+This is the pre-existing worktree condition noted in project memory, not a
+side effect of A3.
 
-**G03 review requested:** schema + `migration.sql`. On acceptance →
-authorize applying the migration, then A4 (server-side resumable `tick()`
-runtime + `LimitEnforcer` + `RunTracer`).
+## 9. Post-apply verification (live DB)
+
+`prisma migrate deploy` → *"Applying migration `20260906120000_add_agent_runtime_persistence` … All migrations have been successfully applied."*
+
+Catalog checks against `aws-0-ap-northeast-1.pooler.supabase.com` / `public`:
+
+| Check | Expected | Found |
+|---|---|---|
+| enum types `Agent*` | 6 | **6** — `AgentEvidenceType, AgentRunStatus, AgentRunTrigger, AgentStepKind, AgentStepStatus, AgentToolCallStatus` |
+| tables | 4 | **4** — `AgentRun, AgentStep, AgentToolCall, AgentEvidence` |
+| indexes (incl. 4 pkey + 1 unique) | 21 | **21** — incl. `AgentStep_runId_index_key` (unique), `AgentRun_status_updatedAt_idx` (tick scheduler), `AgentEvidence_runId_idx` |
+| foreign keys | 6, all `CASCADE` | **6** — `AgentStep_runId_fkey`, `AgentToolCall_runId_fkey`, `AgentToolCall_stepId_fkey`, `AgentEvidence_runId_fkey`, `AgentEvidence_stepId_fkey`, `AgentEvidence_toolCallId_fkey` — every `delete_rule = CASCADE` |
+| `_prisma_migrations` row | present, finished | `{ migration_name: "20260906120000_add_agent_runtime_persistence", done: true }` |
+| new tables queryable | yes | `SELECT count(*)` on all 4 → `0` |
+| existing tables unaffected | yes | `Agent` / `AgentTask` / `AlgoTestRun` still readable; `prisma migrate status` → up to date |
+| `prisma generate` | succeeds | ✔ Generated Prisma Client (7.8.0) |
+| agent regression | green | `validate:agent-contracts` 38/0, `validate:agent-run-persistence` 17/0, `validate:agent-tools` 20/0 |
+
+**No runtime behavior was added during migration application** (owner rule).
+No code reads or writes these tables yet — that is A4.
+
+## 10. Stopping point
+
+**A3 is complete and the migration is applied + verified.** Next: A4 —
+server-side resumable `tick()` runtime + `LimitEnforcer` + `RunTracer`, with
+the first proof deliberately small (Agent → Planner → `market.snapshot` →
+typed result → `AgentEvidence` → `succeeded`).
 
 *End AN1.5.*
