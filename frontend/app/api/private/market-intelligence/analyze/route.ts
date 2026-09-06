@@ -47,7 +47,7 @@ import { ReasoningEngineService } from "@/services/ai/reasoning/reasoning-engine
 import { RiskEngineService } from "@/services/ai/risk/risk-engine.service";
 import { ConfidenceEngineService } from "@/services/ai/confidence/confidence-engine.service";
 import { marketData } from "@/services/market-data/shared-instance";
-import { AlphaVantageNewsProvider } from "@/lib/market-data/providers/alpha-vantage-news.provider";
+import { SharedNewsCacheProvider } from "@/services/news/market-intelligence-news-provider";
 import { systemClock } from "@/lib/market-data/cache";
 import { requestLogService } from "@/services/tracking/RequestLogService";
 import { analyticsEventService } from "@/services/analytics/AnalyticsEventService";
@@ -79,7 +79,12 @@ const pipeline = new MarketIntelligencePipelineService(
   new ConfidenceEngineService(),
   systemClock,
   new EvidenceFusionService(),
-  new AlphaVantageNewsProvider(),
+  // AN1.2 - reads the shared, cross-feature NewsArticle store (cache-first,
+  // quota-reserved live fallback) instead of calling Alpha Vantage directly
+  // on every analysis request. See services/news/market-intelligence-news-
+  // provider.ts's header for why this is a new class rather than a rewrite
+  // of the pre-existing, still-tested AlphaVantageNewsProvider.
+  new SharedNewsCacheProvider(),
 );
 const orchestrator = new MarketAnalysisOrchestrationService(pipeline);
 

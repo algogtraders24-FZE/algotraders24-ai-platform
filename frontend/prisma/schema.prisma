@@ -821,6 +821,105 @@ model IntelligenceAuditTrace {
 }
 
 // ============================================================================
+// AN1 - AI News Establishment. Real news pipeline (Alpha Vantage primary,
+// CryptoPanic crypto-secondary), replacing the static data/news.ts feed - see
+// docs/AN1-*.md for the full R&D/design record (provider decision, ingestion
+// architecture, relevance mapping, classification).
+//
+// NewsArticle is a provider-independent normalized record: `provider`/
+// `providerArticleId` identify the source, `rawPayload` is an untouched
+// escape hatch for reprocessing (never the application contract). Sentiment
+// is preserved exactly as the provider returned it (including hyphenated
+// labels like "Somewhat-Bullish" - never normalized/rewritten). `category`/
+// `impactLevel` are AT24's OWN derived fields, kept structurally separate
+// from provider-native sentiment/relevance so the two can never be confused.
+// `assetTags` is AT24's final relevance mapping (deterministic pipeline:
+// native ticker match -> topic-derived -> keyword-inferred -> optional AI
+// enrichment, the last currently OFF); `tagProvenance` preserves WHY each
+// tag was assigned, since "why was this shown to me" matters once this is
+// user-facing.
+model NewsArticle {
+  id                String    @id @default(cuid())
+  provider          String
+  providerArticleId String?
+  dedupeKey         String    @unique
+
+  headline          String
+  summary           String?
+  url               String?
+  sourceName        String?
+
+  publishedAt       DateTime?
+  fetchedAt         DateTime  @default(now())
+
+  // Provider-native output, stored as-is - never AT24's own classification.
+  sentimentScore    Float?
+  sentimentLabel    String?
+  relevanceByAsset  Json?
+
+  // AT24-derived, explicitly separate from the above:
+  category          String?
+  impactLevel       String?
+  assetTags         String[] @default([])
+  tagProvenance     Json?
+
+  processingStatus  NewsProcessingStatus @default(pending)
+  errorState        String?
+
+  rawPayload        Json?
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  @@index([provider])
+  @@index([publishedAt])
+  @@index([processingStatus])
+  @@index([deletedAt])
+  @@map("news_articles")
+}
+
+enum NewsProcessingStatus {
+  pending
+  processed
+  failed
+}
+
+// Authoritative daily reservation for provider call budgets (e.g. Alpha
+// Vantage's free-tier 25/day). `dailyLimit` is snapshotted per (provider,
+// date) row at first-reservation time, so a mid-day config change affects
+// tomorrow's row, never retroactively distorts today's. Reservation MUST use
+// an atomic conditional upsert (see services/news/quota.service.ts) - a
+// plain count-then-insert is a real TOCTOU race under concurrent cron/
+// on-demand callers.
+model ProviderQuota {
+  provider   String
+  date       String // "YYYY-MM-DD", UTC
+  usedCount  Int      @default(0)
+  dailyLimit Int
+  updatedAt  DateTime @updatedAt
+
+  @@id([provider, date])
+  @@map("provider_quotas")
+}
+
+// Append-only audit trail of every real provider call attempt (successful or
+// not). Distinct from ProviderQuota (the reservation ledger) - this exists
+// for observability/debugging, not quota enforcement.
+model ProviderCallLog {
+  id           String   @id @default(cuid())
+  provider     String
+  purpose      String // "scheduled-ingestion" | "on-demand-fallback"
+  calledAt     DateTime @default(now())
+  success      Boolean
+  errorMessage String?
+
+  @@index([provider])
+  @@index([calledAt])
+  @@map("provider_call_logs")
+}
+
+// ============================================================================
 // Sprint M8 - AT24 Marketplace. Additive-only; NOT applied to the live
 // database this sprint (schema drafted + migration generated, not run -
 // see ea-research/marketplace-research/m8-marketplace-platform/ for the
