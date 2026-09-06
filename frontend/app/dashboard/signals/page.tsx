@@ -13,10 +13,12 @@
 // Workspace Research panel already shows for one symbol, batched across a
 // fixed set of core instruments via GET /api/private/intelligence/overview
 // (ResearchSnapshotService, unmodified - no second engine).
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Skeleton from "@/components/ui/Skeleton";
-import EmptyState from "@/components/ui/EmptyState";
+import ErrorState from "@/components/ui/ErrorState";
+import Button from "@/components/ui/Button";
 import Disclaimer from "@/components/ui/Disclaimer";
+import PageHeader from "@/components/ui/PageHeader";
 import RegimeOverviewCard from "@/components/signals/RegimeOverviewCard";
 import type { MarketRegimeOverviewItem } from "@/types/market-regime-overview";
 
@@ -25,6 +27,9 @@ type LoadState = "loading" | "ready" | "error";
 export default function SignalsPage() {
   const [state, setState] = useState<LoadState>("loading");
   const [items, setItems] = useState<MarketRegimeOverviewItem[]>([]);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const retry = useCallback(() => setReloadKey((k) => k + 1), []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -46,17 +51,16 @@ export default function SignalsPage() {
     return () => {
       controller.abort();
     };
-  }, []);
+  }, [reloadKey]);
 
   return (
     <div className="min-h-screen bg-ink p-6 text-text">
       <div className="mx-auto max-w-6xl">
-        <header className="mb-6">
-          <h1 className="text-2xl font-bold">AI Signals</h1>
-          <p className="text-sm text-text-3">
-            Real market regime, decision state, and Intelligence Score for the core markets - never a BUY/SELL call, never a trade recommendation.
-          </p>
-        </header>
+        <PageHeader
+          eyebrow="AI Signals"
+          title="Market regime, at a glance"
+          description="Real market regime, decision state, and Intelligence Score for the core markets - never a BUY/SELL call, never a trade recommendation."
+        />
 
         {state === "loading" && (
           <section className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true" aria-live="polite">
@@ -67,7 +71,15 @@ export default function SignalsPage() {
         )}
 
         {state === "error" && (
-          <EmptyState title="Could not load market overview" description="Try again, or check an individual symbol from the Market Intelligence page." />
+          <ErrorState
+            title="Could not load market overview"
+            description="Check an individual symbol from the Market Intelligence page, or try again."
+            action={
+              <Button onClick={retry} variant="secondary" size="sm">
+                Try again
+              </Button>
+            }
+          />
         )}
 
         {state === "ready" && (

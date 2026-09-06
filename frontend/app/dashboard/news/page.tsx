@@ -18,6 +18,8 @@ import EconomicCalendar from "@/components/news/EconomicCalendar";
 import HeadlineSummary from "@/components/news/HeadlineSummary";
 import NewsFilter from "@/components/news/NewsFilter";
 import Alert from "@/components/ui/Alert";
+import EmptyState from "@/components/ui/EmptyState";
+import PageHeader from "@/components/ui/PageHeader";
 
 export default function NewsPage() {
   const [category, setCategory] = useState<NewsCategory | "all">("all");
@@ -34,10 +36,7 @@ export default function NewsPage() {
   return (
     <div className="min-h-screen bg-ink p-6 text-text">
       <div className="mx-auto max-w-6xl">
-        <header className="mb-6">
-          <h1 className="text-2xl font-bold">AI Financial News</h1>
-          <p className="text-sm text-text-3">AI-analyzed headlines & economic calendar</p>
-        </header>
+        <PageHeader eyebrow="AI News" title="AI Financial News" description="AI-analyzed headlines & economic calendar." />
 
         <Alert tone="info" title="Preview data" className="mb-6">
           The headlines and events below are sample content, not a live news feed - a real market-news integration
@@ -57,7 +56,9 @@ export default function NewsPage() {
             <NewsCard key={n.id} article={n} />
           ))}
           {filtered.length === 0 && (
-            <p className="col-span-full text-sm text-text-3">No news matches the filter.</p>
+            <div className="col-span-full">
+              <EmptyState title="No news matches the filter." description="Try a different category above." />
+            </div>
           )}
         </section>
 

@@ -226,8 +226,10 @@ export default function AssistantPage() {
       />
 
       <div className="flex flex-1 flex-col">
+        {/* Sprint IA4 - a compact eyebrow, not the full PageHeader primitive: this is a chat-shell header strip that must stay thin so ChatWindow keeps the rest of the viewport height, not a full page hero. Same gold-eyebrow visual language as the rest of Intelligence, sized for this context. */}
         <header className="border-b border-border px-4 py-3">
-          <h1 className="text-lg font-bold">AI Strategy Assistant</h1>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gold">AI Assistant</p>
+          <h1 className="mt-0.5 text-lg font-bold">AI Strategy Assistant</h1>
           <p className="text-xs text-text-3">Persistent - Gemini 2.5 Flash</p>
         </header>
 

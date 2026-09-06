@@ -55,7 +55,7 @@ export default async function LicensesPage() {
             <Link
               key={l.licenseId}
               href={`/dashboard/purchases/${l.licenseId}`}
-              className="block rounded-2xl border border-border bg-ink-2 p-6 transition hover:border-gold"
+              className="block rounded-card border border-border bg-ink-2 p-6 transition hover:border-gold"
             >
               <div className="mb-4 flex items-center justify-between">
                 <p className="font-semibold text-text">{l.listingTitle}</p>

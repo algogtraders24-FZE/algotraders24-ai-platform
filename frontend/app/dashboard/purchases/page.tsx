@@ -11,6 +11,7 @@ import { getMyPurchases } from "@/services/licensing/myPurchases";
 import EmptyState from "@/components/ui/EmptyState";
 import Badge from "@/components/ui/Badge";
 import ButtonLink from "@/components/ui/ButtonLink";
+import Card from "@/components/ui/Card";
 
 function licenseStatusTone(status: string | null) {
   if (status === "ACTIVE") return "success" as const;
@@ -39,7 +40,7 @@ export default async function MyPurchasesPage() {
       ) : (
         <div className="space-y-3">
           {purchases.map((p) => (
-            <div key={p.purchaseId} className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-ink-3 p-5">
+            <Card key={p.purchaseId} padding="none" className="flex items-center justify-between gap-4 p-5">
               <div>
                 <p className="font-semibold text-text">{p.listingTitle}</p>
                 <p className="mt-1 text-xs text-text-3">
@@ -54,7 +55,7 @@ export default async function MyPurchasesPage() {
                   </Link>
                 ) : null}
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}

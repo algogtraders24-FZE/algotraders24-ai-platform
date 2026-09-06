@@ -34,7 +34,7 @@ export default function MarketplaceListingCard({ listing }: { listing: Marketpla
   return (
     <Link
       href={`/marketplace/${listing.slug}`}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-ink-3 transition duration-300 hover:border-gold hover:shadow-raised"
+      className="group flex flex-col overflow-hidden rounded-card border border-border bg-ink-3 transition duration-300 hover:border-gold hover:shadow-raised"
     >
       {/* Product logo - the dominant visual, like MQL5's grid. Real
           uploaded icon only; no placeholder marketing graphic. */}

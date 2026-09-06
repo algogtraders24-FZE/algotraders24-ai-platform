@@ -3,6 +3,17 @@
 // Sprint 14E - Agents, tasks, memory and activity now load from PostgreSQL via
 // AgentEngine.load(). Markup, components and styling unchanged; only the data
 // source and the surrounding loading/error handling are new.
+//
+// Sprint IA4 - this page previously interpolated a caught error's raw
+// `.message` straight into customer-facing JSX, which could read literally
+// "Request failed with 401" whenever the server response didn't carry the
+// expected JSON error envelope (services/api/ApiClient.ts's own fallback -
+// fixed at the source this same sprint, but this page also now branches on
+// the real ApiClientError.httpStatus to show a distinct, honest "session
+// may have expired" state for a genuine 401, instead of a generic failure
+// message for every kind of error alike). Header/error/loading also moved
+// onto the shared PageHeader/ErrorState/Skeleton primitives so this page
+// reads as one more Intelligence product, not a separately-built tool.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Agent } from "@/types/agent";
 import {
@@ -18,14 +29,29 @@ import {
 } from "@/services/agents/AgentEngine";
 import { getTasks } from "@/services/agents/AgentTaskManager";
 import { getMemory } from "@/services/agents/AgentMemory";
+import { ApiClientError } from "@/services/api/ApiClient";
 
 import AgentMetrics from "@/components/agents/AgentMetrics";
 import AgentGrid from "@/components/agents/AgentGrid";
 import AgentDetails from "@/components/agents/AgentDetails";
+import PageHeader from "@/components/ui/PageHeader";
+import ErrorState from "@/components/ui/ErrorState";
+import Skeleton from "@/components/ui/Skeleton";
+import Button from "@/components/ui/Button";
+import ButtonLink from "@/components/ui/ButtonLink";
+
+const PAGE_EYEBROW = "AI Agents";
+const PAGE_TITLE = "AI Agent Framework";
+const PAGE_DESCRIPTION = "Central intelligence layer - autonomous agents that plan, execute, and report on real tasks.";
+
+interface LoadError {
+  message: string;
+  isAuthError: boolean;
+}
 
 export default function AgentsPage() {
   const [ready, setReady] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<LoadError | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -49,9 +75,10 @@ export default function AgentsPage() {
       .catch((err: unknown) => {
         if (!active) return;
         if (err instanceof DOMException && err.name === "AbortError") return;
-        setError(
-          err instanceof Error ? err.message : "Unable to load agents."
-        );
+        setError({
+          message: err instanceof Error ? err.message : "Unable to load agents.",
+          isAuthError: err instanceof ApiClientError && err.httpStatus === 401,
+        });
       });
 
     return () => {
@@ -98,16 +125,28 @@ export default function AgentsPage() {
     return (
       <div className="min-h-screen bg-ink p-6 text-text">
         <div className="mx-auto max-w-6xl">
-          <div className="rounded-2xl border border-danger/30 bg-danger/10 p-6 text-sm">
-            <p className="font-semibold text-danger">Could not load agents</p>
-            <p className="mt-1 text-text-2">{error}</p>
-            <button
-              onClick={retry}
-              className="mt-4 rounded-lg border border-border px-4 py-2 text-sm font-medium text-text transition hover:bg-ink-3"
-            >
-              Retry
-            </button>
-          </div>
+          <PageHeader eyebrow={PAGE_EYEBROW} title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
+          {error.isAuthError ? (
+            <ErrorState
+              title="Your session may have expired"
+              description="Sign in again to continue to AI Agents."
+              action={
+                <ButtonLink href="/login" variant="primary" size="sm">
+                  Sign in again
+                </ButtonLink>
+              }
+            />
+          ) : (
+            <ErrorState
+              title="Could not load agents"
+              description={error.message}
+              action={
+                <Button onClick={retry} variant="secondary" size="sm">
+                  Try again
+                </Button>
+              }
+            />
+          )}
         </div>
       </div>
     );
@@ -116,24 +155,16 @@ export default function AgentsPage() {
   if (!ready || !metrics) {
     return (
       <div className="min-h-screen bg-ink p-6 text-text">
-        <div className="mx-auto max-w-6xl space-y-6">
-          <header className="rounded-2xl border border-border bg-gradient-to-r from-gold/20 to-gold/10 p-6">
-            <h1 className="text-2xl font-bold">AI Agent Framework</h1>
-            <p className="mt-1 text-sm text-text-2">
-              Central intelligence layer - autonomous agents
-            </p>
-          </header>
+        <div className="mx-auto max-w-6xl">
+          <PageHeader eyebrow={PAGE_EYEBROW} title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             {[0, 1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-24 animate-pulse rounded-xl border border-border bg-ink-2"
-              />
+              <Skeleton key={i} className="h-24" />
             ))}
           </div>
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <div className="h-96 animate-pulse rounded-xl border border-border bg-ink-2 lg:col-span-2" />
-            <div className="h-96 animate-pulse rounded-xl border border-border bg-ink-2" />
+          <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <Skeleton className="h-96 lg:col-span-2" />
+            <Skeleton className="h-96" />
           </div>
         </div>
       </div>
@@ -143,12 +174,7 @@ export default function AgentsPage() {
   return (
     <div className="min-h-screen bg-ink p-6 text-text">
       <div className="mx-auto max-w-6xl space-y-6">
-        <header className="rounded-2xl border border-border bg-gradient-to-r from-gold/20 to-gold/10 p-6">
-          <h1 className="text-2xl font-bold">AI Agent Framework</h1>
-          <p className="mt-1 text-sm text-text-2">
-            Central intelligence layer - autonomous agents
-          </p>
-        </header>
+        <PageHeader eyebrow={PAGE_EYEBROW} title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
 
         <AgentMetrics metrics={metrics} />
 
