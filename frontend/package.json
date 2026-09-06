@@ -105,6 +105,7 @@
     "validate:agent-contracts": "tsx scripts/validate-agent-contracts.ts",
     "validate:agent-tools": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-tools.ts",
     "validate:agent-run-persistence": "tsx scripts/validate-agent-run-persistence.ts",
+    "validate:agent-runtime": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-runtime.ts",
     "vendor:quant-engine": "node scripts/vendor-quant-engine.mjs"
   },
   "dependencies": {
