@@ -23,6 +23,18 @@ export interface ApiFailure {
 
 export type ApiEnvelope<T> = ApiSuccess<T> | ApiFailure;
 
+// Sprint IA4 - the one fallback message used whenever a non-2xx response
+// doesn't carry the expected `{status:"error", error:{message}}` envelope
+// (a gateway/hosting-layer 401/403/502, a crashed route returning non-JSON,
+// etc.). Previously this was `` `Request failed with ${res.status}` `` at
+// each of the 3 call sites below - a raw HTTP status leaking straight into
+// whatever page rendered the caught error's `.message` (confirmed reaching
+// customer-facing UI on the Agents page). The real status is still
+// preserved on `ApiClientError.httpStatus` for callers that need to branch
+// on it (e.g. a 401 -> "session may have expired" state) - it's just never
+// baked into the user-facing message string itself.
+const GENERIC_REQUEST_FAILED_MESSAGE = "We couldn't complete that request. Please try again.";
+
 export class ApiClientError extends Error {
   readonly code: string;
   readonly httpStatus: number;
@@ -112,7 +124,7 @@ export class ApiClient {
           const err = body.status === "error" ? body.error : undefined;
           throw new ApiClientError(
             err?.code ?? "HTTP_ERROR",
-            err?.message ?? `Request failed with ${res.status}`,
+            err?.message ?? GENERIC_REQUEST_FAILED_MESSAGE,
             res.status
           );
         }
@@ -141,7 +153,7 @@ export class ApiClient {
 
     throw lastError instanceof Error
       ? lastError
-      : new ApiClientError("UNKNOWN", "Request failed", 500);
+      : new ApiClientError("UNKNOWN", GENERIC_REQUEST_FAILED_MESSAGE, 500);
   }
 
   // Sprint L2.2 - JSON POST, added for the real knowledge search route.
@@ -175,14 +187,14 @@ export class ApiClient {
         const err = responseBody.status === "error" ? responseBody.error : undefined;
         throw new ApiClientError(
           err?.code ?? "HTTP_ERROR",
-          err?.message ?? `Request failed with ${res.status}`,
+          err?.message ?? GENERIC_REQUEST_FAILED_MESSAGE,
           res.status,
         );
       }
       return responseBody.data;
     } catch (error) {
       log(path, Date.now() - started, error);
-      throw error instanceof Error ? error : new ApiClientError("UNKNOWN", "Request failed", 500);
+      throw error instanceof Error ? error : new ApiClientError("UNKNOWN", GENERIC_REQUEST_FAILED_MESSAGE, 500);
     }
   }
 
@@ -208,14 +220,14 @@ export class ApiClient {
         const err = responseBody.status === "error" ? responseBody.error : undefined;
         throw new ApiClientError(
           err?.code ?? "HTTP_ERROR",
-          err?.message ?? `Request failed with ${res.status}`,
+          err?.message ?? GENERIC_REQUEST_FAILED_MESSAGE,
           res.status,
         );
       }
       return responseBody.data;
     } catch (error) {
       log(path, Date.now() - started, error);
-      throw error instanceof Error ? error : new ApiClientError("UNKNOWN", "Request failed", 500);
+      throw error instanceof Error ? error : new ApiClientError("UNKNOWN", GENERIC_REQUEST_FAILED_MESSAGE, 500);
     }
   }
 }

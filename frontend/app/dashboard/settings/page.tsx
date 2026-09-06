@@ -15,13 +15,28 @@ import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import ButtonLink from "@/components/ui/ButtonLink";
+import ErrorState from "@/components/ui/ErrorState";
 import { PLAN_LABELS } from "@/config/billing.config";
 import type { PlanId } from "@/types/billing";
 
 export default function SettingsPage() {
   const { user } = useUserContext();
 
-  if (!user) return null;
+  // Sprint IA4 - UserContext's `user` arrives synchronously from the server
+  // (UserProvider's initialUser, set at mount - see that file's own header
+  // comment), so there is no real async "still loading" state to skeleton
+  // here; this branch only exists as a defensive guard for a genuinely
+  // unexpected state (this page only renders inside app/dashboard/layout.tsx,
+  // which already gates on requireUser() before this component can mount).
+  // A blank `return null` previously left a silently empty page if that
+  // guard was ever somehow hit - now an honest, non-fabricated fallback.
+  if (!user) {
+    return (
+      <div className="max-w-2xl">
+        <ErrorState title="Could not load your account details" description="Try reloading the page." />
+      </div>
+    );
+  }
 
   const planLabel = PLAN_LABELS[user.planId as PlanId] ?? user.planId;
 

@@ -15,7 +15,7 @@ import type { MarketRegimeOverviewItem } from "@/types/market-regime-overview";
 export default function RegimeOverviewCard({ item }: { item: MarketRegimeOverviewItem }) {
   if (item.status !== "resolved") {
     return (
-      <div className="rounded-xl border border-border bg-ink-2 p-4">
+      <div className="rounded-card border border-border bg-ink-2 p-4">
         <p className="text-sm font-semibold text-text">{item.symbol}</p>
         <p className="mt-1 text-xs text-text-3">{item.name}</p>
         <p className="mt-3 text-xs text-text-3">
@@ -28,7 +28,7 @@ export default function RegimeOverviewCard({ item }: { item: MarketRegimeOvervie
   }
 
   return (
-    <div className="rounded-xl border border-border bg-ink-2 p-4 transition hover:border-border">
+    <div className="rounded-card border border-border bg-ink-2 p-4 transition hover:border-border">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-text">{item.symbol}</p>

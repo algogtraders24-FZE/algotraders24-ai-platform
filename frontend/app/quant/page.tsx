@@ -15,6 +15,7 @@ import Footer from "@/sections/Footer";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import ButtonLink from "@/components/ui/ButtonLink";
+import PageHero from "@/components/marketing/PageHero";
 import { QUANT_LITE_FEATURES, QUANT_PRO_FEATURES } from "@/data/quant-positioning";
 
 export const metadata: Metadata = {
@@ -25,18 +26,14 @@ export const metadata: Metadata = {
 
 export default function QuantLandingPage() {
   return (
-    <main className="min-h-screen bg-ink pt-20 text-text">
+    <main className="min-h-screen bg-ink text-text">
       <Navbar />
-      <section className="mx-auto max-w-4xl px-6 py-16">
-        <div className="text-center">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gold">Quant</p>
-          <h1 className="mt-2 text-3xl font-semibold text-text">Two separate engines, one Quant umbrella</h1>
-          <p className="mx-auto mt-3 max-w-xl text-sm text-text-2">
-            Quant Lite and Quant Pro are not two tiers of the same engine - they are genuinely separate products,
-            each with its own execution engine and roadmap. Pick the one that matches what you need today.
-          </p>
-        </div>
-
+      <PageHero
+        eyebrow="Quant"
+        title="Two separate engines, one Quant umbrella"
+        subtitle="Quant Lite and Quant Pro are not two tiers of the same engine - they are genuinely separate products, each with its own execution engine and roadmap. Pick the one that matches what you need today."
+      />
+      <section className="mx-auto max-w-4xl px-6 pb-16">
         <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2">
           <Card padding="lg">
             <div className="mb-3 flex items-center justify-between">
