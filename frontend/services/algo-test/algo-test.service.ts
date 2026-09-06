@@ -845,7 +845,7 @@ export const algoTestService = {
     const historicalDataProvider = deps?.historicalDataProvider ?? twelveDataHistoricalDataProvider;
     const compiledAt = Date.now();
     const compilation = await compileNaturalLanguageStrategy(request.intent, provider, {
-      strategyId: `ai-${userId}-${compiledAt}`,
+      userId,
       strategyVersion: "1.0.0",
       name: request.intent.slice(0, 80),
       strategyTimezone: "UTC",

@@ -21,6 +21,7 @@
 // never a parallel/looser check for AI output).
 import {
   compileAIStrategyToIR,
+  computeCrossPlatformSemanticHash,
   validateStrategyIRStructure,
   checkReductionEligibility,
   reduceStrategyIRToSpec,
@@ -116,7 +117,18 @@ function toStages(byName: Partial<Record<StrategyLifecycleStage, StageResult>>):
   return FIRST_FOUR_STAGES.map((stage) => byName[stage]!);
 }
 
-export async function compileNaturalLanguageStrategy(intent: string, provider: AIProvider, identity: { strategyId: string; strategyVersion: string; name: string; strategyTimezone: string; createdAt: number }): Promise<CompileNaturalLanguageStrategyResult> {
+/**
+ * P4.8-T1 (docs/P4.8-T1-CANONICAL-AI-STRATEGY-IDENTITY.md) - `identity`
+ * carries `userId` instead of a caller-supplied `strategyId`. A caller
+ * used to mint `ai-${userId}-${Date.now()}` itself, which made every
+ * compilation of the identical trading logic get a different
+ * `StrategySpec.identity.strategyId`, and therefore a different
+ * `computeSemanticStrategyHash()` - two runs of "the same AI strategy"
+ * could never be recognized as the same strategy. `strategyId` is now
+ * ALWAYS derived here, deterministically, from the compiled IR's own
+ * canonical semantic content (see below) - a caller can no longer set it.
+ */
+export async function compileNaturalLanguageStrategy(intent: string, provider: AIProvider, identity: { userId: string; strategyVersion: string; name: string; strategyTimezone: string; createdAt: number }): Promise<CompileNaturalLanguageStrategyResult> {
   const completion = await provider.complete({
     messages: [
       { role: "system", content: STRATEGY_COMPILER_SYSTEM_PROMPT },
@@ -143,14 +155,40 @@ export async function compileNaturalLanguageStrategy(intent: string, provider: A
   }
   byName.PARSED = { stage: "PARSED", outcome: "PASSED", detail: `${parsed.value.entryConditions.length} entry rule(s), ${parsed.value.indicators.length} indicator(s)` };
 
-  const ir = compileAIStrategyToIR(
+  const provisionalIr = compileAIStrategyToIR(
     {
       ...parsed.value,
       // Fixed server-side, never LLM-supplied - see schema.ts's own doc comment on why.
       executionAssumptions: { fillModel: "next-bar-open", costsExplicitlyZero: true },
     },
-    identity,
+    // "pending" is never observed by a caller - computeCrossPlatformSemanticHash()
+    // below excludes `strategyId` entirely, so its actual value here has
+    // zero effect on the canonical hash. Real identity is assigned after.
+    { strategyId: "pending", strategyVersion: identity.strategyVersion, name: identity.name, strategyTimezone: identity.strategyTimezone, createdAt: identity.createdAt },
   );
+
+  // P4.8-T1 - deterministic, per-user logical-strategy identity.
+  // computeCrossPlatformSemanticHash() (Q0.8.49, at24-quant-engine) was
+  // built to answer "does this describe the exact same trading behavior,
+  // regardless of where it came from" for an MQL4-vs-MQL5 parity pair -
+  // it excludes `strategyId`, `strategyVersion`, `sourcePlatform`,
+  // `sourceLanguage`, `sourceVersion`, `sourceHash`, `irVersion`,
+  // `metadata`, AND `provenance`. That last one matters here specifically:
+  // `computeCanonicalIRHash` (this module's OTHER hash, deliberately NOT
+  // used here) keeps `provenance`, and `provenance.sourceHash` is itself
+  // derived from the raw compiler input INCLUDING the LLM's own restated
+  // `intent` text - so it would still vary with phrasing. This function's
+  // broader exclusion set is exactly what "same logic, different
+  // wording" requires, and was proven against the exact adversarial case
+  // (identical entries/exits/indicators/risk/instruments/timeframes,
+  // different restated intent AND different generated name) before this
+  // was locked - see the P4.8-T1 doc. Reused, not modified: same
+  // already-public, already-tested function the engine's own MQL4/MQL5
+  // parity suite depends on. Scoped per-user (`ai-${userId}-...`) - two
+  // different users' strategies must never silently merge into one
+  // library object merely because they compiled to the same logic.
+  const canonicalHash = computeCrossPlatformSemanticHash(provisionalIr);
+  const ir: StrategyIR = { ...provisionalIr, strategyId: `ai-${identity.userId}-${canonicalHash}` };
 
   const structural = validateStrategyIRStructure(ir);
   if (!structural.valid) {

@@ -36,7 +36,7 @@ function fakeProvider(respond: (req: AICompletionRequest) => string): AIProvider
   };
 }
 
-const IDENTITY = { strategyId: "test-strategy", strategyVersion: "1.0.0", name: "Test", strategyTimezone: "UTC", createdAt: 0 };
+const IDENTITY = { userId: "test-user", strategyVersion: "1.0.0", name: "Test", strategyTimezone: "UTC", createdAt: 0 };
 
 const VALID_EMA_CROSS_RESPONSE = JSON.stringify({
   intent: "EMA 20 crosses above EMA 50 on gold M15",

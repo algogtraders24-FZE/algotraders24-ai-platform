@@ -45,7 +45,7 @@ export const POST = withContext(async (req, ctx) => {
   const provider = new ClaudeProvider();
   const now = Date.now();
   const compilation = await compileNaturalLanguageStrategy(intent, provider, {
-    strategyId: `ai-${sessionUser.profile.id}-${now}`,
+    userId: sessionUser.profile.id,
     strategyVersion: "1.0.0",
     name: intent.slice(0, 80),
     strategyTimezone: "UTC",
