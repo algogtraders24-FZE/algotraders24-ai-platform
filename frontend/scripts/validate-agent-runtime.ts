@@ -312,7 +312,7 @@ async function main(): Promise<void> {
     const { runId } = await rt.startRun({ definition: def, input: {}, userId: TEST_USER });
     const final = await rt.runToCompletion(runId);
     assert.equal(final?.status, "permission_denied");
-    assert.equal(final?.errorCode, "autonomy_floor");
+    assert.equal(final?.errorCode, "tool_autonomy_floor"); // A8 AuthorizationDenialCode
   });
 
   await test("forensic query: 'why did this agent conclude X' = one indexed read of AgentEvidence by runId", async () => {

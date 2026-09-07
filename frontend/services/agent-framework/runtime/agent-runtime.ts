@@ -23,6 +23,7 @@ import {
   type PlannerToolRequest,
   type AgentRunLimits,
   DEFAULT_RUN_LIMITS,
+  LIMIT_BREACH_STATUS,
   isTerminalRunStatus,
   isValidRunTransition,
   validateAgentDefinition,
@@ -35,7 +36,7 @@ import { isKnownAgentType, autonomyCapForType } from "../agent-type-registry";
 import { agentRunRepository, type AgentRunRow } from "./agent-run.repository";
 import { RunTracer } from "./run-tracer";
 import { checkLimits, validateRunLimits } from "./limit-enforcer";
-import { authorizeToolRequest } from "./authorizer";
+import { authorizationService } from "../authorization/authorization-service";
 import { SupervisorService } from "../supervisor/supervisor";
 import type { RunPlanner } from "../supervisor/run-planner";
 import { checkOutputIntegrity } from "../integrity/output-integrity";
@@ -80,18 +81,32 @@ const TOOL_FAILURE_RUN_STATUS: Record<string, PrismaAgentRunStatus> = {
   permission_denied: "permission_denied",
 };
 
-/** authorization denial reason -> terminal AgentRunStatus. */
+/** A8 AuthorizationDenialCode (+ "approval_required") -> terminal AgentRunStatus. */
 const AUTH_DENIAL_RUN_STATUS: Record<string, PrismaAgentRunStatus> = {
+  malformed_request: "tool_error",
   unknown_tool: "tool_error",
   tool_disabled: "tool_error",
+  execution_mode_unsupported: "tool_error",
+  agent_autonomy_ceiling: "permission_denied",
+  permission_autonomy_floor: "permission_denied",
+  prohibited_combination: "permission_denied",
+  live_execution_denied: "permission_denied",
   missing_permission: "permission_denied",
-  autonomy_floor: "permission_denied",
+  tool_autonomy_floor: "permission_denied",
+  approval_required: "permission_denied",
 };
 const AUTH_DENIAL_TOOLCALL_STATUS: Record<string, PrismaAgentToolCallStatus> = {
+  malformed_request: "invalid_input",
   unknown_tool: "invalid_input",
   tool_disabled: "tool_error",
+  execution_mode_unsupported: "tool_error",
+  agent_autonomy_ceiling: "permission_denied",
+  permission_autonomy_floor: "permission_denied",
+  prohibited_combination: "permission_denied",
+  live_execution_denied: "permission_denied",
   missing_permission: "permission_denied",
-  autonomy_floor: "permission_denied",
+  tool_autonomy_floor: "permission_denied",
+  approval_required: "permission_denied",
 };
 
 export class AgentRuntime {
@@ -333,9 +348,14 @@ export class AgentRuntime {
     const startedAt = new Date();
     const estimate = this.flatEstimate(request.toolId);
 
-    // ---- credit pre-check BEFORE the executor ----
-    const creditBreach = checkLimits(
-      {
+    // ---- A8: THE central authorization decision (permission + autonomy +
+    //      prohibited combos + LIVE_EXECUTION + resource limits, all in one
+    //      deterministic result) BEFORE the executor ----
+    const decision = authorizationService.authorize({
+      definition,
+      request,
+      registry: this.registry,
+      limitContext: {
         limits: run.limits as unknown as AgentRunLimits,
         stepCount: counts.stepCount,
         toolCallCount: counts.toolCallCount,
@@ -343,51 +363,61 @@ export class AgentRuntime {
         creditsConsumed: run.creditsConsumed,
         retriesUsed: rs.retriesUsed,
       },
-      estimate,
-    );
-    if (creditBreach.breached) {
-      return this.terminate(run.id, run.status, creditBreach.status, creditBreach.limit, creditBreach.message, tracer);
-    }
+      creditEstimate: estimate,
+    });
 
-    // ---- authorization (Planner != Registry != Executor) ----
-    const auth = authorizeToolRequest(definition, request, this.registry, estimate);
-    if (!auth.authorized) {
+    if (decision.outcome !== "allow") {
+      const isApproval = decision.outcome === "needs_approval";
+      const isLimit = decision.denialCode === "resource_limit" && !!decision.breachedLimit;
+      // errorCode: keep the specific limit name for a resource breach; else the denialCode.
+      const code = isApproval
+        ? "approval_required"
+        : isLimit
+          ? String(decision.breachedLimit)
+          : (decision.denialCode ?? "denied");
+      const runStatus: PrismaAgentRunStatus = isLimit
+        ? LIMIT_BREACH_STATUS[decision.breachedLimit!]
+        : (AUTH_DENIAL_RUN_STATUS[isApproval ? "approval_required" : (decision.denialCode ?? "")] ?? "permission_denied");
+      const toolCallStatus: PrismaAgentToolCallStatus = isLimit
+        ? "permission_denied"
+        : (AUTH_DENIAL_TOOLCALL_STATUS[isApproval ? "approval_required" : (decision.denialCode ?? "")] ?? "permission_denied");
       const step = await tracer.step({
         kind: "tool_call",
         status: "error",
-        summary: `authorization denied: ${auth.reason}`,
+        summary: `authorization ${decision.outcome}: ${code}`,
         input: { toolId: request.toolId, input: request.input },
-        output: { reason: auth.reason, message: auth.message },
+        output: { outcome: decision.outcome, denialCode: decision.denialCode, message: decision.message, checks: decision.checks },
         startedAt,
       });
-      await agentRunRepository.appendToolCall({
-        runId: run.id,
-        stepId: step.id,
-        toolId: request.toolId,
-        toolVersion: "unknown",
-        input: request.input,
-        status: AUTH_DENIAL_TOOLCALL_STATUS[auth.reason],
-        permissionChecked: [],
-        creditCost: 0,
-        startedAt,
-        completedAt: new Date(),
-        durationMs: Date.now() - startedAt.getTime(),
-        evidenceIds: [],
-      });
-      return this.terminate(
-        run.id,
-        run.status,
-        AUTH_DENIAL_RUN_STATUS[auth.reason],
-        auth.reason,
-        auth.message,
-        tracer,
-      );
+      // A capability/permission denial is an attempted tool call worth
+      // recording as an AgentToolCall row. A resource-limit denial is a
+      // budget stop, not a capability decision - no tool-call row (the
+      // executor was never even a candidate; "0 tool calls" stays true).
+      if (!isLimit) {
+        await agentRunRepository.appendToolCall({
+          runId: run.id,
+          stepId: step.id,
+          toolId: request.toolId,
+          toolVersion: "unknown",
+          input: request.input,
+          status: toolCallStatus,
+          permissionChecked: [],
+          creditCost: 0,
+          startedAt,
+          completedAt: new Date(),
+          durationMs: Date.now() - startedAt.getTime(),
+          evidenceIds: [],
+        });
+      }
+      return this.terminate(run.id, run.status, runStatus, code, decision.message ?? code, tracer);
     }
+
+    const authIntent = decision.intent!;
 
     // ---- execute (one bounded slice = one tool call) ----
     const outcome = await invokeTool({
       registry: this.registry,
-      intent: auth.intent,
+      intent: authIntent,
       permissionPolicy: definition.permissionPolicy,
       autonomyLevel: definition.autonomyLevel,
       context: { userId: run.userId, runId: run.id },
@@ -397,7 +427,7 @@ export class AgentRuntime {
       kind: "tool_call",
       status: outcome.result.status === "ok" ? "ok" : "error",
       summary: `${request.toolId} -> ${outcome.result.status}`,
-      input: { toolId: request.toolId, input: auth.intent.input },
+      input: { toolId: request.toolId, input: authIntent.input },
       output: {
         status: outcome.result.status,
         errorKind: outcome.result.errorKind,
@@ -410,9 +440,9 @@ export class AgentRuntime {
     const toolCall = await agentRunRepository.appendToolCall({
       runId: run.id,
       stepId: step.id,
-      toolId: auth.intent.toolId,
-      toolVersion: auth.intent.toolVersion,
-      input: auth.intent.input,
+      toolId: authIntent.toolId,
+      toolVersion: authIntent.toolVersion,
+      input: authIntent.input,
       output: outcome.result.output,
       status: TOOL_CALL_STATUS[outcome.result.status] ?? "tool_error",
       permissionChecked: outcome.permissionChecked,

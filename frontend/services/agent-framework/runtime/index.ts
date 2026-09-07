@@ -10,5 +10,6 @@ export { checkLimits, validateRunLimits } from "./limit-enforcer";
 export type { LimitDecision, LimitCheckContext } from "./limit-enforcer";
 export { planRun } from "./planner";
 export type { PlanResult } from "./planner";
-export { authorizeToolRequest } from "./authorizer";
-export type { AuthorizationResult } from "./authorizer";
+// A8: authorization is now the central AuthorizationService.
+export { authorizationService, AuthorizationService } from "../authorization/authorization-service";
+export type { AuthorizationDecision, AuthorizationInput } from "../authorization/authorization-service";

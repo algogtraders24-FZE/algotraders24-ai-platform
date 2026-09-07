@@ -53,6 +53,34 @@ export interface PermissionPolicy {
   granted: PermissionKey[];
 }
 
+// ---- A8: permission <-> autonomy floors + prohibited combinations -------
+
+/** The minimum agent autonomy level required to HOLD a permission. Holding a
+ *  permission whose floor exceeds the agent's autonomy is an invalid config
+ *  (the AuthorizationService rejects it). Permissions not listed have floor 0. */
+export const PERMISSION_AUTONOMY_FLOOR: Partial<Record<PermissionKey, 0 | 1 | 2 | 3 | 4>> = {
+  CAN_GENERATE_SIGNAL: 1,
+  CAN_CREATE_ORDER: 3,
+  CAN_EXECUTE_ORDER: 3,
+};
+
+/** Permission sets a single agent must never hold together - each pair (or
+ *  larger set) would compose into an unsupervised capability. */
+export const PROHIBITED_PERMISSION_COMBINATIONS: readonly (readonly PermissionKey[])[] = [
+  ["CAN_GENERATE_SIGNAL", "CAN_EXECUTE_ORDER"], // signal + execute = an unsupervised trading loop
+  ["CAN_CREATE_ORDER", "CAN_GENERATE_SIGNAL"],
+] as const;
+
+export function permissionAutonomyFloor(key: PermissionKey): 0 | 1 | 2 | 3 | 4 {
+  return PERMISSION_AUTONOMY_FLOOR[key] ?? 0;
+}
+
+/** Which prohibited combinations a granted set violates ([] = none). */
+export function prohibitedCombosViolated(granted: readonly PermissionKey[]): PermissionKey[][] {
+  const set = new Set(granted);
+  return PROHIBITED_PERMISSION_COMBINATIONS.filter((combo) => combo.every((k) => set.has(k))).map((c) => [...c]);
+}
+
 export function isPermissionKey(value: unknown): value is PermissionKey {
   return typeof value === "string" && (PERMISSION_KEYS as readonly string[]).includes(value);
 }
