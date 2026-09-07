@@ -402,6 +402,51 @@ export interface AlgoTestCompiledStrategyView {
 }
 
 /**
+ * P4.8-T3.1 (docs/P4.8-T3-STRATEGY-LIBRARY.md) - locked contract. A
+ * presentation-level union of two structurally different sources -
+ * registry `StrategyDefinition` (global, code-defined, no per-user
+ * persistence) and persisted `Strategy` rows (P4.8-T2.2, user-owned,
+ * AI-compiled) - never forcing either into the other's shape.
+ */
+export type AlgoTestStrategyOrigin = "registry" | "ai-generated";
+
+export interface StrategyLibraryItem {
+  readonly strategyId: string;
+  readonly name: string;
+  readonly origin: AlgoTestStrategyOrigin;
+  /** Absent for a registry entry - a code-defined strategy has no real per-user creation moment; never fabricated. */
+  readonly createdAt?: string;
+  readonly runCount: number;
+  /** Absent only when runCount === 0. */
+  readonly lastRunAt?: string;
+}
+
+/**
+ * P4.8-T3.1 - deliberately carries the SAME presentation-only
+ * AlgoTestCompiledStrategyView every run detail already uses (via
+ * toCompiledStrategyView()), never the raw executable StrategySpec/
+ * StrategyVersionRecord - no endpoint in this codebase ships an
+ * executable spec to the client, and this stays consistent with that.
+ * `artifactVerified` means the SERVER successfully retrieved and
+ * integrity-verified the persisted artifact (getStrategyArtifact()) -
+ * it does NOT mean the client received it, and does NOT imply a
+ * rerun action exists (out of T3's locked scope). Always `true` for a
+ * registry strategy (no artifact to corrupt - the code registry IS
+ * the source of truth).
+ *
+ * IMPLEMENTATION REFINEMENT to the locked T3.1 contract: `compiledStrategy`
+ * is optional, not required - `artifactVerified` must be a genuinely
+ * reachable `false` (a corrupted/tampered AI artifact, the exact case
+ * getStrategyArtifact() already throws loudly for at its own layer), and
+ * there is no real StrategySpec to project into a compiledStrategy view
+ * when that happens. Present if and only if `artifactVerified === true`.
+ */
+export interface StrategyLibraryDetail extends StrategyLibraryItem {
+  readonly compiledStrategy?: AlgoTestCompiledStrategyView;
+  readonly artifactVerified: boolean;
+}
+
+/**
  * P4.3 - the semantic identity of the StrategySpec a run actually
  * executed (at24-quant-engine's own computeSemanticStrategyHash(), reused
  * verbatim - never a new hashing scheme). Present on a freshly-completed
