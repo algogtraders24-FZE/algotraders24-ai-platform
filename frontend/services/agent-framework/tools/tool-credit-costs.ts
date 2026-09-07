@@ -14,6 +14,8 @@ export const TOOL_CREDIT_COST_PLACEHOLDERS = {
   "market.intelligence": 4,
   "backtest.run": 8,
   "portfolio.read": 1,
+  "research.knowledge_search": 2,
+  "news.search": 2,
 } as const;
 
 export type PlaceholderCostToolId = keyof typeof TOOL_CREDIT_COST_PLACEHOLDERS;

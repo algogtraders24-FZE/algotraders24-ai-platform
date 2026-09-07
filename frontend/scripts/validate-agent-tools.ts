@@ -30,7 +30,7 @@ import {
 import { ToolRegistry, DuplicateToolError } from "../services/agent-framework/tools/tool-registry";
 import type { ToolImplementation } from "../services/agent-framework/tools/tool-implementation";
 import { invokeTool } from "../services/agent-framework/tools/tool-gateway";
-import { buildToolRegistry, A2_TOOL_IDS } from "../services/agent-framework/tools/registry-manifest";
+import { buildToolRegistry, REGISTERED_TOOL_IDS } from "../services/agent-framework/tools/registry-manifest";
 
 let passed = 0;
 let failed = 0;
@@ -278,10 +278,10 @@ async function main(): Promise<void> {
   // REAL WIRING - the 4 shipped tools
   // ----------------------------------------------------------------
 
-  await test("manifest: builds a frozen registry with exactly the A2 READY tool ids", () => {
+  await test("manifest: builds a frozen registry with exactly the registered tool ids", () => {
     const reg = buildToolRegistry();
     assert.equal(reg.isFrozen(), true);
-    assert.deepEqual(reg.ids(), [...A2_TOOL_IDS]);
+    assert.deepEqual(reg.ids(), [...REGISTERED_TOOL_IDS]);
   });
 
   await test("every shipped tool has a valid AF-v1 definition", () => {

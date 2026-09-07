@@ -13,8 +13,12 @@ import { marketSnapshotTool } from "./impl/market-snapshot.tool";
 import { marketIntelligenceTool } from "./impl/market-intelligence.tool";
 import { backtestRunTool } from "./impl/backtest-run.tool";
 import { portfolioReadTool } from "./impl/portfolio-read.tool";
+import { researchKnowledgeSearchTool } from "./impl/research-knowledge-search.tool";
+import { newsSearchTool } from "./impl/news-search.tool";
 
-/** Build a fresh, frozen registry containing exactly the A2 READY tools.
+/** Build a fresh, frozen registry with every tool that has a real callable
+ *  implementation. A11 adds the research.knowledge_search + news.search
+ *  adapters (over the EXISTING Knowledge/RAG stack + AlphaVantageNewsProvider).
  *  Callable in a test/harness without side effects. */
 export function buildToolRegistry(): ToolRegistry {
   return new ToolRegistry()
@@ -22,11 +26,16 @@ export function buildToolRegistry(): ToolRegistry {
     .register(marketIntelligenceTool)
     .register(backtestRunTool)
     .register(portfolioReadTool)
+    .register(researchKnowledgeSearchTool)
+    .register(newsSearchTool)
     .freeze();
 }
 
 /** The process-wide production registry. */
 export const toolRegistry = buildToolRegistry();
 
-/** The ids A2 ships, for tests / docs. */
+/** The registered tool ids, for tests / docs. */
 export const A2_TOOL_IDS = ["backtest.run", "market.intelligence", "market.snapshot", "portfolio.read"] as const;
+export const REGISTERED_TOOL_IDS = [
+  "backtest.run", "market.intelligence", "market.snapshot", "news.search", "portfolio.read", "research.knowledge_search",
+] as const;

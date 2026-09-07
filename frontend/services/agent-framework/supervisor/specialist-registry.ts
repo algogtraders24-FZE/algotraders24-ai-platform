@@ -8,9 +8,11 @@ import type { AgentType } from "../agent-type-registry";
 import type { Specialist } from "./specialist";
 import { genericSpecialist } from "./specialists/generic.specialist";
 import { marketIntelligenceSpecialist } from "./specialists/market-intelligence.specialist";
+import { researchSpecialist } from "./specialists/research.specialist";
 
 const SPECIALISTS: Partial<Record<AgentType, Specialist>> = {
   MARKET_INTELLIGENCE: marketIntelligenceSpecialist,
+  RESEARCH: researchSpecialist,
 };
 
 export function selectSpecialist(agentType: string): Specialist {

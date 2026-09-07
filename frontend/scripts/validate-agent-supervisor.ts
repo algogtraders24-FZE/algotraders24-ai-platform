@@ -108,9 +108,10 @@ async function main(): Promise<void> {
   // specialist selection
   // ----------------------------------------------------------------
 
-  await test("specialist selection: MARKET_INTELLIGENCE -> its specialist; others -> generic", () => {
+  await test("specialist selection: registered types -> their specialist; others -> generic", () => {
     assert.equal(selectSpecialist("MARKET_INTELLIGENCE").key, "MARKET_INTELLIGENCE");
-    assert.equal(selectSpecialist("RESEARCH").key, "generic");
+    assert.equal(selectSpecialist("RESEARCH").key, "RESEARCH"); // A11
+    assert.equal(selectSpecialist("RISK").key, "generic"); // no specialist yet
     assert.equal(selectSpecialist("nonsense").key, "generic");
   });
 
@@ -136,7 +137,7 @@ async function main(): Promise<void> {
   await test("deterministic plan: generic specialist walks bound tools in binding order", async () => {
     const sup = new SupervisorService({ registry, llmAssist: false });
     const plan = await sup.plan(
-      makeDef({ type: "RESEARCH", tools: [{ toolId: "market.intelligence" }, { toolId: "market.snapshot" }] }),
+      makeDef({ type: "RISK", tools: [{ toolId: "market.intelligence" }, { toolId: "market.snapshot" }] }),
       { symbol: "XAUUSD" },
       CTX,
     );
