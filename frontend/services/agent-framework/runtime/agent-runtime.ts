@@ -38,6 +38,7 @@ import { checkLimits, validateRunLimits } from "./limit-enforcer";
 import { authorizeToolRequest } from "./authorizer";
 import { SupervisorService } from "../supervisor/supervisor";
 import type { RunPlanner } from "../supervisor/run-planner";
+import { checkOutputIntegrity } from "../integrity/output-integrity";
 import type {
   AgentRunStatus as PrismaAgentRunStatus,
   AgentToolCallStatus as PrismaAgentToolCallStatus,
@@ -274,7 +275,7 @@ export class AgentRuntime {
   ): Promise<AgentRunRow> {
     const plan = (run.plan ?? []) as unknown as PlannerToolRequest[];
 
-    // ---- plan exhausted -> the Supervisor synthesises the output ----
+    // ---- plan exhausted -> synthesise, then the INTEGRITY GATE ----
     if (rs.nextPlanIndex >= plan.length) {
       const startedAt = new Date();
       const trace = await agentRunRepository.getRunTrace(run.id);
@@ -286,13 +287,45 @@ export class AgentRuntime {
         output: synthesis.output,
         startedAt,
       });
+
+      // A6: an output is NOT trustworthy just because the agent produced it.
+      // Deterministic, LLM-independent gate BEFORE "succeeded".
+      const integrity = checkOutputIntegrity({
+        output: synthesis.output,
+        trace: await agentRunRepository.getRunTrace(run.id),
+        definition,
+        registry: this.registry,
+      });
+      await tracer.step({
+        kind: "evaluation",
+        status: integrity.passed ? "ok" : "error",
+        summary: integrity.passed
+          ? "output integrity check passed"
+          : `output integrity check FAILED: ${integrity.violations.map((x) => x.code).join(", ")}`,
+        output: { passed: integrity.passed, violations: integrity.violations, lineage: integrity.lineage },
+        startedAt: new Date(),
+      });
+
+      if (!integrity.passed) {
+        await agentRunRepository.patchRun(run.id, {
+          status: "failed",
+          output: synthesis.output, // preserved for forensics; status is the authority
+          errorCode: "output_integrity",
+          errorMessage: integrity.violations.map((x) => `${x.code}: ${x.message}`).join(" | "),
+          completedAt: new Date(),
+          resumeState: null,
+        });
+        tracer.failure("failed", "output_integrity", `${integrity.violations.length} violation(s)`);
+        return agentRunRepository.getRun(run.id);
+      }
+
       await agentRunRepository.patchRun(run.id, {
         status: "succeeded",
         output: synthesis.output,
         completedAt: new Date(),
         resumeState: null,
       });
-      tracer.transition("running", "succeeded", `${trace.evidence.length} evidence row(s)`);
+      tracer.transition("running", "succeeded", `${trace.evidence.length} evidence row(s), integrity ok`);
       return agentRunRepository.getRun(run.id);
     }
 

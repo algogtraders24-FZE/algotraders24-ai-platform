@@ -236,7 +236,12 @@ async function main(): Promise<void> {
     assert.ok((row?.completedAt as Date) instanceof Date);
 
     trace = await agentRunRepository.getRunTrace(runId);
-    assert.deepEqual(trace.steps.map((s) => s.kind), ["plan", "tool_call", "evidence", "tool_call", "evidence", "output"]);
+    assert.deepEqual(
+      trace.steps.map((s) => s.kind),
+      ["plan", "tool_call", "evidence", "tool_call", "evidence", "output", "evaluation"], // A6: integrity gate
+    );
+    assert.equal(trace.steps.at(-1)!.kind, "evaluation");
+    assert.equal((trace.steps.at(-1)!.output as { passed?: boolean }).passed, true);
     trace.steps.forEach((s, i) => assert.equal(s.index, i, "gapless indices across ticks"));
     assert.equal(trace.evidence.length, 2, "one evidence row per fake tool");
     assert.equal(row?.creditsConsumed, 2, "credits accumulated across ticks (1 + 1 placeholder)");
