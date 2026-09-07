@@ -3,7 +3,25 @@
 **Sprint:** AT24 AI Agents — Agent Framework Foundation
 **Step:** A10 — Evaluation + Observability
 **Depends on:** A3 persistence, A4 runtime, A6 integrity, A8 authorization, A9 credits (all closed)
-**Gate:** G10 — structured, auditable evaluation. **Not** another governance engine.
+**Gate:** G10 — **CLOSED / APPROVED**. Migration **applied under G10 authorization**.
+
+## Post-apply verification (live DB)
+
+`prisma migrate deploy` → *"Applying migration `20260907130000_add_agent_evaluation` … All migrations successfully applied."*
+
+| Check | Found |
+|---|---|
+| table `AgentEvaluation` | present |
+| unique index `AgentEvaluation_runId_key` | present |
+| indexes | `(userId, createdAt)`, `(agentId)`, `(terminalStatus)` + pkey |
+| existing tables | unchanged |
+| `_prisma_migrations` row | present, finished |
+| `prisma migrate status` | *"Database schema is up to date"* |
+| `prisma generate` | succeeds |
+| **real E2E smoke** (`PrismaEvaluationStore`) | MI agent → plan `[market.snapshot, market.intelligence]` → 5 evidence → output *"market intelligence for XAUUSD: bearish-leaning (regime trending-bearish)"* → integrity passed → `succeeded` → **evaluation persisted, `compositeScore: 1`, `failureCategory: "none"`** → `getRunObservability` → 7-step timeline + the evaluation |
+
+---
+
 
 > **A10 READS the recorded results of A6 (the integrity step), A8 (denial
 > steps) and A9 (the credit ledger) from the persisted trace, and SCORES
