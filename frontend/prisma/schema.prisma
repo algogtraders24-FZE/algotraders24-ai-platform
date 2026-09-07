@@ -1461,3 +1461,67 @@ model AgentEvidence {
   @@index([toolCallId])
   @@index([type])
 }
+
+// ============================================================================
+// Sprint AN - A7: policy-gated agent memory.
+//
+// The AF-v1 memory contract (types/agent-framework/memory-contract.ts). This
+// table backs SIX layers; RUN_STATE is deliberately NOT one of them - it is
+// transient/resumable execution state and lives on AgentRun/AgentStep, it is
+// not memory (owner G06 lock). Access is ONLY ever through the MemoryGateway
+// (services/agent-framework/memory/), never direct - a tool handler cannot
+// read or write this table.
+//
+// Deliberately NOT the legacy AgentMemory model (flat key/value String, part
+// of the frozen legacy /dashboard/agents layer) - that is untouched. Also
+// deliberately NOT the AT24 Knowledge/RAG system - this is small, bounded,
+// per-agent scratch/experience storage, not a document/vector store.
+//
+// `agentId` / `userId` are bare indexed strings (no relation), same
+// convention as every other AN table. `provenance.origin = "agent-derived"`
+// writes to a knowledge layer (LONG_TERM / RESEARCH_MEMORY / STRATEGY_MEMORY)
+// are FORCED to status `pending_approval` by resolveWriteDecision - an agent
+// never silently promotes its own output into trusted knowledge.
+//
+// Migration status: GENERATED + REVIEWED, NOT APPLIED (same rule as A3).
+
+enum AgentMemoryLayer {
+  SHORT_TERM
+  LONG_TERM
+  USER_CONTEXT
+  RESEARCH_MEMORY
+  STRATEGY_MEMORY
+  PERFORMANCE_MEMORY
+}
+
+enum AgentMemoryRecordStatus {
+  active
+  pending_approval
+  expired
+}
+
+model AgentMemoryRecord {
+  id         String                  @id @default(cuid())
+  agentId    String
+  userId     String
+  runId      String?
+  layer      AgentMemoryLayer
+  scope      String
+  key        String
+  value      Json
+  retention  Json
+  provenance Json
+  status     AgentMemoryRecordStatus @default(active)
+  expiresAt  DateTime?
+  createdAt  DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
+  deletedAt  DateTime?
+
+  @@index([userId])
+  @@index([agentId])
+  @@index([userId, agentId, layer, scope, key])
+  @@index([userId, layer, scope])
+  @@index([status])
+  @@index([expiresAt])
+  @@index([deletedAt])
+}

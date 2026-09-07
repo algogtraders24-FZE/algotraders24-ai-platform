@@ -108,6 +108,7 @@
     "validate:agent-runtime": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-runtime.ts",
     "validate:agent-supervisor": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-supervisor.ts",
     "validate:agent-integrity": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-integrity.ts",
+    "validate:agent-memory": "tsx scripts/validate-agent-memory.ts",
     "vendor:quant-engine": "node scripts/vendor-quant-engine.mjs"
   },
   "dependencies": {
