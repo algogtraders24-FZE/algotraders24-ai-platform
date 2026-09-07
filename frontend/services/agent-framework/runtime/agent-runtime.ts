@@ -35,8 +35,9 @@ import { isKnownAgentType, autonomyCapForType } from "../agent-type-registry";
 import { agentRunRepository, type AgentRunRow } from "./agent-run.repository";
 import { RunTracer } from "./run-tracer";
 import { checkLimits, validateRunLimits } from "./limit-enforcer";
-import { planRun } from "./planner";
 import { authorizeToolRequest } from "./authorizer";
+import { SupervisorService } from "../supervisor/supervisor";
+import type { RunPlanner } from "../supervisor/run-planner";
 import type {
   AgentRunStatus as PrismaAgentRunStatus,
   AgentToolCallStatus as PrismaAgentToolCallStatus,
@@ -94,9 +95,13 @@ const AUTH_DENIAL_TOOLCALL_STATUS: Record<string, PrismaAgentToolCallStatus> = {
 
 export class AgentRuntime {
   private readonly registry: ToolRegistry;
+  private readonly planner: RunPlanner;
 
-  constructor(deps: { registry?: ToolRegistry } = {}) {
+  constructor(deps: { registry?: ToolRegistry; planner?: RunPlanner } = {}) {
     this.registry = deps.registry ?? toolRegistry;
+    // A5: the Supervisor is the real planner above the runtime. It emits
+    // plan/intent state only - tick() still authorizes + executes.
+    this.planner = deps.planner ?? new SupervisorService({ registry: this.registry });
   }
 
   /** Snapshot the effective ceilings for a run from framework defaults,
@@ -237,17 +242,23 @@ export class AgentRuntime {
       tracer.transition("queued", "planning");
     }
 
-    const plan = planRun(definition, run.input);
+    // A5: delegate to the Supervisor (RunPlanner). It emits intents only;
+    // authorization + execution stay in this runtime.
+    const plan = await this.planner.plan(definition, run.input, { userId: run.userId, runId: run.id });
     await tracer.step({
       kind: "plan",
       status: "ok",
       summary: plan.rationale,
-      output: { requests: plan.requests },
+      output: { requests: plan.requests, planMetadata: plan.planMetadata ?? {} },
       startedAt,
     });
     await agentRunRepository.patchRun(run.id, {
       status: "running",
       plan: plan.requests,
+      metadata: {
+        ...((run.metadata as Record<string, unknown>) ?? {}),
+        plan: plan.planMetadata ?? {},
+      },
       resumeState: { nextPlanIndex: 0, retriesUsed: 0 },
     });
     tracer.transition("planning", "running", `${plan.requests.length} step(s) planned`);
@@ -263,21 +274,21 @@ export class AgentRuntime {
   ): Promise<AgentRunRow> {
     const plan = (run.plan ?? []) as unknown as PlannerToolRequest[];
 
-    // ---- plan exhausted -> synthesise the output ----
+    // ---- plan exhausted -> the Supervisor synthesises the output ----
     if (rs.nextPlanIndex >= plan.length) {
       const startedAt = new Date();
       const trace = await agentRunRepository.getRunTrace(run.id);
-      const output = {
-        summary: `agent "${definition.slug}" completed ${trace.toolCalls.length} tool call(s)`,
-        agentType: definition.type,
-        toolResults: trace.toolCalls.map((tc) => ({ toolId: tc.toolId, status: tc.status })),
-        evidenceCount: trace.evidence.length,
-        evidenceIds: trace.evidence.map((e) => e.id),
-      };
-      await tracer.step({ kind: "output", status: "ok", summary: "synthesised evidence-backed output", output, startedAt });
+      const synthesis = await this.planner.synthesizeOutput(trace, definition);
+      await tracer.step({
+        kind: "output",
+        status: "ok",
+        summary: synthesis.summary,
+        output: synthesis.output,
+        startedAt,
+      });
       await agentRunRepository.patchRun(run.id, {
         status: "succeeded",
-        output,
+        output: synthesis.output,
         completedAt: new Date(),
         resumeState: null,
       });
