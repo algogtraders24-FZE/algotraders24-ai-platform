@@ -3,7 +3,29 @@
 **Sprint:** AT24 AI Agents — Agent Framework Foundation
 **Step:** A9 — the agent Credit Ledger (real accounting, not a counter)
 **Depends on:** A3 persistence, A4 runtime, A8 authorization (all closed)
-**Gate:** G09 — schema + `migration.sql` + the ledger. **Migration NOT applied.**
+**Gate:** G09 — **CLOSED / APPROVED**. Migration **applied under G09 authorization**.
+
+## Post-apply verification (live DB)
+
+`prisma migrate deploy` → *"Applying migration `20260907120000_add_agent_credit_ledger` … All migrations successfully applied."*
+
+| Check | Found |
+|---|---|
+| enum `AgentCreditEntryKind` | present |
+| table `AgentCreditLedgerEntry` | present |
+| unique index `AgentCreditLedgerEntry_idempotencyKey_key` | present (UNIQUE) |
+| indexes | `(userId, periodStart)`, `(runId)`, `(userId, createdAt)` + pkey |
+| billing tables (`Billing` / `Subscription` / `Plan`) | intact (3/3) |
+| `_prisma_migrations` row | present, finished |
+| `prisma migrate status` | *"Database schema is up to date"* |
+| `prisma generate` | succeeds |
+| **real-persistence smoke** (`PrismaCreditStore`) | `charge` → entry; duplicate key → `alreadyApplied: true` (idempotent); `amount 200` vs balance `100` → `InsufficientCreditsError`, **no entry**; `refund 10` → `-10` entry; `historyForRun` → 2 entries; `balance` = `100 − 30 + 10 = 80` |
+
+The migration file keeps its review-time header (immutable once applied).
+**No credit wiring beyond the reservation/reconcile already in `tick()` was added.**
+
+---
+
 
 > **This is not `run.creditsConsumed += cost`.** That field stays as the
 > per-run *budget* counter feeding A8's `maxCreditCost` guardrail. A9 is a

@@ -201,8 +201,11 @@ async function main(): Promise<void> {
     const p = join(dirname(fileURLToPath(import.meta.url)), "..", "prisma", "migrations", "20260907120000_add_agent_credit_ledger", "migration.sql");
     assert.ok(existsSync(p));
     const sql = readFileSync(p, "utf8");
-    assert.match(sql, /STATUS: NOT APPLIED/);
+    // GENERATED + REVIEWED as NOT APPLIED (G09), then applied via
+    // `prisma migrate deploy` under explicit authorization. Migration files
+    // are immutable once applied; the header keeps its review-time wording.
     assert.match(sql, /Never run `prisma migrate dev`/);
+    assert.match(sql, /hand-reviewed/);
     assert.ok(!/\bDROP\b/i.test(sql) && !/ALTER TABLE/i.test(sql));
     assert.deepEqual([...sql.matchAll(/CREATE TABLE "(\w+)"/g)].map((m) => m[1]), ["AgentCreditLedgerEntry"]);
     assert.match(sql, /CREATE UNIQUE INDEX "AgentCreditLedgerEntry_idempotencyKey_key"/);
