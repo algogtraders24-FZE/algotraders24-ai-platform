@@ -1307,6 +1307,48 @@ model PaperPosition {
   @@index([symbol, status])
 }
 
+// P4.8-T2.2 - Strategy Persistence (docs/P4.8-T2.2-STRATEGY-PERSISTENCE.md).
+// User-owned, AI-COMPILED strategies only - registry strategies
+// ("golden", "ref-ema-crossover") are deliberately NEVER given a row
+// here (the P4.8-T2.1 audit's own finding: they are global, code-owned,
+// not user-owned - the registry itself already IS their source of
+// truth; duplicating them here would create a second, driftable copy).
+//
+// `strategyId` is the P4.8-T1 stable, per-user, content-addressed AI
+// identity (`ai-${userId}-${computeCrossPlatformSemanticHash(ir)}`) -
+// `@@unique([userId, strategyId])` is what makes this an upsert target:
+// recompiling byte-identical trading logic (even with different LLM
+// phrasing/generated name - see P4.8-T1) reuses the SAME row, it never
+// creates a duplicate.
+//
+// `artifact` is the engine's own, already-existing, already-tested
+// StrategyVersionRecord (at24-quant-engine/src/domain/strategy-version.ts,
+// Q0.9/ADR-007) - `{ strategyId, version, spec, publishedAt, contentHash }`.
+// `spec` inside it is the FULL, executable StrategySpec (frozen via
+// freezeStrategyVersion()) - re-runnable without ever asking the LLM to
+// reconstruct trading logic again. This is deliberately NOT the same
+// thing as AlgoTestRun.compiledStrategy below (that field is a
+// human-readable presentation VIEW, AlgoTestCompiledStrategyView, and
+// cannot be executed - see the P4.8-T2.1 audit's own finding).
+model Strategy {
+  id         String   @id @default(cuid())
+  userId     String
+  strategyId String
+  // A plain string, not an enum - "ai-generated" is the only value today,
+  // matching AlgoTestRun.status's own established convention (a future
+  // origin needs no migration to add).
+  origin     String
+  name       String
+  artifact   Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  runs AlgoTestRun[]
+
+  @@unique([userId, strategyId])
+  @@index([userId, createdAt])
+}
+
 // P3.2B - Algo Testing (Pro). One row per deterministic backtest run
 // against the canonical at24-quant-engine (docs/P3.1-*, P3.2A-*,
 // P3.2B-ALGO-TEST-E2E.md). Deliberately does NOT persist the historical
@@ -1389,7 +1431,19 @@ model AlgoTestRun {
   errorMessage   String?
   createdAt      DateTime  @default(now())
   completedAt    DateTime?
+  // P4.8-T2.2 - a nullable reference to the persisted Strategy this run
+  // was compiled from, wired ONLY for new AI runs going forward.
+  // Deliberately `SetNull` on delete, never `Cascade` - run history is
+  // historical evidence and must survive a Strategy being edited/deleted
+  // later (that UX does not exist yet, but the constraint is set now so
+  // it can never accidentally become destructive). Every pre-T2.2 row -
+  // and every registry-strategy row, forever, since registry strategies
+  // never get a Strategy row at all - has this genuinely NULL, never
+  // backfilled or guessed.
+  strategyRefId  String?
+  strategy       Strategy? @relation(fields: [strategyRefId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([userId, strategyHash])
+  @@index([strategyRefId])
 }
