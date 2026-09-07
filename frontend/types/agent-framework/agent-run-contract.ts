@@ -327,6 +327,67 @@ export function isAgentCreditEntryKind(value: unknown): value is AgentCreditEntr
   return typeof value === "string" && (AGENT_CREDIT_ENTRY_KINDS as readonly string[]).includes(value);
 }
 
+// ---- A10: evaluation + observability -----------------------------
+
+/** The scored dimensions of a run evaluation. Each is 0..1. A10 READS the
+ *  recorded results of A6 (integrity) / A8 (authorization) / A9 (credits) -
+ *  it never re-checks them. */
+export type AgentEvaluationDimension =
+  | "completion"
+  | "tool_selection"
+  | "authorization"
+  | "evidence"
+  | "integrity"
+  | "limits_respected"
+  | "groundedness";
+
+export const AGENT_EVALUATION_DIMENSIONS: readonly AgentEvaluationDimension[] = [
+  "completion",
+  "tool_selection",
+  "authorization",
+  "evidence",
+  "integrity",
+  "limits_respected",
+  "groundedness",
+] as const;
+
+/** Why a run ended the way it did. */
+export type RunFailureCategory =
+  | "none"
+  | "expected_guardrail"
+  | "provider_failure"
+  | "credit"
+  | "integrity"
+  | "resource_limit"
+  | "unexpected";
+
+export interface AgentEvaluationScore {
+  dimension: AgentEvaluationDimension;
+  /** 0..1 */
+  score: number;
+  /** always a human-readable reason - never a bare number. */
+  basis: string;
+}
+
+/** One immutable evaluation of a completed run. Structured + auditable -
+ *  never just a log string. */
+export interface AgentEvaluationResult {
+  runId: string;
+  agentId: string;
+  userId: string;
+  /** the run's terminal status at evaluation time. */
+  terminalStatus: AgentRunStatus;
+  scores: AgentEvaluationScore[];
+  /** weighted mean of `scores`. 0..1. */
+  compositeScore: number;
+  failureCategory: RunFailureCategory;
+  failureAnalysis: string;
+  /** raw, trackable signals for future agent evaluation / dashboards. */
+  measurableSignals: Readonly<Record<string, number | string | boolean>>;
+  evaluatorVersion: string;
+  createdAt: string;
+}
+
 /** A fully assembled run trace (read model for GET /runs/:id/trace). */
 export interface AgentRunTrace {
   run: AgentRun;

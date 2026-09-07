@@ -1584,3 +1584,37 @@ model AgentCreditLedgerEntry {
   @@index([runId])
   @@index([userId, createdAt])
 }
+
+// ============================================================================
+// Sprint AN - A10: run Evaluation + Observability.
+//
+// One immutable evaluation per terminal run. A10 does NOT re-check
+// authorization (A8) or output integrity (A6) or credit accounting (A9) - it
+// READS their recorded results from the persisted trace + ledger and SCORES
+// them. Heuristic evaluator, deterministic, structured (not a log string).
+//
+// `scores` is the per-dimension AgentEvaluationScore[] JSON; `measurableSignals`
+// is the flat observability payload (counts, wallMs, planningPath, ...).
+// Written best-effort by the runtime at every terminal transition - an
+// evaluation failure NEVER changes a run's outcome.
+//
+// Migration status: GENERATED + REVIEWED, NOT APPLIED (same rule as A3/A7/A9).
+
+model AgentEvaluation {
+  id                String   @id @default(cuid())
+  runId             String   @unique
+  agentId           String
+  userId            String
+  terminalStatus    String
+  scores            Json
+  compositeScore    Float
+  failureCategory   String
+  failureAnalysis   String
+  measurableSignals Json
+  evaluatorVersion  String
+  createdAt         DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([agentId])
+  @@index([terminalStatus])
+}

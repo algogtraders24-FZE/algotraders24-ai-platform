@@ -42,6 +42,8 @@ import type { RunPlanner } from "../supervisor/run-planner";
 import { checkOutputIntegrity } from "../integrity/output-integrity";
 import { CreditLedger, InsufficientCreditsError } from "../credits/credit-ledger";
 import { createCreditLedger } from "../credits/index";
+import { EvaluationService } from "../evaluation/evaluation-service";
+import { defaultEvaluationStore } from "../evaluation/index";
 import type {
   AgentRunStatus as PrismaAgentRunStatus,
   AgentToolCallStatus as PrismaAgentToolCallStatus,
@@ -115,8 +117,14 @@ export class AgentRuntime {
   private readonly registry: ToolRegistry;
   private readonly planner: RunPlanner;
   private readonly creditLedger: CreditLedger;
+  private readonly evaluation: EvaluationService;
 
-  constructor(deps: { registry?: ToolRegistry; planner?: RunPlanner; creditLedger?: CreditLedger } = {}) {
+  constructor(deps: {
+    registry?: ToolRegistry;
+    planner?: RunPlanner;
+    creditLedger?: CreditLedger;
+    evaluation?: EvaluationService;
+  } = {}) {
     this.registry = deps.registry ?? toolRegistry;
     // A5: the Supervisor is the real planner above the runtime. It emits
     // plan/intent state only - tick() still authorizes + executes.
@@ -124,6 +132,12 @@ export class AgentRuntime {
     // A9: the accounting authority. Default is Prisma-backed (inert until the
     // A9 migration is applied); validation harnesses inject an in-memory one.
     this.creditLedger = deps.creditLedger ?? createCreditLedger();
+    // A10: the heuristic evaluator, run best-effort at every terminal
+    // transition. Shares this runtime's ledger + registry so it reads the
+    // same state.
+    this.evaluation =
+      deps.evaluation ??
+      new EvaluationService({ registry: this.registry, creditLedger: this.creditLedger, store: defaultEvaluationStore() });
   }
 
   /** Snapshot the effective ceilings for a run from framework defaults,
@@ -337,6 +351,7 @@ export class AgentRuntime {
           resumeState: null,
         });
         tracer.failure("failed", "output_integrity", `${integrity.violations.length} violation(s)`);
+        await this.finalize(run.id);
         return agentRunRepository.getRun(run.id);
       }
 
@@ -347,6 +362,7 @@ export class AgentRuntime {
         resumeState: null,
       });
       tracer.transition("running", "succeeded", `${trace.evidence.length} evidence row(s), integrity ok`);
+      await this.finalize(run.id);
       return agentRunRepository.getRun(run.id);
     }
 
@@ -554,7 +570,18 @@ export class AgentRuntime {
       resumeState: null,
     });
     (tracer ?? new RunTracer(runId)).failure(toStatus, errorCode, errorMessage);
+    await this.finalize(runId);
     return agentRunRepository.getRun(runId);
+  }
+
+  /** A10: best-effort heuristic evaluation at a terminal transition. An
+   *  evaluation failure NEVER changes a run's outcome. */
+  private async finalize(runId: string): Promise<void> {
+    try {
+      await this.evaluation.evaluate(runId);
+    } catch (err) {
+      log.info("run evaluation failed (non-fatal)", { runId, error: err instanceof Error ? err.message : String(err) });
+    }
   }
 
   private async safePatch(run: NonNullable<AgentRunRow>, patch: Parameters<typeof agentRunRepository.patchRun>[1]) {
