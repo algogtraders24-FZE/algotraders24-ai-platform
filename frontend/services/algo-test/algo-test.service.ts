@@ -49,6 +49,8 @@ import type {
   AlgoTestRunRequest,
   AlgoTestRunView,
   AlgoTestTradeView,
+  StrategyLibraryDetail,
+  StrategyLibraryItem,
 } from "@/types/algo-test";
 import type { ChartCandle } from "@/types/chart-data";
 import { twelveDataHistoricalDataProvider } from "./historical-data/twelve-data-provider";
@@ -1134,5 +1136,116 @@ export const algoTestService = {
       throw new Error(`Strategy "${strategyId}" (row ${row.id}): persisted spec failed validateStrategySpec: ${validation.errors.join("; ")}`);
     }
     return { spec: versionRecord.spec, versionRecord };
+  },
+
+  /**
+   * P4.8-T3.2 (docs/P4.8-T3-STRATEGY-LIBRARY.md, per the locked T3.1
+   * contract) - a user's full Strategy Library: every available registry
+   * strategy (global, code-defined) followed by up to 50 of the user's
+   * own persisted AI strategies, newest first. Exactly two `groupBy`
+   * queries total for run-count/last-run aggregation - never N+1, never
+   * touches the heavy `metrics`/`trades`/`equityCurve` columns. Per the
+   * locked clarification: the AI-side `groupBy` aggregates ALL of the
+   * user's AI runs (not narrowed to the 50 returned Strategies) -
+   * deliberately not optimized further in T3.
+   */
+  async listStrategyLibrary(userId: string): Promise<StrategyLibraryItem[]> {
+    const registryEntries = listAvailableStrategies();
+    const registryIds = registryEntries.map((s) => s.strategyId);
+
+    const [registryAgg, strategies, aiAgg] = await Promise.all([
+      registryIds.length > 0
+        ? prisma.algoTestRun.groupBy({ by: ["strategyId"], where: { userId, strategyId: { in: registryIds } }, _count: { _all: true }, _max: { createdAt: true } })
+        : Promise.resolve([]),
+      prisma.strategy.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 50 }),
+      prisma.algoTestRun.groupBy({ by: ["strategyRefId"], where: { userId, strategyRefId: { not: null } }, _count: { _all: true }, _max: { createdAt: true } }),
+    ]);
+
+    const registryRunInfo = new Map(registryAgg.map((a) => [a.strategyId, { runCount: a._count._all, lastRunAt: a._max.createdAt }]));
+    // Keyed by the Strategy row's own `id` (what AlgoTestRun.strategyRefId
+    // actually references) - NOT the semantic `strategyId` string.
+    const aiRunInfo = new Map(aiAgg.map((a) => [a.strategyRefId as string, { runCount: a._count._all, lastRunAt: a._max.createdAt }]));
+
+    const registryItems: StrategyLibraryItem[] = registryEntries.map((s) => {
+      const info = registryRunInfo.get(s.strategyId);
+      return {
+        strategyId: s.strategyId,
+        name: s.displayName,
+        origin: "registry",
+        runCount: info?.runCount ?? 0,
+        ...(info?.lastRunAt ? { lastRunAt: info.lastRunAt.toISOString() } : {}),
+      };
+    });
+
+    const aiItems: StrategyLibraryItem[] = strategies.map((row) => {
+      const info = aiRunInfo.get(row.id);
+      return {
+        strategyId: row.strategyId,
+        name: row.name,
+        origin: "ai-generated",
+        createdAt: row.createdAt.toISOString(),
+        runCount: info?.runCount ?? 0,
+        ...(info?.lastRunAt ? { lastRunAt: info.lastRunAt.toISOString() } : {}),
+      };
+    });
+
+    return [...registryItems, ...aiItems];
+  },
+
+  /**
+   * P4.8-T3.2 - Strategy Library detail. Tries the registry first
+   * (cheap, in-memory, no ambiguity risk since every AI strategyId is
+   * always `ai-`-prefixed and no registry entry is), then falls back to
+   * a user-owned persisted Strategy. Returns `null` only for the honest
+   * "no such strategy, or it belongs to someone else" case.
+   *
+   * `artifactVerified: false` is a genuinely reachable state (see the
+   * type's own doc comment) - a corrupted/tampered AI artifact is caught
+   * here via getStrategyArtifact()'s own thrown error and turned into an
+   * honest, non-crashing `false` for DISPLAY purposes only. This does
+   * NOT weaken getStrategyArtifact() itself, which still throws loudly
+   * for any caller (e.g. a future rerun action) that actually needs the
+   * artifact to be trustworthy to proceed.
+   */
+  async getStrategyLibraryDetail(userId: string, strategyId: string): Promise<StrategyLibraryDetail | null> {
+    const registryDef = getStrategyDefinition(strategyId);
+    if (registryDef && registryDef.status === "available") {
+      const [agg] = await prisma.algoTestRun.groupBy({ by: ["strategyId"], where: { userId, strategyId }, _count: { _all: true }, _max: { createdAt: true } });
+      return {
+        strategyId: registryDef.strategyId,
+        name: registryDef.displayName,
+        origin: "registry",
+        runCount: agg?._count._all ?? 0,
+        ...(agg?._max.createdAt ? { lastRunAt: agg._max.createdAt.toISOString() } : {}),
+        compiledStrategy: toCompiledStrategyView(registryDef.buildSpec({})),
+        artifactVerified: true,
+      };
+    }
+
+    const row = await prisma.strategy.findUnique({ where: { userId_strategyId: { userId, strategyId } } });
+    if (!row) return null;
+
+    const [agg] = await prisma.algoTestRun.groupBy({ by: ["strategyRefId"], where: { userId, strategyRefId: row.id }, _count: { _all: true }, _max: { createdAt: true } });
+    const base = {
+      strategyId: row.strategyId,
+      name: row.name,
+      origin: "ai-generated" as const,
+      createdAt: row.createdAt.toISOString(),
+      runCount: agg?._count._all ?? 0,
+      ...(agg?._max.createdAt ? { lastRunAt: agg._max.createdAt.toISOString() } : {}),
+    };
+
+    try {
+      const artifact = await algoTestService.getStrategyArtifact(userId, strategyId);
+      // Structurally unreachable - `row` above already proves the
+      // Strategy exists, so getStrategyArtifact() can only return null
+      // here if it vanished between the two reads (a real race, not a
+      // corruption case) - treated the same as corruption: honest,
+      // non-crashing `artifactVerified: false`, never fabricated content.
+      if (!artifact) return { ...base, artifactVerified: false };
+      return { ...base, compiledStrategy: toCompiledStrategyView(artifact.spec), artifactVerified: true };
+    } catch {
+      return { ...base, artifactVerified: false };
+    }
   },
 };
