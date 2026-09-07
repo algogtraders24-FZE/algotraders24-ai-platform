@@ -113,6 +113,7 @@
     "validate:agent-credit": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-credit.ts",
     "validate:agent-evaluation": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-evaluation.ts",
     "validate:agent-research": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-research.ts",
+    "validate:agent-market-intelligence": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-market-intelligence.ts",
     "vendor:quant-engine": "node scripts/vendor-quant-engine.mjs"
   },
   "dependencies": {

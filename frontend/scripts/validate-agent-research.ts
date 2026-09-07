@@ -211,8 +211,10 @@ async function main(): Promise<void> {
     const dirs = readdirSync(base, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
     // the A1-A10 set + the new "agents" folder (definitions only). Nothing else.
     assert.deepEqual(dirs, ["agents", "authorization", "credits", "evaluation", "integrity", "memory", "runtime", "supervisor", "tools"]);
+    // agents/ holds ONLY canonical agent definitions (one file per agent, A11+).
     const agentsFiles = readdirSync(join(base, "agents"));
-    assert.deepEqual(agentsFiles, ["research-agent.ts"]);
+    assert.ok(agentsFiles.includes("research-agent.ts"), "research-agent.ts present");
+    assert.ok(agentsFiles.every((f) => f.endsWith("-agent.ts")), `agents/ holds only *-agent.ts definitions, got ${agentsFiles.join(", ")}`);
   });
 
   // ----------------------------------------------------------------
