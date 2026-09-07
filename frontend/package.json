@@ -28,6 +28,7 @@
     "validate:explainable-analysis": "tsx scripts/validate-explainable-analysis.ts",
     "validate:evidence-fusion": "tsx scripts/validate-evidence-fusion.ts",
     "validate:news-provider": "tsx scripts/validate-alpha-vantage-news-provider.ts",
+    "validate:economic-calendar": "tsx --conditions=react-server scripts/validate-economic-calendar.ts",
     "validate:billing": "tsx scripts/validate-billing-entitlements.ts",
     "validate:admin": "tsx scripts/validate-admin-control-center.ts",
     "validate:payments": "tsx scripts/validate-payment-infrastructure.ts",
