@@ -73,7 +73,7 @@ export default function NewsCard({ article }: { article: NewsArticleDTO }) {
 
       <div className="mt-3 flex items-center justify-between text-xs">
         <span className="text-text-3">
-          {article.category ?? "Uncategorized"} &middot; {article.sourceName ?? article.provider}
+          {article.category ?? "Uncategorized"} &middot; {article.sourceName ?? "Newswire"}
         </span>
         {article.url && (
           <a href={article.url} target="_blank" rel="noopener noreferrer" className="font-medium text-gold hover:underline">

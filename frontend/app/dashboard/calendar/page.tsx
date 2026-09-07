@@ -110,18 +110,7 @@ export default function EconomicCalendarPage() {
         <PageHeader
           eyebrow="Economic Calendar"
           title="Economic Calendar"
-          description={
-            <>
-              This week&apos;s scheduled high-impact releases, with consensus forecast and prior value.{" "}
-              <span className="text-text-3">
-                Released &ldquo;actual&rdquo; figures aren&apos;t in the free feed yet - check{" "}
-                <a href="https://www.forexfactory.com/calendar" target="_blank" rel="noreferrer" className="text-gold hover:underline">
-                  ForexFactory
-                </a>{" "}
-                live at release time.
-              </span>
-            </>
-          }
+          description="This week's scheduled high-impact economic releases and central-bank events, with consensus forecast and prior value."
         />
 
         {state.status === "ready" && (
@@ -130,7 +119,7 @@ export default function EconomicCalendarPage() {
             title={state.data.freshness.isStale ? "Calendar may be out of date" : "Updated"}
             className="mb-6"
           >
-            {`Fetched from ${state.data.freshness.source} ${timeAgo(state.data.freshness.fetchedAt)}${
+            {`Last updated ${timeAgo(state.data.freshness.fetchedAt)}${
               state.data.freshness.isStale ? " - a forecast revision may not be reflected." : "."
             }`}
           </Alert>

@@ -43,5 +43,9 @@ export function calendarStaleThresholdMs(): number {
   return readPositiveInt("CALENDAR_STALE_THRESHOLD_HOURS", 6) * 60 * 60 * 1000;
 }
 
-export const CALENDAR_SOURCE_LABEL = "ForexFactory / FairEconomy";
-export const CALENDAR_PROVIDER = "faireconomy";
+// Shown to no one by default (the UI dropped the attribution line) - kept
+// as a neutral internal label on the API response's freshness stamp and
+// each event's `provider` field. The concrete upstream host lives only in
+// faireconomy.provider.ts / CALENDAR_FEED_BASE_URL.
+export const CALENDAR_SOURCE_LABEL = "Aggregated economic calendar";
+export const CALENDAR_PROVIDER = "economic-calendar";
