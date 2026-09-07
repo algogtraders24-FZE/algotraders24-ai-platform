@@ -129,6 +129,11 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       { label: "AI Signals", href: "/dashboard/signals", icon: "SG" },
       { label: "Market Intelligence", href: "/dashboard/market-intelligence", icon: "MI" },
       { label: "AI News", href: "/dashboard/news", icon: "NW" },
+      // AN2 - the Economic Calendar AN1.7 deferred (it removed the old mock
+      // "High Impact Economic Events" section with a note that calendar data
+      // "needs its own future provider/contract/audit"). Real feed now, so
+      // it earns a real slot next to AI News rather than a nested child.
+      { label: "Economic Calendar", href: "/dashboard/calendar", icon: "EC" },
       // No standalone Research page exists (Sprint D2.4.A1 deliberately
       // redirected the marketing /platform/research page into Assistant,
       // since Research wasn't distinct content there). Inside the
