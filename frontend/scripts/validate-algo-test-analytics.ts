@@ -202,6 +202,24 @@ async function main() {
       return row && row.userId === where.userId ? row : null;
     },
   };
+  // P4.8-T2.2 - compileAndRunAiStrategy() now upserts a Strategy row for
+  // every successful compilation; a minimal fake is enough here since
+  // this file's own tests never inspect it.
+  const strategies = new Map<string, Record<string, unknown>>();
+  (prisma as unknown as { strategy: unknown }).strategy = {
+    async upsert({ where, create, update }: { where: { userId_strategyId: { userId: string; strategyId: string } }; create: Record<string, unknown>; update: Record<string, unknown> }) {
+      const key = `${where.userId_strategyId.userId}::${where.userId_strategyId.strategyId}`;
+      const existing = strategies.get(key);
+      if (existing) {
+        const updated = { ...existing, ...update };
+        strategies.set(key, updated);
+        return updated;
+      }
+      const row = { id: nextId("strat"), createdAt: new Date(), updatedAt: new Date(), ...create };
+      strategies.set(key, row);
+      return row;
+    },
+  };
   const user = await prisma.user.create({ data: { email: `p44${Date.now()}@internal.test`, name: "P4.4 Test" } });
 
   function fakeProvider(json: string): AIProvider {

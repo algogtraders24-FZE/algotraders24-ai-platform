@@ -64,6 +64,25 @@ function installFakePrisma(): void {
       return [...runs.values()].filter((r) => r.userId === where.userId).sort((a, b) => (b.createdAt as Date).getTime() - (a.createdAt as Date).getTime());
     },
   };
+  // P4.8-T2.2 - compileAndRunAiStrategy() now upserts a Strategy row for
+  // every successful compilation; a minimal fake is enough here since
+  // this file's own tests never inspect it.
+  const strategies = new Map<string, FakeRow>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (prisma as any).strategy = {
+    async upsert({ where, create, update }: { where: { userId_strategyId: { userId: string; strategyId: string } }; create: Record<string, unknown>; update: Record<string, unknown> }) {
+      const key = `${where.userId_strategyId.userId}::${where.userId_strategyId.strategyId}`;
+      const existing = [...strategies.values()].find((s) => `${s.userId}::${s.strategyId}` === key);
+      if (existing) {
+        const updated = { ...existing, ...update };
+        strategies.set(existing.id, updated);
+        return updated;
+      }
+      const row: FakeRow = { id: nextId("strat"), createdAt: new Date(), updatedAt: new Date(), ...create };
+      strategies.set(row.id, row);
+      return row;
+    },
+  };
 }
 
 let passed = 0;

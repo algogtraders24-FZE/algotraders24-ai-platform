@@ -20,6 +20,9 @@ import {
   buildLifecycleResult,
   computeRiskRatios,
   computeSemanticStrategyHash,
+  freezeStrategyVersion,
+  verifyStrategyVersionIntegrity,
+  validateStrategySpec,
   type Expression,
   type Operand,
   type OHLCVBar,
@@ -29,6 +32,7 @@ import {
   type StageResult,
   type StrategyLifecycleStage,
   type StrategySpec,
+  type StrategyVersionRecord,
   type Timeframe,
 } from "at24-quant-engine";
 import { prisma } from "@/lib/prisma";
@@ -439,6 +443,62 @@ function describeTakeProfit(risk: RiskSpecification): string | undefined {
   if (tp.type === "fixed-price") return `Fixed price: ${tp.price}`;
   if (tp.type === "fixed-distance") return `Fixed distance: ${tp.distance}`;
   return `Risk multiple: ${tp.rMultiple}R`;
+}
+
+/**
+ * P4.8-T2.2 (docs/P4.8-T2.2-STRATEGY-PERSISTENCE.md) - upserts the
+ * user-owned `Strategy` row for an AI compilation that reached a real
+ * StrategySpec, keyed by the P4.8-T1 stable identity (`spec.identity.
+ * strategyId`). Called for EVERY successful compilation - a RANGE_TOO_LARGE
+ * rejection, a DATA_VALID/provider failure after compilation, and a fully
+ * completed run all compiled a real, reusable artifact; none of those
+ * outcomes is a reason to withhold persistence, since the point is
+ * exactly to make the STRATEGY reusable independent of any one run's own
+ * fate. Never called for registry strategies (golden/ref-ema-crossover) -
+ * those remain code-defined, per the P4.8-T2.1 audit's explicit finding;
+ * this function is only ever reached from compileAndRunAiStrategy.
+ *
+ * The persisted `artifact` is the engine's own `StrategyVersionRecord`
+ * (freezeStrategyVersion, Q0.9/ADR-007) - the FULL, executable,
+ * re-runnable StrategySpec, not the presentation-only
+ * AlgoTestCompiledStrategyView `toCompiledStrategyView()` below produces.
+ *
+ * IMMUTABILITY (review fix, pre-merge): the persisted `artifact` is a
+ * FROZEN snapshot, per StrategyVersionRecord's own contract ("changing
+ * strategy logic must produce a NEW version, not an edit to this one").
+ * `@@unique([userId, strategyId])` makes this an upsert TARGET (never a
+ * duplicate row), but an existing match must never have its `artifact`/
+ * `name`/`origin` overwritten by a later recompile - only `updatedAt`
+ * moves, via Prisma's own `@updatedAt` on an empty `update: {}`. No
+ * additional semantic-equality check is needed on the existing-row path:
+ * `strategyId` (the upsert key itself) IS `ai-${userId}-${
+ * computeCrossPlatformSemanticHash(ir)}` - two compiles landing on the
+ * SAME strategyId are, by that same construction, already proven to
+ * share identical executable semantics. The only fields that could ever
+ * differ between them are exactly the ones the hash excludes -
+ * `identity.name`/`metadata`/`provenance` (T1's own proven adversarial
+ * case) - never anything execution-relevant. So there is no genuine
+ * "investigate" branch to guard against here; the fix is simply to never
+ * let a later, cosmetically-different compile silently replace an
+ * earlier one's frozen artifact.
+ */
+async function persistAiStrategy(userId: string, spec: StrategySpec): Promise<string> {
+  const versionRecord: StrategyVersionRecord = freezeStrategyVersion(spec, Date.now());
+  const row = await prisma.strategy.upsert({
+    where: { userId_strategyId: { userId, strategyId: spec.identity.strategyId } },
+    create: {
+      userId,
+      strategyId: spec.identity.strategyId,
+      origin: "ai-generated",
+      name: spec.identity.name,
+      artifact: versionRecord as unknown as object,
+    },
+    // Deliberately empty - an existing row's artifact/name/origin are
+    // NEVER touched by a later recompile, only `updatedAt` (Prisma's own
+    // @updatedAt still bumps on an update() call with no other fields).
+    update: {},
+  });
+  return row.id;
 }
 
 /**
@@ -884,6 +944,12 @@ export const algoTestService = {
       return { testId: row.id, status: "failed", strategyId: "ai-generated", parameters: { intent: request.intent }, symbol, timeframe, startTime: request.startTime, endTime: request.endTime, initialBalance, errorCode: "INVALID_STRATEGY", errorMessage: message, lifecycle, createdAt: row.createdAt.toISOString() };
     }
 
+    // P4.8-T2.2 - a real StrategySpec exists past this point, regardless
+    // of what happens to THIS run next (RANGE_TOO_LARGE, a DATA_VALID
+    // failure below, or a genuine completed run) - persist/reuse the
+    // Strategy row now, once, so every branch below can attach it.
+    const strategyRefId = await persistAiStrategy(userId, compilation.compiledSpec);
+
     // P4.4 Phase C - now that compilation succeeded and `timeframe` is a
     // real, known engine Timeframe, the deferred range-vs-cap check (see
     // this function's own top, above) finally runs. A real StrategySpec
@@ -905,6 +971,7 @@ export const algoTestService = {
           errorCode: "RANGE_TOO_LARGE",
           errorMessage: message,
           strategyHash,
+          strategyRefId,
           lifecycle: lifecycle as unknown as object,
           compiledStrategy: compiledStrategy as unknown as object,
           completedAt: new Date(),
@@ -964,6 +1031,7 @@ export const algoTestService = {
           equityCurve: equityCurve as unknown as object,
           assumptions: assumptions as object,
           strategyHash,
+          strategyRefId,
           lifecycle: lifecycle as unknown as object,
           compiledStrategy: compiledStrategy as unknown as object,
           completedAt: new Date(),
@@ -1011,6 +1079,7 @@ export const algoTestService = {
           errorCode: code,
           errorMessage: message,
           strategyHash,
+          strategyRefId,
           lifecycle: lifecycle as unknown as object,
           compiledStrategy: compiledStrategy as unknown as object,
           completedAt: new Date(),
@@ -1034,5 +1103,36 @@ export const algoTestService = {
         createdAt: row.createdAt.toISOString(),
       };
     }
+  },
+
+  /**
+   * P4.8-T2.2 - reads a persisted, user-owned AI Strategy's artifact back
+   * and PROVES it is genuinely trustworthy before returning it: re-hashes
+   * the frozen spec and compares against its own recorded `contentHash`
+   * (`verifyStrategyVersionIntegrity` - engine-provided, Q0.9/ADR-007,
+   * catches accidental mutation/corruption of the stored JSON), then runs
+   * the equally engine-provided `validateStrategySpec` (catches a
+   * structurally malformed spec that would otherwise fail confusingly
+   * deep inside a future re-run attempt). Throws loudly on either
+   * failure - a corrupted or invalid persisted artifact must never be
+   * silently handed to a caller as if it were safe to execute. Returns
+   * `null` only for the honest "no such Strategy" case (wrong id, wrong
+   * owner, or a registry strategy - which never gets a row here at all).
+   * Not yet wired to any route - a persistence-layer capability only,
+   * proven by its own tests. The Library API (P4.8-T3) is its first real
+   * consumer.
+   */
+  async getStrategyArtifact(userId: string, strategyId: string): Promise<{ spec: StrategySpec; versionRecord: StrategyVersionRecord } | null> {
+    const row = await prisma.strategy.findUnique({ where: { userId_strategyId: { userId, strategyId } } });
+    if (!row) return null;
+    const versionRecord = row.artifact as unknown as StrategyVersionRecord;
+    if (!verifyStrategyVersionIntegrity(versionRecord)) {
+      throw new Error(`Strategy "${strategyId}" (row ${row.id}): persisted artifact failed its own contentHash integrity check - corrupted or tampered, refusing to return it.`);
+    }
+    const validation = validateStrategySpec(versionRecord.spec);
+    if (!validation.valid) {
+      throw new Error(`Strategy "${strategyId}" (row ${row.id}): persisted spec failed validateStrategySpec: ${validation.errors.join("; ")}`);
+    }
+    return { spec: versionRecord.spec, versionRecord };
   },
 };
