@@ -15,6 +15,7 @@
 //     [REAL deterministic pipeline] -> evidence -> structured conclusion
 //   - the conclusion is decision-support only: no entry/stop/target/size/signal
 
+process.env.AGENT_CREDIT_INMEMORY = "1"; // A9: harness ledger, no real rows
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";

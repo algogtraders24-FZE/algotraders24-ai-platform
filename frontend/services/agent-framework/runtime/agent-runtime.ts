@@ -40,6 +40,8 @@ import { authorizationService } from "../authorization/authorization-service";
 import { SupervisorService } from "../supervisor/supervisor";
 import type { RunPlanner } from "../supervisor/run-planner";
 import { checkOutputIntegrity } from "../integrity/output-integrity";
+import { CreditLedger, InsufficientCreditsError } from "../credits/credit-ledger";
+import { createCreditLedger } from "../credits/index";
 import type {
   AgentRunStatus as PrismaAgentRunStatus,
   AgentToolCallStatus as PrismaAgentToolCallStatus,
@@ -112,12 +114,16 @@ const AUTH_DENIAL_TOOLCALL_STATUS: Record<string, PrismaAgentToolCallStatus> = {
 export class AgentRuntime {
   private readonly registry: ToolRegistry;
   private readonly planner: RunPlanner;
+  private readonly creditLedger: CreditLedger;
 
-  constructor(deps: { registry?: ToolRegistry; planner?: RunPlanner } = {}) {
+  constructor(deps: { registry?: ToolRegistry; planner?: RunPlanner; creditLedger?: CreditLedger } = {}) {
     this.registry = deps.registry ?? toolRegistry;
     // A5: the Supervisor is the real planner above the runtime. It emits
     // plan/intent state only - tick() still authorizes + executes.
     this.planner = deps.planner ?? new SupervisorService({ registry: this.registry });
+    // A9: the accounting authority. Default is Prisma-backed (inert until the
+    // A9 migration is applied); validation harnesses inject an in-memory one.
+    this.creditLedger = deps.creditLedger ?? createCreditLedger();
   }
 
   /** Snapshot the effective ceilings for a run from framework defaults,
@@ -414,6 +420,27 @@ export class AgentRuntime {
 
     const authIntent = decision.intent!;
 
+    // ---- A9: economic check + RESERVE the estimate BEFORE the executor ----
+    //   A8 said "authorized"; A9 says "economically executable". The reserve
+    //   is idempotent (keyed by runId + plan index) - a resumed tick that
+    //   re-attempts this step re-uses the same entry, never double-charges.
+    const reserveKey = `${run.id}:step${rs.nextPlanIndex}:reserve`;
+    try {
+      await this.creditLedger.charge({
+        userId: run.userId,
+        runId: run.id,
+        kind: "tool_call",
+        amount: estimate,
+        reason: `reserve ${request.toolId}`,
+        idempotencyKey: reserveKey,
+      });
+    } catch (err) {
+      if (err instanceof InsufficientCreditsError) {
+        return this.terminate(run.id, run.status, "credit_limit", "insufficient_credits", err.message, tracer);
+      }
+      throw err;
+    }
+
     // ---- execute (one bounded slice = one tool call) ----
     const outcome = await invokeTool({
       registry: this.registry,
@@ -462,6 +489,24 @@ export class AgentRuntime {
         summary: `${evidenceIds.length} evidence row(s) from ${request.toolId}`,
         output: { evidenceIds },
         startedAt: new Date(),
+      });
+    }
+
+    // ---- A9: RECONCILE the reservation against the actual cost ----
+    //   estimate was reserved above; settle the difference (idempotent keys).
+    const actual = outcome.result.creditsConsumed;
+    const delta = actual - estimate;
+    if (delta > 0) {
+      await this.creditLedger.charge({
+        userId: run.userId, runId: run.id, stepId: step.id, toolCallId: toolCall.id,
+        kind: "tool_call", amount: delta, reason: `${request.toolId}: topup to actual`,
+        idempotencyKey: `${run.id}:step${rs.nextPlanIndex}:topup`,
+      }).catch((e) => { if (!(e instanceof InsufficientCreditsError)) throw e; });
+    } else if (delta < 0) {
+      await this.creditLedger.refund({
+        userId: run.userId, runId: run.id, stepId: step.id, toolCallId: toolCall.id,
+        amount: -delta, reason: `${request.toolId}: refund unused reservation`,
+        idempotencyKey: `${run.id}:step${rs.nextPlanIndex}:refund`,
       });
     }
 

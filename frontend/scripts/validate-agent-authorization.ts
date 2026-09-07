@@ -9,6 +9,7 @@
 // denied; prohibited capability combinations; resource limits consolidated;
 // and the planner/LLM can NEVER grant itself a permission or raise autonomy.
 
+process.env.AGENT_CREDIT_INMEMORY = "1"; // A9: harness ledger, no real rows
 import assert from "node:assert/strict";
 
 import {

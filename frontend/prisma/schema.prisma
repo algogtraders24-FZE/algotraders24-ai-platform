@@ -1525,3 +1525,62 @@ model AgentMemoryRecord {
   @@index([expiresAt])
   @@index([deletedAt])
 }
+
+// ============================================================================
+// Sprint AN - A9: the agent Credit Ledger.
+//
+// The ACCOUNTING authority for agent credit consumption - distinct from the
+// per-run BUDGET guardrail (AgentRun.limits.maxCreditCost, enforced by A8/A4).
+// Append-only + immutable: no updatedAt, no deletedAt, no update path. A
+// re-run/retry never double-charges - `idempotencyKey` is unique, so a
+// resumed tick() that re-attempts the same plan step reuses the existing
+// entry instead of writing a second one.
+//
+// `amount` is signed: positive = debit (consumption), negative = refund /
+// correction. `balanceAfter` is the balance computed AT WRITE TIME (advisory
+// for audit); the AUTHORITATIVE balance is always
+// PLAN_LIMITS[plan].aiCredits - SUM(amount) over the billing period, computed
+// fresh. `runId` is always present; `stepId` / `toolCallId` correlate a
+// charge to the exact tool call it paid for.
+//
+// This is NOT a pricing system (owner P3 / A9 lock): per-tool costs remain
+// placeholder constants. A9 makes the ACCOUNTING real and auditable, nothing
+// more. Pool-unification with the existing aiMessages entitlement
+// (services/billing/*) is a deliberate follow-on, out of A9 scope.
+//
+// Migration status: GENERATED + REVIEWED, NOT APPLIED (same rule as A3/A7).
+
+enum AgentCreditEntryKind {
+  tool_call
+  model_inference
+  research_search
+  backtest
+  optimization
+  large_context
+  refund
+  adjustment
+}
+
+model AgentCreditLedgerEntry {
+  id             String               @id @default(cuid())
+  userId         String
+  runId          String
+  stepId         String?
+  toolCallId     String?
+  kind           AgentCreditEntryKind
+  /// Signed: positive = debit, negative = refund/correction.
+  amount         Float
+  /// Balance computed at write time (advisory; recompute for authority).
+  balanceAfter   Float
+  /// Unique - the double-charge guard for resumed/retried ticks.
+  idempotencyKey String               @unique
+  reason         String
+  /// Billing-period boundary this entry counts against (denormalised so a
+  /// period-sum query needs no join to Subscription).
+  periodStart    DateTime
+  createdAt      DateTime             @default(now())
+
+  @@index([userId, periodStart])
+  @@index([runId])
+  @@index([userId, createdAt])
+}

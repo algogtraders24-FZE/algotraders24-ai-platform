@@ -280,6 +280,53 @@ export interface AgentRun {
   deletedAt?: string | null;
 }
 
+// ---- A9: credit ledger vocabulary --------------------------------
+
+/** What a ledger entry paid for. Mirrors the AgentCreditEntryKind Prisma enum. */
+export type AgentCreditEntryKind =
+  | "tool_call"
+  | "model_inference"
+  | "research_search"
+  | "backtest"
+  | "optimization"
+  | "large_context"
+  | "refund"
+  | "adjustment";
+
+export const AGENT_CREDIT_ENTRY_KINDS: readonly AgentCreditEntryKind[] = [
+  "tool_call",
+  "model_inference",
+  "research_search",
+  "backtest",
+  "optimization",
+  "large_context",
+  "refund",
+  "adjustment",
+] as const;
+
+/** One immutable ledger entry. `amount` is signed: positive = debit,
+ *  negative = refund/correction. `balanceAfter` is advisory (computed at
+ *  write time). The authoritative balance is always recomputed. */
+export interface AgentCreditLedgerEntry {
+  id: string;
+  userId: string;
+  runId: string;
+  stepId?: string | null;
+  toolCallId?: string | null;
+  kind: AgentCreditEntryKind;
+  amount: number;
+  balanceAfter: number;
+  /** Unique - the double-charge guard for resumed/retried ticks. */
+  idempotencyKey: string;
+  reason: string;
+  periodStart: string;
+  createdAt: string;
+}
+
+export function isAgentCreditEntryKind(value: unknown): value is AgentCreditEntryKind {
+  return typeof value === "string" && (AGENT_CREDIT_ENTRY_KINDS as readonly string[]).includes(value);
+}
+
 /** A fully assembled run trace (read model for GET /runs/:id/trace). */
 export interface AgentRunTrace {
   run: AgentRun;

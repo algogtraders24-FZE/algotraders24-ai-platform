@@ -17,6 +17,7 @@
 //   3. every failure/limit path terminates deterministically with the right
 //      AgentRunStatus, before or at the executor boundary.
 
+process.env.AGENT_CREDIT_INMEMORY = "1"; // A9: harness ledger, no real rows
 import assert from "node:assert/strict";
 
 import {

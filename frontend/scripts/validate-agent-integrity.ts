@@ -13,6 +13,7 @@
 // Layer 2 - runtime: a specialist that emits a forbidden field drives a real
 //           run to "failed / output_integrity" with an evaluation step.
 
+process.env.AGENT_CREDIT_INMEMORY = "1"; // A9: harness ledger, no real rows
 import assert from "node:assert/strict";
 
 import { makeDefaultAgentDefinitionBase, type AgentDefinition } from "../types/agent-framework/index";
