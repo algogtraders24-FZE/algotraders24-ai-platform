@@ -3,7 +3,28 @@
 **Sprint:** AT24 AI Agents — Agent Framework Foundation
 **Step:** A7 — Memory Contract + `MemoryGateway`
 **Depends on:** `AF-v1` memory contract (A1), Persistence (A3), Runtime (A4), Integrity (A6 / G06)
-**Gate:** G07 — the memory **authority and governance boundary**. Not a Knowledge/RAG system.
+**Gate:** G07 — **CLOSED / APPROVED**. Migration **applied under G07 authorization**.
+
+## Post-apply verification (live DB)
+
+`prisma migrate deploy` → *"Applying migration `20260906130000_add_agent_memory_record` … All migrations have been successfully applied."*
+
+| Check | Found |
+|---|---|
+| enum types `AgentMemory*` | **2** — `AgentMemoryLayer`, `AgentMemoryRecordStatus` |
+| table | `AgentMemoryRecord` |
+| indexes | **8** (7 declared + pkey) |
+| legacy `AgentMemory` columns | unchanged — `id, agentId, userId, key, value, createdAt, updatedAt, deletedAt` (no new columns) |
+| `_prisma_migrations` row | present, finished |
+| `prisma migrate status` | *"Database schema is up to date"* |
+| `prisma generate` | succeeds |
+| `PrismaMemoryStore` smoke | agent-derived LONG_TERM write → `pending_approval` (0 read hits) → `approvePending` → `active` (1 hit) — the full "never silently promote" loop works with real persistence |
+
+The migration file keeps its original review-time header (Prisma migration
+files are immutable once applied). **No memory wiring was added to `tick()`.**
+
+---
+
 
 > **Two locks honoured:** `RUN_STATE` is execution state, not memory. And an
 > agent can **never silently promote its own output into trusted long-term

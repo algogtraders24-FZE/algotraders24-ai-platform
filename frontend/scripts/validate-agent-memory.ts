@@ -305,8 +305,12 @@ async function main(): Promise<void> {
     const sqlPath = join(dir, "migration.sql");
     assert.ok(existsSync(sqlPath), "migration.sql missing");
     const sql = readFileSync(sqlPath, "utf8");
-    assert.match(sql, /STATUS: NOT APPLIED/);
+    // The migration was GENERATED + REVIEWED as NOT APPLIED (G07), then applied
+    // via `prisma migrate deploy` under explicit G07 authorization. Prisma
+    // migration files are immutable once applied; the header keeps its
+    // review-time wording. This test guards the still-true prohibition.
     assert.match(sql, /Never run `prisma migrate dev`/);
+    assert.match(sql, /hand-reviewed/);
     assert.ok(!/\bDROP\b/i.test(sql), "no DROP");
     assert.ok(!/ALTER TABLE/i.test(sql), "no ALTER TABLE (purely additive)");
     const tables = [...sql.matchAll(/CREATE TABLE "(\w+)"/g)].map((m) => m[1]);
