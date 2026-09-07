@@ -35,6 +35,7 @@ import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import Badge, { type BadgeTone } from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import StatField from "@/components/workspace/StatField";
+import CompiledStrategyCard from "@/components/algo-test/CompiledStrategyCard";
 import { FIN_LABEL, FIN_PRIMARY, FIN_SECONDARY, FIN_TERTIARY } from "@/components/ui/financial-typography";
 import { formatPrice, formatPercent, formatTimestamp } from "@/lib/financial-format";
 import { runAlgoTest, compileAndRunAiStrategy, fetchAlgoTestRun, fetchAlgoTestStrategies } from "@/lib/algo-test/store";
@@ -653,7 +654,7 @@ function AlgoTestResults({
 
       <LifecycleSection lifecycle={run.lifecycle} />
 
-      <CompiledStrategyCard strategy={run.compiledStrategy} strategyName={strategyName} run={run} />
+      <CompiledStrategyRunCard strategy={run.compiledStrategy} strategyName={strategyName} run={run} />
 
       {run.status === "completed" && metrics && (
         <>
@@ -1208,40 +1209,23 @@ function LifecycleSection({ lifecycle }: { lifecycle: AlgoTestLifecycleResult | 
  * valid, executable form" (a real failure) from simply not rendering
  * when a run genuinely never attempted to build one (a pure client-input
  * validation failure, empty testId).
+ *
+ * P4.8-T3.4.1 - renamed from `CompiledStrategyCard` (unchanged behavior,
+ * unchanged output) to `CompiledStrategyRunCard`: these three fallback
+ * branches are genuinely RUN-lifecycle concepts (a run that never
+ * attempted to compile, predates persistence, or failed to compile) -
+ * they stay here, run-specific. The "a real compiled strategy exists"
+ * rendering was extracted to components/algo-test/CompiledStrategyCard.tsx
+ * so the (unrelated, non-run) Strategy Library detail page can reuse the
+ * exact same rendering without duplicating it - see that file's own doc
+ * comment. This wrapper now only computes the one genuinely run-specific
+ * input (the symbol/timeframe label) and delegates.
  */
-function CompiledStrategyCard({ strategy, strategyName, run }: { strategy: AlgoTestCompiledStrategyView | undefined; strategyName: string; run: AlgoTestRunView }) {
+function CompiledStrategyRunCard({ strategy, strategyName, run }: { strategy: AlgoTestCompiledStrategyView | undefined; strategyName: string; run: AlgoTestRunView }) {
   if (strategy) {
-    return (
-      <div className="rounded-control border border-border bg-ink px-2.5 py-2">
-        <p className={FIN_LABEL}>Compiled Strategy</p>
-        <p className={`${FIN_SECONDARY} mt-1`}>
-          {strategy.name} <span className="text-text-3">v{strategy.version}</span>
-        </p>
-        <dl className="mt-1.5 grid grid-cols-1 gap-x-3 gap-y-1 text-[11px] sm:grid-cols-2">
-          {/* run.symbol/.timeframe, NOT strategy.symbol/.timeframe - see AlgoTestCompiledStrategyView's own doc comment for why (a registry strategy's real StrategySpec can carry an internal fixture identity here, unrelated to what it actually traded). */}
-          <Field label="Symbol / Timeframe" value={run.symbol && run.timeframe ? `${run.symbol} · ${timeframeLabel(run.timeframe)}` : undefined} />
-          <Field label="Position sizing" value={strategy.positionSizing} />
-          <Field label="Long entry" value={strategy.longEntry} />
-          <Field label="Short entry" value={strategy.shortEntry} />
-          <Field label="Exit" value={strategy.exit} span />
-          <Field label="Stop loss" value={strategy.stopLoss} />
-          <Field label="Take profit" value={strategy.takeProfit} />
-        </dl>
-        {strategy.parameters.length > 0 && (
-          <div className="mt-1.5">
-            <p className="text-[11px] text-text-3">Relevant parameters</p>
-            <dl className="mt-0.5 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] sm:grid-cols-4">
-              {strategy.parameters.map((p) => (
-                <div key={p.key}>
-                  <dt className="text-text-3">{p.key}</dt>
-                  <dd className="text-text-2">{String(p.defaultValue)}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-        )}
-      </div>
-    );
+    // run.symbol/.timeframe, NOT strategy.symbol/.timeframe - see AlgoTestCompiledStrategyView's own doc comment for why (a registry strategy's real StrategySpec can carry an internal fixture identity here, unrelated to what it actually traded).
+    const symbolTimeframeLabel = run.symbol && run.timeframe ? `${run.symbol} · ${timeframeLabel(run.timeframe)}` : undefined;
+    return <CompiledStrategyCard strategy={strategy} symbolTimeframeLabel={symbolTimeframeLabel} />;
   }
 
   // No compiled strategy - work out WHY, honestly, rather than showing
@@ -1261,15 +1245,6 @@ function CompiledStrategyCard({ strategy, strategyName, run }: { strategy: AlgoT
       <p className="mt-1 text-[11px] text-danger">
         {strategyName} did not reach a valid, executable form - see Validation &amp; Evidence above for the real reason.
       </p>
-    </div>
-  );
-}
-
-function Field({ label, value, span }: { label: string; value: string | undefined; span?: boolean }) {
-  return (
-    <div className={span ? "sm:col-span-2" : undefined}>
-      <dt className="text-text-3">{label}</dt>
-      <dd className="text-text-2">{value ?? "—"}</dd>
     </div>
   );
 }
