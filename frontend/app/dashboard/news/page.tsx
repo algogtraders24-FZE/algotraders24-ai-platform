@@ -96,7 +96,7 @@ export default function NewsPage() {
   return (
     <div className="min-h-screen bg-ink p-6 text-text">
       <div className="mx-auto max-w-6xl">
-        <PageHeader eyebrow="AI News" title="AI Financial News" description="Real headlines, sentiment, and asset relevance from Alpha Vantage." />
+        <PageHeader eyebrow="AI News" title="AI Financial News" description="Real financial headlines with sentiment and asset relevance for the instruments you trade." />
 
         {state.status === "ready" && (
           <Alert tone={state.freshness.isStale ? "warning" : "info"} title={state.freshness.isStale ? "News may be out of date" : "Updated"} className="mb-6">

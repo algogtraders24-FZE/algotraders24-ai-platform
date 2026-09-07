@@ -88,11 +88,19 @@ export default function EconomicCalendarPage() {
     if (state.status !== "ready") return [];
     const byDay = new Map<string, EconomicEvent[]>();
     for (const event of state.data.events) {
-      const key = new Date(event.eventTime).toISOString().slice(0, 10);
+      // Bucket by the VIEWER'S local calendar day, not the UTC day - the
+      // Time and heading are both rendered in local time, so a UTC-day key
+      // would drop an event that is (say) 23:00 UTC Monday / 04:30 Tuesday
+      // local into Monday's section at the bottom, out of time order.
+      // en-CA gives a sortable YYYY-MM-DD in local time.
+      const key = new Date(event.eventTime).toLocaleDateString("en-CA");
       const bucket = byDay.get(key);
       if (bucket) bucket.push(event);
       else byDay.set(key, [event]);
     }
+    // events within each bucket are already in eventTime order (the service
+    // sorts the feed); ordering the buckets by their local-day key keeps
+    // the whole page chronological.
     return [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [state]);
 
@@ -102,18 +110,7 @@ export default function EconomicCalendarPage() {
         <PageHeader
           eyebrow="Economic Calendar"
           title="Economic Calendar"
-          description={
-            <>
-              This week&apos;s scheduled high-impact releases, with consensus forecast and prior value.{" "}
-              <span className="text-text-3">
-                Released &ldquo;actual&rdquo; figures aren&apos;t in the free feed yet - check{" "}
-                <a href="https://www.forexfactory.com/calendar" target="_blank" rel="noreferrer" className="text-gold hover:underline">
-                  ForexFactory
-                </a>{" "}
-                live at release time.
-              </span>
-            </>
-          }
+          description="This week's scheduled high-impact economic releases and central-bank events, with consensus forecast and prior value."
         />
 
         {state.status === "ready" && (
@@ -122,7 +119,7 @@ export default function EconomicCalendarPage() {
             title={state.data.freshness.isStale ? "Calendar may be out of date" : "Updated"}
             className="mb-6"
           >
-            {`Fetched from ${state.data.freshness.source} ${timeAgo(state.data.freshness.fetchedAt)}${
+            {`Last updated ${timeAgo(state.data.freshness.fetchedAt)}${
               state.data.freshness.isStale ? " - a forecast revision may not be reflected." : "."
             }`}
           </Alert>
