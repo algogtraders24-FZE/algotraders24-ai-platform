@@ -1442,6 +1442,19 @@ model AlgoTestRun {
   // backfilled or guessed.
   strategyRefId  String?
   strategy       Strategy? @relation(fields: [strategyRefId], references: [id], onDelete: SetNull)
+  // P4.9-A - a nullable reference to the OptimizationCandidate this run
+  // executed on behalf of, when this run exists BECAUSE an optimization
+  // chunk claimed and ran that candidate (candidates reuse this exact
+  // table for their actual simulation execution/trades/equityCurve/
+  // metrics, never a duplicate storage path). NULL for every ordinary,
+  // non-optimization run - the overwhelming majority of rows, forever.
+  // Deliberately `SetNull`, same reasoning as `strategyRefId` above: a
+  // run is historical evidence and must survive its originating
+  // candidate/experiment being deleted later. `@unique` (locked P4.9-A
+  // design) - at most one run per candidate, enforced at the DB level
+  // rather than by application logic.
+  experimentCandidateId String?                 @unique
+  experimentCandidate   OptimizationCandidate?  @relation(fields: [experimentCandidateId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([userId, strategyHash])
@@ -1823,4 +1836,89 @@ model AgentEvaluation {
   @@index([userId, createdAt])
   @@index([agentId])
   @@index([terminalStatus])
+}
+
+// P4.9-A (locked design, transcribed verbatim from the locked schema plus
+// the explicitly-approved `strategyArtifactHash` addition below - see
+// docs/P4.9-OPTIMIZATION-WFO.md). One row per requested grid sweep.
+// Deliberately references `strategyId` as a plain string (the registry
+// literal, e.g. "golden"), NEVER a `Strategy` relation - the P4.8
+// `Strategy` model is AI-generated-only (see its own comment above), and
+// P4.9-A's locked scope is registry strategies only. A future
+// AI-parameterization phase can introduce its own separate relation;
+// P4.9-A never assumes one exists.
+model OptimizationExperiment {
+  id                  String    @id @default(cuid())
+  userId              String
+  // Registry literal ("golden") - NOT a Strategy relation. Registry
+  // strategies have no Strategy row.
+  strategyId          String
+  // ADDITIONAL field, explicitly required alongside the locked design
+  // above: `computeSemanticStrategyHash(spec)` (already real, already
+  // reused for `AlgoTestRun.strategyHash`) of the exact base StrategySpec
+  // resolved from the registry at experiment creation time - frozen
+  // once, never recomputed. Answers "which exact strategy artifact was
+  // optimized?" - distinct from `fingerprint` below, which answers
+  // "which exact optimization experiment/configuration was performed?"
+  // and incorporates this hash as one of its own inputs (A.2 concern -
+  // this column only stores the value, it does not compute it).
+  strategyArtifactHash String
+  symbol              String
+  timeframe           String
+  startTime           DateTime
+  endTime             DateTime
+  initialBalance      Float
+  searchSpace         Json      // OptimizationParameterRange[] - {parameterId, min, max, step}
+  objective           String    // "profitFactor" only in v1 - a real column, not hardcoded, for forward-compat
+  minEligibleTrades   Int       // locked default 20, stored per-row (never hardcoded server-side)
+  candidateCap        Int       // locked default 256, ditto
+  totalCandidates     Int       // computed once at creation from searchSpace, persisted - never recomputed differently later
+  processedCandidates Int       @default(0)
+  status              String    // QUEUED | RUNNING | COMPLETED | FAILED | CANCELLED
+  bestCandidateId     String?
+  // computeCanonicalHash(...) over the full experiment configuration
+  // (strategyId, strategyArtifactHash, symbol, timeframe, startTime,
+  // endTime, searchSpace, objective, minEligibleTrades, candidateCap) -
+  // reproducibility, per the locked §16 shape. Deliberately incorporates
+  // `strategyArtifactHash` as one of its own inputs (A.2 computes this;
+  // this column only stores the resulting value).
+  fingerprint         String
+  errorMessage        String?
+  createdAt           DateTime  @default(now())
+  completedAt         DateTime?
+
+  candidates OptimizationCandidate[]
+
+  @@index([userId, createdAt])
+}
+
+// P4.9-A (locked design, transcribed verbatim). One row per grid point of
+// an OptimizationExperiment. `candidateHash` -
+// `computeCanonicalHash({ experimentId, parameterValues })` - deliberately
+// NOT the primary key, so the opaque cuid stays stable while this stays
+// independently verifiable/re-derivable for idempotent claiming: a
+// retried execution chunk re-derives the identical `candidateHash` for
+// the same grid point and finds the row already claimed/completed via
+// the `@@unique([experimentId, candidateHash])` constraint below, rather
+// than ever creating a duplicate.
+model OptimizationCandidate {
+  id              String    @id @default(cuid())
+  experimentId    String
+  experiment      OptimizationExperiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  candidateHash   String
+  parameterValues Json
+  status          String    // UNRUN | RUNNING | COMPLETED | REJECTED | CANDIDATE | VALIDATED
+  tradeCount      Int?
+  // See the Infinity note in docs/P4.9-OPTIMIZATION-WFO.md - this column
+  // stores a real IEEE-754 double (Postgres handles Infinity natively);
+  // the WIRE contract does not (P4.9-A.3 concern).
+  profitFactor    Float?
+  errorMessage    String?
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+
+  run AlgoTestRun?
+
+  @@unique([experimentId, candidateHash])
+  @@index([experimentId, status])
 }
