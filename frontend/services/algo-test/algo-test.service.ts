@@ -137,7 +137,10 @@ export function maxRangeDaysFor(engineTimeframe: Timeframe): number {
   return Math.floor(DAY_BUDGET_BARS / barsPerDay);
 }
 
-const SIGNAL_TIMEFRAME_TO_ENGINE_TIMEFRAME: Readonly<Record<string, Timeframe>> = {
+// P4.9-A.2 - exported (was module-private) so optimization.service.ts can
+// resolve the SAME "5m" -> "M5" mapping for experiment creation, never a
+// second, independently-maintained copy of this table.
+export const SIGNAL_TIMEFRAME_TO_ENGINE_TIMEFRAME: Readonly<Record<string, Timeframe>> = {
   "5m": "M5",
 };
 
@@ -234,7 +237,12 @@ function validateRequest(request: AlgoTestRunRequest): ValidationFailure | Valid
 // deliberately mapped to the same code; anything else (auth/rate-limit/
 // transport/JSON-parse failures) stays the more honest, less specific
 // PROVIDER_ERROR.
-function toAlgoTestErrorCode(message: string): AlgoTestErrorCode {
+// P4.9-A.2 - exported (was module-private) so optimization.service.ts's
+// chunk-setup bars fetch can reuse this SAME classification for its own
+// NO_HISTORICAL_DATA (experiment-level FAILED) vs PROVIDER_ERROR (retryable,
+// experiment status untouched) split, rather than a second copy of this
+// regex. No change to this function's own behavior.
+export function toAlgoTestErrorCode(message: string): AlgoTestErrorCode {
   if (/no valid historical bars|no data is available/i.test(message)) return "NO_HISTORICAL_DATA";
   return "PROVIDER_ERROR";
 }

@@ -1876,16 +1876,27 @@ model OptimizationExperiment {
   processedCandidates Int       @default(0)
   status              String    // QUEUED | RUNNING | COMPLETED | FAILED | CANCELLED
   bestCandidateId     String?
-  // computeCanonicalHash(...) over the full experiment configuration
-  // (strategyId, strategyArtifactHash, symbol, timeframe, startTime,
-  // endTime, searchSpace, objective, minEligibleTrades, candidateCap) -
-  // reproducibility, per the locked §16 shape. Deliberately incorporates
-  // `strategyArtifactHash` as one of its own inputs (A.2 computes this;
-  // this column only stores the resulting value).
+  // computeCanonicalHash(...) over the full experiment configuration AND
+  // execution semantics (P4.9-A.2 lock): strategyId, strategyArtifactHash,
+  // searchSpace, objective, minEligibleTrades, candidateCap, symbol,
+  // timeframe, startTime, endTime, initialBalance, engineVersion
+  // (RUNTIME_VERSION, read before any candidate runs), executionModel
+  // (dataFidelity/spreadModel/slippageModel/feeModel/latencyModel names).
+  // strategyArtifactHash stays a SEPARATE column ("what was optimized");
+  // this is "under exactly what conditions" - the stronger reproducibility
+  // boundary. A.2 computes this once at creation; this column only stores
+  // the resulting value, never recomputed later.
   fingerprint         String
   errorMessage        String?
   createdAt           DateTime  @default(now())
   completedAt         DateTime?
+  // P4.9-A.2 - set only on the RUNNING/QUEUED -> CANCELLED transition
+  // (cancelOptimizationExperiment(), an atomic conditional updateMany).
+  // Deliberately NOT reusing `completedAt` for this - "this experiment
+  // reached COMPLETED" and "this experiment was CANCELLED" are genuinely
+  // different facts, kept in their own columns rather than one timestamp
+  // whose meaning would depend on reading `status` alongside it.
+  cancelledAt         DateTime?
 
   candidates OptimizationCandidate[]
 
