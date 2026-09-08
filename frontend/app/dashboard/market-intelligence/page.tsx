@@ -17,6 +17,8 @@
 import { useState } from "react";
 import type { MarketAnalysisResult } from "@/types/market-analysis-orchestration";
 import AnalysisResult from "@/components/market-intelligence/AnalysisResult";
+import PageHeader from "@/components/ui/PageHeader";
+import ErrorState from "@/components/ui/ErrorState";
 
 const AVAILABLE_MARKETS = [
   { symbol: "EURUSD", label: "Euro", pair: "EUR/USD" },
@@ -68,15 +70,12 @@ export default function MarketIntelligencePage() {
 
   return (
     <div className="min-h-screen bg-ink p-6 text-text">
-      <div className="mx-auto max-w-5xl">
-        <header className="mb-8">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold">Market Intelligence</p>
-          <h1 className="mt-2 font-display text-3xl font-medium">Run a real analysis</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-text-2">
-            Powered by the deterministic evidence → reasoning → risk → confidence → explainable-analysis pipeline.
-            More markets are being added as data sources are connected.
-          </p>
-        </header>
+      <div className="mx-auto max-w-6xl">
+        <PageHeader
+          eyebrow="Market Intelligence"
+          title="Run a real analysis"
+          description="Powered by the deterministic evidence → reasoning → risk → confidence → explainable-analysis pipeline. More markets are being added as data sources are connected."
+        />
 
         <div className="grid gap-4 sm:grid-cols-3">
           {AVAILABLE_MARKETS.map((market) => {
@@ -118,17 +117,19 @@ export default function MarketIntelligencePage() {
           )}
 
           {run.status === "error" && (
-            <div className="rounded-card border border-signal-down/30 bg-signal-down/10 p-6">
-              <p className="text-sm font-semibold text-signal-down">Analysis unavailable</p>
-              <p className="mt-1 text-sm text-text-2">{run.message}</p>
-              <button
-                type="button"
-                onClick={() => runAnalysis(run.symbol)}
-                className="mt-4 rounded-control border border-border px-4 py-2 text-sm font-medium text-text transition hover:border-gold"
-              >
-                Retry
-              </button>
-            </div>
+            <ErrorState
+              title="Analysis unavailable"
+              description={run.message}
+              action={
+                <button
+                  type="button"
+                  onClick={() => runAnalysis(run.symbol)}
+                  className="rounded-control border border-border px-4 py-2 text-sm font-medium text-text transition hover:border-gold"
+                >
+                  Retry
+                </button>
+              }
+            />
           )}
 
           {run.status === "completed" && <AnalysisResult result={run.result} />}

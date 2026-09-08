@@ -25,20 +25,55 @@
  * `false`), so this is not a behavior change for any all-MARKET strategy
  * — confirmed by the full pre-existing regression suite. See
  * docs/Q0.11_ORDER_SEMANTICS.md.
+ *
+ * Q1.5.4 CONTRACT CHANGE (additive, backward-compatible): added the
+ * optional `pyramiding` parameter. Before Q1.5, `hasOpenPosition` alone
+ * unconditionally blocked every second ENTER, REGARDLESS of
+ * `PyramidingPolicy.allowPyramiding` — this was traced, evidence-based,
+ * and confirmed: `increasePosition()` existed in position-engine.ts but
+ * was genuinely unreachable from this decision layer (a real,
+ * newly-precise finding this sprint corrects; see
+ * docs/Q1.5_PYRAMIDING_POLICY.md for the historical audit trail — the
+ * prior claim of "unlimited accumulation actually happens" was
+ * inaccurate). Every pre-Q1.5 caller omitting the fourth argument gets
+ * the exact same HOLD-while-open behavior as before (`pyramiding`
+ * defaults to `undefined`, which never admits a pyramid entry) — this is
+ * not a behavior change for any non-pyramiding strategy, confirmed by the
+ * full pre-existing regression suite.
  */
-export function buildDecision(signal, hasOpenPosition, hasPendingOrder = false) {
-    const action = signal.direction !== "FLAT" && !hasOpenPosition && !hasPendingOrder ? "ENTER" : "HOLD";
+export function buildDecision(signal, hasOpenPosition, hasPendingOrder = false, pyramiding) {
+    const isFlatEntry = signal.direction !== "FLAT" && !hasOpenPosition && !hasPendingOrder;
+    const isPyramidEntry = signal.direction !== "FLAT" &&
+        hasOpenPosition &&
+        !hasPendingOrder &&
+        pyramiding !== undefined &&
+        pyramiding.allowPyramiding &&
+        pyramiding.openPositionSide === signal.direction &&
+        (pyramiding.maxEntries === undefined || pyramiding.currentEntryCount < pyramiding.maxEntries);
+    const action = isFlatEntry || isPyramidEntry ? "ENTER" : "HOLD";
+    const pyramidCapReached = hasOpenPosition &&
+        !hasPendingOrder &&
+        signal.direction !== "FLAT" &&
+        pyramiding !== undefined &&
+        pyramiding.allowPyramiding &&
+        pyramiding.openPositionSide === signal.direction &&
+        pyramiding.maxEntries !== undefined &&
+        pyramiding.currentEntryCount >= pyramiding.maxEntries;
     return {
         action,
         signal,
         context: {
             reason: action === "ENTER"
-                ? `entry rule "${signal.triggeredByRuleId}" fired with no existing position`
-                : hasOpenPosition
-                    ? "position already open for this instrument; no new entry evaluated"
-                    : hasPendingOrder
-                        ? "a pending order already exists for this instrument; no new entry evaluated"
-                        : "no entry rule fired",
+                ? isPyramidEntry
+                    ? `entry rule "${signal.triggeredByRuleId}" fired; pyramiding admitted (entry ${pyramiding.currentEntryCount + 1}${pyramiding.maxEntries !== undefined ? ` of ${pyramiding.maxEntries}` : ""})`
+                    : `entry rule "${signal.triggeredByRuleId}" fired with no existing position`
+                : pyramidCapReached
+                    ? `pyramiding maxEntries (${pyramiding.maxEntries}) reached; no new entry evaluated`
+                    : hasOpenPosition
+                        ? "position already open for this instrument; no new entry evaluated"
+                        : hasPendingOrder
+                            ? "a pending order already exists for this instrument; no new entry evaluated"
+                            : "no entry rule fired",
             evaluatedConditions: signal.triggeredByRuleId ? [{ ruleId: signal.triggeredByRuleId, result: true }] : [],
         },
         decidedAt: signal.generatedAt,

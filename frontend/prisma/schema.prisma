@@ -821,6 +821,105 @@ model IntelligenceAuditTrace {
 }
 
 // ============================================================================
+// AN1 - AI News Establishment. Real news pipeline (Alpha Vantage primary,
+// CryptoPanic crypto-secondary), replacing the static data/news.ts feed - see
+// docs/AN1-*.md for the full R&D/design record (provider decision, ingestion
+// architecture, relevance mapping, classification).
+//
+// NewsArticle is a provider-independent normalized record: `provider`/
+// `providerArticleId` identify the source, `rawPayload` is an untouched
+// escape hatch for reprocessing (never the application contract). Sentiment
+// is preserved exactly as the provider returned it (including hyphenated
+// labels like "Somewhat-Bullish" - never normalized/rewritten). `category`/
+// `impactLevel` are AT24's OWN derived fields, kept structurally separate
+// from provider-native sentiment/relevance so the two can never be confused.
+// `assetTags` is AT24's final relevance mapping (deterministic pipeline:
+// native ticker match -> topic-derived -> keyword-inferred -> optional AI
+// enrichment, the last currently OFF); `tagProvenance` preserves WHY each
+// tag was assigned, since "why was this shown to me" matters once this is
+// user-facing.
+model NewsArticle {
+  id                String    @id @default(cuid())
+  provider          String
+  providerArticleId String?
+  dedupeKey         String    @unique
+
+  headline          String
+  summary           String?
+  url               String?
+  sourceName        String?
+
+  publishedAt       DateTime?
+  fetchedAt         DateTime  @default(now())
+
+  // Provider-native output, stored as-is - never AT24's own classification.
+  sentimentScore    Float?
+  sentimentLabel    String?
+  relevanceByAsset  Json?
+
+  // AT24-derived, explicitly separate from the above:
+  category          String?
+  impactLevel       String?
+  assetTags         String[] @default([])
+  tagProvenance     Json?
+
+  processingStatus  NewsProcessingStatus @default(pending)
+  errorState        String?
+
+  rawPayload        Json?
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  @@index([provider])
+  @@index([publishedAt])
+  @@index([processingStatus])
+  @@index([deletedAt])
+  @@map("news_articles")
+}
+
+enum NewsProcessingStatus {
+  pending
+  processed
+  failed
+}
+
+// Authoritative daily reservation for provider call budgets (e.g. Alpha
+// Vantage's free-tier 25/day). `dailyLimit` is snapshotted per (provider,
+// date) row at first-reservation time, so a mid-day config change affects
+// tomorrow's row, never retroactively distorts today's. Reservation MUST use
+// an atomic conditional upsert (see services/news/quota.service.ts) - a
+// plain count-then-insert is a real TOCTOU race under concurrent cron/
+// on-demand callers.
+model ProviderQuota {
+  provider   String
+  date       String // "YYYY-MM-DD", UTC
+  usedCount  Int      @default(0)
+  dailyLimit Int
+  updatedAt  DateTime @updatedAt
+
+  @@id([provider, date])
+  @@map("provider_quotas")
+}
+
+// Append-only audit trail of every real provider call attempt (successful or
+// not). Distinct from ProviderQuota (the reservation ledger) - this exists
+// for observability/debugging, not quota enforcement.
+model ProviderCallLog {
+  id           String   @id @default(cuid())
+  provider     String
+  purpose      String // "scheduled-ingestion" | "on-demand-fallback"
+  calledAt     DateTime @default(now())
+  success      Boolean
+  errorMessage String?
+
+  @@index([provider])
+  @@index([calledAt])
+  @@map("provider_call_logs")
+}
+
+// ============================================================================
 // Sprint M8 - AT24 Marketplace. Additive-only; NOT applied to the live
 // database this sprint (schema drafted + migration generated, not run -
 // see ea-research/marketplace-research/m8-marketplace-platform/ for the
@@ -1208,6 +1307,48 @@ model PaperPosition {
   @@index([symbol, status])
 }
 
+// P4.8-T2.2 - Strategy Persistence (docs/P4.8-T2.2-STRATEGY-PERSISTENCE.md).
+// User-owned, AI-COMPILED strategies only - registry strategies
+// ("golden", "ref-ema-crossover") are deliberately NEVER given a row
+// here (the P4.8-T2.1 audit's own finding: they are global, code-owned,
+// not user-owned - the registry itself already IS their source of
+// truth; duplicating them here would create a second, driftable copy).
+//
+// `strategyId` is the P4.8-T1 stable, per-user, content-addressed AI
+// identity (`ai-${userId}-${computeCrossPlatformSemanticHash(ir)}`) -
+// `@@unique([userId, strategyId])` is what makes this an upsert target:
+// recompiling byte-identical trading logic (even with different LLM
+// phrasing/generated name - see P4.8-T1) reuses the SAME row, it never
+// creates a duplicate.
+//
+// `artifact` is the engine's own, already-existing, already-tested
+// StrategyVersionRecord (at24-quant-engine/src/domain/strategy-version.ts,
+// Q0.9/ADR-007) - `{ strategyId, version, spec, publishedAt, contentHash }`.
+// `spec` inside it is the FULL, executable StrategySpec (frozen via
+// freezeStrategyVersion()) - re-runnable without ever asking the LLM to
+// reconstruct trading logic again. This is deliberately NOT the same
+// thing as AlgoTestRun.compiledStrategy below (that field is a
+// human-readable presentation VIEW, AlgoTestCompiledStrategyView, and
+// cannot be executed - see the P4.8-T2.1 audit's own finding).
+model Strategy {
+  id         String   @id @default(cuid())
+  userId     String
+  strategyId String
+  // A plain string, not an enum - "ai-generated" is the only value today,
+  // matching AlgoTestRun.status's own established convention (a future
+  // origin needs no migration to add).
+  origin     String
+  name       String
+  artifact   Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  runs AlgoTestRun[]
+
+  @@unique([userId, strategyId])
+  @@index([userId, createdAt])
+}
+
 // P3.2B - Algo Testing (Pro). One row per deterministic backtest run
 // against the canonical at24-quant-engine (docs/P3.1-*, P3.2A-*,
 // P3.2B-ALGO-TEST-E2E.md). Deliberately does NOT persist the historical
@@ -1223,6 +1364,13 @@ model AlgoTestRun {
   id             String    @id @default(cuid())
   userId         String
   strategyId     String
+  // P3.3 - the exact registered version of `strategyId` this run was
+  // executed against (services/algo-test/strategy-registry.ts), so a
+  // historical row stays identifiable even if the registry later adds a
+  // newer version of the same strategyId. Nullable: rows created before
+  // P3.3 (strategyId "golden" only, single version in existence at the
+  // time) genuinely predate this field - never backfilled with a guess.
+  strategyVersion String?
   symbol         String
   timeframe      String
   startTime      DateTime
@@ -1230,16 +1378,74 @@ model AlgoTestRun {
   initialBalance Float
   status         String
   resultHash     String?
+  // P3.3 - result-contract version (this row's own field-shape identity)
+  // and the at24-quant-engine runtime version that actually produced this
+  // result (SimulationResult.provenance.runtimeVersion, read verbatim -
+  // never a duplicated literal). Both null for pre-P3.3 rows and for a run
+  // that never reached a completed engine result.
+  resultVersion  String?
+  engineVersion  String?
+  // P3.4 - the exact, fully-normalized parameter configuration (every
+  // declared parameter present, defaults filled in) this run actually
+  // executed with - an immutable snapshot of what was used, never
+  // re-derived from the registry after the fact. Null for a run whose
+  // strategy has no declared parameters AND for every pre-P3.4 row
+  // (never backfilled with a guessed value - see
+  // docs/P3.4-STRATEGY-PARAMETERS.md's backward-compatibility section).
+  parameters     Json?
   metrics        Json?
   trades         Json?
   equityCurve    Json?
   assumptions    Json?
+  // P4.5 - Strategy & Run Identity Persistence. All three were already
+  // COMPUTED on every request since P3.8/P4.3 (buildRunLifecycle /
+  // toCompiledStrategyView / computeSemanticStrategyHash) but never
+  // written to this row - a disclosed P4.3 gap: a reopened run genuinely
+  // could not show them. Written exactly once, at the same update() call
+  // that already sets metrics/trades/equityCurve above - never a second
+  // write, never recomputed differently after the fact. Nullable: every
+  // pre-P4.5 row genuinely predates this field and is never backfilled
+  // with a guess, same convention as `parameters` (P3.4) above.
+  //
+  // strategyHash: the semantic identity of the exact StrategySpec this
+  // run executed (computeSemanticStrategyHash - excludes metadata,
+  // INCLUDES risk/parameter values, since those are nested StrategySpec
+  // fields). Deliberately reuses this one, already-real, already-wired
+  // function - not the separate, still-unconsumed
+  // computeStrategyIdentityHash/computeExperimentIdentityHash the engine
+  // also declares (Q0.2.10/Q0.2.12 - reserved for a future
+  // experiment/optimization identity, out of P4.5's bounded scope).
+  // Indexed (see @@index below) so a future run-history/library/
+  // optimization feature can group or compare runs by exact strategy
+  // identity without a new abstraction.
+  strategyHash     String?
+  // lifecycle: the full 8-stage StrategyLifecycleResult (P3.8) this run
+  // reached, exactly as first computed - not re-derived from strategyId
+  // after the fact (a later registry change must never alter a past
+  // run's own recorded lifecycle).
+  lifecycle        Json?
+  // compiledStrategy: the human-readable AlgoTestCompiledStrategyView
+  // (P4.3) of the exact resolved StrategySpec this run executed.
+  compiledStrategy Json?
   errorCode      String?
   errorMessage   String?
   createdAt      DateTime  @default(now())
   completedAt    DateTime?
+  // P4.8-T2.2 - a nullable reference to the persisted Strategy this run
+  // was compiled from, wired ONLY for new AI runs going forward.
+  // Deliberately `SetNull` on delete, never `Cascade` - run history is
+  // historical evidence and must survive a Strategy being edited/deleted
+  // later (that UX does not exist yet, but the constraint is set now so
+  // it can never accidentally become destructive). Every pre-T2.2 row -
+  // and every registry-strategy row, forever, since registry strategies
+  // never get a Strategy row at all - has this genuinely NULL, never
+  // backfilled or guessed.
+  strategyRefId  String?
+  strategy       Strategy? @relation(fields: [strategyRefId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
+  @@index([userId, strategyHash])
+  @@index([strategyRefId])
 }
 
 // ============================================================================

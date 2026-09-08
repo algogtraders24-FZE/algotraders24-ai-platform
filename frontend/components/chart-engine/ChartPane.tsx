@@ -33,9 +33,23 @@ export interface ChartPaneProps {
   onToggleIndicator: (key: string) => void;
   onApplyIndicatorKeys: (keys: readonly string[]) => void;
   onSetPrimary: () => void;
+  /** Sprint D2.9.2 - cross-pane crosshair time sync, passed straight through to NativeChart; see that component's own prop doc. */
+  onCrosshairTimeChange?: (time: number | null) => void;
+  externalCrosshairTime?: number | null;
 }
 
-export default function ChartPane({ pane, isPrimary, showControls, onSymbolChange, onTimeframeChange, onToggleIndicator, onApplyIndicatorKeys, onSetPrimary }: ChartPaneProps) {
+export default function ChartPane({
+  pane,
+  isPrimary,
+  showControls,
+  onSymbolChange,
+  onTimeframeChange,
+  onToggleIndicator,
+  onApplyIndicatorKeys,
+  onSetPrimary,
+  onCrosshairTimeChange,
+  externalCrosshairTime,
+}: ChartPaneProps) {
   return (
     <div className={`flex min-w-0 flex-col gap-2 ${showControls ? "rounded-panel border p-2" : ""} ${showControls && isPrimary ? "border-gold/50" : showControls ? "border-border" : ""}`}>
       {showControls && (
@@ -62,6 +76,8 @@ export default function ChartPane({ pane, isPrimary, showControls, onSymbolChang
         activeIndicatorKeys={pane.activeIndicatorKeys}
         onToggleIndicator={onToggleIndicator}
         onApplyIndicatorKeys={onApplyIndicatorKeys}
+        onCrosshairTimeChange={onCrosshairTimeChange}
+        externalCrosshairTime={externalCrosshairTime}
       />
     </div>
   );

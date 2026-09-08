@@ -85,3 +85,118 @@ export function computeCoreMetrics(
     tradeCount,
   };
 }
+
+/**
+ * P4.4 - fills the ReservedMetricName slot this file declared, unused,
+ * since Q0.2. A completely SEPARATE function from computeCoreMetrics
+ * (never merged into it, never called from simulation-engine.ts's own
+ * runSimulation() call site) - a deliberate boundary: this is pure,
+ * additive, post-hoc analysis over an ALREADY-PRODUCED trade list/equity
+ * curve, not a change to what runSimulation() itself computes or returns.
+ *
+ * Every ratio here is PER-TRADE, not annualized: trades are not evenly
+ * time-spaced (a backtest's own trade cadence, not a fixed daily/weekly
+ * bar count), so "annualizing" would require inventing a trades-per-year
+ * factor this function does not invent. Every ratio assumes a 0
+ * risk-free rate - a disclosed assumption, the same "declare it, never
+ * claim realism" convention this program already uses for
+ * ZeroSpread/ZeroSlippage/ZeroFee. `null` (never a fabricated 0) means
+ * the ratio is genuinely mathematically undefined for this input, not
+ * merely "worked out to zero."
+ *
+ * Formulas:
+ *
+ * tradeReturn[i]   = trade[i].pnl / equityBeforeTrade[i]     (a per-trade
+ *                    percentage return, since this program has no fixed-
+ *                    period equity samples - only one equity point per
+ *                    closed trade)
+ * sharpeRatio      = mean(tradeReturn) / sampleStdDev(tradeReturn)
+ *                    null if fewer than 2 trades, or sampleStdDev = 0
+ *                    (a single repeated return has no variance to divide
+ *                    by)
+ * sortinoRatio     = mean(tradeReturn) / downsideDeviation
+ *                    downsideDeviation = sqrt(mean(min(tradeReturn[i],0)^2))
+ *                    over EVERY trade (the standard definition - a
+ *                    winning trade contributes 0, not excluded)
+ *                    null if fewer than 2 trades, or downsideDeviation = 0
+ *                    (no trade ever went negative - Sortino is undefined,
+ *                    not infinite)
+ * calmarRatio      = totalReturn(%) / maxDrawdown(%)         (both already
+ *                    percentage-denominated on CoreMetricName - see this
+ *                    file's own computeCoreMetrics doc comment)
+ *                    null if maxDrawdown = 0
+ * recoveryFactor   = netProfit (currency) / maxDrawdownCurrency
+ *                    maxDrawdownCurrency is walked independently from the
+ *                    equity curve (currency units, NOT the % maxDrawdown
+ *                    Calmar uses - a currency/currency ratio is a
+ *                    genuinely different number from a %/% one)
+ *                    null if maxDrawdownCurrency = 0
+ * ulcerIndex       = sqrt(mean(drawdownPercent[i]^2)) over EVERY equity
+ *                    curve point (not just the single worst one
+ *                    maxDrawdown uses) - the standard Ulcer Index
+ *                    definition, rewarding a smooth equity curve over one
+ *                    with the same maxDrawdown but many deep dips
+ *                    null if the equity curve has fewer than 1 point
+ */
+export interface RiskRatios {
+  readonly sharpeRatio: number | null;
+  readonly sortinoRatio: number | null;
+  readonly calmarRatio: number | null;
+  readonly recoveryFactor: number | null;
+  readonly ulcerIndex: number | null;
+}
+
+export interface EquityPoint {
+  readonly balance: number;
+}
+
+function sampleStdDev(values: readonly number[]): number {
+  if (values.length < 2) return 0;
+  const mean = values.reduce((s, v) => s + v, 0) / values.length;
+  const variance = values.reduce((s, v) => s + (v - mean) ** 2, 0) / (values.length - 1);
+  return Math.sqrt(variance);
+}
+
+export function computeRiskRatios(
+  trades: readonly SimpleTrade[],
+  equityCurve: readonly EquityPoint[],
+  coreMetrics: Pick<Record<CoreMetricName, number>, "totalReturn" | "maxDrawdown" | "netProfit">,
+): RiskRatios {
+  // Per-trade returns need the account's own equity immediately BEFORE
+  // each trade, not after. equityCurve's own established convention
+  // (deriveEquityCurve, services/algo-test/run-backtest.ts) is: point[0]
+  // = initialBalance (before trade 0), point[i+1] = balance after trade
+  // i (== balance before trade i+1) - so equityCurve[i] is exactly "the
+  // balance before trade i", for every i, uniformly, with no special
+  // case needed for the first trade.
+  const tradeReturns: number[] = [];
+  for (let i = 0; i < trades.length; i++) {
+    const before = equityCurve[i]?.balance;
+    if (before !== undefined && before !== 0) tradeReturns.push(trades[i]!.pnl / before);
+  }
+
+  const meanReturn = tradeReturns.length === 0 ? null : tradeReturns.reduce((s, v) => s + v, 0) / tradeReturns.length;
+  const stdDev = sampleStdDev(tradeReturns);
+  const sharpeRatio = meanReturn === null || tradeReturns.length < 2 || stdDev === 0 ? null : meanReturn / stdDev;
+
+  const downsideDeviation =
+    tradeReturns.length === 0 ? 0 : Math.sqrt(tradeReturns.reduce((s, r) => s + Math.min(r, 0) ** 2, 0) / tradeReturns.length);
+  const sortinoRatio = meanReturn === null || tradeReturns.length < 2 || downsideDeviation === 0 ? null : meanReturn / downsideDeviation;
+
+  const calmarRatio = coreMetrics.maxDrawdown === 0 ? null : coreMetrics.totalReturn / coreMetrics.maxDrawdown;
+
+  let peak = equityCurve[0]?.balance ?? 0;
+  let maxDrawdownCurrency = 0;
+  const drawdownPercents: number[] = [];
+  for (const point of equityCurve) {
+    if (point.balance > peak) peak = point.balance;
+    const ddCurrency = peak - point.balance;
+    if (ddCurrency > maxDrawdownCurrency) maxDrawdownCurrency = ddCurrency;
+    drawdownPercents.push(peak === 0 ? 0 : (ddCurrency / peak) * 100);
+  }
+  const recoveryFactor = maxDrawdownCurrency === 0 ? null : coreMetrics.netProfit / maxDrawdownCurrency;
+  const ulcerIndex =
+    equityCurve.length === 0 ? null : Math.sqrt(drawdownPercents.reduce((s, d) => s + d ** 2, 0) / drawdownPercents.length);
+
+  return { sharpeRatio, sortinoRatio, calmarRatio, recoveryFactor, ulcerIndex };
+}

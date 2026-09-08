@@ -3,33 +3,21 @@
 // no payment, no subscription logic, no Quant Pro API calls, per
 // explicit instruction (Q0.8 Part 16, and at24-quant-engine/ remains
 // untouched/unopened per every prior sprint's boundary).
+// Sprint IA2 - the feature lists moved to data/quant-positioning.ts (one
+// source of truth, shared with the new /quant umbrella landing page) -
+// content and behavior otherwise unchanged.
 import type { Metadata } from "next";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import ButtonLink from "@/components/ui/ButtonLink";
+import { QUANT_LITE_FEATURES, QUANT_PRO_FEATURES } from "@/data/quant-positioning";
 
 export const metadata: Metadata = {
   title: "Upgrade - Quant Lite",
   alternates: { canonical: "/quant-lite/upgrade" },
 };
-
-const LITE_FEATURES = [
-  "Strategy creation with 10 supported indicators",
-  "Deterministic backtesting on the canonical execution engine",
-  "Real, time-varying spread modeling",
-  "Strategy library (research/discovery evidence)",
-  "Equity curve and trade-level detail",
-];
-
-const PRO_FEATURES = [
-  "Advanced execution modeling",
-  "Tick-level / higher-fidelity backtest replay",
-  "Robustness and walk-forward analysis",
-  "Advanced validation tooling",
-  "Institutional-style research capabilities",
-];
 
 export default function UpgradePage() {
   return (
@@ -53,7 +41,7 @@ export default function UpgradePage() {
             </div>
             <p className="mb-4 text-sm text-text-3">Basic strategy research, built on the transparent legacy execution engine.</p>
             <ul className="space-y-2 text-sm text-text-2">
-              {LITE_FEATURES.map((f) => (
+              {QUANT_LITE_FEATURES.map((f) => (
                 <li key={f} className="flex gap-2">
                   <span className="text-gold">&bull;</span>
                   {f}
@@ -69,7 +57,7 @@ export default function UpgradePage() {
             </div>
             <p className="mb-4 text-sm text-text-3">Advanced research and execution tooling for serious strategy development.</p>
             <ul className="space-y-2 text-sm text-text-2">
-              {PRO_FEATURES.map((f) => (
+              {QUANT_PRO_FEATURES.map((f) => (
                 <li key={f} className="flex gap-2">
                   <span className="text-gold">&bull;</span>
                   {f}

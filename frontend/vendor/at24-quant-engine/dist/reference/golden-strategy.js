@@ -1,5 +1,11 @@
 import { indicator } from "../domain/indicator-reference.js";
 import { comparison, indicatorOperand, literal } from "../domain/expression.js";
+import { engineReferenceImportStages } from "../domain/strategy-lifecycle.js";
+/** P3.8 — this strategy's IMPORTED/PARSED/IR_VALID/EXECUTION_VALID lifecycle stages, all NOT_APPLICABLE (see engineReferenceImportStages' own doc comment — Golden Strategy is authored directly, never imported). In canonical stage order, ready for a caller (strategy-registry.ts) to combine with the per-run stages (DATA_VALID onward) it computes separately. */
+export const GOLDEN_STRATEGY_IMPORT_STAGES = (() => {
+    const stages = engineReferenceImportStages();
+    return [stages.IMPORTED, stages.PARSED, stages.IR_VALID, stages.EXECUTION_VALID];
+})();
 /**
  * P3.2A — the canonical "Golden Strategy" reference definition, moved
  * here (from test/fixtures/simulation-fixtures.ts) so it has a single,
@@ -21,7 +27,54 @@ import { comparison, indicatorOperand, literal } from "../domain/expression.js";
  * scenario for proving the pipeline works end to end), not a defect.
  */
 export const GOLDEN_STRATEGY_PRICE_INDICATOR = indicator("PRICE");
-export function buildGoldenStrategySpec() {
+/**
+ * P3.4 — the Golden Strategy's ONE genuine, signal-affecting strategy
+ * parameter: the entry condition is `PRICE > priceThreshold`. Everything
+ * else configurable-looking in this spec (position-sizing quantity,
+ * stop-loss distance, take-profit R-multiple) was risk/execution
+ * configuration, not a strategy parameter, and was deliberately NOT
+ * exposed in P3.4 — see docs/P3.4-STRATEGY-PARAMETERS.md's audit section
+ * for the full category-by-category reasoning. P3.5 (below) is the
+ * sprint that deliberately opens that category-#2 slot up, on its own
+ * terms — see docs/P3.5-RISK-CONFIGURATION.md.
+ */
+export const GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD = 100;
+/**
+ * P3.5 — the three risk/execution values P3.4 identified as category #2
+ * ("real, currently-hardcoded configuration values... not exposed" —
+ * P3.4-STRATEGY-PARAMETERS.md section 1) and deliberately left out of
+ * that sprint's scope. Threaded through the SAME shapes already declared
+ * by domain/risk-specification.ts (sizing.method stays "fixed-quantity",
+ * stopLoss.type stays "fixed-distance", takeProfit.type stays
+ * "risk-multiple") — P3.5 does not invent a new risk representation, it
+ * makes the existing hardcoded one configurable. See
+ * docs/P3.5-RISK-CONFIGURATION.md.
+ */
+export const GOLDEN_STRATEGY_DEFAULT_POSITION_SIZE_QUANTITY = 1;
+export const GOLDEN_STRATEGY_DEFAULT_STOP_LOSS_DISTANCE = 5;
+export const GOLDEN_STRATEGY_DEFAULT_TAKE_PROFIT_R_MULTIPLE = 2;
+/**
+ * P3.4 (additive, backward-compatible): gained an optional `params`
+ * argument. `buildGoldenStrategySpec()` and `buildGoldenStrategySpec({})`
+ * both still produce the EXACT pre-P3.4 spec (same `parameters: []`, same
+ * `literal(100)` entry threshold) — no existing caller (the engine's own
+ * 1095+ test suite, P3.2A/P3.2B/P3.3's `run-golden-backtest.ts`) needed to
+ * change. `spec.parameters` is deliberately left `[]` regardless of
+ * whether `priceThreshold` is overridden: that declarative field has no
+ * runtime consumer anywhere in this engine (confirmed by audit — see the
+ * P3.4 doc), so populating it would only add a cosmetic, unused entry that
+ * changes `computeSemanticStrategyHash`'s output for NO behavioral reason
+ * — the actual parameter effect is already fully captured in the
+ * `resultHash` via the entry rule's own `literal(priceThreshold)`, which
+ * is exactly where a real behavioral difference belongs. The frontend
+ * Strategy Registry (services/algo-test/strategy-registry.ts) is this
+ * parameter's authoritative, user-facing schema declaration.
+ */
+export function buildGoldenStrategySpec(params = {}) {
+    const priceThreshold = params.priceThreshold ?? GOLDEN_STRATEGY_DEFAULT_PRICE_THRESHOLD;
+    const positionSizeQuantity = params.positionSizeQuantity ?? GOLDEN_STRATEGY_DEFAULT_POSITION_SIZE_QUANTITY;
+    const stopLossDistance = params.stopLossDistance ?? GOLDEN_STRATEGY_DEFAULT_STOP_LOSS_DISTANCE;
+    const takeProfitRMultiple = params.takeProfitRMultiple ?? GOLDEN_STRATEGY_DEFAULT_TAKE_PROFIT_R_MULTIPLE;
     return {
         identity: { strategyId: "sim-golden", name: "Simulation Golden Fixture Strategy" },
         version: "1.0.0",
@@ -33,14 +86,14 @@ export function buildGoldenStrategySpec() {
             {
                 id: "entry-price-above-100",
                 direction: "BUY",
-                condition: comparison(">", indicatorOperand(GOLDEN_STRATEGY_PRICE_INDICATOR), literal(100)),
+                condition: comparison(">", indicatorOperand(GOLDEN_STRATEGY_PRICE_INDICATOR), literal(priceThreshold)),
             },
         ],
         exitRules: [],
         risk: {
-            sizing: { method: "fixed-quantity", quantity: 1 },
-            stopLoss: { type: "fixed-distance", distance: 5 },
-            takeProfit: { type: "risk-multiple", rMultiple: 2 },
+            sizing: { method: "fixed-quantity", quantity: positionSizeQuantity },
+            stopLoss: { type: "fixed-distance", distance: stopLossDistance },
+            takeProfit: { type: "risk-multiple", rMultiple: takeProfitRMultiple },
         },
         execution: { fillModel: "next-bar-open", costsExplicitlyZero: true },
     };

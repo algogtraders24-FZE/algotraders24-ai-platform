@@ -63,13 +63,14 @@ test("Q1.4 CORPUS mql4-08: OrderSelect+OrderModify compiles into a real, EXACT-f
   assert.equal(rule!.semanticFidelity, "EXACT");
 });
 
-test("Q1.4 CORPUS mql5-17: OrderGetInteger(ORDER_TYPE) is a REAL, documented coverage gap — condition resolves UNKNOWN, never guessed into a false ORDER_TYPE_FILTER", () => {
+test("Q1.5.2 CORPUS mql5-17: OrderGetInteger(ORDER_TYPE) is now recognized as a provable ORDER_TYPE_FILTER (previously a documented coverage gap — resolved UNKNOWN, closed this sprint)", () => {
   const fx = Q14_CORPUS.find((f) => f.id === "mql5-17-orderget-integer-ordertype")!;
   const { ir } = importMQLSource({ sourceText: fx.source, fileName: "x.mq5", forcedDialect: "MQL5", options: { strategyId: "x", strategyVersion: "1.0.0", instrument: { symbol: "EURUSD" }, executionTimeframe: "M5", importedAt: 0 } });
   const deleteRule = ir.pendingOrderManagement!.rules.find((r) => r.operation.kind === "CANCEL_PENDING");
   assert.ok(deleteRule, "the CTrade.OrderDelete call is still detected and its operation still resolves to CANCEL_PENDING");
-  assert.equal(deleteRule!.condition.kind, "UNKNOWN", "OrderGetInteger(ORDER_TYPE) is NOT recognized by resolveOrderTypeFilter (only OrderType()/PositionGetInteger(POSITION_TYPE) are) — the condition honestly resolves UNKNOWN");
-  assert.equal(deleteRule!.semanticFidelity, "UNKNOWN", "an unprovable condition means the rule is excluded from execution (executableRules()), even though the operation itself IS understood");
+  assert.equal(deleteRule!.condition.kind, "ORDER_TYPE_FILTER", "OrderGetInteger(ORDER_TYPE) is now recognized by resolveOrderTypeFilter (Q1.5.2)");
+  assert.equal((deleteRule!.condition as { orderTypeConstant?: string }).orderTypeConstant, "ORDER_TYPE_BUY_STOP");
+  assert.equal(deleteRule!.semanticFidelity, "EXACT", "a provable condition against a mapped MQL5 constant now resolves to a fully executable rule");
 });
 
 test("Q1.4 CORPUS mql4-21: a dynamic (non-literal) order-type command produces the honest UNREPRESENTABLE placeholder condition, never a guessed direction", () => {

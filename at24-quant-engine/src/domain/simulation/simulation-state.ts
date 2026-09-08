@@ -28,4 +28,18 @@ export interface SimulationState {
   readonly realizedPnlToday: number;
   readonly equityAtDayStart: number;
   readonly orderCreationBarIndex: ReadonlyMap<string, number>;
+  /**
+   * Q1.5.4 CONTRACT CHANGE (additive, backward-compatible): the count of
+   * qualifying entry FILLS accumulated into the current open position
+   * (keyed by position id, mirroring `entryBarIndexByPosition`'s own
+   * pattern). Starts at 1 when a position opens, increments on each
+   * pyramided same-direction fill (`increasePosition`), and is removed
+   * from this map the moment the position fully closes — a later, fresh
+   * position (new id) always starts its own count at 1 again (Q1.5's
+   * "the counter must not survive a complete position lifecycle" rule).
+   * Absent/empty for any pre-Q1.5 strategy (`allowPyramiding` was never
+   * reachable, so this map is simply unused/irrelevant for them). See
+   * docs/Q1.5_PYRAMIDING_POLICY.md.
+   */
+  readonly entryCountByPosition: ReadonlyMap<string, number>;
 }

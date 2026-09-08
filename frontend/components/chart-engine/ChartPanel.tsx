@@ -7,6 +7,17 @@
 // <AdvancedChart/>, but AdvancedChart itself is untouched and still the
 // default - this sprint adds a coexisting option, never a replacement.
 //
+// Sprint D2.9.6 - the default flips to "native", after the D2.9.1-D2.9.5
+// hardening pass closed the concrete gaps (light theme, cross-pane
+// crosshair sync, mobile verification, trade clustering, equity overlay)
+// that kept Native labeled "(Beta)" and secondary. AdvancedChart
+// (TradingView) remains fully intact and reachable via the toggle - an
+// explicit fallback now, never removed by this change. A session that had
+// already saved "tradingview" via ChartWorkspaceLayout keeps seeing it -
+// this only changes the default for a session with no saved preference yet
+// (see the restore effect below, which overwrites this default the moment
+// a real saved value resolves).
+//
 // Sprint D2.7.4 - now OWNS the native chart's timeframe/active-indicator
 // selection (lifted up from NativeChart's own former local state). Fixes a
 // real Phase 11 bug: NativeChart previously reset to its defaults ("1h",
@@ -87,10 +98,19 @@ function layoutForRestoredCount(count: number): ChartLayout {
 
 export default function ChartPanel() {
   const { symbol: contextSymbol, setSymbol: setContextSymbol } = useWorkspace();
-  const [provider, setProvider] = useState<ChartProviderKind>("tradingview");
+  const [provider, setProvider] = useState<ChartProviderKind>("native");
   const [layout, setLayoutState] = useState<ChartLayout>(1);
   const [panes, setPanes] = useState<ChartPaneState[]>(() => [makePane(contextSymbol)]);
   const [primaryPaneId, setPrimaryPaneId] = useState<string>(() => panes[0].id);
+  // Sprint D2.9.2 - cross-pane crosshair time sync. A single shared value,
+  // not per-pane-tracked: whichever pane is actually hovering keeps
+  // drawing its own real local crosshair (NativeChart's crosshairRef takes
+  // precedence over externalCrosshairTime in renderer.ts), so broadcasting
+  // the same time to every pane - including the one that produced it - is
+  // safe and needs no "which pane originated this" bookkeeping. Ephemeral
+  // interaction state, deliberately not persisted with the rest of this
+  // file's durable layout.
+  const [syncedCrosshairTime, setSyncedCrosshairTime] = useState<number | null>(null);
   const hydratedRef = useRef(false);
 
   // Restore saved session state once, after mount (see this file's own
@@ -235,6 +255,8 @@ export default function ChartPanel() {
               onToggleIndicator={(key) => togglePaneIndicator(pane.id, key)}
               onApplyIndicatorKeys={(keys) => applyPaneIndicatorKeys(pane.id, keys)}
               onSetPrimary={() => setPrimary(pane.id)}
+              onCrosshairTimeChange={setSyncedCrosshairTime}
+              externalCrosshairTime={syncedCrosshairTime}
             />
           ))}
         </div>

@@ -53,3 +53,45 @@ export function computeCoreMetrics(trades, initialEquity) {
         tradeCount,
     };
 }
+function sampleStdDev(values) {
+    if (values.length < 2)
+        return 0;
+    const mean = values.reduce((s, v) => s + v, 0) / values.length;
+    const variance = values.reduce((s, v) => s + (v - mean) ** 2, 0) / (values.length - 1);
+    return Math.sqrt(variance);
+}
+export function computeRiskRatios(trades, equityCurve, coreMetrics) {
+    // Per-trade returns need the account's own equity immediately BEFORE
+    // each trade, not after. equityCurve's own established convention
+    // (deriveEquityCurve, services/algo-test/run-backtest.ts) is: point[0]
+    // = initialBalance (before trade 0), point[i+1] = balance after trade
+    // i (== balance before trade i+1) - so equityCurve[i] is exactly "the
+    // balance before trade i", for every i, uniformly, with no special
+    // case needed for the first trade.
+    const tradeReturns = [];
+    for (let i = 0; i < trades.length; i++) {
+        const before = equityCurve[i]?.balance;
+        if (before !== undefined && before !== 0)
+            tradeReturns.push(trades[i].pnl / before);
+    }
+    const meanReturn = tradeReturns.length === 0 ? null : tradeReturns.reduce((s, v) => s + v, 0) / tradeReturns.length;
+    const stdDev = sampleStdDev(tradeReturns);
+    const sharpeRatio = meanReturn === null || tradeReturns.length < 2 || stdDev === 0 ? null : meanReturn / stdDev;
+    const downsideDeviation = tradeReturns.length === 0 ? 0 : Math.sqrt(tradeReturns.reduce((s, r) => s + Math.min(r, 0) ** 2, 0) / tradeReturns.length);
+    const sortinoRatio = meanReturn === null || tradeReturns.length < 2 || downsideDeviation === 0 ? null : meanReturn / downsideDeviation;
+    const calmarRatio = coreMetrics.maxDrawdown === 0 ? null : coreMetrics.totalReturn / coreMetrics.maxDrawdown;
+    let peak = equityCurve[0]?.balance ?? 0;
+    let maxDrawdownCurrency = 0;
+    const drawdownPercents = [];
+    for (const point of equityCurve) {
+        if (point.balance > peak)
+            peak = point.balance;
+        const ddCurrency = peak - point.balance;
+        if (ddCurrency > maxDrawdownCurrency)
+            maxDrawdownCurrency = ddCurrency;
+        drawdownPercents.push(peak === 0 ? 0 : (ddCurrency / peak) * 100);
+    }
+    const recoveryFactor = maxDrawdownCurrency === 0 ? null : coreMetrics.netProfit / maxDrawdownCurrency;
+    const ulcerIndex = equityCurve.length === 0 ? null : Math.sqrt(drawdownPercents.reduce((s, d) => s + d ** 2, 0) / drawdownPercents.length);
+    return { sharpeRatio, sortinoRatio, calmarRatio, recoveryFactor, ulcerIndex };
+}

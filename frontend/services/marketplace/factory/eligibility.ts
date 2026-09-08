@@ -23,10 +23,26 @@ export const MARKETPLACE_ELIGIBILITY_RULESET_VERSION = "M9-eligibility-v2";
 // VALIDATED/UNDER_OBSERVATION are the "fully conclusive" states.
 // INCONCLUSIVE is now also accepted (v2) - it means "verified, validation
 // ran, but not every dimension could be computed yet," not "failed" or
-// "not run." UNVERIFIED/VALIDATION_PENDING/LIMITED/INVALIDATED/SUPERSEDED
-// still block - those are genuine absence, an active negative finding, or
-// a stale result, not the same thing as "incomplete."
-const ELIGIBLE_TRUST_STATES = new Set(["VALIDATED", "UNDER_OBSERVATION", "INCONCLUSIVE"]);
+// "not run." UNVERIFIED/VALIDATION_PENDING/INVALIDATED/SUPERSEDED still
+// block - those are genuine absence, an active negative finding, or a
+// stale result, not the same thing as "incomplete."
+//
+// v3 (2026-09-04, real production inconsistency found and fixed): LIMITED
+// was excluded here on the theory that it meant an "active negative
+// finding," but M7's own state machine only ever produces LIMITED when
+// Validation (M4) genuinely PASSED/WARNING and RiskAnalysis (M5) came back
+// PARTIAL (not FAILED) - i.e. MORE of the pipeline succeeded than in the
+// already-accepted INCONCLUSIVE case, yet it was blocked while
+// INCONCLUSIVE wasn't. The RISK_ANALYSIS_INCOMPLETE check two lines below
+// already treats risk PARTIAL as fine (only riskStatus FAILED blocks
+// there) - LIMITED was the one place that same PARTIAL result was still
+// treated as disqualifying. Same v2 reasoning applied consistently: a
+// real, disclosed data-completeness gap (e.g. no bar-level equity curve
+// yet for this specific evidence submission) is "ran and produced real,
+// if incomplete, data," not a failure - the LIMITED badge itself is never
+// hidden or upgraded, only its publishability now matches how every other
+// partial-but-real result in this file is already treated.
+const ELIGIBLE_TRUST_STATES = new Set(["VALIDATED", "UNDER_OBSERVATION", "INCONCLUSIVE", "LIMITED"]);
 
 export interface EligibilityInput {
   tradingSystemId: string | null;

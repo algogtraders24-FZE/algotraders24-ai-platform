@@ -54,10 +54,10 @@ export interface ChartColors {
   sellLine: string;
 }
 
-export type ChartTheme = "at24" | "mt5" | "mt5-green";
+export type ChartTheme = "at24" | "mt5" | "mt5-green" | "light";
 
 /** Sprint D2.7.11 Phase 5c - human-readable labels for the Properties dialog's Colors-tab scheme picker, in the same order OPTIONS lists them. */
-export const CHART_THEME_LABELS: Record<ChartTheme, string> = { at24: "AT24", mt5: "Black", "mt5-green": "Green on Black" };
+export const CHART_THEME_LABELS: Record<ChartTheme, string> = { at24: "AT24", mt5: "Black", "mt5-green": "Green on Black", light: "Light" };
 
 const FALLBACK_COLORS: ChartColors = {
   background: "#131826", // --ink-2
@@ -122,7 +122,33 @@ const MT5_GREEN_COLORS: ChartColors = {
   sellLine: "#d1594a",
 };
 
-let cached: Record<ChartTheme, ChartColors | null> = { at24: null, mt5: null, "mt5-green": null };
+// Sprint D2.9.1 - a genuine white/light chart-canvas scheme, distinct from
+// the platform's own app-wide theme (app/globals.css is deliberately
+// "Dark-committed" - the dashboard chrome around the chart never goes
+// light). This mirrors how mt5/mt5-green already treat chart background as
+// its own trader preference, independent of the surrounding app UI. This is
+// AT24's own light palette, not a claimed MT5 default - MT5's own real
+// default scheme is unverified and not represented here, unlike mt5/mt5-
+// green above which were matched against the user's live screenshots.
+// `accent` deliberately isn't `gold` (#d4af37 has ~1.6:1 contrast against
+// white, failing WCAG AA) - a saturated blue reads clearly as a distinct
+// "current price" marker against a white background instead.
+const LIGHT_COLORS: ChartColors = {
+  background: "#ffffff",
+  grid: "#e5e7eb",
+  border: "#d1d5db",
+  textPrimary: "#111827",
+  textTertiary: "#6b7280",
+  bullish: "#16a34a",
+  bearish: "#dc2626",
+  bearishOutline: "#dc2626",
+  gold: "#2563eb",
+  accent: "#2563eb",
+  buyLine: "#3fb27f",
+  sellLine: "#d1594a",
+};
+
+let cached: Record<ChartTheme, ChartColors | null> = { at24: null, mt5: null, "mt5-green": null, light: null };
 
 function readVar(styles: CSSStyleDeclaration, name: string, fallback: string): string {
   const value = styles.getPropertyValue(name).trim();
@@ -132,6 +158,7 @@ function readVar(styles: CSSStyleDeclaration, name: string, fallback: string): s
 export function resolveChartColors(theme: ChartTheme = "at24"): ChartColors {
   if (theme === "mt5") return MT5_COLORS;
   if (theme === "mt5-green") return MT5_GREEN_COLORS;
+  if (theme === "light") return LIGHT_COLORS;
 
   if (cached.at24) return cached.at24;
   if (typeof document === "undefined") return FALLBACK_COLORS;
@@ -156,7 +183,7 @@ export function resolveChartColors(theme: ChartTheme = "at24"): ChartColors {
 
 /** Test/dev-only reset so a test can simulate a fresh module load. */
 export function resetColorCacheForTests(): void {
-  cached = { at24: null, mt5: null, "mt5-green": null };
+  cached = { at24: null, mt5: null, "mt5-green": null, light: null };
   indicatorColorCache.clear();
 }
 

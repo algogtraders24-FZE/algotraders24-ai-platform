@@ -93,5 +93,22 @@ export function validateStrategyIRStructure(ir) {
         !ir.positionManagement.reversal.platformDefaultDescription?.trim()) {
         results.push(fail('positionManagement.reversal declares "PLATFORM_DEFINED" without a platformDefaultDescription — ambiguous platform semantics must be named, never left unexplained (Q0.7.16/30)'));
     }
+    // Q1.5.4 — maxPositions/maxEntries structural validation. The current
+    // PositionAccountingMode is NETTING-only (position-accounting-mode.ts) —
+    // a single Position object per instrument, always — so `maxPositions`
+    // (a count of CONCURRENTLY open positions) has no meaningful value below
+    // 1: `maxPositions < 1` would mean "never allow the one position NETTING
+    // always produces," which is not a real, satisfiable policy, so it is
+    // rejected here as invalid configuration rather than silently accepted
+    // and never enforced. `maxPositions >= 1` is valid but, under NETTING,
+    // has no runtime effect beyond what the engine already guarantees
+    // structurally (see docs/Q1.5_PYRAMIDING_POLICY.md) — genuine
+    // `maxPositions > 1` enforcement requires HEDGING, not implemented here.
+    if (ir.positionManagement.pyramiding.maxPositions !== undefined && ir.positionManagement.pyramiding.maxPositions < 1) {
+        results.push(fail(`positionManagement.pyramiding.maxPositions must be >= 1, got ${ir.positionManagement.pyramiding.maxPositions} (NETTING mode always has exactly one position per instrument when open)`));
+    }
+    if (ir.positionManagement.pyramiding.maxEntries !== undefined && ir.positionManagement.pyramiding.maxEntries < 1) {
+        results.push(fail(`positionManagement.pyramiding.maxEntries must be >= 1, got ${ir.positionManagement.pyramiding.maxEntries} (an open position always has at least one entry fill)`));
+    }
     return combine(...results);
 }

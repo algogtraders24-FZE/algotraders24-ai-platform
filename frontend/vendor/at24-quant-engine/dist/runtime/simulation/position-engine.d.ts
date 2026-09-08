@@ -1,4 +1,4 @@
-import type { Instrument } from "../../domain/market-data.js";
+import type { Instrument, OHLCVBar } from "../../domain/market-data.js";
 import type { OrderSide } from "../../domain/order-intent.js";
 import type { Position } from "../../domain/position.js";
 /**
@@ -36,3 +36,20 @@ export interface ReduceOutcome {
 export declare function reducePosition(position: Position, reduceQuantity: number, exitPrice: number, timestamp: number, fee: number): ReduceOutcome;
 export declare function closePosition(position: Position, exitPrice: number, timestamp: number, fee: number): ReduceOutcome;
 export declare function computeUnrealizedPnl(position: Position, currentPrice: number): number;
+/**
+ * P4.6 (docs/P4.6-MFE-MAE-EXCURSION-TRACKING.md) — folds ONE bar's
+ * high/low into a position's running, side-agnostic price extremes.
+ * Pure and strictly incremental: reads only `bar` (the CURRENT bar being
+ * processed) and the position's own prior running state — never a slice
+ * of `bars`, never any bar other than the one passed in. This is what
+ * keeps the tracking lookahead-safe: simulation-engine.ts calls this
+ * exactly once per bar, for whichever position is open at that point in
+ * that bar's own processing, in the SAME strict bar-by-bar order the
+ * rest of the engine already guarantees.
+ *
+ * Side-agnostic on purpose — this function has no notion of "favorable"
+ * vs "adverse" (that depends on BUY vs SELL, applied only once, at
+ * trade-build time in trade-ledger.ts). It only ever asks "is this bar's
+ * high/low a new extreme," symmetrically for both directions.
+ */
+export declare function updateExcursion(position: Position, bar: OHLCVBar): Position;

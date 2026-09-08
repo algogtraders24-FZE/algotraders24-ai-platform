@@ -19,5 +19,45 @@
     "tradingSystemId": "GOLDFIRE",
     "tradingSystemName": "Gold Fire v5 (Product #2 candidate, M13 intake)",
     "versionString": "v5.00 as-tested configuration - InpLotMode=RISK_PERCENT(1), InpRiskPercent=0.50, XAUUSD M15, Exness, 2025.06-2026.08 - real MT5 .html Deals-table report, magic number 777999 matches source default. Note: risk-percent compounding sizing means the real max drawdown (65.89% equity-based / 36.77% MT5 balance-based) is severe - disclosed honestly, not smoothed over."
+  },
+  "QUANTUM-GOLD-AI-v1.37-2026-07-03": {
+    "tradingSystemId": "QUANTUM-GOLD-AI",
+    "tradingSystemName": "Quantum Gold AI (M14 catalog-import, Product #3 candidate)",
+    "versionString": "v1.37 as-shipped - real backtest evidence is a FAITHFUL PYTHON PORT of the real .mq5 QuantumWave()/MConfirm()/GetSLTP() engine (default inputs), run against real XAUUSD_EXNESS H1/H4/M15 candles from quant_engine/market.db (2024.01-2026.05) - NOT a native MT5 Strategy Tester report (the user's own MT5 terminal was actively in use for other testing at the time). sourceAdapter=python-quantum-engine-backtest-v1 discloses this plainly. See m14-catalog-import/quantum_gold_ai_backtest.py for every simplification (bar-close entries, SL-before-TP-on-same-bar assumption, no spread/commission model)."
+  },
+  "NEXUSMINING-EXPLORATION-ALGO-v1.26-2026-07-03": {
+    "tradingSystemId": "NEXUSMINING-EXPLORATION-ALGO",
+    "tradingSystemName": "Nexusmining Exploration Algo (M14 catalog-import, Product #3 candidate)",
+    "versionString": "v1.26 as-shipped - same faithful Python-port methodology as Quantum Gold AI (see that registry entry), USOIL_EXNESS H1/H4/M15, ATR_SL_Mult=2.2/ATR_TP_Mult=3.5 (this EA's own real defaults, distinct from Gold's 2.0/3.2)."
+  },
+  "QUANTUMPULSE-BTC-v1.26-2026-07-03": {
+    "tradingSystemId": "QUANTUMPULSE-BTC",
+    "tradingSystemName": "QuantumPulse BTC (M14 catalog-import, Product #3 candidate)",
+    "versionString": "v1.26 as-shipped - same faithful Python-port methodology as Quantum Gold AI (see that registry entry), BTCUSD_EXNESS H1/H4/M15, ATR_SL_Mult=3.0/ATR_TP_Mult=5.0 (this EA's own real defaults)."
+  },
+  "GLOBAL-COMMODITY-MATRIX-v1.62-2026-07-03": {
+    "tradingSystemId": "GLOBAL-COMMODITY-MATRIX",
+    "tradingSystemName": "Global Commodity Matrix (M14 catalog-import, Product #3 candidate) - GOLD-mode evidence only",
+    "versionString": "v1.62 as-shipped - this Evidence covers ONLY the Gold (XAUUSD) auto-tune profile. Verified line-for-line identical QuantumWave()/MConfirm() engine code AND identical ATR_SL_Mult=2.0/ATR_TP_Mult=3.2 Gold profile to Quantum Gold AI's own dedicated engine (see GLOBAL_COMMODITY_MATRIX.mq5 lines 221/688-772 vs QUANTUM_GOLD_AI.mq5) - the same real backtest trades (quantum_gold_ai_trades.json) are honestly reused rather than re-running an identical computation twice. This EA also auto-tunes for Silver/Oil/Bitcoin when attached to those charts - those modes are NOT covered by this Evidence (Silver: no XAGUSD data available; Oil/BTC: separately evidenced under their own dedicated-EA versionIds, not yet cross-attributed here)."
+  },
+  "AT24-TREND-MASTER-v1.00-XAUUSD-2026": {
+    "tradingSystemId": "AT24-TREND-MASTER",
+    "tradingSystemName": "AT24 AI Trend Master (M15 real /products build-out, Product #1) - XAUUSD evidence",
+    "versionString": "v1.00 - real, newly-written EA (not a rebrand of an existing product), replacing the fabricated /products placeholder listing of the same concept. Honest naming note: despite the original placeholder's \"AI/deep-learning\" marketing, this is a disclosed rule-based system (H4 macro EMA(50/200) trend filter + H1 EMA(21/55)/ADX(14) entry gate + RSI(14) pullback timing, ATR-adaptive risk-% sizing) - no trained model exists. Evidence is a faithful Python port of the real .mq5 engine run against real XAUUSD_EXNESS H1/H4 candles from quant_engine/market.db (2024.01-2026.05). A second real run on EURUSD_EXNESS (195 trades, profit factor 0.98, essentially breakeven) is disclosed in the product description but not separately evidenced under its own versionId yet."
+  },
+  "GOLDBREAKOUTSCALPER-v1.00-2026-BASELINE": {
+    "tradingSystemId": "GOLDBREAKOUTSCALPER",
+    "tradingSystemName": "GoldBreakoutScalper (seller-provided EA, replacing the fabricated /products \"Quantum Scalper Pro\" placeholder)",
+    "versionString": "v1.00 as-tested - seller-provided .mq5 source (pending stop-order breakout on XAUUSD swing highs/lows, HIGH_PROB mode with touch-count + MA trend confirmation, tight ATR-independent point-based trailing exit, balance-based lot sizing InpBalanceDiv=1000, Friday flat, spread/news-spike filter, panic-gap close). Real MT5 Strategy Tester .xlsx export (Exness-MT5Trial8, XAUUSD H1, 2025.01.01-2026.08.08, 682 real deals) parsed via the M2.4 xlsx adapter - netProfit/profitFactor/tradeCount all reconcile to the report's own stated values with zero delta. Note: InpTrail_Points=200 in this real run, not the .mq5 file's own default of 20 - a genuinely wider trail than the shipped default; disclosed, not silently normalized. Balance-based sizing on a small $1,000 starting deposit (InpBalanceDiv=1000) compounds aggressively as balance grows - drives both the large nominal profit and the severe drawdown, same real dynamic already disclosed for Gold Fire v5's risk-percent sizing."
+  },
+  "GOLDSILVERSCALPER-v1.01-2026-BASELINE": {
+    "tradingSystemId": "GOLDSILVERSCALPER",
+    "tradingSystemName": "Gold/Silver Ratio Scalper (seller-provided EA, real statistical-arbitrage pairs strategy)",
+    "versionString": "v1.01 (FIXED) as-tested - seller-provided .mq5 source (Z-score mean-reversion on the XAUUSD/XAGUSD price ratio: rolling 100-bar mean/stddev of Gold-close/Silver-close, enters the pair on |Z|>=2.0 in the reverting direction, exits on |Z|<=0.5 or a 1-hour max hold, contract-size-normalized dual-leg lot sizing, fixed InpBaseLotGold=0.01 - not balance-compounding). Real MT5 Strategy Tester .xlsx export (Exness, XAUUSD M1, 2025.01.01-2026.08.07, 22,484 real deals) parsed via the M2.4 xlsx adapter - netProfit/profitFactor/tradeCount all reconcile to the report's own stated values with zero delta. Note: the 46.23% max drawdown is NOT a compounding-lot-size story like GoldBreakoutScalper or Gold Fire v5 - lot size here is fixed (0.01) - it reflects a genuinely undercapitalized $1,000 test deposit relative to the strategy's own real equity swings (a real 14-trade losing streak appears in the data). A larger starting deposit would show a materially smaller percentage drawdown on the same real trades."
+  },
+  "BTCETHSCALPER-v1.00-2026-BASELINE": {
+    "tradingSystemId": "BTCETHSCALPER",
+    "tradingSystemName": "BTC/ETH Crypto Scalper (seller-provided EA, real crypto statistical-arbitrage pairs strategy)",
+    "versionString": "v1.00 as-tested - seller-provided .mq5 source (Z-score mean-reversion on the BTCUSD/ETHUSD price ratio: rolling 100-bar mean/stddev of BTC-close/ETH-close, enters the pair on |Z|>=2.5 - a wider crypto-appropriate threshold than the Gold/Silver Scalper's 2.0 - exits on |Z|<=0.5 or a 2-hour max hold, contract-size-normalized dual-leg lot sizing, percentage-based spread filter [solves the 2/3-decimal-digit broker inconsistency a fixed-points filter would have], panic margin check before entry, minimum-profit floor before closing on reversion to avoid crypto commissions eating a marginal exit). Real MT5 Strategy Tester .xlsx export (Exness, BTCUSD M5, 2026.01.01-2026.08.08, 5,642 real deals, $10,000 starting deposit) parsed via the M2.4 xlsx adapter - netProfit/profitFactor/tradeCount all reconcile to the report's own stated values with zero delta. Third real pairs-trading/statistical-arbitrage product on the platform (after AT24 FX Pairs Reversion and Gold/Silver Ratio Scalper), first on crypto. Max drawdown 21.72% - real and disclosed, but notably healthier than the Gold/Silver Scalper's 46.23% on the same style of strategy, consistent with the larger $10,000 test deposit relative to trade sizing (fixed 0.01 BTC lot) rather than any difference in the underlying edge."
   }
 }

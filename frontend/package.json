@@ -28,6 +28,7 @@
     "validate:explainable-analysis": "tsx scripts/validate-explainable-analysis.ts",
     "validate:evidence-fusion": "tsx scripts/validate-evidence-fusion.ts",
     "validate:news-provider": "tsx scripts/validate-alpha-vantage-news-provider.ts",
+    "validate:economic-calendar": "tsx --conditions=react-server scripts/validate-economic-calendar.ts",
     "validate:billing": "tsx scripts/validate-billing-entitlements.ts",
     "validate:admin": "tsx scripts/validate-admin-control-center.ts",
     "validate:payments": "tsx scripts/validate-payment-infrastructure.ts",
@@ -69,6 +70,7 @@
     "validate:native-chart-tiling": "tsx scripts/validate-native-chart-tiling.ts",
     "validate:native-chart-phase5": "tsx scripts/validate-native-chart-phase5.ts",
     "validate:native-chart-bill-williams": "tsx scripts/validate-native-chart-bill-williams.ts",
+    "validate:native-chart-d2.9-hardening": "tsx scripts/validate-native-chart-d2.9-hardening.ts",
     "validate:key-levels-engine": "tsx scripts/validate-key-levels-engine.ts",
     "validate:liquidity-zones-engine": "tsx scripts/validate-liquidity-zones-engine.ts",
     "validate:paper-trading": "tsx scripts/validate-paper-trading.ts",
@@ -118,6 +120,10 @@
     "validate:agent-hardening": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-hardening.ts",
     "validate:agent-api": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-api.ts",
     "validate:agent-parallel": "node scripts/validate-agent-parallel.mjs",
+    "validate:algo-test-parameters": "tsx scripts/validate-algo-test-parameters.ts",
+    "validate:nl-strategy-compiler": "tsx scripts/validate-nl-strategy-compiler.ts",
+    "validate:ai-run-backtest-wiring": "tsx scripts/validate-ai-run-backtest-wiring.ts",
+    "validate:algo-test-compiled-strategy-view": "tsx scripts/validate-algo-test-compiled-strategy-view.ts",
     "vendor:quant-engine": "node scripts/vendor-quant-engine.mjs"
   },
   "dependencies": {

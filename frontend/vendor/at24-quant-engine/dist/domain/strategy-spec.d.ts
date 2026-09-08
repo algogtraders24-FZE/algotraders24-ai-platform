@@ -5,6 +5,7 @@ import type { ExecutionSpecification } from "./execution-specification.js";
 import type { OrderTypeIR } from "./strategy-ir/order-ir.js";
 import type { PriceReference } from "./strategy-ir/price-reference.js";
 import type { PendingOrderManagementPolicy } from "./pending-order-management-policy.js";
+import type { PyramidingPolicy } from "./strategy-ir/position-ir.js";
 import { type ValidationResult } from "./validation-result.js";
 export interface StrategyIdentity {
     readonly strategyId: string;
@@ -67,6 +68,22 @@ export interface StrategySpec {
     readonly execution: ExecutionSpecification;
     /** Q0.13 CONTRACT CHANGE (additive): compiled pending-order management rules (only ever FULLY PROVABLE ones — see `executableRules()` in pending-order-management-policy.ts). Absent means "no pending-order management behavior" — identical to every pre-Q0.13 StrategySpec. */
     readonly pendingOrderManagement?: PendingOrderManagementPolicy;
+    /**
+     * Q1.5.4 CONTRACT CHANGE (additive, backward-compatible): the compiled
+     * pyramiding policy, passed through directly from
+     * `StrategyIR.positionManagement.pyramiding` (never re-derived — a
+     * single source of truth, same pattern as `risk`/`execution` below).
+     * Absent means "no pyramiding" — identical to every pre-Q1.5 StrategySpec
+     * (a single entry per position, exactly as the engine has always
+     * behaved). When present with `allowPyramiding: true`, the decision
+     * layer may admit additional same-direction ENTER decisions while a
+     * position is open, bounded by `maxEntries` (see decision-builder.ts and
+     * docs/Q1.5_PYRAMIDING_POLICY.md). Eligibility already guarantees
+     * `sameDirectionBehavior === "ACCUMULATE"` for any IR that reaches
+     * reduction with `allowPyramiding: true` (eligibility-gate.ts), so the
+     * engine never needs to re-check it.
+     */
+    readonly pyramiding?: PyramidingPolicy;
 }
 export declare function validateStrategyVersionString(version: string): ValidationResult;
 export declare function validateStrategySpec(spec: StrategySpec): ValidationResult;

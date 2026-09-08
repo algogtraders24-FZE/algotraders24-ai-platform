@@ -7,6 +7,7 @@
 // a hardcoded "0 products" special case.
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
+import PageHero from "@/components/marketing/PageHero";
 import MarketplaceClient from "./MarketplaceClient";
 import { MarketplaceCatalogue } from "@/services/marketplace/MarketplaceCatalogue";
 
@@ -30,16 +31,11 @@ export default async function MarketplacePage() {
     <main className="min-h-screen bg-ink text-text">
       <Navbar />
 
-      <section className="pt-32 pb-12 px-6">
-        <div className="max-w-7xl mx-auto text-center">
-          <span className="text-gold font-semibold tracking-wide uppercase text-sm">Marketplace</span>
-          <h1 className="text-4xl md:text-6xl font-bold mt-4">Independently Verified Trading Systems</h1>
-          <p className="text-text-2 mt-4 max-w-2xl mx-auto text-lg">
-            Every listing carries AT24-computed evidence, validation, and Trust State — never a seller&apos;s own performance claim
-            presented as verified.
-          </p>
-        </div>
-      </section>
+      <PageHero
+        eyebrow="Marketplace"
+        title="Independently Verified Trading Systems"
+        subtitle="Every listing carries AT24-computed evidence, validation, and Trust State - never a seller's own performance claim presented as verified."
+      />
 
       <section className="px-6 pb-24">
         <div className="max-w-7xl mx-auto">

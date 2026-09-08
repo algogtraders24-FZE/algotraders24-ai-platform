@@ -233,7 +233,9 @@ function wiringTests(): void {
     // slice's start; 3000 comfortably covered it again with margin to spare.
     // P3.2B - widened again to 3500: the algoTestTrades/selectedAlgoTestTradeId
     // fields (and their own explanatory comment) pushed it further still.
-    const drawBlock = src.slice(src.indexOf("const draw = useMemo"), src.indexOf("const draw = useMemo") + 3500);
+    // D2.9.2/D2.9.4 - widened to 4000: externalCrosshairTime/equityCurve (and
+    // their own explanatory comments) pushed it further still.
+    const drawBlock = src.slice(src.indexOf("const draw = useMemo"), src.indexOf("const draw = useMemo") + 4000);
     assert.ok(drawBlock.includes("chartType,"), "renderChart(...) call must pass chartType");
     assert.ok(
       // Post-completion phase - activeSymbol joined the deps array so
@@ -242,10 +244,12 @@ function wiringTests(): void {
       // P3.2B - algoTestOverlay/selectedAlgoTestTradeId joined too, so an
       // Algo Test trade-marker overlay/selection change also actually
       // redraws - same "never a stale canvas" guarantee, one more real input.
-      /\[candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme, activeSymbol, algoTestOverlay, selectedAlgoTestTradeId\]/.test(
+      // D2.9.2 - externalCrosshairTime joined too, so a cross-pane crosshair
+      // sync update actually redraws the ghost line.
+      /\[candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme, activeSymbol, algoTestOverlay, selectedAlgoTestTradeId, externalCrosshairTime\]/.test(
         drawBlock,
       ),
-      "deps array must include chartType/showGrid/showPeriodSeparators/colorScheme/activeSymbol/algoTestOverlay/selectedAlgoTestTradeId",
+      "deps array must include chartType/showGrid/showPeriodSeparators/colorScheme/activeSymbol/algoTestOverlay/selectedAlgoTestTradeId/externalCrosshairTime",
     );
   });
 

@@ -1,0 +1,61 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19"/>
+      <stop offset="100%" stop-color="#14171f"/>
+    </linearGradient>
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e7c86b"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="34%" r="46%">
+      <stop offset="0%" stop-color="#9aa5b1" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#9aa5b1" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff3d1"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    <linearGradient id="silverGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f2f4f7"/>
+      <stop offset="100%" stop-color="#b6bdc7"/>
+    </linearGradient>
+    <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="url(#bg)"/>
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="none" stroke="url(#borderGrad)" stroke-width="6"/>
+
+  <ellipse cx="256" cy="176" rx="150" ry="118" fill="url(#glow)"/>
+
+  <!-- Two balanced scales representing a market-neutral pairs trade -->
+  <g filter="url(#softGlow)">
+    <line x1="256" y1="90" x2="256" y2="230" stroke="#8a94a3" stroke-width="6"/>
+    <line x1="150" y1="120" x2="362" y2="120" stroke="#8a94a3" stroke-width="6"/>
+
+    <!-- Gold pan (left) -->
+    <line x1="150" y1="120" x2="120" y2="178" stroke="#8a94a3" stroke-width="4"/>
+    <line x1="150" y1="120" x2="180" y2="178" stroke="#8a94a3" stroke-width="4"/>
+    <path d="M 108 178 Q 150 210 192 178" stroke="url(#goldGrad)" stroke-width="6" fill="none"/>
+    <circle cx="150" cy="150" r="26" fill="url(#goldGrad)"/>
+    <text x="150" y="157" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="800" fill="#3a2c05">Au</text>
+
+    <!-- Silver pan (right) -->
+    <line x1="362" y1="120" x2="332" y2="178" stroke="#8a94a3" stroke-width="4"/>
+    <line x1="362" y1="120" x2="392" y2="178" stroke="#8a94a3" stroke-width="4"/>
+    <path d="M 320 178 Q 362 210 404 178" stroke="url(#silverGrad)" stroke-width="6" fill="none"/>
+    <circle cx="362" cy="150" r="26" fill="url(#silverGrad)"/>
+    <text x="362" y="157" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="800" fill="#3a3f47">Ag</text>
+
+    <!-- fulcrum -->
+    <path d="M 236 232 L 276 232 L 256 258 Z" fill="url(#borderGrad)"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="256" y="352" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="800" letter-spacing="1" fill="#ffffff">GOLD / SILVER</text>
+  <text x="256" y="388" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="27" font-weight="800" letter-spacing="0.5" fill="url(#borderGrad)">RATIO SCALPER</text>
+  <text x="256" y="420" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" letter-spacing="2" fill="#94a3b8">STATISTICAL ARBITRAGE · MARKET-NEUTRAL · MT5</text>
+</svg>

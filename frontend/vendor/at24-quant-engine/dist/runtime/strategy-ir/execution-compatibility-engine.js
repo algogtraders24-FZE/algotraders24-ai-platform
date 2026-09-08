@@ -32,12 +32,14 @@ export function computeExecutionCompatibility(ir, targetFidelity) {
     }
     for (const exit of ir.exits) {
         if (exit.kind === "SIGNAL_EXIT") {
-            features.push({
-                feature: `exit "${exit.id}" kind SIGNAL_EXIT`,
-                requiredCapability: "StrategySpec.exitRules evaluation",
-                status: "UNSUPPORTED",
-                note: "Q0.5's orchestrator never evaluates StrategySpec.exitRules — only Q0.3's risk-driven exits are (docs/Q0.5_EXECUTION_MODEL.md Known Limitation)",
-            });
+            // Q1.5.3 — StrategySpec.exitRules is now genuinely evaluated by both
+            // simulation engines (see docs/Q1.5_EXIT_CONTRACT.md). SUPPORTED
+            // requires a real, structurally valid condition — one declared
+            // without a condition can never be evaluated and stays UNSUPPORTED,
+            // never silently promoted.
+            features.push(exit.condition !== undefined
+                ? { feature: `exit "${exit.id}" kind SIGNAL_EXIT`, requiredCapability: "StrategySpec.exitRules evaluation", status: "SUPPORTED" }
+                : { feature: `exit "${exit.id}" kind SIGNAL_EXIT`, requiredCapability: "StrategySpec.exitRules evaluation", status: "UNSUPPORTED", note: "a SIGNAL_EXIT with no condition has nothing to evaluate" });
         }
         else if (exit.kind === "SESSION_EXIT") {
             features.push({

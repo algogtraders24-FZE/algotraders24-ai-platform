@@ -1,15 +1,17 @@
 // app/dashboard/purchases/page.tsx
 // Sprint M13 (closing the marketplace delivery loop) - real, DB-backed
 // list of the current buyer's own Marketplace purchases (Purchase ->
-// Entitlement -> License, see services/licensing/myPurchases.ts). Distinct
-// from app/dashboard/licenses (pre-existing, reads mock data for an
-// unrelated feature) - never conflated with it.
+// Entitlement -> License, see services/licensing/myPurchases.ts).
+// Sprint IA3 - app/dashboard/licenses is now also wired to this same real
+// service (a license-centric view vs. this purchase-centric one) - the
+// mock chain that used to live there is gone.
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/protectedRoute";
 import { getMyPurchases } from "@/services/licensing/myPurchases";
 import EmptyState from "@/components/ui/EmptyState";
 import Badge from "@/components/ui/Badge";
 import ButtonLink from "@/components/ui/ButtonLink";
+import Card from "@/components/ui/Card";
 
 function licenseStatusTone(status: string | null) {
   if (status === "ACTIVE") return "success" as const;
@@ -23,7 +25,7 @@ export default async function MyPurchasesPage() {
   const purchases = await getMyPurchases(sessionUser.profile.id);
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-text">My Purchases</h1>
         <p className="mt-1 text-sm text-text-2">Every real Marketplace purchase, with its License and EA download.</p>
@@ -38,7 +40,7 @@ export default async function MyPurchasesPage() {
       ) : (
         <div className="space-y-3">
           {purchases.map((p) => (
-            <div key={p.purchaseId} className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-ink-3 p-5">
+            <Card key={p.purchaseId} padding="none" className="flex items-center justify-between gap-4 p-5">
               <div>
                 <p className="font-semibold text-text">{p.listingTitle}</p>
                 <p className="mt-1 text-xs text-text-3">
@@ -53,7 +55,7 @@ export default async function MyPurchasesPage() {
                   </Link>
                 ) : null}
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}

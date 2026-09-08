@@ -1,0 +1,267 @@
+// AT24 Smart Money Structure — Pine Script v5 indicator
+// Real Smart Money Concepts (SMC) implementation: swing-based market
+// structure (BOS/CHoCH), order blocks, fair value gaps (imbalance),
+// equal-high/low liquidity pools, and a premium/discount/equilibrium
+// zone. This is a direct, honest port of the same structural logic
+// already implemented and traded in AT24's own MQL5 EA
+// (ea-research/G01_LiquiditySweep_MSS_FVG) — not an invented gimmick,
+// SMC/ICT structure concepts are a well-established institutional
+// order-flow methodology (Al Brooks / ICT price-action lineage).
+//
+// Honesty note: this is a visual structure/context indicator, not a
+// standalone strategy with its own P&L — it does not claim any
+// backtested win-rate or return. Real EA-side use of the same
+// structural concepts (liquidity sweep + MSS + FVG confluence) is
+// what G01 is being researched against with real backtests.
+//
+// AT24 cannot run TradingView's own backtester/Pine environment from
+// this workspace — this script has NOT been compiled or run inside
+// TradingView. It is provided for the seller to load, verify, and
+// test in their own TradingView account before listing goes live.
+
+//@version=5
+indicator("AT24 Smart Money Structure", shorttitle = "AT24-SMS", overlay = true, max_boxes_count = 500, max_lines_count = 500, max_labels_count = 500)
+
+// ───────────────────────────── Inputs ─────────────────────────────
+grpStruct = "Market Structure"
+swingLen      = input.int(5,    "Swing Lookback (bars each side)", minval = 2, maxval = 20, group = grpStruct)
+showBOS       = input.bool(true, "Show BOS (Break of Structure)",  group = grpStruct)
+showCHoCH     = input.bool(true, "Show CHoCH (Change of Character)", group = grpStruct)
+
+grpOB = "Order Blocks"
+showOB        = input.bool(true, "Show Order Blocks", group = grpOB)
+maxOB         = input.int(6, "Max Order Blocks Shown", minval = 1, maxval = 20, group = grpOB)
+obMitigation  = input.string("Wick", "Mitigation Method", options = ["Wick", "Close"], group = grpOB)
+bullOBColor   = input.color(color.new(color.teal, 78),  "Bullish OB Color", group = grpOB)
+bearOBColor   = input.color(color.new(color.maroon, 78), "Bearish OB Color", group = grpOB)
+
+grpFVG = "Fair Value Gaps"
+showFVG       = input.bool(true, "Show Fair Value Gaps", group = grpFVG)
+maxFVG        = input.int(8, "Max FVGs Shown", minval = 1, maxval = 30, group = grpFVG)
+fvgFillClose  = input.bool(true, "Remove FVG once fully filled", group = grpFVG)
+bullFVGColor  = input.color(color.new(color.blue, 82),   "Bullish FVG Color", group = grpFVG)
+bearFVGColor  = input.color(color.new(color.orange, 82), "Bearish FVG Color", group = grpFVG)
+
+grpLQ = "Liquidity Pools (Equal Highs/Lows)"
+showLQ        = input.bool(true, "Show Equal High/Low Liquidity", group = grpLQ)
+eqTolPerc     = input.float(0.10, "Equality Tolerance (% of price)", minval = 0.01, maxval = 1.0, step = 0.01, group = grpLQ)
+lqLookback    = input.int(50, "Liquidity Search Window (bars)", minval = 10, maxval = 300, group = grpLQ)
+
+grpPD = "Premium / Discount"
+showPD        = input.bool(true, "Show Premium/Discount Zones", group = grpPD)
+premiumColor  = input.color(color.new(color.red, 88),   "Premium Zone Color", group = grpPD)
+discountColor = input.color(color.new(color.green, 88), "Discount Zone Color", group = grpPD)
+eqColor       = input.color(color.new(color.gray, 85),  "Equilibrium Band Color", group = grpPD)
+
+// ───────────────────────── Swing detection ─────────────────────────
+swHigh = ta.pivothigh(high, swingLen, swingLen)
+swLow  = ta.pivotlow(low, swingLen, swingLen)
+
+var float lastSwingHigh   = na
+var float lastSwingLow    = na
+var int   lastSwingHighBar = na
+var int   lastSwingLowBar  = na
+
+// trend state: 1 = bullish structure, -1 = bearish structure, 0 = undefined
+var int structTrend = 0
+
+if not na(swHigh)
+    lastSwingHigh := swHigh
+    lastSwingHighBar := bar_index - swingLen
+if not na(swLow)
+    lastSwingLow := swLow
+    lastSwingLowBar := bar_index - swingLen
+
+// ───────────────────── Order block bookkeeping ─────────────────────
+var box[] bullOBBoxes = array.new_box()
+var box[] bearOBBoxes = array.new_box()
+var float[] bullOBTop = array.new_float()
+var float[] bullOBBot = array.new_float()
+var float[] bearOBTop = array.new_float()
+var float[] bearOBBot = array.new_float()
+
+// ───────────────────────── FVG bookkeeping ─────────────────────────
+var box[] bullFVGBoxes = array.new_box()
+var box[] bearFVGBoxes = array.new_box()
+var float[] bullFVGTop = array.new_float()
+var float[] bullFVGBot = array.new_float()
+var float[] bearFVGTop = array.new_float()
+var float[] bearFVGBot = array.new_float()
+
+trimArrays(boxArr, aArr, bArr, maxN) =>
+    while array.size(boxArr) > maxN
+        box.delete(array.shift(boxArr))
+        array.shift(aArr)
+        array.shift(bArr)
+
+// ───────────────────────── BOS / CHoCH logic ─────────────────────────
+// Bullish BOS: close breaks above the last confirmed swing high while
+// structure is already bullish (or undefined). Bullish CHoCH: same
+// break while prior structure was bearish (first sign of reversal).
+bullBreak = not na(lastSwingHigh) and ta.crossover(close, lastSwingHigh)
+bearBreak = not na(lastSwingLow) and ta.crossunder(close, lastSwingLow)
+
+if bullBreak
+    isCHoCH = structTrend == -1
+    if (isCHoCH and showCHoCH) or (not isCHoCH and showBOS)
+        label.new(bar_index, lastSwingHigh, isCHoCH ? "CHoCH" : "BOS",
+             style = label.style_label_down, color = color.new(color.teal, 0),
+             textcolor = color.white, size = size.small)
+    structTrend := 1
+
+    // Order block = last down-close candle before this break, scanning
+    // back from the breakout bar to the prior swing low.
+    if showOB
+        int obBar = na
+        for i = 1 to bar_index - nz(lastSwingLowBar, bar_index)
+            idx = bar_index - i
+            if close[bar_index - idx] < open[bar_index - idx]
+                obBar := idx
+                break
+        if not na(obBar)
+            obTop = high[bar_index - obBar]
+            obBot = low[bar_index - obBar]
+            b = box.new(obBar, obTop, bar_index + 20, obBot, border_color = color.teal,
+                 bgcolor = bullOBColor, extend = extend.none)
+            array.push(bullOBBoxes, b)
+            array.push(bullOBTop, obTop)
+            array.push(bullOBBot, obBot)
+            trimArrays(bullOBBoxes, bullOBTop, bullOBBot, maxOB)
+
+if bearBreak
+    isCHoCH = structTrend == 1
+    if (isCHoCH and showCHoCH) or (not isCHoCH and showBOS)
+        label.new(bar_index, lastSwingLow, isCHoCH ? "CHoCH" : "BOS",
+             style = label.style_label_up, color = color.new(color.maroon, 0),
+             textcolor = color.white, size = size.small)
+    structTrend := -1
+
+    if showOB
+        int obBar = na
+        for i = 1 to bar_index - nz(lastSwingHighBar, bar_index)
+            idx = bar_index - i
+            if close[bar_index - idx] > open[bar_index - idx]
+                obBar := idx
+                break
+        if not na(obBar)
+            obTop = high[bar_index - obBar]
+            obBot = low[bar_index - obBar]
+            b = box.new(obBar, obTop, bar_index + 20, obBot, border_color = color.maroon,
+                 bgcolor = bearOBColor, extend = extend.none)
+            array.push(bearOBBoxes, b)
+            array.push(bearOBTop, obTop)
+            array.push(bearOBBot, obBot)
+            trimArrays(bearOBBoxes, bearOBTop, bearOBBot, maxOB)
+
+// Extend + mitigate existing order blocks each bar
+if showOB
+    for i = array.size(bullOBBoxes) - 1 to 0
+        b = array.get(bullOBBoxes, i)
+        top = array.get(bullOBTop, i)
+        bot = array.get(bullOBBot, i)
+        box.set_right(b, bar_index + 5)
+        mitigated = obMitigation == "Wick" ? low <= top : close <= top
+        if mitigated and low <= top
+            box.delete(b)
+            array.remove(bullOBBoxes, i)
+            array.remove(bullOBTop, i)
+            array.remove(bullOBBot, i)
+
+    for i = array.size(bearOBBoxes) - 1 to 0
+        b = array.get(bearOBBoxes, i)
+        top = array.get(bearOBTop, i)
+        bot = array.get(bearOBBot, i)
+        box.set_right(b, bar_index + 5)
+        mitigated = obMitigation == "Wick" ? high >= bot : close >= bot
+        if mitigated and high >= bot
+            box.delete(b)
+            array.remove(bearOBBoxes, i)
+            array.remove(bearOBTop, i)
+            array.remove(bearOBBot, i)
+
+// ───────────────────────── Fair Value Gaps ─────────────────────────
+// Bullish FVG: gap between bar[2]'s high and current bar's low (3-bar
+// imbalance, price never traded that range). Bearish FVG: mirror.
+if showFVG
+    bullGap = low - high[2]
+    bearGap = low[2] - high
+
+    if bullGap > 0 and close[1] > open[1]
+        b = box.new(bar_index - 2, high[2], bar_index + 15, low,
+             border_color = color.blue, bgcolor = bullFVGColor, extend = extend.none)
+        array.push(bullFVGBoxes, b)
+        array.push(bullFVGTop, low)
+        array.push(bullFVGBot, high[2])
+        trimArrays(bullFVGBoxes, bullFVGTop, bullFVGBot, maxFVG)
+
+    if bearGap > 0 and close[1] < open[1]
+        b = box.new(bar_index - 2, low[2], bar_index + 15, high,
+             border_color = color.orange, bgcolor = bearFVGColor, extend = extend.none)
+        array.push(bearFVGBoxes, b)
+        array.push(bearFVGTop, low[2])
+        array.push(bearFVGBot, high)
+        trimArrays(bearFVGBoxes, bearFVGTop, bearFVGBot, maxFVG)
+
+    for i = array.size(bullFVGBoxes) - 1 to 0
+        b = array.get(bullFVGBoxes, i)
+        top = array.get(bullFVGTop, i)
+        bot = array.get(bullFVGBot, i)
+        box.set_right(b, bar_index + 3)
+        if fvgFillClose and low <= bot
+            box.delete(b)
+            array.remove(bullFVGBoxes, i)
+            array.remove(bullFVGTop, i)
+            array.remove(bullFVGBot, i)
+
+    for i = array.size(bearFVGBoxes) - 1 to 0
+        b = array.get(bearFVGBoxes, i)
+        top = array.get(bearFVGTop, i)
+        bot = array.get(bearFVGBot, i)
+        box.set_right(b, bar_index + 3)
+        if fvgFillClose and high >= top
+            box.delete(b)
+            array.remove(bearFVGBoxes, i)
+            array.remove(bearFVGTop, i)
+            array.remove(bearFVGBot, i)
+
+// ───────────────────── Equal highs / lows (liquidity) ─────────────────────
+if showLQ and not na(swHigh)
+    tol = close * eqTolPerc / 100
+    for i = 1 to lqLookback
+        idx = bar_index - swingLen - i
+        if idx >= 0 and math.abs(swHigh - high[bar_index - idx]) <= tol
+            line.new(idx, high[bar_index - idx], bar_index - swingLen, swHigh,
+                 color = color.new(color.fuchsia, 40), width = 1, style = line.style_dotted)
+            break
+
+if showLQ and not na(swLow)
+    tol = close * eqTolPerc / 100
+    for i = 1 to lqLookback
+        idx = bar_index - swingLen - i
+        if idx >= 0 and math.abs(swLow - low[bar_index - idx]) <= tol
+            line.new(idx, low[bar_index - idx], bar_index - swingLen, swLow,
+                 color = color.new(color.fuchsia, 40), width = 1, style = line.style_dotted)
+            break
+
+// ───────────────────── Premium / Discount / Equilibrium ─────────────────────
+var box premiumBox = na
+var box discountBox = na
+var box eqBox = na
+
+if showPD and not na(lastSwingHigh) and not na(lastSwingLow) and lastSwingHigh > lastSwingLow
+    rangeHigh = lastSwingHigh
+    rangeLow  = lastSwingLow
+    mid       = (rangeHigh + rangeLow) / 2
+    eqTop     = mid + (rangeHigh - rangeLow) * 0.05
+    eqBot     = mid - (rangeHigh - rangeLow) * 0.05
+
+    box.delete(premiumBox)
+    box.delete(discountBox)
+    box.delete(eqBox)
+    premiumBox  := box.new(bar_index - 2, rangeHigh, bar_index + 10, eqTop, border_color = na, bgcolor = premiumColor)
+    discountBox := box.new(bar_index - 2, eqBot, bar_index + 10, rangeLow, border_color = na, bgcolor = discountColor)
+    eqBox       := box.new(bar_index - 2, eqTop, bar_index + 10, eqBot, border_color = na, bgcolor = eqColor)
+
+// ───────────────────────────── Alerts ─────────────────────────────
+alertcondition(bullBreak, title = "Bullish BOS/CHoCH", message = "AT24-SMS: bullish structure break on {{ticker}} {{interval}}")
+alertcondition(bearBreak, title = "Bearish BOS/CHoCH", message = "AT24-SMS: bearish structure break on {{ticker}} {{interval}}")

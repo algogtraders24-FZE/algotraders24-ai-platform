@@ -35,6 +35,10 @@ export const PANEL_REGISTRY: Record<ChartPanelId, PanelSpec> = {
   cci: { id: "cci", label: "CCI", heightWeight: 1 },
   "williams-r": { id: "williams-r", label: "Williams %R", heightWeight: 1 },
   "awesome-oscillator": { id: "awesome-oscillator", label: "Awesome Oscillator", heightWeight: 1 },
+  // Sprint D2.9.4 - Algo Test's own equity-curve overlay panel, not an
+  // indicator (see ChartPanelId's own comment) - registered here only so
+  // computePanelLayout can size its row the same way as every other panel.
+  equity: { id: "equity", label: "Equity", heightWeight: 1 },
 };
 
 /** The default, deterministic indicator configurations the chart toolbar's Indicators menu offers - real periods matching TechnicalContextService's own existing choices (RSI-14, EMA-20/50, SMA-20, Bollinger-20/2, MACD-12/26/9) so a value shown on the chart always agrees with the same value the AI Intelligence panel would report for the same symbol/timeframe. ATR-14 matches TechnicalContextService's own ATR_PERIOD_DEFAULT (indicators.ts). Stochastic 5/3/3, ADX-14, CCI-14, Williams %R-14, Parabolic SAR 0.02/0.2 and Ichimoku 9/26/52 are all MT5's real verified defaults this session (mql5.com/metatrader5.com) - CCI's own original Lambert methodology used 20, but MT5 itself defaults to 14, same as the others. */

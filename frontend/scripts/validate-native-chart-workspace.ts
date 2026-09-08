@@ -379,7 +379,7 @@ async function crosshairTests(): Promise<void> {
 
   await test("crosshair readout OHLC values use formatPrice (the shared financial formatter), never a raw toFixed/toString call", () => {
     const src = read("components/chart-engine/NativeChart.tsx");
-    const readoutBlock = src.slice(src.indexOf("hoveredCandle ? ("), src.indexOf("Native chart (beta)"));
+    const readoutBlock = src.slice(src.indexOf("hoveredCandle ? ("), src.indexOf(">Native chart</span>"));
     assert.ok(!/\.toFixed\(/.test(readoutBlock));
   });
 }

@@ -14,6 +14,19 @@ export function openPosition(input) {
         status: "OPEN",
         fees: input.fee,
         lastModifiedTimestamp: input.entryTimestamp,
+        // P4.6 — the entry price/moment itself is the first observation; the
+        // REST of the entry bar's own range is folded in separately by
+        // updateExcursion() (called right after this, in simulation-engine.ts,
+        // for the same bar) — mirroring resolveProtectiveExit()'s own
+        // established "entry happens at that bar's open and the rest of the
+        // bar's range still applies" precedent (bar-fill-model.ts). A brand
+        // NEW position (including a reversal leg opened mid-bar) always
+        // starts its OWN fresh excursion here — never inherits a prior
+        // position's history.
+        highestPriceSinceEntry: input.entryPrice,
+        highestPriceSinceEntryTimestamp: input.entryTimestamp,
+        lowestPriceSinceEntry: input.entryPrice,
+        lowestPriceSinceEntryTimestamp: input.entryTimestamp,
     };
 }
 /** Scale-in: adds quantity at a new price, recomputing the volume-weighted average entry price. */
@@ -80,4 +93,31 @@ export function computeUnrealizedPnl(position, currentPrice) {
         return 0;
     const direction = position.side === "BUY" ? 1 : -1;
     return direction * (currentPrice - position.entryPrice) * position.quantity;
+}
+/**
+ * P4.6 (docs/P4.6-MFE-MAE-EXCURSION-TRACKING.md) — folds ONE bar's
+ * high/low into a position's running, side-agnostic price extremes.
+ * Pure and strictly incremental: reads only `bar` (the CURRENT bar being
+ * processed) and the position's own prior running state — never a slice
+ * of `bars`, never any bar other than the one passed in. This is what
+ * keeps the tracking lookahead-safe: simulation-engine.ts calls this
+ * exactly once per bar, for whichever position is open at that point in
+ * that bar's own processing, in the SAME strict bar-by-bar order the
+ * rest of the engine already guarantees.
+ *
+ * Side-agnostic on purpose — this function has no notion of "favorable"
+ * vs "adverse" (that depends on BUY vs SELL, applied only once, at
+ * trade-build time in trade-ledger.ts). It only ever asks "is this bar's
+ * high/low a new extreme," symmetrically for both directions.
+ */
+export function updateExcursion(position, bar) {
+    const needsHighUpdate = position.highestPriceSinceEntry === undefined || bar.high > position.highestPriceSinceEntry;
+    const needsLowUpdate = position.lowestPriceSinceEntry === undefined || bar.low < position.lowestPriceSinceEntry;
+    if (!needsHighUpdate && !needsLowUpdate)
+        return position;
+    return {
+        ...position,
+        ...(needsHighUpdate ? { highestPriceSinceEntry: bar.high, highestPriceSinceEntryTimestamp: bar.timestamp } : {}),
+        ...(needsLowUpdate ? { lowestPriceSinceEntry: bar.low, lowestPriceSinceEntryTimestamp: bar.timestamp } : {}),
+    };
 }

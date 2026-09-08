@@ -70,9 +70,31 @@ test("Q0.9: an UNSUPPORTED semanticStatus with a BLOCKING unsupportedSemantic en
   assert.ok(result.blockingReasons.some((r) => r.includes("CustomWaveIndicator")));
 });
 
-test("Q0.9: a SIGNAL_EXIT exit kind is blocking (exitRules are never evaluated by Q0.5's frozen engine)", () => {
+test("Q1.5.3: a SIGNAL_EXIT exit kind with a real condition is NO LONGER blocking (genuinely evaluated since Q1.5.3 — see docs/Q1.5_EXIT_CONTRACT.md; previously blocked pre-Q1.5, when exitRules were accepted but never evaluated)", () => {
   const result = checkReductionEligibility(fixtureEMACrossover());
-  assert.ok(result.blockingReasons.some((r) => r.includes("SIGNAL_EXIT")));
+  assert.ok(!result.blockingReasons.some((r) => r.includes("SIGNAL_EXIT")), `SIGNAL_EXIT must not appear in blockingReasons for a fixture with a real condition; got: ${JSON.stringify(result.blockingReasons)}`);
+  // fixtureEMACrossover() is still ineligible overall — but ONLY for its own,
+  // separate, pre-existing reasons (REJECT pyramiding / CLOSE_THEN_OPEN
+  // reversal), unrelated to SIGNAL_EXIT. Asserted explicitly so this test
+  // fails loudly if either of THOSE reasons is ever accidentally resolved
+  // without this test being revisited.
+  assert.equal(result.eligible, false);
+  assert.ok(result.blockingReasons.some((r) => r.includes("sameDirectionBehavior")));
+  assert.ok(result.blockingReasons.some((r) => r.includes("positionManagement.reversal")));
+});
+
+test("Q1.5.3: a SIGNAL_EXIT exit kind with NO condition remains blocking — nothing to evaluate can never be executed", () => {
+  const ir = fixtureEMACrossover();
+  const withoutCondition = {
+    ...ir,
+    exits: ir.exits.map((e) => {
+      if (e.kind !== "SIGNAL_EXIT") return e;
+      const { condition: _condition, ...rest } = e;
+      return rest;
+    }),
+  };
+  const result = checkReductionEligibility(withoutCondition);
+  assert.ok(result.blockingReasons.some((r) => r.includes("SIGNAL_EXIT") && r.includes("no condition")));
 });
 
 test("Q0.9: checkReductionEligibility never mutates its input IR", () => {

@@ -13,6 +13,8 @@ import { useState } from "react";
 import type { CopilotAnalysis } from "@/services/ai/trading-copilot.service";
 import { listEnabledMarkets } from "@/lib/market-data/market-registry";
 import Disclaimer from "@/components/ui/Disclaimer";
+import PageHeader from "@/components/ui/PageHeader";
+import ErrorState from "@/components/ui/ErrorState";
 
 const MARKETS = listEnabledMarkets();
 
@@ -65,16 +67,18 @@ export default function TradingCopilotPage() {
 
   return (
     <div className="min-h-screen bg-ink p-6 text-text">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <header>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold">Trading Copilot</p>
-          <h1 className="mt-2 font-display text-3xl font-medium">Real technical analysis</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-text-2">
-            Live market data → real indicators (RSI, EMA, SMA, ATR, MACD, Bollinger) → an AI explanation of the
-            computed evidence. Nothing is estimated: where history is too short, values show{" "}
-            <span className="text-text">Insufficient data</span>.
-          </p>
-        </header>
+      <div className="mx-auto max-w-6xl space-y-6">
+        <PageHeader
+          eyebrow="Trading Copilot"
+          title="Real technical analysis"
+          description={
+            <>
+              Live market data → real indicators (RSI, EMA, SMA, ATR, MACD, Bollinger) → an AI explanation of the
+              computed evidence. Nothing is estimated: where history is too short, values show{" "}
+              <span className="text-text">Insufficient data</span>.
+            </>
+          }
+        />
 
         <div className="flex flex-wrap items-center gap-3">
           <select
@@ -112,17 +116,19 @@ export default function TradingCopilotPage() {
         )}
 
         {run.status === "error" && (
-          <div className="rounded-card border border-signal-down/30 bg-signal-down/10 p-6">
-            <p className="text-sm font-semibold text-signal-down">Analysis unavailable</p>
-            <p className="mt-1 text-sm text-text-2">{run.message}</p>
-            <button
-              type="button"
-              onClick={analyze}
-              className="mt-4 rounded-control border border-border px-4 py-2 text-sm font-medium text-text transition hover:border-gold"
-            >
-              Retry
-            </button>
-          </div>
+          <ErrorState
+            title="Analysis unavailable"
+            description={run.message}
+            action={
+              <button
+                type="button"
+                onClick={analyze}
+                className="rounded-control border border-border px-4 py-2 text-sm font-medium text-text transition hover:border-gold"
+              >
+                Retry
+              </button>
+            }
+          />
         )}
 
         {run.status === "completed" && <Result analysis={run.analysis} />}

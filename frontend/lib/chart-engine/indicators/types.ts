@@ -26,7 +26,13 @@ export type IndicatorId =
   | "fractals";
 
 /** The sub-panel an indicator's line(s) render into - Phase 8's reusable panel model. "price" means "drawn as an overlay on the main candlestick panel", not a separate panel. */
-export type ChartPanelId = "price" | "volume" | "rsi" | "macd" | "atr" | "stochastic" | "adx" | "cci" | "williams-r" | "awesome-oscillator";
+// Sprint D2.9.4 - "equity" is NOT an indicator panel (no IndicatorConfig/
+// compute.ts case computes it) - it's the Algo Test run's own real
+// equity-curve overlay, added to `activePanels` directly from
+// `algoTestOverlay.equityCurve` (NativeChart.tsx), never through
+// INDICATOR_PANEL_ID. Included here because computePanelLayout (panel-
+// layout.ts) keys ALL panel heights - equity included - off this one union.
+export type ChartPanelId = "price" | "volume" | "rsi" | "macd" | "atr" | "stochastic" | "adx" | "cci" | "williams-r" | "awesome-oscillator" | "equity";
 
 export interface IndicatorConfig {
   id: IndicatorId;

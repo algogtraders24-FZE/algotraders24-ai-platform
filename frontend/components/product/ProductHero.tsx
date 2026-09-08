@@ -25,9 +25,11 @@ export default function ProductHero({ product }: { product: Product }) {
           {product.shortDescription}
         </p>
 
+        {/* M14 fix - rating/downloads were fabricated seed values with no
+            real review/download-tracking system behind them; removed
+            rather than shown as if real. Version stays - real once an
+            actual build exists. */}
         <div className="flex items-center gap-6 mt-6 text-sm text-text-2">
-          <span className="text-warning">★ {product.rating.toFixed(1)}</span>
-          <span>{product.downloads.toLocaleString()} downloads</span>
           <span>v{product.version}</span>
         </div>
 

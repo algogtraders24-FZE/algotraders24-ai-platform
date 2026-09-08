@@ -1,0 +1,935 @@
+{
+  "_provenance": {
+    "generatedBy": "assemble_and_chain.py (M14 catalog-import real backtest)",
+    "generatedAt": "2026-09-04T15:38:54.085567Z",
+    "note": "Real M3/M4/M5/M7 result computed from a faithful Python port of the real .mq5 signal engine, run against real market.db candles (Exness feed) - not fabricated, not a mock fixture."
+  },
+  "tradingSystemId": "QUANTUMPULSE-BTC",
+  "versionId": "QUANTUMPULSE-BTC-v1.26-2026-07-03",
+  "m3": {
+    "status": "VERIFIED",
+    "evidenceId": "2e9d7b70f8c5c4a1",
+    "warnings": [
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'spreadModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'commissionModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'swapModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'tickDataQuality' is null"
+    ]
+  },
+  "m4": {
+    "overallStatus": "PASS",
+    "evidenceId": "2e9d7b70f8c5c4a1",
+    "recordStatuses": {
+      "SAMPLE_SIZE": "PASS",
+      "OUT_OF_SAMPLE": "PASS",
+      "WALK_FORWARD": "PASS",
+      "TEMPORAL_STABILITY": "PASS",
+      "REGIME_COVERAGE": "INCONCLUSIVE",
+      "PERFORMANCE_DISTRIBUTION": "PASS",
+      "PARAMETER_SENSITIVITY": "INCONCLUSIVE"
+    }
+  },
+  "m5": {
+    "status": "PARTIAL",
+    "riskAnalysisId": "ddf1b0ebeeee0050",
+    "riskAnalysisHash": "ddf1b0ebeeee0050",
+    "dataQuality": {
+      "drawdown": "LIMITED",
+      "lossDistribution": "AVAILABLE",
+      "winDistribution": "AVAILABLE",
+      "expectancy": "AVAILABLE",
+      "lossStreaks": "AVAILABLE",
+      "recovery": "LIMITED",
+      "tailRisk": "AVAILABLE",
+      "concentration": "AVAILABLE",
+      "temporalRisk": "AVAILABLE",
+      "regimeRisk": "UNAVAILABLE",
+      "exposureRisk": "LIMITED",
+      "costRisk": "UNKNOWN"
+    }
+  },
+  "m7": {
+    "status": "LIMITED",
+    "reasonCode": "RISK_ANALYSIS_PARTIAL",
+    "explanation": "Evidence and Validation are sufficient, but RiskAnalysis (M5) is PARTIAL -- incomplete dimensions: drawdown, recovery, regimeRisk, exposureRisk, costRisk.",
+    "id": "d42f71c01b270229",
+    "generatedAt": "2026-09-04T15:39:10.024358Z"
+  },
+  "evidenceId": "2e9d7b70f8c5c4a1",
+  "evidenceHash": "2e9d7b70f8c5c4a1",
+  "validationId": "2e9d7b70f8c5c4a1",
+  "validationHash": "2e9d7b70f8c5c4a1",
+  "riskAnalysisId": "ddf1b0ebeeee0050",
+  "riskAnalysisHash": "ddf1b0ebeeee0050",
+  "trustStatusId": "d42f71c01b270229",
+  "lastEvidenceAt": "2026-08-21T08:00:00",
+  "m4_full": {
+    "evidenceId": "2e9d7b70f8c5c4a1",
+    "versionId": "QUANTUMPULSE-BTC-v1.26-2026-07-03",
+    "datasetHash": "7bece38fd2d8be72",
+    "engineVersion": "AT24-M4-Validation-Engine-v1.0",
+    "methodologyVersion": "M4-methodology-v1",
+    "overallStatus": "PASS",
+    "records": [
+      {
+        "validationId": "SAMPLE_SIZE:2e9d7b70f8c5c4a1",
+        "versionId": "QUANTUMPULSE-BTC-v1.26-2026-07-03",
+        "evidenceId": "2e9d7b70f8c5c4a1",
+        "validationType": "SAMPLE_SIZE",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "7bece38fd2d8be72",
+        "inputEvidenceHash": "2e9d7b70f8c5c4a1",
+        "startedAt": "2026-09-04T15:38:39.377412Z",
+        "completedAt": "2026-09-04T15:38:39.400399Z",
+        "methodology": "Direct count/duration measurement, no acceptance threshold applied.",
+        "parameters": {},
+        "metrics": {
+          "tradeCount": 483,
+          "profitTradeCount": 199,
+          "lossTradeCount": 284,
+          "breakEvenTradeCount": 0,
+          "durationDays": 961,
+          "tradesPerMonth": 15.3,
+          "observationsPerYear": {
+            "2024": 207,
+            "2025": 66,
+            "2026": 210
+          }
+        },
+        "findings": [
+          "483 trades over 961 days (2.6 years) across 3 distinct calendar years."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "OUT_OF_SAMPLE:2e9d7b70f8c5c4a1",
+        "versionId": "QUANTUMPULSE-BTC-v1.26-2026-07-03",
+        "evidenceId": "2e9d7b70f8c5c4a1",
+        "validationType": "OUT_OF_SAMPLE",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "7bece38fd2d8be72",
+        "inputEvidenceHash": "2e9d7b70f8c5c4a1",
+        "startedAt": "2026-09-04T15:38:39.400399Z",
+        "completedAt": "2026-09-04T15:38:39.489859Z",
+        "methodology": "Time-based split at 80% of [first trade, last trade] duration (M4-methodology-v1).",
+        "parameters": {
+          "splitRatio": 0.8,
+          "boundary": "2026-02-09T23:00:00"
+        },
+        "metrics": {
+          "inSampleMetrics": {
+            "netProfit": 180.4,
+            "profitFactor": 1.0946,
+            "winRate": 0.4427,
+            "avgTrade": 0.57,
+            "expectedPayoff": 0.57,
+            "maxDrawdown": {
+              "absolute": 367.23,
+              "percent": 0.0363
+            },
+            "recoveryFactor": 0.4912,
+            "sharpe": 0.0335,
+            "sortino": 0.0613,
+            "largestWin": 54.39,
+            "largestLoss": -53.95,
+            "consecutiveWins": 7,
+            "consecutiveLosses": 15,
+            "tradeCount": 314,
+            "_annualized": false,
+            "_depositUsedForDrawdown": 10000.0,
+            "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+          },
+          "outOfSampleMetrics": {
+            "netProfit": -58.39,
+            "profitFactor": 0.9294,
+            "winRate": 0.355,
+            "avgTrade": -0.35,
+            "expectedPayoff": -0.35,
+            "maxDrawdown": {
+              "absolute": 197.03,
+              "percent": 0.0197
+            },
+            "recoveryFactor": -0.2964,
+            "sharpe": -0.0271,
+            "sortino": -0.0594,
+            "largestWin": 43.97,
+            "largestLoss": -23.99,
+            "consecutiveWins": 7,
+            "consecutiveLosses": 11,
+            "tradeCount": 169,
+            "_annualized": false,
+            "_depositUsedForDrawdown": 10000.0,
+            "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+          },
+          "inSampleTradeCount": 314,
+          "outOfSampleTradeCount": 169
+        },
+        "findings": [
+          "Split boundary (time-based, 80% in-sample): 2026-02-09T23:00:00",
+          "In-sample: 314 trades. Out-of-sample: 169 trades.",
+          "In-sample and out-of-sample metrics computed independently and are reported separately below -- never combined into one number."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "WALK_FORWARD:2e9d7b70f8c5c4a1",
+        "versionId": "QUANTUMPULSE-BTC-v1.26-2026-07-03",
+        "evidenceId": "2e9d7b70f8c5c4a1",
+        "validationType": "WALK_FORWARD",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "7bece38fd2d8be72",
+        "inputEvidenceHash": "2e9d7b70f8c5c4a1",
+        "startedAt": "2026-09-04T15:38:39.489859Z",
+        "completedAt": "2026-09-04T15:38:39.555849Z",
+        "methodology": "Expanding-window, one test window per calendar year (M4-methodology-v1). Never collapsed into a single score.",
+        "parameters": {
+          "windowDefinition": "calendar-year",
+          "windowCount": 2
+        },
+        "metrics": {
+          "windows": [
+            {
+              "testYear": 2025,
+              "trainStart": "2024-01-02T11:00:00",
+              "trainEnd": "2024-07-29T14:00:00",
+              "testStart": "2025-01-01T00:00:00",
+              "testEnd": "2025-12-31T23:59:59",
+              "trainTradeCount": 207,
+              "testTradeCount": 66,
+              "trainMetrics": {
+                "netProfit": -65.85,
+                "profitFactor": 0.938,
+                "winRate": 0.4251,
+                "avgTrade": -0.32,
+                "expectedPayoff": -0.32,
+                "maxDrawdown": {
+                  "absolute": 247.19,
+                  "percent": 0.0245
+                },
+                "recoveryFactor": -0.2664,
+                "sharpe": -0.0245,
+                "sortino": -0.0456,
+                "largestWin": 41.19,
+                "largestLoss": -27.68,
+                "consecutiveWins": 6,
+                "consecutiveLosses": 15,
+                "tradeCount": 207,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "testMetrics": {
+                "netProfit": 22.93,
+                "profitFactor": 1.0389,
+                "winRate": 0.4242,
+                "avgTrade": 0.35,
+                "expectedPayoff": 0.35,
+                "maxDrawdown": {
+                  "absolute": 245.63,
+                  "percent": 0.0244
+                },
+                "recoveryFactor": 0.0934,
+                "sharpe": 0.0146,
+                "sortino": 0.028,
+                "largestWin": 54.39,
+                "largestLoss": -53.95,
+                "consecutiveWins": 5,
+                "consecutiveLosses": 7,
+                "tradeCount": 66,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "configurationVersion": "QUANTUMPULSE-BTC-v1.26-2026-07-03",
+              "status": "PASS"
+            },
+            {
+              "testYear": 2026,
+              "trainStart": "2024-01-02T11:00:00",
+              "trainEnd": "2025-10-18T01:00:00",
+              "testStart": "2026-01-01T00:00:00",
+              "testEnd": "2026-12-31T23:59:59",
+              "trainTradeCount": 273,
+              "testTradeCount": 210,
+              "trainMetrics": {
+                "netProfit": -42.92,
+                "profitFactor": 0.974,
+                "winRate": 0.4249,
+                "avgTrade": -0.16,
+                "expectedPayoff": -0.16,
+                "maxDrawdown": {
+                  "absolute": 367.23,
+                  "percent": 0.0363
+                },
+                "recoveryFactor": -0.1169,
+                "sharpe": -0.0097,
+                "sortino": -0.0173,
+                "largestWin": 54.39,
+                "largestLoss": -53.95,
+                "consecutiveWins": 6,
+                "consecutiveLosses": 15,
+                "tradeCount": 273,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "testMetrics": {
+                "netProfit": 164.93,
+                "profitFactor": 1.1521,
+                "winRate": 0.3952,
+                "avgTrade": 0.79,
+                "expectedPayoff": 0.79,
+                "maxDrawdown": {
+                  "absolute": 269.65,
+                  "percent": 0.0262
+                },
+                "recoveryFactor": 0.6116,
+                "sharpe": 0.052,
+                "sortino": 0.1087,
+                "largestWin": 53.3,
+                "largestLoss": -52.33,
+                "consecutiveWins": 7,
+                "consecutiveLosses": 11,
+                "tradeCount": 210,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "configurationVersion": "QUANTUMPULSE-BTC-v1.26-2026-07-03",
+              "status": "PASS"
+            }
+          ]
+        },
+        "findings": [
+          "2 walk-forward windows (one per calendar year from 2025 to 2026, 2024 reserved as the initial training-only period). Same configuration (QUANTUMPULSE-BTC-v1.26-2026-07-03) used in every window -- no re-optimization between windows."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "TEMPORAL_STABILITY:2e9d7b70f8c5c4a1",
+        "versionId": "QUANTUMPULSE-BTC-v1.26-2026-07-03",
+        "evidenceId": "2e9d7b70f8c5c4a1",
+        "validationType": "TEMPORAL_STABILITY",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "7bece38fd2d8be72",
+        "inputEvidenceHash": "2e9d7b70f8c5c4a1",
+        "startedAt": "2026-09-04T15:38:39.555849Z",
+        "completedAt": "2026-09-04T15:38:39.581724Z",
+        "methodology": "Calendar-period aggregation (month/quarter/year) plus inter-trade gap and best-single-period concentration.",
+        "parameters": {},
+        "metrics": {
+          "monthly": {
+            "2024-01": {
+              "tradeCount": 31,
+              "netProfit": -51.16
+            },
+            "2024-02": {
+              "tradeCount": 32,
+              "netProfit": 122.58
+            },
+            "2024-03": {
+              "tradeCount": 29,
+              "netProfit": -50.55
+            },
+            "2024-04": {
+              "tradeCount": 27,
+              "netProfit": -73.29
+            },
+            "2024-05": {
+              "tradeCount": 33,
+              "netProfit": -58.7
+            },
+            "2024-06": {
+              "tradeCount": 26,
+              "netProfit": 6.57
+            },
+            "2024-07": {
+              "tradeCount": 29,
+              "netProfit": 38.7
+            },
+            "2025-01": {
+              "tradeCount": 26,
+              "netProfit": -153.69
+            },
+            "2025-02": {
+              "tradeCount": 31,
+              "netProfit": 121.55
+            },
+            "2025-03": {
+              "tradeCount": 8,
+              "netProfit": 63.82
+            },
+            "2025-10": {
+              "tradeCount": 1,
+              "netProfit": -8.75
+            },
+            "2026-01": {
+              "tradeCount": 32,
+              "netProfit": 167.04
+            },
+            "2026-02": {
+              "tradeCount": 25,
+              "netProfit": 27.19
+            },
+            "2026-03": {
+              "tradeCount": 30,
+              "netProfit": -98.51
+            },
+            "2026-04": {
+              "tradeCount": 27,
+              "netProfit": -17.62
+            },
+            "2026-05": {
+              "tradeCount": 17,
+              "netProfit": 25.84
+            },
+            "2026-06": {
+              "tradeCount": 34,
+              "netProfit": 11.28
+            },
+            "2026-07": {
+              "tradeCount": 23,
+              "netProfit": -35.18
+            },
+            "2026-08": {
+              "tradeCount": 22,
+              "netProfit": 84.89
+            }
+          },
+          "quarterly": {
+            "2024-Q1": {
+              "tradeCount": 92,
+              "netProfit": 20.87
+            },
+            "2024-Q2": {
+              "tradeCount": 86,
+              "netProfit": -125.42
+            },
+            "2024-Q3": {
+              "tradeCount": 29,
+              "netProfit": 38.7
+            },
+            "2025-Q1": {
+              "tradeCount": 65,
+              "netProfit": 31.68
+            },
+            "2025-Q4": {
+              "tradeCount": 1,
+              "netProfit": -8.75
+            },
+            "2026-Q1": {
+              "tradeCount": 87,
+              "netProfit": 95.72
+            },
+            "2026-Q2": {
+              "tradeCount": 78,
+              "netProfit": 19.5
+            },
+            "2026-Q3": {
+              "tradeCount": 45,
+              "netProfit": 49.71
+            }
+          },
+          "yearly": {
+            "2024": {
+              "tradeCount": 207,
+              "netProfit": -65.85
+            },
+            "2025": {
+              "tradeCount": 66,
+              "netProfit": 22.93
+            },
+            "2026": {
+              "tradeCount": 210,
+              "netProfit": 164.93
+            }
+          },
+          "longestInactiveGapDays": 221,
+          "bestMonthShareOfPositiveMonths": 0.2495,
+          "winningMonths": 10,
+          "losingMonths": 9,
+          "flatMonths": 0
+        },
+        "findings": [
+          "19 distinct months, 3 distinct years represented.",
+          "Longest gap with zero trades: 221 days.",
+          "The single best month accounts for 25.0% of all positive monthly profit -- reported as a fact, no pass/fail threshold applied."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "REGIME_COVERAGE:2e9d7b70f8c5c4a1",
+        "versionId": "QUANTUMPULSE-BTC-v1.26-2026-07-03",
+        "evidenceId": "2e9d7b70f8c5c4a1",
+        "validationType": "REGIME_COVERAGE",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "7bece38fd2d8be72",
+        "inputEvidenceHash": "2e9d7b70f8c5c4a1",
+        "startedAt": "2026-09-04T15:38:39.581724Z",
+        "completedAt": "2026-09-04T15:38:39.582723Z",
+        "methodology": "Per-regime trade grouping using Trade.marketRegime, when present.",
+        "parameters": {},
+        "metrics": {
+          "regimesRepresented": [],
+          "tradeCountByRegime": {}
+        },
+        "findings": [
+          "No trades in this Evidence carry a marketRegime tag -- regime coverage cannot be computed for this Evidence. No regime classifier exists yet in this research program (see design doc section 11); this is reported honestly, not fabricated."
+        ],
+        "warnings": [],
+        "status": "INCONCLUSIVE",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "PERFORMANCE_DISTRIBUTION:2e9d7b70f8c5c4a1",
+        "versionId": "QUANTUMPULSE-BTC-v1.26-2026-07-03",
+        "evidenceId": "2e9d7b70f8c5c4a1",
+        "validationType": "PERFORMANCE_DISTRIBUTION",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "7bece38fd2d8be72",
+        "inputEvidenceHash": "2e9d7b70f8c5c4a1",
+        "startedAt": "2026-09-04T15:38:39.582723Z",
+        "completedAt": "2026-09-04T15:38:39.589719Z",
+        "methodology": "Distribution statistics beyond total return: median, expectancy, streaks, top-decile concentration.",
+        "parameters": {},
+        "metrics": {
+          "profitFactor": 1.0446,
+          "winRate": 0.412,
+          "avgTrade": 0.25,
+          "medianTrade": -2.23,
+          "expectancy": 0.2526,
+          "maxDrawdown": {
+            "absolute": 367.23,
+            "percent": 0.0363
+          },
+          "largestWin": 54.39,
+          "largestLoss": -53.95,
+          "consecutiveWins": 7,
+          "consecutiveLosses": 15,
+          "topDecileWinShareOfGrossProfit": 0.2905
+        },
+        "findings": [
+          "Median trade P&L: -2.23. Expectancy per trade: 0.2526.",
+          "Best 10% of winning trades account for 29.0% of total gross profit -- a concentration fact, not a pass/fail judgment."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "PARAMETER_SENSITIVITY:2e9d7b70f8c5c4a1",
+        "versionId": "QUANTUMPULSE-BTC-v1.26-2026-07-03",
+        "evidenceId": "2e9d7b70f8c5c4a1",
+        "validationType": "PARAMETER_SENSITIVITY",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "n/a",
+        "datasetHash": "7bece38fd2d8be72",
+        "inputEvidenceHash": "2e9d7b70f8c5c4a1",
+        "startedAt": "2026-09-04T15:38:39.589719Z",
+        "completedAt": "2026-09-04T15:38:39.589719Z",
+        "methodology": "Baseline-vs-perturbed-configuration comparison (framework only -- see design doc section 12).",
+        "parameters": {},
+        "metrics": {},
+        "findings": [
+          "Not executed for this Evidence: real parameter-sensitivity analysis requires new backtests with perturbed EA inputs, which this sprint's guardrails explicitly forbid ('Do not optimize G01. Do not change G01 parameters.'). The framework itself is built and verified against synthetic configurations (see test_validation_engine.py Test H). Deferred to a future sprint that explicitly authorizes new runs."
+        ],
+        "warnings": [],
+        "status": "INCONCLUSIVE",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      }
+    ]
+  },
+  "m5_full": {
+    "riskAnalysisId": "ddf1b0ebeeee0050",
+    "versionId": "QUANTUMPULSE-BTC-v1.26-2026-07-03",
+    "evidenceId": "2e9d7b70f8c5c4a1",
+    "validationId": "37fa81efc601120b",
+    "rulesetVersion": "none-defined",
+    "methodologyVersion": "M5-methodology-v1",
+    "inputEvidenceHash": "2e9d7b70f8c5c4a1",
+    "inputValidationHash": "37fa81efc601120b",
+    "generatedAt": "2026-09-04T15:38:54.079568Z",
+    "drawdown": {
+      "curveType": "balance (trade-close), NOT intraday equity -- see design doc section 8",
+      "equityDrawdownAvailable": false,
+      "balanceDrawdownAvailable": true,
+      "maxDrawdown": 367.23,
+      "maxDrawdownPercent": 0.0363,
+      "maxDrawdownDurationDays": 698,
+      "averageDrawdown": 130.95,
+      "medianDrawdown": 60.66,
+      "drawdownFrequency": 6,
+      "episodeCount": 6,
+      "unrecoveredEpisodes": 1,
+      "dataQuality": "LIMITED",
+      "note": "DRAWDOWN_ANALYSIS_LIMITED: no intraday/tick equity series exists in this Evidence (Evidence.curves is empty) -- figures above are BALANCE drawdown (closed trades only), not EQUITY drawdown."
+    },
+    "lossDistribution": {
+      "count": 284,
+      "largestLoss": -53.95,
+      "averageLoss": -9.63,
+      "medianLoss": -7.52,
+      "stdevLoss": 8.35,
+      "percentiles": {
+        "P50": 7.59,
+        "P75": 14.02,
+        "P90": 19.62,
+        "P95": 24.2,
+        "P99": 40.9
+      },
+      "maxConsecutiveLosses": 15,
+      "averageConsecutiveLossLength": 2.7,
+      "lossStreakEpisodes": 105,
+      "clusteredLossShare": 0.8451,
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "winDistribution": {
+      "count": 199,
+      "largestWin": 54.39,
+      "averageWin": 14.35,
+      "medianWin": 9.96,
+      "stdevWin": 12.89,
+      "percentiles": {
+        "P50": 9.96,
+        "P75": 22.59,
+        "P90": 32.13,
+        "P95": 38.91,
+        "P99": 53.22
+      },
+      "maxConsecutiveWins": 7,
+      "averageConsecutiveWinLength": 1.9,
+      "winStreakEpisodes": 105,
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "expectancy": {
+      "expectancyPerTrade": 0.2526,
+      "averageWin": 14.35,
+      "averageLoss": -9.63,
+      "winLossRatio": 1.4908,
+      "profitFactorNet": 1.0446,
+      "grossProfitNet": 2856.48,
+      "grossLossNet": -2734.47,
+      "netResult": 122.01,
+      "grossProfitRaw": "UNKNOWN",
+      "grossLossRaw": "UNKNOWN",
+      "dataQuality": "AVAILABLE",
+      "note": "Per-trade gross (pre-cost) figures are UNKNOWN for this Evidence's adapter -- only net-of-cost figures are available (UNKNOWN, not assumed equal to net)."
+    },
+    "lossStreaks": {
+      "maxConsecutiveLosses": 15,
+      "maxLossStreakDurationDays": 13,
+      "capitalImpactOfLongestLossStreak": -147.21,
+      "capitalImpactPctOfDeposit": 0.0147,
+      "dataQuality": "AVAILABLE"
+    },
+    "recovery": {
+      "recoveryEpisodes": 5,
+      "unrecoveredEpisodesAtEndOfPeriod": 1,
+      "averageRecoveryDurationDays": 179,
+      "percentOfPeriodBelowPriorPeak": 0.949,
+      "dataQuality": "LIMITED",
+      "note": "Recovery timing is reconstructed from the same balance-level (trade-close) equity curve as drawdown -- not intraday equity. See drawdown section."
+    },
+    "tailRisk": {
+      "worst1Trade": -53.95,
+      "worst5Trades": -223.24,
+      "worst10Trades": -364.92,
+      "worst1SharePctOfGrossLoss": 0.0197,
+      "worst5SharePctOfGrossLoss": 0.0816,
+      "worst10SharePctOfGrossLoss": 0.1335,
+      "P95Loss": 24.2,
+      "P99Loss": 40.9,
+      "largestDrawdown": 367.23,
+      "worstLossStreakCapitalImpact": -147.21,
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "concentration": {
+      "top1PctWinnersShareOfGrossProfit": 0.0377,
+      "top5PctWinnersShareOfGrossProfit": 0.165,
+      "dataQuality": "AVAILABLE",
+      "bestYear": {
+        "year": "2026",
+        "tradeCount": 210,
+        "netProfit": 164.93
+      },
+      "worstYear": {
+        "year": "2024",
+        "tradeCount": 207,
+        "netProfit": -65.85
+      },
+      "bestMonth": {
+        "month": "2026-01",
+        "tradeCount": 32,
+        "netProfit": 167.04
+      },
+      "worstMonth": {
+        "month": "2025-01",
+        "tradeCount": 26,
+        "netProfit": -153.69
+      },
+      "positivePeriodsCount": 10,
+      "negativePeriodsCount": 9,
+      "source": "reused from M4 TEMPORAL_STABILITY record (not recomputed)"
+    },
+    "temporalRisk": {
+      "perYear": {
+        "2024": {
+          "tradeCount": 207,
+          "maxDrawdownWithinYear": 247.19,
+          "maxConsecutiveLossesWithinYear": 15
+        },
+        "2025": {
+          "tradeCount": 66,
+          "maxDrawdownWithinYear": 245.63,
+          "maxConsecutiveLossesWithinYear": 7
+        },
+        "2026": {
+          "tradeCount": 210,
+          "maxDrawdownWithinYear": 269.65,
+          "maxConsecutiveLossesWithinYear": 11
+        }
+      },
+      "worstDrawdownYear": "2026",
+      "dataQuality": "AVAILABLE",
+      "note": "Per-year drawdown/loss-streak computed fresh here (not in M4's TEMPORAL_STABILITY, which only tracked net profit/PF per period)."
+    },
+    "regimeRisk": {
+      "dataQuality": "UNAVAILABLE",
+      "note": "REGIME_DATA_UNAVAILABLE: no trades in this Evidence carry a marketRegime tag. No regime classifier exists yet in this research program -- not inferred.",
+      "riskByRegime": {}
+    },
+    "exposureRisk": {
+      "positionSize": {
+        "maxPositionSize": 0.01,
+        "averagePositionSize": 0.01,
+        "positionSizeStdev": 0.0,
+        "topDecilePositionShareOfTotalVolume": 0.0994
+      },
+      "directionalConcentration": {
+        "long": 237,
+        "short": 246,
+        "longSharePct": 0.4907
+      },
+      "simultaneousExposure": null,
+      "dataQuality": "LIMITED",
+      "note": "EXPOSURE_ANALYSIS_LIMITED: durationSeconds is not populated for every trade in this Evidence -- simultaneous-position reconstruction skipped rather than guessed."
+    },
+    "costRisk": {
+      "dataQuality": "UNKNOWN",
+      "totalCommission": "UNKNOWN",
+      "totalSwap": "UNKNOWN",
+      "spreadModel": "UNKNOWN",
+      "note": "Per-trade commission/swap are not populated for every trade in this Evidence's adapter -- reported UNKNOWN, not assumed zero (M0.1: UNKNOWN != ZERO)."
+    },
+    "dataQuality": {
+      "drawdown": "LIMITED",
+      "lossDistribution": "AVAILABLE",
+      "winDistribution": "AVAILABLE",
+      "expectancy": "AVAILABLE",
+      "lossStreaks": "AVAILABLE",
+      "recovery": "LIMITED",
+      "tailRisk": "AVAILABLE",
+      "concentration": "AVAILABLE",
+      "temporalRisk": "AVAILABLE",
+      "regimeRisk": "UNAVAILABLE",
+      "exposureRisk": "LIMITED",
+      "costRisk": "UNKNOWN"
+    },
+    "findings": [
+      "Max drawdown (balance): 367.23 (0.0363), 6 drawdown episodes, 1 unrecovered at end of period.",
+      "Expectancy per trade: 0.2526. Max consecutive losses: 15."
+    ],
+    "warnings": [],
+    "limitations": [
+      "DRAWDOWN_ANALYSIS_LIMITED: no intraday/tick equity series exists in this Evidence (Evidence.curves is empty) -- figures above are BALANCE drawdown (closed trades only), not EQUITY drawdown.",
+      "Recovery timing is reconstructed from the same balance-level (trade-close) equity curve as drawdown -- not intraday equity. See drawdown section.",
+      "REGIME_DATA_UNAVAILABLE: no trades in this Evidence carry a marketRegime tag. No regime classifier exists yet in this research program -- not inferred.",
+      "EXPOSURE_ANALYSIS_LIMITED: durationSeconds is not populated for every trade in this Evidence -- simultaneous-position reconstruction skipped rather than guessed.",
+      "Per-trade commission/swap are not populated for every trade in this Evidence's adapter -- reported UNKNOWN, not assumed zero (M0.1: UNKNOWN != ZERO)."
+    ],
+    "status": "PARTIAL",
+    "riskAnalysisHash": "ddf1b0ebeeee0050",
+    "createdBy": "AT24-M5-Risk-Analysis-Engine-v1.0"
+  },
+  "m6_full": [
+    {
+      "tradingSystemId": "QUANTUMPULSE-BTC",
+      "versionId": "QUANTUMPULSE-BTC-v1.26-2026-07-03",
+      "evidenceId": null,
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "SYSTEM_CREATED",
+      "observedAt": "2026-09-04T15:38:54.085567Z",
+      "recordedAt": "2026-09-04T15:38:54.085567Z",
+      "source": "AT24-M6-History-Engine-v1.0",
+      "sourceHash": null,
+      "payload": {
+        "tradingSystemId": "QUANTUMPULSE-BTC"
+      },
+      "previousEventId": null,
+      "previousEventHash": null,
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "979e2b0f8a97f645",
+      "contentHash": "979e2b0f8a97f645"
+    },
+    {
+      "tradingSystemId": "QUANTUMPULSE-BTC",
+      "versionId": "QUANTUMPULSE-BTC-v1.26-2026-07-03",
+      "evidenceId": null,
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "VERSION_CREATED",
+      "observedAt": "2026-09-04T15:38:54.085567Z",
+      "recordedAt": "2026-09-04T15:38:54.085567Z",
+      "source": "AT24-M6-History-Engine-v1.0",
+      "sourceHash": null,
+      "payload": {
+        "versionId": "QUANTUMPULSE-BTC-v1.26-2026-07-03"
+      },
+      "previousEventId": "979e2b0f8a97f645",
+      "previousEventHash": "979e2b0f8a97f645",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "312b3f2864454e2f",
+      "contentHash": "312b3f2864454e2f"
+    },
+    {
+      "tradingSystemId": "QUANTUMPULSE-BTC",
+      "versionId": "QUANTUMPULSE-BTC-v1.26-2026-07-03",
+      "evidenceId": "2e9d7b70f8c5c4a1",
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "EVIDENCE_ADDED",
+      "observedAt": "2026-08-21T08:00:00",
+      "recordedAt": "2026-09-04T15:38:54.085567Z",
+      "source": "AT24-M2-Evidence-Engine-v0.2",
+      "sourceHash": "2e9d7b70f8c5c4a1",
+      "payload": {
+        "sourceAdapter": "python-quantum-engine-backtest-v1",
+        "tradeCount": 483
+      },
+      "previousEventId": "312b3f2864454e2f",
+      "previousEventHash": "312b3f2864454e2f",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "ebc14b555147287e",
+      "contentHash": "ebc14b555147287e"
+    },
+    {
+      "tradingSystemId": "QUANTUMPULSE-BTC",
+      "versionId": "QUANTUMPULSE-BTC-v1.26-2026-07-03",
+      "evidenceId": "2e9d7b70f8c5c4a1",
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "EVIDENCE_VERIFIED",
+      "observedAt": "2026-09-04T15:38:54.085567Z",
+      "recordedAt": "2026-09-04T15:38:54.085567Z",
+      "source": "AT24-M3-Evidence-Verifier-v1.0",
+      "sourceHash": "2e9d7b70f8c5c4a1",
+      "payload": {
+        "m3Status": "VERIFIED",
+        "warnings": [
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'spreadModel' is null",
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'commissionModel' is null",
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'swapModel' is null",
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'tickDataQuality' is null"
+        ]
+      },
+      "previousEventId": "ebc14b555147287e",
+      "previousEventHash": "ebc14b555147287e",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "d911fcddd2109e17",
+      "contentHash": "d911fcddd2109e17"
+    },
+    {
+      "tradingSystemId": "QUANTUMPULSE-BTC",
+      "versionId": "QUANTUMPULSE-BTC-v1.26-2026-07-03",
+      "evidenceId": "2e9d7b70f8c5c4a1",
+      "validationId": "2e9d7b70f8c5c4a1",
+      "riskAnalysisId": null,
+      "eventType": "VALIDATION_COMPLETED",
+      "observedAt": "2026-09-04T15:38:54.085567Z",
+      "recordedAt": "2026-09-04T15:38:54.085567Z",
+      "source": "AT24-M4-Validation-Engine-v1.0",
+      "sourceHash": "2e9d7b70f8c5c4a1",
+      "payload": {
+        "overallStatus": "PASS",
+        "recordStatuses": {
+          "SAMPLE_SIZE": "PASS",
+          "OUT_OF_SAMPLE": "PASS",
+          "WALK_FORWARD": "PASS",
+          "TEMPORAL_STABILITY": "PASS",
+          "REGIME_COVERAGE": "INCONCLUSIVE",
+          "PERFORMANCE_DISTRIBUTION": "PASS",
+          "PARAMETER_SENSITIVITY": "INCONCLUSIVE"
+        }
+      },
+      "previousEventId": "d911fcddd2109e17",
+      "previousEventHash": "d911fcddd2109e17",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "aaada919c117e259",
+      "contentHash": "aaada919c117e259"
+    },
+    {
+      "tradingSystemId": "QUANTUMPULSE-BTC",
+      "versionId": "QUANTUMPULSE-BTC-v1.26-2026-07-03",
+      "evidenceId": "2e9d7b70f8c5c4a1",
+      "validationId": "2e9d7b70f8c5c4a1",
+      "riskAnalysisId": "ddf1b0ebeeee0050",
+      "eventType": "RISK_ANALYSIS_COMPLETED",
+      "observedAt": "2026-09-04T15:38:54.085567Z",
+      "recordedAt": "2026-09-04T15:38:54.085567Z",
+      "source": "AT24-M5-Risk-Analysis-Engine-v1.0",
+      "sourceHash": "ddf1b0ebeeee0050",
+      "payload": {
+        "status": "PARTIAL",
+        "dataQuality": {
+          "drawdown": "LIMITED",
+          "lossDistribution": "AVAILABLE",
+          "winDistribution": "AVAILABLE",
+          "expectancy": "AVAILABLE",
+          "lossStreaks": "AVAILABLE",
+          "recovery": "LIMITED",
+          "tailRisk": "AVAILABLE",
+          "concentration": "AVAILABLE",
+          "temporalRisk": "AVAILABLE",
+          "regimeRisk": "UNAVAILABLE",
+          "exposureRisk": "LIMITED",
+          "costRisk": "UNKNOWN"
+        }
+      },
+      "previousEventId": "aaada919c117e259",
+      "previousEventHash": "aaada919c117e259",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "26161eb37e508eb0",
+      "contentHash": "26161eb37e508eb0"
+    }
+  ]
+}

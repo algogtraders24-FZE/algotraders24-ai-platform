@@ -39,6 +39,8 @@ import {
   drawCciPanel,
   drawWilliamsRPanel,
   drawAwesomeOscillatorPanel,
+  drawEquityPanel,
+  type ChartEquityPoint,
 } from "./sub-panel-renderer";
 import type { IndicatorSeries, ChartPanelId } from "./indicators/types";
 import { drawDrawingObjects, drawDrawingPreview } from "./drawing/drawing-renderer";
@@ -52,6 +54,18 @@ export interface RenderParams {
   viewport: Viewport;
   timeframe: SignalTimeframe;
   crosshair?: CrosshairState | null;
+  /**
+   * Sprint D2.9.2 - a real wall-clock time (ms) to draw a vertical-only
+   * "ghost" guide line at, driven by ANOTHER tiled pane's own local
+   * crosshair hover (NativeChart.tsx lifts it to ChartPanel and fans it
+   * out to every other pane). Deliberately vertical-only, no horizontal
+   * line or price label - other panes can have a different symbol/price
+   * scale entirely, so only the shared TIME dimension is meaningful
+   * across panes. Ignored whenever this pane has its own local `crosshair`
+   * active, so a hovering pane never draws both its real crosshair and a
+   * ghost line for the same moment.
+   */
+  externalCrosshairTime?: number | null;
   colors: ChartColors;
   /** Sub-panels to render below the price panel, e.g. ["volume", "rsi"] - "price" is implicit and always included. Empty array (default) reproduces D2.7.2's original single-panel layout exactly. */
   activePanels?: ChartPanelId[];
@@ -95,6 +109,8 @@ export interface RenderParams {
   algoTestTrades?: AlgoTestTradeMarker[];
   /** The trade list's currently-selected row (algo-test-panel.tsx) - rendered with emphasis; every other trade renders at reduced opacity so the selected one reads clearly against the rest. */
   selectedAlgoTestTradeId?: string | null;
+  /** Sprint D2.9.4 - a completed Algo Test run's own real running-balance series (AlgoTestChartOverlay.equityCurve). Renders as its own dedicated "equity" sub-panel (added to activePanels by NativeChart.tsx only while this is present and non-empty) - never derived/re-simulated here, just plotted. */
+  equityCurve?: ChartEquityPoint[];
 }
 
 /** P3.2B - one completed trade's chart-plottable fields (a strict subset of AlgoTestTradeView - the renderer never needs pnl/fees/etc.). */
@@ -127,6 +143,7 @@ export function renderChart(params: RenderParams): void {
     viewport,
     timeframe,
     crosshair,
+    externalCrosshairTime = null,
     colors,
     activePanels = [],
     indicatorSeries = [],
@@ -141,6 +158,7 @@ export function renderChart(params: RenderParams): void {
     showTradeLines = false,
     algoTestTrades = [],
     selectedAlgoTestTradeId = null,
+    equityCurve,
   } = params;
   const plotWidth = Math.max(0, dims.width - dims.priceAxisWidth);
   const plotHeight = Math.max(0, dims.height - dims.timeAxisHeight);
@@ -207,13 +225,51 @@ export function renderChart(params: RenderParams): void {
     else if (row.id === "cci") drawCciPanel(ctx, series, candles, indexRange, viewport, plotWidth, row, colors);
     else if (row.id === "williams-r") drawWilliamsRPanel(ctx, series, candles, indexRange, viewport, plotWidth, row, colors);
     else if (row.id === "awesome-oscillator") drawAwesomeOscillatorPanel(ctx, series, candles, indexRange, viewport, plotWidth, row, colors);
+    else if (row.id === "equity") drawEquityPanel(ctx, equityCurve, candles, indexRange, plotWidth, row, colors);
   }
 
   drawTimeAxis(ctx, timeTicks, indexRange, plotWidth, plotHeight, colors);
 
   if (crosshair && crosshair.index >= 0 && crosshair.index < candles.length) {
     drawCrosshair(ctx, crosshair, candles[crosshair.index], indexRange, viewport, plotWidth, plotHeight, colors, priceRow, priceTicks);
+  } else if (externalCrosshairTime !== null && candles.length > 0) {
+    drawExternalCrosshairLine(ctx, externalCrosshairTime, candles, indexRange, plotWidth, plotHeight, colors);
   }
+}
+
+// Sprint D2.9.2 - the cross-pane "ghost" guide line: a real time (not this
+// pane's own hover) converted to THIS pane's own index scale via the exact
+// same fractionalIndexForTime/indexToX primitives every other x-position in
+// this file already uses - never a second coordinate system, and correct
+// even when the two panes show different timeframes/symbols, since the
+// lookup is keyed on a real timestamp both panes agree on. Drawn in
+// `colors.accent` at reduced opacity so it reads as a synced marker,
+// visually distinct from a real local crosshair's textTertiary dashed
+// cross. Silently omitted when the time falls outside this pane's own
+// currently-visible range - never clamped/guessed onto an edge.
+function drawExternalCrosshairLine(
+  ctx: CanvasRenderingContext2D,
+  time: number,
+  candles: readonly ChartCandle[],
+  indexRange: IndexRange,
+  plotWidth: number,
+  plotHeight: number,
+  colors: ChartColors,
+): void {
+  const index = fractionalIndexForTime(candles, time);
+  if (index < indexRange.minIndex || index > indexRange.maxIndex) return;
+  const x = indexToX(index, indexRange, plotWidth);
+
+  ctx.save();
+  ctx.globalAlpha = 0.5;
+  ctx.strokeStyle = colors.accent;
+  ctx.setLineDash([3, 3]);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x, 0);
+  ctx.lineTo(x, plotHeight);
+  ctx.stroke();
+  ctx.restore();
 }
 
 // Sprint D2.7.6, Phase 4 - the vertical counterpart to drawPriceGrid,
@@ -546,10 +602,98 @@ function drawTradeLine(ctx: CanvasRenderingContext2D, plotWidth: number, row: Pa
 // COMPATIBILITY.md already named, not built here.
 const ALGO_TRADE_MARKER_RADIUS_PX = 4;
 const ALGO_TRADE_MARKER_RADIUS_SELECTED_PX = 6;
+// Sprint D2.9.4 - the clustering the P3.2B comment above named as a future
+// need for a wider time range: trades whose entry markers would land within
+// this many pixels of each other collapse into one aggregate marker with a
+// count badge, instead of an unreadable pile of overlapping
+// triangles/squares/lines. 10px keeps two genuinely distinct, individually-
+// clickable-looking markers from ever visually merging at normal zoom
+// levels - only real crowding (many trades in a small time span, or a
+// heavily zoomed-out view) triggers it.
+const TRADE_CLUSTER_BUCKET_PX = 10;
+const TRADE_CLUSTER_RADIUS_PX = 8;
 
 function algoTradePx(time: number, price: number, candles: readonly ChartCandle[], indexRange: IndexRange, viewport: Viewport, plotWidth: number, row: PanelRow): { x: number; y: number } {
   const index = fractionalIndexForTime(candles, time);
   return { x: indexToX(index, indexRange, plotWidth), y: row.top + priceToY(price, viewport, row.height) };
+}
+
+function drawSingleAlgoTestTrade(
+  ctx: CanvasRenderingContext2D,
+  trade: AlgoTestTradeMarker,
+  entry: { x: number; y: number },
+  exit: { x: number; y: number },
+  colors: ChartColors,
+  selected: boolean,
+  dimmed: boolean,
+): void {
+  const color = trade.side === "BUY" ? colors.buyLine : colors.sellLine;
+  ctx.globalAlpha = dimmed ? 0.35 : 1;
+
+  ctx.strokeStyle = color;
+  ctx.setLineDash([3, 3]);
+  ctx.lineWidth = selected ? 2 : 1;
+  ctx.beginPath();
+  ctx.moveTo(entry.x, entry.y);
+  ctx.lineTo(exit.x, exit.y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  const radius = selected ? ALGO_TRADE_MARKER_RADIUS_SELECTED_PX : ALGO_TRADE_MARKER_RADIUS_PX;
+
+  // Entry: a filled triangle pointing the trade's direction (up for BUY,
+  // down for SELL) - visually distinct from the exit's plain square, so
+  // "which end is entry" never depends on reading a label.
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  if (trade.side === "BUY") {
+    ctx.moveTo(entry.x, entry.y - radius);
+    ctx.lineTo(entry.x - radius, entry.y + radius);
+    ctx.lineTo(entry.x + radius, entry.y + radius);
+  } else {
+    ctx.moveTo(entry.x, entry.y + radius);
+    ctx.lineTo(entry.x - radius, entry.y - radius);
+    ctx.lineTo(entry.x + radius, entry.y - radius);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  // Exit: a filled square.
+  ctx.fillRect(exit.x - radius, exit.y - radius, radius * 2, radius * 2);
+
+  if (selected) {
+    ctx.strokeStyle = colors.accent;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(entry.x, entry.y, radius + 3, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  ctx.globalAlpha = 1;
+}
+
+// Sprint D2.9.4 - one aggregate marker for a bucket of >1 trades whose
+// entries land within TRADE_CLUSTER_BUCKET_PX of each other: a filled
+// circle (colors.accent, neutral - a cluster can mix BUY and SELL, so no
+// single side color would be honest) at the bucket's own average position,
+// with a real count label, never a placeholder. Individual entry/exit
+// shapes and connecting lines are skipped entirely for a clustered bucket -
+// drawing them underneath would defeat the point (they're what was
+// unreadable in the first place).
+function drawTradeCluster(ctx: CanvasRenderingContext2D, members: { x: number; y: number }[], colors: ChartColors): void {
+  const x = members.reduce((sum, p) => sum + p.x, 0) / members.length;
+  const y = members.reduce((sum, p) => sum + p.y, 0) / members.length;
+
+  ctx.fillStyle = colors.accent;
+  ctx.beginPath();
+  ctx.arc(x, y, TRADE_CLUSTER_RADIUS_PX, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  ctx.fillStyle = colors.background;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(String(members.length), x, y + 0.5);
 }
 
 function drawAlgoTestTrades(
@@ -563,61 +707,52 @@ function drawAlgoTestTrades(
   colors: ChartColors,
   selectedTradeId: string | null,
 ): void {
+  interface PositionedTrade {
+    trade: AlgoTestTradeMarker;
+    entry: { x: number; y: number };
+    exit: { x: number; y: number };
+  }
+  const visible: PositionedTrade[] = [];
   for (const trade of trades) {
-    const selected = trade.tradeId === selectedTradeId;
-    const color = trade.side === "BUY" ? colors.buyLine : colors.sellLine;
     const entry = algoTradePx(trade.entryTime, trade.entryPrice, candles, indexRange, viewport, plotWidth, row);
     const exit = algoTradePx(trade.exitTime, trade.exitPrice, candles, indexRange, viewport, plotWidth, row);
-
     // Off-panel entirely (both ends outside this panel's row and outside
     // the visible width) - skip drawing, matching drawTradeLine's own
     // off-panel guard, just for x as well as y since these are fixed-time
     // points, not full-width live-price lines.
     const bothOffX = (entry.x < 0 && exit.x < 0) || (entry.x > plotWidth && exit.x > plotWidth);
     if (bothOffX) continue;
+    visible.push({ trade, entry, exit });
+  }
 
-    ctx.globalAlpha = selectedTradeId === null || selected ? 1 : 0.35;
+  // Bucket by the entry marker's own rounded pixel-x - the same position
+  // every individual trade already visually anchors on. A bucket of 1
+  // renders exactly as this function always has; a bucket of >1 collapses
+  // to one aggregate marker UNLESS it contains the currently-selected trade
+  // (the trade list's own selection must always stay individually visible,
+  // never hidden inside an aggregate).
+  const buckets = new Map<number, PositionedTrade[]>();
+  for (const item of visible) {
+    const bucketKey = Math.round(item.entry.x / TRADE_CLUSTER_BUCKET_PX);
+    const bucket = buckets.get(bucketKey);
+    if (bucket) bucket.push(item);
+    else buckets.set(bucketKey, [item]);
+  }
 
-    ctx.strokeStyle = color;
-    ctx.setLineDash([3, 3]);
-    ctx.lineWidth = selected ? 2 : 1;
-    ctx.beginPath();
-    ctx.moveTo(entry.x, entry.y);
-    ctx.lineTo(exit.x, exit.y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    const radius = selected ? ALGO_TRADE_MARKER_RADIUS_SELECTED_PX : ALGO_TRADE_MARKER_RADIUS_PX;
-
-    // Entry: a filled triangle pointing the trade's direction (up for BUY,
-    // down for SELL) - visually distinct from the exit's plain square, so
-    // "which end is entry" never depends on reading a label.
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    if (trade.side === "BUY") {
-      ctx.moveTo(entry.x, entry.y - radius);
-      ctx.lineTo(entry.x - radius, entry.y + radius);
-      ctx.lineTo(entry.x + radius, entry.y + radius);
+  for (const bucket of buckets.values()) {
+    const hasSelected = selectedTradeId !== null && bucket.some((item) => item.trade.tradeId === selectedTradeId);
+    if (bucket.length === 1 || hasSelected) {
+      for (const item of bucket) {
+        const selected = item.trade.tradeId === selectedTradeId;
+        drawSingleAlgoTestTrade(ctx, item.trade, item.entry, item.exit, colors, selected, selectedTradeId !== null && !selected);
+      }
     } else {
-      ctx.moveTo(entry.x, entry.y + radius);
-      ctx.lineTo(entry.x - radius, entry.y - radius);
-      ctx.lineTo(entry.x + radius, entry.y - radius);
+      drawTradeCluster(
+        ctx,
+        bucket.map((item) => item.entry),
+        colors,
+      );
     }
-    ctx.closePath();
-    ctx.fill();
-
-    // Exit: a filled square.
-    ctx.fillRect(exit.x - radius, exit.y - radius, radius * 2, radius * 2);
-
-    if (selected) {
-      ctx.strokeStyle = colors.accent;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(entry.x, entry.y, radius + 3, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-
-    ctx.globalAlpha = 1;
   }
 }
 

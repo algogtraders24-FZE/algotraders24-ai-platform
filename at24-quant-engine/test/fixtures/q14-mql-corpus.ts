@@ -145,7 +145,7 @@ export const Q14_CORPUS: readonly Q14Fixture[] = [
   },
   {
     id: "mql5-17-orderget-integer-ordertype",
-    description: "MQL5: OrderGetInteger(ORDER_TYPE) idiomatic order-type read — a REAL, DOCUMENTED coverage gap (only OrderType()/PositionGetInteger(POSITION_TYPE) are recognized) — condition resolves UNKNOWN, never guessed",
+    description: "MQL5: OrderGetInteger(ORDER_TYPE) idiomatic order-type read — recognized as a provable ORDER_TYPE_FILTER since Q1.5.2 (previously a documented coverage gap; OrderType()/PositionGetInteger(POSITION_TYPE) were the only recognized forms before this sprint)",
     dialect: "MQL5",
     expectation: "REDUCED_WITH_WARNINGS",
     source: mql5NoTrailer(`ulong ticket = 0;\n${EMA_GUARD5}trade.BuyStop(0.1,1.1030,_Symbol,0.0,0.0,ORDER_TIME_GTC,0,"c");\n}\n}\nif(OrderGetInteger(ORDER_TYPE)==ORDER_TYPE_BUY_STOP)\n{\ntrade.OrderDelete(ticket);\n}`),

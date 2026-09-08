@@ -3,9 +3,18 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { compileAIStrategyToIR } from "../src/runtime/strategy-ir/ai-compiler.js";
 import { validateStrategyIR } from "../src/runtime/strategy-ir/ir-validator.js";
+import { checkReductionEligibility } from "../src/runtime/reduction/eligibility-gate.js";
+import { reduceStrategyIRToSpec } from "../src/runtime/reduction/ir-to-spec-reducer.js";
+import { runSimulation } from "../src/runtime/simulation/simulation-engine.js";
+import { ZeroSpread } from "../src/runtime/simulation/spread-model.js";
+import { ZeroSlippage } from "../src/runtime/simulation/slippage-model.js";
+import { ZeroFee } from "../src/runtime/simulation/fee-model.js";
+import { ZeroLatency } from "../src/runtime/simulation/latency-model.js";
+import type { SimulationConfig } from "../src/runtime/simulation/simulation-engine.js";
+import type { OHLCVBar } from "../src/domain/market-data.js";
 import { SIM_INSTRUMENT, SIM_TIMEFRAME } from "./fixtures/simulation-fixtures.js";
 import { comparison, indicatorOperand, literal } from "../src/domain/expression.js";
-import { indicator } from "../src/domain/indicator-reference.js";
+import { indicator, indicatorKey } from "../src/domain/indicator-reference.js";
 import type { AIStrategyCompilerInput } from "../src/domain/strategy-ir/ai-boundary.js";
 
 function buildInput(): AIStrategyCompilerInput {
@@ -66,4 +75,40 @@ test("compileAIStrategyToIR requires an explicit strategyTimezone in identity â€
   const identity = { strategyId: "ai-1", strategyVersion: "1.0.0", name: "AI RSI Strategy", strategyTimezone: "Asia/Tokyo", createdAt: 1000 };
   const ir = compileAIStrategyToIR(buildInput(), identity);
   assert.equal(ir.timezone.strategyTimezone, "Asia/Tokyo");
+});
+
+test("P4: compileAIStrategyToIR's output genuinely passes checkReductionEligibility() (Q0.9's own, stricter gate) - not just validateStrategyIR()'s narrower Q0.7.46 check this file's own OTHER test above exercises. Empirically confirmed to FAIL unconditionally before this fix (docs/P4-NL-STRATEGY-COMPILER.md): sameDirectionBehavior 'REJECT' and reversal 'CLOSE_THEN_OPEN' both violate rules eligibility-gate.ts established after this compiler was last touched.", () => {
+  const ir = compileAIStrategyToIR(buildInput(), { strategyId: "ai-1", strategyVersion: "1.0.0", name: "AI RSI Strategy", strategyTimezone: "UTC", createdAt: 1000 });
+  const eligibility = checkReductionEligibility(ir);
+  assert.equal(eligibility.eligible, true, eligibility.blockingReasons.join("; "));
+  assert.equal(ir.positionManagement.pyramiding.sameDirectionBehavior, "ACCUMULATE");
+  assert.equal(ir.positionManagement.reversal.buyToSell, "REVERSE");
+  assert.equal(ir.positionManagement.reversal.sellToBuy, "REVERSE");
+});
+
+test("P4: an AI-compiled strategy reduces to a real, executable StrategySpec and produces real trades under a genuine RSI signal - not just a structurally/eligibility-valid IR that never fires", () => {
+  const ir = compileAIStrategyToIR(buildInput(), { strategyId: "ai-2", strategyVersion: "1.0.0", name: "AI RSI Strategy", strategyTimezone: "UTC", createdAt: 1000 });
+  const reduction = reduceStrategyIRToSpec(ir);
+  assert.equal(reduction.status === "BLOCKED", false, reduction.diagnostics.join("; "));
+  assert.ok(reduction.strategySpec);
+
+  const bars: OHLCVBar[] = Array.from({ length: 6 }, (_, i) => ({ timestamp: i * 3_600_000, instrument: SIM_INSTRUMENT, timeframe: SIM_TIMEFRAME, open: 100, high: 101, low: 99, close: 100, volume: 1000 }));
+  const rsiSeries = [50, 50, 25, 25, 75, 75]; // crosses below 30 at bar 2 (entry), above 70 at bar 4 (exit)
+  const indicatorSeries = new Map([[indicatorKey(indicator("RSI", 14)), rsiSeries]]);
+  const config: SimulationConfig = {
+    strategySpec: reduction.strategySpec!,
+    instrument: SIM_INSTRUMENT,
+    timeframe: SIM_TIMEFRAME,
+    initialBalance: 10_000,
+    datasetId: "p4-ai-compiler-test",
+    datasetVersion: "1",
+    dataFidelity: "D1",
+    spreadModel: ZeroSpread,
+    slippageModel: ZeroSlippage,
+    feeModel: ZeroFee,
+    latencyModel: ZeroLatency,
+    indicatorSeries,
+  };
+  const result = runSimulation(bars, config);
+  assert.ok(result.tradeLedger.length > 0 || result.finalPositions.length > 0, "a real RSI<30 entry must produce a real position or trade - a genuinely inert compilation would produce neither");
 });

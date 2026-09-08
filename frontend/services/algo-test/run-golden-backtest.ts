@@ -29,6 +29,18 @@ export interface GoldenBacktestRequest {
   startTime: string;
   endTime: string;
   initialBalance: number;
+  /**
+   * P3.4 - the ALREADY-VALIDATED, ALREADY-NORMALIZED priceThreshold value
+   * (services/algo-test/strategy-registry.ts's validateParameterValues()
+   * has run before this is ever called - never a raw, unchecked client
+   * value). Omitted means "use the engine's own default" - passed through
+   * to buildGoldenStrategySpec() unchanged, never re-validated here.
+   */
+  priceThreshold?: number;
+  /** P3.5 - same already-validated/already-normalized contract as priceThreshold, for the three risk parameters. */
+  positionSizeQuantity?: number;
+  stopLossDistance?: number;
+  takeProfitRMultiple?: number;
 }
 
 export interface GoldenBacktestOutcome {
@@ -65,7 +77,12 @@ export async function runGoldenBacktest(request: GoldenBacktestRequest, provider
   const indicatorSeries = buildPriceIndicatorSeries(bars);
 
   const config: SimulationConfig = {
-    strategySpec: buildGoldenStrategySpec(),
+    strategySpec: buildGoldenStrategySpec({
+      ...(request.priceThreshold !== undefined ? { priceThreshold: request.priceThreshold } : {}),
+      ...(request.positionSizeQuantity !== undefined ? { positionSizeQuantity: request.positionSizeQuantity } : {}),
+      ...(request.stopLossDistance !== undefined ? { stopLossDistance: request.stopLossDistance } : {}),
+      ...(request.takeProfitRMultiple !== undefined ? { takeProfitRMultiple: request.takeProfitRMultiple } : {}),
+    }),
     instrument,
     timeframe: request.timeframe,
     initialBalance: request.initialBalance,

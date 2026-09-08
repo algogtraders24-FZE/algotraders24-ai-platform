@@ -27,7 +27,9 @@ export interface WorkspaceSectionProps {
   /** Reserved-height placeholder text shown until the real content lands in a later phase. */
   pending?: string;
   minHeight?: number;
-  /** Opt-in panel identity for persisted collapse state - see PANEL_IDS. */
+  /** Opt-in panel identity for persisted collapse state - see PANEL_IDS. Also
+   *  rendered as the section's real DOM id, so #anchors (e.g. workspace#research)
+   *  actually scroll to it. */
   id?: PanelId;
   collapsible?: boolean;
   children?: ReactNode;
@@ -49,6 +51,7 @@ export default function WorkspaceSection({
 
   return (
     <section
+      id={id}
       className={`rounded-panel border bg-ink-2 ${emphasis ? "border-gold/40 shadow-raised" : "border-border"}`}
     >
       <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">

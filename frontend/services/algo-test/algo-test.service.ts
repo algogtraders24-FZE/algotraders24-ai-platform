@@ -1,45 +1,141 @@
 // services/algo-test/algo-test.service.ts
 // P3.2B - orchestrates one Algo Test run: validates the request, fetches
 // real historical bars via the P3.2A.1 production provider (Twelve Data),
-// calls the EXISTING deterministic at24-quant-engine (via
-// run-golden-backtest.ts's already-proven composition - never a new
-// simulator, never duplicated execution/ledger/metrics/equity math - see
-// docs/P3.1-QUANT-CHART-CONTRACT.md and P3.2A-RESULT-CONTRACT.md), and
-// persists a bounded, non-huge result record. Every AlgoTestRun row is
-// owned by the requesting user's id - never trusted from client input
-// (matches paper-trading.service.ts's own ownership convention exactly).
-import type { OHLCVBar, SimulationResult, SimulationTrade, Timeframe } from "at24-quant-engine";
+// calls the EXISTING deterministic at24-quant-engine (via run-backtest.ts's
+// already-proven composition - never a new simulator, never duplicated
+// execution/ledger/metrics/equity math - see docs/P3.1-QUANT-CHART-CONTRACT.md
+// and P3.2A-RESULT-CONTRACT.md), and persists a bounded, non-huge result
+// record. Every AlgoTestRun row is owned by the requesting user's id -
+// never trusted from client input (matches paper-trading.service.ts's own
+// ownership convention exactly).
+//
+// P3.6 (docs/ALGO_TESTING_PRO_ROADMAP.md section 7): this file is now
+// strategy-generic. `runAlgoTest` calls `strategy.buildSpec(parameters)`
+// and `strategy.buildIndicatorSeries` - both owned by whichever
+// StrategyDefinition the request resolved to (strategy-registry.ts) -
+// and hands the result to the generic runBacktest(). There is no
+// `strategyId === "golden"` branch anywhere in this file, and none is
+// needed for the registry's second strategy (ref-ema-crossover) either.
+import {
+  buildLifecycleResult,
+  computeRiskRatios,
+  computeSemanticStrategyHash,
+  freezeStrategyVersion,
+  verifyStrategyVersionIntegrity,
+  validateStrategySpec,
+  type Expression,
+  type Operand,
+  type OHLCVBar,
+  type RiskSpecification,
+  type SimulationResult,
+  type SimulationTrade,
+  type StageResult,
+  type StrategyLifecycleStage,
+  type StrategySpec,
+  type StrategyVersionRecord,
+  type Timeframe,
+} from "at24-quant-engine";
 import { prisma } from "@/lib/prisma";
 import type {
+  AlgoTestAnalyticsView,
   AlgoTestAssumptions,
+  AlgoTestCompiledParameterView,
+  AlgoTestCompiledStrategyView,
   AlgoTestEquityPoint,
   AlgoTestErrorCode,
+  AlgoTestLifecycleResult,
   AlgoTestMetricsView,
+  AlgoTestParameterValues,
   AlgoTestRunRequest,
   AlgoTestRunView,
   AlgoTestTradeView,
+  StrategyLibraryDetail,
+  StrategyLibraryItem,
 } from "@/types/algo-test";
 import type { ChartCandle } from "@/types/chart-data";
 import { twelveDataHistoricalDataProvider } from "./historical-data/twelve-data-provider";
-import { runGoldenBacktest } from "./run-golden-backtest";
+import type { HistoricalDataProvider } from "./historical-data/types";
+import { runBacktest } from "./run-backtest";
+import { getStrategyDefinition, listAvailableStrategies, validateParameterValues, type StrategyDefinition } from "./strategy-registry";
+import { RESULT_CONTRACT_VERSION } from "./result-contract";
+// P4 Phase 2 - AI-compiled strategies reuse this EXACT generic backtest
+// path (runBacktest, above) - never a separate "AI backtester". See
+// docs/P4-PHASE2-BACKTEST-WIRING.md.
+import { ClaudeProvider } from "@/lib/ai/providers/claude.provider";
+import type { AIProvider } from "@/lib/ai/provider.interface";
+import { compileNaturalLanguageStrategy } from "./nl-strategy-compiler.service";
+import type { AiCompileAndRunRequest } from "@/types/algo-test";
+// P4.4 (docs/P4.4-ADVANCED-ANALYTICS-FOUNDATION.md) - Tier 1 projections.
+import { buildCalendar, buildDurationVsPnl, buildPnlDistribution, buildSideBreakdown, toRiskRatiosView } from "./algo-test-analytics";
 
-// This sprint's deliberately narrow, explicit support surface (P3.2B brief
-// SS1: "Do not expand instrument/timeframe coverage yet"). Adding a second
-// strategy/symbol/timeframe later is additive here, never a rewrite.
-export const SUPPORTED_STRATEGY_IDS = ["golden"] as const;
-export const SUPPORTED_SYMBOLS = ["XAUUSD"] as const;
-/** SignalTimeframe-shaped (matches the rest of the app's request convention) - mapped to the engine's own Timeframe token below. */
-export const SUPPORTED_TIMEFRAMES = ["5m"] as const;
 export const DEFAULT_INITIAL_BALANCE = 10_000;
 
 // Gate 5 (P3.2A.1) established Twelve Data's practical single-request bar
 // cap is comfortably above the ~1,344-bar week this program has already
 // verified; 5,000 bars/request is the vendor-documented ceiling this
 // codebase has not independently re-verified beyond that one real test.
-// M5 = 288 bars/day (24h * 12), so 5,000 bars ~= 17.4 days - MAX_RANGE_DAYS
-// is set below that theoretical ceiling with real margin, not at it, so a
-// request never lands exactly on a provider truncation boundary.
-export const MAX_RANGE_DAYS = 14;
+// M5 = 288 bars/day (24h * 12), so 5,000 bars ~= 17.4 days - the original,
+// pre-P4.4 MAX_RANGE_DAYS(=14) was set below that theoretical ceiling with
+// real margin, not at it, so a request never lands exactly on a provider
+// truncation boundary. Kept below, unchanged, ONLY as the historical
+// reference point the P4.4 policy is derived FROM - every live range
+// check now goes through maxRangeDaysFor() instead.
+const HISTORICAL_M5_MAX_RANGE_DAYS = 14;
+
+/**
+ * P4.4 Phase C (docs/P4.4-ADVANCED-ANALYTICS-FOUNDATION.md) - replaces
+ * the flat, M5-only 14-day cap with a timeframe-aware one, derived from
+ * the SAME methodology the original M5 value already used (a real margin
+ * below Twelve Data's 5,000-bar/request ceiling), not a newly-invented
+ * number. Bars/day * HISTORICAL_M5_MAX_RANGE_DAYS(14) is a CONSTANT
+ * "day-budget" for every timeframe: 288 bars/day * 14 days = 4,032 bars
+ * - the exact real margin this program already shipped and live-verified
+ * for M5. Every other timeframe's own cap is that SAME 4,032-bar budget
+ * divided by its own bars/day rate, floored - not a per-timeframe guess.
+ *
+ * Disclosed limitation, honestly: only the M5 value (14 days) has ever
+ * been live-verified against the real Twelve Data API (Gate 5,
+ * P3.2A.1). The other 6 timeframes' caps are computed via the identical,
+ * documented formula, but have NOT been independently re-verified live
+ * in this program - and the 5,000-bars-per-REQUEST ceiling this is all
+ * derived from is a request-SIZE limit, not a historical-DEPTH limit;
+ * D1's own resulting ~4,032-day (~11 year) cap may still exceed what
+ * Twelve Data actually has D1 history for on this account's plan, a
+ * separate, unverified question this formula does not and cannot answer.
+ */
+// Partial, not exhaustive over every Timeframe: at24-quant-engine's own
+// Timeframe union also declares "W1"/"MN1" (weekly/monthly), but neither
+// the real historical-data provider (twelve-data-provider.ts's
+// ENGINE_TIMEFRAME_TO_TWELVE_DATA_INTERVAL) nor the AI compiler
+// (schema.ts's AI_COMPILER_SUPPORTED_TIMEFRAMES) reaches them today -
+// deliberately NOT given a bar-count entry here, rather than inventing
+// one for a timeframe this program cannot actually fetch data for (the
+// same "do not invent new provider capabilities" boundary this phase's
+// own hard constraints name explicitly).
+const BARS_PER_DAY: Partial<Readonly<Record<Timeframe, number>>> = {
+  M1: 1440,
+  M5: 288,
+  M15: 96,
+  M30: 48,
+  H1: 24,
+  H4: 6,
+  D1: 1,
+};
+const DAY_BUDGET_BARS = BARS_PER_DAY.M5! * HISTORICAL_M5_MAX_RANGE_DAYS; // 4,032 - the real, shipped, live-verified M5 margin, reused as the constant across every timeframe.
+
+/**
+ * Throws for a timeframe this program has no real provider coverage for
+ * (W1/MN1) - a real, typed guard rather than a silent NaN/Infinity, so a
+ * future caller passing one of those fails loudly here instead of
+ * producing a meaningless range cap.
+ */
+export function maxRangeDaysFor(engineTimeframe: Timeframe): number {
+  const barsPerDay = BARS_PER_DAY[engineTimeframe];
+  if (barsPerDay === undefined) {
+    throw new Error(`maxRangeDaysFor: no bar-count data for Timeframe "${engineTimeframe}" - this program's historical-data provider does not support it.`);
+  }
+  return Math.floor(DAY_BUDGET_BARS / barsPerDay);
+}
 
 const SIGNAL_TIMEFRAME_TO_ENGINE_TIMEFRAME: Readonly<Record<string, Timeframe>> = {
   "5m": "M5",
@@ -50,16 +146,53 @@ interface ValidationFailure {
   message: string;
 }
 
-function validateRequest(request: AlgoTestRunRequest): ValidationFailure | { engineTimeframe: Timeframe; startTime: Date; endTime: Date; initialBalance: number } {
-  if (!SUPPORTED_STRATEGY_IDS.includes(request.strategyId as (typeof SUPPORTED_STRATEGY_IDS)[number])) {
-    return { code: "INVALID_STRATEGY", message: `Unsupported strategy '${request.strategyId}'. Only the Golden Strategy ("golden") is available this release.` };
+interface ValidatedRequest {
+  strategy: StrategyDefinition;
+  engineTimeframe: Timeframe;
+  startTime: Date;
+  endTime: Date;
+  initialBalance: number;
+  /** P3.4 - every declared parameter present, defaults filled in, already type/range/step-validated against the strategy's own registered schema. */
+  parameters: AlgoTestParameterValues;
+}
+
+// P3.3 - centralized, server-side validation, run in this exact order
+// (strategy -> symbol -> timeframe -> dates -> balance) BEFORE any
+// historical-data fetch or simulation is attempted - the UI's own
+// registry-driven pickers (AlgoTestPanel.tsx) make most of these
+// unreachable in practice, but the UI is never trusted as the only
+// validation layer.
+function validateRequest(request: AlgoTestRunRequest): ValidationFailure | ValidatedRequest {
+  const strategy = getStrategyDefinition(request.strategyId);
+  if (!strategy || strategy.status !== "available") {
+    const available = listAvailableStrategies().map((s) => s.strategyId).join(", ") || "(none)";
+    return { code: "INVALID_STRATEGY", message: `Unsupported strategy '${request.strategyId}'. Available strategies this release: ${available}.` };
   }
-  if (!SUPPORTED_SYMBOLS.includes(request.symbol as (typeof SUPPORTED_SYMBOLS)[number])) {
-    return { code: "INVALID_SYMBOL", message: `Unsupported symbol '${request.symbol}'. Only ${SUPPORTED_SYMBOLS.join(", ")} is available this release.` };
+  if (request.strategyVersion !== undefined && request.strategyVersion !== strategy.strategyVersion) {
+    return {
+      code: "INVALID_STRATEGY_VERSION",
+      message: `Strategy '${strategy.strategyId}' is currently registered at version '${strategy.strategyVersion}', not '${request.strategyVersion}'.`,
+    };
+  }
+  const parameterResult = validateParameterValues(strategy, request.parameters);
+  if (!parameterResult.ok) {
+    return { code: "INVALID_PARAMETERS", message: parameterResult.errors.map((e) => `${e.field}: ${e.message}`).join("; ") };
+  }
+
+  if (!strategy.supportedSymbols.includes(request.symbol)) {
+    return { code: "INVALID_SYMBOL", message: `Unsupported symbol '${request.symbol}' for strategy '${strategy.strategyId}'. Supported: ${strategy.supportedSymbols.join(", ")}.` };
+  }
+  if (!strategy.supportedTimeframes.includes(request.timeframe)) {
+    return { code: "INVALID_TIMEFRAME", message: `Unsupported timeframe '${request.timeframe}' for strategy '${strategy.strategyId}'. Supported: ${strategy.supportedTimeframes.join(", ")}.` };
   }
   const engineTimeframe = SIGNAL_TIMEFRAME_TO_ENGINE_TIMEFRAME[request.timeframe];
   if (!engineTimeframe) {
-    return { code: "INVALID_TIMEFRAME", message: `Unsupported timeframe '${request.timeframe}'. Only ${SUPPORTED_TIMEFRAMES.join(", ")} is available this release.` };
+    // Structurally unreachable once a timeframe has passed the capability
+    // check above (every registry-declared timeframe has a mapping entry),
+    // kept as a real, typed guard rather than a non-null assertion so a
+    // future registry entry can never silently produce an unmapped engine
+    // token here.
+    return { code: "INVALID_TIMEFRAME", message: `Timeframe '${request.timeframe}' has no engine mapping.` };
   }
 
   const startTime = new Date(request.startTime);
@@ -74,19 +207,25 @@ function validateRequest(request: AlgoTestRunRequest): ValidationFailure | { eng
     return { code: "INVALID_DATE_RANGE", message: "endTime cannot be in the future - this is a historical backtest, not a live/forward test." };
   }
   const rangeDays = (endTime.getTime() - startTime.getTime()) / 86_400_000;
-  if (rangeDays > MAX_RANGE_DAYS) {
-    return { code: "RANGE_TOO_LARGE", message: `Date range spans ${rangeDays.toFixed(1)} days; the maximum supported range is ${MAX_RANGE_DAYS} days per test.` };
+  const maxRangeDays = maxRangeDaysFor(engineTimeframe);
+  if (rangeDays > maxRangeDays) {
+    return { code: "RANGE_TOO_LARGE", message: `Date range spans ${rangeDays.toFixed(1)} days; the maximum supported range for ${engineTimeframe} is ${maxRangeDays} days per test.` };
   }
 
   const initialBalance = request.initialBalance ?? DEFAULT_INITIAL_BALANCE;
   if (!Number.isFinite(initialBalance) || initialBalance <= 0) {
-    return { code: "INVALID_DATE_RANGE", message: "initialBalance must be a positive number." };
+    // P3.3 fix: this was previously mis-coded as INVALID_DATE_RANGE (a
+    // P3.2B leftover unrelated to the actual field failing) - balance
+    // validation gets its own real error code, same "the code names the
+    // actual failing field" convention every other branch above already
+    // follows.
+    return { code: "INVALID_INITIAL_BALANCE", message: "initialBalance must be a finite, positive number." };
   }
 
-  return { engineTimeframe, startTime, endTime, initialBalance };
+  return { strategy, engineTimeframe, startTime, endTime, initialBalance, parameters: parameterResult.normalized };
 }
 
-// "no valid historical bars" is run-golden-backtest.ts's own thrown message
+// "no valid historical bars" is run-backtest.ts's own thrown message
 // (a successful-but-empty provider response); "no data is available" is
 // Twelve Data's real HTTP 400 message for a date range outside its
 // coverage (confirmed live this sprint - a pre-1990 request genuinely
@@ -98,6 +237,61 @@ function validateRequest(request: AlgoTestRunRequest): ValidationFailure | { eng
 function toAlgoTestErrorCode(message: string): AlgoTestErrorCode {
   if (/no valid historical bars|no data is available/i.test(message)) return "NO_HISTORICAL_DATA";
   return "PROVIDER_ERROR";
+}
+
+/**
+ * P3.8 - Validation / Evidence Gate (docs/ALGO_TESTING_PRO_ROADMAP.md
+ * section 9, docs/P3.8-VALIDATION-EVIDENCE-GATE.md). Combines the
+ * strategy's own pre-computed IMPORTED/PARSED/IR_VALID/EXECUTION_VALID
+ * stages (`strategy.importLifecycle`, computed once at module load - see
+ * strategy-registry.ts) with the four per-run stages this function
+ * derives from this specific request's real outcome. Never invents a
+ * judgment: DATA_VALID/BACKTEST_VALID/REPRODUCIBLE are read straight off
+ * outcome fields that already existed (`barsUsed`, having a `result` at
+ * all, `outcome.reproducible`); EVIDENCE_VERIFIED's own detail names the
+ * real trade count so a zero-trade result is never silently equated with
+ * "nothing was proven" or, in the other direction, presented as
+ * equivalent evidentiary weight to a real, populated trade ledger - see
+ * that stage's own comment below.
+ */
+// P4 Phase 2 - takes `importLifecycle` directly (a strategy's own 4-stage
+// IMPORTED/PARSED/IR_VALID/EXECUTION_VALID array) rather than a full
+// StrategyDefinition, so this SAME function serves both a registry entry
+// (strategy.importLifecycle) and an AI-compiled strategy
+// (compileNaturalLanguageStrategy()'s own `stages`, which has the exact
+// same shape) - one lifecycle-building function for every strategy
+// source, never a second one written for AI-generated runs.
+function buildRunLifecycle(importLifecycle: readonly StageResult[], outcome: { barsUsed: number; result: SimulationResult; reproducible: boolean }) {
+  const byName = {} as Record<StrategyLifecycleStage, StageResult>;
+  for (const s of importLifecycle) byName[s.stage] = s;
+
+  byName.DATA_VALID = { stage: "DATA_VALID", outcome: "PASSED", detail: `${outcome.barsUsed} bar(s) used` };
+  byName.BACKTEST_VALID = { stage: "BACKTEST_VALID", outcome: "PASSED", detail: `simulation completed, resultHash ${outcome.result.resultHash.slice(0, 16)}...` };
+  byName.REPRODUCIBLE = outcome.reproducible
+    ? { stage: "REPRODUCIBLE", outcome: "PASSED", detail: "a second, independent runSimulation() call over the same bars/config produced a byte-identical resultHash" }
+    : { stage: "REPRODUCIBLE", outcome: "FAILED", detail: "a second runSimulation() call over the same bars/config produced a DIFFERENT resultHash - a genuine engine-level non-determinism, not an expected outcome" };
+
+  const tradeCount = outcome.result.tradeLedger.length;
+  // The distinction the user's own P3.8 spec named explicitly: a
+  // zero-trade result is legitimate ONLY because EXECUTION_VALID (already
+  // in `strategy.importLifecycle` for an imported strategy, or
+  // NOT_APPLICABLE-by-construction for an engine-reference one) already
+  // confirmed the entry logic is real, not a placeholder - see
+  // docs/P3.6-MULTI-STRATEGY-REGISTRY.md section 2 and
+  // docs/P3.8-VALIDATION-EVIDENCE-GATE.md for the G01/ref-ema-crossover
+  // case this guards against directly. A strategy that never reached
+  // EXECUTION_VALID never reaches this function at all - see the catch
+  // block in runAlgoTest.
+  byName.EVIDENCE_VERIFIED =
+    tradeCount > 0
+      ? { stage: "EVIDENCE_VERIFIED", outcome: "PASSED", detail: `${tradeCount} trade(s) - reproducible evidence backed by a populated trade ledger` }
+      : {
+          stage: "EVIDENCE_VERIFIED",
+          outcome: "PASSED",
+          detail: "0 trades - a legitimate, reproducible result (EXECUTION_VALID already confirmed real, non-placeholder entry logic; this run's own bars/window simply never satisfied it), not a fabricated or unresolved-strategy zero",
+        };
+
+  return buildLifecycleResult(byName);
 }
 
 function toChartCandles(bars: readonly OHLCVBar[]): ChartCandle[] {
@@ -118,6 +312,20 @@ function toTradeView(trade: SimulationTrade): AlgoTestTradeView {
     grossPnl: trade.grossPnl,
     fees: trade.fees,
     rMultiple: trade.rMultiple,
+    // P3.3 - copied straight through from the engine's own SimulationTrade,
+    // never fabricated when the engine itself left them unset.
+    ...(trade.stopLoss !== undefined ? { stopLoss: trade.stopLoss } : {}),
+    ...(trade.takeProfit !== undefined ? { takeProfit: trade.takeProfit } : {}),
+    ...(trade.exitReason !== undefined ? { exitReason: trade.exitReason } : {}),
+    // P4.6-T2.1 - always present (never optionally-spread), mirroring
+    // rMultiple immediately above - the engine's own value, transported
+    // unchanged, no conversion/recalculation here. Timestamps stay
+    // optionally-spread since the engine itself only sets them alongside
+    // a non-null R value.
+    mfeR: trade.mfeR,
+    maeR: trade.maeR,
+    ...(trade.mfeTimestamp !== undefined ? { mfeTimestamp: trade.mfeTimestamp } : {}),
+    ...(trade.maeTimestamp !== undefined ? { maeTimestamp: trade.maeTimestamp } : {}),
   };
 }
 
@@ -160,6 +368,203 @@ function toEquityCurveView(equityCurve: readonly { timestamp: number; balance: n
   return equityCurve.map((p) => ({ timestamp: p.timestamp, balance: p.balance }));
 }
 
+/**
+ * P4.4 - the ONE place a completed run's Tier 1 + Tier 2 analytics are
+ * assembled, for every strategy source (no strategyId branch) - called
+ * from runAlgoTest's own success path, compileAndRunAiStrategy's own
+ * success path, AND getAlgoTestRun's reopen path (see
+ * AlgoTestRunView.analytics's own doc comment for why reopen works here
+ * unlike lifecycle/compiledStrategy/strategyHash). Every input is data
+ * already computed/persisted elsewhere - trades/equityCurve/metrics -
+ * this function performs no I/O and mutates nothing.
+ */
+function buildAnalyticsView(trades: readonly AlgoTestTradeView[], equityCurve: readonly AlgoTestEquityPoint[], metrics: AlgoTestMetricsView): AlgoTestAnalyticsView {
+  const riskRatios = computeRiskRatios(
+    trades.map((t) => ({ pnl: t.pnl })),
+    equityCurve.map((p) => ({ balance: p.balance })),
+    { totalReturn: metrics.totalReturn, maxDrawdown: metrics.maxDrawdown, netProfit: metrics.netProfit },
+  );
+  return {
+    pnlDistribution: buildPnlDistribution(trades),
+    sideBreakdown: buildSideBreakdown(trades),
+    durationVsPnl: buildDurationVsPnl(trades),
+    calendar: buildCalendar(trades),
+    riskRatios: toRiskRatiosView(riskRatios),
+  };
+}
+
+// P4.3 (docs/P4.3-SURFACE-THE-FOUNDATION.md) - a generic, recursive
+// renderer over the REAL StrategySpec Expression tree
+// (at24-quant-engine's own Expression/Operand union) - never a
+// per-strategy special case, so it renders any registry OR AI-compiled
+// strategy's real condition identically. Every branch reads directly off
+// a real field; there is no "unknown expression shape" fallback that
+// invents text - an exhaustive switch means a future Expression variant
+// this function doesn't yet handle fails to typecheck here rather than
+// silently rendering nothing.
+function describeOperand(op: Operand): string {
+  if (op.kind === "literal") return String(op.value);
+  if (op.kind === "series") return `${op.ref.series}[${op.ref.offset}]`;
+  // op.kind === "indicator"
+  const { name, params } = op.ref;
+  return params.length > 0 ? `${name}(${params.join(",")})` : name;
+}
+
+function describeExpression(expr: Expression): string {
+  if (expr.type === "comparison") {
+    return `${describeOperand(expr.left)} ${expr.operator} ${describeOperand(expr.right)}`;
+  }
+  if (expr.type === "boolean-reference") {
+    const { name, params } = expr.ref;
+    return params.length > 0 ? `${name}(${params.join(",")})` : name;
+  }
+  // expr.type === "logical"
+  if (expr.operator === "NOT") return `NOT (${describeExpression(expr.operands[0]!)})`;
+  return expr.operands.map((o) => `(${describeExpression(o)})`).join(` ${expr.operator} `);
+}
+
+function describeSizing(risk: RiskSpecification): string {
+  const s = risk.sizing;
+  if (s.method === "fixed-quantity") return `Fixed quantity: ${s.quantity}`;
+  if (s.method === "fixed-lot") return `Fixed lot: ${s.lots}`;
+  if (s.method === "percent-equity-risk") return `Percent equity risk: ${s.percent}%`;
+  return `ATR-based: ${s.atrMultiple}x ATR(${s.atrPeriod})`;
+}
+
+function describeStopLoss(risk: RiskSpecification): string | undefined {
+  const sl = risk.stopLoss;
+  if (!sl) return undefined;
+  if (sl.type === "fixed-price") return `Fixed price: ${sl.price}`;
+  if (sl.type === "fixed-distance") return `Fixed distance: ${sl.distance}`;
+  return `ATR multiple: ${sl.atrMultiple}x ATR(${sl.atrPeriod})`;
+}
+
+function describeTakeProfit(risk: RiskSpecification): string | undefined {
+  const tp = risk.takeProfit;
+  if (!tp) return undefined;
+  if (tp.type === "fixed-price") return `Fixed price: ${tp.price}`;
+  if (tp.type === "fixed-distance") return `Fixed distance: ${tp.distance}`;
+  return `Risk multiple: ${tp.rMultiple}R`;
+}
+
+/**
+ * P4.8-T2.2 (docs/P4.8-T2.2-STRATEGY-PERSISTENCE.md) - upserts the
+ * user-owned `Strategy` row for an AI compilation that reached a real
+ * StrategySpec, keyed by the P4.8-T1 stable identity (`spec.identity.
+ * strategyId`). Called for EVERY successful compilation - a RANGE_TOO_LARGE
+ * rejection, a DATA_VALID/provider failure after compilation, and a fully
+ * completed run all compiled a real, reusable artifact; none of those
+ * outcomes is a reason to withhold persistence, since the point is
+ * exactly to make the STRATEGY reusable independent of any one run's own
+ * fate. Never called for registry strategies (golden/ref-ema-crossover) -
+ * those remain code-defined, per the P4.8-T2.1 audit's explicit finding;
+ * this function is only ever reached from compileAndRunAiStrategy.
+ *
+ * The persisted `artifact` is the engine's own `StrategyVersionRecord`
+ * (freezeStrategyVersion, Q0.9/ADR-007) - the FULL, executable,
+ * re-runnable StrategySpec, not the presentation-only
+ * AlgoTestCompiledStrategyView `toCompiledStrategyView()` below produces.
+ *
+ * IMMUTABILITY (review fix, pre-merge): the persisted `artifact` is a
+ * FROZEN snapshot, per StrategyVersionRecord's own contract ("changing
+ * strategy logic must produce a NEW version, not an edit to this one").
+ * `@@unique([userId, strategyId])` makes this an upsert TARGET (never a
+ * duplicate row), but an existing match must never have its `artifact`/
+ * `name`/`origin` overwritten by a later recompile - only `updatedAt`
+ * moves, via Prisma's own `@updatedAt` on an empty `update: {}`. No
+ * additional semantic-equality check is needed on the existing-row path:
+ * `strategyId` (the upsert key itself) IS `ai-${userId}-${
+ * computeCrossPlatformSemanticHash(ir)}` - two compiles landing on the
+ * SAME strategyId are, by that same construction, already proven to
+ * share identical executable semantics. The only fields that could ever
+ * differ between them are exactly the ones the hash excludes -
+ * `identity.name`/`metadata`/`provenance` (T1's own proven adversarial
+ * case) - never anything execution-relevant. So there is no genuine
+ * "investigate" branch to guard against here; the fix is simply to never
+ * let a later, cosmetically-different compile silently replace an
+ * earlier one's frozen artifact.
+ */
+async function persistAiStrategy(userId: string, spec: StrategySpec): Promise<string> {
+  const versionRecord: StrategyVersionRecord = freezeStrategyVersion(spec, Date.now());
+  const row = await prisma.strategy.upsert({
+    where: { userId_strategyId: { userId, strategyId: spec.identity.strategyId } },
+    create: {
+      userId,
+      strategyId: spec.identity.strategyId,
+      origin: "ai-generated",
+      name: spec.identity.name,
+      artifact: versionRecord as unknown as object,
+    },
+    // Deliberately empty - an existing row's artifact/name/origin are
+    // NEVER touched by a later recompile, only `updatedAt` (Prisma's own
+    // @updatedAt still bumps on an update() call with no other fields).
+    update: {},
+  });
+  return row.id;
+}
+
+/**
+ * P4.3 - the ONE place a real StrategySpec (registry OR AI-compiled,
+ * never branched on which) is projected into the wire-safe, human-
+ * readable AlgoTestCompiledStrategyView. Deliberately no "Filters" field
+ * (see that type's own doc comment) - a compound entry condition's
+ * AND-ed clauses surface naturally inside longEntry/shortEntry instead of
+ * a fabricated separate field the real StrategySpec does not have.
+ */
+// P4.3 - exported (not otherwise needed outside this module) so
+// scripts/validate-algo-test-compiled-strategy-view.ts can prove this ONE
+// projection function is genuinely used for both a registry StrategySpec
+// and an AI-compiled one, offline, without needing runAlgoTest's own
+// hardcoded (non-injectable) twelveDataHistoricalDataProvider.
+export function toCompiledStrategyView(spec: StrategySpec): AlgoTestCompiledStrategyView {
+  const longEntries = spec.entryRules.filter((r) => r.direction === "BUY").map((r) => describeExpression(r.condition));
+  const shortEntries = spec.entryRules.filter((r) => r.direction === "SELL").map((r) => describeExpression(r.condition));
+  const exit =
+    spec.exitRules.length > 0
+      ? spec.exitRules.map((r) => describeExpression(r.condition)).join("; ")
+      : "No separate exit rule declared — position reverses on an opposite-direction entry signal (Q0.5's own atomic reduce-then-reopen behavior).";
+
+  const parameters: AlgoTestCompiledParameterView[] = spec.parameters.map((p) => ({
+    key: p.key,
+    defaultValue: p.defaultValue,
+    ...(p.min !== undefined ? { min: p.min } : {}),
+    ...(p.max !== undefined ? { max: p.max } : {}),
+  }));
+
+  return {
+    name: spec.identity.name,
+    version: spec.version,
+    // No symbol/timeframe here - see AlgoTestCompiledStrategyView's own
+    // doc comment. AlgoTestRunView.symbol/.timeframe (set from the real
+    // request, for every strategy source) is the one authoritative field.
+    ...(longEntries.length > 0 ? { longEntry: longEntries.join("; ") } : {}),
+    ...(shortEntries.length > 0 ? { shortEntry: shortEntries.join("; ") } : {}),
+    exit,
+    positionSizing: describeSizing(spec.risk),
+    ...(describeStopLoss(spec.risk) !== undefined ? { stopLoss: describeStopLoss(spec.risk) } : {}),
+    ...(describeTakeProfit(spec.risk) !== undefined ? { takeProfit: describeTakeProfit(spec.risk) } : {}),
+    parameters,
+  };
+}
+
+// P4 Phase 2 - extracted from runAlgoTest's own catch block (unchanged
+// behavior, just now shared with compileAndRunAiStrategy below) - a
+// request that never reaches a completed backtest stops the lifecycle at
+// the strategy's own last import-time stage with DATA_VALID marked
+// FAILED: neither NO_HISTORICAL_DATA nor the more general PROVIDER_ERROR
+// ever represents a genuine engine/strategy problem - both mean "a valid
+// StrategySpec existed but no valid data could be obtained to run it
+// against," which is exactly what DATA_VALID is for.
+function buildDataValidFailureLifecycle(importLifecycle: readonly StageResult[], message: string) {
+  const byName = {} as Record<StrategyLifecycleStage, StageResult>;
+  for (const s of importLifecycle) byName[s.stage] = s;
+  byName.DATA_VALID = { stage: "DATA_VALID", outcome: "FAILED", detail: message };
+  for (const s of ["BACKTEST_VALID", "REPRODUCIBLE", "EVIDENCE_VERIFIED"] as const) {
+    byName[s] = { stage: s, outcome: "FAILED", detail: "not evaluated — DATA_VALID already failed" };
+  }
+  return buildLifecycleResult(byName);
+}
+
 export const algoTestService = {
   async runAlgoTest(userId: string, request: AlgoTestRunRequest): Promise<AlgoTestRunView> {
     const validated = validateRequest(request);
@@ -180,12 +585,22 @@ export const algoTestService = {
       };
     }
 
-    const { engineTimeframe, startTime, endTime, initialBalance } = validated;
+    const { strategy, engineTimeframe, startTime, endTime, initialBalance, parameters } = validated;
 
     const row = await prisma.algoTestRun.create({
       data: {
         userId,
-        strategyId: request.strategyId,
+        strategyId: strategy.strategyId,
+        // Always the server's own resolved, registered version - never the
+        // client-supplied string verbatim (already proven equal above when
+        // the client did supply one; when it didn't, this is where the
+        // exact version this run executed against first becomes recorded).
+        strategyVersion: strategy.strategyVersion,
+        // P3.4 - the fully-normalized snapshot (every declared parameter
+        // present, defaults filled in) - persisted BEFORE the engine even
+        // runs, so the exact configuration attempted is on record even if
+        // the run itself later fails.
+        parameters: parameters as object,
         symbol: request.symbol,
         timeframe: request.timeframe,
         startTime,
@@ -195,9 +610,26 @@ export const algoTestService = {
       },
     });
 
+    // P3.6 - the strategy's own buildSpec, not a strategyId branch here.
+    // `parameters` is already the fully-normalized, already-validated
+    // snapshot from validateRequest() above (validateParameterValues() has
+    // run). Captured in a variable (P4.3) so the SAME built spec feeds
+    // both runBacktest() and the strategy-hash/compiled-strategy view
+    // below - never rebuilt a second time (which could theoretically
+    // diverge if buildSpec ever became non-pure).
+    const strategySpec = strategy.buildSpec(parameters);
+
     try {
-      const outcome = await runGoldenBacktest(
-        { symbol: request.symbol, timeframe: engineTimeframe, startTime: startTime.toISOString(), endTime: endTime.toISOString(), initialBalance },
+      const outcome = await runBacktest(
+        {
+          symbol: request.symbol,
+          timeframe: engineTimeframe,
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          initialBalance,
+          strategySpec,
+          buildIndicatorSeries: strategy.buildIndicatorSeries,
+        },
         twelveDataHistoricalDataProvider,
       );
 
@@ -205,16 +637,28 @@ export const algoTestService = {
       const trades = outcome.result.tradeLedger.map(toTradeView);
       const equityCurve = toEquityCurveView(outcome.equityCurve);
       const assumptions = buildAssumptions(outcome.result);
+      const engineVersion = outcome.result.provenance.runtimeVersion;
+      const lifecycle = buildRunLifecycle(strategy.importLifecycle, outcome);
+      const compiledStrategy = toCompiledStrategyView(strategySpec);
+      const strategyHash = computeSemanticStrategyHash(strategySpec);
 
       await prisma.algoTestRun.update({
         where: { id: row.id },
         data: {
           status: "completed",
           resultHash: outcome.result.resultHash,
+          resultVersion: RESULT_CONTRACT_VERSION,
+          engineVersion,
           metrics: metrics as object,
           trades: trades as unknown as object,
           equityCurve: equityCurve as unknown as object,
           assumptions: assumptions as object,
+          // P4.5 - already computed above for the response below; written
+          // once, here, at the same completion write - never a second
+          // round trip.
+          strategyHash,
+          lifecycle: lifecycle as unknown as object,
+          compiledStrategy: compiledStrategy as unknown as object,
           completedAt: new Date(),
         },
       });
@@ -222,7 +666,11 @@ export const algoTestService = {
       return {
         testId: row.id,
         status: "completed",
-        strategyId: request.strategyId,
+        strategyId: strategy.strategyId,
+        strategyVersion: strategy.strategyVersion,
+        resultVersion: RESULT_CONTRACT_VERSION,
+        engineVersion,
+        parameters,
         symbol: request.symbol,
         timeframe: request.timeframe,
         startTime: request.startTime,
@@ -234,19 +682,44 @@ export const algoTestService = {
         equityCurve,
         assumptions,
         candles: toChartCandles(outcome.bars),
+        lifecycle,
+        compiledStrategy,
+        strategyHash,
+        analytics: buildAnalyticsView(trades, equityCurve, metrics),
         createdAt: row.createdAt.toISOString(),
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       const code = toAlgoTestErrorCode(message);
+      const lifecycle = buildDataValidFailureLifecycle(strategy.importLifecycle, message);
+      // P4.3 - the strategy itself was successfully built (this is a
+      // DATA_VALID failure, not an EXECUTION_VALID one) - showing it lets
+      // the user see exactly what was ABOUT to run even though no data
+      // was available to run it against, rather than an empty "strategy"
+      // section next to an otherwise-informative failure.
+      const compiledStrategy = toCompiledStrategyView(strategySpec);
+      const strategyHash = computeSemanticStrategyHash(strategySpec);
       await prisma.algoTestRun.update({
         where: { id: row.id },
-        data: { status: "failed", errorCode: code, errorMessage: message, completedAt: new Date() },
+        data: {
+          status: "failed",
+          errorCode: code,
+          errorMessage: message,
+          // P4.5 - a DATA_VALID failure still has a real, resolved
+          // strategy identity worth persisting - same rationale as the
+          // response fields below, just also written to the row.
+          strategyHash,
+          lifecycle: lifecycle as unknown as object,
+          compiledStrategy: compiledStrategy as unknown as object,
+          completedAt: new Date(),
+        },
       });
       return {
         testId: row.id,
         status: "failed",
-        strategyId: request.strategyId,
+        strategyId: strategy.strategyId,
+        strategyVersion: strategy.strategyVersion,
+        parameters,
         symbol: request.symbol,
         timeframe: request.timeframe,
         startTime: request.startTime,
@@ -254,18 +727,42 @@ export const algoTestService = {
         initialBalance,
         errorCode: code,
         errorMessage: message,
+        lifecycle,
+        compiledStrategy,
+        strategyHash,
         createdAt: row.createdAt.toISOString(),
       };
     }
   },
 
+  /**
+   * P3.3 - a persisted, completed run is reopenable independently of the
+   * original running session: every field below is reconstructed from the
+   * PERSISTED row alone, and the engine is never re-run. The one exception
+   * is `candles` - deliberately never persisted (see the field's own doc
+   * comment in types/algo-test.ts) - which is reconstructed here by
+   * re-fetching bars for this run's own persisted symbol/timeframe/date
+   * range through the SAME read-only historical provider used at run time.
+   * This is a read-only data fetch, not a second simulation - the trades/
+   * metrics/equityCurve/resultHash returned are 100% the original
+   * persisted values, untouched.
+   */
   async getAlgoTestRun(userId: string, testId: string): Promise<AlgoTestRunView | null> {
     const row = await prisma.algoTestRun.findFirst({ where: { id: testId, userId } });
     if (!row) return null;
-    return {
+
+    const view: AlgoTestRunView = {
       testId: row.id,
       status: row.status as "completed" | "failed",
       strategyId: row.strategyId,
+      strategyVersion: row.strategyVersion ?? undefined,
+      resultVersion: row.resultVersion ?? undefined,
+      engineVersion: row.engineVersion ?? undefined,
+      // P3.4 - undefined for a pre-P3.4 row (never backfilled) exactly as
+      // undefined for a strategy with no declared parameters - both are
+      // honest "no snapshot to show," never conflated with "used today's
+      // defaults." See types/algo-test.ts's own doc comment on this field.
+      parameters: (row.parameters as AlgoTestParameterValues | null) ?? undefined,
       symbol: row.symbol,
       timeframe: row.timeframe,
       startTime: row.startTime.toISOString(),
@@ -276,12 +773,51 @@ export const algoTestService = {
       trades: (row.trades as AlgoTestTradeView[] | null) ?? undefined,
       equityCurve: (row.equityCurve as AlgoTestEquityPoint[] | null) ?? undefined,
       assumptions: (row.assumptions as AlgoTestAssumptions | null) ?? undefined,
-      // Deliberately no `candles` here - see types/algo-test.ts's own doc
-      // comment: candles are only ever present on a fresh POST response.
       errorCode: (row.errorCode as AlgoTestErrorCode | null) ?? undefined,
       errorMessage: row.errorMessage ?? undefined,
+      // P4.5 - genuinely persisted (docs/P4.5-STRATEGY-RUN-IDENTITY-PERSISTENCE.md).
+      // `undefined` here means this row predates P4.5 and was never
+      // backfilled with a guess - never "this run had no identity."
+      strategyHash: row.strategyHash ?? undefined,
+      lifecycle: (row.lifecycle as AlgoTestLifecycleResult | null) ?? undefined,
+      compiledStrategy: (row.compiledStrategy as AlgoTestCompiledStrategyView | null) ?? undefined,
       createdAt: row.createdAt.toISOString(),
     };
+
+    // P4.4 - unlike candles (below, a live re-fetch), analytics needs no
+    // network call and no data this row doesn't already persist -
+    // trades/equityCurve/metrics are real, already-stored JSON columns.
+    // Computed unconditionally whenever all three are present, regardless
+    // of whether the best-effort candle re-fetch below succeeds. (Before
+    // P4.5 this was the one field that survived reopen while
+    // lifecycle/compiledStrategy/strategyHash did not - P4.5 closed that
+    // gap for the other three above by reading persisted columns instead
+    // of recomputing; analytics itself is still never persisted.)
+    if (row.status === "completed" && view.trades && view.equityCurve && view.metrics) {
+      view.analytics = buildAnalyticsView(view.trades, view.equityCurve, view.metrics);
+    }
+
+    if (row.status === "completed") {
+      const engineTimeframe = SIGNAL_TIMEFRAME_TO_ENGINE_TIMEFRAME[row.timeframe];
+      if (engineTimeframe) {
+        try {
+          const { bars } = await twelveDataHistoricalDataProvider.getBars({
+            symbol: row.symbol,
+            timeframe: engineTimeframe,
+            startTime: row.startTime.toISOString(),
+            endTime: row.endTime.toISOString(),
+          });
+          view.candles = toChartCandles(bars);
+        } catch {
+          // Best-effort: a provider hiccup on reopen must never turn an
+          // already-successfully-persisted result into an error - the
+          // metrics/trades/equityCurve above remain fully intact either
+          // way, only the chart overlay is unavailable this reopen.
+        }
+      }
+    }
+
+    return view;
   },
 
   async listAlgoTestRuns(userId: string): Promise<AlgoTestRunView[]> {
@@ -290,6 +826,10 @@ export const algoTestService = {
       testId: row.id,
       status: row.status as "completed" | "failed",
       strategyId: row.strategyId,
+      strategyVersion: row.strategyVersion ?? undefined,
+      resultVersion: row.resultVersion ?? undefined,
+      engineVersion: row.engineVersion ?? undefined,
+      parameters: (row.parameters as AlgoTestParameterValues | null) ?? undefined,
       symbol: row.symbol,
       timeframe: row.timeframe,
       startTime: row.startTime.toISOString(),
@@ -299,7 +839,413 @@ export const algoTestService = {
       metrics: (row.metrics as AlgoTestMetricsView | null) ?? undefined,
       errorCode: (row.errorCode as AlgoTestErrorCode | null) ?? undefined,
       errorMessage: row.errorMessage ?? undefined,
+      // P4.5 - the one identity field worth including in the lightweight
+      // list view: small (a string, not a JSON blob like
+      // lifecycle/compiledStrategy, which stay out of this summary - same
+      // reasoning that already excludes trades/equityCurve here), and
+      // exactly the grouping/comparison key a future run-history/library
+      // feature needs. `undefined` for a pre-P4.5 row, never fabricated.
+      strategyHash: row.strategyHash ?? undefined,
       createdAt: row.createdAt.toISOString(),
+      // P4.7-T1 - the row's own `completedAt` (DateTime?), already
+      // written at every completion/failure site since P3.2B - genuinely
+      // new to this WIRE contract only, not a new persisted value or a
+      // new write. `undefined` for a run with no terminal timestamp yet.
+      completedAt: row.completedAt?.toISOString() ?? undefined,
     }));
+  },
+
+  /** P3.3 - the Strategy Registry's own available-strategies list, for the registry-backed UI (GET /api/private/algo-test/strategies). */
+  listStrategies(): readonly StrategyDefinition[] {
+    return listAvailableStrategies();
+  },
+
+  /**
+   * P4 Phase 2 (docs/P4-PHASE2-BACKTEST-WIRING.md) - takes the compiled
+   * StrategySpec P4 Phase 1's own `compileNaturalLanguageStrategy()`
+   * produces and routes it through the EXACT SAME generic `runBacktest()`
+   * every registry-based strategy already uses (P3.6) - not a second,
+   * AI-specific backtest path. `deps` is injectable purely for testing
+   * (a fake AIProvider/HistoricalDataProvider, mirroring
+   * validate-nl-strategy-compiler.ts's own P4 Phase 1 convention) -
+   * production callers never pass it, defaulting to the real
+   * ClaudeProvider/twelveDataHistoricalDataProvider.
+   */
+  async compileAndRunAiStrategy(userId: string, request: AiCompileAndRunRequest, deps?: { provider?: AIProvider; historicalDataProvider?: HistoricalDataProvider }): Promise<AlgoTestRunView> {
+    const startTime = new Date(request.startTime);
+    const endTime = new Date(request.endTime);
+    const fail = (code: AlgoTestErrorCode, message: string): AlgoTestRunView => ({
+      testId: "",
+      status: "failed",
+      strategyId: "ai-generated",
+      symbol: "",
+      timeframe: "",
+      startTime: request.startTime,
+      endTime: request.endTime,
+      initialBalance: request.initialBalance ?? DEFAULT_INITIAL_BALANCE,
+      errorCode: code,
+      errorMessage: message,
+      createdAt: new Date().toISOString(),
+    });
+    if (typeof request.intent !== "string" || request.intent.trim().length === 0) return fail("INVALID_PARAMETERS", "intent must be a non-empty string");
+    if (Number.isNaN(startTime.getTime()) || Number.isNaN(endTime.getTime())) return fail("INVALID_DATE_RANGE", "startTime/endTime could not be parsed as dates.");
+    if (startTime.getTime() >= endTime.getTime()) return fail("INVALID_DATE_RANGE", "startTime must be before endTime.");
+    if (endTime.getTime() > Date.now()) return fail("INVALID_DATE_RANGE", "endTime cannot be in the future - this is a historical backtest, not a live/forward test.");
+    // P4.4 Phase C - the range cap is now timeframe-aware (maxRangeDaysFor),
+    // and the AI compiler - unlike a registry request, which already names
+    // its own timeframe - does not know which real engine Timeframe it
+    // will choose until AFTER compilation completes (the natural-language
+    // request itself names the market/timeframe, e.g. "...on XAUUSD
+    // M15..."). The date-range-vs-cap check is therefore deliberately
+    // deferred to just after compilation succeeds, below, once `timeframe`
+    // is a real, known value - never checked against a guessed or
+    // worst-case timeframe here.
+    const initialBalance = request.initialBalance ?? DEFAULT_INITIAL_BALANCE;
+    if (!Number.isFinite(initialBalance) || initialBalance <= 0) return fail("INVALID_INITIAL_BALANCE", "initialBalance must be a finite, positive number.");
+
+    const provider = deps?.provider ?? new ClaudeProvider();
+    const historicalDataProvider = deps?.historicalDataProvider ?? twelveDataHistoricalDataProvider;
+    const compiledAt = Date.now();
+    const compilation = await compileNaturalLanguageStrategy(request.intent, provider, {
+      userId,
+      strategyVersion: "1.0.0",
+      name: request.intent.slice(0, 80),
+      strategyTimezone: "UTC",
+      createdAt: compiledAt,
+    });
+
+    const symbol = compilation.compiledSpec?.instruments[0]?.symbol ?? "";
+    const timeframe = compilation.compiledSpec?.timeframes[0] ?? "";
+
+    const row = await prisma.algoTestRun.create({
+      data: {
+        userId,
+        strategyId: "ai-generated",
+        strategyVersion: "1.0.0",
+        parameters: { intent: request.intent } as object,
+        symbol,
+        timeframe,
+        startTime,
+        endTime,
+        initialBalance,
+        status: "pending",
+      },
+    });
+
+    if (!compilation.compiledSpec || !compilation.buildIndicatorSeries) {
+      const byName = {} as Record<StrategyLifecycleStage, StageResult>;
+      for (const s of compilation.stages) byName[s.stage] = s;
+      for (const s of ["DATA_VALID", "BACKTEST_VALID", "REPRODUCIBLE", "EVIDENCE_VERIFIED"] as const) {
+        byName[s] = { stage: s, outcome: "FAILED", detail: "not evaluated — compilation did not reach EXECUTION_VALID" };
+      }
+      const lifecycle = buildLifecycleResult(byName);
+      const message = compilation.stages.find((s) => s.outcome === "FAILED")?.detail ?? "Compilation did not reach EXECUTION_VALID";
+      // P4.5 - genuinely no compiledStrategy/strategyHash to persist here
+      // (no StrategySpec was ever produced) - only `lifecycle` is real.
+      await prisma.algoTestRun.update({ where: { id: row.id }, data: { status: "failed", errorCode: "INVALID_STRATEGY", errorMessage: message, lifecycle: lifecycle as unknown as object, completedAt: new Date() } });
+      return { testId: row.id, status: "failed", strategyId: "ai-generated", parameters: { intent: request.intent }, symbol, timeframe, startTime: request.startTime, endTime: request.endTime, initialBalance, errorCode: "INVALID_STRATEGY", errorMessage: message, lifecycle, createdAt: row.createdAt.toISOString() };
+    }
+
+    // P4.8-T2.2 - a real StrategySpec exists past this point, regardless
+    // of what happens to THIS run next (RANGE_TOO_LARGE, a DATA_VALID
+    // failure below, or a genuine completed run) - persist/reuse the
+    // Strategy row now, once, so every branch below can attach it.
+    const strategyRefId = await persistAiStrategy(userId, compilation.compiledSpec);
+
+    // P4.4 Phase C - now that compilation succeeded and `timeframe` is a
+    // real, known engine Timeframe, the deferred range-vs-cap check (see
+    // this function's own top, above) finally runs. A real StrategySpec
+    // was already compiled here - this is genuinely a DATA_VALID-stage
+    // failure (a valid strategy, no valid window to run it in), not an
+    // EXECUTION_VALID one, so it reuses buildDataValidFailureLifecycle
+    // exactly like a real provider/data error would.
+    const rangeDays = (endTime.getTime() - startTime.getTime()) / 86_400_000;
+    const maxRangeDays = maxRangeDaysFor(timeframe as Timeframe);
+    if (rangeDays > maxRangeDays) {
+      const message = `Date range spans ${rangeDays.toFixed(1)} days; the maximum supported range for ${timeframe} is ${maxRangeDays} days per test.`;
+      const lifecycle = buildDataValidFailureLifecycle(compilation.stages, message);
+      const compiledStrategy = toCompiledStrategyView(compilation.compiledSpec);
+      const strategyHash = computeSemanticStrategyHash(compilation.compiledSpec);
+      await prisma.algoTestRun.update({
+        where: { id: row.id },
+        data: {
+          status: "failed",
+          errorCode: "RANGE_TOO_LARGE",
+          errorMessage: message,
+          strategyHash,
+          strategyRefId,
+          lifecycle: lifecycle as unknown as object,
+          compiledStrategy: compiledStrategy as unknown as object,
+          completedAt: new Date(),
+        },
+      });
+      return {
+        testId: row.id,
+        status: "failed",
+        strategyId: "ai-generated",
+        parameters: { intent: request.intent },
+        compiledStrategy,
+        strategyHash,
+        symbol,
+        timeframe,
+        startTime: request.startTime,
+        endTime: request.endTime,
+        initialBalance,
+        errorCode: "RANGE_TOO_LARGE",
+        errorMessage: message,
+        lifecycle,
+        createdAt: row.createdAt.toISOString(),
+      };
+    }
+
+    try {
+      const outcome = await runBacktest(
+        {
+          symbol,
+          timeframe: timeframe as Timeframe,
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          initialBalance,
+          strategySpec: compilation.compiledSpec,
+          buildIndicatorSeries: compilation.buildIndicatorSeries,
+        },
+        historicalDataProvider,
+      );
+
+      const metrics = toMetricsView(outcome.result);
+      const trades = outcome.result.tradeLedger.map(toTradeView);
+      const equityCurve = toEquityCurveView(outcome.equityCurve);
+      const assumptions = buildAssumptions(outcome.result);
+      const engineVersion = outcome.result.provenance.runtimeVersion;
+      const lifecycle = buildRunLifecycle(compilation.stages, outcome);
+      const compiledStrategy = toCompiledStrategyView(compilation.compiledSpec);
+      const strategyHash = computeSemanticStrategyHash(compilation.compiledSpec);
+
+      await prisma.algoTestRun.update({
+        where: { id: row.id },
+        data: {
+          status: "completed",
+          resultHash: outcome.result.resultHash,
+          resultVersion: RESULT_CONTRACT_VERSION,
+          engineVersion,
+          metrics: metrics as object,
+          trades: trades as unknown as object,
+          equityCurve: equityCurve as unknown as object,
+          assumptions: assumptions as object,
+          strategyHash,
+          strategyRefId,
+          lifecycle: lifecycle as unknown as object,
+          compiledStrategy: compiledStrategy as unknown as object,
+          completedAt: new Date(),
+        },
+      });
+
+      return {
+        testId: row.id,
+        status: "completed",
+        strategyId: "ai-generated",
+        strategyVersion: "1.0.0",
+        resultVersion: RESULT_CONTRACT_VERSION,
+        engineVersion,
+        parameters: { intent: request.intent },
+        symbol,
+        timeframe,
+        startTime: request.startTime,
+        endTime: request.endTime,
+        initialBalance,
+        resultHash: outcome.result.resultHash,
+        metrics,
+        trades,
+        equityCurve,
+        assumptions,
+        candles: toChartCandles(outcome.bars),
+        lifecycle,
+        compiledStrategy,
+        strategyHash,
+        analytics: buildAnalyticsView(trades, equityCurve, metrics),
+        createdAt: row.createdAt.toISOString(),
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const code = toAlgoTestErrorCode(message);
+      const lifecycle = buildDataValidFailureLifecycle(compilation.stages, message);
+      // P4.3 - the compiled strategy DID exist here (this is a
+      // DATA_VALID failure, after EXECUTION_VALID already passed) - see
+      // the identical rationale on runAlgoTest's own catch block above.
+      const compiledStrategy = toCompiledStrategyView(compilation.compiledSpec);
+      const strategyHash = computeSemanticStrategyHash(compilation.compiledSpec);
+      await prisma.algoTestRun.update({
+        where: { id: row.id },
+        data: {
+          status: "failed",
+          errorCode: code,
+          errorMessage: message,
+          strategyHash,
+          strategyRefId,
+          lifecycle: lifecycle as unknown as object,
+          compiledStrategy: compiledStrategy as unknown as object,
+          completedAt: new Date(),
+        },
+      });
+      return {
+        testId: row.id,
+        status: "failed",
+        strategyId: "ai-generated",
+        parameters: { intent: request.intent },
+        compiledStrategy,
+        strategyHash,
+        symbol,
+        timeframe,
+        startTime: request.startTime,
+        endTime: request.endTime,
+        initialBalance,
+        errorCode: code,
+        errorMessage: message,
+        lifecycle,
+        createdAt: row.createdAt.toISOString(),
+      };
+    }
+  },
+
+  /**
+   * P4.8-T2.2 - reads a persisted, user-owned AI Strategy's artifact back
+   * and PROVES it is genuinely trustworthy before returning it: re-hashes
+   * the frozen spec and compares against its own recorded `contentHash`
+   * (`verifyStrategyVersionIntegrity` - engine-provided, Q0.9/ADR-007,
+   * catches accidental mutation/corruption of the stored JSON), then runs
+   * the equally engine-provided `validateStrategySpec` (catches a
+   * structurally malformed spec that would otherwise fail confusingly
+   * deep inside a future re-run attempt). Throws loudly on either
+   * failure - a corrupted or invalid persisted artifact must never be
+   * silently handed to a caller as if it were safe to execute. Returns
+   * `null` only for the honest "no such Strategy" case (wrong id, wrong
+   * owner, or a registry strategy - which never gets a row here at all).
+   * Not yet wired to any route - a persistence-layer capability only,
+   * proven by its own tests. The Library API (P4.8-T3) is its first real
+   * consumer.
+   */
+  async getStrategyArtifact(userId: string, strategyId: string): Promise<{ spec: StrategySpec; versionRecord: StrategyVersionRecord } | null> {
+    const row = await prisma.strategy.findUnique({ where: { userId_strategyId: { userId, strategyId } } });
+    if (!row) return null;
+    const versionRecord = row.artifact as unknown as StrategyVersionRecord;
+    if (!verifyStrategyVersionIntegrity(versionRecord)) {
+      throw new Error(`Strategy "${strategyId}" (row ${row.id}): persisted artifact failed its own contentHash integrity check - corrupted or tampered, refusing to return it.`);
+    }
+    const validation = validateStrategySpec(versionRecord.spec);
+    if (!validation.valid) {
+      throw new Error(`Strategy "${strategyId}" (row ${row.id}): persisted spec failed validateStrategySpec: ${validation.errors.join("; ")}`);
+    }
+    return { spec: versionRecord.spec, versionRecord };
+  },
+
+  /**
+   * P4.8-T3.2 (docs/P4.8-T3-STRATEGY-LIBRARY.md, per the locked T3.1
+   * contract) - a user's full Strategy Library: every available registry
+   * strategy (global, code-defined) followed by up to 50 of the user's
+   * own persisted AI strategies, newest first. Exactly two `groupBy`
+   * queries total for run-count/last-run aggregation - never N+1, never
+   * touches the heavy `metrics`/`trades`/`equityCurve` columns. Per the
+   * locked clarification: the AI-side `groupBy` aggregates ALL of the
+   * user's AI runs (not narrowed to the 50 returned Strategies) -
+   * deliberately not optimized further in T3.
+   */
+  async listStrategyLibrary(userId: string): Promise<StrategyLibraryItem[]> {
+    const registryEntries = listAvailableStrategies();
+    const registryIds = registryEntries.map((s) => s.strategyId);
+
+    const [registryAgg, strategies, aiAgg] = await Promise.all([
+      registryIds.length > 0
+        ? prisma.algoTestRun.groupBy({ by: ["strategyId"], where: { userId, strategyId: { in: registryIds } }, _count: { _all: true }, _max: { createdAt: true } })
+        : Promise.resolve([]),
+      prisma.strategy.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 50 }),
+      prisma.algoTestRun.groupBy({ by: ["strategyRefId"], where: { userId, strategyRefId: { not: null } }, _count: { _all: true }, _max: { createdAt: true } }),
+    ]);
+
+    const registryRunInfo = new Map(registryAgg.map((a) => [a.strategyId, { runCount: a._count._all, lastRunAt: a._max.createdAt }]));
+    // Keyed by the Strategy row's own `id` (what AlgoTestRun.strategyRefId
+    // actually references) - NOT the semantic `strategyId` string.
+    const aiRunInfo = new Map(aiAgg.map((a) => [a.strategyRefId as string, { runCount: a._count._all, lastRunAt: a._max.createdAt }]));
+
+    const registryItems: StrategyLibraryItem[] = registryEntries.map((s) => {
+      const info = registryRunInfo.get(s.strategyId);
+      return {
+        strategyId: s.strategyId,
+        name: s.displayName,
+        origin: "registry",
+        runCount: info?.runCount ?? 0,
+        ...(info?.lastRunAt ? { lastRunAt: info.lastRunAt.toISOString() } : {}),
+      };
+    });
+
+    const aiItems: StrategyLibraryItem[] = strategies.map((row) => {
+      const info = aiRunInfo.get(row.id);
+      return {
+        strategyId: row.strategyId,
+        name: row.name,
+        origin: "ai-generated",
+        createdAt: row.createdAt.toISOString(),
+        runCount: info?.runCount ?? 0,
+        ...(info?.lastRunAt ? { lastRunAt: info.lastRunAt.toISOString() } : {}),
+      };
+    });
+
+    return [...registryItems, ...aiItems];
+  },
+
+  /**
+   * P4.8-T3.2 - Strategy Library detail. Tries the registry first
+   * (cheap, in-memory, no ambiguity risk since every AI strategyId is
+   * always `ai-`-prefixed and no registry entry is), then falls back to
+   * a user-owned persisted Strategy. Returns `null` only for the honest
+   * "no such strategy, or it belongs to someone else" case.
+   *
+   * `artifactVerified: false` is a genuinely reachable state (see the
+   * type's own doc comment) - a corrupted/tampered AI artifact is caught
+   * here via getStrategyArtifact()'s own thrown error and turned into an
+   * honest, non-crashing `false` for DISPLAY purposes only. This does
+   * NOT weaken getStrategyArtifact() itself, which still throws loudly
+   * for any caller (e.g. a future rerun action) that actually needs the
+   * artifact to be trustworthy to proceed.
+   */
+  async getStrategyLibraryDetail(userId: string, strategyId: string): Promise<StrategyLibraryDetail | null> {
+    const registryDef = getStrategyDefinition(strategyId);
+    if (registryDef && registryDef.status === "available") {
+      const [agg] = await prisma.algoTestRun.groupBy({ by: ["strategyId"], where: { userId, strategyId }, _count: { _all: true }, _max: { createdAt: true } });
+      return {
+        strategyId: registryDef.strategyId,
+        name: registryDef.displayName,
+        origin: "registry",
+        runCount: agg?._count._all ?? 0,
+        ...(agg?._max.createdAt ? { lastRunAt: agg._max.createdAt.toISOString() } : {}),
+        compiledStrategy: toCompiledStrategyView(registryDef.buildSpec({})),
+        artifactVerified: true,
+      };
+    }
+
+    const row = await prisma.strategy.findUnique({ where: { userId_strategyId: { userId, strategyId } } });
+    if (!row) return null;
+
+    const [agg] = await prisma.algoTestRun.groupBy({ by: ["strategyRefId"], where: { userId, strategyRefId: row.id }, _count: { _all: true }, _max: { createdAt: true } });
+    const base = {
+      strategyId: row.strategyId,
+      name: row.name,
+      origin: "ai-generated" as const,
+      createdAt: row.createdAt.toISOString(),
+      runCount: agg?._count._all ?? 0,
+      ...(agg?._max.createdAt ? { lastRunAt: agg._max.createdAt.toISOString() } : {}),
+    };
+
+    try {
+      const artifact = await algoTestService.getStrategyArtifact(userId, strategyId);
+      // Structurally unreachable - `row` above already proves the
+      // Strategy exists, so getStrategyArtifact() can only return null
+      // here if it vanished between the two reads (a real race, not a
+      // corruption case) - treated the same as corruption: honest,
+      // non-crashing `artifactVerified: false`, never fabricated content.
+      if (!artifact) return { ...base, artifactVerified: false };
+      return { ...base, compiledStrategy: toCompiledStrategyView(artifact.spec), artifactVerified: true };
+    } catch {
+      return { ...base, artifactVerified: false };
+    }
   },
 };

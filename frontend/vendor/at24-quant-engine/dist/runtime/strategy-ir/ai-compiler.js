@@ -48,13 +48,31 @@ export function compileAIStrategyToIR(input, identity) {
             condition: e.condition,
             ...(e.appliesTo !== undefined ? { appliesTo: e.appliesTo } : {}),
         })),
+        // P4 CORRECTION (docs/P4-NL-STRATEGY-COMPILER.md): the two literals
+        // below were REJECT/CLOSE_THEN_OPEN until this fix — structurally
+        // valid per Q0.7's own validateStrategyIR().executionEligible (the
+        // ONLY check this file's pre-P4 test, Q0.7.46, ever exercised), but
+        // UNCONDITIONALLY failing the stricter, later checkReductionEligibility()
+        // (Q0.9/eligibility-gate.ts, established after this file was last
+        // touched — its own explicit rules: same-direction fills must be
+        // ACCUMULATE, "Q0.5's engine always accumulates... never rejects or
+        // ignores them"; reversal must be REVERSE, "Q0.5's engine only
+        // implements atomic reduce-then-reopen reversal"). Verified
+        // empirically, not assumed: every compileAIStrategyToIR() output
+        // failed checkReductionEligibility() for every input, unconditionally,
+        // until this fix — the first time anything called it through the real
+        // gate. ACCUMULATE/REVERSE below are not new behavior invented for
+        // P4 — they are what Q0.5's engine has always actually required since
+        // Q1.5.4's pyramiding work (docs/Q1.5_PYRAMIDING_POLICY.md) and Q0.5's
+        // own reversal implementation; this file's defaults simply never
+        // caught up until now.
         positionManagement: {
             accountingMode: "NETTING",
-            pyramiding: { allowPyramiding: false, sameDirectionBehavior: "REJECT", oppositeDirectionBehavior: "REVERSAL" },
+            pyramiding: { allowPyramiding: false, sameDirectionBehavior: "ACCUMULATE", oppositeDirectionBehavior: "REVERSAL" },
             reversal: {
-                buyToSell: "CLOSE_THEN_OPEN",
-                sellToBuy: "CLOSE_THEN_OPEN",
-                platformDefaultDescription: "AT24-native compiler default: AI-compiled strategies always close-then-open on a reversal signal, never silently reverse in place — an explicit choice, not an imported platform default (Q0.7.30)",
+                buyToSell: "REVERSE",
+                sellToBuy: "REVERSE",
+                platformDefaultDescription: "AT24-native compiler default: AI-compiled strategies use Q0.5's own atomic reduce-then-reopen reversal on an opposite-direction signal — the only reversal mechanism the engine implements, never an imported platform default (Q0.7.30).",
             },
         },
         timezone: { strategyTimezone: identity.strategyTimezone },
