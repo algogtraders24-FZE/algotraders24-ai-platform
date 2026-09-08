@@ -60,7 +60,29 @@ export interface BacktestOutcome {
   readonly reproducible: boolean;
 }
 
-export async function runBacktest(request: BacktestRequest, provider: HistoricalDataProvider): Promise<BacktestOutcome> {
+export interface PreparedBars {
+  readonly bars: readonly OHLCVBar[];
+  readonly indicatorSeries: ReadonlyMap<string, readonly (number | boolean | undefined)[]>;
+  readonly barsRejected: number;
+  readonly dataSource: string;
+}
+
+/**
+ * P4.9-A.2 - extracted from runBacktest()'s own former inline body (no
+ * behavior change - byte-identical logic, just now callable independently)
+ * so optimization.service.ts's chunk setup can fetch bars and build/
+ * warmup-slice the indicator series ONCE per chunk and reuse them across
+ * every candidate that chunk processes, instead of once per candidate
+ * (which runBacktest() itself still does once per call - fine for a single
+ * ordinary run, prohibitively expensive - a live paid API call per
+ * candidate - for a 256-candidate sweep). runBacktest() below now calls
+ * this SAME function; there is exactly one implementation of this logic.
+ */
+export async function fetchAndPrepareBars(
+  request: { readonly symbol: string; readonly timeframe: Timeframe; readonly startTime: string; readonly endTime: string },
+  buildIndicatorSeries: (bars: readonly OHLCVBar[]) => ReadonlyMap<string, readonly (number | boolean | undefined)[]>,
+  provider: HistoricalDataProvider,
+): Promise<PreparedBars> {
   const { bars: fetchedBars, rejected, source } = await provider.getBars({
     symbol: request.symbol,
     timeframe: request.timeframe,
@@ -72,7 +94,7 @@ export async function runBacktest(request: BacktestRequest, provider: Historical
     throw new Error(`runBacktest: no valid historical bars for ${request.symbol}/${request.timeframe} in [${request.startTime}, ${request.endTime}] (source: ${source}, ${rejected.length} rejected)`);
   }
 
-  const fetchedSeries = request.buildIndicatorSeries(fetchedBars);
+  const fetchedSeries = buildIndicatorSeries(fetchedBars);
 
   // P4 Phase 2 - warmup-bar slicing (docs/P4-PHASE2-BACKTEST-WIRING.md).
   // Q0.5's frozen signal-generator.ts evaluates every bar starting at
@@ -104,6 +126,12 @@ export async function runBacktest(request: BacktestRequest, provider: Historical
   const bars = warmupBars > 0 ? fetchedBars.slice(warmupBars) : fetchedBars;
   const indicatorSeries = warmupBars > 0 ? new Map([...fetchedSeries].map(([key, values]) => [key, values.slice(warmupBars)] as const)) : fetchedSeries;
 
+  return { bars, indicatorSeries, barsRejected: rejected.length, dataSource: source };
+}
+
+export async function runBacktest(request: BacktestRequest, provider: HistoricalDataProvider): Promise<BacktestOutcome> {
+  const { bars, indicatorSeries, barsRejected, dataSource } = await fetchAndPrepareBars(request, request.buildIndicatorSeries, provider);
+
   const instrument: Instrument = bars[0]!.instrument;
 
   const config: SimulationConfig = {
@@ -134,8 +162,8 @@ export async function runBacktest(request: BacktestRequest, provider: Historical
     result,
     bars,
     barsUsed: bars.length,
-    barsRejected: rejected.length,
-    dataSource: source,
+    barsRejected,
+    dataSource,
     equityCurve: deriveEquityCurve(result, request.initialBalance),
     reproducible,
   };

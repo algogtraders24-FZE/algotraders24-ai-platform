@@ -4,6 +4,7 @@ import type { SimulationResult } from "../../domain/simulation/simulation-result
 import type { DataFidelityLevel } from "../../domain/data-fidelity.js";
 import type { SpreadModel, SlippageModel, FeeModel, LatencyModel } from "../../domain/reality-models.js";
 import type { PendingOrderManagementPolicy } from "../../domain/pending-order-management-policy.js";
+export declare const RUNTIME_VERSION = "0.1.0";
 export interface SimulationConfig {
     readonly strategySpec: StrategySpec;
     readonly instrument: Instrument;

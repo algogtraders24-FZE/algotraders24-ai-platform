@@ -35,7 +35,13 @@ import { mapRiskAction } from "./risk-action-mapping.js";
 import type { SimulationOrder } from "../../domain/simulation/order.js";
 import { resolvePriceReference } from "../strategy-ir/price-reference-resolver.js";
 
-const RUNTIME_VERSION = "0.1.0";
+// P4.9-A.2 - exported (was module-private) so a caller can read the exact
+// runtime identity BEFORE running any simulation (needed to compute an
+// OptimizationExperiment's fingerprint at creation time, before its first
+// candidate executes - see frontend/services/algo-test/optimization.service.ts).
+// Purely additive: the constant itself, and every existing use of it below
+// (SimulationResult.provenance.runtimeVersion), is unchanged.
+export const RUNTIME_VERSION = "0.1.0";
 
 export interface SimulationConfig {
   readonly strategySpec: StrategySpec;
