@@ -31,6 +31,21 @@ export interface VectorSearchParams {
   topK: number;
   knowledgeId?: string;
   userId?: string;
+  // ── Sprint K1 — Knowledge Loop retrieval eligibility (ADDITIVE) ──────
+  // When `scopes` is a non-empty array the query JOINs `Knowledge` and
+  // enforces the retrieval-safety predicate (KNOWLEDGE_CONTRACT.md §10 /
+  // KNOWLEDGE_RETRIEVAL_CONTRACT.md §3.1 step 4 / K1_DECISION INV-1):
+  //   k."lifecycleStatus" = 'active'  AND  k."supersededById" IS NULL
+  //   AND k."deletedAt" IS NULL  AND (k."expiresAt" IS NULL OR future)
+  //   AND k."scope"::text = ANY(scopes)  AND k."visibility"::text = ANY(visibilities)
+  // plus an OR branch for the caller's own `scope = 'user'` rows when
+  // `includeUserScope` + `callerUserId` are set.
+  // When `scopes` is omitted the query is byte-identical to the pre-K1
+  // behaviour (K1_DECISION A-13) — no JOIN, no Knowledge predicate.
+  scopes?: string[];
+  visibilities?: string[];
+  includeUserScope?: boolean;
+  callerUserId?: string;
 }
 
 export interface IVectorRepository {
@@ -129,34 +144,103 @@ export class PrismaVectorRepository implements IVectorRepository {
     const topK = this.validateTopK(params.topK);
     const literal = this.toVectorLiteral(vec);
 
-    const conditions: string[] = [
-      `"deletedAt" IS NULL`,
-      `"embedding" IS NOT NULL`,
-    ];
+    const scoped =
+      Array.isArray(params.scopes) && params.scopes.length > 0;
+
+    let sql: string;
     const args: unknown[] = [literal];
-    let n = 2;
 
-    if (params.knowledgeId !== undefined) {
-      const kId = this.validateId(params.knowledgeId, "knowledgeId");
-      conditions.push(`"knowledgeId" = $${n}`);
-      args.push(kId);
-      n += 1;
-    }
-    if (params.userId !== undefined) {
-      const uId = this.validateId(params.userId, "userId");
-      conditions.push(`"userId" = $${n}`);
-      args.push(uId);
-      n += 1;
-    }
+    if (!scoped) {
+      // ── Pre-K1 path — UNCHANGED (K1_DECISION A-13 backward compat). ──
+      const conditions: string[] = [
+        `"deletedAt" IS NULL`,
+        `"embedding" IS NOT NULL`,
+      ];
+      let n = 2;
 
-    // topK is a validated bounded integer; safe to inline as LIMIT.
-    const sql =
-      `SELECT "id", "knowledgeId", "userId", "content", "chunkIndex", ` +
-      `1 - ("embedding" <=> $1::vector) AS "similarity" ` +
-      `FROM "KnowledgeChunk" ` +
-      `WHERE ${conditions.join(" AND ")} ` +
-      `ORDER BY "embedding" <=> $1::vector ` +
-      `LIMIT ${topK}`;
+      if (params.knowledgeId !== undefined) {
+        const kId = this.validateId(params.knowledgeId, "knowledgeId");
+        conditions.push(`"knowledgeId" = $${n}`);
+        args.push(kId);
+        n += 1;
+      }
+      if (params.userId !== undefined) {
+        const uId = this.validateId(params.userId, "userId");
+        conditions.push(`"userId" = $${n}`);
+        args.push(uId);
+        n += 1;
+      }
+
+      // topK is a validated bounded integer; safe to inline as LIMIT.
+      sql =
+        `SELECT "id", "knowledgeId", "userId", "content", "chunkIndex", ` +
+        `1 - ("embedding" <=> $1::vector) AS "similarity" ` +
+        `FROM "KnowledgeChunk" ` +
+        `WHERE ${conditions.join(" AND ")} ` +
+        `ORDER BY "embedding" <=> $1::vector ` +
+        `LIMIT ${topK}`;
+    } else {
+      // ── Sprint K1 — Knowledge Loop eligibility-filtered retrieval. ───
+      // The retrieval-safety predicate (INV-1) is enforced in SQL here so
+      // an ineligible row can never even reach the ranking layer. The
+      // KnowledgeService re-checks eligibility on hydration too (cache
+      // path), but this is the structural gate.
+      const scopes = params.scopes!.map((s) => this.validateId(s, "scope"));
+      const visibilities = (params.visibilities ?? []).map((v) =>
+        this.validateId(v, "visibility"),
+      );
+      const conditions: string[] = [
+        `kc."deletedAt" IS NULL`,
+        `kc."embedding" IS NOT NULL`,
+        `k."deletedAt" IS NULL`,
+        `k."supersededById" IS NULL`,
+        `(k."expiresAt" IS NULL OR k."expiresAt" > now())`,
+      ];
+      let n = 2;
+
+      const scopesParam = `$${n}`;
+      args.push(scopes);
+      n += 1;
+
+      // Verified-knowledge branch: active + in-scope + (visibility unset OR in-list).
+      let verifiedBranch =
+        `(k."scope"::text = ANY(${scopesParam}) ` +
+        `AND k."lifecycleStatus" = 'active'`;
+      if (visibilities.length > 0) {
+        verifiedBranch += ` AND k."visibility"::text = ANY($${n})`;
+        args.push(visibilities);
+        n += 1;
+      }
+      verifiedBranch += `)`;
+
+      // Own private-knowledge branch: the caller's own scope = 'user' rows.
+      let ownBranch = "";
+      if (params.includeUserScope && params.callerUserId) {
+        const uId = this.validateId(params.callerUserId, "callerUserId");
+        ownBranch =
+          ` OR (k."scope"::text = 'user' AND k."userId" = $${n} ` +
+          `AND (k."lifecycleStatus" IS NULL OR k."lifecycleStatus" = 'active'))`;
+        args.push(uId);
+        n += 1;
+      }
+      conditions.push(`(${verifiedBranch}${ownBranch})`);
+
+      if (params.knowledgeId !== undefined) {
+        const kId = this.validateId(params.knowledgeId, "knowledgeId");
+        conditions.push(`kc."knowledgeId" = $${n}`);
+        args.push(kId);
+        n += 1;
+      }
+
+      sql =
+        `SELECT kc."id", kc."knowledgeId", kc."userId", kc."content", kc."chunkIndex", ` +
+        `1 - (kc."embedding" <=> $1::vector) AS "similarity" ` +
+        `FROM "KnowledgeChunk" kc ` +
+        `JOIN "Knowledge" k ON k."id" = kc."knowledgeId" ` +
+        `WHERE ${conditions.join(" AND ")} ` +
+        `ORDER BY kc."embedding" <=> $1::vector ` +
+        `LIMIT ${topK}`;
+    }
 
     try {
       const rows = (await prisma.$queryRawUnsafe(sql, ...args)) as Array<{

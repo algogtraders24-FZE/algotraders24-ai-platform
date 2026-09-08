@@ -258,10 +258,48 @@ model Knowledge {
   updatedAt       DateTime         @updatedAt
   deletedAt       DateTime?
 
+  // ── Sprint K1 — Knowledge Loop foundation (ADDITIVE ONLY) ───────────
+  // The existing `status String @default("processing")` column above is
+  // LEFT UNTOUCHED — it carries the legacy per-user ingestion state
+  // (processing/indexed/pending/failed). The Knowledge Loop lifecycle
+  // (KNOWLEDGE_CONTRACT.md §4) lives on the NEW nullable `lifecycleStatus`
+  // column: null for legacy `scope = user` rows (retrieved exactly as
+  // today, via `embeddingStatus`), set for scope ∈ {assistant, support,
+  // shared}. This split is the only way to honour BOTH the additive-only
+  // migration rule (K1_DECISION MG-4/5) AND "legacy rows keep working"
+  // (KNOWLEDGE_CONTRACT §4.3). `retrievalCount` above IS the usage
+  // counter — not duplicated. No `@relation` — loose indexed string refs
+  // (AgentMemoryRecord / IntelligenceAuditTrace convention), so the
+  // migration adds ZERO FK constraints to this existing table.
+  canonicalQuestion        String?
+  canonicalAnswer          String?
+  knowledgeType            KnowledgeType?
+  scope                    KnowledgeScope           @default(user)
+  visibility               KnowledgeVisibility      @default(customer)
+  sourceType               KnowledgeSourceType?
+  provenance               Json?
+  confidence               Float?
+  lifecycleStatus          KnowledgeStatus?
+  version                  Int                      @default(1)
+  supersedesId             String?
+  supersededById           String?
+  freshnessClass           KnowledgeFreshnessClass?
+  freshnessReviewEveryDays Int?
+  expiresAt                DateTime?
+  lastReviewedAt           DateTime?
+  approvedAt               DateTime?
+  approvedBy               String?
+  deprecatedAt             DateTime?
+  deprecatedBy             String?
+  lastRetrievedAt          DateTime?
+
   @@index([userId])
   @@index([category])
   @@index([collectionId])
   @@index([deletedAt])
+  @@index([scope, lifecycleStatus])
+  @@index([supersededById])
+  @@index([expiresAt])
 }
 
 model KnowledgeCollection {
@@ -2052,4 +2090,220 @@ model PublishingAttempt {
   @@index([jobId])
   @@index([status])
   @@map("publishing_attempts")
+}
+
+// ============================================================================
+// Sprint K1 — AT24 AI Assistant Knowledge Loop: Knowledge Foundation.
+//
+// Contracts (LOCKED, docs/architecture/): K1_DECISION.md · KNOWLEDGE_CONTRACT.md
+// · KNOWLEDGE_RETRIEVAL_CONTRACT.md · KNOWLEDGE_GOVERNANCE_CONTRACT.md ·
+// AI_ASSISTANT_KNOWLEDGE_LOOP_ARCHITECTURE.md · AI_ASSISTANT_ORCHESTRATION_CONTRACT.md
+//
+// PURELY ADDITIVE: 7 new enums + additive nullable/defaulted columns on
+// `Knowledge` (above) + 5 new tables. ZERO destructive change. `KnowledgeChunk`
+// and its `embedding vector(768)` column are UNTOUCHED (accessed only via
+// repositories/VectorRepository.ts).
+//
+// Migration: GENERATED offline via `prisma migrate diff`, hand-reviewed,
+// header marks it NOT APPLIED. Applied via `prisma migrate deploy` ONLY under
+// an explicit K1-F owner go-ahead. NEVER `prisma migrate dev` (pgvector-reset
+// trap — project_sprint15c_workflow).
+//
+// INV-1 (K1_DECISION §3): unapproved knowledge is STRUCTURALLY unreachable by
+// production retrieval. `KnowledgeCandidate` is its own table; the retriever
+// (KnowledgeService.retrieve + VectorRepository.searchSimilar) reads
+// `Knowledge`/`KnowledgeChunk` ONLY. A candidate's proposed answer is never
+// written to `KnowledgeChunk` and never embedded into the production vector
+// corpus — only a `Knowledge` row promoted by Governance.approve() (K4) is
+// ingested.
+//
+// No `@relation` anywhere below — loose indexed string refs, same convention
+// as AgentMemoryRecord / IntelligenceAuditTrace (no FK constraints on the
+// existing `Knowledge` / `User` / `Conversation` tables).
+
+enum KnowledgeStatus {
+  draft
+  active
+  deprecated
+  archived
+}
+
+enum KnowledgeScope {
+  user
+  assistant
+  support
+  shared
+}
+
+enum KnowledgeVisibility {
+  public
+  customer
+  admin
+  internal
+}
+
+enum KnowledgeType {
+  product
+  platform
+  trading_education
+  policy
+  support
+  faq
+}
+
+enum KnowledgeFreshnessClass {
+  STATIC
+  PERIODIC
+  DYNAMIC
+}
+
+enum KnowledgeSourceType {
+  verified_qa
+  unanswered_question
+  assistant_correction
+  web_researched
+  admin_authored
+  support_resolution
+  existing_documentation
+}
+
+enum CandidateStatus {
+  candidate
+  under_review
+  approved
+  rejected
+  duplicate
+  superseded
+}
+
+// A proposed knowledge item awaiting explicit human review. DELIBERATELY a
+// separate table from `Knowledge` (K1_DECISION SO-4 / INV-1): the production
+// retriever never queries this table, so an unreviewed item cannot be served.
+// `deletedAt` is present only for a privacy-erasure request — a `rejected`
+// candidate is otherwise retained forever (gap analytics + "already rejected"
+// signal to reviewers). Governance.approve() (K4) creates a `Knowledge` row
+// FROM a candidate; it never mutates a candidate into knowledge in place.
+model KnowledgeCandidate {
+  id                        String                  @id @default(cuid())
+  createdByUserId           String
+  originatingConversationId String?
+  originatingMessageId      String?
+  canonicalQuestion         String
+  proposedAnswer            String
+  knowledgeType             KnowledgeType
+  proposedScope             KnowledgeScope          @default(assistant)
+  proposedVisibility        KnowledgeVisibility     @default(public)
+  proposedFreshnessClass    KnowledgeFreshnessClass @default(STATIC)
+  sourceType                KnowledgeSourceType
+  evidence                  Json
+  confidence                Float
+  reasonForCandidate        String
+  duplicateOfId             String?
+  similarityScore           Float?
+  status                    CandidateStatus         @default(candidate)
+  assignedReviewerId        String?
+  reviewedAt                DateTime?
+  reviewNotes               String?
+  finalKnowledgeId          String?
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
+  deletedAt                 DateTime?
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([createdByUserId])
+  @@index([originatingConversationId])
+  @@index([duplicateOfId])
+  @@index([assignedReviewerId])
+}
+
+// Immutable per-answer provenance for every Knowledge Loop answer
+// (AI_ASSISTANT_ORCHESTRATION_CONTRACT.md §8). Mirror of IntelligenceAuditTrace:
+// no update path, no `deletedAt`; a re-answer writes a NEW row. Written by the
+// K3 orchestrator — the table is created in K1 so the schema is complete and
+// the contract is locked; nothing writes it until K3.
+model KnowledgeAnswerProvenance {
+  id                               String   @id @default(cuid())
+  userId                           String
+  conversationId                   String?
+  messageId                        String?
+  requestId                        String
+  sourceClass                      String
+  knowledgeContributions           Json     @default("[]")
+  webContributions                 Json     @default("[]")
+  providerUsed                     String
+  providerAttempts                 Json     @default("[]")
+  webSearchUsed                    Boolean  @default(false)
+  webSearchRequestedButUnavailable Boolean  @default(false)
+  retrievalSufficiency             String
+  conflict                         Json?
+  integrityPassed                  Boolean  @default(true)
+  freshnessClass                   String?
+  privacyClass                     String?
+  candidateCreatedId               String?
+  answerCached                     Boolean  @default(false)
+  servedFromCache                  Boolean  @default(false)
+  latencyMs                        Int      @default(0)
+  createdAt                        DateTime @default(now())
+
+  @@index([userId])
+  @@index([conversationId])
+  @@index([createdAt])
+  @@index([sourceClass])
+  @@index([providerUsed])
+}
+
+// Append-only per-retrieval quality log (KNOWLEDGE_RETRIEVAL_CONTRACT.md §8).
+// Mirror of RequestLog: no update, no delete. Stores `queryHash` (sha256 of
+// the normalized query), NEVER the raw query text — that already lives in
+// `Message`. KnowledgeService.retrieve() appends here (K2 wires the emit; the
+// table is created in K1).
+model KnowledgeRetrievalLog {
+  id                String   @id @default(cuid())
+  userId            String
+  conversationId    String?
+  queryHash         String
+  scopes            String[] @default([])
+  hitCount          Int      @default(0)
+  bestSimilarity    Float?
+  sufficiency       String
+  fromCache         Boolean  @default(false)
+  webSearchFollowed Boolean  @default(false)
+  latencyMs         Int      @default(0)
+  createdAt         DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([sufficiency])
+  @@index([conversationId])
+}
+
+// Postgres-backed answer cache (K1_DECISION SO-3 — no KV store on the current
+// plan). `key` = sha256(normalizedLowerQuery | scopeSig | knowledgeVersionFingerprint).
+// Embedding the fingerprint in the key makes every knowledge lifecycle change
+// a LAZY invalidation (a stale entry can never be matched). Written by K5; the
+// table is created in K1.
+model KnowledgeAnswerCache {
+  key                         String   @id
+  normalizedQuery             String
+  scopeSig                    String
+  knowledgeVersionFingerprint String
+  answerText                  String
+  sources                     Json     @default("[]")
+  sourceClass                 String
+  createdAt                   DateTime @default(now())
+  expiresAt                   DateTime
+
+  @@index([expiresAt])
+}
+
+// Single-row monotonic counter. `value` is incremented IN THE SAME TRANSACTION
+// as every `Knowledge` lifecycle transition that changes what retrieval would
+// return (KNOWLEDGE_RETRIEVAL_CONTRACT.md §7.4). Read once per retrieval and
+// folded into every cache key. The only new "hot" write the loop adds — a
+// single-row `UPDATE ... SET value = value + 1`.
+model KnowledgeVersionCounter {
+  id        String   @id @default("singleton")
+  value     BigInt   @default(0)
+  updatedAt DateTime @updatedAt
 }
