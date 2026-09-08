@@ -211,8 +211,12 @@ async function main(): Promise<void> {
   await test("A11 added NO new infrastructure dir under agent-framework (definitions + specialist + adapters only)", () => {
     const base = join(ROOT, "services", "agent-framework");
     const dirs = readdirSync(base, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
-    // the A1-A10 set + the new "agents" folder (definitions only). Nothing else.
-    assert.deepEqual(dirs, ["agents", "authorization", "credits", "evaluation", "integrity", "memory", "runtime", "supervisor", "tools"]);
+    // the A1-A10 core modules are all present, plus "agents" (definitions, A11+)
+    // and "api" (the A15 route seam). No agent step introduces anything else.
+    const CORE = ["authorization", "credits", "evaluation", "integrity", "memory", "runtime", "supervisor", "tools"];
+    for (const d of CORE) assert.ok(dirs.includes(d), `core module "${d}" present`);
+    const ALLOWED = new Set([...CORE, "agents", "api"]);
+    assert.deepEqual(dirs.filter((d) => !ALLOWED.has(d)), [], "no unexpected new infrastructure dir");
     // agents/ holds ONLY canonical agent definitions (one file per agent, A11+).
     const agentsFiles = readdirSync(join(base, "agents"));
     assert.ok(agentsFiles.includes("research-agent.ts"), "research-agent.ts present");

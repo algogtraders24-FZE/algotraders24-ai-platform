@@ -116,8 +116,11 @@ const AUTH_DENIAL_TOOLCALL_STATUS: Record<string, PrismaAgentToolCallStatus> = {
 export class AgentRuntime {
   private readonly registry: ToolRegistry;
   private readonly planner: RunPlanner;
-  private readonly creditLedger: CreditLedger;
-  private readonly evaluation: EvaluationService;
+  /** Exposed (read-only) so a caller assembling an observability read model
+   *  (A15) reads credits + evaluation from the SAME instances this runtime
+   *  wrote them with - consistent regardless of backing store. */
+  readonly creditLedger: CreditLedger;
+  readonly evaluation: EvaluationService;
 
   constructor(deps: {
     registry?: ToolRegistry;

@@ -107,6 +107,16 @@ export const agentRunRepository = {
     return prisma.agentRun.findFirst({ where: { id: runId, userId } });
   },
 
+  /** The authenticated user's own runs, newest first. For the runs list
+   *  (A15). Scoped to `userId` - never a client-supplied one. */
+  async listRunsForUser(userId: string, limit = 50) {
+    return prisma.agentRun.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: Math.min(Math.max(limit, 1), 200),
+    });
+  },
+
   /** Full forensic trace: run + ordered steps + tool calls + evidence. */
   async getRunTrace(runId: string) {
     const [run, steps, toolCalls, evidence] = await Promise.all([
