@@ -104,15 +104,15 @@ model Product {
 }
 
 model Conversation {
-  id            String    @id @default(cuid())
-  userId        String
-  title         String
-  messageCount  Int       @default(0)
-  lastMessageAt DateTime  @default(now())
-  archived      Boolean   @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
+  id                  String    @id @default(cuid())
+  userId              String
+  title               String
+  messageCount        Int       @default(0)
+  lastMessageAt       DateTime  @default(now())
+  archived            Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
   /// Sprint D2.6.7 - persisted PersistedConversationContext (types/conversation-context.ts).
   /// Null for a conversation with no resolved market-intelligence turn yet.
   /// Context only - symbol/timeframe/analysis-run pointers, never a market
@@ -666,7 +666,7 @@ enum IntelligenceAnalysisRunEvaluationStatus {
 }
 
 model IntelligenceAnalysisRun {
-  id                 String    @id @default(cuid())
+  id                 String                                  @id @default(cuid())
   userId             String
   symbol             String
   timeframe          String
@@ -686,7 +686,7 @@ model IntelligenceAnalysisRun {
   // before D2.5.4, or any run with no real hypothesis to snapshot.
   hypothesisSnapshot Json?
   evaluationStatus   IntelligenceAnalysisRunEvaluationStatus @default(pending)
-  createdAt          DateTime  @default(now())
+  createdAt          DateTime                                @default(now())
   deletedAt          DateTime?
 
   outcomes IntelligenceAnalysisOutcome[]
@@ -713,7 +713,7 @@ enum IntelligenceAnalysisOutcomeStatus {
 // evaluator.service.ts) that DOES reach validated/invalidated for real,
 // once a hypothesisId/hypothesisType/regimeType are genuinely known.
 model IntelligenceAnalysisOutcome {
-  id                 String    @id @default(cuid())
+  id                 String                            @id @default(cuid())
   analysisRunId      String
   // Real (matches a Hypothesis.id from the parent run's hypothesisSnapshot)
   // as of D2.5.4, when the outcome evaluates a real hypothesis. Still null
@@ -740,7 +740,7 @@ model IntelligenceAnalysisOutcome {
   // JSON-serialized structured object for every non-"pending-from-
   // creation" outcome - see HypothesisEvaluationBasis.
   evaluationBasis    String
-  createdAt          DateTime  @default(now())
+  createdAt          DateTime                          @default(now())
 
   analysisRun IntelligenceAnalysisRun @relation(fields: [analysisRunId], references: [id], onDelete: Cascade)
 
@@ -778,40 +778,40 @@ model IntelligenceAnalysisOutcome {
 // deletedAt - historical immutability means a later re-analysis creates
 // a NEW row, it never soft-deletes or rewrites this one.
 model IntelligenceAuditTrace {
-  id                       String   @id @default(cuid())
-  userId                   String
-  conversationId           String?
+  id                        String   @id @default(cuid())
+  userId                    String
+  conversationId            String?
   // Loose reference (like PersistedConversationContext.lastAnalysisRunId)
   // - not a hard FK, so this trace survives independently of the
   // analysis run's own lifecycle.
-  analysisRunId            String?
-  symbol                   String
-  timeframe                String
-  queryType                String
-  completeness             String
-  decisionState            String
-  generatedAt              DateTime
+  analysisRunId             String?
+  symbol                    String
+  timeframe                 String
+  queryType                 String
+  completeness              String
+  decisionState             String
+  generatedAt               DateTime
   intelligenceEngineVersion String
-  pipelineVersion          String
+  pipelineVersion           String
   // Real AuditMarketDataProvenance (provider/freshness/reliability/cross-
   // provider-validation) - never secrets, never a raw provider payload.
-  marketData               Json
+  marketData                Json
   // Full, immutable copies of the real envelope/decision-context at
   // analysis time - see types/intelligence-audit-trace.ts's header for
   // why this pair, and only this pair, is stored in full.
-  envelopeSnapshot         Json
-  decisionContextSnapshot  Json
-  relevanceBasis           Json
-  missingContext           Json
+  envelopeSnapshot          Json
+  decisionContextSnapshot   Json
+  relevanceBasis            Json
+  missingContext            Json
   // Real AuditPresenterTrace (provider attempts, safe integrity-
   // violation-kind vocabulary only, fallbackUsed) - never raw provider
   // error text, never an API key.
-  presenterTrace           Json
-  integrityResult          Json
-  claimTrace               Json
-  responseGeneratedAt      DateTime
-  createdAt                DateTime @default(now())
-  version                  String
+  presenterTrace            Json
+  integrityResult           Json
+  claimTrace                Json
+  responseGeneratedAt       DateTime
+  createdAt                 DateTime @default(now())
+  version                   String
 
   @@index([userId])
   @@index([conversationId])
@@ -976,7 +976,7 @@ model MarketplaceListing {
   riskAnalysisHash String?
   trustState       String? // M7 vocabulary: UNVERIFIED|VALIDATION_PENDING|INCONCLUSIVE|LIMITED|UNDER_OBSERVATION|VALIDATED|INVALIDATED|SUPERSEDED
   trustReasonCode  String?
-  trustExplanation String  @default("")
+  trustExplanation String    @default("")
   trustStatusId    String?
   lastEvidenceAt   DateTime? // observedAt of the most recent Evidence referenced above - a timestamp, not evidence content; lets catalog sort by "Most Recent Evidence" (M8 section 20) without joining the full Evidence record
 
@@ -1022,19 +1022,19 @@ model MarketplaceListing {
 // Conversation/Message).
 
 model ReleaseArtifact {
-  id                    String    @id @default(cuid())
-  tradingSystemId       String
-  versionId             String
-  marketplaceListingId  String?
-  platform              String
-  artifactVersion       String
-  artifactHash          String
+  id                   String    @id @default(cuid())
+  tradingSystemId      String
+  versionId            String
+  marketplaceListingId String?
+  platform             String
+  artifactVersion      String
+  artifactHash         String
   // DRAFT|PUBLISHED|DEPRECATED|REVOKED - a compromised release (Section 15/17)
   // is marked REVOKED here, never deleted; RuntimeValidation must reject it.
-  releaseStatus         String    @default("DRAFT")
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-  deletedAt             DateTime?
+  releaseStatus        String    @default("DRAFT")
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  deletedAt            DateTime?
 
   licenses License[]
 
@@ -1051,21 +1051,21 @@ model ReleaseArtifact {
 }
 
 model Purchase {
-  id                    String    @id @default(cuid())
-  buyerId               String
-  marketplaceListingId  String
-  tradingSystemId       String
-  amount                Float     @default(0)
-  currency              String    @default("USD")
+  id                   String    @id @default(cuid())
+  buyerId              String
+  marketplaceListingId String
+  tradingSystemId      String
+  amount               Float     @default(0)
+  currency             String    @default("USD")
   // Null until a real payment flow exists - never fabricated (mirrors
   // Subscription.provider's own honesty convention above).
-  provider              String?
-  providerRef           String?   @unique
-  status                String    @default("PENDING") // PENDING|COMPLETED|REFUNDED|REVERSED
-  purchasedAt           DateTime  @default(now())
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-  deletedAt             DateTime?
+  provider             String?
+  providerRef          String?   @unique
+  status               String    @default("PENDING") // PENDING|COMPLETED|REFUNDED|REVERSED
+  purchasedAt          DateTime  @default(now())
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  deletedAt            DateTime?
 
   entitlements Entitlement[]
 
@@ -1077,16 +1077,16 @@ model Purchase {
 }
 
 model Entitlement {
-  id                    String    @id @default(cuid())
-  purchaseId            String
-  buyerId               String
-  tradingSystemId       String
-  marketplaceListingId  String
-  platform              String
-  status                String    @default("ACTIVE") // ACTIVE|REVOKED
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-  deletedAt             DateTime?
+  id                   String    @id @default(cuid())
+  purchaseId           String
+  buyerId              String
+  tradingSystemId      String
+  marketplaceListingId String
+  platform             String
+  status               String    @default("ACTIVE") // ACTIVE|REVOKED
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  deletedAt            DateTime?
 
   purchase Purchase  @relation(fields: [purchaseId], references: [id])
   licenses License[]
@@ -1099,34 +1099,34 @@ model Entitlement {
 }
 
 model License {
-  id                    String    @id @default(cuid())
-  entitlementId         String
-  buyerId               String
-  tradingSystemId       String
-  versionId             String
-  releaseId             String
-  platform              String
+  id                   String    @id @default(cuid())
+  entitlementId        String
+  buyerId              String
+  tradingSystemId      String
+  versionId            String
+  releaseId            String
+  platform             String
   // ISSUED|ACTIVE|SUSPENDED|REVOKED|EXPIRED - see licenseStateMachine.ts for
   // the deterministic, fail-closed transition table.
-  licenseStatus         String    @default("ISSUED")
-  licenseSchemaVersion  String    @default("M11-license-v1")
-  activationPolicy      Json      // { maxActivations: number } - see types/license.ts
-  issuedAt              DateTime  @default(now())
-  expiresAt             DateTime?
-  revokedAt             DateTime?
-  revokedReason         String?
+  licenseStatus        String    @default("ISSUED")
+  licenseSchemaVersion String    @default("M11-license-v1")
+  activationPolicy     Json // { maxActivations: number } - see types/license.ts
+  issuedAt             DateTime  @default(now())
+  expiresAt            DateTime?
+  revokedAt            DateTime?
+  revokedReason        String?
   // Base64 Ed25519 signature over the canonical license payload - see
   // services/licensing/crypto.ts. Tamper-evident: any field change breaks
   // verification against the public key embedded in the product runtime.
-  signature             String
+  signature            String
   // Hashed at rest (never the raw key - see crypto.ts hashApiKey). The
   // credential a RUNTIME product presents to /api/license/* - NOT a browser
   // session (see M11_api_contract.md "Authentication"). The raw key is
   // returned to the buyer exactly once, at issuance, never stored or shown
   // again.
-  apiKeyHash            String
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  apiKeyHash           String
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   entitlement Entitlement     @relation(fields: [entitlementId], references: [id])
   release     ReleaseArtifact @relation(fields: [releaseId], references: [id])
@@ -1140,18 +1140,18 @@ model License {
 }
 
 model Activation {
-  id               String    @id @default(cuid())
-  licenseId        String
+  id              String    @id @default(cuid())
+  licenseId       String
   // Platform-specific stable device identity, produced by a PlatformAdapter
   // (never a raw machine ID alone - see services/licensing/adapters/).
-  deviceBindingId  String
-  deviceLabel      String    @default("")
-  status           String    @default("ACTIVE") // ACTIVE|DEACTIVATED
-  activatedAt      DateTime  @default(now())
-  deactivatedAt    DateTime?
-  lastValidatedAt  DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  deviceBindingId String
+  deviceLabel     String    @default("")
+  status          String    @default("ACTIVE") // ACTIVE|DEACTIVATED
+  activatedAt     DateTime  @default(now())
+  deactivatedAt   DateTime?
+  lastValidatedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   license License @relation(fields: [licenseId], references: [id])
 
@@ -1285,21 +1285,21 @@ model PaperTradingAccount {
 // ("manual") from an automatic one ("stop_out", checkStopOut()) - never
 // silently identical, so a user can tell their position was force-closed.
 model PaperPosition {
-  id          String    @id @default(cuid())
+  id          String              @id @default(cuid())
   accountId   String
   account     PaperTradingAccount @relation(fields: [accountId], references: [id])
   symbol      String
   side        String
-  orderType   String    @default("market")
+  orderType   String              @default("market")
   quantity    Float
   limitPrice  Float?
   entryPrice  Float?
   marginUsed  Float?
-  status      String    @default("open")
+  status      String              @default("open")
   exitPrice   Float?
   realizedPnl Float?
   closeReason String?
-  openedAt    DateTime  @default(now())
+  openedAt    DateTime            @default(now())
   filledAt    DateTime?
   closedAt    DateTime?
 
@@ -1446,4 +1446,381 @@ model AlgoTestRun {
   @@index([userId, createdAt])
   @@index([userId, strategyHash])
   @@index([strategyRefId])
+}
+
+// ============================================================================
+// Sprint AN (Agent Framework Foundation) - A3: Agent Run persistence.
+//
+// The database-backed state machine for AF-v1 agent runs
+// (types/agent-framework/agent-run-contract.ts). Deliberately NOT connected
+// to the legacy Agent / AgentTask / AgentMemory / AgentActivity models - the
+// AN-series decision (AN1.2 D3) treats those as a frozen legacy compatibility
+// layer for the current /dashboard/agents UI. `agentId` / `userId` here are
+// bare, indexed identifier strings with NO Prisma relation - the exact same
+// convention AgentTask / AgentMemory / AgentActivity / IntelligenceAnalysisRun
+// already use (a denormalized owner id, enforced in the service layer, never
+// trusted from client input). Relations are declared ONLY among the four new
+// models, which ship together in one migration (same pattern as
+// Conversation/Message and the M11 license chain).
+//
+// AN1.2 invariant 2 (append-only immutable history): AgentStep, AgentToolCall
+// and AgentEvidence have NO update path and NO soft-delete - a re-run is a
+// new AgentRun row. Only AgentRun is mutable (status transitions per the
+// AF-v1 RUN_STATUS_TRANSITIONS table) and soft-deletable.
+//
+// AN1.2 P1 / migration rule: this schema block is committed with a
+// hand-reviewed migration SQL file that is GENERATED and REVIEWED but NOT
+// APPLIED. Applying it needs a separate explicit go-ahead. Never `prisma
+// migrate dev` (pgvector-reset trap).
+
+enum AgentRunStatus {
+  queued
+  planning
+  running
+  awaiting_approval
+  succeeded
+  failed
+  timeout
+  credit_limit
+  step_limit
+  tool_call_limit
+  permission_denied
+  tool_error
+  model_error
+  cancelled
+}
+
+enum AgentRunTrigger {
+  manual
+  schedule
+  event
+  supervisor
+}
+
+enum AgentStepKind {
+  plan
+  tool_call
+  evidence
+  memory_read
+  memory_write
+  evaluation
+  model_call
+  output
+}
+
+enum AgentStepStatus {
+  ok
+  error
+  skipped
+}
+
+// Mirrors AF-v1 ToolResultStatus exactly.
+enum AgentToolCallStatus {
+  ok
+  invalid_input
+  tool_error
+  tool_timeout
+  permission_denied
+}
+
+// Mirrors AF-v1 AgentEvidenceType exactly.
+enum AgentEvidenceType {
+  market_data
+  indicator
+  news
+  regime
+  backtest
+  strategy_result
+  research_document
+  web_result
+  risk_assessment
+  derived
+}
+
+// One agent execution. Mutable ONLY for its status + terminal fields
+// (errorCode/errorMessage/output/completedAt/creditsConsumed/resumeState);
+// a terminal run is never rewritten. `limits` is the snapshot of the
+// effective ceilings taken at creation (the LimitEnforcer reads this, never
+// the live agent policy). `resumeState` is the opaque checkpoint the A4
+// resumable tick() runtime uses - resumability is a property of the RUN,
+// independent of any tool's own sync/resumable executionMode.
+model AgentRun {
+  id               String          @id @default(cuid())
+  agentId          String
+  agentVersion     String
+  userId           String
+  status           AgentRunStatus  @default(queued)
+  trigger          AgentRunTrigger @default(manual)
+  input            Json
+  plan             Json?
+  output           Json?
+  errorCode        String?
+  errorMessage     String?
+  limits           Json
+  creditsEstimated Float           @default(0)
+  creditsConsumed  Float           @default(0)
+  startedAt        DateTime?
+  completedAt      DateTime?
+  metadata         Json            @default("{}")
+  resumeState      Json?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  deletedAt        DateTime?
+
+  steps     AgentStep[]
+  toolCalls AgentToolCall[]
+  evidence  AgentEvidence[]
+
+  @@index([userId])
+  @@index([agentId])
+  @@index([agentId, createdAt])
+  @@index([status])
+  @@index([status, updatedAt])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+// One ordered entry in a run's execution history. Append-only, immutable:
+// no updatedAt, no deletedAt. (runId, index) is unique - the index is
+// 0-based, strictly increasing, gapless.
+model AgentStep {
+  id              String          @id @default(cuid())
+  runId           String
+  index           Int
+  kind            AgentStepKind
+  status          AgentStepStatus
+  summary         String
+  input           Json?
+  output          Json?
+  startedAt       DateTime
+  completedAt     DateTime
+  durationMs      Int
+  creditsConsumed Float           @default(0)
+  createdAt       DateTime        @default(now())
+
+  run       AgentRun        @relation(fields: [runId], references: [id], onDelete: Cascade)
+  toolCalls AgentToolCall[]
+  evidence  AgentEvidence[]
+
+  @@unique([runId, index])
+  @@index([runId])
+  @@index([kind])
+}
+
+// One tool invocation through the ToolGateway. Append-only, immutable.
+// Carries BOTH runId (for "all tool calls in this run" queries) and stepId
+// (the step that made the call). `status` mirrors AF-v1 ToolResultStatus.
+model AgentToolCall {
+  id                String              @id @default(cuid())
+  runId             String
+  stepId            String
+  toolId            String
+  toolVersion       String
+  input             Json
+  output            Json?
+  status            AgentToolCallStatus
+  permissionChecked String[]            @default([])
+  creditCost        Float               @default(0)
+  startedAt         DateTime
+  completedAt       DateTime
+  durationMs        Int
+  evidenceIds       String[]            @default([])
+  createdAt         DateTime            @default(now())
+
+  run      AgentRun        @relation(fields: [runId], references: [id], onDelete: Cascade)
+  step     AgentStep       @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  evidence AgentEvidence[]
+
+  @@index([runId])
+  @@index([stepId])
+  @@index([toolId])
+}
+
+// One cited piece of evidence. Append-only, immutable. Always linked to a
+// run AND a step; linked to a tool call when a tool produced it. This is the
+// table that answers "why did this agent produce this conclusion" without
+// replaying logs. `provenance` is the AF-v1 EvidenceProvenance JSON (never a
+// secret or a raw provider payload). `timestamp` = when the underlying fact
+// was true; `createdAt` = row write time.
+model AgentEvidence {
+  id         String            @id @default(cuid())
+  runId      String
+  stepId     String
+  toolCallId String?
+  type       AgentEvidenceType
+  claim      String
+  source     String
+  sourceId   String
+  timestamp  DateTime
+  data       Json
+  relevance  Float
+  confidence Float
+  provenance Json
+  createdAt  DateTime          @default(now())
+
+  run      AgentRun       @relation(fields: [runId], references: [id], onDelete: Cascade)
+  step     AgentStep      @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  toolCall AgentToolCall? @relation(fields: [toolCallId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@index([stepId])
+  @@index([toolCallId])
+  @@index([type])
+}
+
+// ============================================================================
+// Sprint AN - A7: policy-gated agent memory.
+//
+// The AF-v1 memory contract (types/agent-framework/memory-contract.ts). This
+// table backs SIX layers; RUN_STATE is deliberately NOT one of them - it is
+// transient/resumable execution state and lives on AgentRun/AgentStep, it is
+// not memory (owner G06 lock). Access is ONLY ever through the MemoryGateway
+// (services/agent-framework/memory/), never direct - a tool handler cannot
+// read or write this table.
+//
+// Deliberately NOT the legacy AgentMemory model (flat key/value String, part
+// of the frozen legacy /dashboard/agents layer) - that is untouched. Also
+// deliberately NOT the AT24 Knowledge/RAG system - this is small, bounded,
+// per-agent scratch/experience storage, not a document/vector store.
+//
+// `agentId` / `userId` are bare indexed strings (no relation), same
+// convention as every other AN table. `provenance.origin = "agent-derived"`
+// writes to a knowledge layer (LONG_TERM / RESEARCH_MEMORY / STRATEGY_MEMORY)
+// are FORCED to status `pending_approval` by resolveWriteDecision - an agent
+// never silently promotes its own output into trusted knowledge.
+//
+// Migration status: GENERATED + REVIEWED, NOT APPLIED (same rule as A3).
+
+enum AgentMemoryLayer {
+  SHORT_TERM
+  LONG_TERM
+  USER_CONTEXT
+  RESEARCH_MEMORY
+  STRATEGY_MEMORY
+  PERFORMANCE_MEMORY
+}
+
+enum AgentMemoryRecordStatus {
+  active
+  pending_approval
+  expired
+}
+
+model AgentMemoryRecord {
+  id         String                  @id @default(cuid())
+  agentId    String
+  userId     String
+  runId      String?
+  layer      AgentMemoryLayer
+  scope      String
+  key        String
+  value      Json
+  retention  Json
+  provenance Json
+  status     AgentMemoryRecordStatus @default(active)
+  expiresAt  DateTime?
+  createdAt  DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
+  deletedAt  DateTime?
+
+  @@index([userId])
+  @@index([agentId])
+  @@index([userId, agentId, layer, scope, key])
+  @@index([userId, layer, scope])
+  @@index([status])
+  @@index([expiresAt])
+  @@index([deletedAt])
+}
+
+// ============================================================================
+// Sprint AN - A9: the agent Credit Ledger.
+//
+// The ACCOUNTING authority for agent credit consumption - distinct from the
+// per-run BUDGET guardrail (AgentRun.limits.maxCreditCost, enforced by A8/A4).
+// Append-only + immutable: no updatedAt, no deletedAt, no update path. A
+// re-run/retry never double-charges - `idempotencyKey` is unique, so a
+// resumed tick() that re-attempts the same plan step reuses the existing
+// entry instead of writing a second one.
+//
+// `amount` is signed: positive = debit (consumption), negative = refund /
+// correction. `balanceAfter` is the balance computed AT WRITE TIME (advisory
+// for audit); the AUTHORITATIVE balance is always
+// PLAN_LIMITS[plan].aiCredits - SUM(amount) over the billing period, computed
+// fresh. `runId` is always present; `stepId` / `toolCallId` correlate a
+// charge to the exact tool call it paid for.
+//
+// This is NOT a pricing system (owner P3 / A9 lock): per-tool costs remain
+// placeholder constants. A9 makes the ACCOUNTING real and auditable, nothing
+// more. Pool-unification with the existing aiMessages entitlement
+// (services/billing/*) is a deliberate follow-on, out of A9 scope.
+//
+// Migration status: GENERATED + REVIEWED, NOT APPLIED (same rule as A3/A7).
+
+enum AgentCreditEntryKind {
+  tool_call
+  model_inference
+  research_search
+  backtest
+  optimization
+  large_context
+  refund
+  adjustment
+}
+
+model AgentCreditLedgerEntry {
+  id             String               @id @default(cuid())
+  userId         String
+  runId          String
+  stepId         String?
+  toolCallId     String?
+  kind           AgentCreditEntryKind
+  /// Signed: positive = debit, negative = refund/correction.
+  amount         Float
+  /// Balance computed at write time (advisory; recompute for authority).
+  balanceAfter   Float
+  /// Unique - the double-charge guard for resumed/retried ticks.
+  idempotencyKey String               @unique
+  reason         String
+  /// Billing-period boundary this entry counts against (denormalised so a
+  /// period-sum query needs no join to Subscription).
+  periodStart    DateTime
+  createdAt      DateTime             @default(now())
+
+  @@index([userId, periodStart])
+  @@index([runId])
+  @@index([userId, createdAt])
+}
+
+// ============================================================================
+// Sprint AN - A10: run Evaluation + Observability.
+//
+// One immutable evaluation per terminal run. A10 does NOT re-check
+// authorization (A8) or output integrity (A6) or credit accounting (A9) - it
+// READS their recorded results from the persisted trace + ledger and SCORES
+// them. Heuristic evaluator, deterministic, structured (not a log string).
+//
+// `scores` is the per-dimension AgentEvaluationScore[] JSON; `measurableSignals`
+// is the flat observability payload (counts, wallMs, planningPath, ...).
+// Written best-effort by the runtime at every terminal transition - an
+// evaluation failure NEVER changes a run's outcome.
+//
+// Migration status: GENERATED + REVIEWED, NOT APPLIED (same rule as A3/A7/A9).
+
+model AgentEvaluation {
+  id                String   @id @default(cuid())
+  runId             String   @unique
+  agentId           String
+  userId            String
+  terminalStatus    String
+  scores            Json
+  compositeScore    Float
+  failureCategory   String
+  failureAnalysis   String
+  measurableSignals Json
+  evaluatorVersion  String
+  createdAt         DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([agentId])
+  @@index([terminalStatus])
 }
