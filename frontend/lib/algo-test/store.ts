@@ -2,7 +2,7 @@
 // P3.2B - thin client fetch wrapper over /api/private/algo-test/*, the
 // same "thin wrapper, mutation functions throw with a real message" shape
 // lib/paper-trading/store.ts already establishes.
-import type { AiCompileAndRunRequest, AlgoTestRunRequest, AlgoTestRunView, AlgoTestStrategyDefinition } from "@/types/algo-test";
+import type { AiCompileAndRunRequest, AlgoTestRunRequest, AlgoTestRunView, AlgoTestStrategyDefinition, StrategyLibraryDetail, StrategyLibraryItem } from "@/types/algo-test";
 
 const BASE = "/api/private/algo-test";
 
@@ -91,4 +91,41 @@ export async function compileAndRunAiStrategy(request: AiCompileAndRunRequest): 
   if (!res.ok) throw new Error(await parseErrorMessage(res));
   const json = await res.json();
   return json.data.run as AlgoTestRunView;
+}
+
+/**
+ * P4.8-T3.4.2 (docs/P4.8-T3-STRATEGY-LIBRARY.md) - GET /strategy-library,
+ * already real since T3.3, gaining its first client-side consumer here.
+ * Mirrors fetchAlgoTestRuns()'s own never-throws convention exactly: an
+ * empty array is the honest "nothing usable yet / a transient fetch
+ * failure" state for a list to render - the same reasoning already
+ * applied to Run History (P4.7) and the strategy picker.
+ */
+export async function fetchStrategyLibrary(): Promise<StrategyLibraryItem[]> {
+  try {
+    const res = await fetch(`${BASE}/strategy-library`);
+    if (!res.ok) return [];
+    const json = await res.json();
+    return (json?.data?.strategies as StrategyLibraryItem[] | undefined) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * P4.8-T3.4.2 - GET /strategy-library/[strategyId], first client-side
+ * consumer. Mirrors fetchAlgoTestRun()'s own never-throws convention -
+ * `undefined` covers both "genuinely not found" (the route's own real
+ * 404) and any transient fetch failure; the detail page cannot and does
+ * not need to distinguish them (same reasoning as fetchAlgoTestRun()).
+ */
+export async function fetchStrategyLibraryDetail(strategyId: string): Promise<StrategyLibraryDetail | undefined> {
+  try {
+    const res = await fetch(`${BASE}/strategy-library/${encodeURIComponent(strategyId)}`);
+    if (!res.ok) return undefined;
+    const json = await res.json();
+    return json?.data?.strategy as StrategyLibraryDetail | undefined;
+  } catch {
+    return undefined;
+  }
 }
