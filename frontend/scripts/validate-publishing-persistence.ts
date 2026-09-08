@@ -571,6 +571,64 @@ async function main() {
     assert.equal(report.scanned, 2);
   });
 
+  // === P2.4: scheduling ===
+  await test("createJob (immediate / omitted): scheduledFor is null, job dispatches now", async () => {
+    const { svc, repo, articles } = wire({ article: makeArticle("art_1") });
+    const jobA = await svc.createJob({ userId: USER_A, articleId: "art_1", destination: "INTERNAL_BLOG" });
+    assert.equal(jobA.scheduledFor, null);
+    assert.equal(repo.jobs.get(jobA.id)!.scheduledFor, null);
+
+    articles.put(USER_A, makeArticle("art_2"));
+    const jobB = await svc.createJob({
+      userId: USER_A, articleId: "art_2", destination: "INTERNAL_BLOG", schedule: { kind: "immediate" },
+    });
+    assert.equal(jobB.scheduledFor, null);
+
+    const report = await svc.dispatch();
+    assert.equal(report.scanned, 2); // both picked up
+  });
+
+  await test("createJob (slot): scheduledFor is a future UTC instant, dispatcher SKIPS it", async () => {
+    const { svc, repo } = wire({ article: makeArticle("art_1") });
+    const job = await svc.createJob({
+      userId: USER_A, articleId: "art_1", destination: "INTERNAL_BLOG", schedule: { kind: "slot", slot: "00:00" },
+    });
+    assert.ok(job.scheduledFor && Date.parse(job.scheduledFor) > Date.now(), "scheduledFor is in the future");
+    assert.match(job.scheduledFor!, /T00:00:00\.000Z$/, "aligned to the 00:00 UTC slot");
+    assert.equal(repo.jobs.get(job.id)!.status, "PENDING");
+
+    const report = await svc.dispatch();
+    assert.equal(report.scanned, 0); // future job is not due
+    assert.equal(repo.jobs.get(job.id)!.status, "PENDING"); // untouched
+  });
+
+  await test("a job whose scheduledFor has passed IS dispatched", async () => {
+    const { svc, repo, articles } = wire({ article: makeArticle("art_1") });
+    const job = await svc.createJob({
+      userId: USER_A, articleId: "art_1", destination: "INTERNAL_BLOG", schedule: { kind: "slot", slot: "12:00" },
+    });
+    // simulate the slot time having arrived
+    repo.jobs.get(job.id)!.scheduledFor = new Date(Date.now() - 60_000).toISOString();
+
+    const report = await svc.dispatch();
+    assert.equal(report.scanned, 1);
+    assert.equal(report.results[0].outcome, "SUCCEEDED");
+    assert.equal(articles.status("art_1"), "published");
+  });
+
+  await test("createJob: an existing (idempotent) job keeps its original schedule", async () => {
+    const { svc, repo } = wire({ article: makeArticle("art_1") });
+    const first = await svc.createJob({
+      userId: USER_A, articleId: "art_1", destination: "INTERNAL_BLOG", schedule: { kind: "slot", slot: "00:00" },
+    });
+    const again = await svc.createJob({
+      userId: USER_A, articleId: "art_1", destination: "INTERNAL_BLOG", schedule: { kind: "immediate" },
+    });
+    assert.equal(again.id, first.id);
+    assert.equal(again.scheduledFor, first.scheduledFor); // NOT rescheduled to immediate
+    assert.equal(repo.jobs.size, 1);
+  });
+
   console.log(`\n${passed} passed, ${failed} failed\n`);
   if (failed > 0) process.exit(1);
 }

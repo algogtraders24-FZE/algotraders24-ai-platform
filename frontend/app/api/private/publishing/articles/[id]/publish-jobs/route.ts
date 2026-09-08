@@ -14,7 +14,13 @@ import { ApiResponse } from "@/services/backend/ApiResponse";
 import { Errors } from "@/services/backend/ErrorHandler";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { publishingService } from "@/services/publishing/publishing.service";
-import { isPublishingDestinationId, PUBLISHING_DESTINATION_IDS } from "@/types/publishing";
+import {
+  isPublishingDestinationId,
+  PUBLISHING_DESTINATION_IDS,
+  isPublishSchedule,
+  validatePublishSchedule,
+  type PublishSchedule,
+} from "@/types/publishing";
 
 function articleIdFromPath(path: string): string | undefined {
   const segments = path.split("/").filter(Boolean);
@@ -30,17 +36,29 @@ export const POST = withContext(async (req, ctx) => {
   const articleId = articleIdFromPath(ctx.path);
   if (!articleId) throw Errors.validation("Article id is required");
 
-  const body = (await req.json().catch(() => null)) as { destination?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { destination?: unknown; schedule?: unknown } | null;
+
   // INTERNAL_BLOG is the only destination today; default to it when omitted.
   const destination = body?.destination ?? "INTERNAL_BLOG";
   if (!isPublishingDestinationId(destination)) {
     throw Errors.validation(`destination must be one of: ${PUBLISHING_DESTINATION_IDS.join(", ")}`);
   }
 
+  // Sprint P2.4: optional schedule. Omitted => immediate. All slot times UTC.
+  let schedule: PublishSchedule | undefined;
+  if (body?.schedule !== undefined) {
+    const check = validatePublishSchedule(body.schedule);
+    if (!check.valid) {
+      throw Errors.validation(check.violations.map((v) => v.message).join(" "));
+    }
+    schedule = isPublishSchedule(body.schedule) ? body.schedule : undefined;
+  }
+
   const job = await publishingService.createJob({
     userId: sessionUser.profile.id,
     articleId,
     destination,
+    schedule,
   });
   return ApiResponse.success({ job }, ctx.requestId, 201, ctx.startedAt);
 });

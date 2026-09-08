@@ -25,12 +25,15 @@ import { getDestinationAdapter } from "./destinations/registry";
 import { publishingRepository, type PublishingRepository } from "./publishing.repository";
 import {
   ARTICLE_STATUS_ON_JOB_SUCCESS,
+  IMMEDIATE_SCHEDULE,
   isValidJobTransition,
   makePublishError,
   publicationIdentityKey,
+  resolveScheduledFor,
   retryClassFor,
   isPublishError,
   type PublicationIdentity,
+  type PublishSchedule,
   type PublishError,
   type PublishRetryClass,
   type PublishResult,
@@ -57,6 +60,13 @@ export interface CreateJobParams {
   userId: string;
   articleId: string;
   destination: PublishingDestinationId;
+  /**
+   * Sprint P2.4. Omitted / `{ kind: "immediate" }` = publish in the next
+   * dispatcher run. `{ kind: "slot", slot }` = publish at/after the next UTC
+   * occurrence of an approved preset slot. Applied ONLY when a new job is
+   * created - an existing (idempotent) job keeps its original schedule.
+   */
+  schedule?: PublishSchedule;
 }
 
 export interface RunAttemptParams {
@@ -137,9 +147,14 @@ export class PublishingService {
       // the same logical publication. Return whatever state it is in - the
       // caller decides whether to runAttempt() (PENDING/FAILED) or leave it
       // (RUNNING/SUCCEEDED/CANCELLED). Never a second row (the @@unique index
-      // would reject it anyway).
+      // would reject it anyway). The existing job's schedule is NOT changed
+      // here - rescheduling is a separate capability, out of P2.4 scope.
       return existing;
     }
+
+    // Sprint P2.4: resolve the requested schedule to a concrete UTC instant
+    // (or null for immediate). `Date` is read once, here.
+    const scheduledFor = resolveScheduledFor(params.schedule ?? IMMEDIATE_SCHEDULE, new Date());
 
     return this.repo.createJob({
       articleId: article.id,
@@ -147,6 +162,7 @@ export class PublishingService {
       destination: params.destination,
       contentHash: input.contentHash,
       idempotencyKey: publicationIdentityKey(identity),
+      scheduledFor,
     });
   }
 
