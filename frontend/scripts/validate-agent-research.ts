@@ -54,7 +54,9 @@ import { EvaluationService } from "../services/agent-framework/evaluation/evalua
 import { InMemoryEvaluationStore } from "../services/agent-framework/evaluation/evaluation-store";
 import { prisma } from "../lib/prisma";
 
-const TEST_USER = "validate-agent-research-user";
+// Per-process unique so concurrent runs (or a peer session against the same
+// shared DB) never clobber each other's runs via cleanup() mid-execution.
+const TEST_USER = `validate-agent-research-${process.pid}-${Date.now().toString(36)}`;
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 let passed = 0;

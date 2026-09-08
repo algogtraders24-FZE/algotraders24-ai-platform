@@ -9,6 +9,7 @@ export type { ParsedGoal } from "./goal";
 export { selectSpecialist, genericSpecialist } from "./specialist-registry";
 export { marketIntelligenceSpecialist } from "./specialists/market-intelligence.specialist";
 export { researchSpecialist } from "./specialists/research.specialist";
+export { strategyResearchSpecialist } from "./specialists/strategy-research.specialist";
 export type { Specialist, SpecialistPlan } from "./specialist";
 export { shapeGoalForTool } from "./plan-shaping";
 export {

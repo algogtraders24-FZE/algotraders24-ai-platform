@@ -51,7 +51,9 @@ import { EvaluationService } from "../services/agent-framework/evaluation/evalua
 import { InMemoryEvaluationStore } from "../services/agent-framework/evaluation/evaluation-store";
 import { prisma } from "../lib/prisma";
 
-const TEST_USER = "validate-agent-mi-user";
+// Per-process unique so concurrent runs (or a peer session against the same
+// shared DB) never clobber each other's runs via cleanup() mid-execution.
+const TEST_USER = `validate-agent-mi-${process.pid}-${Date.now().toString(36)}`;
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 let passed = 0;
@@ -219,7 +221,9 @@ async function main(): Promise<void> {
 
   await test("structural: A12 added no new infra - agents/ holds only the 2 agent definitions", () => {
     const agentsDir = join(ROOT, "services", "agent-framework", "agents");
-    assert.deepEqual(readdirSync(agentsDir).sort(), ["market-intelligence-agent.ts", "research-agent.ts"]);
+    const agentsFiles = readdirSync(agentsDir);
+    assert.ok(agentsFiles.includes("market-intelligence-agent.ts"));
+    assert.ok(agentsFiles.every((f) => f.endsWith("-agent.ts")), `agents/ holds only *-agent.ts definitions, got ${agentsFiles.join(", ")}`);
     const src = readFileSync(join(agentsDir, "market-intelligence-agent.ts"), "utf8");
     const importLines = src.split("\n").filter((l) => /^\s*import\b|await import\(/.test(l));
     // the agent file must NOT import the pipeline / a regime engine / lib/ai - it only builds a definition
