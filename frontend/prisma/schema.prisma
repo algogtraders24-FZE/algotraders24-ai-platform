@@ -620,6 +620,13 @@ model Article {
   updatedAt    DateTime      @updatedAt
   deletedAt    DateTime?
 
+  // Sprint P2.2 - Publishing Engine. Additive back-relation only (no new
+  // column on `articles`). A publish never mutates the Article row; content
+  // to be published is projected on demand into a NormalizedPublishInput
+  // (types/publishing) and its version pinned by PublishingJob.contentHash -
+  // the Article's own content is never duplicated into a publishing table.
+  publishingJobs PublishingJob[]
+
   @@unique([userId, slug])
   @@index([userId])
   @@index([userId, status])
@@ -1932,4 +1939,117 @@ model OptimizationCandidate {
 
   @@unique([experimentId, candidateHash])
   @@index([experimentId, status])
+}
+
+// ── Sprint P2.2: Publishing Engine - persistence ─────────────────────────
+// Makes the P2.1 Publishing Contract (types/publishing/, PUB-v1) durable.
+// Two new tables + one additive back-relation on `articles` (no new column
+// there), zero change to any other model.
+//
+// SEPARATION OF AXES (P2.1 §3, carried into the schema):
+//   articles.status : ArticleStatus (draft|scheduled|published|failed) - "is the content ready"
+//   PublishingJob.status     - "did the publish OPERATION run"
+//   PublishingAttempt.status - "did ONE execution try succeed"
+// ArticleStatus is NOT touched by this sprint.
+//
+// `destination` is a plain String, not a Prisma enum: a new destination
+// (WordPress/Ghost/...) is then one union member in types/publishing + zero
+// schema migration (same rationale as the free-string agent `type`, AN1.2 D1).
+//
+// Migration: prisma/migrations/20260909090000_add_publishing_engine/. NOT
+// applied to any database by this sprint - that is a separate, explicitly
+// authorized step (`prisma migrate deploy` against the prepared SQL, NEVER
+// `migrate dev` on the shared DB - it resets the pgvector extension).
+
+enum PublishingJobStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum PublishingAttemptStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+// The logical "publish Article X to destination D at content version H"
+// operation. Owns lifecycle, idempotency and the authorization boundary
+// (userId). Its execution history is the PublishingAttempt rows.
+//
+// Idempotency identity (P2.1 §11): (articleId, destination, contentHash),
+// enforced by the @@unique below. `idempotencyKey` is the denormalised
+// string form ("{articleId}:{destination}:{contentHash}") kept for logs and
+// single-handle lookups; the composite unique is the integrity guarantee.
+model PublishingJob {
+  id             String              @id @default(cuid())
+  articleId      String
+  // Owner of the Article. Denormalised onto the job (same pattern as
+  // articles.userId / KnowledgeChunk.userId) so ownership is enforceable in
+  // a scoped query without a join. No User FK - matches every other model.
+  // Always set from the server session, never a request body.
+  userId         String
+  // PublishingDestinationId - "INTERNAL_BLOG" today. String, not enum.
+  destination    String
+  status         PublishingJobStatus @default(PENDING)
+  // 64-char lowercase sha256 hex of canonicalContentBasis() - the content
+  // VERSION being published (types/publishing/publish-input-contract.ts +
+  // services/publishing/content-hash.ts). Not the Article's own content.
+  contentHash    String
+  idempotencyKey String
+  // Set only by P2.4 scheduling (a preset slot, never a free clock - Vercel
+  // Hobby one-cron/day constraint). Null = publish as soon as dispatched.
+  scheduledFor   DateTime?
+  requestedAt    DateTime            @default(now())
+  startedAt      DateTime?
+  completedAt    DateTime?
+  attemptCount   Int                 @default(0)
+  lastError      Json? // PublishError (present while status = FAILED; cleared on SUCCEEDED)
+  result         Json? // PublishResult (present once status = SUCCEEDED)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  deletedAt      DateTime?
+
+  article  Article             @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  attempts PublishingAttempt[]
+
+  @@unique([articleId, destination, contentHash])
+  @@index([userId])
+  @@index([status])
+  @@index([status, scheduledFor])
+  @@index([idempotencyKey])
+  @@index([articleId])
+  @@index([deletedAt])
+  @@map("publishing_jobs")
+}
+
+// One execution of a PublishingJob. Append-only, immutable once terminal - a
+// retry is a NEW row, never an edit (mirrors AgentStep / AuditLog). No
+// updatedAt, no deletedAt.
+model PublishingAttempt {
+  id                      String                  @id @default(cuid())
+  jobId                   String
+  // 1-based, strictly increasing within a job, gapless.
+  attemptNumber           Int
+  status                  PublishingAttemptStatus @default(RUNNING)
+  startedAt               DateTime                @default(now())
+  completedAt             DateTime?
+  error                   Json? // PublishError - required when status = FAILED
+  // Destination-issued id / URL, when the destination supplies them.
+  // INTERNAL_BLOG issues no external id - stays null, never fabricated.
+  externalReference       String?
+  externalUrl             String?
+  // Safe, non-secret metadata the destination returned (e.g. { httpStatus }).
+  // The adapter strips tokens / signed URLs / PII before it reaches here.
+  destinationResponseMeta Json?
+  createdAt               DateTime                @default(now())
+
+  job PublishingJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, attemptNumber])
+  @@index([jobId])
+  @@index([status])
+  @@map("publishing_attempts")
 }
