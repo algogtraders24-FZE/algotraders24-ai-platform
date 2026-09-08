@@ -43,7 +43,15 @@ export type AuditAction =
   | "license.revoked"
   | "license.expired"
   | "license.key_regenerated"
-  | "release.downloaded";
+  | "release.downloaded"
+  // Sprint P2.3 - Publishing Engine lifecycle. Reuses this same existing,
+  // append-only AuditLog model - no new table (P1 audit Observability
+  // recommendation; mirrors the marketplace.* precedent above). One row per
+  // meaningful lifecycle action: a draft is created, a publish confirms, a
+  // publish attempt fails terminally.
+  | "article.drafted"
+  | "article.published"
+  | "article.publish_failed";
 
 export interface AuditLogEntry {
   id: string;

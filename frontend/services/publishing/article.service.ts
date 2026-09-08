@@ -14,6 +14,7 @@
 // services/ai/publishing/publisher.service.ts).
 import { prisma } from "@/lib/prisma";
 import { Errors } from "@/services/backend/ErrorHandler";
+import { auditLogService } from "@/services/admin/AuditLogService";
 import { generateArticle } from "@/services/ai/publishing/content-generator.service";
 import { buildSeo } from "@/services/ai/publishing/seo.service";
 import { validateArticle, type ValidationResult } from "@/services/ai/publishing/article-validator.service";
@@ -167,6 +168,20 @@ export class ArticleService {
         history: [historyEntry("created", userId, { category: input.category, sourceType })] as object[],
       },
     });
+
+    // Sprint P2.3-C - one meaningful audit event per lifecycle action, on the
+    // existing append-only AuditLog (best-effort: an audit write must never
+    // fail a draft creation).
+    void auditLogService
+      .record({
+        actorUserId: userId,
+        action: "article.drafted",
+        targetType: "Article",
+        targetId: row.id,
+        metadata: { category: input.category, sourceType },
+      })
+      .catch(() => {});
+
     return toDomain(row);
   }
 
