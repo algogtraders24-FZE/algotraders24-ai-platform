@@ -99,6 +99,14 @@ export const agentRunRepository = {
     return prisma.agentRun.findUnique({ where: { id: runId } });
   },
 
+  /** Ownership-scoped read: the run ONLY if it belongs to `userId`, else null
+   *  (indistinguishable from "not found"). The read primitive any
+   *  requester-facing surface (observability, a future API route) must use -
+   *  `getRun`/`getRunTrace` are runId-only and are for internal runtime use. */
+  async getRunForUser(runId: string, userId: string) {
+    return prisma.agentRun.findFirst({ where: { id: runId, userId } });
+  },
+
   /** Full forensic trace: run + ordered steps + tool calls + evidence. */
   async getRunTrace(runId: string) {
     const [run, steps, toolCalls, evidence] = await Promise.all([

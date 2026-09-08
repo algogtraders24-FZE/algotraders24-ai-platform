@@ -28,10 +28,19 @@ export interface RunObservability {
 
 export async function getRunObservability(
   runId: string,
-  deps: { creditLedger?: CreditLedger; evaluation?: EvaluationService } = {},
+  deps: {
+    creditLedger?: CreditLedger;
+    evaluation?: EvaluationService;
+    /** When set, the run is returned ONLY if it belongs to this user;
+     *  otherwise `null` (indistinguishable from "not found"). A15's API
+     *  route MUST pass the session user here. Omitted = internal/trusted
+     *  caller (a scheduler, an admin job). */
+    requesterId?: string;
+  } = {},
 ): Promise<RunObservability | null> {
   const trace = await agentRunRepository.getRunTrace(runId);
   if (!trace.run) return null;
+  if (deps.requesterId !== undefined && trace.run.userId !== deps.requesterId) return null;
 
   const ledger = deps.creditLedger ?? createCreditLedger();
   const evaluator = deps.evaluation ?? new EvaluationService();
