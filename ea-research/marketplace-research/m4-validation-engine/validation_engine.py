@@ -305,6 +305,28 @@ def validate_walk_forward(evidence: dict, trades: list[dict], evidence_id: str, 
         raise InvalidValidationWindowError("INVALID_VALIDATION_WINDOW: no timestamped trades to build walk-forward windows from")
 
     years = sorted({ts.year for _, ts in dated})
+
+    # Real edge case, not previously hit: every product processed before
+    # this one had trades spanning 2+ calendar years. A shorter real test
+    # period entirely within one calendar year (e.g. Jan-Aug of the same
+    # year) has no prior year to train on and no later year to test
+    # against - walk-forward genuinely cannot be computed, not a bug to
+    # paper over. Reported honestly as INCONCLUSIVE with the real reason,
+    # not silently skipped and not crashed on (years[1] below would raise
+    # IndexError with only one element).
+    if len(years) < 2:
+        findings = [f"Only {len(years)} calendar year of trade data ({years[0]}) - a walk-forward test needs "
+                    f"at least 2 distinct calendar years (one to train on, one to test against). Not computable "
+                    f"for this Evidence's real trade period."]
+        return ValidationRecord(
+            validationId=_record_id("WALK_FORWARD", evidence_id), versionId=evidence["versionId"], evidenceId=evidence_id,
+            validationType="WALK_FORWARD", rulesetVersion=ACCEPTANCE_RULESET_VERSION, datasetIdentity="trades[]",
+            datasetHash=ds_hash, inputEvidenceHash=evidence_id, startedAt=started, completedAt=_now(),
+            methodology=f"Expanding-window, one test window per calendar year ({METHODOLOGY_VERSION}).",
+            parameters={"windowDefinition": "calendar-year", "windowCount": 0},
+            metrics={"windows": []}, findings=findings, warnings=[], status="INCONCLUSIVE",
+        )
+
     windows = []
     all_measurable = True
     for test_year in years[1:]:  # first year has no prior training data -- it's the initial training window, not a test window
