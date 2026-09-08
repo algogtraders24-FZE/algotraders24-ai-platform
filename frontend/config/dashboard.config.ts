@@ -147,7 +147,19 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       // Workspace's own "Research" section - so this links straight to it
       // instead of duplicating that content on a second page.
       { label: "AI Research", href: "/dashboard/workspace#research", icon: "RS" },
-      { label: "AI Agents", href: "/dashboard/agents", icon: "AG" },
+      {
+        label: "AI Agents",
+        href: "/dashboard/agents",
+        icon: "AG",
+        children: [
+          // The real A1-A15 Agent Framework run console - start a run and
+          // watch it advance one bounded tick() at a time, with the
+          // persisted plan / tool calls / evidence / output / integrity /
+          // evaluation / credits. The top-level /dashboard/agents page is
+          // the older agent-builder scaffold; this is the framework itself.
+          { label: "Framework Runs", href: "/dashboard/agents/runs" },
+        ],
+      },
     ],
   },
   {
