@@ -90,11 +90,17 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       // Knowledge Base, per this file's own established children
       // convention (a sub-capability of the parent, not a distinct
       // locked top-level slot). The parent href is unchanged.
+      // P4.8-T3.4.2 - gained a third surface (Strategy Library,
+      // app/dashboard/algo-test-library) - same children convention,
+      // same reasoning.
       {
         label: "Algo Testing Pro",
         href: "/dashboard/workspace",
         icon: "AT",
-        children: [{ label: "Run History", href: "/dashboard/algo-test-history" }],
+        children: [
+          { label: "Run History", href: "/dashboard/algo-test-history" },
+          { label: "Strategy Library", href: "/dashboard/algo-test-library" },
+        ],
       },
       {
         label: "Marketplace",
