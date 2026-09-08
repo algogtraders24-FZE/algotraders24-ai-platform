@@ -124,6 +124,7 @@
     "validate:nl-strategy-compiler": "tsx scripts/validate-nl-strategy-compiler.ts",
     "validate:ai-run-backtest-wiring": "tsx scripts/validate-ai-run-backtest-wiring.ts",
     "validate:algo-test-compiled-strategy-view": "tsx scripts/validate-algo-test-compiled-strategy-view.ts",
+    "validate:publishing-contract": "tsx scripts/validate-publishing-contract.ts",
     "vendor:quant-engine": "node scripts/vendor-quant-engine.mjs"
   },
   "dependencies": {
