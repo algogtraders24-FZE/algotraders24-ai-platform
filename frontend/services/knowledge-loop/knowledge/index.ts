@@ -40,7 +40,16 @@ export {
   FakeEmbedder,
 } from "./in-memory-backend";
 export type { SeedKnowledge } from "./in-memory-backend";
-// K1-D adds the ingestion seam here (publishKnowledge / realIngestionPort).
+export {
+  realIngestionPort,
+  publishKnowledge,
+  reindexKnowledge,
+} from "./ingestion-adapter";
+export type {
+  IngestionPort,
+  IngestOutcome,
+  PublishResult,
+} from "./ingestion-adapter";
 export {
   KNOWLEDGE_LOOP_CONFIG,
   AUTHORITY_WEIGHTS,

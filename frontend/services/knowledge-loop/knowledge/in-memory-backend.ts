@@ -125,6 +125,30 @@ export class InMemoryKnowledgeBackend
     return rec;
   }
 
+  /** test helper — attach chunks to an existing row (simulates ingestion). */
+  async attachChunks(
+    knowledgeId: string,
+    texts: string[],
+    embed: EmbeddingPort,
+  ): Promise<void> {
+    const rec = this.knowledge.get(knowledgeId);
+    if (!rec) throw new Error(`knowledge ${knowledgeId} not found`);
+    let idx = this.chunks.filter((c) => c.knowledgeId === knowledgeId).length;
+    for (const text of texts) {
+      const embedding = await embed.embed(text);
+      this.chunks.push({
+        chunkId: `c_${randomUUID()}`,
+        knowledgeId,
+        userId: rec.userId,
+        chunkIndex: idx,
+        content: text,
+        embedding,
+      });
+      idx += 1;
+    }
+    rec.embeddingStatus = "embedded";
+  }
+
   // ── CandidateSeedPort (INV-1 proof only) ────────────────────────────
   async seedCandidate(input: {
     id: string;
