@@ -257,6 +257,139 @@ export class PublishingRepository {
     })) as AttemptRow[];
     return rows.map(toAttempt);
   }
+
+  // ---- P2.3: transactional terminal commits -----------------------------
+
+  /**
+   * Atomically finalize a SUCCEEDED attempt + job, and - when
+   * `publishArticle` is set (Sprint P2.3-B) - flip the source Article to
+   * `published` in the SAME transaction. Closes the drift window: a job can
+   * never be SUCCEEDED while its Article is still editable.
+   *
+   * The Article write is idempotent: an already-`published` Article is left
+   * untouched (a second successful job for the same article is fine).
+   */
+  async commitSuccess(params: {
+    jobId: string;
+    attemptId: string;
+    result: PublishResult;
+    completedAt: string;
+    externalReference: string | null;
+    externalUrl: string | null;
+    destinationResponseMeta: Record<string, unknown> | null;
+    publishArticle: { articleId: string; actorUserId: string; jobId: string } | null;
+  }): Promise<{ job: PublishingJob; attempt: PublishingAttempt; articlePublished: boolean }> {
+    const at = new Date(params.completedAt);
+    return prisma.$transaction(async (tx) => {
+      const attemptRow = (await tx.publishingAttempt.update({
+        where: { id: params.attemptId },
+        data: {
+          status: "SUCCEEDED",
+          completedAt: at,
+          error: Prisma.DbNull,
+          externalReference: params.externalReference,
+          externalUrl: params.externalUrl,
+          destinationResponseMeta:
+            params.destinationResponseMeta === null ? Prisma.DbNull : asJson(params.destinationResponseMeta),
+        },
+      })) as AttemptRow;
+
+      const jobRow = (await tx.publishingJob.update({
+        where: { id: params.jobId },
+        data: { status: "SUCCEEDED", completedAt: at, result: asJson(params.result), lastError: Prisma.DbNull },
+      })) as JobRow;
+
+      let articlePublished = false;
+      if (params.publishArticle) {
+        const art = await tx.article.findFirst({
+          where: { id: params.publishArticle.articleId, deletedAt: null },
+          select: { id: true, status: true, history: true },
+        });
+        if (art && art.status !== "published") {
+          await tx.article.update({
+            where: { id: art.id },
+            data: {
+              status: "published",
+              publishedAt: at,
+              history: appendArticleHistory(art.history, {
+                action: "published",
+                actor: params.publishArticle.actorUserId,
+                timestamp: params.completedAt,
+                metadata: { via: "publishing-job", jobId: params.publishArticle.jobId },
+              }),
+            },
+          });
+          articlePublished = true;
+        }
+      }
+
+      return { job: toJob(jobRow), attempt: toAttempt(attemptRow), articlePublished };
+    });
+  }
+
+  /** Atomically finalize a FAILED attempt + job. No Article change - a
+   *  failed publish never touches ArticleStatus (Sprint P2.3-B). */
+  async commitFailure(params: {
+    jobId: string;
+    attemptId: string;
+    error: PublishError;
+    completedAt: string;
+  }): Promise<{ job: PublishingJob; attempt: PublishingAttempt }> {
+    const at = new Date(params.completedAt);
+    return prisma.$transaction(async (tx) => {
+      const attemptRow = (await tx.publishingAttempt.update({
+        where: { id: params.attemptId },
+        data: { status: "FAILED", completedAt: at, error: asJson(params.error) },
+      })) as AttemptRow;
+      const jobRow = (await tx.publishingJob.update({
+        where: { id: params.jobId },
+        data: { status: "FAILED", completedAt: at, lastError: asJson(params.error) },
+      })) as JobRow;
+      return { job: toJob(jobRow), attempt: toAttempt(attemptRow) };
+    });
+  }
+
+  // ---- P2.3: dispatcher scan ------------------------------------------
+
+  /**
+   * System-wide (NOT user-scoped - the dispatcher is privileged) scan for
+   * jobs due to run: PENDING, or FAILED-and-auto-retryable (a RETRYABLE
+   * lastError and fewer than `maxAttempts` attempts). `scheduledFor` in the
+   * future is skipped (P2.4 will actually set that). Ordered oldest-first,
+   * capped at `limit`.
+   */
+  async findDispatchableJobs(limit: number, maxAttempts: number): Promise<PublishingJob[]> {
+    const now = new Date();
+    const rows = (await prisma.publishingJob.findMany({
+      where: {
+        deletedAt: null,
+        OR: [
+          { status: "PENDING" },
+          { status: "FAILED", attemptCount: { lt: maxAttempts } },
+        ],
+        AND: [{ OR: [{ scheduledFor: null }, { scheduledFor: { lte: now } }] }],
+      },
+      orderBy: { requestedAt: "asc" },
+      take: Math.max(limit * 3, limit), // over-fetch; FAILED rows are JS-filtered by retryClass next
+    })) as JobRow[];
+
+    const dispatchable = rows.filter((r) => {
+      if (r.status === "PENDING") return true;
+      return isPublishError(r.lastError) && (r.lastError as PublishError).retryClass === "RETRYABLE";
+    });
+    return dispatchable.slice(0, limit).map(toJob);
+  }
+}
+
+// One append-only Article history entry. Mirrors the private helper in
+// services/publishing/article.service.ts (not exported there); kept minimal
+// and local rather than widening that module's API for one call site.
+function appendArticleHistory(
+  existing: unknown,
+  entry: { action: "published"; actor: string; timestamp: string; metadata?: Record<string, unknown> },
+): Prisma.InputJsonValue {
+  const prev = Array.isArray(existing) ? existing : [];
+  return [...prev, entry] as unknown as Prisma.InputJsonValue;
 }
 
 export const publishingRepository = new PublishingRepository();

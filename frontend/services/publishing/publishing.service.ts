@@ -16,6 +16,7 @@
 // No route / server-action / cron code here - those call INTO this service.
 
 import { Errors } from "@/services/backend/ErrorHandler";
+import { auditLogService } from "@/services/admin/AuditLogService";
 import { articleService } from "./article.service";
 import type { Article } from "@/types/article";
 import { projectArticleToPublishInput } from "./article-serializer";
@@ -23,6 +24,7 @@ import { computeContentHash } from "./content-hash";
 import { getDestinationAdapter } from "./destinations/registry";
 import { publishingRepository, type PublishingRepository } from "./publishing.repository";
 import {
+  ARTICLE_STATUS_ON_JOB_SUCCESS,
   isValidJobTransition,
   makePublishError,
   publicationIdentityKey,
@@ -37,6 +39,18 @@ import {
   type PublishingJob,
   type PublishingJobStatus,
 } from "@/types/publishing";
+
+/** Audit sink. Optional + injectable so the service is testable without a DB;
+ *  in production it is the real append-only AuditLogService. */
+export interface PublishingAuditSink {
+  record(params: {
+    actorUserId: string;
+    action: "article.published" | "article.publish_failed";
+    targetType: string;
+    targetId?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void>;
+}
 
 export interface CreateJobParams {
   /** From the server session - never a request body (Sprint P2.1 §14). */
@@ -58,6 +72,17 @@ export interface RunAttemptResult {
 /** Job statuses from which a (new) execution attempt may start. */
 const RUNNABLE_JOB_STATUSES: readonly PublishingJobStatus[] = ["PENDING", "FAILED"];
 
+/** Sprint P2.3-D: hard cap on attempts per job. The dispatcher stops
+ *  auto-retrying a job at this count; runAttempt() refuses beyond it. A job
+ *  that exhausts its attempts needs a new job (edit the article -> new
+ *  contentHash -> new identity). */
+export const MAX_PUBLISH_ATTEMPTS = 3;
+
+/** Default batch size for one dispatcher invocation - small enough to finish
+ *  well inside a 60s serverless budget even if every job runs an adapter. */
+const DEFAULT_DISPATCH_LIMIT = 25;
+const MAX_DISPATCH_LIMIT = 100;
+
 /** The narrow slice of ArticleService this module needs. `getById(userId, id)`
  *  is the ownership gate - it throws a 404-mapped AppError for an Article the
  *  caller does not own (never leaks another user's row). Injectable so the
@@ -66,10 +91,23 @@ export interface ArticleReader {
   getById(userId: string, id: string): Promise<Article>;
 }
 
+export interface DispatchResult {
+  jobId: string;
+  outcome: "SUCCEEDED" | "FAILED" | "ERROR";
+  detail?: string;
+}
+
+export interface DispatchReport {
+  scanned: number;
+  ran: number;
+  results: DispatchResult[];
+}
+
 export class PublishingService {
   constructor(
     private readonly repo: PublishingRepository = publishingRepository,
     private readonly articles: ArticleReader = articleService,
+    private readonly audit: PublishingAuditSink | null = null,
   ) {}
 
   // ---- createJob ------------------------------------------------------
@@ -146,6 +184,12 @@ export class PublishingService {
     if (!RUNNABLE_JOB_STATUSES.includes(job.status)) {
       throw Errors.conflict(`PublishingJob is "${job.status}" - not runnable`, { status: job.status });
     }
+    if (job.attemptCount >= MAX_PUBLISH_ATTEMPTS) {
+      throw Errors.conflict(
+        `PublishingJob has reached the maximum of ${MAX_PUBLISH_ATTEMPTS} attempts - create a new job for the updated content`,
+        { attemptCount: job.attemptCount },
+      );
+    }
 
     const article = await this.articles.getById(params.userId, job.articleId);
     const input = projectArticleToPublishInput(article, { destination: job.destination });
@@ -161,6 +205,7 @@ export class PublishingService {
           "Article content changed since this publishing job was created - create a new job for the updated content.",
           { destination: job.destination },
         ),
+        params.userId,
       );
     }
 
@@ -180,13 +225,13 @@ export class PublishingService {
       const err = pre.errors[0] ?? makePublishError("VALIDATION_ERROR", "content rejected by destination", {
         destination: job.destination,
       });
-      return this.recordFailure(job.id, attempt, err);
+      return this.recordFailure(job, attempt, err, params.userId);
     }
 
     // publish
     try {
       const result = await adapter.publish(input);
-      return this.recordSuccess(job.id, attempt, result);
+      return this.recordSuccess(job, attempt, result, params.userId);
     } catch (raw) {
       const err = this.normalizeThrown(raw, job.destination);
       if (err.code === "DUPLICATE") {
@@ -199,9 +244,9 @@ export class PublishingService {
           externalUrl: input.canonicalUrl,
           publishedAt: new Date().toISOString(),
         };
-        return this.recordSuccess(job.id, attempt, reconciled, { reconciledFromDuplicate: true });
+        return this.recordSuccess(job, attempt, reconciled, params.userId, { reconciledFromDuplicate: true });
       }
-      return this.recordFailure(job.id, attempt, err);
+      return this.recordFailure(job, attempt, err, params.userId);
     }
   }
 
@@ -211,7 +256,81 @@ export class PublishingService {
     return retryClassFor(error.code);
   }
 
+  // ---- dispatch (Sprint P2.3-E) --------------------------------------
+
+  /**
+   * Is a FAILED job eligible for an AUTOMATIC retry by the dispatcher?
+   * Only a RETRYABLE lastError (RATE_LIMITED / TEMPORARY_FAILURE) and fewer
+   * than MAX_PUBLISH_ATTEMPTS attempts. VALIDATION / AUTH / PERMANENT and
+   * DUPLICATE are never auto-retried (Sprint P2.3-D).
+   */
+  isEligibleForAutoRetry(job: PublishingJob): boolean {
+    return (
+      job.status === "FAILED" &&
+      job.attemptCount < MAX_PUBLISH_ATTEMPTS &&
+      job.lastError?.retryClass === "RETRYABLE"
+    );
+  }
+
+  /**
+   * Run one bounded batch of due jobs (PENDING + auto-retryable FAILED).
+   * PRIVILEGED - not user-scoped; the caller (cron dispatch route) is
+   * authenticated as the cron secret or an admin, and each job carries its
+   * own owner `userId` which runAttempt() uses for the Article read. The
+   * batch is capped so one invocation finishes inside the serverless budget.
+   *
+   * P2.3 builds this execution path; P2.4 wires the actual daily schedule
+   * (Vercel Hobby one-cron/day) and any preset-slot semantics.
+   */
+  async dispatch(opts: { limit?: number } = {}): Promise<DispatchReport> {
+    const limit = Math.min(Math.max(opts.limit ?? DEFAULT_DISPATCH_LIMIT, 1), MAX_DISPATCH_LIMIT);
+    const jobs = await this.repo.findDispatchableJobs(limit, MAX_PUBLISH_ATTEMPTS);
+
+    const results: DispatchResult[] = [];
+    for (const job of jobs) {
+      try {
+        const { job: after } = await this.runAttempt({ userId: job.userId, jobId: job.id });
+        results.push({ jobId: job.id, outcome: after.status === "SUCCEEDED" ? "SUCCEEDED" : "FAILED" });
+      } catch (err) {
+        results.push({
+          jobId: job.id,
+          outcome: "ERROR",
+          detail: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    return { scanned: jobs.length, ran: results.length, results };
+  }
+
   // ---- internals ---------------------------------------------------
+
+  /** Sprint P2.3-B: does a SUCCEEDED job for `destination` move the source
+   *  Article to `published` (and thereby make it read-only)? Driven by the
+   *  contract's advisory map. Today the only destination (INTERNAL_BLOG) is
+   *  website-facing, so this is `true`; a future non-website destination
+   *  (e.g. a Slack post) would be excluded here without changing the map. */
+  private shouldPublishArticleOnSuccess(destination: PublishingDestinationId): boolean {
+    const NON_WEBSITE_DESTINATIONS: readonly PublishingDestinationId[] = [];
+    if (NON_WEBSITE_DESTINATIONS.includes(destination)) return false;
+    return ARTICLE_STATUS_ON_JOB_SUCCESS.SUCCEEDED === "published";
+  }
+
+  /** Best-effort audit - a failed audit write never fails a publish (the
+   *  house pattern; cf. services/marketplace/factory/auditTrail.ts writing
+   *  outside the mutation transaction). */
+  private async auditBestEffort(
+    action: "article.published" | "article.publish_failed",
+    actorUserId: string,
+    articleId: string,
+    metadata: Record<string, unknown>,
+  ): Promise<void> {
+    if (!this.audit) return;
+    try {
+      await this.audit.record({ actorUserId, action, targetType: "Article", targetId: articleId, metadata });
+    } catch {
+      // swallowed - observability must not break the operation
+    }
+  }
 
   private assertTransition(from: PublishingJobStatus, to: PublishingJobStatus): void {
     if (!isValidJobTransition(from, to)) {
@@ -225,59 +344,94 @@ export class PublishingService {
     return makePublishError("UNKNOWN", `Unexpected adapter failure: ${message}`, { destination });
   }
 
+  /**
+   * Sprint P2.3-B: the SUCCEEDED attempt, the SUCCEEDED job, and (for a
+   * website-facing destination) the Article -> `published` transition all
+   * commit in ONE transaction (repo.commitSuccess). A job can never be
+   * SUCCEEDED while its Article is still editable. The `article.published`
+   * audit event is written best-effort AFTER the commit.
+   */
   private async recordSuccess(
-    jobId: string,
+    job: PublishingJob,
     attempt: PublishingAttempt,
     result: PublishResult,
-    meta?: Record<string, unknown>,
+    actorUserId: string,
+    meta: Record<string, unknown> | null = null,
   ): Promise<RunAttemptResult> {
     const completedAt = new Date().toISOString();
-    const patchedAttempt = await this.repo.patchAttempt(attempt.id, {
-      status: "SUCCEEDED",
+    const publishArticle = this.shouldPublishArticleOnSuccess(job.destination)
+      ? { articleId: job.articleId, actorUserId, jobId: job.id }
+      : null;
+
+    const { job: after, attempt: afterAttempt, articlePublished } = await this.repo.commitSuccess({
+      jobId: job.id,
+      attemptId: attempt.id,
+      result,
       completedAt,
       externalReference: result.externalReference ?? null,
       externalUrl: result.externalUrl ?? null,
-      destinationResponseMeta: meta ?? null,
+      destinationResponseMeta: meta,
+      publishArticle,
     });
-    const patchedJob = await this.repo.patchJob(jobId, {
-      status: "SUCCEEDED",
-      completedAt,
-      result,
-      lastError: null,
+
+    await this.auditBestEffort("article.published", actorUserId, job.articleId, {
+      jobId: job.id,
+      destination: job.destination,
+      contentHash: job.contentHash,
+      externalUrl: result.externalUrl ?? null,
+      articleStatusChanged: articlePublished,
     });
-    return { job: patchedJob, attempt: patchedAttempt };
+
+    return { job: after, attempt: afterAttempt };
   }
 
+  /** FAILED attempt + FAILED job commit in one transaction. The Article is
+   *  NOT touched (a failed publish never changes ArticleStatus - P2.3-B).
+   *  `article.publish_failed` is audited best-effort after the commit. */
   private async recordFailure(
-    jobId: string,
+    job: PublishingJob,
     attempt: PublishingAttempt,
     error: PublishError,
+    actorUserId: string,
   ): Promise<RunAttemptResult> {
     const completedAt = new Date().toISOString();
-    const patchedAttempt = await this.repo.patchAttempt(attempt.id, {
-      status: "FAILED",
-      completedAt,
+    const { job: after, attempt: afterAttempt } = await this.repo.commitFailure({
+      jobId: job.id,
+      attemptId: attempt.id,
       error,
-    });
-    const patchedJob = await this.repo.patchJob(jobId, {
-      status: "FAILED",
       completedAt,
-      lastError: error,
     });
-    return { job: patchedJob, attempt: patchedAttempt };
+
+    await this.auditBestEffort("article.publish_failed", actorUserId, job.articleId, {
+      jobId: job.id,
+      destination: job.destination,
+      errorCode: error.code,
+      retryClass: error.retryClass,
+      attemptNumber: attempt.attemptNumber,
+    });
+
+    return { job: after, attempt: afterAttempt };
   }
 
-  /** Fail a job that never got a real attempt off the ground (integrity
-   *  gate). Records a synthetic terminal attempt so the failure is visible
-   *  in the attempt history, then marks the job FAILED. */
-  private async failJob(job: PublishingJob, error: PublishError): Promise<RunAttemptResult> {
+  /** Fail a job that never got a real attempt off the ground (the integrity
+   *  gate). Records a real terminal attempt so the failure is visible in the
+   *  attempt history, then marks the job FAILED. */
+  private async failJob(
+    job: PublishingJob,
+    error: PublishError,
+    actorUserId: string,
+  ): Promise<RunAttemptResult> {
     this.assertTransition(job.status, "RUNNING");
     const startedAt = new Date().toISOString();
     await this.repo.patchJob(job.id, { status: "RUNNING", startedAt });
     const attemptNumber = await this.repo.incrementAttemptCount(job.id);
     const attempt = await this.repo.appendAttempt({ jobId: job.id, attemptNumber });
-    return this.recordFailure(job.id, attempt, error);
+    return this.recordFailure(job, attempt, error, actorUserId);
   }
 }
 
-export const publishingService = new PublishingService();
+export const publishingService = new PublishingService(
+  publishingRepository,
+  articleService,
+  auditLogService,
+);
