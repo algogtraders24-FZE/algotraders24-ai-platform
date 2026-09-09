@@ -124,8 +124,8 @@ K3-C changes *reliability and contract closure*, not capability. Every K3-C chan
 `ClaudeProvider` changes, all additive, no interface break:
 
 1. **Filter `server_tool_use` by `name === "web_search"`** before counting (C1-b).
-2. **Track per-turn search outcomes**: return `searchRequests` (attempted) **and** `searchResultsOk` (turns that returned a result list) **and** `searchErrors` (error blocks). Expose on the response as `searchCount` (= attempted, unchanged name) plus a new optional `webSearchPartialFailure?: boolean` (`searchErrors>0 && searchResultsOk>0`) (C1-a, C1-c).
-3. **`webSearchUnavailable` semantics locked:** `true` iff **every** search this turn errored **or** a search was requested and none returned results. `webSearchPartialFailure` covers the mixed case.
+2. **Track per-turn search outcomes**: `searchRequests` (attempted), `searchResultsOk` (returned a result list), `searchErrors` (error / malformed / no-results-when-expected). Expose on the response: `searchCount` (= attempted, unchanged name), `webSearchFailed?: boolean` (`searchErrors > 0` — the **operational fact**, D-K3C-5), `webSearchPartialFailure?: boolean` (`searchErrors > 0 && searchResultsOk > 0`) (C1-a, C1-c). `webSearchUnavailable` is **retained** as the "no usable web evidence at all this turn" signal (`true` iff a search was requested and none returned results).
+3. **`webSearchUnavailable` semantics locked:** `true` iff **every** search this turn errored **or** a search was requested and none returned results. `webSearchFailed` is the strictly-operational "≥1 search failed" fact; `webSearchPartialFailure` is the mixed case. These are provider-layer facts — the orchestrator's `webSearchRequestedButUnavailable` (evidence fact) is computed separately (D-K3C-5).
 4. **Continuation-budget exhaustion is explicit** (C1-d): if the loop exits still `pause_turn`, set `stopReason: "pause_turn"` (already) **and** a new optional `continuationBudgetExhausted?: true`. The orchestrator treats this as a **soft failure** → fall through to the next provider (see D-K3C-5).
 5. **`max_tokens` on a tools turn** (C1-e): surfaced via `stopReason` (already); the orchestrator does **not** auto-reject a `max_tokens` answer in K3-C (would need a re-prompt loop — deferred), but records `truncated: true` in `providerAttempts` for the winner.
 6. **Unexpected `web_search_tool_result` shape** (C1-f): any `content` that is neither a recognised array of results nor a recognised error object → treat as `searchErrors += 1` (not silent).
@@ -200,13 +200,25 @@ INPUT: classification C, retrieval R (run FIRST, always)
 
 A slot that returns clean, non-empty, compliant text **wins immediately** — no later slot is consulted, no "quality" comparison. Locked.
 
-**C5-a fix (the lost-signal bug):** `webSearchRequestedButUnavailable` is recomputed at the orchestrator level as:
+**C5-a fix (the lost-signal bug) — TWO fields, locked distinction (owner, 2026-09-10):**
+
+`webSearchFailed` and `webSearchRequestedButUnavailable` answer **different questions** and are recorded **separately**. Neither is derived from the other.
+
+| Field | Kind | Meaning | Source of truth |
+|---|---|---|---|
+| `webSearchFailed` | operational / provider fact | "A web-search operation encountered a failure this turn" (an error result block, a no-results-when-expected, a malformed tool block, or every attempted search errored). | `ClaudeProvider` — `searchErrors > 0` (D-K3C-1). Only the Claude slot can set it; other slots always report `false`. |
+| `webSearchRequestedButUnavailable` | orchestration / evidence fact | "The gate required web-grounded evidence, but the **final winning answer** did not obtain it." | orchestrator — `gate.useWebSearch === true && winner is NOT web-grounded` (winner `webSearchUsed !== true`), **regardless of which provider won or why**. |
+
+Valid combinations:
 
 ```
-gate.useWebSearch === true  &&  winner did NOT perform a successful web search
+webSearchFailed=false  requestedButUnavailable=false   web not needed, or web succeeded and grounded the answer
+webSearchFailed=true   requestedButUnavailable=true    a search failed AND the answer is not web-grounded  (the common failure case)
+webSearchFailed=false  requestedButUnavailable=true    web was required; the model declined to search, or a non-web fallback provider won
+webSearchFailed=true   requestedButUnavailable=false   a search failed, but a later successful search (same turn) still grounded the answer
 ```
 
-i.e. it is `true` whenever web was required by the gate but the returned answer is **not** web-grounded — **regardless of which provider won** (Claude web-unavailable, or a non-web fallback provider won, or the model declined). This makes the flag honest for the fallback case.
+Both are persisted on the provenance row (`webSearchFailed` folded into the `providerAttempts` JSON `meta`; `webSearchRequestedButUnavailable` is the existing scalar column). **Invariant:** provider success ≠ evidence sufficiency — the evidence-fact field is authoritative for "did the user get a web-grounded answer when one was required".
 
 **C5-b decision (DYNAMIC + web unavailable):** **implement a narrow deterministic guard.** When `classification.freshnessNeed === "DYNAMIC"` **and** the final answer is not web-grounded (`webSearchRequestedButUnavailable === true` per the fixed rule) **and** `sourceClass` would be `CLAUDE_REASONING` (no knowledge to stand on), the orchestrator returns a **`DETERMINISTIC`** answer: *"I can't verify live figures (prices, rates, quotes) right now — please check a live source."* Rationale: for moving-number questions, a stale model answer is a correctness hazard; a knowledge-grounded answer (`AT24_KNOWLEDGE`/`MIXED`) is still allowed to win. Bounded, testable, no new dependency.
 
@@ -251,8 +263,8 @@ i.e. it is `true` whenever web was required by the gate but the returned answer 
 ### D-K3C-8 — C8 observability: telemetry contract, no dashboard (implement small + document)
 
 - **The `KnowledgeAnswerProvenance` row is the telemetry system of record.** No new table, no dashboard.
-- Add to `KnowledgeAnswerProvenanceInput` (all map to **existing** columns or are folded into the existing `providerAttempts` JSON — **no migration**): `searchCount`, `continuationCount`, `webSearchOffered`, `webSearchPartialFailure`, `failureCategory` (`null | "provider-error" | "forbidden-language" | "empty-output" | "continuation-exhausted" | "chain-exhausted" | "dynamic-unverifiable"`) — carried inside `providerAttempts` / a `meta` key of the JSON payload, not as new scalar columns.
-- One structured `console.info` line per turn with a **stable key set** and **zero raw content**: `{requestId, sourceClass, providerUsed, retrievalSufficiency, hitCount, webSearchOffered, searchCount, webSearchUsed, webSearchPartialFailure, continuationCount, integrityPassed, failureCategory, latencyMs, provenanceWritten}`. A test asserts the emitter is never passed `turn.message`, `text`, or `history`.
+- Add to `KnowledgeAnswerProvenanceInput` (all folded into the existing `providerAttempts` JSON under a `meta` key — **no new scalar column, no migration**): `searchCount`, `continuationCount`, `continuationBudgetExhausted`, `webSearchOffered`, `webSearchFailed`, `webSearchPartialFailure`, `truncated`, `failureCategory` (`null | "provider-error" | "forbidden-language" | "empty-output" | "continuation-exhausted" | "chain-exhausted" | "dynamic-unverifiable"`). `webSearchRequestedButUnavailable` stays the existing **scalar column** (evidence fact — see D-K3C-5).
+- One structured `console.info` line per turn with a **stable key set** and **zero raw content**: `{requestId, sourceClass, providerUsed, retrievalSufficiency, hitCount, webSearchOffered, searchCount, webSearchUsed, webSearchFailed, webSearchPartialFailure, webSearchRequestedButUnavailable, continuationCount, continuationBudgetExhausted, integrityPassed, failureCategory, latencyMs, provenanceWritten}`. A test asserts the emitter is never passed `turn.message`, `text`, or `history`.
 - Cost-relevant Anthropic usage (`usage.input_tokens/output_tokens`, `server_tool_use.web_search_requests`) recorded where the provider surfaces it.
 
 ### D-K3C-9 — C9 no new architecture (constraint, locked)
@@ -260,6 +272,27 @@ i.e. it is `true` whenever web was required by the gate but the returned answer 
 K3-C introduces **none** of: Tavily, Exa, another vector DB, another embedding model, a reranker, Redis/KV, a new orchestration engine, a new credit system, a new evidence system, candidate promotion, autonomous learning, Support Agent, Automation, UI redesign, or any Prisma migration.
 
 If any C1–C8 fix appears to need a schema column, it is folded into an existing JSON column or **deferred** (recorded here) — never a migration in K3-C.
+
+### D-K3C-10 — Implementation discipline (owner-locked, 2026-09-10)
+
+K3-C is **contract closure**. The build order is fixed:
+
+```
+1. contract          write the decision matrix / fallback matrix / classifier
+                     precedence / provenance-integrity + telemetry rules into
+                     AI_ASSISTANT_ORCHESTRATION_CONTRACT.md
+2. tests             encode every contract row as an offline assertion
+                     (fails against current code where a gap exists)
+3. implementation    the minimal change that makes the tests pass; hardening
+                     before any refactor — no "refactor then hope"
+4. live verification  merged-main tree, real Claude web search + real Supabase
+```
+
+Never: refactor the provider → hope behaviour matches → write tests after. That order is not auditable and is prohibited for K3-C.
+
+**Allowed to touch:** `lib/ai/providers/claude.provider.ts`, `lib/ai/{types,errors}.ts` (additive only), `services/knowledge-loop/{classifier,orchestrator}/**`, `services/knowledge-loop` provenance mapping, the knowledge-prompt construction, `config/knowledge-loop.config.ts` (constants only), `app/api/private/knowledge/chat/route.ts` (additive field surfacing only, if a C1/C5 fix requires it), `scripts/validate-knowledge-loop-*.ts`, `docs/architecture/K3C_*.md` + `AI_ASSISTANT_ORCHESTRATION_CONTRACT.md`, `package.json` (script entries only), test fixtures.
+
+**Forbidden:** any Prisma schema change · any migration · any new table · K4 `KnowledgeCandidate` / candidate embedding / autonomous learning · Support Agent · Automation · `AIPresenterOrchestratorService` / market-intelligence / `services/intelligence/**` · `services/ai/assistant.service.ts` redesign · a new web-search provider · Tavily / Exa · Redis / KV · a new vector DB · a reranker · a new embedding model · any UI work · any credit / billing change · the `sourceClass` enum rename (ADR-K3C-1, deferred).
 
 ---
 
@@ -271,7 +304,7 @@ If any C1–C8 fix appears to need a schema column, it is folded into an existin
 | 2 | `docs/architecture/K3C_ACCEPTANCE.md` | acceptance report (filled at close) |
 | 3 | `AI_ASSISTANT_ORCHESTRATION_CONTRACT.md` §3/§4/§5/§7/§8 amendments — classifier precedence list, decision matrix, fallback matrix, injection clause, provenance-integrity + telemetry contract, ADR-K3C-1 (sourceClass rename deferred), ADR-K3C-2 (requestId dedup deferred to K5) | contract |
 | 4 | `ClaudeProvider` C1 hardening (D-K3C-1) + fixture tests | impl + test |
-| 5 | Orchestrator C5 fixes (recomputed `webSearchRequestedButUnavailable`, DYNAMIC live-figures guard, `continuationBudgetExhausted` fall-through, `webSearchOffered`/`failureCategory` in provenance) + C4-c sentinel | impl + test |
+| 5 | Orchestrator C5 fixes — the two-field split (`webSearchFailed` operational vs `webSearchRequestedButUnavailable` evidence, D-K3C-5), DYNAMIC live-figures deterministic guard, `continuationBudgetExhausted` → fall-through, `webSearchOffered` / `failureCategory` in provenance `meta` + C4-c `"SKIPPED"` sentinel | impl + test |
 | 6 | Knowledge-block injection hardening (D-K3C-7) | impl + test |
 | 7 | `validate-knowledge-loop-decision-matrix` | test (new) |
 | 8 | `validate-knowledge-loop-provenance-integrity` | test (new) |
@@ -319,7 +352,8 @@ Implementation branch: **`feat/k3c-orchestration-hardening`**, K1/K2/K3-B commit
 - [ ] `usedInAnswer` = actual contribution (knowledge only for `AT24_KNOWLEDGE`; web only when cited)
 - [ ] `providerUsed` ⟂ `sourceClass` verified (fallback winner keeps honest `providerUsed`)
 - [ ] exactly-once provenance verified (winner XOR one deterministic)
-- [ ] `webSearchRequestedButUnavailable` honest for the fallback case (C5-a fix)
+- [ ] `webSearchFailed` (operational) and `webSearchRequestedButUnavailable` (evidence) are **separate**, neither derived from the other; all four valid combinations tested (D-K3C-5)
+- [ ] `webSearchRequestedButUnavailable` honest for the fallback case (non-web provider wins a web-required turn → `true`)
 - [ ] account-specific row records `retrievalSufficiency: "SKIPPED"` not `"INSUFFICIENT"`
 - [ ] no raw query / answer / history in the persisted row (provenance-integrity test)
 - [ ] repeated-request duplication documented (C4-b), deferred to K5
@@ -390,4 +424,5 @@ No code changed. No migration. No `ANTHROPIC_API_KEY` value anywhere. No `Knowle
 
 | Date | Entry |
 |---|---|
-| 2026-09-10 | K3-C decision pass. K3-B is live (`9c08879`) + production-verified. K3-C scoped as orchestration **hardening & contract closure** (C1–C9), not a feature layer — no candidate capture (K4 boundary). Findings enumerated against the merged code (C1 server-tool: partial-failure masking, silent continuation-exhaustion, unfiltered `server_tool_use`, malformed-block silence; C5: lost "web-required-unfulfilled" signal on fallback; C7: knowledge block not injection-hardened pre-K4). Decisions D-K3C-1..9: harden `ClaudeProvider`, recompute `webSearchRequestedButUnavailable` honestly, add a DYNAMIC live-figures deterministic guard, injection-harden the knowledge block, formalise classifier precedence + decision matrix + fallback matrix as locked contracts, provenance-integrity + telemetry contracts, **no migration, no new architecture**. 14 deliverables; gate defined. **Awaiting owner review before `feat/k3c-orchestration-hardening` implementation.** |
+| 2026-09-10 | K3-C decision pass. K3-B is live (`9c08879`) + production-verified. K3-C scoped as orchestration **hardening & contract closure** (C1–C9), not a feature layer — no candidate capture (K4 boundary). Findings enumerated against the merged code (C1 server-tool: partial-failure masking, silent continuation-exhaustion, unfiltered `server_tool_use`, malformed-block silence; C5: lost "web-required-unfulfilled" signal on fallback; C7: knowledge block not injection-hardened pre-K4). Decisions D-K3C-1..9: harden `ClaudeProvider`, recompute `webSearchRequestedButUnavailable` honestly, add a DYNAMIC live-figures deterministic guard, injection-harden the knowledge block, formalise classifier precedence + decision matrix + fallback matrix as locked contracts, provenance-integrity + telemetry contracts, **no migration, no new architecture**. 14 deliverables; gate defined. |
+| 2026-09-10 | **Owner APPROVED (`e486ee9` GO for merge)** + amendment (this commit): **D-K3C-5 rewritten** to lock `webSearchFailed` (operational / provider fact — "a web-search operation failed") and `webSearchRequestedButUnavailable` (orchestration / evidence fact — "the gate required web-grounded evidence and the final answer didn't obtain it") as **two independent fields**, neither derived from the other, all four combinations valid + tested. **D-K3C-10 added** — implementation discipline (contract → tests → implementation → live verification; hardening before refactor; allowed/forbidden file boundary). D-K3C-1 + D-K3C-8 updated for the new field names. **Decision frozen on merge → `feat/k3c-orchestration-hardening` implementation authorized.** |
