@@ -19,7 +19,10 @@ import {
   InMemoryKnowledgeBackend,
   FakeEmbedder,
 } from "../services/knowledge-loop/knowledge/in-memory-backend";
-import { InMemoryRetrievalCache } from "../services/knowledge-loop/knowledge/retrieval-cache";
+import {
+  InMemoryRetrievalCache,
+  normalizeCachedResults,
+} from "../services/knowledge-loop/knowledge/retrieval-cache";
 import { KnowledgeService } from "../services/knowledge-loop/knowledge/knowledge-service";
 import { retrievalCacheKey } from "../services/knowledge-loop/knowledge/retrieval";
 import type { SeedKnowledge } from "../services/knowledge-loop/knowledge/in-memory-backend";
@@ -91,6 +94,20 @@ async function main(): Promise<void> {
       r1.hits.map((h) => h.knowledgeId),
       "cache hit returns the same knowledge",
     );
+  });
+
+  await test("normalizeCachedResults: reads BOTH { results:[...] } and a bare jsonb array (the Postgres get() path)", () => {
+    const entries = [
+      { chunkId: "c1", knowledgeId: "k1", chunkIndex: 0, similarity: 0.9 },
+      { chunkId: "c2", knowledgeId: "k1", chunkIndex: 1, similarity: 0.7 },
+    ];
+    // the `set` shape
+    assert.deepEqual(normalizeCachedResults({ results: entries }).results, entries);
+    // the `get` shape — Postgres returns the jsonb column as a bare array
+    assert.deepEqual(normalizeCachedResults(entries).results, entries);
+    // garbage is dropped, never throws
+    assert.deepEqual(normalizeCachedResults(null).results, []);
+    assert.deepEqual(normalizeCachedResults([{ chunkId: 1 }, "x", null]).results, []);
   });
 
   await test("deterministic key: same inputs → same key; topK / scope / user change → different key", () => {

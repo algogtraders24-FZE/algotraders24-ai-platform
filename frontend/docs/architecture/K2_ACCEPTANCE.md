@@ -3,7 +3,7 @@
 **Sprint:** K2 — AT24 AI Assistant Knowledge Loop, retrieval-infrastructure layer
 **Branch:** `feat/k2-knowledge-retrieval` (rebased on `origin/main`)
 **Depends on / implements:** [`K1_DECISION.md`](K1_DECISION.md) · [`K1_ACCEPTANCE.md`](K1_ACCEPTANCE.md) · [`KNOWLEDGE_RETRIEVAL_CONTRACT.md`](KNOWLEDGE_RETRIEVAL_CONTRACT.md) §7 (incl. **ADR-K2-RETR-CACHE**) · [`KNOWLEDGE_CONTRACT.md`](KNOWLEDGE_CONTRACT.md) §5 · [`KNOWLEDGE_ANALYTICS_CONTRACT.md`](KNOWLEDGE_ANALYTICS_CONTRACT.md) §8
-**Status:** **K2-A..K2-E implemented + tested · migration NOT APPLIED · migration gate NOT AUTHORIZED**
+**Status:** **K2 OPERATIONALLY COMPLETE (2026-09-09) — implementation merged + migration APPLIED to production + live-verified (§15/§16). K3 UNLOCKED.**
 
 > K2 is the retrieval-infrastructure layer: it makes knowledge retrieval
 > cacheable, observable, and freshness-aware, and hardens scope/lifecycle
@@ -16,17 +16,17 @@
 ## 0. Headline
 
 ```
-K2 STATUS:               PASS  (K2-A..K2-E implemented + tested)
-K2-A retrieval cache:    PASS  — Postgres `KnowledgeRetrievalCache` + ADR recorded
-K2-B retrieval logging:  PASS  — canonical KnowledgeRetrievalLog emit wired (hit/miss)
+K2 STATUS:               COMPLETE  (K2-A..K2-E implemented, merged, migration applied + live-verified)
+K2-A retrieval cache:    PASS  — Postgres `KnowledgeRetrievalCache` + ADR recorded; table live
+K2-B retrieval logging:  PASS  — canonical KnowledgeRetrievalLog emit wired (hit/miss); verified live
 K2-C freshness sweep:    PASS  — DYNAMIC-expired auto-deprecate; PERIODIC flag-only
-K2-D retrieval integration: PASS — cache↔service↔VectorRepository↔log wired
-K2-E acceptance:         PASS  — 57 new offline assertions + regression green
-INV-1:                   PASS  — offline + the cache-cannot-resurrect test
-CACHE ISOLATION:         PASS  — cross-user + visibility, on the cache path
-MIGRATION:               NOT APPLIED  (20260909120000_add_knowledge_retrieval_cache)
-K2 MIGRATION GATE:       NOT AUTHORIZED  (§16)
-K3:                      BLOCKED until K2 COMPLETE (migration applied + verified)
+K2-D retrieval integration: PASS — cache↔service↔VectorRepository↔log wired; verified live
+K2-E acceptance:         PASS  — 58 offline assertions + regression green
+INV-1:                   PASS  — offline (sticky-cache) AND live (lifecycle invalidation, §15.6 TEST C)
+CACHE ISOLATION:         PASS  — cross-user + visibility, offline AND live (§15.6 TEST D)
+MIGRATION:               APPLIED  (20260909120000_add_knowledge_retrieval_cache, prod, 2026-09-09, once)
+K2 MIGRATION GATE:       AUTHORIZED → APPLIED → VERIFIED  (§16)
+K3:                      UNLOCKED  (not started)
 ```
 
 ---
@@ -377,39 +377,132 @@ every do-not-touch item in §1.
 
 ---
 
-## 15. Post-apply verification plan (run AFTER §16 is authorised)
+## 15. Post-apply verification — **EXECUTED 2026-09-09 (owner-authorized)**
 
-1. `prisma migrate deploy` → `20260909120000_add_knowledge_retrieval_cache` applies (that migration only — `migrate status` shows exactly one pending).
-2. `prisma migrate status` → up to date; `_prisma_migrations` row present.
-3. DB introspection: `KnowledgeRetrievalCache` table + 2 indexes exist; **no existing table changed**; `KnowledgeChunk.embedding` / FK / HNSW index still intact.
-4. Live smoke (controlled temp rows, full cleanup, K1-F standard): a real
-   `KnowledgeService.retrieve()` MISS writes a `KnowledgeRetrievalCache` row;
-   an identical retrieve is a HIT (no embed); a `deprecate` makes the next
-   retrieve a MISS again; a `KnowledgeRetrievalLog` row is written per call
-   with correct `fromCache`; all temp rows hard-deleted.
-5. Fill this section with the evidence; then **K2 = COMPLETE → K3 unlocked.**
+> Owner authorization: "K2 MIGRATION GATE — PRODUCTION APPLY + LIVE VERIFICATION"
+> — authorized applying **only** `20260909120000_add_knowledge_retrieval_cache`.
+
+### 15.1 Pre-migration production check (STEP 1)
+
+| Check | Result |
+|---|---|
+| `prisma migrate status` (pre) | exactly **one** pending migration — `20260909120000_add_knowledge_retrieval_cache`. Migration history clean (all prior `done: true`, no rolled-back rows). |
+| `_prisma_migrations` K2 row (pre) | **absent** — not yet applied |
+| `Knowledge` table | present, 43 columns (22 base + 21 K1) |
+| `KnowledgeChunk` table | present; `embedding` column `udt_name = vector` |
+| `KnowledgeChunk` indexes (pre) | `KnowledgeChunk_pkey`, `KnowledgeChunk_deletedAt_idx`, `KnowledgeChunk_knowledgeId_idx`, `KnowledgeChunk_userId_idx`, **`KnowledgeChunk_embedding_hnsw_idx`** |
+| `KnowledgeChunk_knowledgeId_fkey` | present |
+| pgvector extension | `vector 0.8.2` |
+| `KnowledgeRetrievalCache` (pre) | **does not exist** (as expected) |
+
+### 15.2 Final migration review (STEP 2)
+
+`git hash-object` of the migration file on disk == the blob on `origin/main`
+(`9e3482fe63ab9c8033829665275ecb4062c0736e`) — unchanged since the K2-A commit
+`eccee32`. Content: `1× CREATE TABLE "KnowledgeRetrievalCache"` +
+`1× PRIMARY KEY` + `2× CREATE INDEX`. Greps (non-comment body): **0** for
+`DROP`, `ALTER TABLE`, `ALTER COLUMN`, `FOREIGN KEY`, `DELETE FROM`,
+`TRUNCATE`, `embedding`, `vector`, `hnsw`, `"Knowledge"`, `"KnowledgeChunk"`.
+
+### 15.3 Migration applied (STEP 3 / STEP 4)
+
+```
+$ npx prisma migrate deploy
+Applying migration `20260909120000_add_knowledge_retrieval_cache`
+All migrations have been successfully applied.
+
+$ npx prisma migrate status
+Database schema is up to date!
+```
+
+Applied **exactly once**, ~2026-09-09T08:44Z. `_prisma_migrations` row:
+`{ migration_name: "20260909120000_add_knowledge_retrieval_cache", finished_at:
+<set>, rolled_back_at: null }`. `migrate dev` NOT used. No other migration ran.
+
+### 15.4 Live schema verification (STEP 5)
+
+| Check | Result |
+|---|---|
+| `KnowledgeRetrievalCache` table | **exists** — 8 columns, correct types (`key` text PK, `queryHash`/`scopeSig`/`knowledgeVersionFingerprint` text, `results` jsonb, `resultCount` integer, `createdAt`/`expiresAt` timestamp) |
+| `KnowledgeRetrievalCache` indexes | `KnowledgeRetrievalCache_pkey`, `KnowledgeRetrievalCache_expiresAt_idx`, `KnowledgeRetrievalCache_knowledgeVersionFingerprint_idx` — the 2 K2 indexes + pkey |
+| `KnowledgeRetrievalCache` FKs | **none** (structural island, as designed) |
+| `Knowledge` post-migration | **43 columns — unchanged** |
+| `KnowledgeChunk` post-migration | `embedding` still `vector`; indexes **byte-identical** to pre (HNSW `KnowledgeChunk_embedding_hnsw_idx` intact); FK `KnowledgeChunk_knowledgeId_fkey` intact |
+| pgvector extension | `vector 0.8.2` — **unchanged** |
+| unintended schema drift | **NONE** — K2 adds only its retrieval-cache table |
+
+### 15.5 Offline K2 suite post-migration (STEP 6)
+
+```
+validate:knowledge-loop-cache       → 13 passed, 0 failed
+validate:knowledge-loop-freshness    →  8 passed, 0 failed
+validate:knowledge-loop-schema       → 19 passed, 0 failed
+validate:knowledge-loop-retrieval    → 15 passed, 0 failed
+validate:knowledge-loop-ingestion    →  3 passed, 0 failed
+```
+Regression (`agent-tools` 20, `agent-research` 9, `orchestration` 7, `context`
+21) — all `/ 0`.
+
+### 15.6 Controlled live smoke against production (STEP 7) — **23 / 23 PASS**
+
+Real `PrismaKnowledgeStore` + `PrismaVectorSearch` (pgvector) +
+`PrismaRetrievalCache` + real `KnowledgeService`. Every row tagged
+`_k2gate_<ts>`; all hard-deleted afterward.
+
+| Test | Result |
+|---|---|
+| **A — MISS → WRITE** | first retrieval `fromCache: false`; valid pgvector result; exactly one `KnowledgeRetrievalCache` row created; the row's `results` holds `{chunkId, knowledgeId, chunkIndex, similarity}` **only** — no answer text; `KnowledgeRetrievalLog` row `fromCache: false`, sha256 `queryHash`, **no raw query text** |
+| **B — HIT → LIVE REHYDRATION** | identical retrieval `fromCache: true`; returns the same knowledge; **hit content == the LIVE `KnowledgeChunk` content** (not a cached snapshot); the full re-filter/rank pipeline ran (context block + sufficiency); log `fromCache: true` |
+| **C — LIFECYCLE INVALIDATION (live INV-1)** | `deprecate` bumped the version fingerprint; the next retrieval — with the stale cache entry still present — **cannot return the now-deprecated row**; no invalid result leaked |
+| **D — USER ISOLATION** | owner retrieves their `scope=user` row (tagged unverified); a **different user gets ZERO hits** for the equivalent query and does **not** key into the owner's cache entry; guest boundary holds on the cache path |
+| **E — CONFIG / FINGERPRINT INVALIDATION** | same config → HIT; a different `topK` (a key dimension, §7.6) → **MISS, not a false HIT**; a fingerprint change **orphans the old entry with no migration**; no production config was mutated |
+| **F — CACHE FAILURE RESILIENCE** | with an injected `RetrievalCachePort` whose `get` **and** `set` both throw, retrieval **still returns the correct result** (`fromCache: false`, no user-visible outage); the no-cache (K1) path returns the same knowledge |
+| **CLEANUP** | `Knowledge=0  KnowledgeChunk=0  KnowledgeRetrievalCache=0  KnowledgeRetrievalLog=0` — every tagged temp row removed |
+
+### 15.7 Defect found + fixed during verification
+
+Live smoke TEST B initially failed: `PrismaRetrievalCache.get()` passed the raw
+jsonb `results` column (a bare array) to a helper that expected `{ results: […] }`,
+so every cache **hit** deserialized to an empty result set — the cache-hit path
+was a silent no-op in production. The offline `InMemoryRetrievalCache` never
+hit that shape, so the offline suite missed it.
+
+**Fix:** `normalizeCachedResults()` (renamed, exported) now accepts **both**
+`{ results: […] }` (the `set` input) and a bare entries array (the Postgres
+`get` output). + a regression test in `validate:knowledge-loop-cache` pinning
+the jsonb-array read path. Re-run: **offline cache suite 13/0, live smoke
+23/23**. No schema/contract/design change — a read-path defect fix. Committed
+as a K2 fix and merged to `main`.
+
+### 15.8 Final sanity (STEP 9)
+
+`prisma migrate status` → "Database schema is up to date!" (applied once).
+`git diff origin/main` after the gate = only the K2 defect fix (3 files:
+`retrieval-cache.ts`, `index.ts`, `validate-knowledge-loop-cache.ts`) + this
+`K2_ACCEPTANCE.md` update. **No K3 files. No provider / orchestration /
+assistant-route / answer-cache / agent-framework / publishing / quant /
+marketplace / UI change.**
 
 ---
 
 ## 16. K2 Migration Gate
 
 ```
-K2 MIGRATION GATE:  NOT AUTHORIZED
+K2 MIGRATION GATE:  AUTHORIZED → APPLIED → VERIFIED
 ```
 
-The migration `20260909120000_add_knowledge_retrieval_cache` has been
-**generated, hand-reviewed, and committed** with a `NOT APPLIED` header. It has
-**not** been run against any database.
+- **AUTHORIZED** — owner, 2026-09-09 ("K2 MIGRATION GATE — PRODUCTION APPLY +
+  LIVE VERIFICATION"), scoped to `20260909120000_add_knowledge_retrieval_cache`
+  only.
+- **APPLIED** — `prisma migrate deploy`, ~2026-09-09T08:44Z, that migration
+  only, once, `rolled_back_at: null`. `migrate dev` not used.
+- **VERIFIED** — production schema introspection (§15.4): the retrieval-cache
+  table + 2 indexes exist; every existing table / index / FK / pgvector /
+  HNSW is byte-identical to pre-migration; zero unintended drift. Offline K2
+  suite 58/0 post-migration (§15.5). Live smoke 23/23 with full cleanup
+  (§15.6). One read-path defect found + fixed + re-verified (§15.7).
 
-**Implementation completion is NOT migration authorization.** Applying it
-requires the owner to explicitly approve it here, exactly as K1-F.
-
-> **Owner apply go-ahead:** _(not yet given)_
-
-> **Post-apply verification (§15):** _(pending)_
-
-Until then: K2-A..K2-E are implemented and proven offline; the
-`KnowledgeRetrievalCache` code path is inert; **K3 does not start.**
+**K2 is OPERATIONALLY COMPLETE.**
 
 ---
 
@@ -417,4 +510,5 @@ Until then: K2-A..K2-E are implemented and proven offline; the
 
 | Date | Entry |
 |---|---|
-| 2026-09-09 | K2-A..K2-E implemented on `feat/k2-knowledge-retrieval` (rebased on `origin/main` past P4.9-A.4). ADR-K2-RETR-CACHE recorded (retrieval cache → Postgres). `KnowledgeRetrievalCache` model + migration (GENERATED, NOT APPLIED). Retrieval-cache read/write + canonical logging wired into `KnowledgeService`, backward-compatible. Freshness sweep (DYNAMIC-expired auto-deprecate; PERIODIC flag-only; never touches candidates). 57 new offline assertions + regression green. `tsc` clean for all K2 files. **Migration NOT APPLIED; K2 migration gate NOT AUTHORIZED; K3 blocked.** |
+| 2026-09-09 | K2-A..K2-E implemented on `feat/k2-knowledge-retrieval`, merged to `main` `4128312`. ADR-K2-RETR-CACHE recorded (retrieval cache → Postgres). `KnowledgeRetrievalCache` model + migration (GENERATED, NOT APPLIED at merge). Retrieval-cache read/write + canonical logging wired into `KnowledgeService`, backward-compatible. Freshness sweep (DYNAMIC-expired auto-deprecate; PERIODIC flag-only; never touches candidates). 57 offline assertions + 19/19 regression green. |
+| 2026-09-09 | **K2 Migration Gate — AUTHORIZED → APPLIED → VERIFIED.** Owner authorized applying `20260909120000_add_knowledge_retrieval_cache` only. `prisma migrate deploy` (~08:44Z, once, no `migrate dev`). Post-apply: schema up to date; retrieval-cache table + 2 indexes live; every existing table/index/FK/pgvector/HNSW byte-identical; zero drift. Offline K2 suite 58/0 post-migration. Live smoke against prod **23/23** (miss→write, hit→live-rehydrate, lifecycle invalidation [live INV-1], user isolation, config/fingerprint invalidation, cache-failure resilience) + full cleanup. One read-path defect found + fixed live (`normalizeCachedResults` now reads both `{results}` and a bare jsonb array) + regression test added + re-verified. **K2 OPERATIONALLY COMPLETE. K3 UNLOCKED (not started).** |

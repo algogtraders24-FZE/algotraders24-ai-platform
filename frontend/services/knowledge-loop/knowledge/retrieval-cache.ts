@@ -15,10 +15,19 @@
 import type { CachedRetrieval, CachedRetrievalEntry } from "@/types/knowledge-loop";
 import type { RetrievalCachePort } from "./ports";
 
-function sanitize(value: unknown): CachedRetrieval {
-  const arr = Array.isArray((value as { results?: unknown })?.results)
-    ? (value as { results: unknown[] }).results
-    : [];
+/**
+ * Accepts EITHER a CachedRetrieval ({ results: [...] }) — the `set` input — OR
+ * a bare entries array — what Postgres returns for the `results` jsonb column
+ * on `get`. Both round-trip to a validated CachedRetrieval. Exported so a
+ * regression test pins the jsonb-array read path (the InMemory adapter never
+ * hits it).
+ */
+export function normalizeCachedResults(value: unknown): CachedRetrieval {
+  const arr: unknown[] = Array.isArray(value)
+    ? value
+    : Array.isArray((value as { results?: unknown })?.results)
+      ? (value as { results: unknown[] }).results
+      : [];
   const results: CachedRetrievalEntry[] = [];
   for (const r of arr) {
     if (
@@ -48,7 +57,7 @@ export class PrismaRetrievalCache implements RetrievalCachePort {
         where: { key, expiresAt: { gt: new Date() } },
         select: { results: true },
       });
-      return row ? sanitize(row.results) : null;
+      return row ? normalizeCachedResults(row.results) : null;
     } catch {
       // A cache read must never break retrieval — treat any failure as a miss.
       return null;
@@ -63,7 +72,7 @@ export class PrismaRetrievalCache implements RetrievalCachePort {
   ): Promise<void> {
     const { prisma } = await import("@/lib/prisma");
     const expiresAt = new Date(Date.now() + ttlMs);
-    const results = sanitize(value).results;
+    const results = normalizeCachedResults(value).results;
     const data = {
       queryHash: meta.queryHash,
       scopeSig: meta.scopeSig,
@@ -134,7 +143,7 @@ export class InMemoryRetrievalCache implements RetrievalCachePort {
   ): Promise<void> {
     this.writes += 1;
     this.store.set(key, {
-      value: { results: sanitize(value).results },
+      value: { results: normalizeCachedResults(value).results },
       expiresAt: this.clock().getTime() + ttlMs,
       meta,
     });
