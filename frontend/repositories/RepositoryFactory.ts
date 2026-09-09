@@ -10,15 +10,12 @@ import type { UserEntity } from "./UserRepository";
 import type { ProductEntity } from "./ProductRepository";
 import type { ConversationEntity } from "./ConversationRepository";
 import type { AgentEntity } from "./AgentRepository";
-import type { AutomationEntity } from "./AutomationRepository";
-import type { WorkflowEntity } from "./WorkflowRepository";
 import type { KnowledgeEntity } from "./KnowledgeRepository";
 import type { BillingEntity } from "./BillingRepository";
 
 import { ProductRepository } from "./ProductRepository";
 import { ConversationRepository } from "./ConversationRepository";
 import { AgentRepository } from "./AgentRepository";
-import { AutomationRepository } from "./AutomationRepository";
 import { KnowledgeRepository } from "./KnowledgeRepository";
 import { BillingRepository } from "./BillingRepository";
 
@@ -26,9 +23,6 @@ import { UserRepository } from "./UserRepository";
 import { PrismaProductRepository } from "./PrismaProductRepository";
 import { PrismaConversationRepository } from "./PrismaConversationRepository";
 import { PrismaAgentRepository } from "./PrismaAgentRepository";
-import { PrismaAutomationRepository } from "./PrismaAutomationRepository";
-import { PrismaWorkflowRepository } from "./PrismaWorkflowRepository";
-import { WorkflowRepository } from "./WorkflowRepository";
 import { PrismaKnowledgeRepository } from "./PrismaKnowledgeRepository";
 import { PrismaBillingRepository } from "./PrismaBillingRepository";
 
@@ -48,12 +42,6 @@ export interface IConversationRepository extends IRepository<ConversationEntity>
 export interface IAgentRepository extends IRepository<AgentEntity> {
   findByUser(userId: string): Promise<AgentEntity[]>;
 }
-export interface IAutomationRepository extends IRepository<AutomationEntity> {
-  findByUser(userId: string): Promise<AutomationEntity[]>;
-}
-export interface IWorkflowRepository extends IRepository<WorkflowEntity> {
-  findByUser(userId: string): Promise<WorkflowEntity[]>;
-}
 export interface IKnowledgeRepository extends IRepository<KnowledgeEntity> {
   findByUser(userId: string): Promise<KnowledgeEntity[]>;
 }
@@ -66,8 +54,6 @@ export class RepositoryFactory {
   private static _products: IProductRepository | null = null;
   private static _conversations: IConversationRepository | null = null;
   private static _agents: IAgentRepository | null = null;
-  private static _automations: IAutomationRepository | null = null;
-  private static _workflows: IWorkflowRepository | null = null;
   private static _knowledge: IKnowledgeRepository | null = null;
   private static _billing: IBillingRepository | null = null;
   private static _vectors: IVectorRepository | null = null;
@@ -83,8 +69,6 @@ export class RepositoryFactory {
     this._products = null;
     this._conversations = null;
     this._agents = null;
-    this._automations = null;
-    this._workflows = null;
     this._knowledge = null;
     this._billing = null;
     this._vectors = null;
@@ -118,19 +102,9 @@ export class RepositoryFactory {
     return this._agents;
   }
 
-  static automations(): IAutomationRepository {
-    if (!this._automations) {
-      this._automations = this.mode() === "prisma" ? new PrismaAutomationRepository() : new AutomationRepository();
-    }
-    return this._automations;
-  }
-
-  static workflows(): IWorkflowRepository {
-    if (!this._workflows) {
-      this._workflows = this.mode() === "prisma" ? new PrismaWorkflowRepository() : new WorkflowRepository();
-    }
-    return this._workflows;
-  }
+  // Automation moved to services/automation/automation-repository.ts (direct
+  // Prisma, mirrors the Agent Framework's own repository) - it is not part of
+  // the mock/Prisma RepositoryFactory. See AUTOMATION_DECISION_LOCK.md D1.
 
   static knowledge(): IKnowledgeRepository {
     if (!this._knowledge) {

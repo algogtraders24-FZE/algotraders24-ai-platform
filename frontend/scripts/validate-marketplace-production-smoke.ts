@@ -128,8 +128,9 @@ async function main() {
     `;
     const known = new Set([
       "User", "Plan", "Subscription", "Product", "Conversation", "Message", "Agent", "AgentTask",
-      "AgentMemory", "AgentActivity", "Automation", "Knowledge", "KnowledgeCollection", "KnowledgeChunk",
-      "Billing", "workflows", "workflow_runs", "workflow_queue_items", "AuditLog", "RequestLog",
+      "AgentMemory", "AgentActivity", "Knowledge", "KnowledgeCollection", "KnowledgeChunk",
+      "Billing", "automations", "automation_definition_versions", "automation_runs",
+      "automation_step_runs", "automation_artifacts", "AuditLog", "RequestLog",
       "Feedback", "AnalyticsEvent", "WorkspacePreference", "articles", "intelligence_analysis_runs",
       "intelligence_analysis_outcomes", "intelligence_audit_traces", "marketplace_listings",
       "_prisma_migrations",

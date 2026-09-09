@@ -1,148 +1,162 @@
-﻿"use client";
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { Workflow, AutomationRun, QueueItem, WorkflowStatus } from "@/types/automation";
-import { WorkflowsApi } from "@/services/api/WorkflowsApi";
-import { enrichRuns, enrichQueue, computeMetrics } from "@/services/api/workflowMetrics";
-import WorkflowList from "@/components/automation/WorkflowList";
-import WorkflowEditor from "@/components/automation/WorkflowEditor";
-import AutomationHistory from "@/components/automation/AutomationHistory";
-import AutomationStatus from "@/components/automation/AutomationStatus";
+"use client";
+
+// app/dashboard/automation - AT24 Automation (MVP).
+// LOCKED: AUTOMATION_DECISION_LOCK.md. This page shows ONLY real data from
+// /api/private/automations (no client-computed or mock metrics). The guided
+// builder and run-detail views are separate routes.
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import type { AutomationListItem } from "@/types/automation";
+
+interface ApiEnvelope {
+  status: "ok" | "error";
+  data?: { items: AutomationListItem[]; total: number };
+  error?: { message: string };
+}
 
 export default function AutomationPage() {
-  const [workflows, setWorkflows] = useState<Workflow[]>([]);
-  const [runs, setRuns] = useState<AutomationRun[]>([]);
-  const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<AutomationListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setLoading(true);
-    setError(null);
-
-    WorkflowsApi.load({ signal: controller.signal })
-      .then((data) => {
-        const wfs = data.workflows ?? [];
-        setWorkflows(wfs);
-        setRuns(enrichRuns(data.runs ?? [], wfs));
-        setQueue(enrichQueue(data.queue ?? [], wfs));
-        setActiveId((prev) => prev ?? wfs[0]?.id ?? null);
+    const ac = new AbortController();
+    fetch("/api/private/automations", { signal: ac.signal })
+      .then((r) => r.json() as Promise<ApiEnvelope>)
+      .then((j) => {
+        if (j.status === "ok" && j.data) setItems(j.data.items);
+        else setError(j.error?.message ?? "Failed to load automations");
       })
       .catch((e: unknown) => {
         if (e instanceof DOMException && e.name === "AbortError") return;
         setError(e instanceof Error ? e.message : "Failed to load automations");
-      })
-      .finally(() => setLoading(false));
-
-    return () => controller.abort();
+      });
+    return () => ac.abort();
   }, []);
 
-  const metrics = useMemo(
-    () => computeMetrics(workflows, runs, queue),
-    [workflows, runs, queue]
-  );
-  const active = activeId ? workflows.find((w) => w.id === activeId) ?? null : null;
-
-  const onRun = (id: string) => {
-    const wf = workflows.find((w) => w.id === id);
-    if (!wf) return;
-    const now = new Date().toISOString();
-    const optimistic: AutomationRun = {
-      id: `run-local-${Date.now()}`,
-      workflowId: id,
-      workflowName: wf.name,
-      status: "success",
-      startedAt: now,
-      finishedAt: now,
-      durationMs: 0,
-      log: ["Triggered manually"],
-    };
-    setRuns((prev) => [optimistic, ...prev]);
-    setActiveId(id);
-  };
-
-  const onToggle = (id: string) => {
-    setWorkflows((prev) =>
-      prev.map((w) => {
-        if (w.id !== id) return w;
-        const next: WorkflowStatus = w.status === "active" ? "paused" : "active";
-        return { ...w, status: next };
-      })
-    );
-  };
-
-  const metricCards: [string, string | number][] = [
-    ["Total Workflows", metrics.totalWorkflows],
-    ["Active", metrics.activeWorkflows],
-    ["Runs Today", metrics.runsToday],
-    ["Success Rate", `${metrics.successRate}%`],
-    ["Queued", metrics.queued],
-  ];
+  const metrics = deriveMetrics(items ?? []);
 
   return (
     <div className="min-h-screen bg-ink p-6 text-text">
       <div className="mx-auto max-w-6xl space-y-6">
-        <header>
-          <h1 className="text-2xl font-bold">AI Automation Engine</h1>
-          <p className="text-xs text-text-3">Workflows, scheduler, and queue</p>
+        <header className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">Automation</h1>
+            <p className="text-sm text-text-3">
+              Build workflows that automatically run AT24 intelligence, research and AI agents.
+            </p>
+          </div>
+          <Link
+            href="/dashboard/automation/new"
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-ink"
+          >
+            + Create Automation
+          </Link>
         </header>
 
-        {loading ? (
-          <div className="rounded-xl border border-border bg-ink-2 p-8 text-center text-sm text-text-3">
-            Loading automations...
-          </div>
-        ) : error ? (
-          <div className="rounded-xl border border-danger/50 bg-danger/30 p-8 text-center text-sm text-danger">
-            {error}
-          </div>
+        {error ? (
+          <div className="rounded-xl border border-danger/50 bg-danger/20 p-6 text-sm text-danger">{error}</div>
+        ) : items === null ? (
+          <div className="rounded-xl border border-border bg-ink-2 p-8 text-center text-sm text-text-3">Loading…</div>
         ) : (
           <>
             <section className="grid grid-cols-2 gap-4 md:grid-cols-5">
-              {metricCards.map(([label, value]) => (
+              {(
+                [
+                  ["Active Automations", metrics.active],
+                  ["Runs Today", metrics.runsToday],
+                  ["Successful Runs", metrics.succeeded30d],
+                  ["Failed Runs", metrics.failed30d],
+                  ["Credits Used", metrics.credits30d],
+                ] as [string, number][]
+              ).map(([label, value]) => (
                 <div key={label} className="rounded-xl border border-border bg-ink-2 p-4">
                   <p className="text-xs text-text-3">{label}</p>
-                  <p className="mt-1 text-2xl font-bold text-text">{value}</p>
+                  <p className="mt-1 text-2xl font-bold">{value}</p>
                 </div>
               ))}
             </section>
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-              <div className="space-y-4 lg:col-span-2">
-                <h2 className="text-sm font-semibold text-text-2">Workflows</h2>
-                <WorkflowList workflows={workflows} onRun={onRun} onToggle={onToggle} />
+            {items.length === 0 ? (
+              <div className="rounded-xl border border-border bg-ink-2 p-10 text-center">
+                <p className="text-lg font-semibold">No automations yet</p>
+                <p className="mx-auto mt-2 max-w-md text-sm text-text-3">
+                  Automate recurring market research, intelligence and AI agent tasks. Create your first
+                  workflow to get started.
+                </p>
+                <Link
+                  href="/dashboard/automation/new"
+                  className="mt-4 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-ink"
+                >
+                  Create your first workflow
+                </Link>
               </div>
-              <div>
-                <h2 className="mb-4 text-sm font-semibold text-text-2">Details</h2>
-                <WorkflowEditor workflow={active} />
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-border bg-ink-2">
+                <table className="w-full text-sm">
+                  <thead className="text-left text-xs text-text-3">
+                    <tr>
+                      <th className="p-3">Name</th>
+                      <th className="p-3">Status</th>
+                      <th className="p-3">Trigger</th>
+                      <th className="p-3">Last run</th>
+                      <th className="p-3">Next run</th>
+                      <th className="p-3">Credits (30d)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((a) => (
+                      <tr key={a.id} className="border-t border-border">
+                        <td className="p-3">
+                          <Link href={`/dashboard/automation/${a.id}`} className="font-medium hover:underline">
+                            {a.name}
+                          </Link>
+                        </td>
+                        <td className="p-3">{a.status}</td>
+                        <td className="p-3">{describeTrigger(a)}</td>
+                        <td className="p-3">{a.lastRun ? a.lastRun.status : "—"}</td>
+                        <td className="p-3">{a.nextRunAt ? new Date(a.nextRunAt).toLocaleString() : "—"}</td>
+                        <td className="p-3">{a.stats30d.creditsUsed}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </div>
-
-            <section>
-              <h2 className="mb-3 text-sm font-semibold text-text-2">Queue</h2>
-              <div className="rounded-xl border border-border bg-ink-2 p-4">
-                {queue.length === 0 ? (
-                  <p className="text-xs text-text-3">Queue is empty.</p>
-                ) : (
-                  queue.map((q) => (
-                    <div key={q.id} className="flex items-center justify-between py-1 text-sm">
-                      <span className="text-text">{q.workflowName}</span>
-                      <AutomationStatus status={q.status} />
-                    </div>
-                  ))
-                )}
-              </div>
-            </section>
-
-            <section>
-              <h2 className="mb-3 text-sm font-semibold text-text-2">Execution History</h2>
-              <AutomationHistory runs={runs} />
-            </section>
+            )}
           </>
         )}
       </div>
     </div>
   );
+}
+
+function describeTrigger(a: AutomationListItem): string {
+  const t = a.trigger;
+  if (t.type === "manual") return "Manual";
+  if (t.type === "once") return `Once${t.runAt ? ` · ${new Date(t.runAt).toLocaleDateString()}` : ""}`;
+  if (t.type === "daily") return `Daily · ${t.slot ?? ""}`;
+  return `Weekly · ${t.daysOfWeek.join(", ")}`;
+}
+
+function deriveMetrics(items: AutomationListItem[]) {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  let runsToday = 0;
+  let succeeded30d = 0;
+  let failed30d = 0;
+  let credits30d = 0;
+  let active = 0;
+  for (const a of items) {
+    if (a.status === "ACTIVE") active += 1;
+    succeeded30d += a.stats30d.succeeded;
+    failed30d += a.stats30d.failed;
+    credits30d += a.stats30d.creditsUsed;
+    if (a.lastRun?.startedAt && new Date(a.lastRun.startedAt) >= startOfToday) runsToday += 1;
+  }
+  return {
+    active,
+    runsToday,
+    succeeded30d,
+    failed30d,
+    credits30d: Math.round(credits30d * 100) / 100,
+  };
 }

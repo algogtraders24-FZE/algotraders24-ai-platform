@@ -135,6 +135,10 @@
     "validate:knowledge-loop-ingestion": "tsx scripts/validate-knowledge-loop-ingestion.ts",
     "validate:knowledge-loop-cache": "tsx scripts/validate-knowledge-loop-cache.ts",
     "validate:knowledge-loop-freshness": "tsx scripts/validate-knowledge-loop-freshness.ts",
+    "validate:automation-workflow-validation": "tsx scripts/validate-automation-workflow-validation.ts",
+    "validate:automation-condition-eval": "tsx scripts/validate-automation-condition-eval.ts",
+    "validate:automation-scheduler": "tsx scripts/validate-automation-scheduler.ts",
+    "validate:automation": "npm run validate:automation-workflow-validation && npm run validate:automation-condition-eval && npm run validate:automation-scheduler",
     "vendor:quant-engine": "node scripts/vendor-quant-engine.mjs"
   },
   "dependencies": {
