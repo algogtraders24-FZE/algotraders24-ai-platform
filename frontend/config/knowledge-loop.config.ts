@@ -64,6 +64,29 @@ export const AUTHORITY_WEIGHTS: Record<string, number> = {
   unanswered_question: 0.75,
 };
 
+// ── K3 — AI Assistant answer orchestration (AI_ASSISTANT_ORCHESTRATION_CONTRACT.md) ──
+// Additive: nothing here is read by K1/K2 code. Tunable only — the orchestrator
+// and provider slots inline no magic numbers.
+export const KNOWLEDGE_ANSWER_CONFIG = {
+  /** Scopes the AI Assistant retrieves against (contract §4). The Support
+   *  Agent uses ["support","shared"] — deliberately disjoint, no contamination. */
+  ASSISTANT_SCOPES: ["assistant", "shared"] as const,
+  /** Chunks requested from KnowledgeService for one answer turn. */
+  RETRIEVE_TOP_K: 6,
+  /** max_tokens for the answer-generation call (every slot). */
+  ANSWER_MAX_TOKENS: 2048,
+  /** Anthropic native web_search `max_uses` per answer turn. */
+  WEB_SEARCH_MAX_USES: 4,
+  /** Prior turns handed to the provider (chronological, most-recent-N). */
+  HISTORY_TURNS_MAX: 8,
+  /** Fixed pointer returned for an `account-specific` question — no LLM call,
+   *  never guesses account state (contract §8, sourceClass DETERMINISTIC). */
+  ACCOUNT_SPECIFIC_POINTER:
+    "That question is about your own account. I can't see your account details " +
+    "here — please check your dashboard billing/settings page, or contact support " +
+    "so a person can look it up securely.",
+} as const;
+
 /** knowledgeType === "policy" → always max authority (contract §4 override). */
 export const POLICY_TYPE_AUTHORITY = 1.0;
 /** scope === "user" unverified rows — never outrank verified knowledge. */
