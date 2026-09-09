@@ -180,6 +180,20 @@ test("dispatch route uses cron-secret OR admin auth (not a plain session)", () =
   assert.ok(!/getUserOrNull/.test(src), "must NOT gate on a plain logged-in user");
 });
 
+test("proxy.ts exempts the publishing dispatch cron path (else the session gate 401s Vercel Cron before the route runs)", () => {
+  const src = readFileSync(join(FRONTEND, "proxy.ts"), "utf8");
+  // the exempt set must literally carry the dispatcher path...
+  assert.ok(
+    /CRON_SECRET_EXEMPT_PATHS\s*=\s*new Set\(\[[^\]]*"\/api\/private\/publishing\/dispatch"[^\]]*\]\)/.test(src),
+    "'/api/private/publishing/dispatch' must be in CRON_SECRET_EXEMPT_PATHS",
+  );
+  // ...and the exemption must still be gated by a valid cron secret, not a blanket bypass
+  assert.ok(
+    /CRON_SECRET_EXEMPT_PATHS\.has\([^)]*\)\s*&&\s*isValidCronSecret\(/.test(src),
+    "the exemption must require isValidCronSecret(), not just a path match",
+  );
+});
+
 test("the POST publish-jobs route validates an unknown schedule shape", () => {
   const src = readFileSync(
     join(FRONTEND, "app/api/private/publishing/articles/[id]/publish-jobs/route.ts"),
