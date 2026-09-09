@@ -4,6 +4,9 @@
 // (trigger timing) + slot-registry wiring.
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import {
   AUTOMATION_SLOTS,
   getSlot,
@@ -54,6 +57,29 @@ async function main(): Promise<void> {
     const paths = allDispatchPaths();
     assert.equal(new Set(paths).size, paths.length);
     for (const p of paths) assert.ok(p.startsWith("/api/private/automations/cron/dispatch/"));
+  });
+
+  test("slot registry <-> vercel.json <-> proxy.ts are in lockstep", () => {
+    const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+    const vercel = JSON.parse(readFileSync(join(root, "vercel.json"), "utf8")) as {
+      crons: { path: string; schedule: string }[];
+    };
+    const proxySrc = readFileSync(join(root, "proxy.ts"), "utf8");
+    for (const slot of AUTOMATION_SLOTS) {
+      const cron = vercel.crons.find((c) => c.path === slot.dispatchPath);
+      assert.ok(cron, `vercel.json is missing a cron for ${slot.dispatchPath}`);
+      assert.equal(cron.schedule, slot.cron, `vercel.json cron for ${slot.id} != slot.cron`);
+      assert.ok(
+        proxySrc.includes(`"${slot.dispatchPath}"`),
+        `proxy.ts CRON_SECRET_EXEMPT_PATHS is missing ${slot.dispatchPath}`,
+      );
+      // route file exists
+      const routeRel = slot.dispatchPath.replace("/api/", "app/api/") + "/route.ts";
+      assert.doesNotThrow(
+        () => readFileSync(join(root, routeRel), "utf8"),
+        `route file missing: ${routeRel}`,
+      );
+    }
   });
 
   test("slotInstantForIstDay lands on the right UTC instant", () => {

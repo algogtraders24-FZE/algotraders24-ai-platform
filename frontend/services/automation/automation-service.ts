@@ -23,6 +23,7 @@ import {
   type AutomationWorkflowDefinition,
   type AutomationWeekday,
 } from "@/types/automation";
+import { getAutomationTemplate } from "@/config/automation-templates";
 import { validateWorkflowDefinition } from "./workflow-validator";
 import { normaliseDefinition, triggerDenormFromDefinition } from "./definition";
 import { computeNextRunAt } from "./scheduler";
@@ -191,6 +192,32 @@ export const automationService = {
       nextRunAt: to === "ACTIVE" ? nextRunAt : to === "PAUSED" ? undefined : null,
     });
     return { status: to, nextRunAt: nextRunAt ? nextRunAt.toISOString() : null };
+  },
+
+  async createFromTemplate(
+    userId: string,
+    templateId: string,
+    overrides: { name?: string; symbol?: string } = {},
+  ): Promise<{ id: string; status: AutomationStatus; version: number }> {
+    const template = getAutomationTemplate(templateId);
+    if (!template) throw new AutomationValidationError([{ path: "templateId", message: `unknown template "${templateId}"` }]);
+
+    // Deep-copy + whitelisted substitution: symbol into every agent_run input.
+    const def: AutomationWorkflowDefinition = JSON.parse(JSON.stringify(template.definition));
+    if (overrides.symbol && typeof overrides.symbol === "string") {
+      for (const step of def.steps) {
+        if (step.kind === "agent_run" && typeof step.action.input.symbol === "string") {
+          step.action.input.symbol = overrides.symbol;
+        }
+      }
+    }
+    return this.create({
+      userId,
+      name: overrides.name?.trim() || template.name,
+      description: template.description,
+      definition: def,
+      templateId: template.id,
+    });
   },
 
   async duplicate(userId: string, id: string): Promise<{ id: string }> {
