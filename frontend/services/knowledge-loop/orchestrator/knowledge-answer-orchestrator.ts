@@ -210,6 +210,19 @@ export class KnowledgeAnswerOrchestrator {
         ? "AT24_KNOWLEDGE"
         : "CLAUDE_REASONING";
 
+    // Per-source attribution — `usedInAnswer` must represent what actually
+    // happened, never what might have (provenance-integrity, K0–K3 principle).
+    //   AT24_KNOWLEDGE — the retrieved Knowledge IS the answer, so each
+    //     contributing chunk is a genuine source.
+    //   MIXED — knowledge + web both informed the turn, but the LLM gives us
+    //     NO per-chunk signal that any given chunk was used. We record every
+    //     retrieved chunk with its similarity / ids (evidence trail) but do
+    //     NOT assert it was used. Tightening this needs real per-source
+    //     attribution (an LLM-attributed answer, K4/K6) — not a guess here.
+    //   CLAUDE_REASONING / CLAUDE_WEB_SEARCH — no knowledge was used.
+    //   Web sources carry Claude's own `citations`, so a web source counts as
+    //   used only when it was actually cited (`citedTexts` non-empty).
+    const knowledgeUsed = sourceClass === "AT24_KNOWLEDGE";
     const knowledgeRefs: AnswerSourceRef[] = retrieval.hits.map((h) => ({
       kind: "knowledge",
       knowledgeId: h.knowledgeId,
@@ -218,14 +231,14 @@ export class KnowledgeAnswerOrchestrator {
       similarity: h.similarity,
       snippet:
         h.content.length > 180 ? `${h.content.slice(0, 180)}…` : h.content,
-      usedInAnswer: sourceClass === "AT24_KNOWLEDGE" || sourceClass === "MIXED",
+      usedInAnswer: knowledgeUsed,
     }));
     const webRefs: AnswerSourceRef[] = winner.res.webSources.map((s) => ({
       kind: "web",
       url: s.url,
       title: s.title,
       citedText: s.citedTexts[0],
-      usedInAnswer: true,
+      usedInAnswer: (s.citedTexts?.length ?? 0) > 0,
     }));
 
     const latencyMs = this.now() - startedAt;

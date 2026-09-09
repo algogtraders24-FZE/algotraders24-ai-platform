@@ -20,12 +20,13 @@
 ## 0. Headline
 
 ```
-K3-B STATUS:              COMPLETE  (B-1..B-4)
+K3-B STATUS:              COMPLETE  (B-1..B-4 + Fix #2)
 K3-B-1 provider extension: PASS  — ClaudeProvider native web_search (additive); 9 fixture assertions
 K3-B-2 orchestrator:       PASS  — classifier + web-search gate + KnowledgeAnswerOrchestrator
-                                   14 + 11 + 12 = 37 offline assertions
+                                   14 + 11 + 13 = 38 offline assertions
 K3-B-3 route wiring:       PASS  — knowledge/chat/route.ts: inline RAG+Gemini → orchestrator
-K3-B-4 live smoke:         PASS  — 9 (provider/web) + 19 (orchestrator e2e vs prod) = 28 assertions
+K3-B-4 live smoke:         PASS  — 9 (provider/web) + 19 (orchestrator e2e) + 9 (Fix #2 re-verify) = 37 assertions
+FIX #2 (usedInAnswer):     PASS  — per-source attribution is now honest (§5.4); owner-required, applied pre-merge
 KNOWLEDGE-FIRST:           PASS  — retrieval always runs first; SUFFICIENT → AT24_KNOWLEDGE, no web
 PROVIDER CHAIN:            PASS  — Claude → Gemini → OpenAI → deterministic; fall-through verified
 NATIVE WEB SEARCH:         PASS  — live: searchCount≥1, citations + encrypted_content carried
@@ -120,10 +121,12 @@ config/knowledge-loop.config.ts  += KNOWLEDGE_ANSWER_CONFIG (additive; unread by
 | no | no | `CLAUDE_REASONING` |
 | — | account-specific / chain exhausted | `DETERMINISTIC` |
 
+Per-source `usedInAnswer` (see §5.4 — Fix #2): `AT24_KNOWLEDGE` → knowledge chunks `true`; `MIXED` → knowledge chunks recorded but `false` (no per-chunk attribution); web sources `true` only when Claude actually cited them (`citedTexts` non-empty).
+
 Offline proof:
 - `validate:knowledge-loop-classifier` — **14/14**
 - `validate:knowledge-loop-websearch-gate` — **11/11**
-- `validate:knowledge-loop-orchestrator` — **12/12** (in-memory `KnowledgeService` + fake provider; covers knowledge-first, web fallback, MIXED, provider fall-through, all-throw → deterministic, forbidden-language → next slot, account-specific → no LLM, retrieval outage absorbed, one-provenance-row-per-turn, best-effort write failure, history window).
+- `validate:knowledge-loop-orchestrator` — **13/13** (in-memory `KnowledgeService` + fake provider; covers knowledge-first, web fallback, MIXED, **MIXED weak-hit attribution / Rust-MT5 case**, provider fall-through, all-throw → deterministic, forbidden-language → next slot, account-specific → no LLM, retrieval outage absorbed, one-provenance-row-per-turn, best-effort write failure, history window).
 
 ### 2.3 `app/api/private/knowledge/chat/route.ts` — one edit (K3-B-3, `d191bcd`)
 
@@ -153,8 +156,8 @@ After the market-intelligence gate, the inline **RAG-embed + `GoogleGenAI`(+`goo
 | `validate:knowledge-loop-claude-provider` | 9 | PASS |
 | `validate:knowledge-loop-classifier` | 14 | PASS |
 | `validate:knowledge-loop-websearch-gate` | 11 | PASS |
-| `validate:knowledge-loop-orchestrator` | 12 | PASS |
-| **K3 total** | **46** | **PASS** |
+| `validate:knowledge-loop-orchestrator` | 13 | PASS (+1: Fix #2 regression — §5.4) |
+| **K3 total** | **47** | **PASS** |
 | Regression: `knowledge-loop-{schema,retrieval,ingestion,cache,freshness}` | 19+15+3+13+8 | PASS (unchanged) |
 | Regression: `validate:ai-presenter-orchestration` | 66 | PASS (unchanged) |
 | `tsc --noEmit` | — | CLEAN (quant-engine `RUNTIME_VERSION` baseline only) |
@@ -164,8 +167,9 @@ After the market-intelligence gate, the inline **RAG-embed + `GoogleGenAI`(+`goo
 
 ## 5. Live smoke (K3-B-4) — production, `ANTHROPIC_API_KEY` from git-ignored `.env.local`
 
-Two throwaway scripts (scratch, never committed, deleted after the run), same
-temp-data + mandatory-cleanup discipline as K1-F / the K2 gate.
+Throwaway scripts (scratch, never committed, deleted after each run), same
+temp-data + mandatory-cleanup discipline as K1-F / the K2 gate. Phases 1–2 are
+the K3-B-4 run; Phase 5.4 is the Fix #2 re-verification.
 
 ### Phase 1 — provider + native web search (no DB) — **9/9**
 
@@ -194,13 +198,39 @@ One tagged `assistant`-scope `Knowledge` row (+ chunk + real Gemini embedding) s
 
 Post-run independent DB sanity: `0` leftover `Knowledge` / `KnowledgeAnswerProvenance` smoke rows.
 
+### 5.4 Fix #2 — honest per-source `usedInAnswer` attribution (owner-required, applied pre-merge)
+
+**Finding (from Phase 2 test D):** the seeded MT5/MT4 knowledge row was a *weak* retrieval hit (similarity just over the `RELEVANCE_MIN` floor) for a Rust-language question. The turn resolved `MIXED`, and the orchestrator marked **every** retrieved knowledge chunk `usedInAnswer: true` purely because `sourceClass ∈ {AT24_KNOWLEDGE, MIXED}` — even though Claude's answer explicitly said the knowledge was "outside AT24's scope". That is false source-level attribution in the provenance/evidence record — the exact class of defect K0–K3 exist to prevent.
+
+**Fix** (`knowledge-answer-orchestrator.ts`, ~6 lines + comment):
+- `AT24_KNOWLEDGE` → knowledge chunks `usedInAnswer: true` (the retrieved Knowledge *is* the answer — defensible).
+- `MIXED` → knowledge chunks are still **recorded** (`knowledgeId`, `chunkId`, `chunkIndex`, `similarity`, `snippet` — full evidence trail) but `usedInAnswer: false`. We have **no** per-chunk signal that any given chunk was used; we do not guess. Real per-source attribution needs an LLM-attributed answer (K4/K6).
+- `CLAUDE_REASONING` / `CLAUDE_WEB_SEARCH` → no knowledge used → `false`.
+- Web sources carry Claude's own `citations`, so a web source is `usedInAnswer: true` **only when actually cited** (`citedTexts` non-empty); a retrieved-but-uncited search result is `false`.
+
+No change to `sourceClass` derivation, the provider chain, the gate, or the route. `webSearchUsed` (a turn-level fact) is unchanged.
+
+**Regression coverage added** — `validate:knowledge-loop-orchestrator` (now 13/13):
+- `MIXED` → knowledge chunk `usedInAnswer === false`, `knowledgeId`/`similarity` preserved, provenance row carries the honest value.
+- New test **"MIXED with a weak, irrelevant knowledge hit → chunk NOT marked used (Rust/MT5 case)"** — reproduces the exact live finding: weak MT5 hit + web answer → chunk recorded, `usedInAnswer: false`; cited web source `true`, uncited web source `false`.
+
+**Live re-verification vs production — 9/9** (throwaway script, deleted; same seed+cleanup discipline):
+
+| ID | Check | Result |
+|---|---|---|
+| K1–K3 | "Which platforms can I use with AT24?" → `AT24_KNOWLEDGE`; persisted `knowledgeContributions[].usedInAnswer === true` | PASS |
+| M1–M3 | "latest stable Rust version as of today" → `MIXED`; persisted `knowledgeContributions` non-empty, **every** entry `usedInAnswer === false`, `knowledgeId` + `similarity` preserved | PASS |
+| M4–M5 | `MIXED`: ≥ 1 web contribution; cited web contributions `usedInAnswer === true` | PASS |
+| Z | cleanup — `0` K3-smoke rows remain | PASS |
+
 ### Cost
 
 | Run | Web searches | Tokens | Est. cost |
 |---|---|---|---|
 | Phase 1 | 1 | ~12.9k in / ~140 out | ~$0.04 |
 | Phase 2 | 1 | (chat-sized) | ~$0.02 |
-| **Total** | **2** | — | **< $0.10** |
+| Fix #2 re-verify | 1 | (chat-sized) | ~$0.02 |
+| **Total** | **3** | — | **< $0.12** |
 
 `$10 / 1,000` web-search math confirmed against `usage.server_tool_use.web_search_requests`. `WEB_SEARCH_MAX_USES = 4`, the gate forbids search on conceptual/SUFFICIENT turns, and `HISTORY_TURNS_MAX = 8` caps carried context — cost controls in place for beta.
 
@@ -210,9 +240,9 @@ Post-run independent DB sanity: `0` leftover `Knowledge` / `KnowledgeAnswerProve
 
 ### K3-B — ✅ COMPLETE
 
-Built, offline-tested (46 K3 assertions + full regression green), and
-live-smoked end-to-end against production (28 assertions, all cleanup
-verified). Every objective from the K3 brief is met:
+Built, offline-tested (47 K3 assertions + full regression green), and
+live-smoked end-to-end against production (28 + 9 Fix #2 re-verify = 37
+assertions, all cleanup verified). Every objective from the K3 brief is met:
 
 1. Claude primary provider — ✅ (chain `Claude → Gemini → OpenAI → deterministic`)
 2. Claude native `web_search` — ✅ (live: citations + `encrypted_content`, org enabled)
@@ -230,7 +260,28 @@ verified). Every objective from the K3 brief is met:
 ### MERGE — ⛔ BLOCKED on owner review of this document
 
 Once approved: rebase `feat/k3-orchestration` on latest `origin/main`, merge
-(3 commits, no squash needed), then **K3 operationally complete → K4 unlocked**.
+(4 commits + Fix #2 commit, no squash needed), then **K3 operationally
+complete → K4 unlocked**.
+
+### Known imprecisions (disclosed; not merge blockers per owner)
+
+- **`sourceClass` enum label vs winning provider** — when Gemini/OpenAI is the
+  winner, `sourceClass` still reads `CLAUDE_REASONING` / `CLAUDE_WEB_SEARCH`
+  (K0's enum names). `providerUsed` is authoritative and records the real
+  slot. Owner decision: fix in the next cleanup contract, not K3-B — a future
+  enum such as `WEB_SEARCH | AT24_KNOWLEDGE | MIXED | MODEL_REASONING |
+  DETERMINISTIC` separates *provenance source class* from *provider identity*.
+- **Classifier heuristic** — a current-info query with no freshness trigger
+  word, classified `conceptual`/`other`, that also gets a `SUFFICIENT`
+  retrieval from a stale hit, can have web search suppressed. Mitigated by the
+  freshness sweep (`STALE`/auto-deprecate) and by `INSUFFICIENT`/`STALE`/
+  non-sufficient still forcing web. Disclosed heuristic (contract §3),
+  swappable for an LLM classifier behind the same signature. Acceptable for v1.
+- **`webSearchUnavailable`** — if Claude's web search is org-disabled/rate-
+  limited on a current-info turn, the answer falls back to Claude's own
+  knowledge (never fabricated), flagged `webSearchRequestedButUnavailable` on
+  the result + provenance, but **not** re-grounded via Gemini+`googleSearch`
+  (no adapter in v1). Accepted for v1.
 
 ### Deferred (by design, not gaps)
 
@@ -245,3 +296,4 @@ finalisation (K6) · any market-intel chain re-ordering.
 | Date | Entry |
 |---|---|
 | 2026-09-09 | K3-B-1..B-4 complete. Additive `ClaudeProvider` web search + `KnowledgeAnswerOrchestrator` (classifier + web-search gate + provider chain + provenance) + `knowledge/chat/route.ts` wiring. 46 offline K3 assertions + full regression green; tsc/eslint clean. Live smoke vs production: 9 (provider/web search — **org web search confirmed enabled**) + 19 (orchestrator e2e — knowledge-first, web fallback, account-specific, provenance rows) = 28 assertions, all cleanup verified (0 rows remain), total cost < $0.10. ADR-K3-M1 + ADR-K3-M8 recorded. **K3-B COMPLETE — awaiting owner review before merge.** |
+| 2026-09-10 | **Fix #2 (owner-required, pre-merge)** — honest per-source `usedInAnswer` attribution (§5.4). `MIXED` no longer marks every retrieved chunk as used; retrieved chunks are still recorded with full metadata but `usedInAnswer: false` (no per-chunk attribution signal exists). Web sources `usedInAnswer` grounded in Claude's own citations (`citedTexts`). +1 orchestrator regression test (the Rust/weak-MT5 case) → offline K3 total **47**; live re-verification vs production **9/9** (`AT24_KNOWLEDGE` keeps `usedInAnswer: true`; `MIXED` persists `false` with the evidence trail intact), cleanup verified. Two other imprecisions (`sourceClass` enum label, classifier freshness edge) disclosed as non-blockers per owner. **K3-B COMPLETE + Fix #2 — awaiting explicit MERGE GO.** |

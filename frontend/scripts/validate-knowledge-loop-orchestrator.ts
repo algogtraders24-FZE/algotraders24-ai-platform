@@ -130,9 +130,55 @@ async function main(): Promise<void> {
 
     const r = await orch.answer(turn({ message: "Does AT24 support MT5 and what is the latest MT5 build?" }));
     assert.equal(r.sourceClass, "MIXED");
-    assert.equal(r.sources.find((s) => s.kind === "knowledge")?.usedInAnswer, true);
+    const kRef = r.sources.find((s) => s.kind === "knowledge");
+    // MIXED: the retrieved chunk is recorded (id + similarity preserved) but
+    // NOT asserted as used — we have no per-chunk attribution.
+    assert.equal(kRef?.usedInAnswer, false, "MIXED must not claim per-chunk usage");
+    assert.equal(kRef?.knowledgeId, "k9", "the retrieved chunk is still recorded");
+    assert.equal(typeof kRef?.similarity, "number", "similarity metadata preserved");
+    // web source WAS cited (citedTexts non-empty) → genuinely used.
     assert.equal(r.sources.find((s) => s.kind === "web")?.usedInAnswer, true);
     assert.equal(prov.rows[0].sourceClass, "MIXED");
+    assert.equal(
+      (prov.rows[0].knowledgeContributions[0] as { usedInAnswer: boolean }).usedInAnswer,
+      false,
+      "provenance row carries the honest attribution",
+    );
+  });
+
+  await test("MIXED with a weak, irrelevant knowledge hit → chunk NOT marked used (Rust/MT5 case)", async () => {
+    // Regression for the live-smoke finding: a weak retrieval hit (similarity
+    // just over the floor) on an unrelated question was previously marked
+    // usedInAnswer=true just because the turn was MIXED.
+    const retrieval = new FakeRetrieval({
+      sufficiency: "LOW",
+      hits: [{ knowledgeId: "kmt", chunkId: "kmt:c0", similarity: 0.31, content: "AT24 supports the MT5 and MT4 trading platforms." }],
+      contextBlock: "AT24 supports the MT5 and MT4 trading platforms.",
+    });
+    const claude = new FakeProviderSlot({
+      name: "claude",
+      supportsWebSearch: true,
+      reply: () => ({
+        text: "That's outside AT24's product scope. From the web: the latest stable Rust is 1.9x.",
+        webSources: [
+          { url: "https://blog.rust-lang.org/", title: "Rust blog", citedTexts: ["Rust 1.9x released"] },
+          { url: "https://doc.rust-lang.org/", title: "Rust docs", citedTexts: [] }, // retrieved, not cited
+        ],
+        searchCount: 1,
+      }),
+    });
+    const prov = new InMemoryProvenanceStore();
+    const orch = new KnowledgeAnswerOrchestrator({ retrieval, slots: [claude], provenance: prov });
+
+    const r = await orch.answer(turn({ message: "What is the latest stable version of the Rust language right now?" }));
+    assert.equal(r.sourceClass, "MIXED");
+    const kRef = r.sources.find((s) => s.kind === "knowledge");
+    assert.equal(kRef?.usedInAnswer, false, "the weak MT5 hit must NOT be claimed as used");
+    assert.equal(kRef?.knowledgeId, "kmt", "but it IS still recorded as retrieved evidence");
+    assert.equal(kRef?.similarity, 0.31, "with its real similarity");
+    const webRefs = r.sources.filter((s) => s.kind === "web");
+    assert.equal(webRefs.find((s) => s.url === "https://blog.rust-lang.org/")?.usedInAnswer, true, "cited web source → used");
+    assert.equal(webRefs.find((s) => s.url === "https://doc.rust-lang.org/")?.usedInAnswer, false, "uncited web source → not used");
   });
 
   await test("provider fall-through: claude throws → gemini answers", async () => {
