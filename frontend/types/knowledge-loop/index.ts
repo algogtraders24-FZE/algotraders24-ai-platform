@@ -146,8 +146,42 @@ export interface RetrievalResult {
   bestSimilarity: number;
   fromCache: boolean;
   latencyMs: number;
-  /** diagnostic — "empty-query" | "embedding-failed" | "below-threshold" | "ok". */
+  /** diagnostic — "empty-query" | "embedding-failed" | "below-threshold" | "no-eligible-rows" | "ok". */
   reason: string;
+}
+
+// ── Retrieval cache (K2 — KNOWLEDGE_RETRIEVAL_CONTRACT.md §7.2 / §7.5 / §7.6) ──
+// Stored per cache key: chunk ids + similarity ONLY. Never answer text, never a
+// Knowledge row snapshot. On a hit the service re-hydrates Knowledge/
+// KnowledgeChunk LIVE and re-runs the full eligibility filter + ranking.
+export interface CachedRetrievalEntry {
+  chunkId: string;
+  knowledgeId: string;
+  chunkIndex: number;
+  similarity: number;
+}
+export interface CachedRetrieval {
+  results: CachedRetrievalEntry[];
+}
+
+// ── Freshness sweep (K2-C — KNOWLEDGE_CONTRACT.md §5, transition table §4.4) ──
+export interface FreshnessSweepResult {
+  scannedActive: number;
+  /** DYNAMIC rows past `expiresAt` — auto-transitioned to `deprecated`
+   *  (reason `expired`). Retrieval already excluded them; this makes it
+   *  permanent + auditable and bumps the version fingerprint. */
+  dynamicExpiredDeprecated: Array<{ knowledgeId: string; expiresAt: string }>;
+  /** PERIODIC rows past review-due — FLAGGED ONLY, never auto-transitioned
+   *  (that needs a human — K4/K6). Retrieval already demotes them via
+   *  STALE_PENALTY at query time. */
+  periodicReviewDue: Array<{
+    knowledgeId: string;
+    dueSince: string;
+    longOverdue: boolean;
+  }>;
+  /** fingerprint after all auto-deprecations (unchanged if none). */
+  versionFingerprint: string;
+  ranAt: string;
 }
 
 // ── Lifecycle transitions (KNOWLEDGE_CONTRACT.md §4.4) ─────────────────

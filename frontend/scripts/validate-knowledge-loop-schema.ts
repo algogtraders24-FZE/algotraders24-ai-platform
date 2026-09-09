@@ -277,6 +277,77 @@ function main(): void {
     }
   });
 
+  // ── K2 — retrieval-cache migration + model ──────────────────────────
+  const K2_MIG = join(
+    ROOT,
+    "prisma",
+    "migrations",
+    "20260909120000_add_knowledge_retrieval_cache",
+    "migration.sql",
+  );
+
+  test("K2: retrieval-cache migration exists, offline-generated + NOT APPLIED, additive-only", () => {
+    assert.ok(existsSync(K2_MIG), "K2 migration.sql missing");
+    const sql = readFileSync(K2_MIG, "utf8");
+    const body = sqlLines(sql);
+    assert.match(sql, /GENERATED via `prisma migrate diff` \(offline/);
+    assert.match(sql, /NOT APPLIED/);
+    assert.match(sql, /migrate dev/);
+    assert.doesNotMatch(body, /\bDROP\b/i);
+    assert.doesNotMatch(body, /\bALTER\s+COLUMN\b/i);
+    assert.doesNotMatch(body, /\bDELETE\s+FROM\b/i);
+    assert.doesNotMatch(body, /\bTRUNCATE\b/i);
+    assert.doesNotMatch(body, /ALTER TABLE/i); // pure new-table migration
+    assert.doesNotMatch(body, /embedding/i);
+    const tables = [...body.matchAll(/CREATE TABLE "(\w+)"/g)].map((m) => m[1]);
+    assert.deepEqual(tables, ["KnowledgeRetrievalCache"]);
+  });
+
+  test("K2: KnowledgeRetrievalCache is a SEPARATE model from KnowledgeAnswerCache (contract §7.5)", () => {
+    assert.match(schema, /model KnowledgeRetrievalCache \{/);
+    assert.match(schema, /model KnowledgeAnswerCache \{/);
+    // they must not have been merged
+    const retrieval = schema.slice(
+      schema.indexOf("model KnowledgeRetrievalCache {"),
+      schema.indexOf("}", schema.indexOf("model KnowledgeRetrievalCache {")),
+    );
+    assert.doesNotMatch(retrieval, /answerText/, "retrieval cache must not store answer text");
+    assert.match(retrieval, /results\s+Json/);
+  });
+
+  test("K2 INV-1: retrieval-cache code re-hydrates + re-filters (never trusts the cache as authority)", () => {
+    const svc = readFileSync(
+      join(ROOT, "services", "knowledge-loop", "knowledge", "knowledge-service.ts"),
+      "utf8",
+    );
+    // the cache-hit path calls the same pipeline (re-filter) as the fresh path
+    assert.match(svc, /fromCacheEntries/);
+    assert.match(svc, /RE-FILTER eligibility on hydration/);
+    assert.match(svc, /this\.store\.getByIds/); // hydrates live Knowledge rows on the hit path
+    const cacheFile = readFileSync(
+      join(ROOT, "services", "knowledge-loop", "knowledge", "retrieval-cache.ts"),
+      "utf8",
+    );
+    assert.doesNotMatch(cacheFile, /Candidate/i);
+    assert.doesNotMatch(cacheFile, /answerText|sourceClass/); // not the answer cache
+  });
+
+  test("K2: freshness sweep never touches candidates / never activates", () => {
+    const raw = readFileSync(
+      join(ROOT, "services", "knowledge-loop", "knowledge", "freshness-sweep.ts"),
+      "utf8",
+    );
+    // strip // line comments so a doc comment naming the boundary is fine
+    const code = raw
+      .split("\n")
+      .map((l) => l.replace(/\/\/[^\r\n]*/, ""))
+      .join("\n");
+    assert.doesNotMatch(code, /\bprisma\s*\./, "the sweep must go through the KnowledgeStore, not prisma");
+    assert.doesNotMatch(code, /[Cc]andidate/, "the sweep must never reference candidate storage");
+    assert.doesNotMatch(code, /to:\s*["'](active|draft)["']/, "the sweep must never transition TO active/draft");
+    assert.match(code, /to:\s*["']deprecated["']/); // the only allowed transition
+  });
+
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed > 0) process.exitCode = 1;
 }

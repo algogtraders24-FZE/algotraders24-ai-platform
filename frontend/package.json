@@ -133,6 +133,8 @@
     "validate:knowledge-loop-schema": "tsx scripts/validate-knowledge-loop-schema.ts",
     "validate:knowledge-loop-retrieval": "tsx scripts/validate-knowledge-loop-retrieval.ts",
     "validate:knowledge-loop-ingestion": "tsx scripts/validate-knowledge-loop-ingestion.ts",
+    "validate:knowledge-loop-cache": "tsx scripts/validate-knowledge-loop-cache.ts",
+    "validate:knowledge-loop-freshness": "tsx scripts/validate-knowledge-loop-freshness.ts",
     "vendor:quant-engine": "node scripts/vendor-quant-engine.mjs"
   },
   "dependencies": {
