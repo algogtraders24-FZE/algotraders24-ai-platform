@@ -28,6 +28,25 @@
 // QUEUED/RUNNING/COMPLETED - see applyResult()'s statusRef guard below,
 // the real correctness gap this tier's own audit found in T2's original
 // unconditional setView(result).
+//
+// A.4-T4's own locked contract (docs/P4.9-OPTIMIZATION-WFO.md) - the
+// COMPLETED branch below. The winner is ALWAYS `view.bestCandidateId`
+// (set server-side, inside the same transaction as the COMPLETED write -
+// see optimization.service.ts's finalizeIfComplete()); this component
+// NEVER recomputes a winner from candidate data, it only looks one up by
+// that id. `view` itself (from the polling loop / initial GET / cancel())
+// already carries bestCandidateId (it's on the lightweight
+// OptimizationExperimentView shape) - so a null bestCandidateId (the "all
+// candidates rejected" edge state) is known immediately, no extra fetch
+// needed. A non-null bestCandidateId means a winner exists but its
+// metrics/parameters only exist on the DETAIL shape (candidates[] is
+// detail-only, per types/optimization.ts) - `winnerDetail` below is that
+// one extra GET, fired exactly once, only in that case. Locked: "Best
+// Candidate" label (never "Validated Strategy" - COMPLETED means a single
+// in-sample sweep finished, not that the winner passed any out-of-sample
+// or walk-forward validation), Profit Factor + Trade Count only (nothing
+// else is persisted on a candidate), full resolved parameterValues with
+// registry-label lookup (raw id fallback).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -39,7 +58,9 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import { FIN_LABEL } from "@/components/ui/financial-typography";
 import { fetchOptimizationExperiment, continueOptimizationExperiment, cancelOptimizationExperiment, OptimizationClientError } from "@/lib/algo-test/optimization-store";
-import type { OptimizationExperimentStatus, OptimizationExperimentView } from "@/types/optimization";
+import { fetchAlgoTestStrategies } from "@/lib/algo-test/store";
+import type { OptimizationExperimentStatus, OptimizationExperimentView, OptimizationExperimentDetailView, OptimizationProfitFactor } from "@/types/optimization";
+import type { AlgoTestStrategyDefinition } from "@/types/algo-test";
 
 // P4.9-A.4-T2-R1 lock #1 - the minimum floor between consecutive
 // continue() calls, measured from response to next request. The FIRST
@@ -62,6 +83,21 @@ const STATUS_TONE: Readonly<Record<OptimizationExperimentStatus, BadgeTone>> = {
   CANCELLED: "warning",
 };
 
+// A.4-T4 lock - the wire union's own doc comment (types/optimization.ts)
+// spells out why this can't reuse formatPrice()/formatPercent()
+// (lib/financial-format.ts): both take a plain `number`, and profit
+// factor is deliberately `number | "Infinity" | null` on the wire.
+// "Infinity" (a candidate with zero losing trades) displays as the real
+// mathematical symbol, never a fabricated finite number; `null` ("not yet
+// computed") is only ever seen here for a REJECTED/FAILED/UNRUN candidate
+// - a winner (VALIDATED) always has a real computed value - but this
+// stays total rather than assuming that invariant holds.
+function formatOptimizationProfitFactor(value: OptimizationProfitFactor): string {
+  if (value === "Infinity") return "∞";
+  if (value === null) return "—";
+  return value.toFixed(2);
+}
+
 export default function AlgoTestOptimizeMonitorPage() {
   const params = useParams<{ experimentId: string }>();
   const experimentId = decodeURIComponent(params.experimentId);
@@ -71,6 +107,16 @@ export default function AlgoTestOptimizeMonitorPage() {
   const [cancelError, setCancelError] = useState<OptimizationClientError | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  // A.4-T4 lock - `null` = pending (fetch not yet resolved), `undefined` =
+  // fetched but unavailable (transient failure - fetchOptimizationExperiment()
+  // never throws, so this is the only failure shape), object = the real
+  // detail (its own candidates[] is where the winner's metrics/parameters
+  // live - see the lookup in the COMPLETED render branch below).
+  const [winnerDetail, setWinnerDetail] = useState<OptimizationExperimentDetailView | null | undefined>(null);
+  // Registry labels only (P3.4's AlgoTestParameterDefinition.label) - a
+  // raw-id fallback (see parameterLabel() below) means this is
+  // presentation-only and never blocks the winner card from rendering.
+  const [strategyDef, setStrategyDef] = useState<AlgoTestStrategyDefinition | null | undefined>(null);
 
   const cancelledRef = useRef(false);
   const inFlightRef = useRef(false);
@@ -105,6 +151,35 @@ export default function AlgoTestOptimizeMonitorPage() {
     statusRef.current = result.status;
     setView(result);
   }, []);
+
+  // A.4-T4 lock - fires exactly once (guarded by winnerFetchStartedRef),
+  // only once a winner actually exists to look up (a null bestCandidateId
+  // - the "all candidates rejected" edge state - never triggers this: the
+  // COMPLETED render branch below reads view.minEligibleTrades directly,
+  // no fetch required). Also usable as a manual Retry.
+  const winnerFetchStartedRef = useRef(false);
+  const loadWinnerDetail = useCallback(() => {
+    setWinnerDetail(null);
+    setStrategyDef(null);
+    fetchOptimizationExperiment(experimentId).then((detail) => {
+      if (cancelledRef.current) return;
+      setWinnerDetail(detail);
+    });
+    // Reuses the same registry endpoint the create-experiment/run pages
+    // already fetch (fetchAlgoTestStrategies() - P3.3/P3.4) purely for
+    // this strategy's parameter LABELS - no new backend surface.
+    fetchAlgoTestStrategies().then((strategies) => {
+      if (cancelledRef.current) return;
+      setStrategyDef(strategies.find((s) => s.strategyId === view?.strategyId));
+    });
+  }, [experimentId, view?.strategyId]);
+
+  useEffect(() => {
+    if (!view || view.status !== "COMPLETED" || !view.bestCandidateId) return;
+    if (winnerFetchStartedRef.current) return;
+    winnerFetchStartedRef.current = true;
+    loadWinnerDetail();
+  }, [view, loadWinnerDetail]);
 
   // P4.9-A.4-T2-R1 lock #6/#7/#8 - ref-based in-flight guard (never state,
   // to avoid stale-closure races in this async loop), the experimentId
@@ -157,6 +232,9 @@ export default function AlgoTestOptimizeMonitorPage() {
     setCancelError(null);
     setShowCancelModal(false);
     setCancelling(false);
+    winnerFetchStartedRef.current = false;
+    setWinnerDetail(null);
+    setStrategyDef(null);
 
     // P4.9-A.4-T2-R1 lock #2 - the initial GET always happens before any
     // continue() call, covering a fresh load, a refresh, and a
@@ -216,6 +294,14 @@ export default function AlgoTestOptimizeMonitorPage() {
     } finally {
       if (!cancelledRef.current) setCancelling(false);
     }
+  }
+
+  // A.4-T4 lock - registry label, raw parameter id fallback (covers
+  // strategyDef still pending/undefined/not-yet-matched - never blocks
+  // rendering the winner's real parameter values on a slow/failed
+  // registry fetch).
+  function parameterLabel(parameterId: string): string {
+    return strategyDef?.parameters.find((p) => p.id === parameterId)?.label ?? parameterId;
   }
 
   return (
@@ -282,6 +368,92 @@ export default function AlgoTestOptimizeMonitorPage() {
               <p className="text-sm text-text-2">
                 Cancelled — {view.processedCandidates}/{view.totalCandidates} candidates processed before cancellation.
               </p>
+            </div>
+          ) : view.status === "COMPLETED" ? (
+            <div className="rounded-card border border-border bg-ink-2 p-5">
+              <p className="text-sm text-text-2">
+                Finished — {view.processedCandidates}/{view.totalCandidates} candidates processed.
+              </p>
+
+              {!view.bestCandidateId ? (
+                // A.4-T4 lock - the "all candidates rejected" edge state.
+                // Copy is sourced from the real view.minEligibleTrades,
+                // never a hardcoded number.
+                <p className="mt-3 text-sm text-text-2">
+                  No candidate produced at least {view.minEligibleTrades} eligible trade{view.minEligibleTrades === 1 ? "" : "s"}, so no best candidate could be selected.
+                </p>
+              ) : winnerDetail === null ? (
+                <div className="mt-4 space-y-2">
+                  <Skeleton className="h-5 w-1/3" />
+                  <Skeleton className="h-20 w-full" />
+                </div>
+              ) : winnerDetail === undefined ? (
+                <div className="mt-3">
+                  <Alert tone="danger" title="Could not load the best candidate">
+                    <p>The optimization finished, but its results could not be loaded.</p>
+                    <div className="mt-3">
+                      <Button variant="danger" size="sm" onClick={loadWinnerDetail}>
+                        Retry
+                      </Button>
+                    </div>
+                  </Alert>
+                </div>
+              ) : (
+                (() => {
+                  const winner = winnerDetail.candidates.find((c) => c.id === view.bestCandidateId);
+                  if (!winner) {
+                    return (
+                      <div className="mt-3">
+                        <Alert tone="danger" title="Could not load the best candidate">
+                          <p>The optimization finished, but the best candidate&apos;s details could not be found.</p>
+                        </Alert>
+                      </div>
+                    );
+                  }
+                  const parameterEntries = Object.entries(winner.parameterValues);
+                  return (
+                    <div className="mt-4 border-t border-border pt-4">
+                      <h2 className="text-base font-semibold text-text">Best Candidate</h2>
+
+                      <dl className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+                        <div>
+                          <dt className={FIN_LABEL}>Profit Factor</dt>
+                          <dd className="mt-0.5 text-text">{formatOptimizationProfitFactor(winner.profitFactor)}</dd>
+                        </div>
+                        <div>
+                          <dt className={FIN_LABEL}>Trades</dt>
+                          <dd className="mt-0.5 text-text">{winner.tradeCount ?? "—"}</dd>
+                        </div>
+                      </dl>
+
+                      {parameterEntries.length > 0 && (
+                        <div className="mt-4">
+                          <p className={FIN_LABEL}>Parameters</p>
+                          <dl className="mt-2 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+                            {parameterEntries.map(([parameterId, parameterValue]) => (
+                              <div key={parameterId} className="flex items-center justify-between rounded bg-ink-3 px-3 py-1.5">
+                                <dt className="text-text-3">{parameterLabel(parameterId)}</dt>
+                                <dd className="text-text">{String(parameterValue)}</dd>
+                              </div>
+                            ))}
+                          </dl>
+                        </div>
+                      )}
+
+                      {/* A.4-T4 lock - the anti-overclaim disclaimer. COMPLETED means
+                          one in-sample sweep finished, never that the winner passed
+                          out-of-sample or walk-forward validation. */}
+                      <p className="mt-4 text-xs text-text-3">This reflects a single in-sample parameter sweep, not out-of-sample or walk-forward validation.</p>
+
+                      <div className="mt-4">
+                        <Link href={`/dashboard/algo-test-library/${view.strategyId}`} className="text-xs text-gold hover:underline">
+                          View Strategy
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })()
+              )}
             </div>
           ) : (
             <div className="rounded-card border border-border bg-ink-2 p-5">
