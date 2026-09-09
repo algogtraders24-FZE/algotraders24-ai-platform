@@ -520,7 +520,7 @@ Two **independent** fields, neither derived from the other:
 
 | Field | Kind | Set by | Meaning |
 |---|---|---|---|
-| `webSearchFailed` | operational / provider | `ClaudeProvider` (`searchErrors > 0`) | ≥ 1 web-search operation failed this turn (error block / malformed block / no-results-when-expected). Non-Claude slots always `false`. |
+| `webSearchFailed` | operational / provider | `ClaudeProvider` (`searchErrors > 0`) | ≥ 1 web-search **operation** failed this turn — an `web_search_tool_result_error` block or an unrecognised `web_search_tool_result.content` shape. A search that ran fine but returned **zero matches** is **not** a failure. Non-Claude slots always `false`. |
 | `webSearchRequestedButUnavailable` | orchestration / evidence | orchestrator (`gate.useWebSearch && winner not web-grounded`) | the gate required web-grounded evidence and the **final winning answer** did not obtain it — regardless of which provider won or why. |
 
 All four combinations are valid; both are recorded (see 12.6). **Invariant:
@@ -534,11 +534,13 @@ third, purely-diagnostic provider fact.
 `ClaudeProvider`, `req.tools` carrying `web_search`:
 
 - `server_tool_use` blocks counted **only** when `name === "web_search"`.
-- Per turn: `searchRequests` (attempted), `searchResultsOk`, `searchErrors`
-  (error object **or** unrecognised `web_search_tool_result.content` shape **or**
-  requested-but-no-results). Nothing is silently ignored.
-- `webSearchUnavailable = true` iff a search was requested and **none** returned
-  usable results. `webSearchFailed = searchErrors > 0`.
+- Per turn: `searchRequests` (attempted `web_search` `server_tool_use` blocks),
+  `searchResultsOk` (`web_search_tool_result` with a **non-empty** result list),
+  `searchErrors` (`web_search_tool_result_error` object **or** an unrecognised
+  `web_search_tool_result.content` shape). A valid-but-empty result list is
+  neither — it feeds `webSearchUnavailable` only. Nothing is silently ignored.
+- `webSearchUnavailable = searchRequests > 0 && searchResultsOk === 0` (every
+  search errored, returned nothing, or a mix). `webSearchFailed = searchErrors > 0`.
 - HTTP-200 `web_search_tool_result_error` → **never throws**; the model answers
   from its own knowledge; flags are set.
 - `stop_reason: "pause_turn"` → resend the paused assistant turn **verbatim**

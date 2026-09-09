@@ -46,8 +46,8 @@ refactor. Every §12 contract row is pinned by an offline assertion.
 
 | Step | Commit | State |
 |---|---|---|
-| Contract §12 amendments + this skeleton | (this commit) | ✅ |
-| C1 — `ClaudeProvider` server-tool lifecycle + fixtures | | ⏳ |
+| Contract §12 amendments + this skeleton | `d1f147b` | ✅ |
+| C1 — `ClaudeProvider` server-tool lifecycle + fixtures | (step 2/8) | ✅ |
 | C2 — classifier precedence + `historical` + borderline + tests | | ⏳ |
 | C5 — orchestrator: two-field split · DYNAMIC guard · continuation fall-through · `SKIPPED` sentinel · telemetry `meta` | | ⏳ |
 | C7 — knowledge-block injection hardening + `validate-knowledge-loop-adversarial` | | ⏳ |
@@ -74,7 +74,51 @@ refactor. Every §12 contract row is pinned by an offline assertion.
 
 ## 3. C1–C9 evidence
 
-_(filled per step)_
+### C1 — Claude server-tool lifecycle hardening (step 2/8)
+
+**Files:** `lib/ai/providers/claude.provider.ts` (behaviour), `lib/ai/types.ts`
+(5 additive optional response fields), `scripts/validate-knowledge-loop-claude-provider.ts`
+(+10 fixtures), `AI_ASSISTANT_ORCHESTRATION_CONTRACT.md` §12.4/§12.5 (wording
+refined so `searchErrors` = operational failures only; an empty-but-valid
+result list feeds `webSearchUnavailable`, not `webSearchFailed`).
+
+**What changed (contract §12.5):**
+
+| Change | Before (K3-B) | After (K3-C C1) |
+|---|---|---|
+| `server_tool_use` counting | every block `+1` | only `name === "web_search"` |
+| result accounting | one `searchUnavailable` bool set on *any* error block | `searchRequests` / `searchResultsOk` (non-empty list) / `searchErrors` (error block **or** unrecognised shape) accumulated across `pause_turn` iterations |
+| `webSearchUnavailable` | true on any error block | `searchRequests > 0 && searchResultsOk === 0` (all searches errored/empty) |
+| `webSearchFailed` *(new)* | — | `searchErrors > 0` — operational fact, independent of the winner; non-Claude slots never set it |
+| `webSearchPartialFailure` *(new)* | — | `searchErrors > 0 && searchResultsOk > 0` (diagnostic) |
+| malformed `web_search_tool_result.content` | silently ignored | counted as `searchErrors += 1` |
+| `pause_turn` exhaustion | loop exits, a paused/placeholder body could be returned as the answer | `continuationBudgetExhausted: true` *(new)* — a soft failure the orchestrator will act on (C5) |
+| `continuationCount` *(new)* | — | number of continuation POSTs, for telemetry |
+| `stop_reason: "max_tokens"` | returned as a normal completion | `truncated: true` *(new)*, always present on the response |
+| `!res.ok` | `"Claude returned HTTP <status>"` | + best-effort Anthropic `error.message` appended; the **request body is never read back or logged** |
+
+`encrypted_content` handling is unchanged — echoed verbatim on continuation,
+never decoded/expanded/logged (re-asserted in a fixture).
+
+**Intentional K3-B behaviour changes** (all contract-driven, all additive or
+strictly-more-correct — no consumer relies on the old behaviour):
+1. `webSearchUnavailable` no longer trips on a *partial* failure (mixed ok+error
+   turn) — that case is now `webSearchPartialFailure` + `webSearchFailed`, and
+   `webSearchUnavailable` stays `false` because a usable result was returned.
+2. `truncated` is now always present on every `AICompletionResponse` from
+   `ClaudeProvider` (was never emitted). No current consumer reads it; C5 will.
+3. A non-`web_search` `server_tool_use` block no longer inflates `searchCount`.
+
+**Assertions:**
+
+| Suite | Count | Result |
+|---|---|---|
+| `validate-knowledge-loop-claude-provider` — fixtures | 9 existing (K3-B-1) + **10 new (C1)** = 19 | **19/19** |
+| — RED-first check | the 10 C1 fixtures failed against the pre-hardening provider, then passed | ✅ |
+| Regression — `validate-knowledge-loop-{classifier,websearch-gate,orchestrator,schema,retrieval,cache,freshness,ingestion}` | 14+11+13+19+15+13+8+3 = 96 | **96/96, unchanged** |
+| Regression — `validate:ai-presenter-orchestration` | 66 | **66/66, unchanged** |
+| `tsc --noEmit` | — | clean (only the pre-existing `at24-quant-engine RUNTIME_VERSION` baseline) |
+| `eslint` (`claude.provider.ts`, `types.ts`, the fixture script) | — | clean |
 
 ---
 
@@ -100,4 +144,5 @@ _(filled at close)_
 
 | Date | Entry |
 |---|---|
-| 2026-09-10 | K3-C implementation started on `feat/k3c-orchestration-hardening` off `6253165`. Contract §12 (K3-C hardening contracts) landed: classifier precedence + `historical` intent, decision matrix + borderline-sufficient + DYNAMIC live-figures guard, fallback matrix, **`webSearchFailed` ⟂ `webSearchRequestedButUnavailable`**, server-tool lifecycle, provenance-integrity + telemetry, injection clause, ADR-K3C-1/2. |
+| 2026-09-10 | K3-C implementation started on `feat/k3c-orchestration-hardening` off `6253165`. **Step 1/8** (`d1f147b`) — Contract §12 (K3-C hardening contracts) landed: classifier precedence + `historical` intent, decision matrix + borderline-sufficient + DYNAMIC live-figures guard, fallback matrix, **`webSearchFailed` ⟂ `webSearchRequestedButUnavailable`**, server-tool lifecycle, provenance-integrity + telemetry, injection clause, ADR-K3C-1/2. |
+| 2026-09-10 | **Step 2/8 — C1** `ClaudeProvider` server-tool lifecycle hardening. `server_tool_use` name-filtered; `searchResultsOk`/`searchErrors` accounting; `webSearchFailed` (operational) + `webSearchPartialFailure` surfaced independently of the winner; unrecognised tool-result shapes counted, never silent; `continuationBudgetExhausted` on a still-paused loop exit; `truncated` on `max_tokens`; Anthropic `error.message` surfaced (request body never logged). +10 fixtures (19/19; RED-first verified). Regression 96 + ai-presenter 66 unchanged; tsc clean (RUNTIME_VERSION baseline only); eslint clean. |
