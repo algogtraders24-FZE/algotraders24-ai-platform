@@ -21,6 +21,12 @@
 // already use, not a second implementation). Every other path, and these
 // two paths without a valid cron secret, fall through to the unchanged
 // Supabase session check below.
+//
+// Publishing P2.3-E follow-up: the publishing dispatcher
+// (/api/private/publishing/dispatch, a daily Vercel Cron) has the exact
+// same session-less shape and was hitting this same 401 wall - its route
+// checks isValidCronSecret() but the request never reached it. Added to
+// the same exemption set on identical terms (valid cron secret only).
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
@@ -31,6 +37,7 @@ const PROTECTED_API_PREFIX = "/api/private";
 const CRON_SECRET_EXEMPT_PATHS = new Set([
   "/api/private/admin/intelligence/evaluate-outcomes",
   "/api/private/admin/intelligence/ingest-news",
+  "/api/private/publishing/dispatch",
 ]);
 
 export async function proxy(request: NextRequest) {
