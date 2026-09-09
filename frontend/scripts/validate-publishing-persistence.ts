@@ -282,6 +282,15 @@ class FakeRepo implements PublishingRepository {
       .slice(0, limit)
       .map((j) => ({ ...j }));
   }
+
+  // P2.5 blog-reader methods - not exercised by the PublishingService tests
+  // here (they have their own suite, validate-publishing-blog-reader.ts).
+  async listPublishedInternalBlogRecords() {
+    return [];
+  }
+  async findPublishedInternalBlogRecordBySlug() {
+    return null;
+  }
 }
 
 // ---- fake audit sink -----------------------------------------------
@@ -627,6 +636,36 @@ async function main() {
     assert.equal(again.id, first.id);
     assert.equal(again.scheduledFor, first.scheduledFor); // NOT rescheduled to immediate
     assert.equal(repo.jobs.size, 1);
+  });
+
+  // === P2.5: publishArticleNow (legacy "Publish now" route, rewired) ===
+  await test("publishArticleNow: creates a job, runs it, Article -> published, visible-ready", async () => {
+    const { svc, articles, repo } = wire({ article: makeArticle("art_1") });
+    const { job } = await svc.publishArticleNow(USER_A, "art_1");
+    assert.equal(job.status, "SUCCEEDED");
+    assert.equal(job.destination, "INTERNAL_BLOG");
+    assert.equal(articles.status("art_1"), "published");
+    assert.equal(repo.jobs.size, 1); // a REAL job now exists (not a bare status flip)
+  });
+
+  await test("publishArticleNow: keeps the validateArticle pre-gate (thin article rejected, no job)", async () => {
+    const { svc, repo } = wire({ article: makeArticle("art_thin", [{ heading: "Only one", body: "too thin" }]) });
+    await assert.rejects(() => svc.publishArticleNow(USER_A, "art_thin"), /not ready to publish/);
+    assert.equal(repo.jobs.size, 0);
+  });
+
+  await test("publishArticleNow: idempotent - a second call returns the already-SUCCEEDED job", async () => {
+    const { svc, repo } = wire({ article: makeArticle("art_1") });
+    const a = await svc.publishArticleNow(USER_A, "art_1");
+    const b = await svc.publishArticleNow(USER_A, "art_1");
+    assert.equal(a.job.id, b.job.id);
+    assert.equal(b.job.status, "SUCCEEDED");
+    assert.equal(repo.jobs.size, 1);
+  });
+
+  await test("publishArticleNow: ownership - user B cannot publish user A's article", async () => {
+    const { svc } = wire({ article: makeArticle("art_1") });
+    await assert.rejects(() => svc.publishArticleNow(USER_B, "art_1"));
   });
 
   console.log(`\n${passed} passed, ${failed} failed\n`);

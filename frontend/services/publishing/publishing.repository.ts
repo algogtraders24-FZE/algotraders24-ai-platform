@@ -21,6 +21,8 @@ import type {
   PublishResult,
   PublicationIdentity,
   PublishingDestinationId,
+  PublishedInternalBlogRecord,
+  BlogPostSection,
 } from "@/types/publishing";
 import {
   isPublishError,
@@ -379,6 +381,98 @@ export class PublishingRepository {
     });
     return dispatchable.slice(0, limit).map(toJob);
   }
+
+  // ---- P2.5: public /blog read model --------------------------------
+
+  /**
+   * The set of Articles that are PUBLICLY visible on /blog: those with a
+   * SUCCEEDED PublishingJob for destination INTERNAL_BLOG. Visibility is
+   * decided by the JOB, never by `articles.status` (Sprint P2.5 LOCKED
+   * RULE - `articles.status = published` on its own means nothing here).
+   *
+   * Ownership-INDEPENDENT: this is a public read, no `userId` filter.
+   * Filters out soft-deleted jobs and soft-deleted Articles. If an Article
+   * somehow has more than one SUCCEEDED INTERNAL_BLOG job, the most recently
+   * completed one wins (dedupe on articleId).
+   */
+  async listPublishedInternalBlogRecords(): Promise<PublishedInternalBlogRecord[]> {
+    const rows = (await prisma.publishingJob.findMany({
+      where: {
+        destination: "INTERNAL_BLOG",
+        status: "SUCCEEDED",
+        deletedAt: null,
+        article: { deletedAt: null },
+      },
+      orderBy: { completedAt: "desc" },
+      include: { article: true },
+    })) as unknown as PublishedJobWithArticleRow[];
+
+    const seen = new Set<string>();
+    const out: PublishedInternalBlogRecord[] = [];
+    for (const row of rows) {
+      if (seen.has(row.articleId)) continue;
+      seen.add(row.articleId);
+      const rec = toPublishedRecord(row);
+      if (rec) out.push(rec);
+    }
+    return out;
+  }
+
+  /** One published /blog post by Article slug, or null. Same visibility rule. */
+  async findPublishedInternalBlogRecordBySlug(slug: string): Promise<PublishedInternalBlogRecord | null> {
+    const row = (await prisma.publishingJob.findFirst({
+      where: {
+        destination: "INTERNAL_BLOG",
+        status: "SUCCEEDED",
+        deletedAt: null,
+        article: { slug, deletedAt: null },
+      },
+      orderBy: { completedAt: "desc" },
+      include: { article: true },
+    })) as unknown as PublishedJobWithArticleRow | null;
+    return row ? toPublishedRecord(row) : null;
+  }
+}
+
+type PublishedJobWithArticleRow = {
+  articleId: string;
+  contentHash: string;
+  completedAt: Date | null;
+  createdAt: Date;
+  article: {
+    slug: string;
+    title: string;
+    summary: string;
+    category: string;
+    disclaimer: string;
+    sections: unknown;
+    seo: unknown;
+  };
+};
+
+function toBlogSections(raw: unknown): BlogPostSection[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((s): s is { heading: unknown; body: unknown } => !!s && typeof s === "object")
+    .map((s) => ({
+      heading: typeof s.heading === "string" ? s.heading : "",
+      body: typeof s.body === "string" ? s.body : "",
+    }));
+}
+
+function toPublishedRecord(row: PublishedJobWithArticleRow): PublishedInternalBlogRecord {
+  return {
+    articleId: row.articleId,
+    slug: row.article.slug,
+    title: row.article.title,
+    summary: row.article.summary,
+    category: row.article.category,
+    disclaimer: row.article.disclaimer,
+    sections: toBlogSections(row.article.sections),
+    seo: row.article.seo && typeof row.article.seo === "object" ? (row.article.seo as Record<string, unknown>) : {},
+    publishedAt: (row.completedAt ?? row.createdAt).toISOString(),
+    contentHash: row.contentHash,
+  };
 }
 
 // One append-only Article history entry. Mirrors the private helper in

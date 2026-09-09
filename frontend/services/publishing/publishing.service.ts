@@ -18,6 +18,7 @@
 import { Errors } from "@/services/backend/ErrorHandler";
 import { auditLogService } from "@/services/admin/AuditLogService";
 import { articleService } from "./article.service";
+import { validateArticle, type ValidationResult } from "@/services/ai/publishing/article-validator.service";
 import type { Article } from "@/types/article";
 import { projectArticleToPublishInput } from "./article-serializer";
 import { computeContentHash } from "./content-hash";
@@ -164,6 +165,42 @@ export class PublishingService {
       idempotencyKey: publicationIdentityKey(identity),
       scheduledFor,
     });
+  }
+
+  /**
+   * Sprint P2.5: the "Publish now" path (what the dashboard's Publish button
+   * and the legacy POST /articles/:id/publish route call). Routes an
+   * immediate publish THROUGH the engine so it produces a real
+   * PublishingJob - which is what makes the Article visible on /blog. Before
+   * P2.5 that route flipped `Article.status` with no job and was therefore a
+   * reader-invisible dead end.
+   *
+   * Keeps the existing `validateArticle()` pre-gate (>= 3 sections, disclaimer,
+   * >= 3 keywords, SEO score >= 70) so the dashboard's rejection behaviour is
+   * unchanged, then delegates to createJob + runAttempt (immediate).
+   */
+  async publishArticleNow(
+    userId: string,
+    articleId: string,
+  ): Promise<{ job: PublishingJob; validation: ValidationResult }> {
+    const article = await this.articles.getById(userId, articleId); // ownership -> 404
+
+    const validation = validateArticle(article);
+    if (!validation.valid) {
+      throw Errors.validation("Article is not ready to publish", { issues: validation.issues });
+    }
+
+    const job = await this.createJob({ userId, articleId, destination: "INTERNAL_BLOG" });
+    if (job.status === "SUCCEEDED") return { job, validation }; // idempotent re-publish
+
+    const { job: after } = await this.runAttempt({ userId, jobId: job.id });
+    if (after.status !== "SUCCEEDED") {
+      throw Errors.conflict(after.lastError?.message ?? "Publish failed", {
+        errorCode: after.lastError?.code,
+        issues: after.lastError ? [after.lastError.message] : [],
+      });
+    }
+    return { job: after, validation };
   }
 
   // ---- reads (ownership-scoped) --------------------------------------

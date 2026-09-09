@@ -128,6 +128,7 @@
     "validate:internal-blog-adapter": "tsx scripts/validate-internal-blog-adapter.ts",
     "validate:publishing-persistence": "tsx scripts/validate-publishing-persistence.ts",
     "validate:publishing-schedule": "tsx scripts/validate-publishing-schedule.ts",
+    "validate:publishing-blog-reader": "tsx scripts/validate-publishing-blog-reader.ts",
     "validate:knowledge-loop-schema": "tsx scripts/validate-knowledge-loop-schema.ts",
     "validate:knowledge-loop-retrieval": "tsx scripts/validate-knowledge-loop-retrieval.ts",
     "validate:knowledge-loop-ingestion": "tsx scripts/validate-knowledge-loop-ingestion.ts",
