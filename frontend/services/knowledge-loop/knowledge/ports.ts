@@ -14,6 +14,7 @@ import type {
   KnowledgeStatus,
   KnowledgeScope,
   CreateKnowledgeInput,
+  CachedRetrieval,
 } from "@/types/knowledge-loop";
 
 /** 768-d unit vector. Production wraps GeminiEmbeddingProvider; tests fake it. */
@@ -125,6 +126,29 @@ export interface KnowledgeStore {
     knowledgeIds: string[],
     log: RetrievalLogEntry,
   ): Promise<void>;
+}
+
+/**
+ * K2 — Postgres-backed retrieval cache (KNOWLEDGE_RETRIEVAL_CONTRACT.md §7.2,
+ * ADR-K2-RETR-CACHE). Optional dependency of `KnowledgeService`: when it is
+ * omitted the service behaves byte-identically to K1 (no cache).
+ *
+ * The cache is NEVER an authority — `get` returns raw chunk ids + similarity;
+ * the service re-hydrates `Knowledge`/`KnowledgeChunk` live and re-runs the
+ * whole eligibility filter + ranking, so a hit can never resurrect a row that
+ * has since become ineligible.
+ */
+export interface RetrievalCachePort {
+  /** null if absent OR past `expiresAt`. */
+  get(key: string): Promise<CachedRetrieval | null>;
+  set(
+    key: string,
+    value: CachedRetrieval,
+    meta: { queryHash: string; scopeSig: string; versionFingerprint: string },
+    ttlMs: number,
+  ): Promise<void>;
+  /** best-effort daily maintenance — delete rows past `expiresAt` + grace. Returns rows removed. */
+  purgeExpired(graceMs: number): Promise<number>;
 }
 
 /**

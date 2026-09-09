@@ -6,6 +6,7 @@
 import { createHash } from "node:crypto";
 import {
   KNOWLEDGE_LOOP_CONFIG,
+  RETRIEVAL_CONFIG_VERSION,
   AUTHORITY_WEIGHTS,
   POLICY_TYPE_AUTHORITY,
   USER_SCOPE_AUTHORITY,
@@ -30,17 +31,40 @@ export function normalizeQuery(
   return { normalized, lower: normalized.toLowerCase() };
 }
 
-/** sha256(normalizedLowerQuery | sortedScopes | callerScopeSig | fingerprint). */
+/**
+ * KNOWLEDGE_RETRIEVAL_CONTRACT.md §7.1 + §7.6 (K2). The deterministic
+ * retrieval-cache key. Two entries collide iff every retrieval input whose
+ * change could alter the result is identical:
+ *   - `lowerQuery`      — the query representation
+ *   - `sortedScopes`    — requested scopes
+ *   - `callerScopeSig`  — "<role>:<userId-iff-includeUserScope>" → captures
+ *                          visibility (role→allowed visibilities) AND user
+ *                          isolation (a scope=user query is keyed to its owner)
+ *   - `topK`            — result limit
+ *   - CONFIG_VERSION    — folds in RELEVANCE_MIN/GOOD, STALE_PENALTY,
+ *                          CHUNKS_PER_DOC_MAX, CONTEXT_CHAR_BUDGET,
+ *                          AUTHORITY_WEIGHTS (a config change → all keys miss)
+ *   - `versionFingerprint` — bumps on every lifecycle transition + the
+ *                          freshness sweep's auto-deprecations (§7.4) →
+ *                          activation / deprecation / archival / reinstate /
+ *                          new-version / supersession all invalidate lazily
+ * Time-based `expiresAt` passing does not bump the fingerprint, but the
+ * cache-HIT path re-hydrates + re-filters live (`isEligible` checks
+ * `expiresAt > now`), so an expired row is still dropped.
+ */
 export function retrievalCacheKey(
   lowerQuery: string,
   scopes: string[],
   callerScopeSig: string,
+  topK: number,
   versionFingerprint: string,
 ): string {
   const material = [
     lowerQuery,
     [...scopes].sort().join(","),
     callerScopeSig,
+    String(topK),
+    RETRIEVAL_CONFIG_VERSION,
     versionFingerprint,
   ].join("|");
   return createHash("sha256").update(material).digest("hex");

@@ -2,6 +2,17 @@
 // Sprint K1 — AT24 AI Assistant Knowledge Loop. LOCKED defaults from
 // KNOWLEDGE_RETRIEVAL_CONTRACT.md §9 and §4 (AUTHORITY_WEIGHTS). Tunable here
 // only — never inline a magic number at a call site.
+// Sprint K2 — + retrieval-cache + freshness-sweep constants (§7.2/§7.6/§5).
+
+/**
+ * Retrieval-cache CONFIG_VERSION (KNOWLEDGE_RETRIEVAL_CONTRACT.md §7.6). Folded
+ * into every `KnowledgeRetrievalCache` key. **Bump this whenever a ranking /
+ * threshold / selection constant changes** — `RELEVANCE_MIN`, `RELEVANCE_GOOD`,
+ * `STALE_PENALTY`, `CHUNKS_PER_DOC_MAX`, `CONTEXT_CHAR_BUDGET`, `RETRIEVE_TOP_K`
+ * default, or `AUTHORITY_WEIGHTS` / the authority overrides — so every cached
+ * entry is invalidated with no migration and no delete pass.
+ */
+export const RETRIEVAL_CONFIG_VERSION = "k2-1";
 
 export const KNOWLEDGE_LOOP_CONFIG = {
   /** Rows pulled from pgvector before filtering/ranking. */
@@ -17,10 +28,18 @@ export const KNOWLEDGE_LOOP_CONFIG = {
   CHUNKS_PER_DOC_MAX: 2,
   /** finalScore penalty applied to a review-due PERIODIC row. */
   STALE_PENALTY: 0.15,
-  /** In-process retrieval cache TTL (best-effort, per serverless instance). */
+  /** Retrieval cache TTL. K2: Postgres-backed (`KnowledgeRetrievalCache`) per
+   *  ADR-K2-RETR-CACHE — was in-process `TtlCache` in K0.3. */
   RETRIEVAL_CACHE_TTL_MS: 10 * 60 * 1000,
-  /** Postgres answer cache TTL (written by K5). */
+  /** Daily purge deletes retrieval-cache rows whose `expiresAt` is older than
+   *  now minus this grace (same shape as the answer-cache cleanup). */
+  RETRIEVAL_CACHE_PURGE_GRACE_MS: 7 * 24 * 60 * 60 * 1000,
+  /** Postgres answer cache TTL (written by K5 — NOT touched by K2). */
   ANSWER_CACHE_TTL_MS: 24 * 60 * 60 * 1000,
+  /** Freshness sweep (K2-C): a PERIODIC row this many multiples past its
+   *  review-due date is flagged "long overdue" in the sweep report. It is
+   *  still NOT auto-deprecated — only DYNAMIC-past-`expiresAt` rows are. */
+  PERIODIC_LONG_OVERDUE_FACTOR: 2,
   /** Candidate dedup: ≥ this cosine → attach as duplicate, don't create (K4). */
   DUP_HARD: 0.94,
   /** Candidate dedup: ≥ this cosine → create with duplicateOfId recorded (K4). */

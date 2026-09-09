@@ -208,13 +208,92 @@ transition; no explicit delete pass is needed.
 
 ### 7.2 Retrieval Cache
 
+> **ADR-K2-RETR-CACHE — retrieval cache moved from in-process to Postgres
+> (2026-09-09, K2-A).**
+>
+> - **Original decision (K0.3, 2026-09-08):** the retrieval cache is an
+>   in-process `TtlCache<string, {chunkIds, scores}>` — best-effort,
+>   per-serverless-instance, lost on cold start.
+> - **Reason for change:** AT24 runs on Vercel serverless. An in-process
+>   cache is instance-local: with N concurrent lambdas the hit rate is
+>   ~1/N and every cold start starts empty, so it cannot be the *canonical*
+>   retrieval cache — it is close to dead weight for the exact "repeated
+>   question across users/sessions" case it exists to serve. This is an
+>   intentional contract amendment, not an accidental implementation detail.
+> - **New decision:** the retrieval cache is a **Postgres table
+>   `KnowledgeRetrievalCache`** (NOT `KnowledgeAnswerCache` — see §7.5),
+>   keyed by the same deterministic fingerprint (§7.1, extended per §7.6),
+>   TTL `RETRIEVAL_CACHE_TTL` (10 min), read `WHERE key = $1 AND expiresAt >
+>   now()`, written after a fresh retrieval, invalidated lazily by the
+>   fingerprint in the key (§7.4) + TTL + a daily `expiresAt < now() - 7d`
+>   purge (same shape as the answer-cache cleanup).
+> - **Scope of change:** the *backing store* only. The cache **contract**
+>   is otherwise unchanged: still stores only chunk ids + similarity, still
+>   re-hydrates `Knowledge`/`KnowledgeChunk` **live** on every hit, still
+>   re-runs the full eligibility filter + ranking on the hydrated rows, is
+>   still never a source of truth, and can never bypass authorization,
+>   user isolation, scope/visibility, lifecycle, supersession, or freshness
+>   (§7.3 safety row).
+> - **What is unchanged:** §7.1 key shape (extended, not replaced, per §7.6);
+>   §7.3 answer cache (§7.5 explains the separation); §7.4 fingerprint
+>   mechanism; §8 retrieval logging (K2-B only wires `fromCache`); §3
+>   pipeline semantics for a cache **miss** are byte-identical to K1.
+> - **Migration requirement:** one additive migration adding
+>   `KnowledgeRetrievalCache` (`CREATE TABLE` + 2 indexes, no change to any
+>   existing table). Generated offline, **NOT APPLIED** until an explicit
+>   K2 owner gate (same discipline as K1).
+> - **No new infrastructure:** no Redis / Vercel KV / Upstash. Postgres is
+>   the canonical beta retrieval-cache store, matching K1_DECISION SO-3's
+>   rationale for the answer cache.
+
 | Property | Value |
 |---|---|
-| Backing | in-process `TtlCache<string, {chunkIds: string[], scores: number[]}>` (`lib/market-data/cache.ts` pattern) |
+| Backing | **Postgres `KnowledgeRetrievalCache`** (K2-A; was in-process `TtlCache` in K0.3 — see ADR-K2-RETR-CACHE above) |
 | TTL | `RETRIEVAL_CACHE_TTL` = 10 min |
-| Scope | per serverless instance — **best-effort**, lost on cold start |
-| Purpose | latency + embedding-cost saver for repeated queries; never a source of truth |
-| Safety | stores only chunk ids + scores; rows are re-hydrated live from `Knowledge`/`KnowledgeChunk` (so a row deprecated within the TTL is still filtered out at hydration by `status = 'active'`) |
+| Purpose | latency + embedding-cost saver for repeated queries across instances/users; never a source of truth |
+| Safety | stores only chunk ids + similarity; `Knowledge`/`KnowledgeChunk` are re-hydrated **live** on every hit and the full eligibility filter + ranking re-runs, so a row that was deprecated / archived / superseded / expired within the TTL is dropped at hydration exactly as on a fresh retrieval |
+| Read | `WHERE key = $1 AND expiresAt > now()` → hit; else miss |
+| Write | after a fresh retrieval that reached `reason ∈ {ok, below-threshold, no-eligible-rows}` (never on `empty-query` / `embedding-failed`) |
+| Invalidation | (a) TTL; (b) `knowledgeVersionFingerprint` change → key mismatch (lazy, §7.4); (c) `CONFIG_VERSION` change in the key (§7.6); (d) daily `expiresAt < now() - 7d` purge |
+
+### 7.5 Why this is NOT `KnowledgeAnswerCache`
+
+`KnowledgeRetrievalCache` and `KnowledgeAnswerCache` are **separate models,
+mandatorily**:
+
+| | `KnowledgeRetrievalCache` (K2) | `KnowledgeAnswerCache` (K5) |
+|---|---|---|
+| Caches | the *retrieval operation* — which chunk ids matched, with what similarity | the *final AI answer* text + its source attribution |
+| Depends on | query + scope + knowledge version | all of that **plus** the LLM output, `privacyClass`, `freshnessClass`, whether web search ran, the integrity-check result |
+| Write conditions | after any real retrieval | 5 strict conditions (§7.3) — public + STATIC + no web + integrity-passed + AT24/MIXED source |
+| Owned by | K2 | K5 — **untouched by K2** |
+
+Merging them would let a lax retrieval-cache write path leak into the strict
+answer-cache contract. They stay apart.
+
+### 7.6 Retrieval-cache key (extends §7.1)
+
+`sha256( normalizedLowerQuery | sortedScopes | callerScopeSig | topK |
+CONFIG_VERSION | knowledgeVersionFingerprint )` where:
+
+- `callerScopeSig` = `"<callerRole>:<callerUserId-iff-includeUserScope>"` —
+  captures **visibility** (role → allowed visibilities) and **user isolation**
+  (a `scope=user` query is keyed to its owner; a different user's equivalent
+  query has a different key and cannot hit the same row).
+- `topK` — the result-limit dimension.
+- `CONFIG_VERSION` — a constant bumped whenever a ranking/threshold constant
+  (`RELEVANCE_MIN`, `RELEVANCE_GOOD`, `STALE_PENALTY`, `AUTHORITY_WEIGHTS`,
+  `CHUNKS_PER_DOC_MAX`, `CONTEXT_CHAR_BUDGET`) changes — a config change then
+  invalidates every entry with no migration.
+- `knowledgeVersionFingerprint` — captures activation / deprecation /
+  archival / reinstatement / new-version / supersession / freshness-sweep
+  auto-deprecation (§7.4). Time-based `expiresAt` passing does **not** bump
+  the fingerprint, but the live hydration re-filter (`isEligible` checks
+  `expiresAt > now`) drops such a row on the hit path, and the daily
+  freshness sweep then deprecates it (fingerprint bump).
+- `RELEVANCE_MIN` (threshold) is a constant folded into `CONFIG_VERSION`;
+  `visibility` is folded into `callerScopeSig`. No separate key dimension is
+  added for a value that can't independently vary per request.
 
 ### 7.3 Answer Cache
 
@@ -300,3 +379,4 @@ pipeline step 6.5 behind a config flag — no contract change.
 | Date | Entry |
 |---|---|
 | 2026-09-08 | K0.3 created. Reuse-existing embedding/chunking/pgvector locked. Pipeline (§3), authority weights (§4), freshness (§5), deterministic conflict handling (§6), two-cache model with version-fingerprint invalidation (§7), retrieval log (§8) proposed for lock. No vector DB, no reranker, no new embedder. |
+| 2026-09-09 | **ADR-K2-RETR-CACHE (§7.2):** retrieval cache backing store amended from in-process `TtlCache` → Postgres `KnowledgeRetrievalCache` (serverless makes an instance-local cache near-useless as the canonical store). Contract otherwise unchanged — same key shape (extended §7.6: + `topK`, + `CONFIG_VERSION`), same live re-hydration + re-filter + re-rank on every hit, still never an authority. §7.5 records why this is NOT `KnowledgeAnswerCache` (K5, untouched). One additive migration, NOT APPLIED until the K2 owner gate. |
