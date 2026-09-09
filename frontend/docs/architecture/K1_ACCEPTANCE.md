@@ -3,23 +3,24 @@
 **Sprint:** K1 — Database + Knowledge Service (first implementation sprint of the AT24 AI Assistant Knowledge Loop)
 **Branch:** `feat/k1-knowledge-foundation` (based on `origin/main`)
 **Depends on / implements:** [`K1_DECISION.md`](K1_DECISION.md) (SO-1..SO-4, B-1..B-8, INV-1, K1-A..K1-F, MG-1..MG-10, A-1..A-16)
-**Status:** **K1-A..K1-E COMPLETE · migration NOT APPLIED · K1-F awaiting owner apply go-ahead**
+**Status:** **K1 COMPLETE — K1-A..K1-F done · migration APPLIED to production 2026-09-09 (MG-10 authorized) · post-apply verification PASS · K2 UNLOCKED**
 
-> This document is the K1-F acceptance record. K1 is **not** marked COMPLETE
-> until (a) the owner issues an explicit migration apply go-ahead, (b) the
-> migration is applied via `prisma migrate deploy`, and (c) the post-apply
-> verification section below is filled in.
+> This document is the K1-F acceptance record. K1-A..K1-E were completed
+> offline; the owner authorized MG-10 on 2026-09-09; the migration was then
+> applied via `prisma migrate deploy` and the post-apply verification (§7)
+> passed. **K1 is COMPLETE. K2 is unlocked.**
 
 ---
 
 ## 0. Headline
 
 ```
-K1 STATUS:               PASS (K1-A..K1-E)  ·  BLOCKED at K1-F on owner apply go-ahead
+K1 STATUS:               COMPLETE  (K1-A..K1-F)
 GATE SO-1..SO-4:         PASS  (all four LOCKED in K1_DECISION §1; implemented per §4)
-CRITICAL INVARIANT INV-1: PASS  (structural — 4 obligations, proven offline)
-MIGRATION:               NOT APPLIED  (pending; requires explicit owner go-ahead per MG-10)
-K2 START:                BLOCKED until K1 COMPLETE (A-1..A-16 green + migration applied)
+CRITICAL INVARIANT INV-1: PASS  (structural — 4 obligations, proven offline AND live against production)
+MIGRATION:               APPLIED  (20260908120000_add_knowledge_loop_foundation, 2026-09-09, MG-10 owner-authorized)
+POST-APPLY VERIFICATION: PASS  (§7 — 7 enums, 5 tables, 21 columns, pgvector intact, 3 existing rows safe, live retrieve() 10/10)
+K2 START:                UNLOCKED
 ```
 
 ---
@@ -112,9 +113,9 @@ Migration: `prisma/migrations/20260908120000_add_knowledge_loop_foundation/migra
 | A-13 | `VectorRepository` backward-compatible — `searchSimilar` with no `scope`/`visibility` behaves byte-identically to today | **PASS** | The pre-K1 query is preserved verbatim inside `if (!scoped)`; all three existing callers (`knowledge/chat`, `knowledge/search`, `research.knowledge_search`) pass no `scopes`. Static assertion in `validate:knowledge-loop-schema`. |
 | A-14 | Regression — existing `validate:*` pass; `knowledge/chat` non-stream contract unchanged; `research.knowledge_search` works | **PASS** | §5. `knowledge/chat/route.ts`, `assistant.service.ts`, `context-manager.service.ts` untouched (git diff = ∅). |
 | A-15 | No boundary broken (B-1..B-8) | **PASS** | §6. |
-| A-16 | Apply go-ahead recorded before `migrate deploy` | **PENDING** | §7. |
+| A-16 | Apply go-ahead recorded before `migrate deploy`; migration applied; post-apply verification passes | **PASS** | §7 — owner go-ahead 2026-09-09; `migrate deploy` applied the one K1 migration; post-apply checks + live smoke green. |
 
-**A-1..A-15: PASS. A-16: PENDING owner action.**
+**A-1..A-16: PASS.**
 
 ---
 
@@ -190,33 +191,56 @@ npx eslint services/knowledge-loop config/knowledge-loop.config.ts types/knowled
 
 ---
 
-## 7. MIGRATION STATUS — **NOT APPLIED**
+## 7. MIGRATION — **APPLIED** (K1-F)
+
+> **Owner apply go-ahead:** **GIVEN 2026-09-09** — "MG-10 AUTHORIZED. Proceed
+> with K1 migration." Authorization scoped explicitly to
+> `20260908120000_add_knowledge_loop_foundation` only ("one owner authorization
+> → one K1 migration").
+
+**Pre-apply environment check:** `DIRECT_URL` (the connection
+`prisma.config.ts` uses for migrations) →
+`aws-0-ap-northeast-1.pooler.supabase.com:5432` / db `postgres` / user
+`postgres.g…` — the AT24 **production** Supabase direct connection (Tokyo
+region), the same database the Publishing P2.x and P4.9 migrations were applied
+to. Confirmed intended target.
+
+**`prisma migrate status` (pre-apply):** exactly **one** migration pending —
+`20260908120000_add_knowledge_loop_foundation`. All P2.2 / P4.9 migrations
+(incl. `20260909090000_add_publishing_engine`) were **already applied** under
+their own authorizations, so `migrate deploy` applied **only the K1 migration**.
+
+**Command run (the only one):**
 
 ```
-MIGRATION NOT APPLIED.
+npx prisma migrate deploy
 ```
 
-The migration `20260908120000_add_knowledge_loop_foundation` has been
-**generated, hand-reviewed, and committed** with a `NOT APPLIED` header. It has
-**not** been run against any database. Generating it does not authorize
-applying it (K1_DECISION §5 MG-10).
+→ `Applying migration 20260908120000_add_knowledge_loop_foundation` →
+`All migrations have been successfully applied.` `prisma migrate dev` was
+**not** run.
 
-**To complete K1 (K1-F):**
+### Post-apply verification — **PASS**
 
-1. Owner records an explicit, dated apply go-ahead below.
-2. `npx prisma migrate deploy` (NEVER `prisma migrate dev` — pgvector-reset trap).
-   Order: this migration, then `20260909090000_add_publishing_engine` (P2.2's,
-   also pending under its own gate) — both are independent additive DDL.
-3. Post-apply verification (fill in): enum types created (7); tables created
-   (5); `Knowledge` columns added (21); `prisma migrate status` → up to date;
-   `prisma generate` + `tsc` clean; a live smoke of
-   `KnowledgeService.retrieve()` through `PrismaKnowledgeStore` +
-   `VectorRepository` on a seeded `active` row; `_prisma_migrations` row
-   present.
+| Check | Result |
+|---|---|
+| `_prisma_migrations` row for `20260908120000_add_knowledge_loop_foundation` | present, `finished_at` set (`done: true`) |
+| `prisma migrate status` | **"Database schema is up to date!"** |
+| Enum types created (`pg_type`) | **7 / 7** — `KnowledgeStatus`, `KnowledgeScope`, `KnowledgeVisibility`, `KnowledgeType`, `KnowledgeFreshnessClass`, `KnowledgeSourceType`, `CandidateStatus` |
+| New tables created (`information_schema.tables`) | **5 / 5** — `KnowledgeCandidate`, `KnowledgeAnswerProvenance`, `KnowledgeRetrievalLog`, `KnowledgeAnswerCache`, `KnowledgeVersionCounter` |
+| New `Knowledge` columns (`information_schema.columns`) | **21 / 21** — 18 nullable; 3 `NOT NULL` with a constant default (`scope='user'`, `version=1`, `visibility='customer'`) |
+| New `Knowledge` indexes | `Knowledge_scope_lifecycleStatus_idx`, `Knowledge_supersededById_idx`, `Knowledge_expiresAt_idx` present |
+| Existing `KnowledgeChunk.embedding` | still `udt_name = vector` |
+| `KnowledgeChunk → Knowledge` FK (`KnowledgeChunk_knowledgeId_fkey`) | intact |
+| `KnowledgeChunk_embedding_hnsw_idx` (pgvector HNSW index) | intact |
+| **Existing production data** — 3 `Knowledge` rows pre-migration | post-migration: all 3 → `scope='user'`, `lifecycleStatus=NULL`, `version=1`. Zero disruption; they remain owner-only-retrievable legacy rows (KNOWLEDGE_CONTRACT §4.3), structurally excluded from the assistant/support/shared KB. |
+| `validate:knowledge-loop-schema` | **15 / 0** |
+| `validate:knowledge-loop-retrieval` | **15 / 0** |
+| `validate:knowledge-loop-ingestion` | **3 / 0** |
+| **Live `KnowledgeService.retrieve()` smoke** — real `PrismaKnowledgeStore` + real `VectorRepository` scoped JOIN + real pgvector cosine, against production; test rows hard-deleted afterwards | **10 / 0** — draft not retrievable → `markActive` (+ `KnowledgeVersionCounter` bump in the same txn, fingerprint 0→1) → real pgvector retrieve returns the row (similarity ~1.0 + context block + sufficiency) → **INV-1 LIVE**: a `KnowledgeCandidate` with identical matching text is never retrieved → `deprecate` → no longer retrievable. Cleanup verified: `Knowledge=0 Candidate=0 RetrievalLog=0` left behind. |
 
-> **Owner apply go-ahead:** _(not yet given)_
-
-> **Post-apply verification:** _(pending)_
+**`prisma generate` + `tsc --noEmit`:** clean for all K1 files (1 pre-existing
+unrelated `at24-quant-engine RUNTIME_VERSION` error, untouched per instruction).
 
 ---
 
@@ -277,7 +301,7 @@ Automation.
 | `KnowledgeRetrievalLog` / `KnowledgeAnswerProvenance` tables exist; the **emit** wiring is K2 (retrieval log) / K3 (provenance). | K2 / K3 |
 | `KnowledgeCandidate` has **no service** — candidate creation, dedup, and the admin review workflow are K4. K1 only proves the table is unreachable by retrieval. | K4 |
 | Governance wrapper (AuditLog on every transition, admin routes, explicit human approval) — K1 exposes the raw transitions; the governed API is K4. | K4 |
-| `PrismaKnowledgeStore` / `PrismaVectorSearch` / `GeminiEmbeddingAdapter` are **inert until the migration is applied** — no live path exercises them in K1. | K1-F |
+| `PrismaKnowledgeStore` / `PrismaVectorSearch` were inert until K1-F; the migration is now applied and the live smoke (§7) exercised the full Prisma + pgvector path. `GeminiEmbeddingAdapter` (real Gemini) is first exercised by K3. | done (K1-F) |
 | `next build` not run in this report — K1 adds no route / page / component; `tsc` is clean for all K1 files. The pre-existing `at24-quant-engine RUNTIME_VERSION` type error on `origin/main` is unrelated. | — |
 
 ---
@@ -286,4 +310,5 @@ Automation.
 
 | Date | Entry |
 |---|---|
-| 2026-09-09 | K1-A..K1-E implemented on `feat/k1-knowledge-foundation` (rebased onto `origin/main` past P2.2 / P4.9-A.3). 33/33 new offline assertions green; regression sample green; `tsc` clean for all K1 files. Migration GENERATED + REVIEWED, **NOT APPLIED**. K1-F (apply) awaits an explicit owner go-ahead. |
+| 2026-09-09 | K1-A..K1-E implemented on `feat/k1-knowledge-foundation` (rebased onto `origin/main` past P2.2 / P4.9-A.3/A.4). 33/33 new offline assertions green; regression 20/20 suites green; `tsc` clean for all K1 files. Migration GENERATED + REVIEWED, NOT APPLIED. Code merged to `main` (`9c239aa`). |
+| 2026-09-09 | 5-point migration-only audit PASS. Owner authorized MG-10. K1-F executed: `prisma migrate deploy` applied the one K1 migration to production Supabase; post-apply verification PASS (7 enums, 5 tables, 21 columns, pgvector + FK + HNSW intact, 3 existing rows safe, 3 validators 33/0, live retrieve() smoke 10/0 with cleanup verified). **K1 COMPLETE. K2 UNLOCKED.** |
