@@ -7,9 +7,10 @@
 // grep-level assertion in scripts/validate-knowledge-loop-schema.ts guards it.
 //
 // K1 exposes: KnowledgeService + its ports + the in-memory test backend +
-// the Prisma production adapters + the K1-D ingestion seam. It does NOT
-// export a candidate service, an orchestrator, a cache, or analytics events —
-// those are K2–K6.
+// the Prisma production adapters + the K1-D ingestion seam.
+// K2 adds: the Postgres-backed retrieval cache (ADR-K2-RETR-CACHE) + the
+// freshness sweep. It does NOT export a candidate service, an orchestrator,
+// an ANSWER cache, or analytics events — those are K3–K6.
 //
 // Server-only by convention (same as services/agent-framework/memory/index.ts):
 // the Prisma adapters and `createKnowledgeService` are dynamically imported so
@@ -25,6 +26,7 @@ export type {
   VectorSearchQuery,
   VectorHit,
   EmbeddingPort,
+  RetrievalCachePort,
   KnowledgeListFilter,
   TransitionInput,
   RetrievalLogEntry,
@@ -50,24 +52,64 @@ export type {
   IngestOutcome,
   PublishResult,
 } from "./ingestion-adapter";
+// K2 — retrieval cache + freshness sweep
+export {
+  PrismaRetrievalCache,
+  InMemoryRetrievalCache,
+} from "./retrieval-cache";
+export {
+  runFreshnessSweep,
+  FRESHNESS_SWEEP_ACTOR,
+} from "./freshness-sweep";
+export type { FreshnessSweepDeps } from "./freshness-sweep";
 export {
   KNOWLEDGE_LOOP_CONFIG,
+  RETRIEVAL_CONFIG_VERSION,
   AUTHORITY_WEIGHTS,
 } from "@/config/knowledge-loop.config";
 
 /**
  * Default production KnowledgeService — Prisma store + eligibility-filtered
- * VectorRepository + Gemini embeddings. Inert until the K1 migration is
- * applied (K1-F). Lazily constructed so importing the barrel does not open a
- * DB connection.
+ * VectorRepository + Gemini embeddings + (K2) the Postgres-backed retrieval
+ * cache. Inert until the K1 + K2 migrations are applied. Lazily constructed so
+ * importing the barrel does not open a DB connection.
+ *
+ * `withRetrievalCache` defaults to true; pass false to run the exact K1
+ * (no-cache) retrieval path.
  */
-export async function createKnowledgeService() {
+export async function createKnowledgeService(
+  opts: { withRetrievalCache?: boolean } = {},
+) {
   const { KnowledgeService } = await import("./knowledge-service");
   const { PrismaKnowledgeStore, PrismaVectorSearch, GeminiEmbeddingAdapter } =
     await import("./prisma-backend");
+  const { PrismaRetrievalCache } = await import("./retrieval-cache");
   return new KnowledgeService({
     store: new PrismaKnowledgeStore(),
     vectors: new PrismaVectorSearch(),
     embed: new GeminiEmbeddingAdapter(),
+    retrievalCache:
+      opts.withRetrievalCache === false
+        ? undefined
+        : new PrismaRetrievalCache(),
   });
+}
+
+/** K2-C — the freshness sweep bound to the production store. For a K6 cron. */
+export async function createFreshnessSweep() {
+  const { runFreshnessSweep } = await import("./freshness-sweep");
+  const { PrismaKnowledgeStore } = await import("./prisma-backend");
+  const store = new PrismaKnowledgeStore();
+  return () => runFreshnessSweep({ store });
+}
+
+/** K2-A maintenance — purge expired retrieval-cache rows. For a K6 cron. */
+export async function purgeRetrievalCache() {
+  const { PrismaRetrievalCache } = await import("./retrieval-cache");
+  const { KNOWLEDGE_LOOP_CONFIG } = await import(
+    "@/config/knowledge-loop.config"
+  );
+  return new PrismaRetrievalCache().purgeExpired(
+    KNOWLEDGE_LOOP_CONFIG.RETRIEVAL_CACHE_PURGE_GRACE_MS,
+  );
 }

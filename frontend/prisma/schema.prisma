@@ -2307,3 +2307,38 @@ model KnowledgeVersionCounter {
   value     BigInt   @default(0)
   updatedAt DateTime @updatedAt
 }
+
+// ============================================================================
+// Sprint K2 — AT24 AI Assistant Knowledge Loop: Retrieval Cache.
+//
+// Contract: KNOWLEDGE_RETRIEVAL_CONTRACT.md §7.2 (ADR-K2-RETR-CACHE) / §7.5 / §7.6.
+//
+// DELIBERATELY SEPARATE from `KnowledgeAnswerCache` (K5): this caches the
+// *retrieval operation* (which chunk ids matched + similarity), never a final
+// AI answer. Merging the two would let a lax retrieval-cache write path leak
+// into the strict K5 answer-cache contract.
+//
+// A cache hit re-hydrates `Knowledge`/`KnowledgeChunk` LIVE and re-runs the
+// full eligibility filter + ranking, so a row deprecated / archived /
+// superseded / expired within the TTL is dropped exactly as on a fresh
+// retrieval (INV-1 preserved). The cache is never an authority.
+//
+// `key` = sha256(normalizedLowerQuery | sortedScopes | callerScopeSig | topK |
+// CONFIG_VERSION | knowledgeVersionFingerprint) — every lifecycle transition
+// bumps the fingerprint => key mismatch => lazy invalidation. No Redis / KV.
+//
+// PURELY ADDITIVE: 1 new table, 0 change to any existing table. Migration
+// GENERATED offline, NOT APPLIED until the explicit K2 owner gate.
+model KnowledgeRetrievalCache {
+  key                         String   @id
+  queryHash                   String
+  scopeSig                    String
+  knowledgeVersionFingerprint String
+  results                     Json     @default("[]")
+  resultCount                 Int      @default(0)
+  createdAt                   DateTime @default(now())
+  expiresAt                   DateTime
+
+  @@index([expiresAt])
+  @@index([knowledgeVersionFingerprint])
+}
