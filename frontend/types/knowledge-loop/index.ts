@@ -270,13 +270,19 @@ export interface AnswerTurn {
   history?: Array<{ role: "user" | "assistant"; content: string }>;
   /** optional active-instrument bias — passed through, never forced. */
   symbol?: string;
+  /** optional single-document scoping — restricts retrieval to this
+   *  Knowledge row (the route's legacy `knowledgeId` body param). */
+  knowledgeId?: string;
 }
 
 export interface AnswerSourceRef {
   kind: "knowledge" | "web";
   knowledgeId?: string;
   chunkId?: string;
+  chunkIndex?: number;
   similarity?: number;
+  /** knowledge: a short excerpt of the retrieved chunk (for a Sources panel). */
+  snippet?: string;
   url?: string;
   title?: string;
   citedText?: string;

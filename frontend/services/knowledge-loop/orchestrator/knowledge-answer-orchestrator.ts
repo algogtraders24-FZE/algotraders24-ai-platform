@@ -105,6 +105,7 @@ export class KnowledgeAnswerOrchestrator {
         scopes: [...C.ASSISTANT_SCOPES],
         topK: C.RETRIEVE_TOP_K,
         conversationId: turn.conversationId,
+        knowledgeId: turn.knowledgeId,
       });
     } catch {
       retrieval = emptyRetrieval();
@@ -213,7 +214,10 @@ export class KnowledgeAnswerOrchestrator {
       kind: "knowledge",
       knowledgeId: h.knowledgeId,
       chunkId: h.chunkId,
+      chunkIndex: h.chunkIndex,
       similarity: h.similarity,
+      snippet:
+        h.content.length > 180 ? `${h.content.slice(0, 180)}…` : h.content,
       usedInAnswer: sourceClass === "AT24_KNOWLEDGE" || sourceClass === "MIXED",
     }));
     const webRefs: AnswerSourceRef[] = winner.res.webSources.map((s) => ({
