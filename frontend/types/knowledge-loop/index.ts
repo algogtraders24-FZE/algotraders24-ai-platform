@@ -215,3 +215,125 @@ export interface CreateKnowledgeInput {
   freshnessReviewEveryDays?: number | null;
   expiresAt?: Date | null;
 }
+
+// ── K3 — orchestration (AI_ASSISTANT_ORCHESTRATION_CONTRACT.md §3, §5, §8) ──
+
+// The provider-neutral web-source shape lives in lib/ai (ClaudeProvider fills
+// it from Anthropic's native web_search). Re-exported here so the K3
+// orchestrator surface is one import.
+export type { AIWebSource } from "@/lib/ai/types";
+
+export type AssistantIntent =
+  | "conceptual"
+  | "product-static"
+  | "how-to"
+  | "policy"
+  | "support-troubleshoot"
+  | "current-info"
+  | "account-specific"
+  | "other";
+export type FreshnessNeed = "STATIC" | "PERIODIC" | "DYNAMIC";
+export type PrivacyClass = "public" | "user-specific" | "sensitive";
+
+export interface Classification {
+  intent: AssistantIntent;
+  freshnessNeed: FreshnessNeed;
+  privacyClass: PrivacyClass;
+  /** the message explicitly asked for current/latest info. */
+  explicitFreshnessRequest: boolean;
+}
+
+export interface WebSearchGateResult {
+  useWebSearch: boolean;
+  /** e.g. "explicit-freshness" | "dynamic-need" | "insufficient" | "stale" |
+   *  "forbidden-sensitive" | "forbidden-account" | "not-needed". */
+  reason: string;
+}
+
+/** §8 — deterministic source class. `DETERMINISTIC` = a fixed pointer/fallback
+ *  string, no LLM call (e.g. an account-specific question). */
+export type AnswerSourceClass =
+  | "AT24_KNOWLEDGE"
+  | "CLAUDE_REASONING"
+  | "CLAUDE_WEB_SEARCH"
+  | "MIXED"
+  | "DETERMINISTIC";
+
+export interface AnswerTurn {
+  requestId: string;
+  callerUserId: string;
+  callerRole: string;
+  conversationId?: string;
+  messageId?: string;
+  message: string;
+  /** prior turns, chronological (already loaded by the route). */
+  history?: Array<{ role: "user" | "assistant"; content: string }>;
+  /** optional active-instrument bias — passed through, never forced. */
+  symbol?: string;
+  /** optional single-document scoping — restricts retrieval to this
+   *  Knowledge row (the route's legacy `knowledgeId` body param). */
+  knowledgeId?: string;
+}
+
+export interface AnswerSourceRef {
+  kind: "knowledge" | "web";
+  knowledgeId?: string;
+  chunkId?: string;
+  chunkIndex?: number;
+  similarity?: number;
+  /** knowledge: a short excerpt of the retrieved chunk (for a Sources panel). */
+  snippet?: string;
+  url?: string;
+  title?: string;
+  citedText?: string;
+  usedInAnswer: boolean;
+}
+
+export interface AnswerProviderAttempt {
+  provider: string;
+  attempted: boolean;
+  ok: boolean;
+  failure?: string;
+  latencyMs?: number;
+  forbiddenLanguage?: boolean;
+}
+
+export interface AnswerResult {
+  text: string;
+  sourceClass: AnswerSourceClass;
+  providerUsed: string;
+  webSearchUsed: boolean;
+  webSearchRequestedButUnavailable: boolean;
+  sources: AnswerSourceRef[];
+  retrievalSufficiency: Sufficiency;
+  classification: Classification;
+  fromCache: boolean;
+  integrityPassed: boolean;
+  latencyMs: number;
+  /** id of the KnowledgeAnswerProvenance row written (best-effort). */
+  provenanceId?: string;
+}
+
+/** what the provenance store persists (KnowledgeAnswerProvenance row shape). */
+export interface KnowledgeAnswerProvenanceInput {
+  userId: string;
+  conversationId: string | null;
+  messageId: string | null;
+  requestId: string;
+  sourceClass: AnswerSourceClass;
+  knowledgeContributions: AnswerSourceRef[];
+  webContributions: AnswerSourceRef[];
+  providerUsed: string;
+  providerAttempts: AnswerProviderAttempt[];
+  webSearchUsed: boolean;
+  webSearchRequestedButUnavailable: boolean;
+  retrievalSufficiency: string;
+  conflict: { aId: string; bId: string } | null;
+  integrityPassed: boolean;
+  freshnessClass: string | null;
+  privacyClass: string | null;
+  candidateCreatedId: string | null;
+  answerCached: boolean;
+  servedFromCache: boolean;
+  latencyMs: number;
+}

@@ -135,6 +135,10 @@
     "validate:knowledge-loop-ingestion": "tsx scripts/validate-knowledge-loop-ingestion.ts",
     "validate:knowledge-loop-cache": "tsx scripts/validate-knowledge-loop-cache.ts",
     "validate:knowledge-loop-freshness": "tsx scripts/validate-knowledge-loop-freshness.ts",
+    "validate:knowledge-loop-claude-provider": "tsx scripts/validate-knowledge-loop-claude-provider.ts",
+    "validate:knowledge-loop-classifier": "tsx scripts/validate-knowledge-loop-classifier.ts",
+    "validate:knowledge-loop-websearch-gate": "tsx scripts/validate-knowledge-loop-websearch-gate.ts",
+    "validate:knowledge-loop-orchestrator": "tsx scripts/validate-knowledge-loop-orchestrator.ts",
     "vendor:quant-engine": "node scripts/vendor-quant-engine.mjs"
   },
   "dependencies": {
