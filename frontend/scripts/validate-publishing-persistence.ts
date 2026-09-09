@@ -654,6 +654,19 @@ async function main() {
     assert.equal(repo.jobs.size, 0);
   });
 
+  await test("publishArticleNow: adapter pre-flight rejects unpublishable content BEFORE a job is created", async () => {
+    // passes validateArticle (3 sections / keywords / SEO) but the body has a
+    // raw <script> the InternalBlogAdapter rejects.
+    const bad = makeArticle("art_xss", [
+      { heading: "Overview", body: "Real lead paragraph with enough length. <script>alert(1)</script>" },
+      { heading: "Levels", body: "Support and resistance discussion long enough to be a real section." },
+      { heading: "Outlook", body: "Directional scenarios and risks, again with genuine length here." },
+    ]);
+    const { svc, repo } = wire({ article: bad });
+    await assert.rejects(() => svc.publishArticleNow(USER_A, "art_xss"), /not ready to publish/);
+    assert.equal(repo.jobs.size, 0, "no FAILED job left behind");
+  });
+
   await test("publishArticleNow: idempotent - a second call returns the already-SUCCEEDED job", async () => {
     const { svc, repo } = wire({ article: makeArticle("art_1") });
     const a = await svc.publishArticleNow(USER_A, "art_1");

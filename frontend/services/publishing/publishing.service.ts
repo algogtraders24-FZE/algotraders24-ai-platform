@@ -176,8 +176,10 @@ export class PublishingService {
    * reader-invisible dead end.
    *
    * Keeps the existing `validateArticle()` pre-gate (>= 3 sections, disclaimer,
-   * >= 3 keywords, SEO score >= 70) so the dashboard's rejection behaviour is
-   * unchanged, then delegates to createJob + runAttempt (immediate).
+   * >= 3 keywords, SEO score >= 70) AND runs the destination adapter's own
+   * pre-flight `validate()` BEFORE creating a job - so genuinely unpublishable
+   * content (e.g. a raw <script>) is rejected without leaving a FAILED job
+   * behind. Then delegates to createJob + runAttempt (immediate).
    */
   async publishArticleNow(
     userId: string,
@@ -188,6 +190,16 @@ export class PublishingService {
     const validation = validateArticle(article);
     if (!validation.valid) {
       throw Errors.validation("Article is not ready to publish", { issues: validation.issues });
+    }
+
+    // Adapter pre-flight - reject unpublishable content before a job is created.
+    const input = projectArticleToPublishInput(article, { destination: "INTERNAL_BLOG" });
+    const pre = await getDestinationAdapter("INTERNAL_BLOG").validate(input);
+    if (!pre.valid) {
+      throw Errors.validation(
+        "Article is not ready to publish",
+        { issues: pre.errors.map((e) => e.message) },
+      );
     }
 
     const job = await this.createJob({ userId, articleId, destination: "INTERNAL_BLOG" });
