@@ -1,6 +1,6 @@
 // lib/algo-test/optimization-store.ts
-// P4.9-A.4-T1/T2 (docs/P4.9-A4-UI-CONTRACT.md, docs/P4.9-OPTIMIZATION-WFO.md's
-// own A.4-T2-R1 lock) - thin client fetch wrapper over
+// P4.9-A.4-T1/T2/T3 (docs/P4.9-A4-UI-CONTRACT.md, docs/P4.9-OPTIMIZATION-WFO.md's
+// own A.4-T2-R1/A.4-T3 locks) - thin client fetch wrapper over
 // /api/private/algo-test/optimization, mirroring lib/algo-test/store.ts's
 // own established shape exactly (parseErrorMessage, throw-with-real-server-
 // message on mutation). Deliberately a separate file from store.ts - the
@@ -8,7 +8,7 @@
 // optimization.service.ts/types/optimization.ts in A.2/A.3, extended here
 // to the client layer for consistency.
 //
-// T2 adds get/continue. cancel is still not added (its own later tier).
+// T2 added get/continue. T3 adds cancel.
 import type { CreateOptimizationExperimentRequest, OptimizationExperimentDetailView, OptimizationExperimentView } from "@/types/optimization";
 
 const BASE = "/api/private/algo-test/optimization";
@@ -89,6 +89,20 @@ export async function fetchOptimizationExperiment(experimentId: string): Promise
  */
 export async function continueOptimizationExperiment(experimentId: string): Promise<OptimizationExperimentView> {
   const res = await fetch(`${BASE}/${encodeURIComponent(experimentId)}/continue`, { method: "POST" });
+  if (!res.ok) throw await parseApiError(res);
+  const json = await res.json();
+  return json.data.experiment as OptimizationExperimentView;
+}
+
+/**
+ * P4.9-A.4-T3 lock - atomic QUEUED/RUNNING -> CANCELLED. Throws
+ * OptimizationClientError on failure (mirrors continueOptimizationExperiment()'s
+ * own convention - the only realistic failure modes here are NOT_FOUND
+ * or a transient transport failure, both worth surfacing to the caller
+ * rather than silently swallowed).
+ */
+export async function cancelOptimizationExperiment(experimentId: string): Promise<OptimizationExperimentView> {
+  const res = await fetch(`${BASE}/${encodeURIComponent(experimentId)}/cancel`, { method: "POST" });
   if (!res.ok) throw await parseApiError(res);
   const json = await res.json();
   return json.data.experiment as OptimizationExperimentView;
