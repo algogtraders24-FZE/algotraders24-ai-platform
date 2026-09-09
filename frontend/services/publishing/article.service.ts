@@ -239,6 +239,14 @@ export class ArticleService {
     return { article: toDomain(row), validation };
   }
 
+  /**
+   * @deprecated Sprint P2.5 - this flips `Article.status` with NO
+   * PublishingJob, so the Article is invisible on /blog. Nothing calls it any
+   * more: the "Publish now" route delegates to
+   * publishingService.publishArticleNow(), which routes through the engine.
+   * Kept only until the dashboard "Schedule" path is also migrated (UI
+   * sprint). Do not add new callers.
+   */
   async publish(userId: string, id: string): Promise<{ article: Article; validation: ValidationResult }> {
     const { existing, validation } = await this.runValidationGate(userId, id);
     if (!validation.valid) return { article: toDomain(existing), validation };

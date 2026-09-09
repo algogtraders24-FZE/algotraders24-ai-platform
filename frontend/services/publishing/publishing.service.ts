@@ -18,6 +18,7 @@
 import { Errors } from "@/services/backend/ErrorHandler";
 import { auditLogService } from "@/services/admin/AuditLogService";
 import { articleService } from "./article.service";
+import { validateArticle, type ValidationResult } from "@/services/ai/publishing/article-validator.service";
 import type { Article } from "@/types/article";
 import { projectArticleToPublishInput } from "./article-serializer";
 import { computeContentHash } from "./content-hash";
@@ -25,12 +26,15 @@ import { getDestinationAdapter } from "./destinations/registry";
 import { publishingRepository, type PublishingRepository } from "./publishing.repository";
 import {
   ARTICLE_STATUS_ON_JOB_SUCCESS,
+  IMMEDIATE_SCHEDULE,
   isValidJobTransition,
   makePublishError,
   publicationIdentityKey,
+  resolveScheduledFor,
   retryClassFor,
   isPublishError,
   type PublicationIdentity,
+  type PublishSchedule,
   type PublishError,
   type PublishRetryClass,
   type PublishResult,
@@ -57,6 +61,13 @@ export interface CreateJobParams {
   userId: string;
   articleId: string;
   destination: PublishingDestinationId;
+  /**
+   * Sprint P2.4. Omitted / `{ kind: "immediate" }` = publish in the next
+   * dispatcher run. `{ kind: "slot", slot }` = publish at/after the next UTC
+   * occurrence of an approved preset slot. Applied ONLY when a new job is
+   * created - an existing (idempotent) job keeps its original schedule.
+   */
+  schedule?: PublishSchedule;
 }
 
 export interface RunAttemptParams {
@@ -137,9 +148,14 @@ export class PublishingService {
       // the same logical publication. Return whatever state it is in - the
       // caller decides whether to runAttempt() (PENDING/FAILED) or leave it
       // (RUNNING/SUCCEEDED/CANCELLED). Never a second row (the @@unique index
-      // would reject it anyway).
+      // would reject it anyway). The existing job's schedule is NOT changed
+      // here - rescheduling is a separate capability, out of P2.4 scope.
       return existing;
     }
+
+    // Sprint P2.4: resolve the requested schedule to a concrete UTC instant
+    // (or null for immediate). `Date` is read once, here.
+    const scheduledFor = resolveScheduledFor(params.schedule ?? IMMEDIATE_SCHEDULE, new Date());
 
     return this.repo.createJob({
       articleId: article.id,
@@ -147,7 +163,44 @@ export class PublishingService {
       destination: params.destination,
       contentHash: input.contentHash,
       idempotencyKey: publicationIdentityKey(identity),
+      scheduledFor,
     });
+  }
+
+  /**
+   * Sprint P2.5: the "Publish now" path (what the dashboard's Publish button
+   * and the legacy POST /articles/:id/publish route call). Routes an
+   * immediate publish THROUGH the engine so it produces a real
+   * PublishingJob - which is what makes the Article visible on /blog. Before
+   * P2.5 that route flipped `Article.status` with no job and was therefore a
+   * reader-invisible dead end.
+   *
+   * Keeps the existing `validateArticle()` pre-gate (>= 3 sections, disclaimer,
+   * >= 3 keywords, SEO score >= 70) so the dashboard's rejection behaviour is
+   * unchanged, then delegates to createJob + runAttempt (immediate).
+   */
+  async publishArticleNow(
+    userId: string,
+    articleId: string,
+  ): Promise<{ job: PublishingJob; validation: ValidationResult }> {
+    const article = await this.articles.getById(userId, articleId); // ownership -> 404
+
+    const validation = validateArticle(article);
+    if (!validation.valid) {
+      throw Errors.validation("Article is not ready to publish", { issues: validation.issues });
+    }
+
+    const job = await this.createJob({ userId, articleId, destination: "INTERNAL_BLOG" });
+    if (job.status === "SUCCEEDED") return { job, validation }; // idempotent re-publish
+
+    const { job: after } = await this.runAttempt({ userId, jobId: job.id });
+    if (after.status !== "SUCCEEDED") {
+      throw Errors.conflict(after.lastError?.message ?? "Publish failed", {
+        errorCode: after.lastError?.code,
+        issues: after.lastError ? [after.lastError.message] : [],
+      });
+    }
+    return { job: after, validation };
   }
 
   // ---- reads (ownership-scoped) --------------------------------------

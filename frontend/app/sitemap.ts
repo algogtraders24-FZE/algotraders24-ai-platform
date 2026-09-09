@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { ProductCatalogue } from "@/services/products/ProductCatalogue";
+import { blogReaderService } from "@/services/publishing/blog-reader.service";
 
 // Sprint H1.6 - real, derived routes only: static public pages plus every
 // actual product slug from the database (the same source
@@ -17,6 +18,10 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://algotraders24.ai";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const slugs = await ProductCatalogue.getAllSlugs();
+  // Sprint P2.5 - real published blog posts (a SUCCEEDED INTERNAL_BLOG job),
+  // derived the same way /blog/[slug]#generateStaticParams derives them. No
+  // invented URLs: a post only appears here once it is genuinely live.
+  const blogSlugs = await blogReaderService.listSlugs().catch(() => [] as string[]);
 
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: `${SITE_URL}/`, changeFrequency: "weekly", priority: 1 },
@@ -28,6 +33,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/platform/publishing`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${SITE_URL}/platform/knowledge-base`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${SITE_URL}/pricing`, changeFrequency: "weekly", priority: 0.9 },
+    { url: `${SITE_URL}/blog`, changeFrequency: "weekly", priority: 0.7 },
     { url: `${SITE_URL}/resources`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${SITE_URL}/resources/faq`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${SITE_URL}/solutions`, changeFrequency: "monthly", priority: 0.5 },
@@ -48,5 +54,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
-  return [...staticRoutes, ...productRoutes];
+  const blogRoutes: MetadataRoute.Sitemap = blogSlugs.map((slug) => ({
+    url: `${SITE_URL}/blog/${slug}`,
+    changeFrequency: "monthly",
+    priority: 0.6,
+  }));
+
+  return [...staticRoutes, ...productRoutes, ...blogRoutes];
 }

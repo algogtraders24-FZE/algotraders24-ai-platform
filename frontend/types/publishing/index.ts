@@ -27,3 +27,5 @@ export * from "./error-contract";
 export * from "./job-contract";
 export * from "./attempt-contract";
 export * from "./adapter-contract";
+export * from "./schedule-contract";
+export * from "./blog-contract";
