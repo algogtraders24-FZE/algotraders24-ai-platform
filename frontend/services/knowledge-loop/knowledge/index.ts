@@ -56,6 +56,7 @@ export type {
 export {
   PrismaRetrievalCache,
   InMemoryRetrievalCache,
+  normalizeCachedResults,
 } from "./retrieval-cache";
 export {
   runFreshnessSweep,
