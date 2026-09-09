@@ -1,14 +1,13 @@
 "use client";
 
 // app/dashboard/algo-test-optimize/[experimentId]/page.tsx
-// P4.9-A.4-T2 (docs/P4.9-A4-UI-CONTRACT.md, and this tier's own locked
-// P4.9-A.4-T2-R1 contract) - Monitor + client-driven continuation.
-// Deliberately scoped to monitor/continuation only this tier - no cancel
-// button, no winner/results presentation, no candidate table (all later
-// tiers, per the locked boundary). This is also the eventual Results page
-// (one state-driven component tree, per the R1 contract's own locked
-// decision #8/route #2) - later tiers extend the COMPLETED branch here,
-// they do not replace this file.
+// P4.9-A.4-T2/T3 (docs/P4.9-A4-UI-CONTRACT.md, and this tier's own locked
+// P4.9-A.4-T2-R1/A.4-T3 contracts) - Monitor + client-driven continuation +
+// cancellation. Still no winner/results presentation, no candidate table
+// (later tiers). This is also the eventual Results page (one state-driven
+// component tree, per the R1 contract's own locked decision #8/route #2) -
+// later tiers extend the COMPLETED branch here, they do not replace this
+// file.
 //
 // experimentId read via useParams() (next/navigation) - the same pattern
 // already established by app/dashboard/algo-test-library/[strategyId]/page.tsx,
@@ -22,6 +21,13 @@
 // immediately -> apply the real response -> wait >=1000ms -> continue()
 // again -> ... -> terminal. Never framed as a background worker; this UI
 // is what drives execution forward.
+//
+// A.4-T3's own locked critical invariant: once a terminal state has been
+// applied (from either a continue() response or a cancel() response), no
+// LATER-arriving response of either kind may change it back to
+// QUEUED/RUNNING/COMPLETED - see applyResult()'s statusRef guard below,
+// the real correctness gap this tier's own audit found in T2's original
+// unconditional setView(result).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -30,8 +36,9 @@ import Skeleton from "@/components/ui/Skeleton";
 import ErrorState from "@/components/ui/ErrorState";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
 import { FIN_LABEL } from "@/components/ui/financial-typography";
-import { fetchOptimizationExperiment, continueOptimizationExperiment, OptimizationClientError } from "@/lib/algo-test/optimization-store";
+import { fetchOptimizationExperiment, continueOptimizationExperiment, cancelOptimizationExperiment, OptimizationClientError } from "@/lib/algo-test/optimization-store";
 import type { OptimizationExperimentStatus, OptimizationExperimentView } from "@/types/optimization";
 
 // P4.9-A.4-T2-R1 lock #1 - the minimum floor between consecutive
@@ -61,10 +68,27 @@ export default function AlgoTestOptimizeMonitorPage() {
 
   const [view, setView] = useState<OptimizationExperimentView | null | undefined>(null);
   const [continueError, setContinueError] = useState<OptimizationClientError | null>(null);
+  const [cancelError, setCancelError] = useState<OptimizationClientError | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   const cancelledRef = useRef(false);
   const inFlightRef = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // P4.9-A.4-T3 lock - the critical invariant guard: tracks the latest
+  // status actually applied to `view`. Once terminal, a later-arriving
+  // response (from either continue() or cancel() - either can be
+  // in-flight when the other resolves) is discarded rather than applied,
+  // so a stale continue() response can never resurrect a status the
+  // component has already recorded as terminal (e.g. after cancellation).
+  const statusRef = useRef<string | undefined>(undefined);
+  // P4.9-A.4-T3 lock - set the instant the user confirms cancellation, so
+  // no NEW continue() is scheduled or started afterward (an ALREADY
+  // in-flight continue() is not aborted - it is allowed to finish
+  // naturally, per the locked "chunk-granularity, not instant" semantics -
+  // its response just cannot resurrect a terminal state, per statusRef
+  // above).
+  const cancelRequestedRef = useRef(false);
   // Holds the latest runContinue - the scheduled setTimeout below calls
   // through this ref rather than closing over `runContinue` directly, so
   // the recursive self-reference never trips react-hooks' immutability
@@ -73,21 +97,36 @@ export default function AlgoTestOptimizeMonitorPage() {
   // closure, never a stale one from a prior render).
   const runContinueRef = useRef<() => void>(() => {});
 
+  // P4.9-A.4-T3 lock - the one place any server response (continue, GET,
+  // or cancel) is ever applied to `view`. Enforces the critical invariant
+  // above before every write.
+  const applyResult = useCallback((result: OptimizationExperimentView) => {
+    if (statusRef.current && isTerminalStatus(statusRef.current)) return;
+    statusRef.current = result.status;
+    setView(result);
+  }, []);
+
   // P4.9-A.4-T2-R1 lock #6/#7/#8 - ref-based in-flight guard (never state,
   // to avoid stale-closure races in this async loop), the experimentId
   // stale-response guard (the exact `cancelled` flag convention already
   // established by AlgoTestPanel.tsx's/the Strategy Library detail page's
   // own mount effects), and explicit timer cleanup on unmount.
   const runContinue = useCallback(async () => {
-    if (cancelledRef.current || inFlightRef.current) return;
+    if (cancelledRef.current || inFlightRef.current || cancelRequestedRef.current) return;
     inFlightRef.current = true;
     try {
       const result = await continueOptimizationExperiment(experimentId);
       inFlightRef.current = false;
       if (cancelledRef.current) return;
-      setView(result);
+      applyResult(result);
       setContinueError(null);
-      if (!isTerminalStatus(result.status)) {
+      // A prior cancel() attempt may have failed and left its own error
+      // banner up (handleCancelConfirm resumes the loop on that failure -
+      // see below) - once continuation genuinely succeeds again, that
+      // stale cancel-failure banner is no longer accurate and must clear
+      // too, not just continueError. Found via live testing, not assumed.
+      setCancelError(null);
+      if (!isTerminalStatus(result.status) && !cancelRequestedRef.current) {
         timeoutRef.current = setTimeout(() => runContinueRef.current(), CONTINUE_POLL_FLOOR_MS);
       }
     } catch (err) {
@@ -98,7 +137,7 @@ export default function AlgoTestOptimizeMonitorPage() {
       // message, offer manual Retry. Never an automatic retry loop.
       setContinueError(err instanceof OptimizationClientError ? err : new OptimizationClientError("UNKNOWN", err instanceof Error ? err.message : "Failed to continue the optimization."));
     }
-  }, [experimentId]);
+  }, [experimentId, applyResult]);
 
   useEffect(() => {
     runContinueRef.current = runContinue;
@@ -107,12 +146,17 @@ export default function AlgoTestOptimizeMonitorPage() {
   useEffect(() => {
     cancelledRef.current = false;
     inFlightRef.current = false;
+    cancelRequestedRef.current = false;
+    statusRef.current = undefined;
     // P4.9-A4-UI-CONTRACT.md's own locked stale-state guard, extended to
     // this async loop: reset on experimentId change before refetching -
     // the exact bug class P4.8-T3.4.2 found and fixed on the Strategy
     // Library detail page.
     setView(null);
     setContinueError(null);
+    setCancelError(null);
+    setShowCancelModal(false);
+    setCancelling(false);
 
     // P4.9-A.4-T2-R1 lock #2 - the initial GET always happens before any
     // continue() call, covering a fresh load, a refresh, and a
@@ -123,7 +167,7 @@ export default function AlgoTestOptimizeMonitorPage() {
         setView(undefined);
         return;
       }
-      setView(fetched);
+      applyResult(fetched);
       // Lock #3/#4 - QUEUED and RUNNING both trigger the loop; a terminal
       // initial state never calls continue() at all.
       if (!isTerminalStatus(fetched.status)) {
@@ -135,11 +179,43 @@ export default function AlgoTestOptimizeMonitorPage() {
       cancelledRef.current = true;
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [experimentId, runContinue]);
+  }, [experimentId, runContinue, applyResult]);
 
   function handleRetry() {
     setContinueError(null);
     runContinue();
+  }
+
+  function handleCancelClick() {
+    setShowCancelModal(true);
+  }
+
+  async function handleCancelConfirm() {
+    setShowCancelModal(false);
+    setCancelling(true);
+    setCancelError(null);
+    // Stop any further continuation immediately - the ALREADY in-flight
+    // continue() (if any) is not aborted, it finishes naturally per the
+    // locked chunk-granularity semantics; this only prevents a NEW one
+    // from starting.
+    cancelRequestedRef.current = true;
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    try {
+      const result = await cancelOptimizationExperiment(experimentId);
+      if (cancelledRef.current) return;
+      applyResult(result);
+    } catch (err) {
+      if (cancelledRef.current) return;
+      setCancelError(err instanceof OptimizationClientError ? err : new OptimizationClientError("UNKNOWN", err instanceof Error ? err.message : "Failed to cancel the optimization."));
+      // The cancel request itself failed - the experiment is presumably
+      // still QUEUED/RUNNING server-side (never assumed cancelled just
+      // because the client wanted it to be). Un-pause continuation rather
+      // than leaving the UI stuck.
+      cancelRequestedRef.current = false;
+      runContinueRef.current();
+    } finally {
+      if (!cancelledRef.current) setCancelling(false);
+    }
   }
 
   return (
@@ -195,6 +271,17 @@ export default function AlgoTestOptimizeMonitorPage() {
               <p className="mt-2 text-sm text-text-2">
                 {view.processedCandidates} / {view.totalCandidates} candidates processed
               </p>
+              <div className="mt-4">
+                <Button variant="danger" size="sm" onClick={handleCancelClick} loading={cancelling}>
+                  Cancel Optimization
+                </Button>
+              </div>
+            </div>
+          ) : view.status === "CANCELLED" ? (
+            <div className="rounded-card border border-border bg-ink-2 p-5">
+              <p className="text-sm text-text-2">
+                Cancelled — {view.processedCandidates}/{view.totalCandidates} candidates processed before cancellation.
+              </p>
             </div>
           ) : (
             <div className="rounded-card border border-border bg-ink-2 p-5">
@@ -215,8 +302,26 @@ export default function AlgoTestOptimizeMonitorPage() {
               </div>
             </Alert>
           )}
+
+          {cancelError && (
+            <Alert tone="danger" title="Could not cancel the optimization">
+              <p>{cancelError.message}</p>
+            </Alert>
+          )}
         </div>
       )}
+
+      <Modal open={showCancelModal} onClose={() => setShowCancelModal(false)} title="Cancel optimization?">
+        <p className="text-sm text-text-2">The current candidate will finish before the optimization stops. Unprocessed candidates will not be executed.</p>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="secondary" size="sm" onClick={() => setShowCancelModal(false)}>
+            Keep running
+          </Button>
+          <Button variant="danger" size="sm" onClick={handleCancelConfirm}>
+            Cancel optimization
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }
