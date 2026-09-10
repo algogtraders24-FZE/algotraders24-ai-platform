@@ -47,8 +47,8 @@ refactor. Every §12 contract row is pinned by an offline assertion.
 | Step | Commit | State |
 |---|---|---|
 | Contract §12 amendments + this skeleton | `d1f147b` | ✅ |
-| C1 — `ClaudeProvider` server-tool lifecycle + fixtures | (step 2/8) | ✅ |
-| C2 — classifier precedence + `historical` + borderline + tests | | ⏳ |
+| C1 — `ClaudeProvider` server-tool lifecycle + fixtures | `7132945` | ✅ |
+| C2 — classifier precedence + `historical` + borderline + tests | (step 3/8) | ✅ |
 | C5 — orchestrator: two-field split · DYNAMIC guard · continuation fall-through · `SKIPPED` sentinel · telemetry `meta` | | ⏳ |
 | C7 — knowledge-block injection hardening + `validate-knowledge-loop-adversarial` | | ⏳ |
 | C3 / C6 — `validate-knowledge-loop-{decision-matrix,route-contract,provenance-integrity}` | | ⏳ |
@@ -100,6 +100,19 @@ result list feeds `webSearchUnavailable`, not `webSearchFailed`).
 `encrypted_content` handling is unchanged — echoed verbatim on continuation,
 never decoded/expanded/logged (re-asserted in a fixture).
 
+**`webSearchFailed` ⟂ `webSearchUnavailable` truth table** (locked for the C5 audit):
+
+| Condition | `webSearchFailed` | `webSearchUnavailable` |
+|---|---:|---:|
+| clean search (≥1 usable result) | `false` | `false` |
+| empty-but-valid result list (0 matches) | `false` | `true` |
+| single search error | `true` | `true` |
+| unrecognised tool-result shape | `true` | `true` |
+| mixed OK + error (one usable result) | `true` | **`false`** |
+| non-`web_search` `server_tool_use` block | `false` | `false` |
+
+(`webSearchPartialFailure` is `true` only for the mixed row.)
+
 **Intentional K3-B behaviour changes** (all contract-driven, all additive or
 strictly-more-correct — no consumer relies on the old behaviour):
 1. `webSearchUnavailable` no longer trips on a *partial* failure (mixed ok+error
@@ -119,6 +132,53 @@ strictly-more-correct — no consumer relies on the old behaviour):
 | Regression — `validate:ai-presenter-orchestration` | 66 | **66/66, unchanged** |
 | `tsc --noEmit` | — | clean (only the pre-existing `at24-quant-engine RUNTIME_VERSION` baseline) |
 | `eslint` (`claude.provider.ts`, `types.ts`, the fixture script) | — | clean |
+
+### C2 — Classifier & freshness hardening (step 3/8)
+
+**Files:** `types/knowledge-loop/index.ts` (`AssistantIntent` += `historical`;
+`WebSearchGateResult` doc — "OFFER, not prediction"),
+`services/knowledge-loop/classifier/classify.ts` (§12.1 precedence numbered +
+`HISTORICAL` regex at rule 6 + `historical` → `STATIC`),
+`services/knowledge-loop/orchestrator/web-search-gate.ts` (optional
+`bestSimilarity` param + the `borderline-sufficient` REQUIRED rule),
+`config/knowledge-loop.config.ts` (`BORDERLINE_MARGIN = 0.05` — a GATE
+constant, deliberately **not** in `RETRIEVAL_CONFIG_VERSION`, so the K2 cache
+key is untouched), `AI_ASSISTANT_ORCHESTRATION_CONTRACT.md` §12.1 (rule-6
+markers synced to the regex), the two validator scripts.
+
+**What changed:**
+
+| Change | Rationale |
+|---|---|
+| `historical` intent (rule 6) — "back in `<past year>`", "used to …", "what happened to/when …", "historically", "years ago", "the old …" | C2-d — a retrospective question was "correct by accident" (fell to `other`/`conceptual`); now it's an explicit `STATIC` intent, **never web-forced by freshness**. Regex kept tight (a mislabel would suppress web for a current-info question). |
+| `borderline-sufficient` gate rule | C2-a — a low-confidence (`intent === "other"`) query whose only hit is barely over the sufficiency floor (`bestSimilarity < RELEVANCE_GOOD + 0.05`) now offers the web as a safety net instead of answering from a marginal hit. |
+| `webSearchGate` 3rd arg `bestSimilarity?` | needed for the rule; **optional** → every existing 2-arg call is byte-identical. Orchestrator wiring (`retrieval.bestSimilarity`) is **deferred to C5** (single orchestrator change). |
+| "OFFER, not prediction" documented on `WebSearchGateResult.useWebSearch` + a purity test | C2 requirement — the gate says *offer the tool*; whether a search actually happens is the model's call, surfaced later as `webSearchUsed`. |
+| §12.1 precedence numbered `1..9` in code comments, pinned by a test | C2-b — a reorder is now a test failure, not a silent semantic change. |
+
+**No LLM classifier** — still a pure, synchronous regex heuristic (asserted).
+Expired / superseded knowledge is filtered by K1/K2 eligibility **before** the
+orchestrator (the gate never sees it); `STALE` (review-due `PERIODIC`) is a
+retrieval-layer signal the gate already forces web on — re-asserted here
+(incl. `STALE` overriding the `conceptual + SUFFICIENT` forbid).
+
+**No K3-B behaviour change for any existing input** — every prior classifier
+and gate fixture is unchanged; the `historical` intent only re-routes inputs
+that previously fell through to `other`/`conceptual`/`product-static`, and the
+`borderline-sufficient` rule only fires with a `bestSimilarity` argument that
+no current caller passes yet (C5).
+
+**Assertions:**
+
+| Suite | Count | Result |
+|---|---|---|
+| `validate-knowledge-loop-classifier` | 14 + **10 new (C2)** = 24 | **24/24** |
+| `validate-knowledge-loop-websearch-gate` | 11 + **8 new (C2)** = 19 | **19/19** |
+| — RED-first check | the 4 `historical` classifier tests + the 1 `borderline-sufficient` gate test failed against the pre-C2 code, then passed; the other new assertions are §12.1/§12.2 **regression locks** (behaviour that already held and must not break) | ✅ |
+| Regression — `validate-knowledge-loop-{claude-provider 19, orchestrator 13, schema 19, retrieval 15, cache 13, freshness 8, ingestion 3}` = 90 | | **90/90, unchanged** |
+| Regression — `validate:ai-presenter-orchestration` | 66 | **66/66, unchanged** |
+| `tsc --noEmit` | — | clean (`RUNTIME_VERSION` baseline only) |
+| `eslint` | — | clean |
 
 ---
 
@@ -146,3 +206,4 @@ _(filled at close)_
 |---|---|
 | 2026-09-10 | K3-C implementation started on `feat/k3c-orchestration-hardening` off `6253165`. **Step 1/8** (`d1f147b`) — Contract §12 (K3-C hardening contracts) landed: classifier precedence + `historical` intent, decision matrix + borderline-sufficient + DYNAMIC live-figures guard, fallback matrix, **`webSearchFailed` ⟂ `webSearchRequestedButUnavailable`**, server-tool lifecycle, provenance-integrity + telemetry, injection clause, ADR-K3C-1/2. |
 | 2026-09-10 | **Step 2/8 — C1** `ClaudeProvider` server-tool lifecycle hardening. `server_tool_use` name-filtered; `searchResultsOk`/`searchErrors` accounting; `webSearchFailed` (operational) + `webSearchPartialFailure` surfaced independently of the winner; unrecognised tool-result shapes counted, never silent; `continuationBudgetExhausted` on a still-paused loop exit; `truncated` on `max_tokens`; Anthropic `error.message` surfaced (request body never logged). +10 fixtures (19/19; RED-first verified). Regression 96 + ai-presenter 66 unchanged; tsc clean (RUNTIME_VERSION baseline only); eslint clean. |
+| 2026-09-10 | **Step 3/8 — C2** classifier & freshness. §12.1 precedence numbered + LOCKED (reorder = test failure); new `historical` intent (rule 6, tight regex, `STATIC`, never web-forced); `webSearchGate` optional `bestSimilarity` + `borderline-sufficient` rule (§12.2); `WebSearchGateResult` = OFFER not prediction (+ purity test); `BORDERLINE_MARGIN = 0.05` gate constant (NOT in `RETRIEVAL_CONFIG_VERSION`). classifier 14→24, websearch-gate 11→19 (RED-first: 4 `historical` + 1 `borderline` failed pre-C2). Regression 90 + ai-presenter 66 unchanged; tsc clean; eslint clean. Orchestrator wiring of `bestSimilarity` → C5. |

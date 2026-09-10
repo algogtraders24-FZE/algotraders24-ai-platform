@@ -79,6 +79,12 @@ export const KNOWLEDGE_ANSWER_CONFIG = {
   WEB_SEARCH_MAX_USES: 4,
   /** Prior turns handed to the provider (chronological, most-recent-N). */
   HISTORY_TURNS_MAX: 8,
+  /** K3-C §12.2 — a barely-`SUFFICIENT` retrieval for a low-confidence
+   *  (`intent === "other"`) query is treated as web-eligible: the gate offers
+   *  web when `bestSimilarity < RELEVANCE_GOOD + BORDERLINE_MARGIN`. This is a
+   *  GATE constant — it changes nothing retrieval returns, so it is NOT folded
+   *  into `RETRIEVAL_CONFIG_VERSION` (the K2 cache key is unaffected). */
+  BORDERLINE_MARGIN: 0.05,
   /** Fixed pointer returned for an `account-specific` question — no LLM call,
    *  never guesses account state (contract §8, sourceClass DETERMINISTIC). */
   ACCOUNT_SPECIFIC_POINTER:
