@@ -16,6 +16,25 @@
 
 import type { KnowledgeAnswerProvenanceInput } from "@/types/knowledge-loop";
 import type { ProvenanceStorePort } from "./ports";
+import { sanitizeProvenanceText } from "./build-provenance";
+
+/** K3-C §12.6 — the persisted `providerAttempts` JSON carries BOTH the
+ *  per-provider attempt trace AND the per-turn telemetry `meta` (no new
+ *  column, no migration). A final defence-in-depth sanitise pass runs on
+ *  every `failure` string regardless of who built the input. */
+function serializeAttempts(
+  input: KnowledgeAnswerProvenanceInput,
+): { attempts: unknown[]; meta: unknown } {
+  return {
+    attempts: input.providerAttempts.map((a) => ({
+      ...a,
+      ...(a.failure !== undefined
+        ? { failure: sanitizeProvenanceText(a.failure) }
+        : {}),
+    })),
+    meta: input.turnMeta ?? null,
+  };
+}
 
 /** Production writer — the real `KnowledgeAnswerProvenance` table. */
 export class PrismaProvenanceStore implements ProvenanceStorePort {
@@ -33,7 +52,7 @@ export class PrismaProvenanceStore implements ProvenanceStorePort {
             input.knowledgeContributions as unknown as object,
           webContributions: input.webContributions as unknown as object,
           providerUsed: input.providerUsed,
-          providerAttempts: input.providerAttempts as unknown as object,
+          providerAttempts: serializeAttempts(input) as unknown as object,
           webSearchUsed: input.webSearchUsed,
           webSearchRequestedButUnavailable:
             input.webSearchRequestedButUnavailable,

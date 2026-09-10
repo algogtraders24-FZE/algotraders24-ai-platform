@@ -322,6 +322,38 @@ export interface AnswerResult {
   provenanceId?: string;
 }
 
+/** K3-C §12.6 — per-turn telemetry. Rides in the persisted `providerAttempts`
+ *  JSON under a `meta` key (no new scalar column, no migration). ZERO raw
+ *  content — every field is a boolean / small int / enum / float. */
+export type AnswerFailureCategory =
+  | null
+  | "provider-error"
+  | "forbidden-language"
+  | "empty-output"
+  | "continuation-exhausted"
+  | "chain-exhausted"
+  | "dynamic-unverifiable";
+
+export interface TurnMeta {
+  webSearchOffered: boolean;
+  /** the web-search gate's reason string (a fixed enum-like token). */
+  gateReason: string;
+  webSearchUsed: boolean;
+  /** operational fact — a web-search OPERATION failed (§12.4). */
+  webSearchFailed: boolean;
+  webSearchPartialFailure: boolean;
+  /** evidence fact — the gate required web-grounded evidence, the final
+   *  answer did not obtain it (§12.4). Independent of `webSearchFailed`. */
+  webSearchRequestedButUnavailable: boolean;
+  searchCount: number;
+  continuationCount: number;
+  continuationBudgetExhausted: boolean;
+  truncated: boolean;
+  failureCategory: AnswerFailureCategory;
+  knowledgeHitCount: number;
+  bestSimilarity: number;
+}
+
 /** what the provenance store persists (KnowledgeAnswerProvenance row shape). */
 export interface KnowledgeAnswerProvenanceInput {
   userId: string;
@@ -333,6 +365,9 @@ export interface KnowledgeAnswerProvenanceInput {
   webContributions: AnswerSourceRef[];
   providerUsed: string;
   providerAttempts: AnswerProviderAttempt[];
+  /** K3-C §12.6 — folded into the persisted `providerAttempts` JSON `meta`
+   *  by the store. Optional so a pre-C5 caller still compiles. */
+  turnMeta?: TurnMeta;
   webSearchUsed: boolean;
   webSearchRequestedButUnavailable: boolean;
   retrievalSufficiency: string;

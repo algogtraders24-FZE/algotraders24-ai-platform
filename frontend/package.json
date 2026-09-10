@@ -139,6 +139,7 @@
     "validate:knowledge-loop-classifier": "tsx scripts/validate-knowledge-loop-classifier.ts",
     "validate:knowledge-loop-websearch-gate": "tsx scripts/validate-knowledge-loop-websearch-gate.ts",
     "validate:knowledge-loop-decision-matrix": "tsx scripts/validate-knowledge-loop-decision-matrix.ts",
+    "validate:knowledge-loop-provenance-integrity": "tsx scripts/validate-knowledge-loop-provenance-integrity.ts",
     "validate:knowledge-loop-orchestrator": "tsx scripts/validate-knowledge-loop-orchestrator.ts",
     "vendor:quant-engine": "node scripts/vendor-quant-engine.mjs"
   },

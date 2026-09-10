@@ -49,8 +49,8 @@ refactor. Every §12 contract row is pinned by an offline assertion.
 | Contract §12 amendments + this skeleton | `d1f147b` | ✅ |
 | C1 — `ClaudeProvider` server-tool lifecycle + fixtures | `7132945` | ✅ |
 | C2 — classifier precedence + `historical` + borderline + tests | `47d29ee` | ✅ |
-| C3 — decision matrix as a pure ordered module + `validate-knowledge-loop-decision-matrix` | (step 4/8) | ✅ |
-| C4 — provenance integrity + `validate-knowledge-loop-provenance-integrity` | | ⏳ |
+| C3 — decision matrix as a pure ordered module + `validate-knowledge-loop-decision-matrix` | `7a4fd11` | ✅ |
+| C4 — provenance integrity: pure `build-provenance` + `validate-knowledge-loop-provenance-integrity` | (step 5/8) | ✅ |
 | C5 — orchestrator: wire `decide-path` + two-field split · DYNAMIC guard · continuation fall-through · `SKIPPED` sentinel · telemetry `meta` | | ⏳ |
 | C6 — route/envelope regression lock + `validate-knowledge-loop-route-contract` | | ⏳ |
 | C7 — knowledge-block injection hardening + `validate-knowledge-loop-adversarial` | | ⏳ |
@@ -228,6 +228,51 @@ three, delete the inline logic, pass `retrieval.bestSimilarity`) is C5.
 **No behaviour change** — `decide-path.ts` is a new, unwired module. The
 orchestrator still runs its own inline K3-B logic until C5.
 
+### C4 — Provenance integrity: one pure builder (step 5/8)
+
+**Files:** `services/knowledge-loop/orchestrator/build-provenance.ts` (**new** —
+`buildProvenance(facts)` + `sanitizeProvenanceText`),
+`services/knowledge-loop/orchestrator/provenance-store.ts` (`PrismaProvenanceStore`
+folds `turnMeta` into the persisted `providerAttempts` JSON as `{ attempts,
+meta }` + a defence-in-depth sanitise pass), `types/knowledge-loop/index.ts`
+(**additive**: `TurnMeta`, `AnswerFailureCategory`, optional
+`KnowledgeAnswerProvenanceInput.turnMeta`),
+`scripts/validate-knowledge-loop-provenance-integrity.ts` (**new**, 21
+assertions), `package.json`, `AI_ASSISTANT_ORCHESTRATION_CONTRACT.md` §12.6.
+
+**Hard invariants locked** (`validate-knowledge-loop-provenance-integrity` = 21/21):
+
+| Invariant | How |
+|---|---|
+| `usedInAnswer` = actual contribution, not "was retrieved" | knowledge chunk `true` **only** for `sourceClass === "AT24_KNOWLEDGE"`; web source `true` **only** when `citedTexts` non-empty. Tested across all 4 `sourceClass`es + a `MIXED` weak-hit (similarity 0.31 recorded, `usedInAnswer:false`) + an uncited web result (`false` even in `MIXED`). |
+| `sourceClass` from evidence, never provider identity | `deriveSourceClass` (C3); test: identical `sourceClass` whether `claude` or `gemini` won the same evidence. |
+| `providerUsed` = the real winner | passed through from the winning slot; a `gemini` win → `providerUsed: "gemini"`. |
+| failed / abandoned provider never becomes the evidence source | `webContributions` come only from `outcome.webSources` (the winner's); every attempt still recorded with its `ok` flag. |
+| fallback-provider win → truthful provenance | `providerUsed`, `sourceClass`, `failureCategory` all reflect reality. |
+| `webSearchFailed` (operational) ⟂ `webSearchRequestedButUnavailable` (evidence) | all 4 combos tested — incl. **non-web fallback wins a web-required turn → `failed:false`, `requestedButUnavailable:true`** (the C5-a fix). Evidence fact = `decision.webSearchOffered && !webUsed`, independent of the provider. |
+| no raw query / answer / history / secret in the row | `ProvenanceFacts` structurally has no such field; a runtime scan asserts the row carries only ids/refs/≤180-char knowledge excerpts; every `providerAttempts[].failure` is `sk-`/`Bearer`/PEM/card/email-redacted + truncated to 300 (`sanitizeProvenanceText`, in the builder **and** the store). |
+| empty / failed persistence never manufactures a successful id | `buildProvenance` output carries no `id`/`provenanceId`; `InMemoryProvenanceStore.failWrites` → `write()` returns `null`, row still recorded. |
+| exactly one provenance input per turn | `buildProvenance` is a pure 1-in-1-out function; store 1:1. |
+| account-specific → `retrievalSufficiency: "SKIPPED"` (C4-c) | + no sources, no web, `failureCategory: null`. |
+| chain-exhausted deterministic → `integrityPassed: false` | + `failureCategory: "chain-exhausted"` + `webSearchRequestedButUnavailable` honest. |
+
+**RED-first** — reverting `build-provenance.ts` to the K3-B-style operational
+formula for `webSearchRequestedButUnavailable` **and** dropping the failure-
+string sanitiser made **3 assertions fail** (non-web-fallback combo, redaction,
+chain-exhausted), then restored.
+
+**No orchestrator / route change.** `turnMeta` is optional → the K3-B
+orchestrator's inline provenance construction still compiles and runs
+unchanged. C5 switches it to `buildProvenance()`.
+
+| Suite | Count | Result |
+|---|---|---|
+| `validate-knowledge-loop-provenance-integrity` *(new)* | 21 | **21/21** (RED-demo: 3 fail) |
+| Regression — `validate-knowledge-loop-{classifier 24, websearch-gate 19, decision-matrix 25, orchestrator 13, claude-provider 19, schema 19, retrieval 15, cache 13, freshness 8, ingestion 3}` = 158 | | **158/158, unchanged** |
+| Regression — `validate:ai-presenter-orchestration` | 66 | **66/66, unchanged** |
+| `tsc --noEmit` | — | clean (`RUNTIME_VERSION` baseline only) |
+| `eslint` (`build-provenance.ts`, `provenance-store.ts`, types, the new validator) | — | clean |
+
 ---
 
 ## 4. Offline test summary
@@ -256,3 +301,4 @@ _(filled at close)_
 | 2026-09-10 | **Step 2/8 — C1** `ClaudeProvider` server-tool lifecycle hardening. `server_tool_use` name-filtered; `searchResultsOk`/`searchErrors` accounting; `webSearchFailed` (operational) + `webSearchPartialFailure` surfaced independently of the winner; unrecognised tool-result shapes counted, never silent; `continuationBudgetExhausted` on a still-paused loop exit; `truncated` on `max_tokens`; Anthropic `error.message` surfaced (request body never logged). +10 fixtures (19/19; RED-first verified). Regression 96 + ai-presenter 66 unchanged; tsc clean (RUNTIME_VERSION baseline only); eslint clean. |
 | 2026-09-10 | **Step 3/8 — C2** classifier & freshness. §12.1 precedence numbered + LOCKED (reorder = test failure); new `historical` intent (rule 6, tight regex, `STATIC`, never web-forced); `webSearchGate` optional `bestSimilarity` + `borderline-sufficient` rule (§12.2); `WebSearchGateResult` = OFFER not prediction (+ purity test); `BORDERLINE_MARGIN = 0.05` gate constant (NOT in `RETRIEVAL_CONFIG_VERSION`). classifier 14→24, websearch-gate 11→19 (RED-first: 4 `historical` + 1 `borderline` failed pre-C2). Regression 90 + ai-presenter 66 unchanged; tsc clean; eslint clean. Orchestrator wiring of `bestSimilarity` → C5. |
 | 2026-09-10 | **Step 4/8 — C3** decision matrix as ONE pure ordered module. `decide-path.ts` (new): `decidePreGeneration` (account-specific short-circuit **before** the gate — a "gate-first" impl fails 5 assertions), `deriveSourceClass` (4-way outcome map, never provider identity), `liveFiguresGuardApplies` (DYNAMIC guard predicate — C5 applies the effect). `validate-knowledge-loop-decision-matrix` (new, 25/25): 14 matrix rows + locked-order + purity + equivalence-with-`webSearchGate` + real-classifier path. Composes `webSearchGate`/`classify`, does not re-implement. NOT wired into the orchestrator (C5). Regression 133 + ai-presenter 66 unchanged; tsc clean; eslint clean. |
+| 2026-09-10 | **Step 5/8 — C4** provenance integrity as one pure builder. `build-provenance.ts` (new): `buildProvenance(ProvenanceFacts)` — `ProvenanceFacts` structurally cannot carry the raw message/answer/history. `usedInAnswer` = actual contribution (AT24_KNOWLEDGE knowledge only; cited web only); `sourceClass` via `deriveSourceClass` (⟂ `providerUsed`); `webSearchRequestedButUnavailable` (evidence) = `webSearchOffered && !webUsed`, **independent of `webSearchFailed`** (operational) — correct for a non-web fallback winner; every `providerAttempts[].failure` secret/PII-redacted + truncated (builder **and** store); `turnMeta` folded into the persisted `providerAttempts` JSON `{attempts, meta}` (no column, no migration); account-specific → `retrievalSufficiency:"SKIPPED"`. `types` additive (`TurnMeta`, optional `turnMeta`). `validate-knowledge-loop-provenance-integrity` (new, 21/21; RED-first: 3 fail on the K3-B formula + no sanitiser). Regression 158 + ai-presenter 66 unchanged; tsc/eslint clean. NOT wired into orchestrator (C5). |

@@ -596,6 +596,28 @@ third, purely-diagnostic provider fact.
   "empty-output", "continuation-exhausted", "chain-exhausted",
   "dynamic-unverifiable" }`.
 
+**C4 — one pure builder.** `services/knowledge-loop/orchestrator/build-provenance.ts`
+turns the SETTLED facts of a turn (`ProvenanceFacts` — which **structurally
+cannot carry** the raw message / answer / history) into
+`{ sources, provenanceInput }` deterministically:
+- `sourceClass` via `deriveSourceClass` (C3) — never provider identity;
+  `providerUsed` is the real winner; the two are asserted independent.
+- `webSearchRequestedButUnavailable` (evidence) = `decision.webSearchOffered
+  && !webUsed` — **independent of `turnMeta.webSearchFailed`** (operational),
+  correct even when a non-web fallback provider wins a web-required turn.
+- an abandoned provider's `webSources` never reach `webContributions`.
+- every `providerAttempts[].failure` string is **secret/PII-redacted +
+  truncated** (`sanitizeProvenanceText`) — in the builder AND again in
+  `PrismaProvenanceStore` (defence in depth).
+- `turnMeta` (all booleans / small ints / enums / one float) is folded into
+  the persisted `providerAttempts` JSON as `{ attempts, meta }` by the store
+  — no new column, no migration.
+- account-specific → `retrievalSufficiency: "SKIPPED"`; chain-exhausted
+  deterministic → `integrityPassed: false`.
+
+C4 does **not** wire this into the orchestrator (C5). Locked by
+`validate-knowledge-loop-provenance-integrity` (21 assertions).
+
 ### 12.7 Knowledge-block injection hardening (LOCKED — D-K3C-7, pre-K4)
 
 Retrieved knowledge is wrapped in a fixed delimiter and
