@@ -41,12 +41,43 @@
 // needed. A non-null bestCandidateId means a winner exists but its
 // metrics/parameters only exist on the DETAIL shape (candidates[] is
 // detail-only, per types/optimization.ts) - `winnerDetail` below is that
-// one extra GET, fired exactly once, only in that case. Locked: "Best
-// Candidate" label (never "Validated Strategy" - COMPLETED means a single
-// in-sample sweep finished, not that the winner passed any out-of-sample
-// or walk-forward validation), Profit Factor + Trade Count only (nothing
-// else is persisted on a candidate), full resolved parameterValues with
-// registry-label lookup (raw id fallback).
+// one extra GET. Locked: "Best Candidate" label (never "Validated
+// Strategy" - COMPLETED means a single in-sample sweep finished, not that
+// the winner passed any out-of-sample or walk-forward validation), Profit
+// Factor + Trade Count only (nothing else is persisted on a candidate),
+// full resolved parameterValues with registry-label lookup (raw id
+// fallback).
+//
+// A.4-T5's own locked contract - the read-only candidate EVIDENCE table
+// (never an "analysis engine"): answers "what happened to each candidate
+// the server actually processed," never "which one do I think is best" -
+// that second question stays exclusively `view.bestCandidateId`'s answer,
+// same as T4. `winnerDetail`'s own fetch trigger is broadened here from
+// "COMPLETED with a winner" to "any terminal status" (COMPLETED/FAILED/
+// CANCELLED all get real candidate evidence, per the locked contract) -
+// still exactly one GET, still fired exactly once, the SAME response now
+// serves both the winner card and the candidate table. Table columns are
+// the SWEPT parameters only (`winnerDetail.searchSpace`), never the full
+// resolved set (that stays the winner card's own job) - showing every
+// declared-but-unswept parameter as a column would repeat the same
+// constant value on every one of up to 256 rows, pure noise. No
+// pagination (matches components/quant-lite/TradeTable.tsx's own
+// established convention - every row, one scrollable Table shell, no new
+// UI infrastructure this codebase doesn't already have). Winner-integrity
+// lock (computeWinnerIntegrity(), shared by the T4 Best Candidate card
+// AND the T5 table): a winner is presented ONLY when the row
+// `view.bestCandidateId` points at genuinely carries `status ===
+// "VALIDATED"`. On any mismatch the Best Candidate card is suppressed,
+// no table row gets the winner marker, and the table's inconsistency
+// warning is the single authoritative signal - the UI never
+// simultaneously claims "this is the winner" and "we cannot verify the
+// winner". Structurally the two always agree (finalizeIfComplete()'s own
+// transactional invariant), but this component never assumes that holds
+// forever, never infers which side is right, and never touches
+// finalizeIfComplete() or any server-side selection. It also never
+// creates an informal "best so far" for CANCELLED/FAILED experiments
+// (which never have a VALIDATED candidate at all, per T3's own locked
+// cancel semantics - no winner validation ever runs on cancellation).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -56,10 +87,11 @@ import ErrorState from "@/components/ui/ErrorState";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
+import { Table, Thead, Th, Tbody, Tr, Td } from "@/components/ui/Table";
 import { FIN_LABEL } from "@/components/ui/financial-typography";
 import { fetchOptimizationExperiment, continueOptimizationExperiment, cancelOptimizationExperiment, OptimizationClientError } from "@/lib/algo-test/optimization-store";
 import { fetchAlgoTestStrategies } from "@/lib/algo-test/store";
-import type { OptimizationExperimentStatus, OptimizationExperimentView, OptimizationExperimentDetailView, OptimizationProfitFactor } from "@/types/optimization";
+import type { OptimizationCandidateStatus, OptimizationCandidateView, OptimizationExperimentStatus, OptimizationExperimentView, OptimizationExperimentDetailView, OptimizationProfitFactor } from "@/types/optimization";
 import type { AlgoTestStrategyDefinition } from "@/types/algo-test";
 
 // P4.9-A.4-T2-R1 lock #1 - the minimum floor between consecutive
@@ -83,6 +115,27 @@ const STATUS_TONE: Readonly<Record<OptimizationExperimentStatus, BadgeTone>> = {
   CANCELLED: "warning",
 };
 
+// A.4-T5 lock - per-candidate-row status tone. "COMPLETED" is a real
+// member of OptimizationCandidateStatus but is structurally unreachable
+// today (optimization.service.ts's own CandidateExecutionStatus - the
+// only type any execution path ever assigns - is exactly "FAILED" |
+// "REJECTED" | "CANDIDATE"; VALIDATED is reachable only via
+// finalizeIfComplete()). Still covered here (exhaustive Record, never a
+// runtime fallback-to-undefined) so an unexpected value never crashes the
+// table, without any dedicated visual investment in a state nothing ever
+// produces. VALIDATED's own "gold" tone is its real, honest status -
+// independent of the winner-integrity check below, which controls the
+// SEPARATE winner highlight/marker, never this badge's tone.
+const CANDIDATE_STATUS_TONE: Readonly<Record<OptimizationCandidateStatus, BadgeTone>> = {
+  UNRUN: "neutral",
+  RUNNING: "info",
+  COMPLETED: "neutral",
+  REJECTED: "warning",
+  CANDIDATE: "neutral",
+  VALIDATED: "gold",
+  FAILED: "danger",
+};
+
 // A.4-T4 lock - the wire union's own doc comment (types/optimization.ts)
 // spells out why this can't reuse formatPrice()/formatPercent()
 // (lib/financial-format.ts): both take a plain `number`, and profit
@@ -96,6 +149,59 @@ function formatOptimizationProfitFactor(value: OptimizationProfitFactor): string
   if (value === "Infinity") return "∞";
   if (value === null) return "—";
   return value.toFixed(2);
+}
+
+// A.4-T5 lock - the one winner-integrity check, shared by BOTH the T4
+// Best Candidate card and the T5 candidate table so the two surfaces can
+// never disagree (one saying "here is the winner" while the other says
+// "cannot verify the winner"). A winner is presented ONLY when the row
+// `view.bestCandidateId` points at genuinely carries `status ===
+// "VALIDATED"`. `winnerMismatch` is true whenever that is not the case -
+// including when bestCandidateId points at no row at all, or at a
+// non-VALIDATED row, or when a VALIDATED row exists under a different id,
+// or when a VALIDATED row exists but bestCandidateId is null. On a
+// mismatch: the Best Candidate card is suppressed, no table row gets the
+// winner marker, and the table's own inconsistency warning becomes the
+// single authoritative signal. Never infers which side is "right"; never
+// touches finalizeIfComplete() or any server-side selection - this is
+// purely the presentation boundary the T5 integrity contract implies.
+function computeWinnerIntegrity(detail: OptimizationExperimentDetailView, bestCandidateId: string | null | undefined): { winnerMismatch: boolean; confirmedWinnerId: string | null } {
+  const validatedRow = detail.candidates.find((c) => c.status === "VALIDATED");
+  const normalizedBestId = bestCandidateId ?? null;
+  const winnerMismatch = (validatedRow?.id ?? null) !== normalizedBestId;
+  return { winnerMismatch, confirmedWinnerId: winnerMismatch ? null : normalizedBestId };
+}
+
+// A.4-T5 lock - one candidate table row. A plain module-level component
+// (no closure over page state - every value it needs arrives as a prop)
+// so the parent's own renderCandidateEvidence() stays a thin loop, not a
+// growing inline JSX block. The status badge's tone/text is always the
+// candidate's own real `status` (passive rendering, per the locked "never
+// presents a computed opinion" rule) - `isConfirmedWinner` (already
+// resolved by the caller's own integrity check) only ever ADDS a small
+// separate winner marker + row tint, it never changes the badge itself.
+function CandidateRow({ candidate, sweptParameterIds, minEligibleTrades, isConfirmedWinner }: { candidate: OptimizationCandidateView; sweptParameterIds: readonly string[]; minEligibleTrades: number; isConfirmedWinner: boolean }) {
+  const note = candidate.status === "REJECTED" ? `Below the ${minEligibleTrades}-trade minimum` : candidate.status === "FAILED" && candidate.errorMessage ? candidate.errorMessage : "—";
+  return (
+    <Tr className={isConfirmedWinner ? "bg-gold/5" : undefined}>
+      <Td>
+        <span className="inline-flex items-center gap-2">
+          <Badge tone={CANDIDATE_STATUS_TONE[candidate.status]}>{candidate.status}</Badge>
+          {isConfirmedWinner && (
+            <span className="text-xs font-semibold text-gold" title="Server-designated winner">
+              ★ Winner
+            </span>
+          )}
+        </span>
+      </Td>
+      {sweptParameterIds.map((parameterId) => (
+        <Td key={parameterId}>{String(candidate.parameterValues[parameterId] ?? "—")}</Td>
+      ))}
+      <Td>{formatOptimizationProfitFactor(candidate.profitFactor)}</Td>
+      <Td>{candidate.tradeCount ?? "—"}</Td>
+      <Td>{note}</Td>
+    </Tr>
+  );
 }
 
 export default function AlgoTestOptimizeMonitorPage() {
@@ -152,11 +258,13 @@ export default function AlgoTestOptimizeMonitorPage() {
     setView(result);
   }, []);
 
-  // A.4-T4 lock - fires exactly once (guarded by winnerFetchStartedRef),
-  // only once a winner actually exists to look up (a null bestCandidateId
-  // - the "all candidates rejected" edge state - never triggers this: the
-  // COMPLETED render branch below reads view.minEligibleTrades directly,
-  // no fetch required). Also usable as a manual Retry.
+  // A.4-T5 lock - fires exactly once per terminal transition (guarded by
+  // winnerFetchStartedRef), broadened from T4's own "COMPLETED with a
+  // winner" to ANY terminal status - COMPLETED (winner or not), FAILED,
+  // and CANCELLED all get real candidate evidence now. Still one fetch;
+  // the same response feeds both the winner card (COMPLETED branch) and
+  // the candidate table (every terminal branch). Also usable as a manual
+  // Retry.
   const winnerFetchStartedRef = useRef(false);
   const loadWinnerDetail = useCallback(() => {
     setWinnerDetail(null);
@@ -167,7 +275,8 @@ export default function AlgoTestOptimizeMonitorPage() {
     });
     // Reuses the same registry endpoint the create-experiment/run pages
     // already fetch (fetchAlgoTestStrategies() - P3.3/P3.4) purely for
-    // this strategy's parameter LABELS - no new backend surface.
+    // parameter LABELS (the winner card's full set, and the candidate
+    // table's swept-only columns) - no new backend surface.
     fetchAlgoTestStrategies().then((strategies) => {
       if (cancelledRef.current) return;
       setStrategyDef(strategies.find((s) => s.strategyId === view?.strategyId));
@@ -175,7 +284,7 @@ export default function AlgoTestOptimizeMonitorPage() {
   }, [experimentId, view?.strategyId]);
 
   useEffect(() => {
-    if (!view || view.status !== "COMPLETED" || !view.bestCandidateId) return;
+    if (!view || !isTerminalStatus(view.status)) return;
     if (winnerFetchStartedRef.current) return;
     winnerFetchStartedRef.current = true;
     loadWinnerDetail();
@@ -304,6 +413,95 @@ export default function AlgoTestOptimizeMonitorPage() {
     return strategyDef?.parameters.find((p) => p.id === parameterId)?.label ?? parameterId;
   }
 
+  // A.4-T5 lock - the one candidate-evidence renderer, shared by every
+  // terminal branch (COMPLETED/FAILED/CANCELLED) below - never a second
+  // copy. Mirrors winnerDetail's own null/undefined/object states exactly
+  // (pending skeleton / failed-with-Retry / real table) so every terminal
+  // branch gets the same honest loading/error behavior the winner card
+  // already has, not just COMPLETED.
+  function renderCandidateEvidence(view: OptimizationExperimentView) {
+    if (winnerDetail === null) {
+      return (
+        <div className="mt-4 space-y-2">
+          <Skeleton className="h-5 w-1/3" />
+          <Skeleton className="h-32 w-full" />
+        </div>
+      );
+    }
+    if (winnerDetail === undefined) {
+      return (
+        <div className="mt-3">
+          <Alert tone="danger" title="Could not load candidate results">
+            <p>The optimization finished, but its candidate results could not be loaded.</p>
+            <div className="mt-3">
+              <Button variant="danger" size="sm" onClick={loadWinnerDetail}>
+                Retry
+              </Button>
+            </div>
+          </Alert>
+        </div>
+      );
+    }
+
+    const candidates = winnerDetail.candidates;
+    // Defensive only - computeTotalCandidates() never resolves to 0 (an
+    // empty searchSpace still yields the single degenerate candidate), so
+    // this is not a real product state, just a guard against ever
+    // assuming that invariant holds forever.
+    if (candidates.length === 0) return null;
+
+    // A.4-T5 lock - swept parameters ONLY (experiment.searchSpace), never
+    // the full resolved parameterValues set (that stays the winner card's
+    // own job) - showing every declared-but-unswept parameter as a column
+    // would repeat the same constant value on every one of up to 256 rows.
+    const sweptParameterIds = winnerDetail.searchSpace.map((range) => range.parameterId);
+
+    // A.4-T5 lock - the winner-integrity check (shared with the Best
+    // Candidate card above via computeWinnerIntegrity()). A row is the
+    // CONFIRMED winner only when its own real status is VALIDATED AND its
+    // id matches view.bestCandidateId. Structurally these always agree
+    // (finalizeIfComplete()'s own transactional invariant), but that is
+    // never assumed to hold forever: a disagreement renders as a
+    // defensive warning here, the Best Candidate card is suppressed, and
+    // no row is highlighted - never a silently guessed resolution.
+    const { winnerMismatch, confirmedWinnerId } = computeWinnerIntegrity(winnerDetail, view.bestCandidateId);
+
+    return (
+      <div className="mt-4 border-t border-border pt-4">
+        <p className={FIN_LABEL}>Candidates</p>
+
+        {winnerMismatch && (
+          <div className="mt-2">
+            <Alert tone="warning" title="Winner data inconsistency detected">
+              <p>The server-designated winner does not match the candidate marked VALIDATED. No candidate is shown as the winner until this is resolved.</p>
+            </Alert>
+          </div>
+        )}
+
+        <div className="mt-2">
+          <Table>
+            <Thead>
+              <Tr>
+                <Th>Status</Th>
+                {sweptParameterIds.map((parameterId) => (
+                  <Th key={parameterId}>{parameterLabel(parameterId)}</Th>
+                ))}
+                <Th>Profit Factor</Th>
+                <Th>Trades</Th>
+                <Th>Notes</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {candidates.map((candidate) => (
+                <CandidateRow key={candidate.id} candidate={candidate} sweptParameterIds={sweptParameterIds} minEligibleTrades={view.minEligibleTrades} isConfirmedWinner={candidate.id === confirmedWinnerId} />
+              ))}
+            </Tbody>
+          </Table>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <Link href="/dashboard/algo-test-optimize" className="text-xs text-text-3 hover:text-gold">
@@ -368,6 +566,7 @@ export default function AlgoTestOptimizeMonitorPage() {
               <p className="text-sm text-text-2">
                 Cancelled — {view.processedCandidates}/{view.totalCandidates} candidates processed before cancellation.
               </p>
+              {renderCandidateEvidence(view)}
             </div>
           ) : view.status === "COMPLETED" ? (
             <div className="rounded-card border border-border bg-ink-2 p-5">
@@ -388,28 +587,24 @@ export default function AlgoTestOptimizeMonitorPage() {
                   <Skeleton className="h-20 w-full" />
                 </div>
               ) : winnerDetail === undefined ? (
-                <div className="mt-3">
-                  <Alert tone="danger" title="Could not load the best candidate">
-                    <p>The optimization finished, but its results could not be loaded.</p>
-                    <div className="mt-3">
-                      <Button variant="danger" size="sm" onClick={loadWinnerDetail}>
-                        Retry
-                      </Button>
-                    </div>
-                  </Alert>
-                </div>
+                // A.4-T5 - the fetch failure itself is now reported once,
+                // by renderCandidateEvidence() below (the SAME fetch, the
+                // SAME Retry action) - no duplicate Alert here.
+                null
               ) : (
                 (() => {
+                  // A.4-T5 lock - the Best Candidate card is gated on the
+                  // SAME winner-integrity check the candidate table uses.
+                  // On any mismatch (bestCandidateId points at no row, a
+                  // non-VALIDATED row, or a different id than the VALIDATED
+                  // row) the card is suppressed entirely - the table's own
+                  // "Winner data inconsistency detected" warning below is
+                  // then the single authoritative signal, and the UI never
+                  // simultaneously claims "this is the winner" and "we
+                  // cannot verify the winner".
+                  const { winnerMismatch } = computeWinnerIntegrity(winnerDetail, view.bestCandidateId);
                   const winner = winnerDetail.candidates.find((c) => c.id === view.bestCandidateId);
-                  if (!winner) {
-                    return (
-                      <div className="mt-3">
-                        <Alert tone="danger" title="Could not load the best candidate">
-                          <p>The optimization finished, but the best candidate&apos;s details could not be found.</p>
-                        </Alert>
-                      </div>
-                    );
-                  }
+                  if (winnerMismatch || !winner) return null;
                   const parameterEntries = Object.entries(winner.parameterValues);
                   return (
                     <div className="mt-4 border-t border-border pt-4">
@@ -454,13 +649,19 @@ export default function AlgoTestOptimizeMonitorPage() {
                   );
                 })()
               )}
+              {/* A.4-T5 lock - the candidate table renders regardless of the
+                  branch above (winner, no-winner, still-loading, or
+                  failed-to-load) - it is driven by the same winnerDetail
+                  fetch but is otherwise independent of the winner card. */}
+              {renderCandidateEvidence(view)}
             </div>
           ) : (
             <div className="rounded-card border border-border bg-ink-2 p-5">
               <p className="text-sm text-text-2">
-                This experiment finished — {view.processedCandidates}/{view.totalCandidates} candidates processed. Detailed results are not yet available in this build.
+                This experiment finished — {view.processedCandidates}/{view.totalCandidates} candidates processed.
               </p>
               {view.status === "FAILED" && view.errorMessage && <p className="mt-2 text-sm text-danger">{view.errorMessage}</p>}
+              {renderCandidateEvidence(view)}
             </div>
           )}
 
