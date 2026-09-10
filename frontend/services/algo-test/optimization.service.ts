@@ -373,7 +373,19 @@ export const optimizationService = {
   async getOptimizationExperiment(userId: string, experimentId: string): Promise<OptimizationExperimentDetailView | null> {
     const row = await prisma.optimizationExperiment.findFirst({ where: { id: experimentId, userId } });
     if (!row) return null;
-    const candidates = await prisma.optimizationCandidate.findMany({ where: { experimentId }, orderBy: { createdAt: "asc" } });
+    // P4.9-A.4-T5 lock - candidateHash added as a deterministic secondary
+    // sort key. All of one experiment's candidate rows are created inside
+    // the SAME transaction as the experiment itself (TX1, one createMany
+    // call) - Postgres's now() (what @default(now()) compiles to) is fixed
+    // for the whole transaction, so every row's createdAt is very likely
+    // identical, leaving createdAt-only ordering with no real tiebreak.
+    // candidateHash is already the canonical deterministic candidate
+    // identity (computeCanonicalHash({experimentId, parameterValues}) -
+    // the exact same field finalizeIfComplete()'s own winner-selection
+    // tiebreak already uses) - reusing it here is presentation ordering
+    // ONLY, structurally separate from and with zero effect on that
+    // winner-selection query or its own tiebreak.
+    const candidates = await prisma.optimizationCandidate.findMany({ where: { experimentId }, orderBy: [{ createdAt: "asc" }, { candidateHash: "asc" }] });
     return {
       ...toExperimentView(row),
       searchSpace: row.searchSpace as unknown as OptimizationParameterRange[],
