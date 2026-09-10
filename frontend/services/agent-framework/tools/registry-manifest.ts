@@ -15,11 +15,15 @@ import { backtestRunTool } from "./impl/backtest-run.tool";
 import { portfolioReadTool } from "./impl/portfolio-read.tool";
 import { researchKnowledgeSearchTool } from "./impl/research-knowledge-search.tool";
 import { newsSearchTool } from "./impl/news-search.tool";
+import { supportKnowledgeSearchTool } from "./impl/support-knowledge-search.tool";
+import { supportAccountReadTool } from "./impl/support-account-read.tool";
 
 /** Build a fresh, frozen registry with every tool that has a real callable
  *  implementation. A11 adds the research.knowledge_search + news.search
  *  adapters (over the EXISTING Knowledge/RAG stack + AlphaVantageNewsProvider).
- *  Callable in a test/harness without side effects. */
+ *  CS1 adds the support.knowledge_search + support.account_read adapters
+ *  (over the SAME pgvector stack, platform-corpus-scoped, + read-only billing
+ *  tables). Callable in a test/harness without side effects. */
 export function buildToolRegistry(): ToolRegistry {
   return new ToolRegistry()
     .register(marketSnapshotTool)
@@ -28,6 +32,8 @@ export function buildToolRegistry(): ToolRegistry {
     .register(portfolioReadTool)
     .register(researchKnowledgeSearchTool)
     .register(newsSearchTool)
+    .register(supportKnowledgeSearchTool)
+    .register(supportAccountReadTool)
     .freeze();
 }
 
@@ -38,4 +44,5 @@ export const toolRegistry = buildToolRegistry();
 export const A2_TOOL_IDS = ["backtest.run", "market.intelligence", "market.snapshot", "portfolio.read"] as const;
 export const REGISTERED_TOOL_IDS = [
   "backtest.run", "market.intelligence", "market.snapshot", "news.search", "portfolio.read", "research.knowledge_search",
+  "support.account_read", "support.knowledge_search",
 ] as const;

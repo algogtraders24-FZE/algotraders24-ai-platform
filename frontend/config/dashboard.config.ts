@@ -192,6 +192,13 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
   {
     label: "ACCOUNT",
     items: [
+      // Sprint CS1 - the Chat Support Agent console. An account-adjacent
+      // "get help" surface, deliberately NOT nested under INTELLIGENCE /
+      // "AI Agents" (that is the trading-agent framework console; the
+      // Support Agent is strictly separate - CS1.2 D1). Its own route
+      // (app/dashboard/support/page.tsx), backed by the same framework
+      // runs API with agentType SUPPORT.
+      { label: "Support", href: "/dashboard/support", icon: "SP" },
       // No credit-metering system exists yet (product decision explicitly
       // deferred this sprint). This links to a real page that states that
       // status honestly rather than a fabricated balance/usage widget.

@@ -196,7 +196,7 @@ async function main(): Promise<void> {
   // 2. Agent types validated against the registry
   // ----------------------------------------------------------------
 
-  await test("registry exposes exactly the 8 locked canonical types", () => {
+  await test("registry exposes exactly the 8 locked trading types + CS1 SUPPORT", () => {
     assert.deepEqual(
       [...AGENT_TYPES].sort(),
       [
@@ -207,6 +207,7 @@ async function main(): Promise<void> {
         "RESEARCH",
         "RISK",
         "STRATEGY_RESEARCH",
+        "SUPPORT",
         "TRADING_DECISION",
       ],
     );
@@ -268,8 +269,9 @@ async function main(): Promise<void> {
   // 3. Tool contract
   // ----------------------------------------------------------------
 
-  await test("tool categories are the 10 locked categories", () => {
+  await test("tool categories are the 12 locked categories (10 trading + CS1 SUPPORT/ACCOUNT)", () => {
     assert.deepEqual([...TOOL_CATEGORIES].sort(), [
+      "ACCOUNT",
       "BACKTEST",
       "EXECUTION",
       "INDICATORS",
@@ -280,6 +282,7 @@ async function main(): Promise<void> {
       "RESEARCH",
       "RISK_ENGINE",
       "STRATEGY_LIBRARY",
+      "SUPPORT",
     ]);
   });
 
@@ -461,8 +464,8 @@ async function main(): Promise<void> {
   // 7. Permission + autonomy contracts
   // ----------------------------------------------------------------
 
-  await test("permission keys are the 9 locked keys; live execution default is DENY", () => {
-    assert.equal(PERMISSION_KEYS.length, 9);
+  await test("permission keys are the 11 locked keys (9 trading + CS1 support); live execution default is DENY", () => {
+    assert.equal(PERMISSION_KEYS.length, 11);
     assert.equal(LIVE_EXECUTION_DEFAULT, "DENY");
     assert.deepEqual([...DANGEROUS_PERMISSIONS].sort(), ["CAN_CREATE_ORDER", "CAN_EXECUTE_ORDER"]);
   });
