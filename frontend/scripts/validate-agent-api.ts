@@ -93,15 +93,15 @@ async function main(): Promise<void> {
   // 1. agent type surface
   // ----------------------------------------------------------------
 
-  await test("runnable types: exactly the 3 agents with a real definition, with display metadata", () => {
+  await test("runnable types: exactly the 4 agents with a real definition, with display metadata", () => {
     const types = listRunnableAgentTypes();
-    assert.deepEqual(types.map((t) => t.type).sort(), ["MARKET_INTELLIGENCE", "RESEARCH", "STRATEGY_RESEARCH"]);
+    assert.deepEqual(types.map((t) => t.type).sort(), ["MARKET_INTELLIGENCE", "RESEARCH", "STRATEGY_RESEARCH", "SUPPORT"]);
     for (const t of types) {
       assert.ok(t.label && t.description && t.goalHint, `${t.type} has display metadata`);
       assert.ok(Array.isArray(t.defaultTools) && t.defaultTools.length >= 1);
       assert.equal(t.autonomyCap, 1);
     }
-    assert.deepEqual([...RUNNABLE_AGENT_TYPES].sort(), ["MARKET_INTELLIGENCE", "RESEARCH", "STRATEGY_RESEARCH"]);
+    assert.deepEqual([...RUNNABLE_AGENT_TYPES].sort(), ["MARKET_INTELLIGENCE", "RESEARCH", "STRATEGY_RESEARCH", "SUPPORT"]);
   });
 
   await test("unknown / not-yet-runnable agent types are rejected with a clear message", async () => {

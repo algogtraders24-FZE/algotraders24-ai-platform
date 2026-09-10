@@ -27,7 +27,11 @@ export type AgentType =
   | "RISK"
   | "NEWS_EVENT"
   | "TRADING_DECISION"
-  | "PORTFOLIO";
+  | "PORTFOLIO"
+  // CS1 (Chat Support Agent). NOT one of the 8 trading-capability types -
+  // a customer-support specialisation of the same runtime. Read-only,
+  // escalate-to-human, strictly separate from the main AI Assistant.
+  | "SUPPORT";
 
 export interface AgentTypeSpec {
   key: AgentType;
@@ -115,6 +119,17 @@ export const AGENT_TYPE_REGISTRY: Readonly<Record<AgentType, AgentTypeSpec>> = O
     defaultPermissions: ["CAN_READ_PORTFOLIO", "CAN_USE_MEMORY"],
     autonomyCap: 1,
   },
+  SUPPORT: {
+    key: "SUPPORT",
+    label: "Support Assistant",
+    description:
+      "Answers a platform / product / billing / licensing support question strictly from the platform-owned " +
+      "support knowledge base and (for account questions) the requester's own record status, then either " +
+      "cites the answer or hands off to a human. Read-only; never a trade or an account change.",
+    defaultTools: ["support.knowledge_search", "support.account_read"],
+    defaultPermissions: ["CAN_RUN_SUPPORT", "CAN_READ_ACCOUNT_RECORDS"],
+    autonomyCap: 1,
+  },
 });
 
 export const AGENT_TYPES: readonly AgentType[] = Object.freeze(
@@ -126,7 +141,9 @@ export const AGENT_TYPES: readonly AgentType[] = Object.freeze(
  * data in data/mock-agents.ts use an older vocabulary. These are mapped to
  * the canonical keys - the DB rows are never rewritten. A legacy type with
  * no framework equivalent (seo-writer, customer-support) intentionally has
- * no mapping: those agents stay on the frozen legacy layer.
+ * no mapping: those agents stay on the frozen legacy layer. The CS1 `SUPPORT`
+ * type is a NEW, purpose-built agent - deliberately NOT wired to the legacy
+ * `customer-support` mock, and never inherits its behaviour.
  */
 export const LEGACY_AGENT_TYPE_ALIASES: Readonly<Record<string, AgentType>> = Object.freeze({
   "market-analyst": "MARKET_INTELLIGENCE",

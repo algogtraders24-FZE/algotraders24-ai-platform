@@ -117,6 +117,8 @@
     "validate:agent-research": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-research.ts",
     "validate:agent-market-intelligence": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-market-intelligence.ts",
     "validate:agent-strategy-research": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-strategy-research.ts",
+    "validate:agent-support": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-support.ts",
+    "seed:support-kb": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/seed-support-kb.ts",
     "validate:agent-hardening": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-hardening.ts",
     "validate:agent-api": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-api.ts",
     "validate:agent-parallel": "node scripts/validate-agent-parallel.mjs",

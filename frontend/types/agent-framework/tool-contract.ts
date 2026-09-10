@@ -44,7 +44,12 @@ export type ToolCategory =
   | "BACKTEST"
   | "RISK_ENGINE"
   | "PORTFOLIO"
-  | "EXECUTION";
+  | "EXECUTION"
+  // CS1 (Support Agent). SUPPORT = a read of the platform-owned support
+  // corpus; ACCOUNT = a status-only read of the requesting user's own
+  // subscription / entitlement / purchase / license records.
+  | "SUPPORT"
+  | "ACCOUNT";
 
 export const TOOL_CATEGORIES: readonly ToolCategory[] = [
   "MARKET_DATA",
@@ -57,6 +62,8 @@ export const TOOL_CATEGORIES: readonly ToolCategory[] = [
   "RISK_ENGINE",
   "PORTFOLIO",
   "EXECUTION",
+  "SUPPORT",
+  "ACCOUNT",
 ] as const;
 
 export type ToolStatus = "active" | "deprecated" | "disabled";
