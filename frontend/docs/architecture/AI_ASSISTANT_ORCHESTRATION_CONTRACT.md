@@ -492,7 +492,17 @@ knowledge → `AT24_KNOWLEDGE`, and `providerAttempts` records
 `"web-offered-declined"`. The orchestrator does **not** force a second
 search-only request in K3-C.
 
-Every branch is pinned by `validate-knowledge-loop-decision-matrix`.
+**C3 — the matrix is ONE pure ordered module, not scattered `if`s.**
+`services/knowledge-loop/orchestrator/decide-path.ts` exports:
+- `decidePreGeneration(classification, retrievalState)` → `{ route, webSearchOffered, gateReason, knowledgeCounted }` — step 1 (account-specific short-circuit) is evaluated **before** step 2 (the gate), so an account-specific question is deterministic regardless of any freshness / sufficiency signal. It **composes** `webSearchGate` (does not re-implement it).
+- `deriveSourceClass({ webUsed, knowledgeCounted })` → step 3 (never provider identity).
+- `liveFiguresGuardApplies({ freshnessNeed, webGrounded, knowledgeGrounded })` → the step-4 predicate (pure; C5 supplies the runtime inputs and applies the effect).
+
+`bestSimilarity` reaches the module as a plain number in `retrievalState` — the
+orchestrator wires `RetrievalResult.bestSimilarity` in **C5** (single
+integration point). Every branch + the ordering is pinned by
+`validate-knowledge-loop-decision-matrix` (25 assertions; a gate-first
+implementation fails it).
 
 ### 12.3 Provider fallback matrix (LOCKED — strict first-clean-wins)
 
