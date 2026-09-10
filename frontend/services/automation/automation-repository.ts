@@ -350,6 +350,23 @@ export const automationRepository = {
     });
   },
 
+  /** Create the step row, or return the existing one if (automationRunId,
+   *  index) is already taken - the dispatcher may re-enter the same run
+   *  (resume / concurrent catch-up) and must never double-insert. */
+  async appendStepRunIfAbsent(input: AppendStepRunInput) {
+    try {
+      return await this.appendStepRun(input);
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        const existing = await prisma.automationStepRun.findUnique({
+          where: { automationRunId_index: { automationRunId: input.automationRunId, index: input.index } },
+        });
+        if (existing) return existing;
+      }
+      throw err;
+    }
+  },
+
   async patchStepRun(id: string, patch: PatchStepRunInput) {
     return prisma.automationStepRun.update({
       where: { id },

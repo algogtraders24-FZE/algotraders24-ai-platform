@@ -1,26 +1,25 @@
--- AT24 Automation (MVP) - orchestration layer over the Agent Framework.
--- LOCKED: AUTOMATION_DECISION_LOCK.md (owner 2026-09-10).
+-- AT24 Automation (MVP) - MIGRATION A (additive-first, owner-authorized
+-- 2026-09-10). LOCKED: AUTOMATION_DECISION_LOCK.md.
 --
--- This migration is HAND-WRITTEN (not `prisma migrate dev` output): the live
--- database carries a pgvector `KnowledgeChunk.embedding` column + HNSW index
--- and other raw-SQL-managed objects that the Prisma datamodel does not model.
--- A generated diff wants to DROP them - this migration deliberately touches
--- ONLY the automation delta and leaves every pre-existing object intact.
+-- ADDITIVE ONLY. This migration:
+--   * creates the 8 automation enums + 5 automation tables + indexes + FKs
+--   * copies each existing Sprint-14E `workflows` row into an `automations`
+--     row + one v1 DRAFT `automation_definition_versions` row, preserving the
+--     original steps verbatim under definition.metadata.legacySteps
+--   * DOES NOT drop, alter or rename ANY pre-existing object - the legacy
+--     `workflows` / `workflow_runs` / `workflow_queue_items` tables + their
+--     enums and the legacy Sprint-14D `Automation` table are left fully
+--     intact, as is the pgvector `KnowledgeChunk.embedding` column and all
+--     unrelated production data.
 --
--- Applied with `prisma migrate deploy` at an explicit Migration Gate with
--- owner authorization - NEVER `prisma migrate dev` (pgvector reset trap).
+-- The legacy-model RETIREMENT (DROP TABLE workflows/... + DROP the retired
+-- enums + DROP the 14D `Automation` table) is a SEPARATE migration
+-- ("Migration B") that is NOT part of this deploy and NOT yet authorized.
+-- Its gate: Migration A -> DB/security validation -> production smoke ->
+-- observation -> explicit Migration B authorization.
 --
--- Contents:
---   1. New enums (8) + tables (5) + indexes + FKs.
---   2. Data migration: each Sprint-14E `workflows` row -> an `automations`
---      row + a v1 `automation_definition_versions` row. The old
---      `{id,actionId,label}` step shape does NOT map to the new step kinds,
---      so migrated rows are DRAFT with an empty step list and the original
---      steps preserved under definition.metadata.legacySteps for audit
---      (AUTOMATION_GAP_REPORT.md G1.6 - never dropped silently).
---   3. Drop the Sprint-14D `Automation` table and the Sprint-14E
---      `workflows` / `workflow_runs` / `workflow_queue_items` tables + their
---      3 enums.
+-- HAND-WRITTEN (not `prisma migrate dev` output - the pgvector column would
+-- be dropped by a generated diff). Applied with `prisma migrate deploy`.
 
 -- ============================================================================
 -- 1. ENUMS
@@ -190,14 +189,7 @@ BEGIN
 END $$;
 
 -- ============================================================================
--- 4. DROP the superseded 14D / 14E objects
+-- Legacy-model retirement is Migration B (a separate, NOT-yet-authorized
+-- migration). This migration intentionally ends here: no DROP, no ALTER, no
+-- RENAME of any pre-existing object.
 -- ============================================================================
-ALTER TABLE IF EXISTS "workflow_queue_items" DROP CONSTRAINT IF EXISTS "workflow_queue_items_workflowId_fkey";
-ALTER TABLE IF EXISTS "workflow_runs" DROP CONSTRAINT IF EXISTS "workflow_runs_workflowId_fkey";
-DROP TABLE IF EXISTS "workflow_queue_items";
-DROP TABLE IF EXISTS "workflow_runs";
-DROP TABLE IF EXISTS "workflows";
-DROP TABLE IF EXISTS "Automation";
-DROP TYPE IF EXISTS "RunStatus";
-DROP TYPE IF EXISTS "WorkflowStatus";
-DROP TYPE IF EXISTS "WorkflowTrigger";

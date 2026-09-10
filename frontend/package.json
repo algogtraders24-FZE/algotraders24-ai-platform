@@ -138,7 +138,9 @@
     "validate:automation-workflow-validation": "tsx scripts/validate-automation-workflow-validation.ts",
     "validate:automation-condition-eval": "tsx scripts/validate-automation-condition-eval.ts",
     "validate:automation-scheduler": "tsx scripts/validate-automation-scheduler.ts",
-    "validate:automation": "npm run validate:automation-workflow-validation && npm run validate:automation-condition-eval && npm run validate:automation-scheduler",
+    "validate:automation-lifecycle": "node --env-file=.env --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/validate-automation-lifecycle.ts",
+    "validate:automation-security": "node --env-file=.env --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/validate-automation-security.ts",
+    "validate:automation": "npm run validate:automation-workflow-validation && npm run validate:automation-condition-eval && npm run validate:automation-scheduler && npm run validate:automation-lifecycle && npm run validate:automation-security",
     "vendor:quant-engine": "node scripts/vendor-quant-engine.mjs"
   },
   "dependencies": {

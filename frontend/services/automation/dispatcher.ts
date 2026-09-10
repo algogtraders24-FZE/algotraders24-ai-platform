@@ -97,13 +97,12 @@ export async function dispatchAutomationRun(automationRunId: string): Promise<vo
     // cancellation check between steps
     const cancelCheck = await automationRepository.getRun(automationRunId);
     if (cancelCheck?.cancelRequestedAt) {
-      if (!prior) await automationRepository.appendStepRun({ automationRunId, stepId: step.id, index, kind: step.kind });
-      await skipRemaining(automationRunId, def.steps, index, existing, "run cancelled by owner");
+      await skipRemaining(automationRunId, def.steps, index, "run cancelled by owner");
       await finalize(automationRunId, "CANCELLED", null, totalCredits, lastOutputRef, ctx);
       return;
     }
 
-    const stepRun = prior ?? (await automationRepository.appendStepRun({ automationRunId, stepId: step.id, index, kind: step.kind }));
+    const stepRun = prior ?? (await automationRepository.appendStepRunIfAbsent({ automationRunId, stepId: step.id, index, kind: step.kind }));
     const stepStart = Date.now();
     await automationRepository.patchStepRun(stepRun.id, { status: "RUNNING", startedAt: new Date(stepStart) });
 
@@ -122,7 +121,7 @@ export async function dispatchAutomationRun(automationRunId: string): Promise<vo
           completedAt: new Date(),
           durationMs: Date.now() - stepStart,
         });
-        await skipRemaining(automationRunId, def.steps, index + 1, existing, `condition ${step.id} halted the run`);
+        await skipRemaining(automationRunId, def.steps, index + 1, `condition ${step.id} halted the run`);
         await finalize(automationRunId, "CONDITION_HALTED", null, totalCredits, lastOutputRef, ctx);
         return;
       }
@@ -159,7 +158,7 @@ export async function dispatchAutomationRun(automationRunId: string): Promise<vo
         creditsUsed: (err as { creditsUsed?: number })?.creditsUsed ?? 0,
       });
       totalCredits += (err as { creditsUsed?: number })?.creditsUsed ?? 0;
-      await skipRemaining(automationRunId, def.steps, index + 1, existing, `prior step ${step.id} failed`);
+      await skipRemaining(automationRunId, def.steps, index + 1, `prior step ${step.id} failed`);
       await finalize(automationRunId, runStatus, { ...e, failedStepId: step.id }, totalCredits, lastOutputRef, ctx);
       return;
     }
@@ -318,17 +317,21 @@ async function skipRemaining(
   automationRunId: string,
   steps: AutomationStep[],
   fromIndex: number,
-  existing: Awaited<ReturnType<typeof automationRepository.stepRunsForRun>>,
   reason: string,
 ): Promise<void> {
+  // Re-query rather than trusting a caller-held snapshot - within one
+  // dispatch invocation earlier iterations have already created step rows.
+  const current = await automationRepository.stepRunsForRun(automationRunId);
+  const byIndex = new Map(current.map((s) => [s.index, s]));
   for (let i = fromIndex; i < steps.length; i++) {
-    const prior = existing.find((s) => s.index === i);
-    const row = prior ?? (await automationRepository.appendStepRun({
-      automationRunId,
-      stepId: steps[i].id,
-      index: i,
-      kind: steps[i].kind,
-    }));
+    const row =
+      byIndex.get(i) ??
+      (await automationRepository.appendStepRunIfAbsent({
+        automationRunId,
+        stepId: steps[i].id,
+        index: i,
+        kind: steps[i].kind,
+      }));
     if (row.status === "OK" || row.status === "FAILED") continue;
     await automationRepository.patchStepRun(row.id, { status: "SKIPPED", reason, completedAt: new Date() });
   }
