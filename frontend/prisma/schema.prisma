@@ -884,38 +884,38 @@ model IntelligenceAuditTrace {
 // tag was assigned, since "why was this shown to me" matters once this is
 // user-facing.
 model NewsArticle {
-  id                String    @id @default(cuid())
+  id                String  @id @default(cuid())
   provider          String
   providerArticleId String?
-  dedupeKey         String    @unique
+  dedupeKey         String  @unique
 
-  headline          String
-  summary           String?
-  url               String?
-  sourceName        String?
+  headline   String
+  summary    String?
+  url        String?
+  sourceName String?
 
-  publishedAt       DateTime?
-  fetchedAt         DateTime  @default(now())
+  publishedAt DateTime?
+  fetchedAt   DateTime  @default(now())
 
   // Provider-native output, stored as-is - never AT24's own classification.
-  sentimentScore    Float?
-  sentimentLabel    String?
-  relevanceByAsset  Json?
+  sentimentScore   Float?
+  sentimentLabel   String?
+  relevanceByAsset Json?
 
   // AT24-derived, explicitly separate from the above:
-  category          String?
-  impactLevel       String?
-  assetTags         String[] @default([])
-  tagProvenance     Json?
+  category      String?
+  impactLevel   String?
+  assetTags     String[] @default([])
+  tagProvenance Json?
 
-  processingStatus  NewsProcessingStatus @default(pending)
-  errorState        String?
+  processingStatus NewsProcessingStatus @default(pending)
+  errorState       String?
 
-  rawPayload        Json?
+  rawPayload Json?
 
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  deletedAt         DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   @@index([provider])
   @@index([publishedAt])
@@ -1406,30 +1406,30 @@ model Strategy {
 // at24-quant-engine's own src/reference/golden-strategy.ts, single
 // source of truth, never duplicated into the DB.
 model AlgoTestRun {
-  id             String    @id @default(cuid())
-  userId         String
-  strategyId     String
+  id                    String                 @id @default(cuid())
+  userId                String
+  strategyId            String
   // P3.3 - the exact registered version of `strategyId` this run was
   // executed against (services/algo-test/strategy-registry.ts), so a
   // historical row stays identifiable even if the registry later adds a
   // newer version of the same strategyId. Nullable: rows created before
   // P3.3 (strategyId "golden" only, single version in existence at the
   // time) genuinely predate this field - never backfilled with a guess.
-  strategyVersion String?
-  symbol         String
-  timeframe      String
-  startTime      DateTime
-  endTime        DateTime
-  initialBalance Float
-  status         String
-  resultHash     String?
+  strategyVersion       String?
+  symbol                String
+  timeframe             String
+  startTime             DateTime
+  endTime               DateTime
+  initialBalance        Float
+  status                String
+  resultHash            String?
   // P3.3 - result-contract version (this row's own field-shape identity)
   // and the at24-quant-engine runtime version that actually produced this
   // result (SimulationResult.provenance.runtimeVersion, read verbatim -
   // never a duplicated literal). Both null for pre-P3.3 rows and for a run
   // that never reached a completed engine result.
-  resultVersion  String?
-  engineVersion  String?
+  resultVersion         String?
+  engineVersion         String?
   // P3.4 - the exact, fully-normalized parameter configuration (every
   // declared parameter present, defaults filled in) this run actually
   // executed with - an immutable snapshot of what was used, never
@@ -1437,11 +1437,11 @@ model AlgoTestRun {
   // strategy has no declared parameters AND for every pre-P3.4 row
   // (never backfilled with a guessed value - see
   // docs/P3.4-STRATEGY-PARAMETERS.md's backward-compatibility section).
-  parameters     Json?
-  metrics        Json?
-  trades         Json?
-  equityCurve    Json?
-  assumptions    Json?
+  parameters            Json?
+  metrics               Json?
+  trades                Json?
+  equityCurve           Json?
+  assumptions           Json?
   // P4.5 - Strategy & Run Identity Persistence. All three were already
   // COMPUTED on every request since P3.8/P4.3 (buildRunLifecycle /
   // toCompiledStrategyView / computeSemanticStrategyHash) but never
@@ -1463,19 +1463,19 @@ model AlgoTestRun {
   // Indexed (see @@index below) so a future run-history/library/
   // optimization feature can group or compare runs by exact strategy
   // identity without a new abstraction.
-  strategyHash     String?
+  strategyHash          String?
   // lifecycle: the full 8-stage StrategyLifecycleResult (P3.8) this run
   // reached, exactly as first computed - not re-derived from strategyId
   // after the fact (a later registry change must never alter a past
   // run's own recorded lifecycle).
-  lifecycle        Json?
+  lifecycle             Json?
   // compiledStrategy: the human-readable AlgoTestCompiledStrategyView
   // (P4.3) of the exact resolved StrategySpec this run executed.
-  compiledStrategy Json?
-  errorCode      String?
-  errorMessage   String?
-  createdAt      DateTime  @default(now())
-  completedAt    DateTime?
+  compiledStrategy      Json?
+  errorCode             String?
+  errorMessage          String?
+  createdAt             DateTime               @default(now())
+  completedAt           DateTime?
   // P4.8-T2.2 - a nullable reference to the persisted Strategy this run
   // was compiled from, wired ONLY for new AI runs going forward.
   // Deliberately `SetNull` on delete, never `Cascade` - run history is
@@ -1485,8 +1485,8 @@ model AlgoTestRun {
   // and every registry-strategy row, forever, since registry strategies
   // never get a Strategy row at all - has this genuinely NULL, never
   // backfilled or guessed.
-  strategyRefId  String?
-  strategy       Strategy? @relation(fields: [strategyRefId], references: [id], onDelete: SetNull)
+  strategyRefId         String?
+  strategy              Strategy?              @relation(fields: [strategyRefId], references: [id], onDelete: SetNull)
   // P4.9-A - a nullable reference to the OptimizationCandidate this run
   // executed on behalf of, when this run exists BECAUSE an optimization
   // chunk claimed and ran that candidate (candidates reuse this exact
@@ -1498,8 +1498,8 @@ model AlgoTestRun {
   // candidate/experiment being deleted later. `@unique` (locked P4.9-A
   // design) - at most one run per candidate, enforced at the DB level
   // rather than by application logic.
-  experimentCandidateId String?                 @unique
-  experimentCandidate   OptimizationCandidate?  @relation(fields: [experimentCandidateId], references: [id], onDelete: SetNull)
+  experimentCandidateId String?                @unique
+  experimentCandidate   OptimizationCandidate? @relation(fields: [experimentCandidateId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([userId, strategyHash])
@@ -1893,11 +1893,11 @@ model AgentEvaluation {
 // AI-parameterization phase can introduce its own separate relation;
 // P4.9-A never assumes one exists.
 model OptimizationExperiment {
-  id                  String    @id @default(cuid())
-  userId              String
+  id                   String    @id @default(cuid())
+  userId               String
   // Registry literal ("golden") - NOT a Strategy relation. Registry
   // strategies have no Strategy row.
-  strategyId          String
+  strategyId           String
   // ADDITIONAL field, explicitly required alongside the locked design
   // above: `computeSemanticStrategyHash(spec)` (already real, already
   // reused for `AlgoTestRun.strategyHash`) of the exact base StrategySpec
@@ -1908,19 +1908,19 @@ model OptimizationExperiment {
   // and incorporates this hash as one of its own inputs (A.2 concern -
   // this column only stores the value, it does not compute it).
   strategyArtifactHash String
-  symbol              String
-  timeframe           String
-  startTime           DateTime
-  endTime             DateTime
-  initialBalance      Float
-  searchSpace         Json      // OptimizationParameterRange[] - {parameterId, min, max, step}
-  objective           String    // "profitFactor" only in v1 - a real column, not hardcoded, for forward-compat
-  minEligibleTrades   Int       // locked default 20, stored per-row (never hardcoded server-side)
-  candidateCap        Int       // locked default 256, ditto
-  totalCandidates     Int       // computed once at creation from searchSpace, persisted - never recomputed differently later
-  processedCandidates Int       @default(0)
-  status              String    // QUEUED | RUNNING | COMPLETED | FAILED | CANCELLED
-  bestCandidateId     String?
+  symbol               String
+  timeframe            String
+  startTime            DateTime
+  endTime              DateTime
+  initialBalance       Float
+  searchSpace          Json // OptimizationParameterRange[] - {parameterId, min, max, step}
+  objective            String // "profitFactor" only in v1 - a real column, not hardcoded, for forward-compat
+  minEligibleTrades    Int // locked default 20, stored per-row (never hardcoded server-side)
+  candidateCap         Int // locked default 256, ditto
+  totalCandidates      Int // computed once at creation from searchSpace, persisted - never recomputed differently later
+  processedCandidates  Int       @default(0)
+  status               String // QUEUED | RUNNING | COMPLETED | FAILED | CANCELLED
+  bestCandidateId      String?
   // computeCanonicalHash(...) over the full experiment configuration AND
   // execution semantics (P4.9-A.2 lock): strategyId, strategyArtifactHash,
   // searchSpace, objective, minEligibleTrades, candidateCap, symbol,
@@ -1931,17 +1931,17 @@ model OptimizationExperiment {
   // this is "under exactly what conditions" - the stronger reproducibility
   // boundary. A.2 computes this once at creation; this column only stores
   // the resulting value, never recomputed later.
-  fingerprint         String
-  errorMessage        String?
-  createdAt           DateTime  @default(now())
-  completedAt         DateTime?
+  fingerprint          String
+  errorMessage         String?
+  createdAt            DateTime  @default(now())
+  completedAt          DateTime?
   // P4.9-A.2 - set only on the RUNNING/QUEUED -> CANCELLED transition
   // (cancelOptimizationExperiment(), an atomic conditional updateMany).
   // Deliberately NOT reusing `completedAt` for this - "this experiment
   // reached COMPLETED" and "this experiment was CANCELLED" are genuinely
   // different facts, kept in their own columns rather than one timestamp
   // whose meaning would depend on reading `status` alongside it.
-  cancelledAt         DateTime?
+  cancelledAt          DateTime?
 
   candidates OptimizationCandidate[]
 
@@ -1958,25 +1958,184 @@ model OptimizationExperiment {
 // the `@@unique([experimentId, candidateHash])` constraint below, rather
 // than ever creating a duplicate.
 model OptimizationCandidate {
-  id              String    @id @default(cuid())
+  id              String                 @id @default(cuid())
   experimentId    String
   experiment      OptimizationExperiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
   candidateHash   String
   parameterValues Json
-  status          String    // UNRUN | RUNNING | COMPLETED | REJECTED | CANDIDATE | VALIDATED
+  status          String // UNRUN | RUNNING | COMPLETED | REJECTED | CANDIDATE | VALIDATED
   tradeCount      Int?
   // See the Infinity note in docs/P4.9-OPTIMIZATION-WFO.md - this column
   // stores a real IEEE-754 double (Postgres handles Infinity natively);
   // the WIRE contract does not (P4.9-A.3 concern).
   profitFactor    Float?
   errorMessage    String?
-  createdAt       DateTime  @default(now())
+  createdAt       DateTime               @default(now())
   completedAt     DateTime?
 
   run AlgoTestRun?
 
   @@unique([experimentId, candidateHash])
   @@index([experimentId, status])
+}
+
+// ── P4.9-B-R1/R2 (docs/P4.9-OPTIMIZATION-WFO.md, locked design, zero
+// reinterpretation - this is a verbatim transcription of the locked
+// contract, not a new design pass) - Walk-Forward Optimization
+// persistence. Three tables, one more level of nesting than P4.9-A's own
+// OptimizationExperiment/OptimizationCandidate pair: a WalkForwardFold
+// sits between the experiment and its candidates, since WFO's whole point
+// is that EACH rolling window gets its own independent in-sample
+// optimization sweep, then exactly one out-of-sample validation run of
+// that fold's own winner - never one flat candidate list across the whole
+// experiment.
+//
+// The single most consequential structural fact in this schema: there is
+// NO experiment-level winner/bestCandidateId field anywhere below. This
+// is deliberate, not an oversight - the locked contract's core finding is
+// that different folds are allowed to select different parameter sets,
+// so WFO reports a process-level verdict (did re-optimization generalize
+// out-of-sample), never a single "winning" parameter combination. Only
+// WalkForwardFold.winnerCandidateId exists, scoped to its own fold.
+model WalkForwardExperiment {
+  id                   String    @id @default(cuid())
+  userId               String
+  // Registry literal ("golden") - same convention as OptimizationExperiment.
+  strategyId           String
+  strategyArtifactHash String
+  symbol               String
+  timeframe            String
+  startTime            DateTime
+  endTime              DateTime
+  initialBalance       Float
+  // OptimizationParameterRange[] - identical shape/reuse as P4.9-A's own
+  // searchSpace. Shared across every fold (the swept parameter RANGES
+  // don't change per fold, only the data window does) - this is why
+  // searchSpace lives here, not on WalkForwardFold.
+  searchSpace          Json
+  objective            String // "profitFactor" only in v1 - a real column, not hardcoded, matching OptimizationExperiment's own forward-compat reasoning
+  minEligibleTrades    Int // locked 20 - the OOS eligibility guard, stored per-row, never hardcoded server-side
+  candidateCap         Int // locked 256 - applies to EACH fold's own in-sample sweep, not a total across all folds
+  // P4.9-B-R2 locked fold-window configuration, persisted per-row (same
+  // "never hardcoded server-side" convention as minEligibleTrades/
+  // candidateCap above). Locked v1 values: 7/3/3 - measured against real
+  // market.db XAUUSD M5 data, explicitly NOT claimed optimal or reliably
+  // sufficient across arbitrary date ranges (see the R2 Measurement Gate).
+  inSampleDays         Int
+  outOfSampleDays      Int
+  stepDays             Int
+  // Computed once at creation from the locked derivation formula
+  // (totalSpanDays, inSampleDays, outOfSampleDays, stepDays) - persisted,
+  // never recomputed differently later. Same discipline
+  // OptimizationExperiment.totalCandidates already follows.
+  totalFolds           Int
+  foldsCompleted       Int       @default(0)
+  status               String // QUEUED | RUNNING | COMPLETED | FAILED | CANCELLED - same vocabulary as OptimizationExperiment
+  // P4.9-B-R2 locked - the first real consumer of at24-quant-engine's own
+  // dormant ValidationMethod enum (research-experiment.ts), which had
+  // zero consumers anywhere before this (confirmed directly in R1).
+  // Always "walk-forward" in v1; a real column, not hardcoded, for
+  // forward-compat with ValidationMethod's other values.
+  validationMethod     String    @default("walk-forward")
+  // P4.9-B-R2 locked process-level verdict. Null while non-terminal
+  // (QUEUED/RUNNING), and also null if the experiment never reaches a
+  // computable verdict at all (operational FAILED/CANCELLED - cancelling
+  // never computes a verdict, generalizing T3's own locked "no winner
+  // validation runs on cancellation" rule). "INCONCLUSIVE" is a real,
+  // named terminal verdict value here, not merely an absent one - the R2
+  // Measurement Gate found this is a common, expected outcome on
+  // ordinary real date ranges, not an edge case.
+  verdict              String? // PASSED | FAILED | INCONCLUSIVE
+  passedFoldCount      Int       @default(0)
+  conclusiveFoldCount  Int       @default(0)
+  // Same two-fingerprint reproducibility split as OptimizationExperiment
+  // (strategyArtifactHash answers "what was optimized", fingerprint
+  // answers "under exactly what conditions" and incorporates the fold
+  // configuration as one of its own inputs).
+  fingerprint          String
+  errorMessage         String?
+  createdAt            DateTime  @default(now())
+  completedAt          DateTime?
+  cancelledAt          DateTime?
+
+  folds WalkForwardFold[]
+
+  @@index([userId, createdAt])
+}
+
+// One row per rolling window. A fold is a two-phase unit of work
+// (optimize its own in-sample candidates, THEN validate that fold's own
+// winner out-of-sample exactly once) - not a candidate itself, so
+// `status` below uses its own vocabulary rather than reusing
+// OptimizationCandidateStatus.
+model WalkForwardFold {
+  id                String                @id @default(cuid())
+  experimentId      String
+  experiment        WalkForwardExperiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  // 0-based, deterministic ordering - derived once at creation from the
+  // locked fold-derivation formula (inSampleStart[i] = startTime +
+  // i*stepDays, ...), never recomputed differently later.
+  foldIndex         Int
+  inSampleStart     DateTime
+  inSampleEnd       DateTime
+  // P4.9-B-R2 locked boundary correction - proven by direct measurement,
+  // not just reasoned: fetching an in-sample window ending at instant B
+  // and an out-of-sample window starting at that SAME instant B returned
+  // the identical bar in both results. outOfSampleStart is therefore
+  // ALWAYS strictly after inSampleEnd (+ one bar interval of the
+  // experiment's own timeframe), never sharing a boundary bar. Computed
+  // once at creation, stored - never recomputed.
+  outOfSampleStart  DateTime
+  outOfSampleEnd    DateTime
+  status            String // UNRUN | OPTIMIZING | VALIDATING | COMPLETED | FAILED
+  // This fold's OWN winner - fold-scoped, set by a finalizeFoldIfComplete()
+  // of the exact same transactional shape as OptimizationExperiment's own
+  // finalizeIfComplete(). Never a reference to any experiment-level
+  // winner - no such thing exists in this schema, by design.
+  winnerCandidateId String?
+  oosProfitFactor   Float?
+  oosTradeCount     Int?
+  // P4.9-B-R2 locked three-valued outcome (never binary): PASSED requires
+  // oosTradeCount >= minEligibleTrades AND oosProfitFactor > 1; FAILED
+  // requires oosTradeCount >= minEligibleTrades AND oosProfitFactor <= 1;
+  // INCONCLUSIVE means oosTradeCount < minEligibleTrades - honestly
+  // represents "too little OOS data to judge", never conflated with a
+  // genuine strategy failure. Null until the OOS validation run completes.
+  oosOutcome        String? // PASSED | FAILED | INCONCLUSIVE
+  errorMessage      String?
+  createdAt         DateTime              @default(now())
+  completedAt       DateTime?
+
+  candidates WalkForwardCandidate[]
+
+  @@unique([experimentId, foldIndex])
+  @@index([experimentId, status])
+}
+
+// Near-identical to OptimizationCandidate, scoped to one fold's own
+// in-sample optimization sweep instead of a whole experiment - the exact
+// same claim/execute/finalize mechanism P4.9-A already built, reused
+// verbatim per fold. Deliberately NOT linked to AlgoTestRun - no
+// run-persistence/drilldown decision was made anywhere in R1/R2 (out of
+// this tier's own locked scope, not silently added here).
+model WalkForwardCandidate {
+  id              String          @id @default(cuid())
+  foldId          String
+  fold            WalkForwardFold @relation(fields: [foldId], references: [id], onDelete: Cascade)
+  // computeCanonicalHash({ foldId, parameterValues }) - the fold-scoped
+  // deterministic identity, same reasoning as OptimizationCandidate's own
+  // candidateHash (idempotent re-claiming of a retried chunk).
+  candidateHash   String
+  parameterValues Json
+  status          String // UNRUN | RUNNING | COMPLETED | REJECTED | CANDIDATE | VALIDATED
+  tradeCount      Int?
+  profitFactor    Float?
+  errorMessage    String?
+  createdAt       DateTime        @default(now())
+  completedAt     DateTime?
+
+  @@unique([foldId, candidateHash])
+  @@index([foldId, status])
 }
 
 // ── Sprint P2.2: Publishing Engine - persistence ─────────────────────────
