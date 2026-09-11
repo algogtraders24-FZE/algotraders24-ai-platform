@@ -462,6 +462,62 @@ async function main() {
     });
   }
 
+  console.log("\n=== Fold completion without a winner (P4.9-B-B.2.1 - the R1/R2-locked 'all candidates REJECTED/FAILED' edge case) ===");
+  {
+    installFakePrisma();
+    const experiment = await walkForwardService.createWalkForwardExperiment("user-1", BASE_REQUEST);
+    const detail = await walkForwardService.getWalkForwardExperiment("user-1", experiment.experimentId);
+    const fold = detail!.folds[0]!;
+    await walkForwardService.startFoldOptimizing(experiment.experimentId, fold.id);
+    const candidate = await walkForwardService.createWalkForwardCandidate(experiment.experimentId, fold.id, { candidateHash: "h1", parameterValues: { priceThreshold: 100 } });
+    await walkForwardService.claimWalkForwardCandidate(fold.id, candidate.id);
+    await walkForwardService.completeWalkForwardCandidate(fold.id, candidate.id, { status: "REJECTED", tradeCount: 3, profitFactor: 0.5, errorMessage: null });
+
+    await test("invalid - completing an OPTIMIZING fold with a PASSED/FAILED verdict is refused (no OOS run ever happened, that would be a fabricated result)", async () => {
+      await assertThrowsCode(() => walkForwardService.completeFold(experiment.experimentId, fold.id, { oosProfitFactor: 1.5, oosTradeCount: 25, oosOutcome: "PASSED" }), "INVALID_TRANSITION");
+    });
+
+    await test("invalid - completing an OPTIMIZING fold with a real OOS metric (even under INCONCLUSIVE) is refused", async () => {
+      await assertThrowsCode(() => walkForwardService.completeFold(experiment.experimentId, fold.id, { oosProfitFactor: null, oosTradeCount: 5, oosOutcome: "INCONCLUSIVE" }), "INVALID_TRANSITION");
+    });
+
+    await test("valid transition - OPTIMIZING -> COMPLETED directly, given INCONCLUSIVE + null OOS metrics, winnerCandidateId stays null, foldsCompleted increments", async () => {
+      const before = await walkForwardService.getWalkForwardExperiment("user-1", experiment.experimentId);
+      const completed = await walkForwardService.completeFold(experiment.experimentId, fold.id, { oosProfitFactor: null, oosTradeCount: null, oosOutcome: "INCONCLUSIVE" });
+      assert.equal(completed.status, "COMPLETED");
+      assert.equal(completed.oosOutcome, "INCONCLUSIVE");
+      assert.equal(completed.oosProfitFactor, null);
+      assert.equal(completed.oosTradeCount, null);
+      assert.equal(completed.winnerCandidateId, null, "no winner was ever selected - setFoldWinner() was never called on this fold");
+      const after = await walkForwardService.getWalkForwardExperiment("user-1", experiment.experimentId);
+      assert.equal(after!.foldsCompleted, before!.foldsCompleted + 1);
+    });
+
+    await test("invalid transition rejected - completing an already-terminal (COMPLETED) fold again", async () => {
+      await assertThrowsCode(() => walkForwardService.completeFold(experiment.experimentId, fold.id, { oosProfitFactor: null, oosTradeCount: null, oosOutcome: "INCONCLUSIVE" }), "INVALID_TRANSITION");
+    });
+  }
+
+  console.log("\n=== Fold completion via VALIDATING (regression - the ordinary path must still work unchanged after the B.2.1 widening) ===");
+  {
+    installFakePrisma();
+    const experiment = await walkForwardService.createWalkForwardExperiment("user-1", BASE_REQUEST);
+    const detail = await walkForwardService.getWalkForwardExperiment("user-1", experiment.experimentId);
+    const fold = detail!.folds[0]!;
+    await walkForwardService.startFoldOptimizing(experiment.experimentId, fold.id);
+    const candidate = await walkForwardService.createWalkForwardCandidate(experiment.experimentId, fold.id, { candidateHash: "h1", parameterValues: { priceThreshold: 100 } });
+    await walkForwardService.claimWalkForwardCandidate(fold.id, candidate.id);
+    await walkForwardService.completeWalkForwardCandidate(fold.id, candidate.id, { status: "CANDIDATE", tradeCount: 25, profitFactor: 1.8, errorMessage: null });
+    await walkForwardService.setFoldWinner(experiment.experimentId, fold.id, candidate.id);
+
+    await test("valid transition - VALIDATING -> COMPLETED with a real PASSED outcome still works exactly as before", async () => {
+      const completed = await walkForwardService.completeFold(experiment.experimentId, fold.id, { oosProfitFactor: 1.4, oosTradeCount: 22, oosOutcome: "PASSED" });
+      assert.equal(completed.status, "COMPLETED");
+      assert.equal(completed.oosOutcome, "PASSED");
+      assert.equal(completed.winnerCandidateId, candidate.id);
+    });
+  }
+
   console.log("\n=== Request validation ===");
   {
     installFakePrisma();
