@@ -592,21 +592,44 @@ export const walkForwardService = {
   },
 
   /**
-   * VALIDATING -> COMPLETED, given an ALREADY-COMPUTED OOS outcome. This
-   * service never runs the OOS simulation or decides PASSED/FAILED/
-   * INCONCLUSIVE itself (P4.9-B-B.3's own job) - it only persists what
-   * the caller supplies.
+   * P4.9-B-B.2.1 lock - two ways into terminal COMPLETED, both given an
+   * ALREADY-COMPUTED outcome (this service never runs the OOS simulation
+   * or decides PASSED/FAILED/INCONCLUSIVE itself - P4.9-B-B.3's own job):
+   *
+   *   VALIDATING -> COMPLETED  - the ordinary path: a winner existed,
+   *     its OOS validation run completed, a real outcome was computed.
+   *
+   *   OPTIMIZING -> COMPLETED  - the locked R2 "no eligible in-sample
+   *     winner" edge case (every candidate REJECTED/FAILED in this fold -
+   *     discovered as a genuine B.2 lifecycle gap during the B.3
+   *     reconnaissance, fixed here before B.3, never folded silently into
+   *     it). There is no candidate to validate, so no OOS run ever
+   *     happens - `winnerCandidateId` stays whatever it already is (null,
+   *     since a fold only ever gets a winner via setFoldWinner(), which
+   *     this path never went through), and the caller MUST supply
+   *     `oosOutcome: "INCONCLUSIVE"` with both OOS metrics `null` - a
+   *     PASSED/FAILED verdict or a real OOS metric without ever having
+   *     run OOS would be a fabricated result, refused below rather than
+   *     silently accepted.
    */
-  async completeFold(experimentId: string, foldId: string, result: { readonly oosProfitFactor: number | null; readonly oosTradeCount: number; readonly oosOutcome: WalkForwardOosOutcome }): Promise<WalkForwardFoldView> {
+  async completeFold(experimentId: string, foldId: string, result: { readonly oosProfitFactor: number | null; readonly oosTradeCount: number | null; readonly oosOutcome: WalkForwardOosOutcome }): Promise<WalkForwardFoldView> {
     const existing = await prisma.walkForwardFold.findFirst({ where: { id: foldId, experimentId } });
     if (!existing) throw new WalkForwardServiceError("NOT_FOUND", `Fold '${foldId}' not found under experiment '${experimentId}'.`);
+
+    if (existing.status === "OPTIMIZING" && (result.oosOutcome !== "INCONCLUSIVE" || result.oosProfitFactor !== null || result.oosTradeCount !== null)) {
+      throw new WalkForwardServiceError(
+        "INVALID_TRANSITION",
+        `Fold '${foldId}' is OPTIMIZING (no winner was ever selected, no OOS run occurred) - completing it directly requires oosOutcome:"INCONCLUSIVE" with both OOS metrics null, never a PASSED/FAILED verdict or a fabricated metric.`,
+      );
+    }
+
     await prisma.$transaction(async (tx) => {
       const foldTransition = await tx.walkForwardFold.updateMany({
-        where: { id: foldId, status: "VALIDATING" },
+        where: { id: foldId, status: { in: ["OPTIMIZING", "VALIDATING"] } },
         data: { status: "COMPLETED", completedAt: new Date(), oosProfitFactor: result.oosProfitFactor, oosTradeCount: result.oosTradeCount, oosOutcome: result.oosOutcome },
       });
       if (foldTransition.count !== 1) {
-        throw new WalkForwardServiceError("INVALID_TRANSITION", `Fold '${foldId}' is not VALIDATING (current status: ${existing.status}) - cannot complete.`);
+        throw new WalkForwardServiceError("INVALID_TRANSITION", `Fold '${foldId}' is not OPTIMIZING/VALIDATING (current status: ${existing.status}) - cannot complete.`);
       }
       await tx.walkForwardExperiment.update({ where: { id: experimentId }, data: { foldsCompleted: { increment: 1 } } });
     });
