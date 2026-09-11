@@ -23,7 +23,12 @@ import type { OptimizationProfitFactor } from "./optimization";
  * ALREADY_TERMINAL (the lifecycle-integrity codes B.2 itself owns -
  * OptimizationErrorCode never needed them because A's own service never
  * accepted externally-supplied candidate identity or exposed standalone
- * fold/candidate lifecycle operations the way B.2 must).
+ * fold/candidate lifecycle operations the way B.2 must). PROVIDER_ERROR
+ * (P4.9-B-B.3 addition) mirrors OptimizationErrorCode's own value
+ * verbatim - the identical "transient fetch failure, pause and let the
+ * client retry" signal continueOptimizationExperiment() already
+ * establishes, now needed by walk-forward-execution.service.ts's own
+ * continueWalkForwardExperiment() for the exact same reason.
  */
 export type WalkForwardErrorCode =
   | "INVALID_STRATEGY"
@@ -34,6 +39,7 @@ export type WalkForwardErrorCode =
   | "INVALID_INITIAL_BALANCE"
   | "INVALID_SEARCH_SPACE"
   | "INSUFFICIENT_SPAN_FOR_FOLDS"
+  | "PROVIDER_ERROR"
   | "NOT_FOUND"
   | "INVALID_PARENT"
   | "INVALID_TRANSITION"

@@ -173,8 +173,22 @@ export function computeTotalCandidates(searchSpace: readonly OptimizationParamet
   return searchSpace.reduce((total, range) => total * stepCountFor(range), 1);
 }
 
-/** Full Cartesian product, one entry per candidate, in `searchSpace` order - matches computeTotalCandidates() exactly. Values for unswept parameters are NOT filled in here (see fillDefaults below - reuses validateParameterValues()'s own normalization, never a second "fill defaults" implementation). */
-function expandCandidateParameterValues(searchSpace: readonly OptimizationParameterRange[]): Record<string, number>[] {
+/**
+ * Full Cartesian product, one entry per candidate, in `searchSpace` order -
+ * matches computeTotalCandidates() exactly. Values for unswept parameters
+ * are NOT filled in here (see fillDefaults below - reuses
+ * validateParameterValues()'s own normalization, never a second "fill
+ * defaults" implementation).
+ *
+ * P4.9-B-B.3 - exported (was module-private). WalkForwardParameterRange
+ * (types/walk-forward.ts) is structurally identical to
+ * OptimizationParameterRange (same parameterId/min/max/step shape, by
+ * design - P4.9-B-R2 locked reuse), so B.3's own per-fold candidate
+ * generation calls this SAME function directly rather than duplicating
+ * the Cartesian-product logic - the smallest justified visibility change,
+ * zero behavior change to this function itself.
+ */
+export function expandCandidateParameterValues(searchSpace: readonly OptimizationParameterRange[]): Record<string, number>[] {
   let combos: Record<string, number>[] = [{}];
   for (const range of searchSpace) {
     const values: number[] = [];
