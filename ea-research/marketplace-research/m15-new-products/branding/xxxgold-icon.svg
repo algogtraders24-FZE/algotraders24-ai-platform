@@ -1,0 +1,56 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19"/>
+      <stop offset="100%" stop-color="#171008"/>
+    </linearGradient>
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e7c86b"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="34%" r="46%">
+      <stop offset="0%" stop-color="#d4af37" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#d4af37" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff3d1"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="url(#bg)"/>
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="none" stroke="url(#borderGrad)" stroke-width="6"/>
+
+  <ellipse cx="256" cy="172" rx="150" ry="118" fill="url(#glow)"/>
+
+  <!-- 5 converging breakout arrows - one per module (Nova/Apex/Zenith/Pulse/Eclipse) -->
+  <g filter="url(#softGlow)">
+    <line x1="256" y1="200" x2="256" y2="90" stroke="url(#goldGrad)" stroke-width="7"/>
+    <path d="M 236 112 L 256 82 L 276 112 Z" fill="url(#goldGrad)"/>
+
+    <line x1="180" y1="210" x2="150" y2="118" stroke="url(#goldGrad)" stroke-width="6" opacity="0.9"/>
+    <path d="M 133 138 L 150 108 L 166 140 Z" fill="url(#goldGrad)" opacity="0.9"/>
+
+    <line x1="332" y1="210" x2="362" y2="118" stroke="url(#goldGrad)" stroke-width="6" opacity="0.9"/>
+    <path d="M 346 140 L 362 108 L 379 138 Z" fill="url(#goldGrad)" opacity="0.9"/>
+
+    <line x1="120" y1="240" x2="70" y2="180" stroke="#94a3b8" stroke-width="5" opacity="0.75"/>
+    <path d="M 58 195 L 70 165 L 84 193 Z" fill="#94a3b8" opacity="0.75"/>
+
+    <line x1="392" y1="240" x2="442" y2="180" stroke="#94a3b8" stroke-width="5" opacity="0.75"/>
+    <path d="M 428 193 L 442 165 L 454 195 Z" fill="#94a3b8" opacity="0.75"/>
+
+    <!-- central price node -->
+    <circle cx="256" cy="230" r="30" fill="url(#goldGrad)"/>
+    <text x="256" y="239" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="800" fill="#2c1a02">Au</text>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="256" y="352" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="800" letter-spacing="1" fill="#ffffff">XXX GOLD</text>
+  <text x="256" y="386" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="800" letter-spacing="0.5" fill="url(#borderGrad)">5-MODULE BREAKOUT SYSTEM</text>
+  <text x="256" y="418" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" letter-spacing="2" fill="#94a3b8">MULTI-STRATEGY · DASHBOARD · MT5</text>
+</svg>

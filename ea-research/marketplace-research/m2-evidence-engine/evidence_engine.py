@@ -253,24 +253,66 @@ def parse_mt5_deals_table(html_text: str) -> tuple[list[dict[str, Any]], dict[st
 
 def reconcile_deals_to_trades(deal_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """M2.1: pair each 'in' deal with its matching 'out' deal into one
-    round-trip Trade. Uses a per-symbol FIFO queue (not naive fixed-offset
-    pairing) so it stays correct even if two positions on the same symbol
-    were ever open at once; still halts loudly rather than guessing if the
-    open/close bookkeeping doesn't balance exactly."""
-    open_queues: dict[str, list[dict[str, Any]]] = {}
+    round-trip Trade.
+
+    Real fix (found processing XXXGOLD.mq5 - 5 concurrent breakout modules
+    that can each hold their own simultaneous position on the same symbol):
+    the Deals table's own ROW ORDER is not reliably chronological once
+    several positions are open at once - MT5 lists deals by order/ticket
+    sequence, and when multiple pending orders trigger close together,
+    their tickets (and thus row order) do not always match real fill-time
+    order (confirmed directly against this report's own timestamps: a
+    later row can carry an earlier real time than an earlier row). The
+    previous FIFO queue trusted row order for both the push (open) and the
+    pop (close) side, which silently mispaired entries and exits whenever
+    row order and real time order diverged - producing trades with
+    exit-before-entry (negative duration), a real, load-bearing bug, not a
+    cosmetic one.
+
+    Real fix: bucket 'in' and 'out' deals by (symbol, position direction)
+    - a 'sell out' always closes a 'buy in' (a long) and a 'buy out'
+    always closes a 'sell in' (a short), so these are kept as separate
+    FIFO lanes rather than one mixed-direction queue (a real correctness
+    gap on its own: a long's exit could otherwise be popped against a
+    still-open short's entry). Each lane is then sorted by its OWN real
+    parsed timestamp - not row order - before being paired FIFO within
+    the lane. This is the correct reconstruction whenever positions within
+    one (symbol, direction) lane close in the same order they opened;
+    disclosed limitation: an EA whose per-position exit logic can
+    genuinely produce a later-opened position closing before an
+    earlier-opened one in the SAME lane (real for XXXGOLD, since each of
+    its 5 modules manages its own independent time-stop/trailing/moon-lock
+    exit) can still occasionally mispair within a lane - the Deals table
+    format does not expose a stable per-position identifier, so this is
+    the best reconstruction available from this data, not a claim of
+    perfect trade-level attribution. Still halts loudly (never guesses) if
+    volumes don't match or open/close counts don't balance."""
+    lanes: dict[tuple[str, str], dict[str, list[dict[str, Any]]]] = {}
+
+    def lane_for(symbol: str, direction_type: str) -> dict[str, list[dict[str, Any]]]:
+        key = (symbol, direction_type)  # direction_type = the 'in' deal's own buy/sell type
+        return lanes.setdefault(key, {"in": [], "out": []})
+
+    for d in deal_rows:
+        symbol = d["symbol"]
+        if d["direction"] == "in":
+            lane_for(symbol, d["type"])["in"].append(d)
+        elif d["direction"] == "out":
+            # a 'sell out' closes a 'buy in' lane; a 'buy out' closes a 'sell in' lane
+            opposite_type = "buy" if d["type"] == "sell" else "sell"
+            lane_for(symbol, opposite_type)["out"].append(d)
+        # any other direction value is ignored -- balance/other operation types were already filtered upstream
+
     trades: list[dict[str, Any]] = []
     issues: list[str] = []
 
-    for i, d in enumerate(deal_rows):
-        symbol = d["symbol"]
-        if d["direction"] == "in":
-            open_queues.setdefault(symbol, []).append(d)
-        elif d["direction"] == "out":
-            queue = open_queues.get(symbol, [])
-            if not queue:
-                issues.append(f"deal #{d['deal']} (row {i}) is an 'out' with no matching open 'in' for {symbol}")
-                continue
-            entry = queue.pop(0)
+    for (symbol, entry_type), sides in lanes.items():
+        ins = sorted(sides["in"], key=lambda d: (_parse_timestamp(d["time"]) or datetime.min, int(d["deal"])))
+        outs = sorted(sides["out"], key=lambda d: (_parse_timestamp(d["time"]) or datetime.min, int(d["deal"])))
+
+        n = min(len(ins), len(outs))
+        for i in range(n):
+            entry, d = ins[i], outs[i]
 
             vol_in = _clean_number(entry["volume"])
             vol_out = _clean_number(d["volume"])
@@ -293,7 +335,7 @@ def reconcile_deals_to_trades(deal_rows: list[dict[str, Any]]) -> list[dict[str,
             trades.append({
                 "timestamp": d["time"],  # trade is recorded at close time, consistent with realized profit
                 "symbol": symbol,
-                "direction": "long" if entry["type"] == "buy" else "short",
+                "direction": "long" if entry_type == "buy" else "short",
                 "entryPrice": _clean_number(entry["price"]),
                 "exitPrice": _clean_number(d["price"]),
                 "sl": None,   # not exposed by the Deals table; only the realized exit price/reason is
@@ -314,11 +356,13 @@ def reconcile_deals_to_trades(deal_rows: list[dict[str, Any]]) -> list[dict[str,
                 "entryDealId": entry["deal"],
                 "exitDealId": d["deal"],
             })
-        # any other direction value is ignored -- balance/other operation types were already filtered upstream
 
-    for symbol, leftover in open_queues.items():
-        if leftover:
-            issues.append(f"{len(leftover)} unmatched open 'in' deal(s) for {symbol} with no corresponding 'out' (position never closed in this report)")
+        if len(ins) > n:
+            issues.append(f"{len(ins) - n} unmatched open 'in' deal(s) for {symbol} ({entry_type}) with no corresponding 'out' (position never closed in this report)")
+        if len(outs) > n:
+            issues.append(f"{len(outs) - n} 'out' deal(s) for {symbol} ({entry_type}) with no matching open 'in'")
+
+    trades.sort(key=lambda t: (_parse_timestamp(t["timestamp"]) or datetime.min, int(t["exitDealId"])))
 
     if issues:
         raise ValueError("Deal reconciliation failed:\n  - " + "\n  - ".join(issues))
@@ -394,12 +438,27 @@ def run_data_integrity_checks(trades: list[dict[str, Any]]) -> IntegrityReport:
     if len(trades) == 0:
         issues.append("zero trades -- cannot become Evidence")
 
-    seen: set[tuple[Any, Any]] = set()
+    # Real edge case found while processing XXXGOLD.mq5 (5 concurrent
+    # breakout modules - Nova/Apex/Zenith/Pulse/Eclipse - each capable of
+    # placing its own pending order): when two modules' computed breakout
+    # levels coincide, BOTH real orders can trigger at the identical
+    # timestamp and price, producing two genuinely separate MT5 deals
+    # (confirmed real, distinct entryDealId/exitDealId) that happen to
+    # share timestamp+entryPrice. The old (timestamp, entryPrice) key
+    # flagged these as false-positive "duplicates" - real, disclosed
+    # trades from this EA's own legitimate multi-module design, not
+    # corrupted or duplicated report rows. entryDealId is MT5's own
+    # per-deal identifier (real, present, and unique on every real report
+    # processed so far) - using it as the uniqueness key is strictly more
+    # correct than the timestamp+price heuristic it replaces, not a
+    # relaxation: two rows are only flagged now if they are actually the
+    # same MT5 deal repeated in the source data.
+    seen: set[Any] = set()
     timestamps: list[datetime] = []
     for i, t in enumerate(trades):
-        key = (t["timestamp"], t["entryPrice"])
+        key = t.get("entryDealId") or (t["timestamp"], t["entryPrice"])
         if key in seen:
-            issues.append(f"duplicate trade row at index {i} (timestamp={t['timestamp']}, entry={t['entryPrice']})")
+            issues.append(f"duplicate trade row at index {i} (timestamp={t['timestamp']}, entry={t['entryPrice']}, entryDealId={t.get('entryDealId')})")
         seen.add(key)
 
         ts = _parse_timestamp(t["timestamp"])

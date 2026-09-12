@@ -1,0 +1,877 @@
+{
+  "_provenance": {
+    "generatedBy": "generate_xxxgold_chain.py (M15 seller-provided EA)",
+    "generatedAt": "2026-09-12T11:20:07.767350Z",
+    "note": "Real, deterministic M3/M4/M5/M7 result from the seller's own real MT5 Strategy Tester .xlsx export - not fabricated, not a mock fixture."
+  },
+  "tradingSystemId": "XXXGOLD",
+  "versionId": "XXXGOLD-v3.02-2026-BASELINE",
+  "m3": {
+    "status": "VERIFIED",
+    "evidenceId": "bf5328b1542bd26f",
+    "warnings": [
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'spreadModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'commissionModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'swapModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'tickDataQuality' is null"
+    ]
+  },
+  "m4": {
+    "overallStatus": "PASS",
+    "evidenceId": "bf5328b1542bd26f",
+    "recordStatuses": {
+      "SAMPLE_SIZE": "PASS",
+      "OUT_OF_SAMPLE": "PASS",
+      "WALK_FORWARD": "PASS",
+      "TEMPORAL_STABILITY": "PASS",
+      "REGIME_COVERAGE": "INCONCLUSIVE",
+      "PERFORMANCE_DISTRIBUTION": "PASS",
+      "PARAMETER_SENSITIVITY": "INCONCLUSIVE"
+    }
+  },
+  "m5": {
+    "status": "PARTIAL",
+    "riskAnalysisId": "680cc725bc5eafd6",
+    "riskAnalysisHash": "680cc725bc5eafd6",
+    "dataQuality": {
+      "drawdown": "LIMITED",
+      "lossDistribution": "AVAILABLE",
+      "winDistribution": "AVAILABLE",
+      "expectancy": "AVAILABLE",
+      "lossStreaks": "AVAILABLE",
+      "recovery": "LIMITED",
+      "tailRisk": "AVAILABLE",
+      "concentration": "AVAILABLE",
+      "temporalRisk": "AVAILABLE",
+      "regimeRisk": "UNAVAILABLE",
+      "exposureRisk": "AVAILABLE",
+      "costRisk": "AVAILABLE"
+    }
+  },
+  "m7": {
+    "status": "LIMITED",
+    "reasonCode": "RISK_ANALYSIS_PARTIAL",
+    "explanation": "Evidence and Validation are sufficient, but RiskAnalysis (M5) is PARTIAL -- incomplete dimensions: drawdown, recovery, regimeRisk.",
+    "id": "cb5d17d4fe46db79",
+    "generatedAt": "2026-09-12T11:20:10.620344Z"
+  },
+  "evidenceId": "bf5328b1542bd26f",
+  "evidenceHash": "bf5328b1542bd26f",
+  "validationId": "bf5328b1542bd26f",
+  "validationHash": "bf5328b1542bd26f",
+  "riskAnalysisId": "680cc725bc5eafd6",
+  "riskAnalysisHash": "680cc725bc5eafd6",
+  "trustStatusId": "cb5d17d4fe46db79",
+  "lastEvidenceAt": "2026-08-07T19:21:21",
+  "m4_full": {
+    "evidenceId": "bf5328b1542bd26f",
+    "versionId": "XXXGOLD-v3.02-2026-BASELINE",
+    "datasetHash": "fe0b7c66dd5a302a",
+    "engineVersion": "AT24-M4-Validation-Engine-v1.0",
+    "methodologyVersion": "M4-methodology-v1",
+    "overallStatus": "PASS",
+    "records": [
+      {
+        "validationId": "SAMPLE_SIZE:bf5328b1542bd26f",
+        "versionId": "XXXGOLD-v3.02-2026-BASELINE",
+        "evidenceId": "bf5328b1542bd26f",
+        "validationType": "SAMPLE_SIZE",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "fe0b7c66dd5a302a",
+        "inputEvidenceHash": "bf5328b1542bd26f",
+        "startedAt": "2026-09-12T11:19:48.646045Z",
+        "completedAt": "2026-09-12T11:19:49.699004Z",
+        "methodology": "Direct count/duration measurement, no acceptance threshold applied.",
+        "parameters": {},
+        "metrics": {
+          "tradeCount": 34814,
+          "profitTradeCount": 30526,
+          "lossTradeCount": 4272,
+          "breakEvenTradeCount": 16,
+          "durationDays": 582,
+          "tradesPerMonth": 1820.86,
+          "observationsPerYear": {
+            "2025": 21680,
+            "2026": 13134
+          }
+        },
+        "findings": [
+          "34814 trades over 582 days (1.6 years) across 2 distinct calendar years."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "OUT_OF_SAMPLE:bf5328b1542bd26f",
+        "versionId": "XXXGOLD-v3.02-2026-BASELINE",
+        "evidenceId": "bf5328b1542bd26f",
+        "validationType": "OUT_OF_SAMPLE",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "fe0b7c66dd5a302a",
+        "inputEvidenceHash": "bf5328b1542bd26f",
+        "startedAt": "2026-09-12T11:19:49.701009Z",
+        "completedAt": "2026-09-12T11:19:53.935152Z",
+        "methodology": "Time-based split at 80% of [first trade, last trade] duration (M4-methodology-v1).",
+        "parameters": {
+          "splitRatio": 0.8,
+          "boundary": "2026-04-13T05:50:30.400000"
+        },
+        "metrics": {
+          "inSampleMetrics": {
+            "netProfit": 1163483.6,
+            "profitFactor": 4.8775,
+            "winRate": 0.9203,
+            "avgTrade": 42.16,
+            "expectedPayoff": 42.16,
+            "maxDrawdown": {
+              "absolute": 5169.1,
+              "percent": 0.1299
+            },
+            "recoveryFactor": 225.0844,
+            "sharpe": 0.319,
+            "sortino": 0.4195,
+            "largestWin": 1575.6,
+            "largestLoss": -972.3,
+            "consecutiveWins": 194,
+            "consecutiveLosses": 11,
+            "tradeCount": 27599,
+            "_annualized": false,
+            "_depositUsedForDrawdown": 10000.0,
+            "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+          },
+          "outOfSampleMetrics": {
+            "netProfit": -59221.7,
+            "profitFactor": 0.7333,
+            "winRate": 0.7105,
+            "avgTrade": -8.21,
+            "expectedPayoff": -8.21,
+            "maxDrawdown": {
+              "absolute": 61446.3,
+              "percent": 6.0065
+            },
+            "recoveryFactor": -0.9638,
+            "sharpe": -0.0782,
+            "sortino": -0.079,
+            "largestWin": 1751.9,
+            "largestLoss": -446.5,
+            "consecutiveWins": 28,
+            "consecutiveLosses": 11,
+            "tradeCount": 7215,
+            "_annualized": false,
+            "_depositUsedForDrawdown": 10000.0,
+            "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+          },
+          "inSampleTradeCount": 27599,
+          "outOfSampleTradeCount": 7215
+        },
+        "findings": [
+          "Split boundary (time-based, 80% in-sample): 2026-04-13T05:50:30.400000",
+          "In-sample: 27599 trades. Out-of-sample: 7215 trades.",
+          "In-sample and out-of-sample metrics computed independently and are reported separately below -- never combined into one number."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "WALK_FORWARD:bf5328b1542bd26f",
+        "versionId": "XXXGOLD-v3.02-2026-BASELINE",
+        "evidenceId": "bf5328b1542bd26f",
+        "validationType": "WALK_FORWARD",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "fe0b7c66dd5a302a",
+        "inputEvidenceHash": "bf5328b1542bd26f",
+        "startedAt": "2026-09-12T11:19:53.936164Z",
+        "completedAt": "2026-09-12T11:19:56.218437Z",
+        "methodology": "Expanding-window, one test window per calendar year (M4-methodology-v1). Never collapsed into a single score.",
+        "parameters": {
+          "windowDefinition": "calendar-year",
+          "windowCount": 1
+        },
+        "metrics": {
+          "windows": [
+            {
+              "testYear": 2026,
+              "trainStart": "2025-01-01T23:47:08",
+              "trainEnd": "2025-12-24T17:08:14",
+              "testStart": "2026-01-01T00:00:00",
+              "testEnd": "2026-12-31T23:59:59",
+              "trainTradeCount": 21680,
+              "testTradeCount": 13134,
+              "trainMetrics": {
+                "netProfit": 1027347.2,
+                "profitFactor": 7.6516,
+                "winRate": 0.9605,
+                "avgTrade": 47.39,
+                "expectedPayoff": 47.39,
+                "maxDrawdown": {
+                  "absolute": 4109.2,
+                  "percent": 0.1299
+                },
+                "recoveryFactor": 250.0115,
+                "sharpe": 0.3745,
+                "sortino": 0.6915,
+                "largestWin": 1509.4,
+                "largestLoss": -489.4,
+                "consecutiveWins": 194,
+                "consecutiveLosses": 6,
+                "tradeCount": 21680,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "testMetrics": {
+                "netProfit": 76914.7,
+                "profitFactor": 1.2092,
+                "winRate": 0.7388,
+                "avgTrade": 5.86,
+                "expectedPayoff": 5.86,
+                "maxDrawdown": {
+                  "absolute": 65556.4,
+                  "percent": 0.4357
+                },
+                "recoveryFactor": 1.1733,
+                "sharpe": 0.0458,
+                "sortino": 0.0556,
+                "largestWin": 1751.9,
+                "largestLoss": -972.3,
+                "consecutiveWins": 41,
+                "consecutiveLosses": 11,
+                "tradeCount": 13134,
+                "_annualized": false,
+                "_depositUsedForDrawdown": 10000.0,
+                "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+              },
+              "configurationVersion": "XXXGOLD-v3.02-2026-BASELINE",
+              "status": "PASS"
+            }
+          ]
+        },
+        "findings": [
+          "1 walk-forward windows (one per calendar year from 2026 to 2026, 2025 reserved as the initial training-only period). Same configuration (XXXGOLD-v3.02-2026-BASELINE) used in every window -- no re-optimization between windows."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "TEMPORAL_STABILITY:bf5328b1542bd26f",
+        "versionId": "XXXGOLD-v3.02-2026-BASELINE",
+        "evidenceId": "bf5328b1542bd26f",
+        "validationType": "TEMPORAL_STABILITY",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "fe0b7c66dd5a302a",
+        "inputEvidenceHash": "bf5328b1542bd26f",
+        "startedAt": "2026-09-12T11:19:56.222439Z",
+        "completedAt": "2026-09-12T11:19:57.399145Z",
+        "methodology": "Calendar-period aggregation (month/quarter/year) plus inter-trade gap and best-single-period concentration.",
+        "parameters": {},
+        "metrics": {
+          "monthly": {
+            "2025-01": {
+              "tradeCount": 1861,
+              "netProfit": 29135.3
+            },
+            "2025-02": {
+              "tradeCount": 1731,
+              "netProfit": 61373.9
+            },
+            "2025-03": {
+              "tradeCount": 1707,
+              "netProfit": 36705.0
+            },
+            "2025-04": {
+              "tradeCount": 1917,
+              "netProfit": 137444.6
+            },
+            "2025-05": {
+              "tradeCount": 1878,
+              "netProfit": 128787.7
+            },
+            "2025-06": {
+              "tradeCount": 1688,
+              "netProfit": 61446.0
+            },
+            "2025-07": {
+              "tradeCount": 1996,
+              "netProfit": 47934.6
+            },
+            "2025-08": {
+              "tradeCount": 1720,
+              "netProfit": 41072.6
+            },
+            "2025-09": {
+              "tradeCount": 1984,
+              "netProfit": 89566.4
+            },
+            "2025-10": {
+              "tradeCount": 2035,
+              "netProfit": 209752.1
+            },
+            "2025-11": {
+              "tradeCount": 1778,
+              "netProfit": 108120.0
+            },
+            "2025-12": {
+              "tradeCount": 1385,
+              "netProfit": 76009.0
+            },
+            "2026-01": {
+              "tradeCount": 1925,
+              "netProfit": 35915.1
+            },
+            "2026-02": {
+              "tradeCount": 1594,
+              "netProfit": 40026.7
+            },
+            "2026-03": {
+              "tradeCount": 1864,
+              "netProfit": 45066.0
+            },
+            "2026-04": {
+              "tradeCount": 1716,
+              "netProfit": -1423.6
+            },
+            "2026-05": {
+              "tradeCount": 1823,
+              "netProfit": -21510.6
+            },
+            "2026-06": {
+              "tradeCount": 1939,
+              "netProfit": -20259.1
+            },
+            "2026-07": {
+              "tradeCount": 1784,
+              "netProfit": -122.8
+            },
+            "2026-08": {
+              "tradeCount": 489,
+              "netProfit": -777.0
+            }
+          },
+          "quarterly": {
+            "2025-Q1": {
+              "tradeCount": 5299,
+              "netProfit": 127214.2
+            },
+            "2025-Q2": {
+              "tradeCount": 5483,
+              "netProfit": 327678.3
+            },
+            "2025-Q3": {
+              "tradeCount": 5700,
+              "netProfit": 178573.6
+            },
+            "2025-Q4": {
+              "tradeCount": 5198,
+              "netProfit": 393881.1
+            },
+            "2026-Q1": {
+              "tradeCount": 5383,
+              "netProfit": 121007.8
+            },
+            "2026-Q2": {
+              "tradeCount": 5478,
+              "netProfit": -43193.3
+            },
+            "2026-Q3": {
+              "tradeCount": 2273,
+              "netProfit": -899.8
+            }
+          },
+          "yearly": {
+            "2025": {
+              "tradeCount": 21680,
+              "netProfit": 1027347.2
+            },
+            "2026": {
+              "tradeCount": 13134,
+              "netProfit": 76914.7
+            }
+          },
+          "longestInactiveGapDays": 8,
+          "bestMonthShareOfPositiveMonths": 0.1827,
+          "winningMonths": 15,
+          "losingMonths": 5,
+          "flatMonths": 0
+        },
+        "findings": [
+          "20 distinct months, 2 distinct years represented.",
+          "Longest gap with zero trades: 8 days.",
+          "The single best month accounts for 18.3% of all positive monthly profit -- reported as a fact, no pass/fail threshold applied."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "REGIME_COVERAGE:bf5328b1542bd26f",
+        "versionId": "XXXGOLD-v3.02-2026-BASELINE",
+        "evidenceId": "bf5328b1542bd26f",
+        "validationType": "REGIME_COVERAGE",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "fe0b7c66dd5a302a",
+        "inputEvidenceHash": "bf5328b1542bd26f",
+        "startedAt": "2026-09-12T11:19:57.406143Z",
+        "completedAt": "2026-09-12T11:19:57.420134Z",
+        "methodology": "Per-regime trade grouping using Trade.marketRegime, when present.",
+        "parameters": {},
+        "metrics": {
+          "regimesRepresented": [],
+          "tradeCountByRegime": {}
+        },
+        "findings": [
+          "No trades in this Evidence carry a marketRegime tag -- regime coverage cannot be computed for this Evidence. No regime classifier exists yet in this research program (see design doc section 11); this is reported honestly, not fabricated."
+        ],
+        "warnings": [],
+        "status": "INCONCLUSIVE",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "PERFORMANCE_DISTRIBUTION:bf5328b1542bd26f",
+        "versionId": "XXXGOLD-v3.02-2026-BASELINE",
+        "evidenceId": "bf5328b1542bd26f",
+        "validationType": "PERFORMANCE_DISTRIBUTION",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "fe0b7c66dd5a302a",
+        "inputEvidenceHash": "bf5328b1542bd26f",
+        "startedAt": "2026-09-12T11:19:57.420134Z",
+        "completedAt": "2026-09-12T11:19:57.778950Z",
+        "methodology": "Distribution statistics beyond total return: median, expectancy, streaks, top-decile concentration.",
+        "parameters": {},
+        "metrics": {
+          "profitFactor": 3.1148,
+          "winRate": 0.8768,
+          "avgTrade": 31.72,
+          "medianTrade": 18.7,
+          "expectancy": 31.7189,
+          "maxDrawdown": {
+            "absolute": 65556.4,
+            "percent": 0.1299
+          },
+          "largestWin": 1751.9,
+          "largestLoss": -972.3,
+          "consecutiveWins": 194,
+          "consecutiveLosses": 11,
+          "topDecileWinShareOfGrossProfit": 0.5844
+        },
+        "findings": [
+          "Median trade P&L: 18.7. Expectancy per trade: 31.7189.",
+          "Best 10% of winning trades account for 58.4% of total gross profit -- a concentration fact, not a pass/fail judgment."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "PARAMETER_SENSITIVITY:bf5328b1542bd26f",
+        "versionId": "XXXGOLD-v3.02-2026-BASELINE",
+        "evidenceId": "bf5328b1542bd26f",
+        "validationType": "PARAMETER_SENSITIVITY",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "n/a",
+        "datasetHash": "fe0b7c66dd5a302a",
+        "inputEvidenceHash": "bf5328b1542bd26f",
+        "startedAt": "2026-09-12T11:19:57.779950Z",
+        "completedAt": "2026-09-12T11:19:57.780947Z",
+        "methodology": "Baseline-vs-perturbed-configuration comparison (framework only -- see design doc section 12).",
+        "parameters": {},
+        "metrics": {},
+        "findings": [
+          "Not executed for this Evidence: real parameter-sensitivity analysis requires new backtests with perturbed EA inputs, which this sprint's guardrails explicitly forbid ('Do not optimize G01. Do not change G01 parameters.'). The framework itself is built and verified against synthetic configurations (see test_validation_engine.py Test H). Deferred to a future sprint that explicitly authorizes new runs."
+        ],
+        "warnings": [],
+        "status": "INCONCLUSIVE",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      }
+    ]
+  },
+  "m5_full": {
+    "riskAnalysisId": "680cc725bc5eafd6",
+    "versionId": "XXXGOLD-v3.02-2026-BASELINE",
+    "evidenceId": "bf5328b1542bd26f",
+    "validationId": "864a1363e5a78808",
+    "rulesetVersion": "none-defined",
+    "methodologyVersion": "M5-methodology-v1",
+    "inputEvidenceHash": "bf5328b1542bd26f",
+    "inputValidationHash": "864a1363e5a78808",
+    "generatedAt": "2026-09-12T11:20:07.349063Z",
+    "drawdown": {
+      "curveType": "balance (trade-close), NOT intraday equity -- see design doc section 8",
+      "equityDrawdownAvailable": false,
+      "balanceDrawdownAvailable": true,
+      "maxDrawdown": 65556.4,
+      "maxDrawdownPercent": 0.0557,
+      "maxDrawdownDurationDays": 121,
+      "averageDrawdown": 418.66,
+      "medianDrawdown": 202.95,
+      "drawdownFrequency": 646,
+      "episodeCount": 646,
+      "unrecoveredEpisodes": 1,
+      "dataQuality": "LIMITED",
+      "note": "DRAWDOWN_ANALYSIS_LIMITED: no intraday/tick equity series exists in this Evidence (Evidence.curves is empty) -- figures above are BALANCE drawdown (closed trades only), not EQUITY drawdown."
+    },
+    "lossDistribution": {
+      "count": 4272,
+      "largestLoss": -972.3,
+      "averageLoss": -122.23,
+      "medianLoss": -201.2,
+      "stdevLoss": 103.27,
+      "percentiles": {
+        "P50": 201.2,
+        "P75": 207.9,
+        "P90": 219.5,
+        "P95": 228.3,
+        "P99": 280.8
+      },
+      "maxConsecutiveLosses": 11,
+      "averageConsecutiveLossLength": 1.58,
+      "lossStreakEpisodes": 2701,
+      "clusteredLossShare": 0.5723,
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "winDistribution": {
+      "count": 30526,
+      "largestWin": 1751.9,
+      "averageWin": 53.28,
+      "medianWin": 19.7,
+      "stdevWin": 116.6,
+      "percentiles": {
+        "P50": 19.7,
+        "P75": 46.0,
+        "P90": 112.3,
+        "P95": 230.1,
+        "P99": 581.3
+      },
+      "maxConsecutiveWins": 194,
+      "averageConsecutiveWinLength": 11.25,
+      "winStreakEpisodes": 2714,
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "expectancy": {
+      "expectancyPerTrade": 31.7189,
+      "averageWin": 53.28,
+      "averageLoss": -122.23,
+      "winLossRatio": 0.4359,
+      "profitFactorNet": 3.1148,
+      "grossProfitNet": 1626412.3,
+      "grossLossNet": -522150.4,
+      "netResult": 1104261.9,
+      "grossProfitRaw": 1626412.3,
+      "grossLossRaw": -522150.4,
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "lossStreaks": {
+      "maxConsecutiveLosses": 11,
+      "maxLossStreakDurationDays": 0,
+      "capitalImpactOfLongestLossStreak": -2216.6,
+      "capitalImpactPctOfDeposit": 0.2217,
+      "dataQuality": "AVAILABLE"
+    },
+    "recovery": {
+      "recoveryEpisodes": 645,
+      "unrecoveredEpisodesAtEndOfPeriod": 1,
+      "averageRecoveryDurationDays": 0.1,
+      "percentOfPeriodBelowPriorPeak": 0.3574,
+      "dataQuality": "LIMITED",
+      "note": "Recovery timing is reconstructed from the same balance-level (trade-close) equity curve as drawdown -- not intraday equity. See drawdown section."
+    },
+    "tailRisk": {
+      "worst1Trade": -972.3,
+      "worst5Trades": -3457.1,
+      "worst10Trades": -5754.2,
+      "worst1SharePctOfGrossLoss": 0.0019,
+      "worst5SharePctOfGrossLoss": 0.0066,
+      "worst10SharePctOfGrossLoss": 0.011,
+      "P95Loss": 228.3,
+      "P99Loss": 280.8,
+      "largestDrawdown": 65556.4,
+      "worstLossStreakCapitalImpact": -2216.6,
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "concentration": {
+      "top1PctWinnersShareOfGrossProfit": 0.1657,
+      "top5PctWinnersShareOfGrossProfit": 0.4293,
+      "dataQuality": "AVAILABLE",
+      "bestYear": {
+        "year": "2025",
+        "tradeCount": 21680,
+        "netProfit": 1027347.2
+      },
+      "worstYear": {
+        "year": "2026",
+        "tradeCount": 13134,
+        "netProfit": 76914.7
+      },
+      "bestMonth": {
+        "month": "2025-10",
+        "tradeCount": 2035,
+        "netProfit": 209752.1
+      },
+      "worstMonth": {
+        "month": "2026-05",
+        "tradeCount": 1823,
+        "netProfit": -21510.6
+      },
+      "positivePeriodsCount": 15,
+      "negativePeriodsCount": 5,
+      "source": "reused from M4 TEMPORAL_STABILITY record (not recomputed)"
+    },
+    "temporalRisk": {
+      "perYear": {
+        "2025": {
+          "tradeCount": 21680,
+          "maxDrawdownWithinYear": 4109.2,
+          "maxConsecutiveLossesWithinYear": 6
+        },
+        "2026": {
+          "tradeCount": 13134,
+          "maxDrawdownWithinYear": 65556.4,
+          "maxConsecutiveLossesWithinYear": 11
+        }
+      },
+      "worstDrawdownYear": "2026",
+      "dataQuality": "AVAILABLE",
+      "note": "Per-year drawdown/loss-streak computed fresh here (not in M4's TEMPORAL_STABILITY, which only tracked net profit/PF per period)."
+    },
+    "regimeRisk": {
+      "dataQuality": "UNAVAILABLE",
+      "note": "REGIME_DATA_UNAVAILABLE: no trades in this Evidence carry a marketRegime tag. No regime classifier exists yet in this research program -- not inferred.",
+      "riskByRegime": {}
+    },
+    "exposureRisk": {
+      "positionSize": {
+        "maxPositionSize": 0.1,
+        "averagePositionSize": 0.1,
+        "positionSizeStdev": 0.0,
+        "topDecilePositionShareOfTotalVolume": 0.1
+      },
+      "directionalConcentration": {
+        "long": 21193,
+        "short": 13621,
+        "longSharePct": 0.6087
+      },
+      "simultaneousExposure": {
+        "maxSimultaneousPositions": 9,
+        "hadOverlappingPositions": true,
+        "totalOverlapDurationHours": 58.73
+      },
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "costRisk": {
+      "totalCommission": 0.0,
+      "totalSwap": 0.0,
+      "totalCost": 0.0,
+      "costPerTrade": 0.0,
+      "costAsPctOfGrossProfit": 0.0,
+      "costAsPctOfGrossLoss": 0.0,
+      "spreadModel": "UNKNOWN",
+      "dataQuality": "AVAILABLE",
+      "note": "spreadModel is UNKNOWN (not zero) -- the source report doesn't expose it; commission/swap above are real measured values, independent of this gap."
+    },
+    "dataQuality": {
+      "drawdown": "LIMITED",
+      "lossDistribution": "AVAILABLE",
+      "winDistribution": "AVAILABLE",
+      "expectancy": "AVAILABLE",
+      "lossStreaks": "AVAILABLE",
+      "recovery": "LIMITED",
+      "tailRisk": "AVAILABLE",
+      "concentration": "AVAILABLE",
+      "temporalRisk": "AVAILABLE",
+      "regimeRisk": "UNAVAILABLE",
+      "exposureRisk": "AVAILABLE",
+      "costRisk": "AVAILABLE"
+    },
+    "findings": [
+      "Max drawdown (balance): 65556.4 (0.0557), 646 drawdown episodes, 1 unrecovered at end of period.",
+      "Expectancy per trade: 31.7189. Max consecutive losses: 11."
+    ],
+    "warnings": [],
+    "limitations": [
+      "DRAWDOWN_ANALYSIS_LIMITED: no intraday/tick equity series exists in this Evidence (Evidence.curves is empty) -- figures above are BALANCE drawdown (closed trades only), not EQUITY drawdown.",
+      "Recovery timing is reconstructed from the same balance-level (trade-close) equity curve as drawdown -- not intraday equity. See drawdown section.",
+      "REGIME_DATA_UNAVAILABLE: no trades in this Evidence carry a marketRegime tag. No regime classifier exists yet in this research program -- not inferred.",
+      "spreadModel is UNKNOWN (not zero) -- the source report doesn't expose it; commission/swap above are real measured values, independent of this gap."
+    ],
+    "status": "PARTIAL",
+    "riskAnalysisHash": "680cc725bc5eafd6",
+    "createdBy": "AT24-M5-Risk-Analysis-Engine-v1.0"
+  },
+  "m6_full": [
+    {
+      "tradingSystemId": "XXXGOLD",
+      "versionId": "XXXGOLD-v3.02-2026-BASELINE",
+      "evidenceId": null,
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "SYSTEM_CREATED",
+      "observedAt": "2026-09-12T11:20:07.767350Z",
+      "recordedAt": "2026-09-12T11:20:07.767350Z",
+      "source": "AT24-M6-History-Engine-v1.0",
+      "sourceHash": null,
+      "payload": {
+        "tradingSystemId": "XXXGOLD"
+      },
+      "previousEventId": null,
+      "previousEventHash": null,
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "20750ab420c779bc",
+      "contentHash": "20750ab420c779bc"
+    },
+    {
+      "tradingSystemId": "XXXGOLD",
+      "versionId": "XXXGOLD-v3.02-2026-BASELINE",
+      "evidenceId": null,
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "VERSION_CREATED",
+      "observedAt": "2026-09-12T11:20:07.767350Z",
+      "recordedAt": "2026-09-12T11:20:07.767350Z",
+      "source": "AT24-M6-History-Engine-v1.0",
+      "sourceHash": null,
+      "payload": {
+        "versionId": "XXXGOLD-v3.02-2026-BASELINE"
+      },
+      "previousEventId": "20750ab420c779bc",
+      "previousEventHash": "20750ab420c779bc",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "a41aa75ad60ee469",
+      "contentHash": "a41aa75ad60ee469"
+    },
+    {
+      "tradingSystemId": "XXXGOLD",
+      "versionId": "XXXGOLD-v3.02-2026-BASELINE",
+      "evidenceId": "bf5328b1542bd26f",
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "EVIDENCE_ADDED",
+      "observedAt": "2026-08-07T19:21:21",
+      "recordedAt": "2026-09-12T11:20:07.767350Z",
+      "source": "AT24-M2-Evidence-Engine-v0.2",
+      "sourceHash": "bf5328b1542bd26f",
+      "payload": {
+        "sourceAdapter": "mt5-deals-table-xlsx-v1",
+        "tradeCount": 34814
+      },
+      "previousEventId": "a41aa75ad60ee469",
+      "previousEventHash": "a41aa75ad60ee469",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "c22a54fd2430e710",
+      "contentHash": "c22a54fd2430e710"
+    },
+    {
+      "tradingSystemId": "XXXGOLD",
+      "versionId": "XXXGOLD-v3.02-2026-BASELINE",
+      "evidenceId": "bf5328b1542bd26f",
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "EVIDENCE_VERIFIED",
+      "observedAt": "2026-09-12T11:20:07.767350Z",
+      "recordedAt": "2026-09-12T11:20:07.767350Z",
+      "source": "AT24-M3-Evidence-Verifier-v1.0",
+      "sourceHash": "bf5328b1542bd26f",
+      "payload": {
+        "m3Status": "VERIFIED",
+        "warnings": [
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'spreadModel' is null",
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'commissionModel' is null",
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'swapModel' is null",
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'tickDataQuality' is null"
+        ]
+      },
+      "previousEventId": "c22a54fd2430e710",
+      "previousEventHash": "c22a54fd2430e710",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "f2db683efdfa1bda",
+      "contentHash": "f2db683efdfa1bda"
+    },
+    {
+      "tradingSystemId": "XXXGOLD",
+      "versionId": "XXXGOLD-v3.02-2026-BASELINE",
+      "evidenceId": "bf5328b1542bd26f",
+      "validationId": "bf5328b1542bd26f",
+      "riskAnalysisId": null,
+      "eventType": "VALIDATION_COMPLETED",
+      "observedAt": "2026-09-12T11:20:07.767350Z",
+      "recordedAt": "2026-09-12T11:20:07.767350Z",
+      "source": "AT24-M4-Validation-Engine-v1.0",
+      "sourceHash": "bf5328b1542bd26f",
+      "payload": {
+        "overallStatus": "PASS",
+        "recordStatuses": {
+          "SAMPLE_SIZE": "PASS",
+          "OUT_OF_SAMPLE": "PASS",
+          "WALK_FORWARD": "PASS",
+          "TEMPORAL_STABILITY": "PASS",
+          "REGIME_COVERAGE": "INCONCLUSIVE",
+          "PERFORMANCE_DISTRIBUTION": "PASS",
+          "PARAMETER_SENSITIVITY": "INCONCLUSIVE"
+        }
+      },
+      "previousEventId": "f2db683efdfa1bda",
+      "previousEventHash": "f2db683efdfa1bda",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "8dec05e3350349a5",
+      "contentHash": "8dec05e3350349a5"
+    },
+    {
+      "tradingSystemId": "XXXGOLD",
+      "versionId": "XXXGOLD-v3.02-2026-BASELINE",
+      "evidenceId": "bf5328b1542bd26f",
+      "validationId": "bf5328b1542bd26f",
+      "riskAnalysisId": "680cc725bc5eafd6",
+      "eventType": "RISK_ANALYSIS_COMPLETED",
+      "observedAt": "2026-09-12T11:20:07.767350Z",
+      "recordedAt": "2026-09-12T11:20:07.767350Z",
+      "source": "AT24-M5-Risk-Analysis-Engine-v1.0",
+      "sourceHash": "680cc725bc5eafd6",
+      "payload": {
+        "status": "PARTIAL",
+        "dataQuality": {
+          "drawdown": "LIMITED",
+          "lossDistribution": "AVAILABLE",
+          "winDistribution": "AVAILABLE",
+          "expectancy": "AVAILABLE",
+          "lossStreaks": "AVAILABLE",
+          "recovery": "LIMITED",
+          "tailRisk": "AVAILABLE",
+          "concentration": "AVAILABLE",
+          "temporalRisk": "AVAILABLE",
+          "regimeRisk": "UNAVAILABLE",
+          "exposureRisk": "AVAILABLE",
+          "costRisk": "AVAILABLE"
+        }
+      },
+      "previousEventId": "8dec05e3350349a5",
+      "previousEventHash": "8dec05e3350349a5",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "61bbfffff87299f4",
+      "contentHash": "61bbfffff87299f4"
+    }
+  ]
+}
