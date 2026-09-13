@@ -647,6 +647,51 @@ orchestration, tool, or security contract.**
   correlation key, not a uniqueness key. K5 (answer cache) owns request-level
   idempotency.
 
+### 12.9 C5 — the single integration (LOCKED, 2026-09-13)
+
+`knowledge-answer-orchestrator.ts` contains **no inline decision or
+provenance-construction logic of its own**. Every §12 contract is wired
+through its own module, called exactly once at the right point:
+
+```
+classify (§12.1)
+  → decidePreGeneration (§12.2)         — account-specific short-circuit,
+                                           BEFORE retrieval; called again
+                                           post-retrieval with the REAL
+                                           bestSimilarity for the actual gate
+  → KnowledgeService.retrieve            — ALWAYS, for every non-account route
+  → provider chain (§12.3)              — strict first-clean-wins;
+                                           `continuationBudgetExhausted` (§12.5)
+                                           is an ADDITIONAL abandon trigger
+  → deriveSourceClass + liveFiguresGuardApplies (§12.2)
+                                         — DYNAMIC live-figures override
+  → buildProvenance (§12.6)             — the ONLY place a
+                                           KnowledgeAnswerProvenanceInput is
+                                           constructed; `sourceClass` and
+                                           `webSearchRequestedButUnavailable`
+                                           come from it, never recomputed
+```
+
+Locked by `validate-knowledge-loop-c5-integration` (18 assertions, dedicated —
+distinct from the K3-B regression suite), including a structural check that
+the source contains no duplicate inline `sourceClass` ternary and no second,
+independent `intent === "account-specific"` condition outside
+`decidePreGeneration`.
+
+**Intentional K3-B behaviour changes** (all contract-driven):
+1. `webSearchRequestedButUnavailable` is now honest on a non-web fallback win
+   (previously always `false` unless the *winning* provider itself reported
+   `webSearchUnavailable`) — the lost-signal bug (C5-a) is fixed.
+2. `integrityPassed` is `false` on a chain-exhausted deterministic terminal
+   (previously always `true`) — §12.3 C5-d.
+3. A `pause_turn`-still-paused (`continuationBudgetExhausted`) answer can no
+   longer win a turn — it now falls through like any other soft failure.
+4. Account-specific rows persist `retrievalSufficiency: "SKIPPED"` (previously
+   `"INSUFFICIENT"`, from the empty-retrieval placeholder) — C4-c.
+
+`AnswerResult`'s shape is **unchanged** — the route (`knowledge/chat/route.ts`)
+required no edit.
+
 ---
 
 ## 13. Change log
@@ -657,3 +702,5 @@ orchestration, tool, or security contract.**
 | 2026-09-09 | K3-B implementation. **ADR-K3-M1** — the provider chain reuses the slot *pattern* in a new `KnowledgeAnswerOrchestrator`; the market-intel `AIPresenterOrchestratorService` is untouched. **ADR-K3-M8** — candidate creation deferred entirely to K4; K3-B writes provenance only (`candidateCreatedId` always `null`). K3-B-1 (`ClaudeProvider` native `web_search`, additive) + K3-B-2 (classifier + web-search gate + orchestrator + offline validators) complete; `WEB_SEARCH_TOOL` uses `web_search_20250305` direct (K3_PREFLIGHT §1.2). D-ORCH-2 owner sign-off received (`ANTHROPIC_API_KEY` provisioned Preview + local; org web search enabled). Merged `9c08879`, deployed, production-verified. **K3-B Fix #2** — `usedInAnswer` = actual contribution (knowledge only for `AT24_KNOWLEDGE`; web only when cited); `MIXED` records chunks but not as used. |
 | 2026-09-10 | **§12 added — K3-C hardening contracts (LOCKED).** Classifier precedence list (12.1, + new `historical` intent), retrieval/web decision matrix (12.2, + borderline-sufficient rule + DYNAMIC live-figures deterministic guard), provider fallback matrix (12.3, `continuationBudgetExhausted` as a fall-through trigger), **web-search signal separation `webSearchFailed` (operational) vs `webSearchRequestedButUnavailable` (evidence)** (12.4, owner-locked), Claude server-tool lifecycle (12.5), provenance-integrity + telemetry (12.6, no raw content, telemetry in existing `providerAttempts` JSON), knowledge-block injection hardening (12.7, pre-K4), ADR-K3C-1 (`sourceClass` rename deferred), ADR-K3C-2 (`requestId` dedup → K5). Per [`K3C_DECISION.md`](K3C_DECISION.md). Implementation on `feat/k3c-orchestration-hardening`. |
 | 2026-09-10 | K3-C **C1** (`7132945`) — `ClaudeProvider` §12.5: `server_tool_use` name-filtered; `searchResultsOk`/`searchErrors` accounting; `webSearchFailed`/`webSearchPartialFailure`/`continuationBudgetExhausted`/`truncated`/`continuationCount` surfaced; error-body message surfaced (request body never logged). §12.4/§12.5 wording refined (empty-but-valid result list ⇒ `webSearchUnavailable`, not `webSearchFailed`). **C2** — `classify()` §12.1 precedence numbered + LOCKED; new `historical` intent (rule 6, `STATIC`, never web-forced); `webSearchGate` gains optional `bestSimilarity` + the `borderline-sufficient` rule (§12.2); `WebSearchGateResult` documented as an OFFER. `BORDERLINE_MARGIN` config (gate constant — not in `RETRIEVAL_CONFIG_VERSION`). Orchestrator wiring of `bestSimilarity` deferred to C5. |
+| 2026-09-10 | K3-C **C3** (`7a4fd11`) — `decide-path.ts` (new, unwired): `decidePreGeneration` (account-specific short-circuit BEFORE the gate, LOCKED order), `deriveSourceClass` (evidence-only, never provider identity), `liveFiguresGuardApplies` (the DYNAMIC guard predicate). **C4** (`66061a5`) — `build-provenance.ts` (new, unwired): `buildProvenance(ProvenanceFacts)` — structurally excludes raw message/answer/history; honest `usedInAnswer`; `webSearchRequestedButUnavailable` = `webSearchOffered && !webUsed` (independent of `webSearchFailed`); `sanitizeProvenanceText` redacts secrets/PII in `providerAttempts[].failure`; `turnMeta` folds into the persisted `providerAttempts` JSON (no migration); account-specific ⇒ `retrievalSufficiency:"SKIPPED"`. |
+| 2026-09-13 | **§12.9 added — C5, the single integration (LOCKED).** `knowledge-answer-orchestrator.ts` now contains no inline decision/provenance logic — wires `decidePreGeneration` (called pre- and post-retrieval) → retrieval → provider chain (`continuationBudgetExhausted` = additional abandon trigger) → `deriveSourceClass`/`liveFiguresGuardApplies` → `buildProvenance` (the only provenance constructor). `AnswerGenResult`/`FakeProviderSlot` extended (additive) to carry the C1 fields end to end. Intentional K3-B behaviour changes: `webSearchRequestedButUnavailable` now honest on a non-web fallback win (C5-a fixed); `integrityPassed:false` on chain-exhausted (C5-d); a still-paused answer can no longer win; account-specific rows persist `"SKIPPED"`. `AnswerResult` shape unchanged — no route edit. Dedicated `validate-knowledge-loop-c5-integration` (18/18, incl. a structural no-duplicate-logic check) + full regression (245 knowledge-loop/ai-presenter assertions) unchanged; tsc/eslint clean. |

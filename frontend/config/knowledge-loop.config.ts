@@ -91,6 +91,12 @@ export const KNOWLEDGE_ANSWER_CONFIG = {
     "That question is about your own account. I can't see your account details " +
     "here — please check your dashboard billing/settings page, or contact support " +
     "so a person can look it up securely.",
+  /** K3-C §12.2 D-K3C-5 — the DYNAMIC live-figures guard's fixed response
+   *  (`decide-path.liveFiguresGuardApplies`). A moving-number question that
+   *  ended up neither web- nor knowledge-grounded never gets a stale model
+   *  answer. */
+  DYNAMIC_UNVERIFIABLE_MESSAGE:
+    "I can't verify live figures (prices, rates, quotes) right now — please check a live source.",
 } as const;
 
 /** knowledgeType === "policy" → always max authority (contract §4 override). */

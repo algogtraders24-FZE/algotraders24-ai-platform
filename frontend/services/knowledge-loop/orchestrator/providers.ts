@@ -76,6 +76,13 @@ export class ProviderSlot implements AnswerProviderSlot {
       searchCount,
       webSearchUsed: searchCount > 0 && webSources.length > 0,
       webSearchUnavailable: res.webSearchUnavailable === true,
+      // K3-C C1 fields — pass through verbatim; only ClaudeProvider sets them,
+      // every other provider's AICompletionResponse leaves them undefined.
+      webSearchFailed: res.webSearchFailed === true,
+      webSearchPartialFailure: res.webSearchPartialFailure === true,
+      continuationCount: res.continuationCount ?? 0,
+      continuationBudgetExhausted: res.continuationBudgetExhausted === true,
+      truncated: res.truncated === true,
       stopReason: res.stopReason,
     };
   }

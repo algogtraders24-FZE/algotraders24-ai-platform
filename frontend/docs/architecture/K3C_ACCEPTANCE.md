@@ -50,8 +50,8 @@ refactor. Every §12 contract row is pinned by an offline assertion.
 | C1 — `ClaudeProvider` server-tool lifecycle + fixtures | `7132945` | ✅ |
 | C2 — classifier precedence + `historical` + borderline + tests | `47d29ee` | ✅ |
 | C3 — decision matrix as a pure ordered module + `validate-knowledge-loop-decision-matrix` | `7a4fd11` | ✅ |
-| C4 — provenance integrity: pure `build-provenance` + `validate-knowledge-loop-provenance-integrity` | (step 5/8) | ✅ |
-| C5 — orchestrator: wire `decide-path` + two-field split · DYNAMIC guard · continuation fall-through · `SKIPPED` sentinel · telemetry `meta` | | ⏳ |
+| C4 — provenance integrity: pure `build-provenance` + `validate-knowledge-loop-provenance-integrity` | `66061a5` | ✅ |
+| C5 — orchestrator: wire `decide-path` + `build-provenance` + two-field split · DYNAMIC guard · continuation fall-through + `validate-knowledge-loop-c5-integration` | (step 6/8) | ✅ |
 | C6 — route/envelope regression lock + `validate-knowledge-loop-route-contract` | | ⏳ |
 | C7 — knowledge-block injection hardening + `validate-knowledge-loop-adversarial` | | ⏳ |
 | C8 — structured telemetry emit + no-raw-content test | | ⏳ |
@@ -273,6 +273,86 @@ unchanged. C5 switches it to `buildProvenance()`.
 | `tsc --noEmit` | — | clean (`RUNTIME_VERSION` baseline only) |
 | `eslint` (`build-provenance.ts`, `provenance-store.ts`, types, the new validator) | — | clean |
 
+### C5 — The single orchestrator integration (step 6/8, most consequential)
+
+**Files:** `services/knowledge-loop/orchestrator/knowledge-answer-orchestrator.ts`
+(rewritten — no inline decision/provenance logic remains), `ports.ts`
+(`AnswerGenResult` +5 fields: `webSearchFailed`, `webSearchPartialFailure`,
+`continuationCount`, `continuationBudgetExhausted`, `truncated`),
+`providers.ts` (`ProviderSlot.generate` passes the 5 fields through
+verbatim), `in-memory-adapters.ts` (`FakeProviderSlot`/`FakeProviderConfig`
+extended, all default `false`/`0`), `config/knowledge-loop.config.ts`
+(`DYNAMIC_UNVERIFIABLE_MESSAGE`), `scripts/validate-knowledge-loop-c5-integration.ts`
+(**new**, dedicated — 18 assertions), `AI_ASSISTANT_ORCHESTRATION_CONTRACT.md`
+§12.9.
+
+**The integration, exactly as specified:**
+
+```
+classify (C2) → decidePreGeneration (C3, called BEFORE retrieval for the
+account-specific short-circuit, called AGAIN after retrieval — fed the REAL
+retrieval.bestSimilarity — for the actual gate decision) → KnowledgeService
+.retrieve (ALWAYS, every non-account route) → provider chain
+[claude(+web_search) → gemini → openai], continuationBudgetExhausted an
+ADDITIONAL abandon trigger (§12.3) → deriveSourceClass + liveFiguresGuardApplies
+(C3) → buildProvenance (C4, the ONLY provenance constructor)
+```
+
+**Every item on the required-integration checklist, verified:**
+
+| Requirement | How verified |
+|---|---|
+| Account-specific → deterministic, no retrieval/web/model | test 4 — `retrieval.lastQuery === null`, `claude.calls.length === 0` |
+| Knowledge retrieval first | unchanged from K3-B (regression 13/13) + test 1 |
+| C3 decision matrix is the authoritative pre-generation decision | structural test — `decidePreGeneration` called exactly twice, no duplicate account-specific check, no duplicate `sourceClass` ternary |
+| `bestSimilarity` actually passed into the gate | **test 3 — the first real proof**: `other` intent + `bestSimilarity:0.46` (< `RELEVANCE_GOOD+BORDERLINE_MARGIN`=0.50) → `webSearchEnabled:true`; test 3b confirms a confident 0.9 hit does NOT trigger it |
+| `webSearchOffered` remains an offer, not a prediction | test 1/5 — offered=false or claude-wins-clean never invoke Gemini/OpenAI regardless |
+| Claude → Gemini → OpenAI = strict first-clean-wins | test 5 (claude clean → gemini/openai never called), test 8 (claude throws → gemini wins) |
+| No cross-provider quality comparison | unchanged loop structure — first clean answer still breaks the loop |
+| C1 continuation exhaustion → abandon/fall-through | test 6 — `continuationBudgetExhausted:true` (with non-empty text) → abandoned, gemini wins, attempt recorded `failure:"continuation-budget-exhausted"` |
+| `webSearchFailed` remains operational telemetry | test 7 (single failure, NOT abandoned, `providerUsed` stays claude) + test 10 (partial failure, still recorded) |
+| `webSearchRequestedButUnavailable` from evidence, not provider identity | test 9 — non-web gemini wins a web-required turn → `true` (the C5-a fix, end-to-end); test 10 — a partial-failure but grounded winner → `false` even though `webSearchFailed:true` |
+| DYNAMIC guard applies only when its C3 predicate holds | test 11 (not grounded either way → deterministic override) vs test 11b (knowledge-grounded → NOT overridden) |
+| `sourceClass` from actual evidence | test 8 — gemini wins, `sourceClass:"AT24_KNOWLEDGE"` (not a "claude-only" label) |
+| C4 provenance builder is the single provenance-construction path | structural test — no `KnowledgeAnswerProvenanceInput` object literal in the orchestrator file |
+| `usedInAnswer` remains truthful | unchanged — comes from `buildProvenance`, regression 13/13 incl. the MIXED/weak-hit case |
+| Exactly-once provenance write | test 13 |
+| Safe failure if all providers fail | test 12 — deterministic, never fabricates, **`integrityPassed:false`** (an intentional C5-d change, see below) |
+
+**One thing watched carefully, per your note:** `webSearchRequestedButUnavailable`
+is computed in `build-provenance.ts` (C4, unchanged by C5) as
+`decision.webSearchOffered && !webUsed` — **not** `webSearchOffered && winner
+!== claude`. Test 9 proves this with a `gemini` winner; test 10 proves the
+converse (`webSearchFailed:true` but the winner IS web-grounded →
+`requestedButUnavailable:false`). The two fields are set from two independent
+computations (`ProviderSlot`/`ClaudeProvider` for `webSearchFailed`;
+`decision.webSearchOffered && !webUsed` for the evidence fact) — neither
+derives from the other anywhere in the codebase.
+
+**Intentional K3-B behaviour changes** (all contract-driven, see §12.9 for the
+full list): (1) `webSearchRequestedButUnavailable` now honest on a non-web
+fallback win — previously always `false` unless the *winning* provider itself
+reported `webSearchUnavailable`; (2) `integrityPassed:false` on a
+chain-exhausted deterministic terminal — previously always `true`; (3) a
+still-paused (`continuationBudgetExhausted`) answer can no longer win a turn;
+(4) account-specific rows persist `retrievalSufficiency:"SKIPPED"` (was
+`"INSUFFICIENT"`). **No other K3-B behaviour changed** — all 13 pre-existing
+`validate-knowledge-loop-orchestrator` assertions pass unmodified against the
+rewrite (verified before writing a single new test).
+
+**`AnswerResult` shape unchanged** (test 15) — `knowledge/chat/route.ts`
+required **no edit**.
+
+| Suite | Count | Result |
+|---|---|---|
+| `validate-knowledge-loop-c5-integration` *(new, dedicated)* | 18 | **18/18** |
+| Regression — `validate-knowledge-loop-orchestrator` (existing K3-B suite, unmodified expectations) | 13 | **13/13, unchanged** |
+| Regression — `validate-knowledge-loop-{classifier 24, websearch-gate 19, decision-matrix 25, provenance-integrity 21, claude-provider 19, schema 19, retrieval 15, cache 13, freshness 8, ingestion 3}` = 166 | | **166/166, unchanged** |
+| Regression — `validate:ai-presenter-orchestration` | 66 | **66/66, unchanged** |
+| **Grand total this step** | 18 + 13 + 166 + 66 = 263 | **263/263** |
+| `tsc --noEmit` | — | clean (`RUNTIME_VERSION` baseline only) |
+| `eslint` | — | clean |
+
 ---
 
 ## 4. Offline test summary
@@ -302,3 +382,4 @@ _(filled at close)_
 | 2026-09-10 | **Step 3/8 — C2** classifier & freshness. §12.1 precedence numbered + LOCKED (reorder = test failure); new `historical` intent (rule 6, tight regex, `STATIC`, never web-forced); `webSearchGate` optional `bestSimilarity` + `borderline-sufficient` rule (§12.2); `WebSearchGateResult` = OFFER not prediction (+ purity test); `BORDERLINE_MARGIN = 0.05` gate constant (NOT in `RETRIEVAL_CONFIG_VERSION`). classifier 14→24, websearch-gate 11→19 (RED-first: 4 `historical` + 1 `borderline` failed pre-C2). Regression 90 + ai-presenter 66 unchanged; tsc clean; eslint clean. Orchestrator wiring of `bestSimilarity` → C5. |
 | 2026-09-10 | **Step 4/8 — C3** decision matrix as ONE pure ordered module. `decide-path.ts` (new): `decidePreGeneration` (account-specific short-circuit **before** the gate — a "gate-first" impl fails 5 assertions), `deriveSourceClass` (4-way outcome map, never provider identity), `liveFiguresGuardApplies` (DYNAMIC guard predicate — C5 applies the effect). `validate-knowledge-loop-decision-matrix` (new, 25/25): 14 matrix rows + locked-order + purity + equivalence-with-`webSearchGate` + real-classifier path. Composes `webSearchGate`/`classify`, does not re-implement. NOT wired into the orchestrator (C5). Regression 133 + ai-presenter 66 unchanged; tsc clean; eslint clean. |
 | 2026-09-10 | **Step 5/8 — C4** provenance integrity as one pure builder. `build-provenance.ts` (new): `buildProvenance(ProvenanceFacts)` — `ProvenanceFacts` structurally cannot carry the raw message/answer/history. `usedInAnswer` = actual contribution (AT24_KNOWLEDGE knowledge only; cited web only); `sourceClass` via `deriveSourceClass` (⟂ `providerUsed`); `webSearchRequestedButUnavailable` (evidence) = `webSearchOffered && !webUsed`, **independent of `webSearchFailed`** (operational) — correct for a non-web fallback winner; every `providerAttempts[].failure` secret/PII-redacted + truncated (builder **and** store); `turnMeta` folded into the persisted `providerAttempts` JSON `{attempts, meta}` (no column, no migration); account-specific → `retrievalSufficiency:"SKIPPED"`. `types` additive (`TurnMeta`, optional `turnMeta`). `validate-knowledge-loop-provenance-integrity` (new, 21/21; RED-first: 3 fail on the K3-B formula + no sanitiser). Regression 158 + ai-presenter 66 unchanged; tsc/eslint clean. NOT wired into orchestrator (C5). |
+| 2026-09-13 | **Step 6/8 — C5, the single integration (`66061a5`→this commit).** `knowledge-answer-orchestrator.ts` rewritten to contain zero inline decision/provenance logic — wires `decidePreGeneration` (called twice: pre-retrieval for the account-specific short-circuit, post-retrieval with the REAL `bestSimilarity` for the gate) → retrieval → provider chain (`continuationBudgetExhausted` now an ADDITIONAL fall-through trigger, §12.3) → `deriveSourceClass`/`liveFiguresGuardApplies` (DYNAMIC guard) → `buildProvenance` (the only provenance constructor). `AnswerGenResult`/`ProviderSlot`/`FakeProviderSlot` extended (additive) to carry the C1 fields end to end. **Intentional K3-B behaviour changes:** `webSearchRequestedButUnavailable` now honest on a non-web fallback win (C5-a fixed, end-to-end); `integrityPassed:false` on chain-exhausted (C5-d); a still-paused answer can no longer win; account-specific → `"SKIPPED"`. `AnswerResult` shape unchanged — no route edit. Dedicated `validate-knowledge-loop-c5-integration` (new, 18/18, incl. a structural no-duplicate-logic check) + the pre-existing `validate-knowledge-loop-orchestrator` (13/13, **zero test changes** — proving no regression) + full regression (166) + ai-presenter (66) = **263/263**. tsc/eslint clean. |

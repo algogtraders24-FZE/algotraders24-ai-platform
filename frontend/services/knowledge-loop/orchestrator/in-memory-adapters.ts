@@ -90,6 +90,14 @@ export interface FakeProviderConfig {
   webSources?: AIWebSource[];
   searchCount?: number;
   webSearchUnavailable?: boolean;
+  /** K3-C C1 fields — default false/0 (a clean, non-web or fully-successful turn). */
+  webSearchFailed?: boolean;
+  webSearchPartialFailure?: boolean;
+  continuationCount?: number;
+  /** simulate a still-paused, continuation-budget-exhausted turn — the
+   *  orchestrator must abandon this slot (§12.3) even if `text` is set. */
+  continuationBudgetExhausted?: boolean;
+  truncated?: boolean;
 }
 
 export class FakeProviderSlot implements AnswerProviderSlot {
@@ -123,6 +131,13 @@ export class FakeProviderSlot implements AnswerProviderSlot {
       webSearchUsed: searchCount > 0 && webSources.length > 0,
       webSearchUnavailable:
         dyn?.webSearchUnavailable ?? this.cfg.webSearchUnavailable ?? false,
+      webSearchFailed: dyn?.webSearchFailed ?? this.cfg.webSearchFailed ?? false,
+      webSearchPartialFailure:
+        dyn?.webSearchPartialFailure ?? this.cfg.webSearchPartialFailure ?? false,
+      continuationCount: dyn?.continuationCount ?? this.cfg.continuationCount ?? 0,
+      continuationBudgetExhausted:
+        dyn?.continuationBudgetExhausted ?? this.cfg.continuationBudgetExhausted ?? false,
+      truncated: dyn?.truncated ?? this.cfg.truncated ?? false,
       stopReason: "end_turn",
     };
   }

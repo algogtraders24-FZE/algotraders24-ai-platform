@@ -1,18 +1,29 @@
 // services/knowledge-loop/orchestrator/knowledge-answer-orchestrator.ts
 // Sprint K3-B-2 — AT24 AI Assistant Knowledge Loop: the knowledge-first gate.
+// Sprint K3-C (C5) — THE single integration point. This file now contains NO
+// inline decision or provenance logic of its own — it wires the already-
+// locked contracts together and nothing else:
 //
-// Contract: AI_ASSISTANT_ORCHESTRATION_CONTRACT.md §1–§8. Sits AFTER the
+//   classify (C2)
+//     → decidePreGeneration (C3, decide-path.ts)   — account-specific
+//       short-circuit BEFORE retrieval; otherwise the web-search gate
+//       (C2, fed retrieval.bestSimilarity) decides whether to OFFER web
+//     → KnowledgeService.retrieve (K1/K2, ALWAYS first for a "generate" route)
+//     → one prompt → provider chain [claude(+web_search) → gemini → openai]
+//       — strict first-clean-wins; C1's `continuationBudgetExhausted` is an
+//       ADDITIONAL fall-through trigger (a paused/placeholder body never wins)
+//     → deriveSourceClass + liveFiguresGuardApplies (C3)  — the DYNAMIC
+//       live-figures guard overrides an ungrounded moving-number answer with
+//       a deterministic, truthful "can't verify" response
+//     → buildProvenance (C4, build-provenance.ts)   — the ONLY place a
+//       KnowledgeAnswerProvenanceInput is constructed; `sourceClass` and
+//       `webSearchRequestedButUnavailable` come from it, never recomputed here
+//
+// Contract: AI_ASSISTANT_ORCHESTRATION_CONTRACT.md §1–§8, §12. Sits AFTER the
 // existing market-intelligence gate in `knowledge/chat/route.ts` and runs for
 // every non-market turn. Same slot PATTERN as the market-intel
 // `AIPresenterOrchestratorService` (ADR-K3-M1: pattern, not the literal
 // envelope-bound service).
-//
-// Order of operations (K3_PREFLIGHT §4.2):
-//   classify → KnowledgeService.retrieve (the FIRST intelligence layer, never
-//   optional) → web-search gate → build one prompt → provider chain
-//   [claude(+web_search) → gemini → openai → deterministic] → forbidden-language
-//   scan on the winner → derive sourceClass → write KnowledgeAnswerProvenance
-//   (best-effort) → return AnswerResult.
 //
 // K3 writes provenance ONLY. Candidate proposal/dedup is deferred to K4
 // (ADR-K3-M8). No autonomous promotion. INV-1 holds — retrieval is the only
@@ -23,16 +34,23 @@ import { scanForForbiddenLanguage } from "@/lib/ai/compliance";
 import { AI_COMMUNICATION_POLICY } from "@/lib/ai/response-policy";
 import type {
   AnswerResult,
-  AnswerSourceClass,
-  AnswerSourceRef,
   AnswerProviderAttempt,
   AnswerTurn,
   Classification,
-  KnowledgeAnswerProvenanceInput,
   RetrievalResult,
 } from "@/types/knowledge-loop";
 import { classify } from "../classifier/classify";
-import { webSearchGate } from "./web-search-gate";
+import {
+  decidePreGeneration,
+  deriveSourceClass,
+  liveFiguresGuardApplies,
+  type RetrievalDecisionState,
+} from "./decide-path";
+import {
+  buildProvenance,
+  type ProvenanceFacts,
+  type ProvenanceOutcome,
+} from "./build-provenance";
 import type {
   AnswerGenInput,
   AnswerGenResult,
@@ -55,6 +73,15 @@ const KNOWLEDGE_LOOP_SYSTEM_INSTRUCTION =
 const DETERMINISTIC_FALLBACK =
   "I couldn't put together a verified answer for that right now. Try rephrasing " +
   "the question, or contact support if it's urgent.";
+
+/** used only to ask `decidePreGeneration` "is this account-specific?" BEFORE
+ *  retrieval has run — the account-specific branch never reads it. */
+const PRE_RETRIEVAL_STATE: RetrievalDecisionState = {
+  sufficiency: "INSUFFICIENT",
+  bestSimilarity: 0,
+  hasHits: false,
+  contextBlockNonEmpty: false,
+};
 
 export interface KnowledgeAnswerOrchestratorDeps {
   retrieval: RetrievalPort;
@@ -83,20 +110,25 @@ export class KnowledgeAnswerOrchestrator {
     const history = (turn.history ?? []).slice(-C.HISTORY_TURNS_MAX);
     const classification = classify(turn.message);
 
-    // ── account-specific → deterministic pointer, NO LLM call (contract §8). ──
-    if (classification.intent === "account-specific") {
-      return this.finishDeterministic(
+    // ── C3 step 1 — account-specific short-circuit, BEFORE retrieval. ──
+    // This is the ONLY place `decidePreGeneration` is asked "which route?";
+    // the answer is authoritative — this file does not re-test the intent.
+    const preCheck = decidePreGeneration(classification, PRE_RETRIEVAL_STATE);
+    if (preCheck.route === "deterministic-account") {
+      return this.finishDeterministic({
         turn,
         classification,
-        C.ACCOUNT_SPECIFIC_POINTER,
-        // a fresh empty retrieval shape — retrieval is intentionally skipped.
-        emptyRetrieval(),
+        text: C.ACCOUNT_SPECIFIC_POINTER,
+        retrieval: emptyRetrieval(),
+        skippedRetrieval: true,
         startedAt,
-        "account-specific",
-      );
+        reason: "account-specific",
+        webSearchOffered: preCheck.webSearchOffered,
+        gateReason: preCheck.gateReason,
+      });
     }
 
-    // ── 1. retrieval — ALWAYS first, never optional (knowledge-first). ──
+    // ── knowledge-first — retrieval ALWAYS runs for every other route. ──
     let retrieval: RetrievalResult;
     try {
       retrieval = await this.retrieval.retrieve(turn.message, {
@@ -111,19 +143,25 @@ export class KnowledgeAnswerOrchestrator {
       retrieval = emptyRetrieval();
     }
 
-    // ── 2. web-search gate — pure fn of classifier + retrieval sufficiency. ──
-    const gate = webSearchGate(classification, retrieval.sufficiency);
+    // ── C3 step 2 — the web-search gate, fed the REAL retrieval facts
+    //     (incl. bestSimilarity for the borderline-sufficient rule, §12.2). ──
+    const decision = decidePreGeneration(classification, {
+      sufficiency: retrieval.sufficiency,
+      bestSimilarity: retrieval.bestSimilarity,
+      hasHits: retrieval.hits.length > 0,
+      contextBlockNonEmpty: (retrieval.contextBlock ?? "").trim() !== "",
+    });
 
-    // ── 3. one prompt, shared by every slot. ──
+    // ── one prompt, shared by every slot. ──
     const genInput: AnswerGenInput = {
       system: `${AI_COMMUNICATION_POLICY}\n\n${KNOWLEDGE_LOOP_SYSTEM_INSTRUCTION}`,
       knowledgeBlock: retrieval.contextBlock ?? "",
       history,
       userMessage: turn.message,
-      webSearchEnabled: gate.useWebSearch,
+      webSearchEnabled: decision.webSearchOffered,
     };
 
-    // ── 4. provider chain — fall through on throw / empty / forbidden text. ──
+    // ── provider chain — strict first-clean-wins (§12.3, LOCKED). ──
     const attempts: AnswerProviderAttempt[] = [];
     let winner: { slot: AnswerProviderSlot; res: AnswerGenResult } | null = null;
 
@@ -136,6 +174,21 @@ export class KnowledgeAnswerOrchestrator {
       try {
         const res = await slot.generate(genInput);
         const latencyMs = this.now() - t0;
+
+        // §12.3 / C1 — a still-paused, continuation-budget-exhausted turn is
+        // a SOFT FAILURE: abandon the slot even if it produced text (a
+        // "let me search…" placeholder must never win).
+        if (res.continuationBudgetExhausted) {
+          attempts.push({
+            provider: slot.name,
+            attempted: true,
+            ok: false,
+            failure: "continuation-budget-exhausted",
+            latencyMs,
+          });
+          continue;
+        }
+
         const text = (res.text ?? "").trim();
         if (!text) {
           attempts.push({
@@ -178,167 +231,172 @@ export class KnowledgeAnswerOrchestrator {
       }
     }
 
-    // ── 5. no slot produced a clean answer → deterministic fallback. ──
+    // ── no slot produced a clean answer → deterministic fallback. ──
     if (!winner) {
-      return this.finishDeterministic(
+      return this.finishDeterministic({
         turn,
         classification,
-        DETERMINISTIC_FALLBACK,
+        text: DETERMINISTIC_FALLBACK,
         retrieval,
+        skippedRetrieval: false,
         startedAt,
-        "provider-chain-exhausted",
+        reason: "chain-exhausted",
+        webSearchOffered: decision.webSearchOffered,
+        gateReason: decision.gateReason,
         attempts,
-        gate.useWebSearch,
-      );
+      });
     }
 
-    // ── 6. derive sourceClass + per-source contributions (deterministic). ──
+    // ── C3 step 4 — the DYNAMIC live-figures guard. ──
     const webUsed = winner.res.webSearchUsed;
-    const webUnavailable =
-      gate.useWebSearch && winner.res.webSearchUnavailable && !webUsed;
-    const hasKnowledge =
-      retrieval.hits.length > 0 && (retrieval.contextBlock ?? "").trim() !== "";
-    const knowledgeCounted =
-      hasKnowledge &&
-      (retrieval.sufficiency === "SUFFICIENT" || retrieval.sufficiency === "LOW");
+    const sourceClassIfGenerated = deriveSourceClass({
+      webUsed,
+      knowledgeCounted: decision.knowledgeCounted,
+    });
+    const knowledgeGrounded =
+      sourceClassIfGenerated === "AT24_KNOWLEDGE" || sourceClassIfGenerated === "MIXED";
+    if (
+      liveFiguresGuardApplies({
+        freshnessNeed: classification.freshnessNeed,
+        webGrounded: webUsed,
+        knowledgeGrounded,
+      })
+    ) {
+      // A moving-number question that ended up neither web- nor knowledge-
+      // grounded is a correctness hazard — override with a truthful,
+      // deterministic response. The LLM attempt is still recorded honestly
+      // in `attempts` (it succeeded; we chose not to trust its content).
+      return this.finishDeterministic({
+        turn,
+        classification,
+        text: C.DYNAMIC_UNVERIFIABLE_MESSAGE,
+        retrieval,
+        skippedRetrieval: false,
+        startedAt,
+        reason: "dynamic-unverifiable",
+        webSearchOffered: decision.webSearchOffered,
+        gateReason: decision.gateReason,
+        attempts,
+      });
+    }
 
-    const sourceClass: AnswerSourceClass = webUsed
-      ? knowledgeCounted
-        ? "MIXED"
-        : "CLAUDE_WEB_SEARCH"
-      : knowledgeCounted
-        ? "AT24_KNOWLEDGE"
-        : "CLAUDE_REASONING";
-
-    // Per-source attribution — `usedInAnswer` must represent what actually
-    // happened, never what might have (provenance-integrity, K0–K3 principle).
-    //   AT24_KNOWLEDGE — the retrieved Knowledge IS the answer, so each
-    //     contributing chunk is a genuine source.
-    //   MIXED — knowledge + web both informed the turn, but the LLM gives us
-    //     NO per-chunk signal that any given chunk was used. We record every
-    //     retrieved chunk with its similarity / ids (evidence trail) but do
-    //     NOT assert it was used. Tightening this needs real per-source
-    //     attribution (an LLM-attributed answer, K4/K6) — not a guess here.
-    //   CLAUDE_REASONING / CLAUDE_WEB_SEARCH — no knowledge was used.
-    //   Web sources carry Claude's own `citations`, so a web source counts as
-    //   used only when it was actually cited (`citedTexts` non-empty).
-    const knowledgeUsed = sourceClass === "AT24_KNOWLEDGE";
-    const knowledgeRefs: AnswerSourceRef[] = retrieval.hits.map((h) => ({
-      kind: "knowledge",
-      knowledgeId: h.knowledgeId,
-      chunkId: h.chunkId,
-      chunkIndex: h.chunkIndex,
-      similarity: h.similarity,
-      snippet:
-        h.content.length > 180 ? `${h.content.slice(0, 180)}…` : h.content,
-      usedInAnswer: knowledgeUsed,
-    }));
-    const webRefs: AnswerSourceRef[] = winner.res.webSources.map((s) => ({
-      kind: "web",
-      url: s.url,
-      title: s.title,
-      citedText: s.citedTexts[0],
-      usedInAnswer: (s.citedTexts?.length ?? 0) > 0,
-    }));
-
-    const latencyMs = this.now() - startedAt;
-    const result: AnswerResult = {
-      text: winner.res.text,
-      sourceClass,
+    // ── C4 — the ONLY place a provenance row is built, from the settled facts. ──
+    const outcome: ProvenanceOutcome = {
+      kind: "generated",
       providerUsed: winner.slot.name,
+      webSources: winner.res.webSources,
+      searchCount: winner.res.searchCount,
       webSearchUsed: webUsed,
-      webSearchRequestedButUnavailable: webUnavailable,
-      sources: [...knowledgeRefs, ...webRefs],
+      webSearchFailed: winner.res.webSearchFailed,
+      webSearchPartialFailure: winner.res.webSearchPartialFailure,
+      continuationCount: winner.res.continuationCount,
+      continuationBudgetExhausted: false, // an exhausted slot never reaches here
+      truncated: winner.res.truncated,
+    };
+    const latencyMs = this.now() - startedAt;
+    const facts: ProvenanceFacts = {
+      turn: {
+        requestId: turn.requestId,
+        callerUserId: turn.callerUserId,
+        conversationId: turn.conversationId,
+        messageId: turn.messageId,
+      },
+      classification,
+      retrieval: toRetrievalFacts(retrieval, false),
+      decision: { webSearchOffered: decision.webSearchOffered, gateReason: decision.gateReason },
+      outcome,
+      attempts,
+      latencyMs,
+    };
+    const { sources, provenanceInput } = buildProvenance(facts);
+    const provenanceId = await this.provenance.write(provenanceInput).catch(() => null);
+
+    return {
+      text: winner.res.text,
+      sourceClass: provenanceInput.sourceClass,
+      providerUsed: provenanceInput.providerUsed,
+      webSearchUsed: provenanceInput.webSearchUsed,
+      webSearchRequestedButUnavailable: provenanceInput.webSearchRequestedButUnavailable,
+      sources,
       retrievalSufficiency: retrieval.sufficiency,
       classification,
       fromCache: retrieval.fromCache,
-      integrityPassed: true,
+      integrityPassed: provenanceInput.integrityPassed,
       latencyMs,
+      provenanceId: provenanceId ?? undefined,
     };
-
-    result.provenanceId =
-      (await this.writeProvenance({
-        turn,
-        classification,
-        retrieval,
-        result,
-        attempts,
-        webSearchRequested: gate.useWebSearch,
-      })) ?? undefined;
-
-    return result;
   }
 
-  // ── deterministic terminal — account-specific OR chain-exhausted. ──
-  private async finishDeterministic(
-    turn: AnswerTurn,
-    classification: Classification,
-    text: string,
-    retrieval: RetrievalResult,
-    startedAt: number,
-    _reason: string,
-    attempts: AnswerProviderAttempt[] = [],
-    webSearchRequested = false,
-  ): Promise<AnswerResult> {
-    const latencyMs = this.now() - startedAt;
-    const result: AnswerResult = {
+  // ── every deterministic terminal (account-specific / chain-exhausted /
+  //     dynamic-unverifiable) funnels through here — ONE path to a
+  //     DETERMINISTIC AnswerResult, built via C4 like every other outcome. ──
+  private async finishDeterministic(args: {
+    turn: AnswerTurn;
+    classification: Classification;
+    text: string;
+    retrieval: RetrievalResult;
+    skippedRetrieval: boolean;
+    startedAt: number;
+    reason: "account-specific" | "chain-exhausted" | "dynamic-unverifiable";
+    webSearchOffered: boolean;
+    gateReason: string;
+    attempts?: AnswerProviderAttempt[];
+  }): Promise<AnswerResult> {
+    const { turn, classification, text, retrieval, reason } = args;
+    const latencyMs = this.now() - args.startedAt;
+    const facts: ProvenanceFacts = {
+      turn: {
+        requestId: turn.requestId,
+        callerUserId: turn.callerUserId,
+        conversationId: turn.conversationId,
+        messageId: turn.messageId,
+      },
+      classification,
+      retrieval: toRetrievalFacts(retrieval, args.skippedRetrieval),
+      decision: { webSearchOffered: args.webSearchOffered, gateReason: args.gateReason },
+      outcome: { kind: "deterministic", reason },
+      attempts: args.attempts ?? [],
+      latencyMs,
+    };
+    const { provenanceInput } = buildProvenance(facts);
+    const provenanceId = await this.provenance.write(provenanceInput).catch(() => null);
+
+    return {
       text,
-      sourceClass: "DETERMINISTIC",
-      providerUsed: "deterministic",
-      webSearchUsed: false,
-      webSearchRequestedButUnavailable: false,
+      sourceClass: provenanceInput.sourceClass,
+      providerUsed: provenanceInput.providerUsed,
+      webSearchUsed: provenanceInput.webSearchUsed,
+      webSearchRequestedButUnavailable: provenanceInput.webSearchRequestedButUnavailable,
       sources: [],
       retrievalSufficiency: retrieval.sufficiency,
       classification,
       fromCache: false,
-      integrityPassed: true,
+      integrityPassed: provenanceInput.integrityPassed,
       latencyMs,
+      provenanceId: provenanceId ?? undefined,
     };
-    result.provenanceId =
-      (await this.writeProvenance({
-        turn,
-        classification,
-        retrieval,
-        result,
-        attempts,
-        webSearchRequested,
-      })) ?? undefined;
-    return result;
   }
+}
 
-  private async writeProvenance(args: {
-    turn: AnswerTurn;
-    classification: Classification;
-    retrieval: RetrievalResult;
-    result: AnswerResult;
-    attempts: AnswerProviderAttempt[];
-    webSearchRequested: boolean;
-  }): Promise<string | null> {
-    const { turn, classification, retrieval, result, attempts } = args;
-    const input: KnowledgeAnswerProvenanceInput = {
-      userId: turn.callerUserId,
-      conversationId: turn.conversationId ?? null,
-      messageId: turn.messageId ?? null,
-      requestId: turn.requestId,
-      sourceClass: result.sourceClass,
-      knowledgeContributions: result.sources.filter((s) => s.kind === "knowledge"),
-      webContributions: result.sources.filter((s) => s.kind === "web"),
-      providerUsed: result.providerUsed,
-      providerAttempts: attempts,
-      webSearchUsed: result.webSearchUsed,
-      webSearchRequestedButUnavailable: result.webSearchRequestedButUnavailable,
-      retrievalSufficiency: retrieval.sufficiency,
-      conflict: retrieval.conflict ?? null,
-      integrityPassed: result.integrityPassed,
-      freshnessClass: retrieval.hits[0]?.freshnessClass ?? null,
-      privacyClass: classification.privacyClass,
-      candidateCreatedId: null, // K4 — never in K3
-      answerCached: false, // K5
-      servedFromCache: false, // K5
-      latencyMs: result.latencyMs,
-    };
-    return this.provenance.write(input).catch(() => null);
-  }
+function toRetrievalFacts(
+  r: RetrievalResult,
+  skipped: boolean,
+): ProvenanceFacts["retrieval"] {
+  return {
+    sufficiency: r.sufficiency,
+    bestSimilarity: r.bestSimilarity,
+    contextBlockNonEmpty: (r.contextBlock ?? "").trim() !== "",
+    conflict: r.conflict ?? null,
+    skipped,
+    hits: r.hits.map((h) => ({
+      knowledgeId: h.knowledgeId,
+      chunkId: h.chunkId,
+      chunkIndex: h.chunkIndex,
+      similarity: h.similarity,
+      content: h.content,
+      freshnessClass: h.freshnessClass,
+    })),
+  };
 }
 
 function emptyRetrieval(): RetrievalResult {

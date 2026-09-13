@@ -141,6 +141,7 @@
     "validate:knowledge-loop-decision-matrix": "tsx scripts/validate-knowledge-loop-decision-matrix.ts",
     "validate:knowledge-loop-provenance-integrity": "tsx scripts/validate-knowledge-loop-provenance-integrity.ts",
     "validate:knowledge-loop-orchestrator": "tsx scripts/validate-knowledge-loop-orchestrator.ts",
+    "validate:knowledge-loop-c5-integration": "tsx scripts/validate-knowledge-loop-c5-integration.ts",
     "vendor:quant-engine": "node scripts/vendor-quant-engine.mjs"
   },
   "dependencies": {
