@@ -16,6 +16,8 @@ export const TOOL_CREDIT_COST_PLACEHOLDERS = {
   "portfolio.read": 1,
   "research.knowledge_search": 2,
   "news.search": 2,
+  "support.knowledge_search": 2,
+  "support.account_read": 1,
 } as const;
 
 export type PlaceholderCostToolId = keyof typeof TOOL_CREDIT_COST_PLACEHOLDERS;

@@ -203,6 +203,17 @@ providerChain = [ Claude, Gemini, OpenAI, DeterministicFallback ]
   exact slot mechanism (`isAvailable()` env check → `createPresenter()` →
   `present()` → integrity validate → fall through on any failure). The only
   change is slot order + Claude carrying the `web_search` tool.
+
+  > **ADR-K3-M1 (2026-09-09, K3-B):** "reuses the slot mechanism" means the
+  > **pattern**, not the literal service. `AIPresenterOrchestratorService` is
+  > bound to an `IntelligenceEnvelope` (market-intel) and is **not touched** by
+  > K3. K3-B implements the same pattern in a new, answer-shaped
+  > `KnowledgeAnswerOrchestrator` (`services/knowledge-loop/orchestrator/`):
+  > `AnswerProviderSlot { name, isAvailable(), generate(AnswerGenInput), supportsWebSearch }`,
+  > ordered `[claude, gemini, openai]`, deterministic terminal fallback,
+  > fall-through on throw / empty text / forbidden-language. Integrity for a
+  > general knowledge answer is `scanForForbiddenLanguage` (not the
+  > envelope-specific `validateResponseIntegrity`).
 - Each provider that supports server tools receives `tools` when
   `useWebSearch`. Today **only Claude's Messages API `web_search` server
   tool** is planned (Gemini's `googleSearch` grounding remains available as
@@ -299,6 +310,14 @@ latencyMs, integrityPassed }`.
 
 ## 9. Step 7 — Optional candidate
 
+> **ADR-K3-M8 (2026-09-09, K3-B):** candidate creation is **deferred entirely
+> to K4**. `CandidateService` does not exist until K4, so K3-B implements
+> §9 up to and including `KnowledgeAnswerProvenance` (§8) and **stops** —
+> `candidateCreatedId` is always written as `null`. The eligibility predicate
+> and `CandidateService.propose()` wiring below are K4's responsibility. This
+> keeps K3 to "connect Claude + knowledge-first + web-search gate + always-on
+> provenance" with no autonomous knowledge promotion.
+
 ```
 maybeProposeCandidate(turn, retrieval, answer, provenance):
   if provenance.privacyClass != "public": return          // never
@@ -373,3 +392,4 @@ token estimate is logged in `providerAttempts` for a later cost dashboard.
 | Date | Entry |
 |---|---|
 | 2026-09-08 | K0.4 created. Orchestrator sits behind the existing market-intelligence gate; runs for all other turns. Heuristic classifier (§3), web-search gate (§5), Claude-preferred provider chain reusing the existing fallback mechanism (§7), always-on `KnowledgeAnswerProvenance` with deterministic `sourceClass` (§8), guarded candidate proposal (§9). Claude-primary + native web search flagged D-ORCH-2 pending owner sign-off. |
+| 2026-09-09 | K3-B implementation. **ADR-K3-M1** — the provider chain reuses the slot *pattern* in a new `KnowledgeAnswerOrchestrator`; the market-intel `AIPresenterOrchestratorService` is untouched. **ADR-K3-M8** — candidate creation deferred entirely to K4; K3-B writes provenance only (`candidateCreatedId` always `null`). K3-B-1 (`ClaudeProvider` native `web_search`, additive) + K3-B-2 (classifier + web-search gate + orchestrator + offline validators) complete; `WEB_SEARCH_TOOL` uses `web_search_20250305` direct (K3_PREFLIGHT §1.2). D-ORCH-2 owner sign-off received (`ANTHROPIC_API_KEY` provisioned Preview + local; org web search enabled). |

@@ -52,7 +52,11 @@ export function loadAnthropicEnv(): AnthropicEnv {
   if (!apiKey || apiKey.trim().length === 0) {
     throw new Error("[ai] ANTHROPIC_API_KEY is missing. Set it in your environment (.env.local).");
   }
-  return { apiKey, model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-5" };
+  // Sprint K3 (K3_PREFLIGHT §1.1) — the K0-era `claude-sonnet-4-5` default is a
+  // previous-generation ID. `claude-sonnet-5` is the current $2/$10, 1M-context
+  // tier and supports the modern web_search tool. Override via ANTHROPIC_MODEL
+  // (e.g. `claude-opus-5`).
+  return { apiKey, model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5" };
 }
 
 export interface OpenAIEnv {

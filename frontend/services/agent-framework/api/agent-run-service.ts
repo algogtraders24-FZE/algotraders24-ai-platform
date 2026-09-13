@@ -23,18 +23,20 @@ import { getRunObservability, type RunObservability } from "../evaluation/observ
 import { researchAgentDefinition } from "../agents/research-agent";
 import { marketIntelligenceAgentDefinition } from "../agents/market-intelligence-agent";
 import { strategyResearchAgentDefinition } from "../agents/strategy-research-agent";
+import { supportAgentDefinition } from "../agents/support-agent";
 import type { AgentDefinition } from "@/types/agent-framework";
 
 /** The agent types that have a real, callable canonical definition today
- *  (A11-A13). The other AGENT_TYPE_REGISTRY entries are declared but have no
- *  specialist/definition yet - they are not startable through this API. */
-export const RUNNABLE_AGENT_TYPES = ["RESEARCH", "MARKET_INTELLIGENCE", "STRATEGY_RESEARCH"] as const;
+ *  (A11-A13, + CS1 SUPPORT). The other AGENT_TYPE_REGISTRY entries are declared
+ *  but have no specialist/definition yet - they are not startable through this API. */
+export const RUNNABLE_AGENT_TYPES = ["RESEARCH", "MARKET_INTELLIGENCE", "STRATEGY_RESEARCH", "SUPPORT"] as const;
 export type RunnableAgentType = (typeof RUNNABLE_AGENT_TYPES)[number];
 
 const DEFINITION_FACTORIES: Record<RunnableAgentType, () => AgentDefinition> = {
   RESEARCH: () => researchAgentDefinition(),
   MARKET_INTELLIGENCE: () => marketIntelligenceAgentDefinition(),
   STRATEGY_RESEARCH: () => strategyResearchAgentDefinition(),
+  SUPPORT: () => supportAgentDefinition(),
 };
 
 export function isRunnableAgentType(value: unknown): value is RunnableAgentType {
@@ -54,6 +56,7 @@ const GOAL_HINTS: Record<RunnableAgentType, string> = {
   RESEARCH: 'e.g. { "question": "What does my knowledge base say about gold liquidity?", "symbol": "XAUUSD" }',
   MARKET_INTELLIGENCE: 'e.g. { "symbol": "XAUUSD", "timeframe": "1h" }',
   STRATEGY_RESEARCH: 'e.g. { "strategyId": "golden", "symbol": "XAUUSD", "timeframe": "5m" }',
+  SUPPORT: 'e.g. { "question": "How do I upgrade my plan, and what is my subscription status?" }',
 };
 
 /** The types a user can actually start, with display metadata. Pure read of
