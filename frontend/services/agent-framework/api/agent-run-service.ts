@@ -92,6 +92,10 @@ export interface StartAgentRunInput {
   agentType: string;
   /** The goal - a string or a plain object; shape is the agent's concern. */
   goal: unknown;
+  /** How the run was initiated. Defaults to "manual" (the interactive
+   *  /dashboard/agents path). AT24 Automation passes "schedule" for a
+   *  scheduled automation run so the AgentRun row records the real origin. */
+  trigger?: "manual" | "schedule";
 }
 
 /** Create a queued run for `agentType` and return its id. No execution
@@ -103,7 +107,7 @@ export async function startAgentRun(input: StartAgentRunInput): Promise<{ runId:
     definition,
     input: input.goal ?? {},
     userId: input.userId,
-    trigger: "manual",
+    trigger: input.trigger ?? "manual",
   });
 }
 

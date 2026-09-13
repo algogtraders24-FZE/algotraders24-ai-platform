@@ -219,18 +219,208 @@ model AgentActivity {
   @@index([deletedAt])
 }
 
+// ============================================================================
+// AT24 Automation (MVP) - the orchestration layer over the Agent Framework.
+//
+// LOCKED (AUTOMATION_DECISION_LOCK.md, owner 2026-09-10):
+//   Automation -> AutomationRun -> AgentRun. AgentRun is the ONLY execution
+//   engine; Automation adds no execution/credit/evidence primitive. This
+//   supersedes the Sprint 14D `Automation` model and the Sprint 14E
+//   `Workflow`/`WorkflowRun`/`WorkflowQueueItem` models (all removed in the
+//   same migration; `workflows` rows are migrated into `automations` + a v1
+//   `AutomationDefinitionVersion`).
+//
+// Immutability: `AutomationDefinitionVersion`, `AutomationStepRun` and
+// `AutomationArtifact` are append-only (no updatedAt, no deletedAt, no update
+// path). `AutomationRun` is mutable only for status + terminal fields and
+// never after it is terminal. `Automation.deletedAt` is reserved for a future
+// GDPR erasure path - it is NOT a Beta user action (archive instead).
+
+enum AutomationStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum AutomationTriggerType {
+  manual
+  once
+  daily
+  weekly
+}
+
+enum AutomationRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CONDITION_HALTED
+  CANCELLED
+  CREDIT_BLOCKED
+}
+
+enum AutomationRunTrigger {
+  manual
+  schedule
+}
+
+enum AutomationStepKind {
+  agent_run
+  condition
+  publication_draft
+  workspace_save
+}
+
+enum AutomationStepRunStatus {
+  PENDING
+  RUNNING
+  OK
+  FAILED
+  SKIPPED
+}
+
+enum AutomationArtifactKind {
+  agent_result
+  research_document
+  market_intelligence
+  publication_draft_ref
+}
+
 model Automation {
-  id        String    @id @default(cuid())
-  userId    String
-  name      String
-  trigger   String
-  enabled   Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  id              String            @id @default(cuid())
+  userId          String
+  name            String
+  description     String            @default("")
+  status          AutomationStatus  @default(DRAFT)
+  // Frozen explicit IANA timezone for this automation's schedule. Beta forces
+  // "Asia/Kolkata" for daily/weekly/once triggers (AUTOMATION_DECISION_LOCK
+  // D3); stored per-automation as the post-Beta upgrade seam.
+  timezone        String            @default("Asia/Kolkata")
+  activeVersionId String?
+  activeVersion   AutomationDefinitionVersion? @relation("ActiveVersion", fields: [activeVersionId], references: [id])
+  templateId      String?
+  nextRunAt       DateTime?
+  lastRunAt       DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  deletedAt       DateTime?
+
+  versions        AutomationDefinitionVersion[] @relation("AllVersions")
+  runs            AutomationRun[]
 
   @@index([userId])
+  @@index([userId, status])
+  @@index([status, nextRunAt])
   @@index([deletedAt])
+  @@map("automations")
+}
+
+model AutomationDefinitionVersion {
+  id           String                @id @default(cuid())
+  automationId String
+  version      Int
+  // Full versioned workflow definition (trigger + steps + metadata).
+  // Validated by WorkflowValidator before the automation may activate on it.
+  definition   Json
+  // Denormalised trigger fields (extracted from definition.trigger) so the
+  // scheduler never parses JSON in its hot path.
+  triggerType  AutomationTriggerType
+  slot         String?
+  daysOfWeek   String[]              @default([])
+  runAt        DateTime?
+  createdBy    String
+  createdAt    DateTime              @default(now())
+
+  automation   Automation            @relation("AllVersions", fields: [automationId], references: [id], onDelete: Cascade)
+  activeFor    Automation[]          @relation("ActiveVersion")
+  runs         AutomationRun[]
+
+  @@unique([automationId, version])
+  @@index([automationId])
+  @@map("automation_definition_versions")
+}
+
+model AutomationRun {
+  id                  String              @id @default(cuid())
+  automationId        String
+  definitionVersionId String
+  userId              String
+  // Who triggered it: the owner (manual) or "system:scheduler".
+  requesterId         String
+  status              AutomationRunStatus @default(QUEUED)
+  trigger             AutomationRunTrigger
+  // The scheduled slot instant this run fills. NULL for manual runs.
+  // (automationId, scheduledFor) unique -> at-least-once cron dedup;
+  // Postgres treats NULL as distinct so many manual runs coexist.
+  scheduledFor        DateTime?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  durationMs          Int?
+  // Denormalised copy of the sum of child AgentCreditLedgerEntry rows,
+  // written when the run reaches a terminal state.
+  creditsUsed         Float               @default(0)
+  error               Json?
+  outputRef           Json?
+  contextSnapshot     Json?
+  cancelRequestedAt   DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  automation          Automation                  @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  definitionVersion   AutomationDefinitionVersion @relation(fields: [definitionVersionId], references: [id])
+  steps               AutomationStepRun[]
+
+  @@unique([automationId, scheduledFor])
+  @@index([userId, createdAt])
+  @@index([automationId, createdAt])
+  @@index([status, updatedAt])
+  @@map("automation_runs")
+}
+
+model AutomationStepRun {
+  id              String                  @id @default(cuid())
+  automationRunId String
+  stepId          String
+  index           Int
+  kind            AutomationStepKind
+  status          AutomationStepRunStatus @default(PENDING)
+  agentRunId      String?
+  articleId       String?
+  artifactId      String?
+  input           Json?
+  output          Json?
+  error           Json?
+  reason          String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  durationMs      Int?
+  creditsUsed     Float                   @default(0)
+  createdAt       DateTime                @default(now())
+
+  run             AutomationRun @relation(fields: [automationRunId], references: [id], onDelete: Cascade)
+
+  @@unique([automationRunId, index])
+  @@index([automationRunId])
+  @@index([agentRunId])
+  @@map("automation_step_runs")
+}
+
+model AutomationArtifact {
+  id              String                 @id @default(cuid())
+  userId          String
+  automationRunId String
+  stepRunId       String
+  kind            AutomationArtifactKind
+  title           String
+  // The child AgentRun's already-safe observability output, or a
+  // { articleId } pointer. Never a raw provider payload.
+  payload         Json
+  createdAt       DateTime               @default(now())
+
+  @@index([userId, createdAt])
+  @@index([automationRunId])
+  @@map("automation_artifacts")
 }
 
 model Knowledge {
@@ -329,82 +519,12 @@ model Billing {
   @@index([deletedAt])
 }
 
-// ── Sprint 14E: Automation (Workflow) dashboard models ──────────────
-// World B — dashboard-facing. Separate from the simple `Automation` model.
-
-enum WorkflowTrigger {
-  manual
-  scheduled
-  event
-}
-
-enum WorkflowStatus {
-  active
-  paused
-  draft
-}
-
-enum RunStatus {
-  queued
-  running
-  success
-  failed
-}
-
-model Workflow {
-  id          String          @id @default(cuid())
-  userId      String
-  name        String
-  description String          @default("")
-  trigger     WorkflowTrigger @default(manual)
-  schedule    String?
-  status      WorkflowStatus  @default(draft)
-  steps       Json            @default("[]")
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  deletedAt   DateTime?
-
-  runs  WorkflowRun[]
-  queue WorkflowQueueItem[]
-
-  @@index([userId])
-  @@index([userId, status])
-  @@map("workflows")
-}
-
-model WorkflowRun {
-  id         String    @id @default(cuid())
-  workflowId String
-  userId     String
-  status     RunStatus @default(queued)
-  startedAt  DateTime  @default(now())
-  finishedAt DateTime?
-  durationMs Int?
-  log        Json      @default("[]")
-  createdAt  DateTime  @default(now())
-  deletedAt  DateTime?
-
-  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-
-  @@index([workflowId])
-  @@index([userId])
-  @@map("workflow_runs")
-}
-
-model WorkflowQueueItem {
-  id         String    @id @default(cuid())
-  workflowId String
-  userId     String
-  status     RunStatus @default(queued)
-  enqueuedAt DateTime  @default(now())
-  createdAt  DateTime  @default(now())
-  deletedAt  DateTime?
-
-  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@map("workflow_queue_items")
-}
+// Sprint 14E's `Workflow` / `WorkflowRun` / `WorkflowQueueItem` models and
+// their `WorkflowTrigger` / `WorkflowStatus` / `RunStatus` enums were removed
+// by the AT24 Automation MVP (AUTOMATION_DECISION_LOCK.md D1). The canonical
+// automation models live above (`automations`, `automation_runs`, ...). The
+// migration copies each `workflows` row into an `Automation` + a v1
+// `AutomationDefinitionVersion` before dropping the tables.
 
 model KnowledgeChunk {
   id          String    @id @default(cuid())
