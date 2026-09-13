@@ -93,6 +93,12 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       // P4.8-T3.4.2 - gained a third surface (Strategy Library,
       // app/dashboard/algo-test-library) - same children convention,
       // same reasoning.
+      // P4.9-C.2 - gained a fourth surface (Walk-Forward Optimization,
+      // app/dashboard/algo-test-walk-forward) - same children convention,
+      // same reasoning. Deliberately NOT adding an "Optimize" entry for
+      // the existing P4.9-A optimization UI here - that is a separate,
+      // pre-existing gap (it has no nav entry either) explicitly left for
+      // its own follow-up, per this sprint's own scope boundary.
       {
         label: "Algo Testing Pro",
         href: "/dashboard/workspace",
@@ -100,6 +106,7 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
         children: [
           { label: "Run History", href: "/dashboard/algo-test-history" },
           { label: "Strategy Library", href: "/dashboard/algo-test-library" },
+          { label: "Walk-Forward", href: "/dashboard/algo-test-walk-forward" },
         ],
       },
       {
