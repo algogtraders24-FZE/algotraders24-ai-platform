@@ -51,8 +51,8 @@ refactor. Every §12 contract row is pinned by an offline assertion.
 | C2 — classifier precedence + `historical` + borderline + tests | `47d29ee` | ✅ |
 | C3 — decision matrix as a pure ordered module + `validate-knowledge-loop-decision-matrix` | `7a4fd11` | ✅ |
 | C4 — provenance integrity: pure `build-provenance` + `validate-knowledge-loop-provenance-integrity` | `66061a5` | ✅ |
-| C5 — orchestrator: wire `decide-path` + `build-provenance` + two-field split · DYNAMIC guard · continuation fall-through + `validate-knowledge-loop-c5-integration` | (step 6/8) | ✅ |
-| C6 — route/envelope regression lock + `validate-knowledge-loop-route-contract` | | ⏳ |
+| C5 — orchestrator: wire `decide-path` + `build-provenance` + two-field split · DYNAMIC guard · continuation fall-through + `validate-knowledge-loop-c5-integration` | `6514e17` | ✅ |
+| C6 — route/envelope regression lock + `validate-knowledge-loop-route-contract` | (step 7/8, local, NOT pushed) | ✅ |
 | C7 — knowledge-block injection hardening + `validate-knowledge-loop-adversarial` | | ⏳ |
 | C8 — structured telemetry emit + no-raw-content test | | ⏳ |
 | Live production smoke + this doc filled | | ⏳ |
@@ -353,6 +353,56 @@ required **no edit**.
 | `tsc --noEmit` | — | clean (`RUNTIME_VERSION` baseline only) |
 | `eslint` | — | clean |
 
+### C6 — Route/envelope regression lock (step 7/8, local only — not pushed)
+
+**Files:** `scripts/validate-knowledge-loop-route-contract.ts` (**new**),
+`package.json` (+1 script). **`app/api/private/knowledge/chat/route.ts` was
+NOT modified** — confirmed by `git status --porcelain` returning empty for
+that path after this step. No route change was needed: `AnswerResult`'s
+shape is unchanged since K3-B-3 (locked separately by
+`validate-knowledge-loop-c5-integration` test 15), so every envelope C6 pins
+was already correct.
+
+**Approach (disclosed):** the route depends on session auth, Prisma,
+`RepositoryFactory`, `ConversationMessageService`, and
+`IntelligencePresentationService` — none of which this codebase's plain
+`tsx` + `node:assert` validators mock (no jest/vitest module-mocking appears
+anywhere in K1/K2/K3). Dynamically invoking the real `POST` handler offline
+was therefore not the house-style option. C6 is instead a **structural
+regression lock on the route's real source** — the same technique
+`validate-knowledge-loop-schema.ts` already uses for its INV-1 checks —
+pinning the exact envelope literals so a later edit that silently renames,
+drops, or reorders a field is a test failure. This proves shape stability,
+not live behaviour; live behaviour is what the K3-B-4 / post-merge production
+smokes already exercised end-to-end.
+
+**Locked:**
+
+| Check | What it pins |
+|---|---|
+| K3-B non-stream envelope | exact literal `{content, ragApplied, sourcesCount, sources, webSources, conversationId, knowledge}`, in order |
+| K3-B NDJSON stream | `stage` → `token` → `done` event order; `done`'s exact key set |
+| `ChatSource` interface | `{knowledgeId, title, chunkId, chunkIndex, similarity, snippet}` |
+| `knowledgeMeta` literal | `{sourceClass, provider, webSearchUsed, webSearchRequestedButUnavailable}` |
+| `webSources` mapping | `{url, title, citedText}` |
+| market-intelligence envelope + stream `done` | **byte-identical** literals — proves K3-C touched nothing on that path |
+| `result.<field>` accesses | every access is a real `AnswerResult` field (no stale/typo'd read) |
+| boundary (re-asserted from the route side) | `services/ai/assistant.service.ts`, every file under `services/intelligence/**`, and `research-knowledge-search.tool.ts` import **nothing** from `services/knowledge-loop/orchestrator/**` |
+
+**RED-first proof (mutation test, not committed):** temporarily renamed the
+non-stream envelope's `webSources` key to `webSourcesRENAMED` → the envelope
+test failed as expected; reverted via the same edit, confirmed
+`git status --porcelain` on `route.ts` is clean again, re-ran green.
+
+| Suite | Count | Result |
+|---|---|---|
+| `validate-knowledge-loop-route-contract` *(new)* | 12 | **12/12** (RED-demo: 1 fails on a mutated key) |
+| Regression — `validate-knowledge-loop-{classifier 24, websearch-gate 19, decision-matrix 25, provenance-integrity 21, orchestrator 13, c5-integration 18, claude-provider 19, schema 19, retrieval 15, cache 13, freshness 8, ingestion 3}` = 209 | | **209/209, unchanged** |
+| Regression — `validate:ai-presenter-orchestration` | 66 | **66/66, unchanged** |
+| **Grand total this step** | 12 + 209 + 66 = **287** | **287/287** |
+| `tsc --noEmit` | — | clean (`RUNTIME_VERSION` baseline only) |
+| `eslint` | — | clean |
+
 ---
 
 ## 4. Offline test summary
@@ -383,3 +433,4 @@ _(filled at close)_
 | 2026-09-10 | **Step 4/8 — C3** decision matrix as ONE pure ordered module. `decide-path.ts` (new): `decidePreGeneration` (account-specific short-circuit **before** the gate — a "gate-first" impl fails 5 assertions), `deriveSourceClass` (4-way outcome map, never provider identity), `liveFiguresGuardApplies` (DYNAMIC guard predicate — C5 applies the effect). `validate-knowledge-loop-decision-matrix` (new, 25/25): 14 matrix rows + locked-order + purity + equivalence-with-`webSearchGate` + real-classifier path. Composes `webSearchGate`/`classify`, does not re-implement. NOT wired into the orchestrator (C5). Regression 133 + ai-presenter 66 unchanged; tsc clean; eslint clean. |
 | 2026-09-10 | **Step 5/8 — C4** provenance integrity as one pure builder. `build-provenance.ts` (new): `buildProvenance(ProvenanceFacts)` — `ProvenanceFacts` structurally cannot carry the raw message/answer/history. `usedInAnswer` = actual contribution (AT24_KNOWLEDGE knowledge only; cited web only); `sourceClass` via `deriveSourceClass` (⟂ `providerUsed`); `webSearchRequestedButUnavailable` (evidence) = `webSearchOffered && !webUsed`, **independent of `webSearchFailed`** (operational) — correct for a non-web fallback winner; every `providerAttempts[].failure` secret/PII-redacted + truncated (builder **and** store); `turnMeta` folded into the persisted `providerAttempts` JSON `{attempts, meta}` (no column, no migration); account-specific → `retrievalSufficiency:"SKIPPED"`. `types` additive (`TurnMeta`, optional `turnMeta`). `validate-knowledge-loop-provenance-integrity` (new, 21/21; RED-first: 3 fail on the K3-B formula + no sanitiser). Regression 158 + ai-presenter 66 unchanged; tsc/eslint clean. NOT wired into orchestrator (C5). |
 | 2026-09-13 | **Step 6/8 — C5, the single integration (`66061a5`→this commit).** `knowledge-answer-orchestrator.ts` rewritten to contain zero inline decision/provenance logic — wires `decidePreGeneration` (called twice: pre-retrieval for the account-specific short-circuit, post-retrieval with the REAL `bestSimilarity` for the gate) → retrieval → provider chain (`continuationBudgetExhausted` now an ADDITIONAL fall-through trigger, §12.3) → `deriveSourceClass`/`liveFiguresGuardApplies` (DYNAMIC guard) → `buildProvenance` (the only provenance constructor). `AnswerGenResult`/`ProviderSlot`/`FakeProviderSlot` extended (additive) to carry the C1 fields end to end. **Intentional K3-B behaviour changes:** `webSearchRequestedButUnavailable` now honest on a non-web fallback win (C5-a fixed, end-to-end); `integrityPassed:false` on chain-exhausted (C5-d); a still-paused answer can no longer win; account-specific → `"SKIPPED"`. `AnswerResult` shape unchanged — no route edit. Dedicated `validate-knowledge-loop-c5-integration` (new, 18/18, incl. a structural no-duplicate-logic check) + the pre-existing `validate-knowledge-loop-orchestrator` (13/13, **zero test changes** — proving no regression) + full regression (166) + ai-presenter (66) = **263/263**. tsc/eslint clean. |
+| 2026-09-13 | **Step 7/8 — C6, route/envelope regression lock (local commit, NOT pushed).** New `validate-knowledge-loop-route-contract.ts` (structural, source-text assertions — the route's real auth/Prisma/service dependencies aren't mocked anywhere in this codebase's plain-tsx test style, so this pins the envelope shape rather than invoking the handler). Locks: the K3-B non-stream envelope literal + NDJSON `stage→token→done` order + `done`'s key set; `ChatSource`/`knowledgeMeta`/`webSources` mapping shapes; the market-intelligence envelope + stream **byte-identical** (K3-C touched nothing there); every `result.<field>` access is a real `AnswerResult` field; the orchestrator-import boundary re-asserted from the route side (`assistant.service.ts`, `services/intelligence/**`, `research-knowledge-search.tool.ts` — zero imports). **`route.ts` itself was NOT modified** (`git status --porcelain` clean on that path) — no change was needed since `AnswerResult`'s shape hasn't changed since K3-B-3. RED-demo: a temporary field rename caught by the test, reverted, confirmed `route.ts` byte-identical to before. 12/12 + full regression (209) + ai-presenter (66) = **287/287**. tsc/eslint clean. |
