@@ -98,6 +98,9 @@ export interface FakeProviderConfig {
    *  orchestrator must abandon this slot (§12.3) even if `text` is set. */
   continuationBudgetExhausted?: boolean;
   truncated?: boolean;
+  /** K3-C C8 — cost-relevant usage; undefined by default (a provider that
+   *  doesn't report it, matching the real GeminiProvider/OpenAIProvider). */
+  usage?: { promptTokens: number; completionTokens: number };
 }
 
 export class FakeProviderSlot implements AnswerProviderSlot {
@@ -139,6 +142,7 @@ export class FakeProviderSlot implements AnswerProviderSlot {
         dyn?.continuationBudgetExhausted ?? this.cfg.continuationBudgetExhausted ?? false,
       truncated: dyn?.truncated ?? this.cfg.truncated ?? false,
       stopReason: "end_turn",
+      usage: dyn?.usage ?? this.cfg.usage,
     };
   }
 }

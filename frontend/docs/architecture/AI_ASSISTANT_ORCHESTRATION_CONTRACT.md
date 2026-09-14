@@ -570,6 +570,9 @@ third, purely-diagnostic provider fact.
 
 ### 12.6 Provenance integrity + telemetry (LOCKED — D-K3C-4, D-K3C-8)
 
+**Telemetry implemented — C8, 2026-09-14 (§12.11).** The structured
+`console.info` line described below is now code, not only contract text.
+
 - **Exactly one** `KnowledgeAnswerProvenance` row per `answer()` — the winner
   path **xor** one deterministic terminal. Best-effort: a write failure →
   `provenanceId: undefined`, the answer is unaffected.
@@ -716,6 +719,53 @@ Locked by `validate-knowledge-loop-adversarial` (21 assertions: 6 injection-
 hardening + the 13-row D-K3C-7 negative-path matrix). No decision, provider-
 chain, or provenance logic changed by either step.
 
+### 12.11 C8 — observability & cost boundary implemented (LOCKED, 2026-09-14)
+
+**One pure module, one side effect.** `services/knowledge-loop/orchestrator/
+telemetry.ts` (new):
+
+- `buildTelemetryLine(input, provenanceWritten)` — pure. Derives ONE
+  structured line from the SAME already-built, already-sanitised
+  `KnowledgeAnswerProvenanceInput` (C4). Every field is a `boolean`, a small
+  `number`, an enum-like `string`, or `null` — no nested object, no array, so
+  there is no field capable of carrying content. Fixed key set: `requestId,
+  sourceClass, providerUsed, retrievalSufficiency, hitCount, webSearchOffered,
+  searchCount, webSearchUsed, webSearchFailed, webSearchPartialFailure,
+  webSearchRequestedButUnavailable, continuationCount,
+  continuationBudgetExhausted, truncated, retrievalFromCache, promptTokens,
+  completionTokens, integrityPassed, failureCategory, latencyMs,
+  provenanceWritten`.
+- `emitAnswerTelemetry(input, provenanceWritten)` — the one side effect:
+  `console.info("knowledge_answer_turn", line)`. Called by the orchestrator
+  exactly once per `answer()` turn (winner **or** deterministic terminal),
+  right after the provenance write settles — `provenanceWritten` is therefore
+  always honest, never assumed.
+
+**Two small additive plumbing gaps closed to make `promptTokens` /
+`completionTokens` real (not just placeholders):**
+- `AnswerGenResult` (`ports.ts`) gains optional `usage?: {promptTokens,
+  completionTokens}`; `ProviderSlot.generate()` (`providers.ts`) now forwards
+  `AICompletionResponse.usage` through — previously silently dropped.
+- `ProvenanceRetrievalFacts` (`build-provenance.ts`) gains optional
+  `fromCache?: boolean` (from `RetrievalResult.fromCache`, the K2 retrieval-
+  cache signal) — previously not threaded through to provenance/telemetry at
+  all. Both are `null`/`false` when unavailable, never fabricated.
+
+**No new table, no dashboard, no migration, no new logging subsystem, no
+request-id deduplication.** `TurnMeta` (already existed from C4) gains three
+fields (`retrievalFromCache`, `promptTokens`, `completionTokens`) — still
+folded into the existing persisted `providerAttempts` JSON, no new column.
+
+Locked by `validate-knowledge-loop-telemetry` (20 assertions): positive
+field-population across success / web-fallback / non-web-fallback (the
+`webSearchFailed` ⟂ `webSearchRequestedButUnavailable` independence,
+re-proven at the telemetry layer) / partial-failure / safe-failure / cache-
+hit / cache-miss / cost-usage-present / cost-usage-absent paths; structural
++ fuzz-tested proof that `TelemetryLine` cannot carry raw query, answer,
+history, Knowledge content, web-page content, or a secret; and a real-
+orchestrator integration section (`console.info` intercepted) proving
+exactly one line per turn with an honest `provenanceWritten`.
+
 ---
 
 ## 14. Change log
@@ -730,3 +780,4 @@ chain, or provenance logic changed by either step.
 | 2026-09-13 | **§12.9 added — C5, the single integration (LOCKED).** `knowledge-answer-orchestrator.ts` now contains no inline decision/provenance logic — wires `decidePreGeneration` (called pre- and post-retrieval) → retrieval → provider chain (`continuationBudgetExhausted` = additional abandon trigger) → `deriveSourceClass`/`liveFiguresGuardApplies` → `buildProvenance` (the only provenance constructor). `AnswerGenResult`/`FakeProviderSlot` extended (additive) to carry the C1 fields end to end. Intentional K3-B behaviour changes: `webSearchRequestedButUnavailable` now honest on a non-web fallback win (C5-a fixed); `integrityPassed:false` on chain-exhausted (C5-d); a still-paused answer can no longer win; account-specific rows persist `"SKIPPED"`. `AnswerResult` shape unchanged — no route edit. Dedicated `validate-knowledge-loop-c5-integration` (18/18, incl. a structural no-duplicate-logic check) + full regression (245 knowledge-loop/ai-presenter assertions) unchanged; tsc/eslint clean. |
 | 2026-09-13 | K3-C **C6** (`bdf7c39`, local, not pushed) — route/envelope regression lock. New `validate-knowledge-loop-route-contract` (12/12, structural source-text assertions — the route's real infrastructure isn't mocked anywhere in this codebase's test style). Zero route code change (`AnswerResult` unchanged since K3-B-3). Pins the K3-B non-stream envelope + NDJSON stream shape/order, `ChatSource`/`knowledgeMeta`/`webSources` mappings, the market-intelligence path byte-identical, and the orchestrator-import boundary. |
 | 2026-09-14 | **§12.10 added — C6 note + C7, injection hardening IMPLEMENTED (LOCKED).** §12.7 is now code, not only contract text: `buildMessages()` wraps the knowledge block in `<at24_knowledge>...</at24_knowledge>`; new `escapeKnowledgeBlock()` neutralises an embedded closing delimiter before wrapping; `KNOWLEDGE_LOOP_SYSTEM_INSTRUCTION` carries the §6.1 clause verbatim. New `validate-knowledge-loop-adversarial` (21/21 — 6 injection-hardening + the 13-row D-K3C-7 negative-path matrix), RED-first (5 assertions failed pre-implementation). No decision/provider-chain/provenance logic changed. Local commit, not pushed. |
+| 2026-09-14 | **§12.11 added — C8, observability & cost boundary IMPLEMENTED (LOCKED).** New `services/knowledge-loop/orchestrator/telemetry.ts` — pure `buildTelemetryLine()` (fixed key set, all primitives, zero content-bearing field) + `emitAnswerTelemetry()` (`console.info`, once per turn, after the provenance write settles). Two small additive gaps closed: `AnswerGenResult.usage` was silently dropped by `ProviderSlot.generate()` — now forwarded; `RetrievalResult.fromCache` never reached provenance — now threaded via `ProvenanceRetrievalFacts.fromCache` (optional, defensively coalesced to `false`). `TurnMeta` gains `retrievalFromCache`/`promptTokens`/`completionTokens` — folded into the existing `providerAttempts` JSON, no new column. New `validate-knowledge-loop-telemetry` (20/20 — RED-first, whole module missing pre-C8), incl. a real-orchestrator integration section with `console.info` intercepted and a fuzz-tested no-leakage proof. No new table/dashboard/migration/logging subsystem/request-id dedup. No route change. Local commit, not pushed. This closes C1–C8; only the live production smoke + final gate remain before the single K3-C PR. |

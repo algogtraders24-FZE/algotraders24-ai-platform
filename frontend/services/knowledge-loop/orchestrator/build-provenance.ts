@@ -44,6 +44,11 @@ export interface ProvenanceRetrievalFacts {
   conflict: { aId: string; bId: string } | null;
   /** account-specific route — retrieval was intentionally skipped. */
   skipped: boolean;
+  /** K3-C C8 — `RetrievalResult.fromCache`; observability/cost signal only,
+   *  never an eligibility input (K2 re-hydrates + re-filters live on a hit).
+   *  Optional so pre-C8 fixtures still compile; treated as `false` when
+   *  omitted (see `buildProvenance`). */
+  fromCache?: boolean;
   hits: Array<{
     knowledgeId: string;
     chunkId: string;
@@ -69,6 +74,9 @@ export type ProvenanceOutcome =
       continuationCount: number;
       continuationBudgetExhausted: boolean;
       truncated: boolean;
+      /** K3-C C8 — cost-relevant usage from the winning provider, where it
+       *  reports one. Never fabricated when absent. */
+      usage?: { promptTokens: number; completionTokens: number };
     };
 
 export interface ProvenanceFacts {
@@ -228,6 +236,12 @@ export function buildProvenance(facts: ProvenanceFacts): BuiltProvenance {
     failureCategory: deriveFailureCategory(facts),
     knowledgeHitCount: retrieval.hits.length,
     bestSimilarity: retrieval.bestSimilarity,
+    // defensively coalesced — a hand-built ProvenanceFacts fixture (offline
+    // tests predating C8) may omit this field; never let it surface as
+    // `undefined` in telemetry, which must be a strict primitive.
+    retrievalFromCache: retrieval.fromCache ?? false,
+    promptTokens: outcome.kind === "generated" ? (outcome.usage?.promptTokens ?? null) : null,
+    completionTokens: outcome.kind === "generated" ? (outcome.usage?.completionTokens ?? null) : null,
   };
 
   const provenanceInput: KnowledgeAnswerProvenanceInput = {

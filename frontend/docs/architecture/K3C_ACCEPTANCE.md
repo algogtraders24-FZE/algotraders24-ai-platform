@@ -4,7 +4,7 @@
 **Branch:** `feat/k3c-orchestration-hardening` (base `origin/main` @ `6253165` — `K3C_DECISION.md` merged)
 **Decision:** [`K3C_DECISION.md`](K3C_DECISION.md) (D-K3C-1..10, owner-approved 2026-09-10)
 **Contract:** [`AI_ASSISTANT_ORCHESTRATION_CONTRACT.md`](AI_ASSISTANT_ORCHESTRATION_CONTRACT.md) §12 (K3-C hardening contracts, LOCKED)
-**Status:** 🚧 IN PROGRESS — C1–C7 implemented + owner-approved individually (all local-only from C6 onward, per owner instruction — nothing pushed since `bdf7c39`). C8 (observability/telemetry) + live production smoke remain before the final gate + single K3-C PR. **No migration. No `ANTHROPIC_API_KEY` in any file/log/commit. No `KnowledgeCandidate`.**
+**Status:** 🚧 IN PROGRESS — C1–C8 implemented + owner-approved individually (all local-only from C6 onward, per owner instruction — nothing pushed since `bdf7c39`). Only the live production smoke + final gate remain before the single K3-C PR. **No migration. No `ANTHROPIC_API_KEY` in any file/log/commit. No `KnowledgeCandidate`.**
 
 > K3-C closes the K3-B decision boundaries as testable contracts and hardens
 > the server-tool + fallback + provenance failure paths. It adds **no
@@ -16,7 +16,7 @@
 ## 0. Headline
 
 ```
-K3-C STATUS:               IN PROGRESS (C1-C7 done, local-only; C8 + live smoke remain)
+K3-C STATUS:               IN PROGRESS (C1-C8 done, local-only; live smoke + final gate remain)
 Decision (feat/k3c-decision): MERGED  → main 6253165
 Contract §12 (LOCKED):     LANDED  (classifier precedence · decision matrix · fallback matrix ·
                                    webSearchFailed⟂webSearchRequestedButUnavailable · server-tool
@@ -28,13 +28,13 @@ C3 decision matrix:        PASS  (7a4fd11, pushed)   — decision-matrix 25/25
 C4 provenance integrity:   PASS  (66061a5, pushed)   — provenance-integrity 21/21
 C5 fallback contract:      PASS  (6514e17, pushed)   — c5-integration 18/18 + orchestrator 13/13 unchanged
 C6 route/envelope:         PASS  (bdf7c39, LOCAL)    — route-contract 12/12
-C7 adversarial + injection:PASS  (e175fce, LOCAL)      — adversarial 21/21
-C8 observability:          NOT STARTED
-C9 no new architecture:    holds (no migration, no new dependency through C7)
-Offline suite (all K3-C + regression): 296/296 as of C7
-Live production smoke:     NOT STARTED (after C8)
+C7 adversarial + injection:PASS  (f952318, LOCAL)    — adversarial 21/21
+C8 observability:          PASS  (de81a47, LOCAL) — telemetry 20/20
+C9 no new architecture:    holds (no migration, no new dependency through C8)
+Offline suite (all K3-C + regression): 316/316 as of C8
+Live production smoke:     NOT STARTED (next)
 MIGRATION:                 NONE
-MERGE:                     BLOCKED on owner review — single PR at the end of C8 + live smoke
+MERGE:                     BLOCKED on owner review — single PR at the end of live smoke + final gate
 ```
 
 ---
@@ -54,7 +54,7 @@ refactor. Every §12 contract row is pinned by an offline assertion.
 | C5 — orchestrator: wire `decide-path` + `build-provenance` + two-field split · DYNAMIC guard · continuation fall-through + `validate-knowledge-loop-c5-integration` | `6514e17` | ✅ |
 | C6 — route/envelope regression lock + `validate-knowledge-loop-route-contract` | (step 7/8, local, NOT pushed) | ✅ |
 | C7 — knowledge-block injection hardening + `validate-knowledge-loop-adversarial` | (step 8/8, local, NOT pushed) | ✅ |
-| C8 — structured telemetry emit + no-raw-content test | | ⏳ |
+| C8 — structured telemetry emit + no-raw-content test | `de81a47` (local, NOT pushed) | ✅ |
 | Live production smoke + this doc filled | | ⏳ |
 
 ---
@@ -464,6 +464,85 @@ touched).
 | `tsc --noEmit` | — | clean (`RUNTIME_VERSION` baseline only) |
 | `eslint` | — | clean |
 
+### C8 — Observability & cost boundary (`de81a47`, local only — not pushed)
+
+**Files:** `services/knowledge-loop/orchestrator/telemetry.ts` (**new** —
+`buildTelemetryLine()` pure + `emitAnswerTelemetry()` the one `console.info`
+side effect), `services/knowledge-loop/orchestrator/ports.ts` (additive
+`AnswerGenResult.usage?`), `services/knowledge-loop/orchestrator/providers.ts`
+(`ProviderSlot.generate()` now forwards `usage` — previously silently
+dropped), `services/knowledge-loop/orchestrator/build-provenance.ts`
+(additive `ProvenanceRetrievalFacts.fromCache?` + `ProvenanceOutcome.usage?`;
+`TurnMeta` gains `retrievalFromCache`/`promptTokens`/`completionTokens`),
+`services/knowledge-loop/orchestrator/knowledge-answer-orchestrator.ts`
+(threads `retrieval.fromCache` + `winner.res.usage` in; calls
+`emitAnswerTelemetry` once after each provenance write settles),
+`services/knowledge-loop/orchestrator/in-memory-adapters.ts` (`FakeProviderSlot`
+gains a `usage` config field), `types/knowledge-loop/index.ts` (additive
+`TurnMeta` fields), `scripts/validate-knowledge-loop-telemetry.ts` (**new**,
+20 assertions), `package.json` (+1 script).
+
+**What C8 established** (the owner's checklist, mapped to where it now lives):
+
+| Required | Where |
+|---|---|
+| provider attempted / attempt order / latency | already on the provenance row's `providerAttempts[]` (ordered, `latencyMs` per attempt) — **re-asserted**, not new |
+| winner | `TelemetryLine.providerUsed` |
+| failure category | `TelemetryLine.failureCategory` (already computed by C4's `deriveFailureCategory`) |
+| web-search requested/offered | `TelemetryLine.webSearchOffered` |
+| web-search actually used | `TelemetryLine.webSearchUsed` |
+| `webSearchFailed` | `TelemetryLine.webSearchFailed` — **operational**, re-proven independent of the evidence fact below |
+| `webSearchRequestedButUnavailable` | `TelemetryLine.webSearchRequestedButUnavailable` — **evidence**, independent of the operational fact above (the non-web-fallback-winner case is re-tested at the telemetry layer, test A3) |
+| search-request count | `TelemetryLine.searchCount` |
+| continuation count | `TelemetryLine.continuationCount` |
+| truncation | `TelemetryLine.truncated` |
+| retrieval/cache outcome | **new** — `TelemetryLine.retrievalFromCache`, threaded from `RetrievalResult.fromCache` (was not reaching provenance/telemetry at all before C8) |
+| provenance-write outcome | `TelemetryLine.provenanceWritten` — computed by the orchestrator from the real `this.provenance.write()` result, never assumed |
+| cost-relevant usage | **new** — `TelemetryLine.promptTokens` / `completionTokens`, threaded from `AICompletionResponse.usage` (was silently dropped at `ProviderSlot.generate()` before C8) — `null` when the provider doesn't report it, never fabricated |
+
+**Negative leakage — proven, not just claimed:**
+- **Structural:** `TelemetryLine` has no nested object, no array — every one
+  of its 21 fields is `boolean | number | string | null`. There is no field
+  that could hold `knowledgeContributions`, `webContributions`,
+  `providerAttempts`, a `snippet`, a `citedText`, the raw `message`, the raw
+  answer `text`, or `history`. Asserted both by type shape and by a runtime
+  key-set check (`validate-knowledge-loop-telemetry` B1/B2).
+- **Fuzz-tested:** built a telemetry line from facts whose knowledge chunk
+  and provider-failure string contain marker strings, a fake `sk-ant-...`
+  key, and a fake SSN-shaped string — none survive into
+  `JSON.stringify(telemetryLine)` (B3).
+- **End-to-end:** ran the real orchestrator with `console.info` intercepted
+  on a turn whose *user message* and *retrieved knowledge* both carry a
+  marker — the captured telemetry payload contains neither (C4, integration).
+
+**RED-first proof** — the entire suite (20 assertions) failed with
+`Cannot find module '.../telemetry'` before the module existed — the
+strongest possible RED, since C8 is net-new capability, not a refinement of
+existing behaviour. Implemented, then green.
+
+**One regression caught and fixed during this step:** adding the new
+`TurnMeta.retrievalFromCache` field broke `validate-knowledge-loop-
+provenance-integrity`'s pre-existing "turnMeta carries only primitives" test
+— a C4-era fixture (written before C8 existed) didn't set the new optional
+`ProvenanceRetrievalFacts.fromCache`, so it came through as `undefined`
+rather than a strict `boolean`. Fixed by making the field optional and
+defensively coalescing to `false` in `buildProvenance()` (defence for every
+caller, not just that one test) — **not** by special-casing the C4 test file.
+Re-verified 21/21 on `provenance-integrity` after the fix.
+
+**No decision, provider-chain, or provenance-construction logic changed.**
+No route change. No new table, dashboard, migration, logging subsystem, or
+request-id deduplication.
+
+| Suite | Count | Result |
+|---|---|---|
+| `validate-knowledge-loop-telemetry` *(new)* | 20 | **20/20** (RED-demo: whole module missing pre-implementation) |
+| Regression — `validate-knowledge-loop-{classifier 24, websearch-gate 19, decision-matrix 25, provenance-integrity 21, orchestrator 13, c5-integration 18, route-contract 12, adversarial 21, claude-provider 19, schema 19, retrieval 15, cache 13, freshness 8, ingestion 3}` = 230 | | **230/230** (1 caught + fixed mid-step, see above) |
+| Regression — `validate:ai-presenter-orchestration` | 66 | **66/66, unchanged** |
+| **Grand total this step** | 20 + 230 + 66 = **316** | **316/316** |
+| `tsc --noEmit` | — | clean (`RUNTIME_VERSION` baseline only — also caught+fixed one genuine new C8 type error mid-step, see above) |
+| `eslint` | — | clean |
+
 ---
 
 ## 4. Offline test summary
@@ -496,3 +575,4 @@ _(filled at close)_
 | 2026-09-13 | **Step 6/8 — C5, the single integration (`66061a5`→this commit).** `knowledge-answer-orchestrator.ts` rewritten to contain zero inline decision/provenance logic — wires `decidePreGeneration` (called twice: pre-retrieval for the account-specific short-circuit, post-retrieval with the REAL `bestSimilarity` for the gate) → retrieval → provider chain (`continuationBudgetExhausted` now an ADDITIONAL fall-through trigger, §12.3) → `deriveSourceClass`/`liveFiguresGuardApplies` (DYNAMIC guard) → `buildProvenance` (the only provenance constructor). `AnswerGenResult`/`ProviderSlot`/`FakeProviderSlot` extended (additive) to carry the C1 fields end to end. **Intentional K3-B behaviour changes:** `webSearchRequestedButUnavailable` now honest on a non-web fallback win (C5-a fixed, end-to-end); `integrityPassed:false` on chain-exhausted (C5-d); a still-paused answer can no longer win; account-specific → `"SKIPPED"`. `AnswerResult` shape unchanged — no route edit. Dedicated `validate-knowledge-loop-c5-integration` (new, 18/18, incl. a structural no-duplicate-logic check) + the pre-existing `validate-knowledge-loop-orchestrator` (13/13, **zero test changes** — proving no regression) + full regression (166) + ai-presenter (66) = **263/263**. tsc/eslint clean. |
 | 2026-09-13 | **Step 7/8 — C6, route/envelope regression lock (local commit, NOT pushed).** New `validate-knowledge-loop-route-contract.ts` (structural, source-text assertions — the route's real auth/Prisma/service dependencies aren't mocked anywhere in this codebase's plain-tsx test style, so this pins the envelope shape rather than invoking the handler). Locks: the K3-B non-stream envelope literal + NDJSON `stage→token→done` order + `done`'s key set; `ChatSource`/`knowledgeMeta`/`webSources` mapping shapes; the market-intelligence envelope + stream **byte-identical** (K3-C touched nothing there); every `result.<field>` access is a real `AnswerResult` field; the orchestrator-import boundary re-asserted from the route side (`assistant.service.ts`, `services/intelligence/**`, `research-knowledge-search.tool.ts` — zero imports). **`route.ts` itself was NOT modified** (`git status --porcelain` clean on that path) — no change was needed since `AnswerResult`'s shape hasn't changed since K3-B-3. RED-demo: a temporary field rename caught by the test, reverted, confirmed `route.ts` byte-identical to before. 12/12 + full regression (209) + ai-presenter (66) = **287/287**. tsc/eslint clean. |
 | 2026-09-14 | **Step 8/8 — C7, knowledge-block injection hardening + adversarial suite (local commit, NOT pushed).** `buildMessages()` now wraps the knowledge block in `<at24_knowledge>...</at24_knowledge>`; new exported `escapeKnowledgeBlock()` neutralises a literal delimiter embedded inside retrieved content before wrapping (a chunk can never prematurely close the trusted block); `KNOWLEDGE_LOOP_SYSTEM_INSTRUCTION` gains the injection clause LOCKED verbatim in contract §6.1 since step 1. New `validate-knowledge-loop-adversarial.ts` (21/21): Part A (6 assertions) proves the hardening — wrapping, escaping (direct unit test + end-to-end via `buildMessages`), the system clause, and that an injection string inside either a knowledge chunk or a web citation never changes `sourceClass`/`providerUsed`/the winner (stored as inert evidence only). Part B (13 assertions) is the full D-K3C-7 negative-path matrix (irrelevant hit, stale/expired-absent, empty result, search error, provider timeout, malformed response, duplicate/repeated-requestId calls, account-specific+"latest", current-info+"my account", DYNAMIC/non-DYNAMIC unavailable-no-knowledge, retrieval throws, provenance-write throws). RED-first: the 5 hardening assertions failed against the pre-C7 code (`git stash` of the two implementation files), the 13 Part-B rows mostly already held as a standing regression net; reverted, re-ran green, implemented. No decision/provider-chain/provenance logic changed. Regression 209 + ai-presenter 66 unchanged = **296/296**. tsc/eslint clean. |
+| 2026-09-14 | **C8, observability & cost boundary (local commit, NOT pushed) — this closes C1–C8.** New `services/knowledge-loop/orchestrator/telemetry.ts`: pure `buildTelemetryLine()` (21 primitive fields, no nested object/array — nothing content-bearing can exist in the type) + `emitAnswerTelemetry()` (the one `console.info` side effect, once per turn, after the provenance write settles — `provenanceWritten` is real, not assumed). Closed two silent gaps: `AnswerGenResult.usage` was dropped at `ProviderSlot.generate()` — now forwarded; `RetrievalResult.fromCache` never reached provenance — now threaded via optional `ProvenanceRetrievalFacts.fromCache` (defensively coalesced to `false`). New `validate-knowledge-loop-telemetry.ts` (20/20; RED-first — whole module missing pre-implementation, the strongest possible RED). Caught + fixed one real regression mid-step (a C4 fixture predating the new field triggered the "primitives only" invariant — fixed by making the field optional + coalescing in `buildProvenance()`, not by special-casing the old test). No decision/provider-chain/provenance-construction logic changed; no route change; no new table/dashboard/migration/logging subsystem/request-id dedup. Regression 230 + ai-presenter 66 = **316/316**. tsc/eslint clean. **Only the live production smoke + final gate remain before the single K3-C PR.** |

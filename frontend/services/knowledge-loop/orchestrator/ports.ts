@@ -64,6 +64,10 @@ export interface AnswerGenResult {
   /** the terminal `stop_reason` was `max_tokens` — the text may be cut off. */
   truncated: boolean;
   stopReason?: string;
+  /** K3-C C8 — cost-relevant token usage, where the underlying provider
+   *  surfaces it (`AICompletionResponse.usage`). Undefined, never fabricated,
+   *  when the provider doesn't report it. */
+  usage?: { promptTokens: number; completionTokens: number };
 }
 
 /**

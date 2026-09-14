@@ -51,6 +51,7 @@ import {
   type ProvenanceFacts,
   type ProvenanceOutcome,
 } from "./build-provenance";
+import { emitAnswerTelemetry } from "./telemetry";
 import type {
   AnswerGenInput,
   AnswerGenResult,
@@ -300,6 +301,7 @@ export class KnowledgeAnswerOrchestrator {
       continuationCount: winner.res.continuationCount,
       continuationBudgetExhausted: false, // an exhausted slot never reaches here
       truncated: winner.res.truncated,
+      usage: winner.res.usage,
     };
     const latencyMs = this.now() - startedAt;
     const facts: ProvenanceFacts = {
@@ -318,6 +320,7 @@ export class KnowledgeAnswerOrchestrator {
     };
     const { sources, provenanceInput } = buildProvenance(facts);
     const provenanceId = await this.provenance.write(provenanceInput).catch(() => null);
+    emitAnswerTelemetry(provenanceInput, provenanceId !== null);
 
     return {
       text: winner.res.text,
@@ -368,6 +371,7 @@ export class KnowledgeAnswerOrchestrator {
     };
     const { provenanceInput } = buildProvenance(facts);
     const provenanceId = await this.provenance.write(provenanceInput).catch(() => null);
+    emitAnswerTelemetry(provenanceInput, provenanceId !== null);
 
     return {
       text,
@@ -396,6 +400,7 @@ function toRetrievalFacts(
     contextBlockNonEmpty: (r.contextBlock ?? "").trim() !== "",
     conflict: r.conflict ?? null,
     skipped,
+    fromCache: r.fromCache,
     hits: r.hits.map((h) => ({
       knowledgeId: h.knowledgeId,
       chunkId: h.chunkId,

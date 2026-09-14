@@ -104,6 +104,8 @@ export class ProviderSlot implements AnswerProviderSlot {
       continuationBudgetExhausted: res.continuationBudgetExhausted === true,
       truncated: res.truncated === true,
       stopReason: res.stopReason,
+      // K3-C C8 — cost-relevant usage, where the provider reports it.
+      usage: res.usage,
     };
   }
 }

@@ -352,6 +352,16 @@ export interface TurnMeta {
   failureCategory: AnswerFailureCategory;
   knowledgeHitCount: number;
   bestSimilarity: number;
+  /** K3-C §12.6/C8 — was this turn's retrieval served from the K2 retrieval
+   *  cache (`RetrievalResult.fromCache`)? Cost/observability signal only —
+   *  never changes eligibility (K2 re-hydrates + re-filters live on a hit). */
+  retrievalFromCache: boolean;
+  /** K3-C C8 — cost-relevant usage from the WINNING provider's response,
+   *  where the provider surfaces it (`AICompletionResponse.usage`). `null`
+   *  when unavailable (deterministic terminal, or a provider that doesn't
+   *  report usage) — never fabricated. */
+  promptTokens: number | null;
+  completionTokens: number | null;
 }
 
 /** what the provenance store persists (KnowledgeAnswerProvenance row shape). */
