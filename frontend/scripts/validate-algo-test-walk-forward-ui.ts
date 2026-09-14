@@ -373,7 +373,7 @@ async function runNavigationTests(): Promise<void> {
     const products = DASHBOARD_NAV_GROUPS.find((g) => g.label === "PRODUCTS")!;
     const algoTestingPro = products.items.find((i) => i.label === "Algo Testing Pro")!;
     assert.deepEqual(
-      algoTestingPro.children?.filter((c) => c.label !== "Walk-Forward"),
+      algoTestingPro.children?.filter((c) => c.label !== "Walk-Forward" && c.label !== "Optimize"),
       [
         { label: "Run History", href: "/dashboard/algo-test-history" },
         { label: "Strategy Library", href: "/dashboard/algo-test-library" },
@@ -382,10 +382,18 @@ async function runNavigationTests(): Promise<void> {
     assert.equal(algoTestingPro.href, "/dashboard/workspace");
   });
 
-  await test('no "Optimize" nav entry was added - the pre-existing Optimization nav gap is explicitly out of this sprint\'s scope', () => {
+  // P4.11 lock (docs/architecture/p4.10-quant-pro-roadmap-audit.md, QP-02)
+  // deliberately SUPERSEDES this C.2-era rule: the Optimization nav gap
+  // this test used to guard was C.2's own explicit out-of-scope
+  // deferral, not a permanent contract - P4.11's own brief explicitly
+  // mandates adding exactly this entry, closing the gap the P4.10 audit
+  // found to be the product's single P0 beta blocker.
+  await test('an "Optimize" nav entry now exists (P4.11 - closes the pre-existing Optimization nav gap C.2 deliberately deferred)', () => {
     const products = DASHBOARD_NAV_GROUPS.find((g) => g.label === "PRODUCTS")!;
     const algoTestingPro = products.items.find((i) => i.label === "Algo Testing Pro")!;
-    assert.ok(!algoTestingPro.children?.some((c) => c.label === "Optimize"), "must not add an Optimize nav entry this sprint");
+    const optimize = algoTestingPro.children?.find((c) => c.label === "Optimize");
+    assert.ok(optimize, "must add an Optimize nav entry as of P4.11");
+    assert.equal(optimize!.href, "/dashboard/algo-test-optimize");
   });
 
   await test("the locked top-level IA (five named groups + Dashboard + Admin) and every OTHER top-level item are unchanged", () => {

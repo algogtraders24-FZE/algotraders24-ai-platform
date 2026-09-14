@@ -32,6 +32,7 @@
 //      already computed server-side and simply never rendered before
 //      this sprint.
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
+import Link from "next/link";
 import Badge, { type BadgeTone } from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import StatField from "@/components/workspace/StatField";
@@ -88,6 +89,30 @@ const TIMEFRAME_DISPLAY_LABEL: Readonly<Record<string, string>> = { "5m": "M5", 
 function timeframeLabel(tf: string | undefined): string {
   if (!tf) return "—";
   return TIMEFRAME_DISPLAY_LABEL[tf] ?? tf;
+}
+
+/**
+ * P4.11 - exported (a smallest-testable-unit extraction, no DOM renderer
+ * exists for a validator script to drive this component with). The
+ * Optimize/Walk-Forward setup pages (app/dashboard/algo-test-optimize,
+ * app/dashboard/algo-test-walk-forward) both only ever list registry
+ * strategies that declare at least one parameter (`parameters.length > 0`
+ * - the exact same filter both pages already apply to `strategies` before
+ * rendering their own picker). A run's own strategy is only a safe,
+ * honest `?strategyId=` link target when it passes that SAME filter -
+ * "ref-ema-crossover" is a real registry strategy with zero declared
+ * parameters (its EMA periods are compiled into the IR, not exposed as
+ * inputs - strategy-registry.ts's own `parameters: []`), so linking to it
+ * would silently preselect a DIFFERENT strategy on arrival (both setup
+ * pages fall back to their own first optimizable entry when the requested
+ * id isn't in their own filtered list) - confirmed by reading both pages'
+ * own preselection code, not assumed. Returns `undefined` for an
+ * AI-compiled run too (strategyId is always the constant "ai-generated",
+ * never a registry entry at all) and for any strategyId the caller's own
+ * `strategies` list doesn't contain.
+ */
+export function selectOptimizableStrategyId(strategies: readonly AlgoTestStrategyDefinition[], runStrategyId: string | undefined): string | undefined {
+  return strategies.find((s) => s.strategyId === runStrategyId && s.parameters.length > 0)?.strategyId;
 }
 
 function isoDateNDaysAgo(n: number): string {
@@ -366,6 +391,8 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
   const activeTimeframeLabel = mode === "registry" ? timeframeLabel(strategyDef?.supportedTimeframes[0]) : timeframeLabel(run?.timeframe);
   const strategyLabel = mode === "registry" ? (strategyDef?.displayName ?? "Strategy") : (run?.compiledStrategy?.name ?? "AI Strategy");
 
+  const optimizableStrategyId = selectOptimizableStrategyId(strategies, run?.strategyId);
+
   return (
     <div className="rounded-control border border-border bg-ink-3 px-3 py-2.5">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
@@ -385,7 +412,9 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
         </p>
       )}
 
-      {!reopening && run && <AlgoTestResults run={run} fallbackStrategyLabel={strategyLabel} selectedTradeId={selectedTradeId} onSelectTrade={onSelectTrade} activePaneSymbol={symbol} />}
+      {!reopening && run && (
+        <AlgoTestResults run={run} fallbackStrategyLabel={strategyLabel} selectedTradeId={selectedTradeId} onSelectTrade={onSelectTrade} activePaneSymbol={symbol} optimizableStrategyId={optimizableStrategyId} />
+      )}
 
       {/* `error` is reserved for a genuinely thrown exception (network/transport failure) - handleSubmit's catch block, where no `run` object exists at all. A HANDLED `run.status === "failed"` result renders its own, more detailed failure state inside AlgoTestResults above, never here. */}
       {error && (
@@ -621,12 +650,15 @@ function AlgoTestResults({
   selectedTradeId,
   onSelectTrade,
   activePaneSymbol,
+  optimizableStrategyId,
 }: {
   run: AlgoTestRunView;
   fallbackStrategyLabel: string;
   selectedTradeId: string | null;
   onSelectTrade: (tradeId: string | null) => void;
   activePaneSymbol: string;
+  /** P4.11 - the run's own strategyId, but ONLY when it's safe to hand to Optimize/Walk-Forward's `?strategyId=` preselect (see the caller's own doc comment). `undefined` hides the "Next steps" actions row entirely rather than linking to a page that would silently preselect a different strategy. */
+  optimizableStrategyId: string | undefined;
 }) {
   const strategyName = run.compiledStrategy?.name ?? fallbackStrategyLabel;
   const metrics = run.metrics;
@@ -731,6 +763,27 @@ function AlgoTestResults({
           </div>
 
           <AnalyticsSection analytics={run.analytics} />
+
+          {/* P4.11 - the smallest customer-facing path from a completed
+              backtest into the existing Optimization/Walk-Forward
+              experiences (P4.9-A/P4.9-B, both closed, neither modified
+              here). Reuses the EXACT `?strategyId=` preselect contract
+              both setup pages already read for exactly this purpose - no
+              new query parameter, no new state contract. Never shown for
+              an AI-compiled run or a registry strategy with no declared
+              parameters (optimizableStrategyId is undefined in both
+              cases - see the caller's own doc comment). */}
+          {optimizableStrategyId && (
+            <div className="flex flex-wrap items-center gap-3 border-t border-border pt-2.5">
+              <span className={FIN_LABEL}>Next steps</span>
+              <Link href={`/dashboard/algo-test-optimize?strategyId=${encodeURIComponent(optimizableStrategyId)}`} className="text-[11px] text-gold hover:underline">
+                Optimize Parameters →
+              </Link>
+              <Link href={`/dashboard/algo-test-walk-forward?strategyId=${encodeURIComponent(optimizableStrategyId)}`} className="text-[11px] text-gold hover:underline">
+                Run Walk-Forward →
+              </Link>
+            </div>
+          )}
         </>
       )}
 
