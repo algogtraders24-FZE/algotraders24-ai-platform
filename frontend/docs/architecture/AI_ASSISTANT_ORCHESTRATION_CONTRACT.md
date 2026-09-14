@@ -620,6 +620,9 @@ C4 does **not** wire this into the orchestrator (C5). Locked by
 
 ### 12.7 Knowledge-block injection hardening (LOCKED — D-K3C-7, pre-K4)
 
+**Implemented — C7, 2026-09-14 (§12.10).** The rules below are now code, not
+only contract text.
+
 Retrieved knowledge is wrapped in a fixed delimiter and
 `KNOWLEDGE_LOOP_SYSTEM_INSTRUCTIONS` (§6.1) gains:
 
@@ -692,9 +695,30 @@ independent `intent === "account-specific"` condition outside
 `AnswerResult`'s shape is **unchanged** — the route (`knowledge/chat/route.ts`)
 required no edit.
 
+### 12.10 C6 + C7 — route regression lock + injection hardening implemented (LOCKED, 2026-09-13/14)
+
+**C6.** The non-stream envelope, NDJSON stream order/shape, `ChatSource` /
+`knowledgeMeta` / `webSources` mappings, and the market-intelligence path's
+independence are pinned by `validate-knowledge-loop-route-contract` — a
+STRUCTURAL (source-text) lock, not a live handler invocation, because the
+route's real auth/Prisma/service dependencies aren't mocked anywhere in this
+codebase's plain-`tsx` test style. `route.ts` itself was not modified.
+
+**C7.** §12.7 is now code:
+- `buildMessages()` (`providers.ts`) wraps the knowledge block in
+  `<at24_knowledge>...</at24_knowledge>`.
+- new `escapeKnowledgeBlock()` neutralises a literal delimiter embedded
+  inside retrieved content **before** the real wrapper is added — a chunk
+  can never prematurely close the trusted block.
+- `KNOWLEDGE_LOOP_SYSTEM_INSTRUCTION` carries the §6.1 clause verbatim.
+
+Locked by `validate-knowledge-loop-adversarial` (21 assertions: 6 injection-
+hardening + the 13-row D-K3C-7 negative-path matrix). No decision, provider-
+chain, or provenance logic changed by either step.
+
 ---
 
-## 13. Change log
+## 14. Change log
 
 | Date | Entry |
 |---|---|
@@ -704,3 +728,5 @@ required no edit.
 | 2026-09-10 | K3-C **C1** (`7132945`) — `ClaudeProvider` §12.5: `server_tool_use` name-filtered; `searchResultsOk`/`searchErrors` accounting; `webSearchFailed`/`webSearchPartialFailure`/`continuationBudgetExhausted`/`truncated`/`continuationCount` surfaced; error-body message surfaced (request body never logged). §12.4/§12.5 wording refined (empty-but-valid result list ⇒ `webSearchUnavailable`, not `webSearchFailed`). **C2** — `classify()` §12.1 precedence numbered + LOCKED; new `historical` intent (rule 6, `STATIC`, never web-forced); `webSearchGate` gains optional `bestSimilarity` + the `borderline-sufficient` rule (§12.2); `WebSearchGateResult` documented as an OFFER. `BORDERLINE_MARGIN` config (gate constant — not in `RETRIEVAL_CONFIG_VERSION`). Orchestrator wiring of `bestSimilarity` deferred to C5. |
 | 2026-09-10 | K3-C **C3** (`7a4fd11`) — `decide-path.ts` (new, unwired): `decidePreGeneration` (account-specific short-circuit BEFORE the gate, LOCKED order), `deriveSourceClass` (evidence-only, never provider identity), `liveFiguresGuardApplies` (the DYNAMIC guard predicate). **C4** (`66061a5`) — `build-provenance.ts` (new, unwired): `buildProvenance(ProvenanceFacts)` — structurally excludes raw message/answer/history; honest `usedInAnswer`; `webSearchRequestedButUnavailable` = `webSearchOffered && !webUsed` (independent of `webSearchFailed`); `sanitizeProvenanceText` redacts secrets/PII in `providerAttempts[].failure`; `turnMeta` folds into the persisted `providerAttempts` JSON (no migration); account-specific ⇒ `retrievalSufficiency:"SKIPPED"`. |
 | 2026-09-13 | **§12.9 added — C5, the single integration (LOCKED).** `knowledge-answer-orchestrator.ts` now contains no inline decision/provenance logic — wires `decidePreGeneration` (called pre- and post-retrieval) → retrieval → provider chain (`continuationBudgetExhausted` = additional abandon trigger) → `deriveSourceClass`/`liveFiguresGuardApplies` → `buildProvenance` (the only provenance constructor). `AnswerGenResult`/`FakeProviderSlot` extended (additive) to carry the C1 fields end to end. Intentional K3-B behaviour changes: `webSearchRequestedButUnavailable` now honest on a non-web fallback win (C5-a fixed); `integrityPassed:false` on chain-exhausted (C5-d); a still-paused answer can no longer win; account-specific rows persist `"SKIPPED"`. `AnswerResult` shape unchanged — no route edit. Dedicated `validate-knowledge-loop-c5-integration` (18/18, incl. a structural no-duplicate-logic check) + full regression (245 knowledge-loop/ai-presenter assertions) unchanged; tsc/eslint clean. |
+| 2026-09-13 | K3-C **C6** (`bdf7c39`, local, not pushed) — route/envelope regression lock. New `validate-knowledge-loop-route-contract` (12/12, structural source-text assertions — the route's real infrastructure isn't mocked anywhere in this codebase's test style). Zero route code change (`AnswerResult` unchanged since K3-B-3). Pins the K3-B non-stream envelope + NDJSON stream shape/order, `ChatSource`/`knowledgeMeta`/`webSources` mappings, the market-intelligence path byte-identical, and the orchestrator-import boundary. |
+| 2026-09-14 | **§12.10 added — C6 note + C7, injection hardening IMPLEMENTED (LOCKED).** §12.7 is now code, not only contract text: `buildMessages()` wraps the knowledge block in `<at24_knowledge>...</at24_knowledge>`; new `escapeKnowledgeBlock()` neutralises an embedded closing delimiter before wrapping; `KNOWLEDGE_LOOP_SYSTEM_INSTRUCTION` carries the §6.1 clause verbatim. New `validate-knowledge-loop-adversarial` (21/21 — 6 injection-hardening + the 13-row D-K3C-7 negative-path matrix), RED-first (5 assertions failed pre-implementation). No decision/provider-chain/provenance logic changed. Local commit, not pushed. |

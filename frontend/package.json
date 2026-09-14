@@ -143,6 +143,7 @@
     "validate:knowledge-loop-orchestrator": "tsx scripts/validate-knowledge-loop-orchestrator.ts",
     "validate:knowledge-loop-c5-integration": "tsx scripts/validate-knowledge-loop-c5-integration.ts",
     "validate:knowledge-loop-route-contract": "tsx scripts/validate-knowledge-loop-route-contract.ts",
+    "validate:knowledge-loop-adversarial": "tsx scripts/validate-knowledge-loop-adversarial.ts",
     "vendor:quant-engine": "node scripts/vendor-quant-engine.mjs"
   },
   "dependencies": {
