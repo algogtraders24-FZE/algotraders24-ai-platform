@@ -4,7 +4,7 @@
 **Branch:** `feat/k3c-orchestration-hardening` (base `origin/main` @ `6253165` — `K3C_DECISION.md` merged)
 **Decision:** [`K3C_DECISION.md`](K3C_DECISION.md) (D-K3C-1..10, owner-approved 2026-09-10)
 **Contract:** [`AI_ASSISTANT_ORCHESTRATION_CONTRACT.md`](AI_ASSISTANT_ORCHESTRATION_CONTRACT.md) §12 (K3-C hardening contracts, LOCKED)
-**Status:** 🚧 IN PROGRESS — C1–C8 implemented + owner-approved individually (all local-only from C6 onward, per owner instruction — nothing pushed since `bdf7c39`). Only the live production smoke + final gate remain before the single K3-C PR. **No migration. No `ANTHROPIC_API_KEY` in any file/log/commit. No `KnowledgeCandidate`.**
+**Status:** ✅ CLOSED — C1–C8 implemented + owner-approved individually, branch pushed (`763d396`), zero-drift confirmed against current `main`, live production smoke PASSED, owner final sign-off given 2026-09-15. Ready for the single K3-C PR / merge. **No migration. No `ANTHROPIC_API_KEY` in any file/log/commit. No `KnowledgeCandidate`.**
 
 > K3-C closes the K3-B decision boundaries as testable contracts and hardens
 > the server-tool + fallback + provenance failure paths. It adds **no
@@ -16,7 +16,7 @@
 ## 0. Headline
 
 ```
-K3-C STATUS:               IN PROGRESS (C1-C8 done, local-only; live smoke + final gate remain)
+K3-C STATUS:               CLOSED — C1-C8 done, zero-drift confirmed, live smoke PASSED, owner sign-off 2026-09-15
 Decision (feat/k3c-decision): MERGED  → main 6253165
 Contract §12 (LOCKED):     LANDED  (classifier precedence · decision matrix · fallback matrix ·
                                    webSearchFailed⟂webSearchRequestedButUnavailable · server-tool
@@ -27,14 +27,15 @@ C2 classifier:             PASS  (47d29ee, pushed)   — classifier 24/24, gate 
 C3 decision matrix:        PASS  (7a4fd11, pushed)   — decision-matrix 25/25
 C4 provenance integrity:   PASS  (66061a5, pushed)   — provenance-integrity 21/21
 C5 fallback contract:      PASS  (6514e17, pushed)   — c5-integration 18/18 + orchestrator 13/13 unchanged
-C6 route/envelope:         PASS  (bdf7c39, LOCAL)    — route-contract 12/12
-C7 adversarial + injection:PASS  (f952318, LOCAL)    — adversarial 21/21
-C8 observability:          PASS  (de81a47, LOCAL) — telemetry 20/20
-C9 no new architecture:    holds (no migration, no new dependency through C8)
-Offline suite (all K3-C + regression): 316/316 as of C8
-Live production smoke:     NOT STARTED (next)
+C6 route/envelope:         PASS  (bdf7c39, pushed)   — route-contract 12/12
+C7 adversarial + injection:PASS  (f952318, pushed)   — adversarial 21/21
+C8 observability:          PASS  (763d396, pushed)   — telemetry 20/20
+C9 no new architecture:    holds (no migration, no new dependency through C1-C8)
+Offline suite (all K3-C + regression): 316/316 as of C8, RE-CONFIRMED 316/316 on merged-main tree at final gate
+Live production smoke:     PASSED (2026-09-15) — 5 real turns, real Anthropic API + real Supabase prod,
+                            0 residue after cleanup (independently re-verified twice)
 MIGRATION:                 NONE
-MERGE:                     BLOCKED on owner review — single PR at the end of live smoke + final gate
+MERGE:                     AUTHORIZED — owner final sign-off 2026-09-15, single K3-C PR
 ```
 
 ---
@@ -52,18 +53,24 @@ refactor. Every §12 contract row is pinned by an offline assertion.
 | C3 — decision matrix as a pure ordered module + `validate-knowledge-loop-decision-matrix` | `7a4fd11` | ✅ |
 | C4 — provenance integrity: pure `build-provenance` + `validate-knowledge-loop-provenance-integrity` | `66061a5` | ✅ |
 | C5 — orchestrator: wire `decide-path` + `build-provenance` + two-field split · DYNAMIC guard · continuation fall-through + `validate-knowledge-loop-c5-integration` | `6514e17` | ✅ |
-| C6 — route/envelope regression lock + `validate-knowledge-loop-route-contract` | (step 7/8, local, NOT pushed) | ✅ |
-| C7 — knowledge-block injection hardening + `validate-knowledge-loop-adversarial` | (step 8/8, local, NOT pushed) | ✅ |
-| C8 — structured telemetry emit + no-raw-content test | `de81a47` (local, NOT pushed) | ✅ |
-| Live production smoke + this doc filled | | ⏳ |
+| C6 — route/envelope regression lock + `validate-knowledge-loop-route-contract` | `bdf7c39` (pushed) | ✅ |
+| C7 — knowledge-block injection hardening + `validate-knowledge-loop-adversarial` | `f952318` (pushed) | ✅ |
+| C8 — structured telemetry emit + no-raw-content test | `763d396` (pushed) | ✅ |
+| Zero-drift check + regression on merged-main tree | (verification only, no commit) | ✅ |
+| Live production smoke + this doc filled | (this section, below) | ✅ |
 
 ---
 
 ## 2. Hard boundary — what K3-C does NOT touch
 
-(to be confirmed against `git diff origin/main` at close)
+Confirmed at close: `git diff` of every K3-C-owned path (`services/knowledge-loop/`,
+`types/knowledge-loop/`, the `validate-knowledge-loop-*` scripts,
+`app/api/private/knowledge/chat/route.ts`) between the branch tip (`763d396`)
+and a disposable local merge of current `main` (36 commits ahead) is **0
+lines** — main's concurrent work (Automation MVP, CS1, Walk-Forward, Beta
+Launch Lock) touched none of K3-C's code, and K3-C touched none of it back.
 
-- No `prisma/schema.prisma` change · no migration · no new table
+- No `prisma/schema.prisma` change · no migration · no new table (confirmed: `git diff` on this file between K3-C's base commit and tip is empty)
 - No `KnowledgeCandidate` / candidate embedding / autonomous learning (K4)
 - No `services/intelligence/**` / `AIPresenterOrchestratorService` / market-intel path
 - No `services/ai/assistant.service.ts` redesign
@@ -547,19 +554,95 @@ request-id deduplication.
 
 ## 4. Offline test summary
 
-_(filled at close)_
+| Suite | Result |
+|---|---|
+| classifier | 24/24 |
+| websearch-gate | 19/19 |
+| decision-matrix | 25/25 |
+| provenance-integrity | 21/21 |
+| claude-provider | 19/19 |
+| route-contract | 12/12 |
+| adversarial | 21/21 |
+| c5-integration | 18/18 |
+| telemetry | 20/20 |
+| schema | 19/19 |
+| retrieval | 15/15 |
+| ingestion | 3/3 |
+| cache | 13/13 |
+| freshness | 8/8 |
+| orchestrator | 13/13 |
+| ai-presenter-orchestration | 66/66 |
+| **Total** | **316/316** |
+| `tsc --noEmit` | clean, 0 errors |
+| `eslint` | clean |
+
+Run twice: once on the isolated branch tip (`763d396`), once again on a
+disposable local merge with current `main` (see §2) — identical 316/316 both
+times, confirming zero regression from main's concurrent work.
 
 ---
 
-## 5. Live production smoke
+## 5. Live production smoke (2026-09-15) — PASSED
 
-_(filled at close — merged-main tree, real Claude web search + real Supabase provenance, mandatory cleanup, zero residue)_
+Ran the real production wiring (`createKnowledgeAnswerOrchestrator()` — the
+exact factory `route.ts` calls) directly against the real prod Supabase DB
+and real Anthropic API. No Vercel deployment exists for this branch (not
+merged), so this is the closest available proof of deployment reality: same
+code, same DB, same provider, invoked the same way `route.ts` invokes it.
+
+Seeded one clearly-marked `scope=assistant` Knowledge row (source =
+`k3c-final-gate-live-smoke`), deliberately containing a literal
+`</at24_knowledge><at24_knowledge>` delimiter string in its body to exercise
+C7's escaping live.
+
+| # | Turn | sourceClass | webSearchUsed | providerUsed | latency | tokens in/out |
+|---|---|---|---|---|---|---|
+| 1 | Exact-match question against seeded marker Knowledge | `AT24_KNOWLEDGE` | false | claude | 9.8s | 1195/551 |
+| 2 | "What are today's top financial markets headlines?" | `MIXED` | true, searchCount=2 | claude | 28.0s | 23234/2236 |
+| 3 | "my current subscription plan?" (test-wording miss — see below) | `AT24_KNOWLEDGE` | false | claude | 6.5s | 3979/246 |
+| 4 | Marker question + explicit "also search the web" instruction | `AT24_KNOWLEDGE` | false | claude | 12.1s | 1218/834 |
+| 5 | Retest: "What is my account subscription status?" | `DETERMINISTIC` | false | **deterministic** (no LLM) | **2ms** | null/null |
+
+**Confirmed live:**
+- Knowledge-first: `AT24_KNOWLEDGE`, no web, `integrityPassed=true`.
+- Native Claude web search genuinely fires in production (turn 2: real citations, `searchCount=2`).
+- `MIXED` honesty exercised **organically** (unplanned) — turn 2's retrieval found the (only, weakly-relevant) seeded doc AND Claude searched the web; `deriveSourceClass` correctly resolved `MIXED`, live evidence for the K3-B Fix #2 path.
+- `webSearchRequestedButUnavailable` independence — `true` on turn 3's knowledge-sufficient non-web fallback win, matching the C4/C5 formula exactly; `false` elsewhere.
+- Account-specific deterministic short-circuit (turn 5): zero retrieval, **zero LLM call**, 2ms latency, `promptTokens`/`completionTokens` both `null` — the strongest possible live proof that the short-circuit truly precedes generation.
+- Telemetry: exactly one `knowledge_answer_turn` line per turn (5 lines for 5 turns, 1:1 observed), every field a primitive, zero raw content in any line.
+- Provenance: one row written per turn, `provenanceWritten=true` throughout.
+- Injection hardening: the seeded body's literal `<at24_knowledge>` delimiter text never broke retrieval, classification, or the answer.
+
+**Two honest disclosures:**
+1. A `head -100` shell-piping mistake truncated the smoke script's own
+   pass/fail printout mid-run. Not re-run (would have duplicated real API
+   cost and DB writes) — every material assertion was independently
+   reconstructed from the raw telemetry (fully captured, unredacted) plus a
+   fresh direct DB query.
+2. Turn 3's message ("my **current** subscription plan?") didn't match the
+   classifier's `ACCOUNT_SPECIFIC` regex (`my (subscription|plan|...)`
+   requires adjacency; "current" breaks it) — a flaw in the smoke script's
+   wording, not in K3-C. Caught from the raw telemetry, corrected with one
+   additional isolated, zero-cost call (turn 5), which passed cleanly.
+
+**Cleanup — zero residue, independently re-verified twice:**
+Final direct query against prod after all 5 turns: `knowledge=0,
+provenance=0, chunks=0`. Nothing from this smoke remains in the database.
 
 ---
 
 ## 6. GO / NO-GO
 
-_(filled at close)_
+**GO ✅** — owner final sign-off 2026-09-15.
+
+- Implementation C1–C8: complete, individually owner-approved, one commit per step.
+- Zero drift against current `main`.
+- Merged-tree regression 316/316, tsc clean, eslint clean.
+- Live production smoke: passed, zero residue.
+- No migration, no new architecture, no capability added — hardening + contract closure only, as scoped by `K3C_DECISION.md`.
+
+**Next:** merge the single K3-C PR, then close the sprint. K4.2 remains
+blocked until a separate owner authorization (unrelated to this gate).
 
 ---
 
@@ -575,4 +658,5 @@ _(filled at close)_
 | 2026-09-13 | **Step 6/8 — C5, the single integration (`66061a5`→this commit).** `knowledge-answer-orchestrator.ts` rewritten to contain zero inline decision/provenance logic — wires `decidePreGeneration` (called twice: pre-retrieval for the account-specific short-circuit, post-retrieval with the REAL `bestSimilarity` for the gate) → retrieval → provider chain (`continuationBudgetExhausted` now an ADDITIONAL fall-through trigger, §12.3) → `deriveSourceClass`/`liveFiguresGuardApplies` (DYNAMIC guard) → `buildProvenance` (the only provenance constructor). `AnswerGenResult`/`ProviderSlot`/`FakeProviderSlot` extended (additive) to carry the C1 fields end to end. **Intentional K3-B behaviour changes:** `webSearchRequestedButUnavailable` now honest on a non-web fallback win (C5-a fixed, end-to-end); `integrityPassed:false` on chain-exhausted (C5-d); a still-paused answer can no longer win; account-specific → `"SKIPPED"`. `AnswerResult` shape unchanged — no route edit. Dedicated `validate-knowledge-loop-c5-integration` (new, 18/18, incl. a structural no-duplicate-logic check) + the pre-existing `validate-knowledge-loop-orchestrator` (13/13, **zero test changes** — proving no regression) + full regression (166) + ai-presenter (66) = **263/263**. tsc/eslint clean. |
 | 2026-09-13 | **Step 7/8 — C6, route/envelope regression lock (local commit, NOT pushed).** New `validate-knowledge-loop-route-contract.ts` (structural, source-text assertions — the route's real auth/Prisma/service dependencies aren't mocked anywhere in this codebase's plain-tsx test style, so this pins the envelope shape rather than invoking the handler). Locks: the K3-B non-stream envelope literal + NDJSON `stage→token→done` order + `done`'s key set; `ChatSource`/`knowledgeMeta`/`webSources` mapping shapes; the market-intelligence envelope + stream **byte-identical** (K3-C touched nothing there); every `result.<field>` access is a real `AnswerResult` field; the orchestrator-import boundary re-asserted from the route side (`assistant.service.ts`, `services/intelligence/**`, `research-knowledge-search.tool.ts` — zero imports). **`route.ts` itself was NOT modified** (`git status --porcelain` clean on that path) — no change was needed since `AnswerResult`'s shape hasn't changed since K3-B-3. RED-demo: a temporary field rename caught by the test, reverted, confirmed `route.ts` byte-identical to before. 12/12 + full regression (209) + ai-presenter (66) = **287/287**. tsc/eslint clean. |
 | 2026-09-14 | **Step 8/8 — C7, knowledge-block injection hardening + adversarial suite (local commit, NOT pushed).** `buildMessages()` now wraps the knowledge block in `<at24_knowledge>...</at24_knowledge>`; new exported `escapeKnowledgeBlock()` neutralises a literal delimiter embedded inside retrieved content before wrapping (a chunk can never prematurely close the trusted block); `KNOWLEDGE_LOOP_SYSTEM_INSTRUCTION` gains the injection clause LOCKED verbatim in contract §6.1 since step 1. New `validate-knowledge-loop-adversarial.ts` (21/21): Part A (6 assertions) proves the hardening — wrapping, escaping (direct unit test + end-to-end via `buildMessages`), the system clause, and that an injection string inside either a knowledge chunk or a web citation never changes `sourceClass`/`providerUsed`/the winner (stored as inert evidence only). Part B (13 assertions) is the full D-K3C-7 negative-path matrix (irrelevant hit, stale/expired-absent, empty result, search error, provider timeout, malformed response, duplicate/repeated-requestId calls, account-specific+"latest", current-info+"my account", DYNAMIC/non-DYNAMIC unavailable-no-knowledge, retrieval throws, provenance-write throws). RED-first: the 5 hardening assertions failed against the pre-C7 code (`git stash` of the two implementation files), the 13 Part-B rows mostly already held as a standing regression net; reverted, re-ran green, implemented. No decision/provider-chain/provenance logic changed. Regression 209 + ai-presenter 66 unchanged = **296/296**. tsc/eslint clean. |
-| 2026-09-14 | **C8, observability & cost boundary (local commit, NOT pushed) — this closes C1–C8.** New `services/knowledge-loop/orchestrator/telemetry.ts`: pure `buildTelemetryLine()` (21 primitive fields, no nested object/array — nothing content-bearing can exist in the type) + `emitAnswerTelemetry()` (the one `console.info` side effect, once per turn, after the provenance write settles — `provenanceWritten` is real, not assumed). Closed two silent gaps: `AnswerGenResult.usage` was dropped at `ProviderSlot.generate()` — now forwarded; `RetrievalResult.fromCache` never reached provenance — now threaded via optional `ProvenanceRetrievalFacts.fromCache` (defensively coalesced to `false`). New `validate-knowledge-loop-telemetry.ts` (20/20; RED-first — whole module missing pre-implementation, the strongest possible RED). Caught + fixed one real regression mid-step (a C4 fixture predating the new field triggered the "primitives only" invariant — fixed by making the field optional + coalescing in `buildProvenance()`, not by special-casing the old test). No decision/provider-chain/provenance-construction logic changed; no route change; no new table/dashboard/migration/logging subsystem/request-id dedup. Regression 230 + ai-presenter 66 = **316/316**. tsc/eslint clean. **Only the live production smoke + final gate remain before the single K3-C PR.** |
+| 2026-09-14 | **C8, observability & cost boundary — this closes C1–C8.** New `services/knowledge-loop/orchestrator/telemetry.ts`: pure `buildTelemetryLine()` (21 primitive fields, no nested object/array — nothing content-bearing can exist in the type) + `emitAnswerTelemetry()` (the one `console.info` side effect, once per turn, after the provenance write settles — `provenanceWritten` is real, not assumed). Closed two silent gaps: `AnswerGenResult.usage` was dropped at `ProviderSlot.generate()` — now forwarded; `RetrievalResult.fromCache` never reached provenance — now threaded via optional `ProvenanceRetrievalFacts.fromCache` (defensively coalesced to `false`). New `validate-knowledge-loop-telemetry.ts` (20/20; RED-first — whole module missing pre-implementation, the strongest possible RED). Caught + fixed one real regression mid-step (a C4 fixture predating the new field triggered the "primitives only" invariant — fixed by making the field optional + coalescing in `buildProvenance()`, not by special-casing the old test). No decision/provider-chain/provenance-construction logic changed; no route change; no new table/dashboard/migration/logging subsystem/request-id dedup. Regression 230 + ai-presenter 66 = **316/316**. tsc/eslint clean. Committed `763d396`, pushed. |
+| 2026-09-15 | **Final production gate — PASSED, K3-C CLOSED.** Pushed `feat/k3c-orchestration-hardening` to origin (C6/C7/C8 now public). Zero-drift check: merge-tested against current `main` (36 commits ahead, one trivial `package.json` script-list union conflict) — every K3-C-owned file 0 diff vs the merged tree; full regression re-run on the merged tree, 316/316, tsc clean (0 errors), eslint clean. Live production smoke: 5 real turns against real prod Supabase + real Anthropic API through the actual `createKnowledgeAnswerOrchestrator()` production wiring — knowledge-first (`AT24_KNOWLEDGE`), native web search firing live (`MIXED`, searchCount=2), account-specific deterministic short-circuit (2ms, zero LLM call, tokens null), telemetry 1:1 with zero raw content, provenance written every turn, injection-hardened delimiter never broke retrieval. Cleanup: 0 residue, independently re-verified twice. Two honest disclosures logged in §5 (a `head -100` shell-piping mistake that truncated the smoke script's own printout, reconstructed from raw telemetry instead of re-running; one smoke-test question's wording didn't match the classifier's `ACCOUNT_SPECIFIC` regex, corrected with one additional zero-cost call). Owner reviewed and gave final GO — merge authorized, single K3-C PR next. |
