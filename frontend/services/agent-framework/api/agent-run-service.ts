@@ -177,8 +177,8 @@ export interface ResolutionConfirmation {
  *  widget's own gating (only showing the prompt for an eligible run) is the
  *  other half - this is defense in depth, not the only check. */
 export class ResolutionNotEligibleError extends Error {
-  constructor(runId: string) {
-    super(`run "${runId}" is not eligible for a positive resolution confirmation (no-coverage or escalated)`);
+  constructor(runId: string, reason: string) {
+    super(`run "${runId}" is not eligible for a resolution confirmation: ${reason}`);
     this.name = "ResolutionNotEligibleError";
   }
 }
@@ -207,10 +207,25 @@ export async function recordResolutionConfirmation(
 
   if (!isTerminalRunStatus(owned.status)) throw new RunNotTerminalError(runId);
 
+  // MERGE-BLOCKER FIX 3 (P1 review): a resolution confirmation - true or
+  // false - is only meaningful for a SUPPORT-agent conversation ("did this
+  // resolve your issue?" is a SUPPORT-specific concept, contract SS10).
+  // Without this check, a RESEARCH/MARKET_INTELLIGENCE/STRATEGY_RESEARCH
+  // run's output has no `coverage`/`escalate` fields, so the eligibility
+  // check below silently no-ops (undefined !== "no-coverage" and
+  // undefined !== true are both false) and would treat ANY terminal
+  // non-SUPPORT run as eligible for a positive confirmation. `definition`
+  // is stashed on every run's metadata at startRun (agent-runtime.ts) -
+  // this reads the same field listAgentRuns already reads, not a new one.
+  const runMetadata = (owned.metadata ?? {}) as { definition?: { type?: string } };
+  if (runMetadata.definition?.type !== "SUPPORT") {
+    throw new ResolutionNotEligibleError(runId, "not a SUPPORT agent run");
+  }
+
   if (confirmed) {
     const output = (owned.output ?? {}) as { coverage?: string; escalate?: boolean };
     if (output.coverage === "no-coverage" || output.escalate === true) {
-      throw new ResolutionNotEligibleError(runId);
+      throw new ResolutionNotEligibleError(runId, "no-coverage or escalated");
     }
   }
 

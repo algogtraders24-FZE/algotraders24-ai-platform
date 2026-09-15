@@ -12,18 +12,12 @@
 import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { answerGuestQuestion } from "@/services/support/guest-knowledge-query";
-import { checkGuestRateLimit } from "@/services/support/guest-rate-limit";
+import { checkGuestRateLimit, clientIpFromHeaders } from "@/services/support/guest-rate-limit";
 
 const MAX_QUERY_LENGTH = 2000;
 
-function clientIpFromRequest(req: Request): string {
-  const fwd = req.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0].trim();
-  return req.headers.get("x-real-ip") ?? "unknown";
-}
-
 export const POST = withContext(async (req, ctx) => {
-  const clientIp = clientIpFromRequest(req);
+  const clientIp = clientIpFromHeaders(req.headers);
   if (!checkGuestRateLimit(clientIp)) {
     return ApiResponse.error(
       { code: "RATE_LIMITED", message: "Too many requests. Please wait a moment and try again." },

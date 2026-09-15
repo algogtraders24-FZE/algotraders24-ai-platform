@@ -265,7 +265,10 @@ export default function SupportWidget() {
 
   const busyNow = mode === "authenticated" ? busy : guestBusy;
   const errorNow = mode === "authenticated" ? error : guestError;
-  const hasAnyTurn = mode === "authenticated" ? authHistory.length > 0 || obs?.run != null : guestTurns.length > 0;
+  // guestTurns counts regardless of mode (fix 1, above) - a guest transcript
+  // that survived a login transition must also suppress the empty-state hint.
+  const hasAnyTurn =
+    guestTurns.length > 0 || (mode === "authenticated" && (authHistory.length > 0 || obs?.run != null));
 
   return (
     <>
@@ -327,6 +330,18 @@ export default function SupportWidget() {
               </p>
             )}
 
+            {/* MERGE-BLOCKER FIX 1 (P1 review, contract SS6/SS12): guestTurns
+                renders UNCONDITIONALLY, never gated on `mode`. The session
+                probe flips `mode` to "authenticated" on mount/focus
+                independent of the user sending anything, so gating this on
+                `mode !== "authenticated"` made a guest's own visible
+                transcript disappear the instant they logged in - exactly
+                the "silent restart" the contract forbids. guestTurns simply
+                stops GROWING once mode is authenticated (sendGuest is only
+                ever called from the guest branch of send(), below) - it
+                needs no rendering gate to be correct. */}
+            {guestTurns.map((t, i) => <GuestTurnView key={i} turn={t} />)}
+
             {mode === "authenticated" &&
               authHistory.map((h, i) => <AuthTurnView key={i} question={h.question} obs={h.obs} live={false} />)}
             {mode === "authenticated" && authQuestion && obs?.run && (
@@ -339,8 +354,6 @@ export default function SupportWidget() {
                 confirmError={confirmError}
               />
             )}
-
-            {mode !== "authenticated" && guestTurns.map((t, i) => <GuestTurnView key={i} turn={t} />)}
 
             {busyNow && <p className="text-xs text-text-3">Working…</p>}
             {errorNow && <p className="text-xs text-danger">{errorNow}. Please try again.</p>}

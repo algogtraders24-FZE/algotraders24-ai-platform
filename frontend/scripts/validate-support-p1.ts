@@ -1,7 +1,22 @@
 // scripts/validate-support-p1.ts
-// AT24 Support - P1 (AUTONOMOUS_SUPPORT_P1_CONTRACT.md, commit 4d9d21a).
+// AT24 Support - P1 (AUTONOMOUS_SUPPORT_P1_CONTRACT.md, commit 4d9d21a;
+// implementation edf5e47; merge-blocker remediation for the P1 Merge Review).
 //
 // House style (node:assert/strict, tsx). Run: npm run validate:support-p1
+//
+// MERGE-BLOCKER FIXES covered here (P1 Merge Review, applied to edf5e47):
+//   1. Guest transcript disappeared from the widget the instant `mode`
+//      flipped to "authenticated" (session probe on mount/focus) - a
+//      contract SS6/SS12 violation ("the visible transcript stays on
+//      screen"). Fixed by rendering guestTurns unconditionally.
+//   2. Guest rate limiter derived client IP from X-Forwarded-For's FIRST
+//      (client-spoofable) hop instead of the LAST (trusted-edge-appended)
+//      one - trivially bypassable. Fixed in clientIpFromHeaders().
+//   3. recordResolutionConfirmation had no SUPPORT-type guard, so any other
+//      terminal agent run (RESEARCH/MARKET_INTELLIGENCE/STRATEGY_RESEARCH)
+//      silently passed the coverage/escalate eligibility check (those
+//      fields are simply undefined on their output). Fixed with an
+//      explicit `metadata.definition.type === "SUPPORT"` guard.
 //
 // Covers the P1 implementation surface at the service layer (route-level
 // HTTP behavior + visual/UX behavior are covered by the production smoke
@@ -60,7 +75,7 @@ import {
   MUTATION_MARKERS,
 } from "../services/agent-framework/supervisor/specialists/support.specialist";
 import { answerGuestQuestion } from "../services/support/guest-knowledge-query";
-import { checkGuestRateLimit, _resetGuestRateLimitForTests } from "../services/support/guest-rate-limit";
+import { checkGuestRateLimit, clientIpFromHeaders, _resetGuestRateLimitForTests } from "../services/support/guest-rate-limit";
 import { CreditLedger, InMemoryCreditStore, FixedAllowanceResolver } from "../services/agent-framework/credits/index";
 import { EvaluationService } from "../services/agent-framework/evaluation/evaluation-service";
 import { InMemoryEvaluationStore } from "../services/agent-framework/evaluation/evaluation-store";
@@ -183,6 +198,42 @@ async function main(): Promise<void> {
     _resetGuestRateLimitForTests();
   });
 
+  await test("MERGE-BLOCKER FIX 2: clientIpFromHeaders trusts the LAST X-Forwarded-For hop, not the client-spoofable first one", () => {
+    // A client can put ANYTHING in X-Forwarded-For; the trusted edge
+    // appends the real socket peer as the LAST hop. Trusting the first
+    // entry (the original bug) lets an attacker get a fresh bucket on
+    // every request just by sending a different fake leftmost value.
+    const spoofedButSameRealClient1 = new Headers({ "x-forwarded-for": "1.2.3.4, 203.0.113.99" });
+    const spoofedButSameRealClient2 = new Headers({ "x-forwarded-for": "9.9.9.9, 203.0.113.99" });
+    assert.equal(clientIpFromHeaders(spoofedButSameRealClient1), "203.0.113.99");
+    assert.equal(
+      clientIpFromHeaders(spoofedButSameRealClient1),
+      clientIpFromHeaders(spoofedButSameRealClient2),
+      "two requests with different spoofed leftmost values but the same real edge-appended IP must land in the SAME rate-limit bucket",
+    );
+    // A single-hop chain (no client-supplied XFF, just what the edge itself set).
+    assert.equal(clientIpFromHeaders(new Headers({ "x-forwarded-for": "203.0.113.50" })), "203.0.113.50");
+    // Whitespace around hops is trimmed.
+    assert.equal(clientIpFromHeaders(new Headers({ "x-forwarded-for": "1.1.1.1 ,  203.0.113.7  " })), "203.0.113.7");
+    // Falls back to x-real-ip, then "unknown" - never throws on absent headers.
+    assert.equal(clientIpFromHeaders(new Headers({ "x-real-ip": "203.0.113.88" })), "203.0.113.88");
+    assert.equal(clientIpFromHeaders(new Headers()), "unknown");
+
+    // End-to-end: prove the fix actually changes rate-limit OUTCOME, not
+    // just the derived string. Same real client (last hop 203.0.113.99),
+    // 10 requests each with a FRESH spoofed leftmost value - the 11th must
+    // still be rejected because they all resolve to one bucket.
+    _resetGuestRateLimitForTests();
+    const t = 2_000_000;
+    for (let i = 0; i < 10; i++) {
+      const ip = clientIpFromHeaders(new Headers({ "x-forwarded-for": `10.0.0.${i}, 203.0.113.99` }));
+      assert.equal(checkGuestRateLimit(ip, t), true, `spoofed request ${i + 1} within the real client's budget`);
+    }
+    const eleventhIp = clientIpFromHeaders(new Headers({ "x-forwarded-for": "10.0.0.255, 203.0.113.99" }));
+    assert.equal(checkGuestRateLimit(eleventhIp, t), false, "11th request from the SAME real client, new spoofed leftmost value, still rejected");
+    _resetGuestRateLimitForTests();
+  });
+
   // ----------------------------------------------------------------
   // 2. Structural: the guest path cannot reach account data (SS6/SS11)
   // ----------------------------------------------------------------
@@ -228,6 +279,31 @@ async function main(): Promise<void> {
     for (const forbidden of ["profile.email", "profile.id", "profile.name"]) {
       assert.ok(!src.includes(forbidden), `session probe must not reference "${forbidden}"`);
     }
+  });
+
+  await test("MERGE-BLOCKER FIX 1: SupportWidget renders guestTurns unconditionally - never gated on `mode` (contract SS6/SS12 transcript-preservation)", () => {
+    const f = join(ROOT, "components", "support", "SupportWidget.tsx");
+    const src = stripComments(readFileSync(f, "utf8"));
+    // The original bug: guestTurns only rendered while mode !== "authenticated",
+    // so the session probe flipping `mode` on login/focus made a guest's own
+    // visible transcript disappear. Assert that exact buggy gate is gone...
+    assert.ok(
+      !/mode\s*!==\s*"authenticated"\s*&&\s*guestTurns/.test(src),
+      "guestTurns must not be gated on mode !== \"authenticated\" (this is exactly the bug that made a guest's transcript vanish on login)",
+    );
+    // ...and the unconditional render is present.
+    assert.match(
+      src,
+      /\{guestTurns\.map\(/,
+      "guestTurns.map( must appear unconditionally (not wrapped in a mode check)",
+    );
+    // hasAnyTurn must also count guestTurns regardless of mode, or the
+    // empty-state hint would render above a still-visible guest transcript.
+    assert.match(
+      src,
+      /hasAnyTurn\s*=\s*\n?\s*guestTurns\.length\s*>\s*0/,
+      "hasAnyTurn must OR in guestTurns.length > 0 unconditionally, not only inside the guest-mode branch",
+    );
   });
 
   await test("structural: the new resolution route matches the existing runs/[id] routes' security posture (same check as validate-agent-api.ts SS6)", () => {
@@ -349,6 +425,54 @@ async function main(): Promise<void> {
     assert.equal(row.status, "queued");
     await assert.rejects(() => recordResolutionConfirmation(TEST_USER, row.id, true), RunNotTerminalError);
     await assert.rejects(() => recordResolutionConfirmation(TEST_USER, row.id, false), RunNotTerminalError);
+  });
+
+  await test("MERGE-BLOCKER FIX 3: recordResolutionConfirmation rejects a non-SUPPORT run for BOTH confirmed:true and confirmed:false", async () => {
+    // Simulate a terminal RESEARCH-agent run: no `coverage`/`escalate` on its
+    // output at all. Before the fix, the eligibility check silently no-op'd
+    // for exactly this shape (undefined !== "no-coverage" is false) and
+    // treated it as always-eligible for a positive confirmation.
+    const row = await agentRunRepository.createRun({
+      agentId: "research-agent",
+      agentVersion: "1.0.0",
+      userId: TEST_USER,
+      trigger: "manual",
+      input: { question: "unrelated research question" },
+      limits: {},
+      creditsEstimated: 0,
+      metadata: { definition: { type: "RESEARCH" } },
+    });
+    await agentRunRepository.patchRun(row.id, {
+      status: "succeeded",
+      output: { kind: "research-answer", someField: "no coverage/escalate fields at all" },
+      completedAt: new Date(),
+    });
+
+    await assert.rejects(
+      () => recordResolutionConfirmation(TEST_USER, row.id, true),
+      ResolutionNotEligibleError,
+      "a non-SUPPORT run must reject confirmed:true",
+    );
+    await assert.rejects(
+      () => recordResolutionConfirmation(TEST_USER, row.id, false),
+      ResolutionNotEligibleError,
+      "a non-SUPPORT run must ALSO reject confirmed:false - the whole concept is SUPPORT-specific",
+    );
+
+    // A run with no `definition` metadata at all (defensive: missing data
+    // must fail closed, never be treated as an implicit SUPPORT run).
+    const rowNoDefinition = await agentRunRepository.createRun({
+      agentId: "unknown-agent",
+      agentVersion: "1.0.0",
+      userId: TEST_USER,
+      trigger: "manual",
+      input: {},
+      limits: {},
+      creditsEstimated: 0,
+      metadata: {},
+    });
+    await agentRunRepository.patchRun(rowNoDefinition.id, { status: "succeeded", output: {}, completedAt: new Date() });
+    await assert.rejects(() => recordResolutionConfirmation(TEST_USER, rowNoDefinition.id, true), ResolutionNotEligibleError);
   });
 
   await test("recordResolutionConfirmation: a run owned by a different user returns null (ownership, same primitive as advance/get)", async () => {
