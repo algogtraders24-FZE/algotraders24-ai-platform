@@ -115,6 +115,21 @@ export function selectOptimizableStrategyId(strategies: readonly AlgoTestStrateg
   return strategies.find((s) => s.strategyId === runStrategyId && s.parameters.length > 0)?.strategyId;
 }
 
+/**
+ * QP-1 - exported (same smallest-testable-unit reason as
+ * selectOptimizableStrategyId above: no DOM renderer exists in this repo
+ * for a validator to drive the component directly). This gate exists to
+ * stop a user from SUBMITTING a new registry-mode backtest for a symbol
+ * the selected strategy doesn't support - it must never also hide an
+ * ALREADY-OBTAINED result (`run` already set, via a fresh submission or a
+ * `?algoTestId=` reopen). The `run` parameter's own type is intentionally
+ * loose (`unknown`) - this function only ever needs to know whether one
+ * exists, never its shape, so it stays decoupled from `AlgoTestRunView`.
+ */
+export function computeRegistrySymbolBlocked(mode: AlgoTestMode, registrySupportedSymbol: string | undefined, paneSymbol: string, run: unknown): boolean {
+  return mode === "registry" && registrySupportedSymbol !== undefined && paneSymbol !== registrySupportedSymbol && !run;
+}
+
 function isoDateNDaysAgo(n: number): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() - n);
@@ -278,8 +293,14 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
   // If a completed AI run's own resulting symbol differs from this
   // pane's symbol, the results below say so explicitly and simply do
   // not push a mismatched chart overlay (see handleSubmit).
+  //
+  // QP-1 fix - gated via computeRegistrySymbolBlocked() (see its own doc
+  // comment above for the real production defect this closes: reopening
+  // a completed run via `?algoTestId=` rendered nothing whenever the
+  // active pane's symbol didn't happen to match Golden's own default
+  // XAUUSD, because this gate fired before `run` was ever consulted).
   const registrySupportedSymbol = strategyDef?.supportedSymbols[0];
-  const registrySymbolBlocked = mode === "registry" && registrySupportedSymbol !== undefined && symbol !== registrySupportedSymbol;
+  const registrySymbolBlocked = computeRegistrySymbolBlocked(mode, registrySupportedSymbol, symbol, run);
 
   if (registrySymbolBlocked) {
     return (
