@@ -834,9 +834,10 @@ function TradeRow({ index, trade, selected, onSelect }: { index: number; trade: 
         {trade.pnl >= 0 ? "+" : ""}
         {formatPrice(trade.pnl, { maxDecimals: 2 })}
       </td>
-      <td className={`py-1 pr-2 ${FIN_SECONDARY}`}>{trade.rMultiple === null ? "—" : `${trade.rMultiple.toFixed(2)}R`}</td>
-      <td className={`py-1 pr-2 ${FIN_SECONDARY}`}>{trade.mfeR === null ? "—" : `${trade.mfeR.toFixed(2)}R`}</td>
-      <td className={`py-1 pr-2 ${FIN_SECONDARY}`}>{trade.maeR === null ? "—" : `${trade.maeR.toFixed(2)}R`}</td>
+      {/* QP-1B fix - these are typed `number | null` (never `undefined`), but a trade persisted before P4.6-T2.1 (MFE/MAE) has the key genuinely absent (`undefined`), not `null` - confirmed live in prod. `=== null` alone let that fall through to `.toFixed()` and crash. */}
+      <td className={`py-1 pr-2 ${FIN_SECONDARY}`}>{trade.rMultiple === null || trade.rMultiple === undefined ? "—" : `${trade.rMultiple.toFixed(2)}R`}</td>
+      <td className={`py-1 pr-2 ${FIN_SECONDARY}`}>{trade.mfeR === null || trade.mfeR === undefined ? "—" : `${trade.mfeR.toFixed(2)}R`}</td>
+      <td className={`py-1 pr-2 ${FIN_SECONDARY}`}>{trade.maeR === null || trade.maeR === undefined ? "—" : `${trade.maeR.toFixed(2)}R`}</td>
     </tr>
   );
 }
