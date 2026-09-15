@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Urbanist } from "next/font/google";
 import { ToastProvider } from "@/components/ui/Toast";
+import SupportWidget from "@/components/support/SupportWidget";
 import "./globals.css";
 
 // Geist (sans/mono) power body + code. Urbanist is the official Brand
@@ -131,6 +132,13 @@ export default function RootLayout({
           Skip to main content
         </a>
         <ToastProvider>{children}</ToastProvider>
+        {/* AT24 Support - P1 (AUTONOMOUS_SUPPORT_P1_CONTRACT.md SS6/SS7):
+            the ONLY place a widget can reach both public and dashboard pages
+            - not app/dashboard/layout.tsx, which is dashboard-only and where
+            FeedbackWidget lives. Not wrapped in UserProvider (it isn't
+            available here) - the widget determines auth state itself via a
+            non-authoritative session probe. */}
+        <SupportWidget />
       </body>
     </html>
   );

@@ -165,6 +165,66 @@ export interface AgentRunListItem {
   errorCode: string | null;
 }
 
+export interface ResolutionConfirmation {
+  confirmed: boolean;
+  confirmedAt: string;
+}
+
+/** Thrown when a POSITIVE (confirmed:true) resolution confirmation is
+ *  attempted on a run that is escalated or has no-coverage - the server-side
+ *  half of "Resolved must mean an explicit Yes on a real answer, never just
+ *  an AI reply" (AUTONOMOUS_SUPPORT_P1_CONTRACT.md SS10/SS22 G5). The
+ *  widget's own gating (only showing the prompt for an eligible run) is the
+ *  other half - this is defense in depth, not the only check. */
+export class ResolutionNotEligibleError extends Error {
+  constructor(runId: string) {
+    super(`run "${runId}" is not eligible for a positive resolution confirmation (no-coverage or escalated)`);
+    this.name = "ResolutionNotEligibleError";
+  }
+}
+
+/** Thrown when a confirmation is attempted on a run that has not reached a
+ *  terminal state yet - nothing to confirm. */
+export class RunNotTerminalError extends Error {
+  constructor(runId: string) {
+    super(`run "${runId}" has not reached a terminal state yet`);
+    this.name = "RunNotTerminalError";
+  }
+}
+
+/** Record the user's explicit resolution confirmation into the run's
+ *  existing `metadata` Json column (additive key, no schema change -
+ *  AUTONOMOUS_SUPPORT_P1_CONTRACT.md SS10/SS17). Ownership-scoped via the
+ *  same getRunForUser primitive every other run mutation in this module
+ *  uses. Returns null if the run does not exist or is not the caller's. */
+export async function recordResolutionConfirmation(
+  userId: string,
+  runId: string,
+  confirmed: boolean,
+): Promise<{ observability: RunObservability } | null> {
+  const owned = await agentRunRepository.getRunForUser(runId, userId);
+  if (!owned) return null;
+
+  if (!isTerminalRunStatus(owned.status)) throw new RunNotTerminalError(runId);
+
+  if (confirmed) {
+    const output = (owned.output ?? {}) as { coverage?: string; escalate?: boolean };
+    if (output.coverage === "no-coverage" || output.escalate === true) {
+      throw new ResolutionNotEligibleError(runId);
+    }
+  }
+
+  const existingMetadata = (owned.metadata ?? {}) as Record<string, unknown>;
+  const confirmation: ResolutionConfirmation = { confirmed, confirmedAt: new Date().toISOString() };
+  await agentRunRepository.patchRun(runId, {
+    metadata: { ...existingMetadata, resolutionConfirmation: confirmation },
+  });
+
+  const observability = await getRunObservability(runId, observabilityDeps(userId));
+  if (!observability) return null;
+  return { observability };
+}
+
 /** The authenticated user's own runs, newest first. */
 export async function listAgentRuns(userId: string, limit = 50): Promise<AgentRunListItem[]> {
   const rows = await agentRunRepository.listRunsForUser(userId, limit);
