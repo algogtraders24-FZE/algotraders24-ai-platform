@@ -26,34 +26,19 @@ import { contractOk, contractResult } from "@/types/agent-framework";
 import type { ToolImplementation, ToolInputParseResult } from "../tool-implementation";
 import { isRecord } from "../tool-implementation";
 import { placeholderFlatCost } from "../tool-credit-costs";
+import { searchSupportKnowledge, MAX_SUPPORT_TOP_K, type SupportHit } from "./support-knowledge-search.core";
 
 interface SupportKnowledgeSearchInput {
   query: string;
   topK?: number;
 }
 
-interface SupportHit {
-  chunkId: string;
-  knowledgeId: string;
-  /** the support row's knowledgeType (faq | support | policy | product | ...) or its free-text category. */
-  topic: string;
-  title: string;
-  content: string;
-  similarity: number;
-}
-
-const MAX_TOP_K = 8;
-const SUPPORT_SCOPES = ["support"] as const;
+const MAX_TOP_K = MAX_SUPPORT_TOP_K;
+// Authenticated-user view: public + their-tier support content. A guest
+// (services/support/guest-knowledge-query.ts) uses the same retrieval core
+// (support-knowledge-search.core.ts) with visibilities narrowed to
+// ["public"] only - a guest is not a customer (R&D SS5.2, P1 contract SS6/SS8).
 const SUPPORT_VISIBILITIES = ["public", "customer"] as const;
-
-// `searchSimilar` returns the top-K by cosine similarity regardless of how
-// weak the match is. A support answer must not be built on noise, and the
-// "no answer -> escalate" path (CS1.2 D5) depends on genuinely-empty results.
-// So drop anything below this floor here; the specialist then applies a
-// STRONG-match threshold on top for the `kb-answered` vs `no-coverage`
-// decision. (Ballpark of the K retrieval contract's RELEVANCE_MIN 0.3, set
-// higher for a customer-facing answer.)
-const SUPPORT_MIN_SIMILARITY = 0.45;
 
 const definition: ToolDefinition = {
   id: "support.knowledge_search",
@@ -148,49 +133,11 @@ export const supportKnowledgeSearchTool: ToolImplementation<
   parseInput,
   checkOutput,
   async handler(input) {
-    const [{ GeminiEmbeddingProvider }, { RepositoryFactory }, { prisma }] = await Promise.all([
-      import("@/lib/ai"),
-      import("@/repositories/RepositoryFactory"),
-      import("@/lib/prisma"),
-    ]);
-
-    let hits: SupportHit[] = [];
-    try {
-      const embedder = new GeminiEmbeddingProvider();
-      const embedded = await embedder.embed({ text: input.query });
-      const rows = await RepositoryFactory.vectors().searchSimilar({
-        embedding: embedded.embedding,
-        topK: input.topK ?? 5,
-        scopes: [...SUPPORT_SCOPES],
-        visibilities: [...SUPPORT_VISIBILITIES],
-        includeUserScope: false, // the support corpus only - never the caller's own rows
-      });
-
-      const relevant = rows.filter((r) => r.similarity >= SUPPORT_MIN_SIMILARITY);
-      const knowledgeIds = [...new Set(relevant.map((r) => r.knowledgeId))];
-      const docs = await prisma.knowledge.findMany({
-        where: { id: { in: knowledgeIds }, scope: "support", deletedAt: null },
-        select: { id: true, category: true, title: true, knowledgeType: true },
-      });
-      const docById = new Map(docs.map((d) => [d.id, d]));
-
-      hits = relevant.map((r) => {
-        const doc = docById.get(r.knowledgeId);
-        return {
-          chunkId: r.chunkId,
-          knowledgeId: r.knowledgeId,
-          topic: doc?.knowledgeType ?? doc?.category ?? "support",
-          title: doc?.title ?? "",
-          content: r.content,
-          similarity: r.similarity,
-        };
-      });
-    } catch {
-      // embedding provider / DB unavailable - honest empty, never fatal,
-      // never a fabricated answer.
-      return { output: { hits: [], available: false }, evidence: [] };
-    }
-
+    const { hits, available } = await searchSupportKnowledge(input.query, {
+      visibilities: SUPPORT_VISIBILITIES,
+      topK: input.topK,
+    });
+    if (!available) return { output: { hits: [], available: false }, evidence: [] };
     return { output: { hits, available: true }, evidence: toEvidence(input.query, hits) };
   },
 };

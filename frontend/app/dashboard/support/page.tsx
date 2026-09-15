@@ -12,72 +12,20 @@
 // talks ONLY to /api/private/agents/framework/* with agentType "SUPPORT" - it
 // never touches services/ai/*, the knowledge chat route, or the Conversation
 // stack. It does not import the trading "AI Agents" run console either.
-import { useCallback, useState } from "react";
-
-type Evidence = { id: string; type: string; claim: string; source: string };
-type SupportOutput = {
-  kind?: string;
-  resolved?: boolean;
-  coverage?: "kb-answered" | "account-context" | "no-coverage";
-  citationCount?: number;
-  topics?: string[];
-  citations?: { evidenceId: string; topic: string; source: string; relevance: number }[];
-  accountFindings?: { evidenceId: string; domain: string }[];
-  escalate?: boolean;
-  escalationReason?: string | null;
-  disclaimer?: string;
-};
-type Observability = {
-  run: { id: string; status: string; errorCode: string | null; errorMessage: string | null; output: unknown } | null;
-  evidence: Evidence[];
-  timeline: { index: number; kind: string; status: string; summary: string }[];
-};
-
-const TERMINAL = new Set(["succeeded", "failed", "tool_error", "permission_denied", "credit_limit", "step_limit", "timeout", "cancelled"]);
-const MAX_ADVANCES = 12;
-
-async function api<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, { ...init, headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) } });
-  const json = await res.json().catch(() => null);
-  if (!res.ok || !json || json.status !== "ok") {
-    throw new Error(json?.error?.message ?? `${res.status} ${res.statusText}`);
-  }
-  return json.data as T;
-}
+//
+// P1 (AUTONOMOUS_SUPPORT_P1_CONTRACT.md SS7/SS13/SS17): refactor only - the
+// run/poll `ask()` sequence now lives in the shared `useSupportRun` hook
+// (also used by the new site-wide SupportWidget) instead of being
+// duplicated. UI and behavior here are unchanged; the resolution-
+// confirmation prompt is intentionally a widget-only affordance in P1
+// (contract SS5/SS10) and is not added to this page.
+import { useState } from "react";
+import { useSupportRun } from "@/hooks/useSupportRun";
+import type { SupportOutput } from "@/hooks/useSupportRun";
 
 export default function SupportAssistantPage() {
   const [question, setQuestion] = useState("");
-  const [obs, setObs] = useState<Observability | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const ask = useCallback(async () => {
-    const q = question.trim();
-    if (!q) return;
-    setError(null);
-    setBusy(true);
-    setObs(null);
-    try {
-      const { runId } = await api<{ runId: string }>("/api/private/agents/framework/runs", {
-        method: "POST",
-        body: JSON.stringify({ agentType: "SUPPORT", goal: { question: q } }),
-      });
-      const first = await api<{ run: Observability }>(`/api/private/agents/framework/runs/${runId}`);
-      setObs(first.run);
-      for (let i = 0; i < MAX_ADVANCES; i++) {
-        const data = await api<{ run: Observability; terminal: boolean }>(
-          `/api/private/agents/framework/runs/${runId}/advance`,
-          { method: "POST" },
-        );
-        setObs(data.run);
-        if (data.terminal || TERMINAL.has(data.run.run?.status ?? "")) break;
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  }, [question]);
+  const { obs, busy, error, ask } = useSupportRun();
 
   const out = (obs?.run?.output ?? null) as SupportOutput | null;
   const evById = new Map((obs?.evidence ?? []).map((e) => [e.id, e]));
@@ -115,7 +63,7 @@ export default function SupportAssistantPage() {
             className="w-full rounded-lg border border-border bg-ink px-3 py-2 text-sm text-text outline-none focus:border-gold"
           />
           <button
-            onClick={ask}
+            onClick={() => ask(question)}
             disabled={busy || !question.trim()}
             className="rounded-lg border border-gold bg-gold/10 px-4 py-2 text-sm font-medium text-gold transition hover:bg-gold/20 disabled:opacity-40"
           >

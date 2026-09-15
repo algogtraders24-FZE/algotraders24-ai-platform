@@ -37,7 +37,10 @@ const ACCOUNT_MARKERS =
   /\b(bill(ing|ed)?|invoice|receipt|charge|credit|credits|subscription|subscribe[d]?|plan|renew(al|ed)?|purchase[d]?|order|licen[cs]e[d]?|activation|entitlement|refund)\b/i;
 
 // The question is a request for a CHANGE only a human/authorised flow can make.
-const MUTATION_MARKERS =
+// Exported for reuse by the P1 guest path (services/support/guest-knowledge-
+// query.ts), which applies the identical mutation-intent guard to anonymous
+// questions - same honest escalation, no logic duplication/drift.
+export const MUTATION_MARKERS =
   /\b(cancel|refund|reactivate|re-?enable|downgrade|upgrade|change (my )?(plan|card|email)|reset (my )?password|delete (my )?account|transfer|revoke|dispute|chargeback|deactivate)\b/i;
 
 type Coverage = "kb-answered" | "account-context" | "no-coverage";
@@ -47,8 +50,11 @@ type Coverage = "kb-answered" | "account-context" | "no-coverage";
 // match - otherwise it is `no-coverage` and the agent escalates (CS1.2 D5).
 // `SUPPORT_STRONG_MATCH` and the citation band are deliberately conservative:
 // a weak, tangentially-related passage is worse than an honest hand-off.
-const SUPPORT_STRONG_MATCH = 0.6;
-const SUPPORT_CITE_BAND = 0.1;
+// Exported (non-behavioral - AUTONOMOUS_SUPPORT_P1_CONTRACT.md SS17) so the
+// P1 guest path applies the identical coverage/citation thresholds instead
+// of a second, driftable copy.
+export const SUPPORT_STRONG_MATCH = 0.6;
+export const SUPPORT_CITE_BAND = 0.1;
 
 interface Citation {
   evidenceId: string;
