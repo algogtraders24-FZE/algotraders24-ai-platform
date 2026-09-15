@@ -24,6 +24,26 @@
 //     unavailable" (webSearchUnavailable = true), NEVER a thrown error - the
 //     answer then comes from the model's own knowledge.
 // A request that omits `tools` is byte-identical to the pre-K3 behaviour.
+//
+// Sprint K3-C (C1 - server-tool lifecycle hardening; contract §12.5):
+//   - `server_tool_use` counted ONLY when `name === "web_search"`
+//   - per-turn accounting: searchResultsOk (non-empty result list) vs
+//     searchErrors (error block OR unrecognised tool-result shape); an empty
+//     but valid result list is neither. These drive three INDEPENDENT
+//     response signals:
+//       webSearchUnavailable      = searchRequests>0 && searchResultsOk===0
+//       webSearchFailed           = searchErrors>0        (operational fact)
+//       webSearchPartialFailure   = searchErrors>0 && searchResultsOk>0
+//   - `pause_turn` loop still capped; if it exits STILL paused →
+//     `continuationBudgetExhausted: true` (a soft failure the orchestrator
+//     acts on - a paused/placeholder body must never win). `continuationCount`
+//     is surfaced for telemetry.
+//   - `stop_reason: "max_tokens"` → `truncated: true` (never silently a
+//     normal completion).
+//   - `!res.ok` → the Anthropic `error.message` is surfaced into the typed
+//     error; the request body is NEVER read back or logged.
+//   - `encrypted_content` is echoed on continuation and never decoded,
+//     expanded, or logged by AT24 code.
 import type { AIProvider } from "../provider.interface";
 import type {
   AICompletionRequest,
@@ -76,6 +96,8 @@ interface WebSearchToolResultError {
 }
 interface ClaudeContentBlock {
   type: string;
+  /** server_tool_use: which server tool ran — only "web_search" is ours (§12.5). */
+  name?: string;
   text?: string;
   citations?: CitationBlock[];
   // web_search_tool_result: content is a list on success, an error object on failure
@@ -129,35 +151,49 @@ export class ClaudeProvider implements AIProvider {
 
     const convo: WireMessage[] = [...messages];
     let body: ClaudeResponseBody | undefined;
-    let searchCount = 0;
-    let webSearchUnavailable = false;
+    let searchRequests = 0;
+    let searchResultsOk = 0;
+    let searchErrors = 0;
+    let continuationCount = 0;
     const sources = new Map<string, AIWebSource>();
 
     // Single POST for the no-tools path; a bounded pause_turn loop for tools.
     for (let attempt = 0; attempt <= MAX_WEB_SEARCH_CONTINUATIONS; attempt += 1) {
+      if (attempt > 0) continuationCount += 1; // this POST is a continuation
       const res = await this.post({ ...bodyBase, messages: convo }, timeoutMs);
       body = await this.readBody(res);
 
       const parsed = this.scanBlocks(body.content ?? []);
-      searchCount += parsed.searchRequests;
-      if (parsed.searchUnavailable) webSearchUnavailable = true;
+      searchRequests += parsed.searchRequests;
+      searchResultsOk += parsed.searchResultsOk;
+      searchErrors += parsed.searchErrors;
       for (const s of parsed.sources) this.mergeSource(sources, s);
 
       if (body.stop_reason !== "pause_turn") break;
       // resume: append the paused assistant turn VERBATIM (blocks incl.
-      // encrypted_content) and re-POST - the server detects the trailing
-      // server_tool_use and continues on its own.
+      // encrypted_content - never decoded/expanded/logged) and re-POST; the
+      // server detects the trailing server_tool_use and continues on its own.
       convo.push({ role: "assistant", content: body.content ?? [] });
     }
 
     if (!body) {
       throw new AIProviderError("invalid_output", "Claude returned no response body", this.name);
     }
-    // account for the search count the API reports in usage (may include the
-    // final turn not surfaced as a separate block)
+
+    // §12.5 — the loop exited while still paused → soft failure. The
+    // orchestrator abandons this slot; a paused/placeholder body never wins.
+    const continuationBudgetExhausted = body.stop_reason === "pause_turn";
+    const truncated = body.stop_reason === "max_tokens";
+
+    // `searchCount` = attempted web searches. `usage.server_tool_use` counts
+    // billable (successful) requests, so it is only a floor.
+    let searchCount = searchRequests;
     if (body.usage?.server_tool_use?.web_search_requests !== undefined) {
       searchCount = Math.max(searchCount, body.usage.server_tool_use.web_search_requests);
     }
+    const webSearchUnavailable = searchRequests > 0 && searchResultsOk === 0;
+    const webSearchFailed = searchErrors > 0;
+    const webSearchPartialFailure = searchErrors > 0 && searchResultsOk > 0;
 
     const text = (body.content ?? [])
       .filter((b) => b.type === "text" && typeof b.text === "string")
@@ -177,7 +213,18 @@ export class ClaudeProvider implements AIProvider {
         ? { promptTokens: body.usage.input_tokens ?? 0, completionTokens: body.usage.output_tokens ?? 0 }
         : undefined,
       stopReason: body.stop_reason,
-      ...(wantsTools ? { webSources, searchCount, webSearchUnavailable } : {}),
+      truncated,
+      ...(wantsTools
+        ? {
+            webSources,
+            searchCount,
+            webSearchUnavailable,
+            webSearchFailed,
+            webSearchPartialFailure,
+            continuationCount,
+            continuationBudgetExhausted,
+          }
+        : {}),
     };
   }
 
@@ -216,7 +263,18 @@ export class ClaudeProvider implements AIProvider {
           : res.status === 429
             ? "rate_limit"
             : "invalid_output";
-      throw new AIProviderError(kind, `Claude returned HTTP ${res.status}`, this.name);
+      // §12.5 - surface Anthropic's own error message (e.g. "web search is not
+      // enabled for this organization") for incident triage. Best-effort: the
+      // body may not be JSON. The REQUEST body is never read back or logged.
+      let detail = "";
+      try {
+        const errBody = (await res.json()) as ClaudeResponseBody;
+        const msg = errBody?.error?.message;
+        if (typeof msg === "string" && msg.length > 0) detail = `: ${msg}`;
+      } catch {
+        /* non-JSON error body — status alone */
+      }
+      throw new AIProviderError(kind, `Claude returned HTTP ${res.status}${detail}`, this.name);
     }
     return res;
   }
@@ -261,23 +319,29 @@ export class ClaudeProvider implements AIProvider {
   // ── response parsing ───────────────────────────────────────────────
   private scanBlocks(blocks: ClaudeContentBlock[]): {
     searchRequests: number;
-    searchUnavailable: boolean;
+    searchResultsOk: number;
+    searchErrors: number;
     sources: AIWebSource[];
   } {
     let searchRequests = 0;
-    let searchUnavailable = false;
+    let searchResultsOk = 0;
+    let searchErrors = 0;
     const sources: AIWebSource[] = [];
 
     for (const b of blocks) {
       if (b.type === "server_tool_use") {
-        searchRequests += 1;
+        // §12.5 — only the native web_search server tool is ours. A future
+        // code-execution / other server tool must NOT inflate the count.
+        if (b.name === "web_search") searchRequests += 1;
         continue;
       }
       if (b.type === "web_search_tool_result") {
         const c = b.content;
         if (Array.isArray(c)) {
+          let kept = 0;
           for (const r of c) {
             if (r.type === "web_search_result" && typeof r.url === "string") {
+              kept += 1;
               sources.push({
                 url: r.url,
                 title: r.title ?? r.url,
@@ -287,10 +351,18 @@ export class ClaudeProvider implements AIProvider {
               });
             }
           }
+          // a non-empty result list → a usable search; an empty list is a
+          // valid "no matches" outcome — neither ok nor an error, it just
+          // leaves searchResultsOk at 0 so webSearchUnavailable can trip.
+          if (kept > 0) searchResultsOk += 1;
         } else if (c && (c as WebSearchToolResultError).type === "web_search_tool_result_error") {
           // HTTP 200 error block - NOT a thrown error. The model answers from
-          // its own knowledge; the orchestrator records webSearchUnavailable.
-          searchUnavailable = true;
+          // its own knowledge; the provider records webSearchFailed.
+          searchErrors += 1;
+        } else {
+          // an unrecognised web_search_tool_result.content shape - never
+          // silently ignored (§12.5); count it as an operational error.
+          searchErrors += 1;
         }
         continue;
       }
@@ -310,7 +382,7 @@ export class ClaudeProvider implements AIProvider {
         }
       }
     }
-    return { searchRequests, searchUnavailable, sources };
+    return { searchRequests, searchResultsOk, searchErrors, sources };
   }
 
   private mergeSource(map: Map<string, AIWebSource>, s: AIWebSource): void {

@@ -231,6 +231,9 @@ export type AssistantIntent =
   | "support-troubleshoot"
   | "current-info"
   | "account-specific"
+  /** K3-C §12.1 — an unambiguously retrospective question ("back in 2021…",
+   *  "what happened to…", "used to…"). Never web-forced by freshness. */
+  | "historical"
   | "other";
 export type FreshnessNeed = "STATIC" | "PERIODIC" | "DYNAMIC";
 export type PrivacyClass = "public" | "user-specific" | "sensitive";
@@ -244,9 +247,14 @@ export interface Classification {
 }
 
 export interface WebSearchGateResult {
+  /** K3-C §12.2 — whether to OFFER Claude's native web_search tool this turn.
+   *  This is an OFFER, not a prediction: the model still decides whether it
+   *  actually needs to search. "search happened" is `webSearchUsed` on the
+   *  answer, computed later from the provider response. */
   useWebSearch: boolean;
-  /** e.g. "explicit-freshness" | "dynamic-need" | "insufficient" | "stale" |
-   *  "forbidden-sensitive" | "forbidden-account" | "not-needed". */
+  /** "explicit-freshness" | "dynamic-need" | "insufficient" | "stale" |
+   *  "borderline-sufficient" | "forbidden-sensitive" | "forbidden-account" |
+   *  "forbidden-conceptual-sufficient" | "not-needed". */
   reason: string;
 }
 
@@ -314,6 +322,48 @@ export interface AnswerResult {
   provenanceId?: string;
 }
 
+/** K3-C §12.6 — per-turn telemetry. Rides in the persisted `providerAttempts`
+ *  JSON under a `meta` key (no new scalar column, no migration). ZERO raw
+ *  content — every field is a boolean / small int / enum / float. */
+export type AnswerFailureCategory =
+  | null
+  | "provider-error"
+  | "forbidden-language"
+  | "empty-output"
+  | "continuation-exhausted"
+  | "chain-exhausted"
+  | "dynamic-unverifiable";
+
+export interface TurnMeta {
+  webSearchOffered: boolean;
+  /** the web-search gate's reason string (a fixed enum-like token). */
+  gateReason: string;
+  webSearchUsed: boolean;
+  /** operational fact — a web-search OPERATION failed (§12.4). */
+  webSearchFailed: boolean;
+  webSearchPartialFailure: boolean;
+  /** evidence fact — the gate required web-grounded evidence, the final
+   *  answer did not obtain it (§12.4). Independent of `webSearchFailed`. */
+  webSearchRequestedButUnavailable: boolean;
+  searchCount: number;
+  continuationCount: number;
+  continuationBudgetExhausted: boolean;
+  truncated: boolean;
+  failureCategory: AnswerFailureCategory;
+  knowledgeHitCount: number;
+  bestSimilarity: number;
+  /** K3-C §12.6/C8 — was this turn's retrieval served from the K2 retrieval
+   *  cache (`RetrievalResult.fromCache`)? Cost/observability signal only —
+   *  never changes eligibility (K2 re-hydrates + re-filters live on a hit). */
+  retrievalFromCache: boolean;
+  /** K3-C C8 — cost-relevant usage from the WINNING provider's response,
+   *  where the provider surfaces it (`AICompletionResponse.usage`). `null`
+   *  when unavailable (deterministic terminal, or a provider that doesn't
+   *  report usage) — never fabricated. */
+  promptTokens: number | null;
+  completionTokens: number | null;
+}
+
 /** what the provenance store persists (KnowledgeAnswerProvenance row shape). */
 export interface KnowledgeAnswerProvenanceInput {
   userId: string;
@@ -325,6 +375,9 @@ export interface KnowledgeAnswerProvenanceInput {
   webContributions: AnswerSourceRef[];
   providerUsed: string;
   providerAttempts: AnswerProviderAttempt[];
+  /** K3-C §12.6 — folded into the persisted `providerAttempts` JSON `meta`
+   *  by the store. Optional so a pre-C5 caller still compiles. */
+  turnMeta?: TurnMeta;
   webSearchUsed: boolean;
   webSearchRequestedButUnavailable: boolean;
   retrievalSufficiency: string;

@@ -26,6 +26,27 @@ function hasEnv(name: string): boolean {
   return typeof v === "string" && v.trim().length > 0;
 }
 
+// K3-C C7 — knowledge-block injection hardening (contract §6.1 / §12.7).
+// Retrieved knowledge is EVIDENCE, never authority over the orchestration,
+// tool, or security contract. It is wrapped in a fixed delimiter the system
+// instruction (§6.1) explicitly tells the model to treat as reference data,
+// never as instructions. Pre-K4 this content is admin-authored; once K4
+// starts capturing candidate-derived knowledge, retrieved text is no longer
+// fully trusted, so this hardening lands now rather than later.
+const KNOWLEDGE_TAG_OPEN = "<at24_knowledge>";
+const KNOWLEDGE_TAG_CLOSE = "</at24_knowledge>";
+
+/** Neutralise any literal `<at24_knowledge>` / `</at24_knowledge>` substring
+ *  that appears INSIDE retrieved content, so a chunk can never prematurely
+ *  "close" the trusted wrapper and have its own text read as free-standing
+ *  instructions outside the tag. Ordinary content is returned byte-identical
+ *  (no false-positive mangling). */
+export function escapeKnowledgeBlock(text: string): string {
+  return text.replace(/<\/?at24_knowledge>/gi, (m) =>
+    m.replace("<", "&lt;").replace(">", "&gt;"),
+  );
+}
+
 /** assemble the `AIMessage[]` every slot sends (identical across providers). */
 export function buildMessages(input: AnswerGenInput): AIMessage[] {
   const msgs: AIMessage[] = [{ role: "system", content: input.system }];
@@ -33,11 +54,10 @@ export function buildMessages(input: AnswerGenInput): AIMessage[] {
     msgs.push({ role: h.role, content: h.content });
   }
   const userParts: string[] = [];
-  if (input.knowledgeBlock.trim().length > 0) {
+  const knowledgeBlock = input.knowledgeBlock.trim();
+  if (knowledgeBlock.length > 0) {
     userParts.push(
-      "AT24 KNOWLEDGE (verified, authoritative — prefer this for anything about " +
-        "AT24 products, platform behaviour, policies, and pricing):\n" +
-        input.knowledgeBlock.trim(),
+      `${KNOWLEDGE_TAG_OPEN}\n${escapeKnowledgeBlock(knowledgeBlock)}\n${KNOWLEDGE_TAG_CLOSE}`,
     );
   }
   userParts.push(`User question: ${input.userMessage}`);
@@ -76,7 +96,16 @@ export class ProviderSlot implements AnswerProviderSlot {
       searchCount,
       webSearchUsed: searchCount > 0 && webSources.length > 0,
       webSearchUnavailable: res.webSearchUnavailable === true,
+      // K3-C C1 fields — pass through verbatim; only ClaudeProvider sets them,
+      // every other provider's AICompletionResponse leaves them undefined.
+      webSearchFailed: res.webSearchFailed === true,
+      webSearchPartialFailure: res.webSearchPartialFailure === true,
+      continuationCount: res.continuationCount ?? 0,
+      continuationBudgetExhausted: res.continuationBudgetExhausted === true,
+      truncated: res.truncated === true,
       stopReason: res.stopReason,
+      // K3-C C8 — cost-relevant usage, where the provider reports it.
+      usage: res.usage,
     };
   }
 }

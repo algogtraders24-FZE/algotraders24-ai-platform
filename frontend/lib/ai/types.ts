@@ -67,10 +67,30 @@ export interface AICompletionResponse {
   searchCount?: number;
   /** the provider's terminal stop reason (e.g. "end_turn", "max_tokens"). */
   stopReason?: string;
-  /** true when web search was requested but the provider reported it
-   *  unavailable / errored (HTTP 200 error block) — the answer then came from
-   *  the model's own knowledge, never fabricated. */
+  /** true when the terminal `stop_reason` was `max_tokens` — the answer is
+   *  cut off, not a normal completion. Observable to the orchestrator so a
+   *  truncated answer can be recorded (K3-C C1 / §12.5). */
+  truncated?: boolean;
+  /** true iff a web search was requested this turn and NONE returned a usable
+   *  (non-empty) result list — every search errored, returned nothing, or a
+   *  mix. The answer then came from the model's own knowledge, never
+   *  fabricated. (§12.5) */
   webSearchUnavailable?: boolean;
+  /** K3-C §12.4 — OPERATIONAL fact: ≥ 1 web-search *operation* failed this turn
+   *  (an error block or an unrecognised tool-result shape). A search that ran
+   *  fine but returned zero matches is NOT a failure. Independent of which
+   *  provider ultimately won — the orchestrator computes the separate
+   *  evidence-fact `webSearchRequestedButUnavailable`. */
+  webSearchFailed?: boolean;
+  /** K3-C §12.4 — diagnostic: `searchErrors > 0 && searchResultsOk > 0`
+   *  (some searches failed, at least one still returned usable results). */
+  webSearchPartialFailure?: boolean;
+  /** K3-C §12.5 — number of `pause_turn` continuation POSTs made this turn. */
+  continuationCount?: number;
+  /** K3-C §12.5 — true when the `pause_turn` continuation loop hit its cap and
+   *  the turn is STILL paused. A SOFT failure: the orchestrator abandons this
+   *  slot (a paused/placeholder body must never win — §12.3). */
+  continuationBudgetExhausted?: boolean;
 }
 
 export type AIProviderName =

@@ -1,14 +1,22 @@
 // services/knowledge-loop/classifier/classify.ts
 // Sprint K3-B-2 — AT24 AI Assistant Knowledge Loop: query classifier.
+// Sprint K3-C (C2) — precedence LOCKED as a contract; `historical` intent added.
 //
-// Contract: AI_ASSISTANT_ORCHESTRATION_CONTRACT.md §3. A DISCLOSED HEURISTIC,
-// not an LLM call (K0 §3 / K1_DECISION spirit / same style as the existing
-// `detectSupportedMarketSymbol` + `needsLiveInfo` in services/ai/assistant.
-// service.ts). Pure, deterministic, no I/O. An LLM classifier can replace this
-// behind the same signature later without touching the orchestrator.
+// Contract: AI_ASSISTANT_ORCHESTRATION_CONTRACT.md §3 + §12.1 (LOCKED
+// precedence). A DISCLOSED HEURISTIC, not an LLM call (K0 §3 / K1_DECISION
+// spirit / same style as the existing `detectSupportedMarketSymbol` +
+// `needsLiveInfo` in services/ai/assistant.service.ts). Pure, deterministic,
+// synchronous, no I/O. An LLM classifier can replace this behind the same
+// signature later without touching the orchestrator.
 //
-// Errs conservatively: on ambiguity → freshnessNeed "PERIODIC",
-// privacyClass "public" — retrieval + the web-search gate handle the rest.
+// §12.1 precedence — evaluated top-down, FIRST match sets `intent`:
+//   1 account-specific  2 current-info (explicit-freshness | dynamic-value)
+//   3 policy  4 support-troubleshoot  5 how-to  6 historical  7 product-static
+//   8 conceptual  9 other
+// `privacyClass` / `freshnessNeed` / `explicitFreshnessRequest` are computed
+// on independent axes. Errs conservatively: on ambiguity → freshnessNeed
+// "PERIODIC", privacyClass "public" — retrieval + the web-search gate handle
+// the rest.
 
 import type {
   Classification,
@@ -39,6 +47,12 @@ const CONCEPTUAL =
   /\b(what (is|are|does|do)|explain|explanation of|difference between|meaning of|define|definition of|how does .* work|why (is|are|does|do))\b/i;
 const PRODUCT =
   /\b(does (the|your|this) (ea|indicator|product|bot|system)|what (features|indicators)|is there (a|an) .* (feature|tool|indicator)|supported? (platform|broker|pair)|which (ea|product|indicator))\b/i;
+// §12.1 rule 6 — UNAMBIGUOUSLY retrospective phrasing only (a mislabel here
+// would suppress web for a current-info question, so keep it tight). Matches a
+// clearly-past year, "back in …", "used to …", "what happened to/when …",
+// "years ago", "historically".
+const HISTORICAL =
+  /\b(back in (?:the )?(?:19\d\d|20[0-1]\d|202[0-4])|in (?:19\d\d|20[0-1]\d|202[0-4])\b|used to (?:be|have|work|cost|look|support)|historically\b|what happened (?:to|in|when|during)|years? ago|decades? ago|in the past\b|the old \w+)\b/i;
 
 export function classify(message: string): Classification {
   const m = (message ?? "").trim();
@@ -49,20 +63,27 @@ export function classify(message: string): Classification {
   if (SENSITIVE.test(m)) privacyClass = "sensitive";
   else if (ACCOUNT_SPECIFIC.test(m)) privacyClass = "user-specific";
 
+  // §12.1 LOCKED precedence — top-down, first match wins.
   let intent: AssistantIntent = "other";
-  if (ACCOUNT_SPECIFIC.test(m)) intent = "account-specific";
-  else if (explicitFreshnessRequest || DYNAMIC_VALUE.test(m)) intent = "current-info";
-  else if (POLICY.test(m)) intent = "policy";
-  else if (SUPPORT_TROUBLE.test(m)) intent = "support-troubleshoot";
-  else if (HOW_TO.test(m)) intent = "how-to";
-  else if (PRODUCT.test(m)) intent = "product-static";
-  else if (CONCEPTUAL.test(m)) intent = "conceptual";
+  if (ACCOUNT_SPECIFIC.test(m)) intent = "account-specific"; // 1
+  else if (explicitFreshnessRequest || DYNAMIC_VALUE.test(m)) intent = "current-info"; // 2
+  else if (POLICY.test(m)) intent = "policy"; // 3
+  else if (SUPPORT_TROUBLE.test(m)) intent = "support-troubleshoot"; // 4
+  else if (HOW_TO.test(m)) intent = "how-to"; // 5
+  else if (HISTORICAL.test(m)) intent = "historical"; // 6
+  else if (PRODUCT.test(m)) intent = "product-static"; // 7
+  else if (CONCEPTUAL.test(m)) intent = "conceptual"; // 8
+  // 9 → "other" (default)
 
   let freshnessNeed: FreshnessNeed;
   if (DYNAMIC_VALUE.test(m) || (explicitFreshnessRequest && intent === "current-info")) {
     freshnessNeed = "DYNAMIC";
-  } else if (intent === "conceptual" || intent === "how-to") {
-    freshnessNeed = "STATIC";
+  } else if (
+    intent === "conceptual" ||
+    intent === "how-to" ||
+    intent === "historical"
+  ) {
+    freshnessNeed = "STATIC"; // §12.1 — never web-forced by freshness
   } else {
     freshnessNeed = "PERIODIC"; // conservative default (product/policy/support/other)
   }

@@ -48,7 +48,26 @@ export interface AnswerGenResult {
   webSearchUsed: boolean;
   /** web search was requested but the provider reported it unavailable. */
   webSearchUnavailable: boolean;
+  /** K3-C §12.4/§12.5 — OPERATIONAL fact: >=1 web-search operation failed this
+   *  turn. Non-Claude / non-web slots always `false`. Independent of the
+   *  eventual winner and of the evidence-fact `webSearchRequestedButUnavailable`
+   *  the orchestrator derives via `buildProvenance`. */
+  webSearchFailed: boolean;
+  /** diagnostic: some searches failed, >=1 still returned usable results. */
+  webSearchPartialFailure: boolean;
+  /** number of `pause_turn` continuation POSTs this turn (telemetry). */
+  continuationCount: number;
+  /** K3-C §12.3/§12.5 — the continuation loop hit its cap and the turn is
+   *  STILL paused. A SOFT FAILURE the orchestrator treats as a fall-through
+   *  trigger — a paused/placeholder body must never win. */
+  continuationBudgetExhausted: boolean;
+  /** the terminal `stop_reason` was `max_tokens` — the text may be cut off. */
+  truncated: boolean;
   stopReason?: string;
+  /** K3-C C8 — cost-relevant token usage, where the underlying provider
+   *  surfaces it (`AICompletionResponse.usage`). Undefined, never fabricated,
+   *  when the provider doesn't report it. */
+  usage?: { promptTokens: number; completionTokens: number };
 }
 
 /**

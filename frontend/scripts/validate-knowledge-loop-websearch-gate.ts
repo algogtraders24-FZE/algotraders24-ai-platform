@@ -1,6 +1,9 @@
 // scripts/validate-knowledge-loop-websearch-gate.ts
 // Sprint K3-B-2 — the web-search gate (AI_ASSISTANT_ORCHESTRATION_CONTRACT.md
 // §5 / K3_PREFLIGHT §6.1). Pure function over {classification × sufficiency}.
+// Sprint K3-C (C2) — §12.2: `borderline-sufficient` rule, `historical` intent,
+// STALE overrides the conceptual-sufficient forbid, and the gate is an OFFER
+// (pure fn of its args — never depends on a runtime search outcome).
 //
 // Run: npm run validate:knowledge-loop-websearch-gate
 
@@ -105,6 +108,61 @@ function main(): void {
     const r = webSearchGate(cls("current-info", "DYNAMIC", "sensitive"), "INSUFFICIENT");
     assert.equal(r.useWebSearch, false);
     assert.equal(r.reason, "forbidden-sensitive");
+  });
+
+  // ── K3-C C2 — §12.2 borderline-sufficient · historical · STALE override ──
+  console.log("\n  K3-C C2 — §12.2 additions\n");
+
+  test("C2: borderline-sufficient — 'other' + SUFFICIENT + low similarity → required", () => {
+    const r = webSearchGate(cls("other", "PERIODIC", "public"), "SUFFICIENT", 0.46);
+    assert.equal(r.useWebSearch, true);
+    assert.equal(r.reason, "borderline-sufficient");
+  });
+
+  test("C2: borderline does NOT fire for a confident SUFFICIENT hit", () => {
+    const r = webSearchGate(cls("other", "PERIODIC", "public"), "SUFFICIENT", 0.82);
+    assert.equal(r.useWebSearch, false);
+    assert.equal(r.reason, "not-needed");
+  });
+
+  test("C2: borderline does NOT fire for a non-'other' intent", () => {
+    const r = webSearchGate(cls("product-static", "PERIODIC", "public"), "SUFFICIENT", 0.46);
+    assert.equal(r.useWebSearch, false);
+    assert.equal(r.reason, "not-needed");
+  });
+
+  test("C2: borderline needs the similarity arg (backward compatible — 2 args)", () => {
+    const r = webSearchGate(cls("other", "PERIODIC", "public"), "SUFFICIENT");
+    assert.equal(r.useWebSearch, false);
+    assert.equal(r.reason, "not-needed");
+  });
+
+  test("C2: STALE overrides the conceptual-sufficient forbid", () => {
+    // forbid is (conceptual|policy) && SUFFICIENT; STALE !== SUFFICIENT so it
+    // falls through to the REQUIRED 'stale' rule.
+    const r = webSearchGate(cls("conceptual", "STATIC", "public"), "STALE");
+    assert.equal(r.useWebSearch, true);
+    assert.equal(r.reason, "stale");
+  });
+
+  test("C2: historical + SUFFICIENT, no freshness → not needed (knowledge answers it)", () => {
+    const r = webSearchGate(cls("historical", "STATIC", "public"), "SUFFICIENT", 0.9);
+    assert.equal(r.useWebSearch, false);
+    assert.equal(r.reason, "not-needed");
+  });
+
+  test("C2: historical + INSUFFICIENT → web required (still web-eligible)", () => {
+    const r = webSearchGate(cls("historical", "STATIC", "public"), "INSUFFICIENT");
+    assert.equal(r.useWebSearch, true);
+    assert.equal(r.reason, "insufficient");
+  });
+
+  test("C2: the gate is a pure OFFER — same inputs → identical output, no search-outcome field", () => {
+    const c = cls("current-info", "DYNAMIC", "public", true);
+    const a = webSearchGate(c, "LOW", 0.4);
+    const b = webSearchGate(c, "LOW", 0.4);
+    assert.deepEqual(a, b);
+    assert.deepEqual(Object.keys(a).sort(), ["reason", "useWebSearch"]);
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);

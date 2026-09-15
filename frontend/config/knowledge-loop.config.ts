@@ -79,12 +79,24 @@ export const KNOWLEDGE_ANSWER_CONFIG = {
   WEB_SEARCH_MAX_USES: 4,
   /** Prior turns handed to the provider (chronological, most-recent-N). */
   HISTORY_TURNS_MAX: 8,
+  /** K3-C §12.2 — a barely-`SUFFICIENT` retrieval for a low-confidence
+   *  (`intent === "other"`) query is treated as web-eligible: the gate offers
+   *  web when `bestSimilarity < RELEVANCE_GOOD + BORDERLINE_MARGIN`. This is a
+   *  GATE constant — it changes nothing retrieval returns, so it is NOT folded
+   *  into `RETRIEVAL_CONFIG_VERSION` (the K2 cache key is unaffected). */
+  BORDERLINE_MARGIN: 0.05,
   /** Fixed pointer returned for an `account-specific` question — no LLM call,
    *  never guesses account state (contract §8, sourceClass DETERMINISTIC). */
   ACCOUNT_SPECIFIC_POINTER:
     "That question is about your own account. I can't see your account details " +
     "here — please check your dashboard billing/settings page, or contact support " +
     "so a person can look it up securely.",
+  /** K3-C §12.2 D-K3C-5 — the DYNAMIC live-figures guard's fixed response
+   *  (`decide-path.liveFiguresGuardApplies`). A moving-number question that
+   *  ended up neither web- nor knowledge-grounded never gets a stale model
+   *  answer. */
+  DYNAMIC_UNVERIFIABLE_MESSAGE:
+    "I can't verify live figures (prices, rates, quotes) right now — please check a live source.",
 } as const;
 
 /** knowledgeType === "policy" → always max authority (contract §4 override). */
