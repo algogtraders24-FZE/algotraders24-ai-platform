@@ -173,8 +173,22 @@ export function computeTotalCandidates(searchSpace: readonly OptimizationParamet
   return searchSpace.reduce((total, range) => total * stepCountFor(range), 1);
 }
 
-/** Full Cartesian product, one entry per candidate, in `searchSpace` order - matches computeTotalCandidates() exactly. Values for unswept parameters are NOT filled in here (see fillDefaults below - reuses validateParameterValues()'s own normalization, never a second "fill defaults" implementation). */
-function expandCandidateParameterValues(searchSpace: readonly OptimizationParameterRange[]): Record<string, number>[] {
+/**
+ * Full Cartesian product, one entry per candidate, in `searchSpace` order -
+ * matches computeTotalCandidates() exactly. Values for unswept parameters
+ * are NOT filled in here (see fillDefaults below - reuses
+ * validateParameterValues()'s own normalization, never a second "fill
+ * defaults" implementation).
+ *
+ * P4.9-B-B.3 - exported (was module-private). WalkForwardParameterRange
+ * (types/walk-forward.ts) is structurally identical to
+ * OptimizationParameterRange (same parameterId/min/max/step shape, by
+ * design - P4.9-B-R2 locked reuse), so B.3's own per-fold candidate
+ * generation calls this SAME function directly rather than duplicating
+ * the Cartesian-product logic - the smallest justified visibility change,
+ * zero behavior change to this function itself.
+ */
+export function expandCandidateParameterValues(searchSpace: readonly OptimizationParameterRange[]): Record<string, number>[] {
   let combos: Record<string, number>[] = [{}];
   for (const range of searchSpace) {
     const values: number[] = [];
@@ -373,7 +387,19 @@ export const optimizationService = {
   async getOptimizationExperiment(userId: string, experimentId: string): Promise<OptimizationExperimentDetailView | null> {
     const row = await prisma.optimizationExperiment.findFirst({ where: { id: experimentId, userId } });
     if (!row) return null;
-    const candidates = await prisma.optimizationCandidate.findMany({ where: { experimentId }, orderBy: { createdAt: "asc" } });
+    // P4.9-A.4-T5 lock - candidateHash added as a deterministic secondary
+    // sort key. All of one experiment's candidate rows are created inside
+    // the SAME transaction as the experiment itself (TX1, one createMany
+    // call) - Postgres's now() (what @default(now()) compiles to) is fixed
+    // for the whole transaction, so every row's createdAt is very likely
+    // identical, leaving createdAt-only ordering with no real tiebreak.
+    // candidateHash is already the canonical deterministic candidate
+    // identity (computeCanonicalHash({experimentId, parameterValues}) -
+    // the exact same field finalizeIfComplete()'s own winner-selection
+    // tiebreak already uses) - reusing it here is presentation ordering
+    // ONLY, structurally separate from and with zero effect on that
+    // winner-selection query or its own tiebreak.
+    const candidates = await prisma.optimizationCandidate.findMany({ where: { experimentId }, orderBy: [{ createdAt: "asc" }, { candidateHash: "asc" }] });
     return {
       ...toExperimentView(row),
       searchSpace: row.searchSpace as unknown as OptimizationParameterRange[],

@@ -12,6 +12,14 @@
     {
       "path": "/api/private/publishing/dispatch",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/private/automations/cron/dispatch/morning-ist",
+      "schedule": "30 2 * * *"
+    },
+    {
+      "path": "/api/private/automations/cron/dispatch/evening-ist",
+      "schedule": "0 13 * * *"
     }
   ]
 }

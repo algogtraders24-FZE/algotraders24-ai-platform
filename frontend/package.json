@@ -117,6 +117,8 @@
     "validate:agent-research": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-research.ts",
     "validate:agent-market-intelligence": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-market-intelligence.ts",
     "validate:agent-strategy-research": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-strategy-research.ts",
+    "validate:agent-support": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-support.ts",
+    "seed:support-kb": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/seed-support-kb.ts",
     "validate:agent-hardening": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-hardening.ts",
     "validate:agent-api": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-api.ts",
     "validate:agent-parallel": "node scripts/validate-agent-parallel.mjs",
@@ -145,6 +147,12 @@
     "validate:knowledge-loop-route-contract": "tsx scripts/validate-knowledge-loop-route-contract.ts",
     "validate:knowledge-loop-adversarial": "tsx scripts/validate-knowledge-loop-adversarial.ts",
     "validate:knowledge-loop-telemetry": "tsx scripts/validate-knowledge-loop-telemetry.ts",
+    "validate:automation-workflow-validation": "tsx scripts/validate-automation-workflow-validation.ts",
+    "validate:automation-condition-eval": "tsx scripts/validate-automation-condition-eval.ts",
+    "validate:automation-scheduler": "tsx scripts/validate-automation-scheduler.ts",
+    "validate:automation-lifecycle": "node --env-file=.env --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/validate-automation-lifecycle.ts",
+    "validate:automation-security": "node --env-file=.env --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/validate-automation-security.ts",
+    "validate:automation": "npm run validate:automation-workflow-validation && npm run validate:automation-condition-eval && npm run validate:automation-scheduler && npm run validate:automation-lifecycle && npm run validate:automation-security",
     "vendor:quant-engine": "node scripts/vendor-quant-engine.mjs"
   },
   "dependencies": {

@@ -38,6 +38,11 @@ const CRON_SECRET_EXEMPT_PATHS = new Set([
   "/api/private/admin/intelligence/evaluate-outcomes",
   "/api/private/admin/intelligence/ingest-news",
   "/api/private/publishing/dispatch",
+  // AT24 Automation (MVP) - the per-slot dispatch crons. Keep in lockstep
+  // with config/automation-slots.ts AUTOMATION_SLOTS[].dispatchPath and
+  // frontend/vercel.json. Same terms: valid cron secret only.
+  "/api/private/automations/cron/dispatch/morning-ist",
+  "/api/private/automations/cron/dispatch/evening-ist",
 ]);
 
 export async function proxy(request: NextRequest) {

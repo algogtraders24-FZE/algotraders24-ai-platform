@@ -93,6 +93,16 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       // P4.8-T3.4.2 - gained a third surface (Strategy Library,
       // app/dashboard/algo-test-library) - same children convention,
       // same reasoning.
+      // P4.9-C.2 - gained a fourth surface (Walk-Forward Optimization,
+      // app/dashboard/algo-test-walk-forward) - same children convention,
+      // same reasoning. The "Optimize" entry was deliberately deferred at
+      // the time as a separate follow-up - P4.11 closes exactly that gap
+      // below (docs/architecture/p4.10-quant-pro-roadmap-audit.md, QP-02).
+      // P4.11 - gained a fifth surface (grid-sweep Optimization,
+      // app/dashboard/algo-test-optimize) - same children convention. This
+      // was the P4.9-A optimization UI's own real, pre-existing
+      // discoverability gap (it had zero nav entry anywhere), re-confirmed
+      // by the P4.10 audit as the product's single P0 beta blocker.
       {
         label: "Algo Testing Pro",
         href: "/dashboard/workspace",
@@ -100,6 +110,8 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
         children: [
           { label: "Run History", href: "/dashboard/algo-test-history" },
           { label: "Strategy Library", href: "/dashboard/algo-test-library" },
+          { label: "Optimize", href: "/dashboard/algo-test-optimize" },
+          { label: "Walk-Forward", href: "/dashboard/algo-test-walk-forward" },
         ],
       },
       {
@@ -192,6 +204,13 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
   {
     label: "ACCOUNT",
     items: [
+      // Sprint CS1 - the Chat Support Agent console. An account-adjacent
+      // "get help" surface, deliberately NOT nested under INTELLIGENCE /
+      // "AI Agents" (that is the trading-agent framework console; the
+      // Support Agent is strictly separate - CS1.2 D1). Its own route
+      // (app/dashboard/support/page.tsx), backed by the same framework
+      // runs API with agentType SUPPORT.
+      { label: "Support", href: "/dashboard/support", icon: "SP" },
       // No credit-metering system exists yet (product decision explicitly
       // deferred this sprint). This links to a real page that states that
       // status honestly rather than a fabricated balance/usage widget.

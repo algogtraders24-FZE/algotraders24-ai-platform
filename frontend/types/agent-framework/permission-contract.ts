@@ -25,7 +25,14 @@ export type PermissionKey =
   | "CAN_GENERATE_SIGNAL"
   | "CAN_CREATE_ORDER"
   | "CAN_EXECUTE_ORDER"
-  | "CAN_USE_MEMORY";
+  | "CAN_USE_MEMORY"
+  // CS1 (Support Agent). Both are read-only, autonomy-floor 0, never
+  // dangerous. CAN_RUN_SUPPORT = search the platform-owned support corpus;
+  // CAN_READ_ACCOUNT_RECORDS = read the REQUESTING user's own subscription /
+  // entitlement / purchase / license *status* (never secrets, never another
+  // user, never a write).
+  | "CAN_RUN_SUPPORT"
+  | "CAN_READ_ACCOUNT_RECORDS";
 
 export const PERMISSION_KEYS: readonly PermissionKey[] = [
   "CAN_READ_MARKET_DATA",
@@ -37,6 +44,8 @@ export const PERMISSION_KEYS: readonly PermissionKey[] = [
   "CAN_CREATE_ORDER",
   "CAN_EXECUTE_ORDER",
   "CAN_USE_MEMORY",
+  "CAN_RUN_SUPPORT",
+  "CAN_READ_ACCOUNT_RECORDS",
 ] as const;
 
 /** Permissions that can never be granted by configuration alone. */
