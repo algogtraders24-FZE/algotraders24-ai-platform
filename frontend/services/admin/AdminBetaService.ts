@@ -50,6 +50,12 @@ const FEATURE_LABELS: Record<AnalyticsEventType, string> = {
   market_analysis: "Market Analysis",
   subscription_click: "Subscription Click",
   product_view: "Product View",
+  // K4.2-C Phase 1 — Knowledge Governance candidate lifecycle.
+  KNOWLEDGE_CANDIDATE_CREATED: "Knowledge Candidate Created",
+  KNOWLEDGE_CANDIDATE_REVIEWED: "Knowledge Candidate Reviewed",
+  KNOWLEDGE_APPROVED: "Knowledge Approved",
+  KNOWLEDGE_REJECTED: "Knowledge Rejected",
+  KNOWLEDGE_DEPRECATED: "Knowledge Deprecated",
 };
 
 function pct(count: number, total: number): number {

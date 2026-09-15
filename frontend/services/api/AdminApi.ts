@@ -107,4 +107,104 @@ export class AdminApi {
     });
     return data.journey;
   }
+
+  // Sprint K4.2-C Phase 1 - Knowledge Governance admin surface. Distinct
+  // from listKnowledge/deleteKnowledge above (the unrelated legacy L2.6
+  // scope=user surface, K4.1 §2.8/§3.3).
+  static async listGovernanceCandidates(params: { page: number; pageSize: number; status?: string }): Promise<Page<AdminCandidateRow>> {
+    return ApiClient.get<Page<AdminCandidateRow>>("/api/private/admin/knowledge-loop/candidates", {
+      query: { page: params.page, pageSize: params.pageSize, status: params.status },
+    });
+  }
+
+  static async getGovernanceCandidate(id: string): Promise<AdminCandidateRow> {
+    const data = await ApiClient.get<{ candidate: AdminCandidateRow }>(`/api/private/admin/knowledge-loop/candidates/${encodeURIComponent(id)}`);
+    return data.candidate;
+  }
+
+  static async approveGovernanceCandidate(id: string, opts: AdminApproveOptions): Promise<AdminApproveResult> {
+    return ApiClient.post<AdminApproveResult>(`/api/private/admin/knowledge-loop/candidates/${encodeURIComponent(id)}/approve`, opts);
+  }
+
+  static async rejectGovernanceCandidate(id: string, reason: string, closeAs?: "rejected" | "duplicate" | "superseded"): Promise<AdminRejectResult> {
+    return ApiClient.post<AdminRejectResult>(`/api/private/admin/knowledge-loop/candidates/${encodeURIComponent(id)}/reject`, { reason, closeAs });
+  }
+
+  static async listGovernanceKnowledge(params: { page: number; pageSize: number; lifecycleStatus?: string }): Promise<Page<AdminGovernanceKnowledgeRow>> {
+    return ApiClient.get<Page<AdminGovernanceKnowledgeRow>>("/api/private/admin/knowledge-loop/knowledge", {
+      query: { page: params.page, pageSize: params.pageSize, lifecycleStatus: params.lifecycleStatus },
+    });
+  }
+
+  static async deprecateGovernanceKnowledge(id: string, reason?: string): Promise<AdminTransitionResult> {
+    return ApiClient.post<AdminTransitionResult>(`/api/private/admin/knowledge-loop/knowledge/${encodeURIComponent(id)}/deprecate`, { reason });
+  }
+}
+
+// ── Sprint K4.2-C Phase 1 — client-facing DTOs (string dates over the
+//    wire, distinct from the server-side CandidateRecord/KnowledgeRecord's
+//    Date fields — same convention as AuditLogEntry in AuditLogService.ts). ──
+export interface AdminCandidateRow {
+  id: string;
+  createdByUserId: string;
+  originatingConversationId: string | null;
+  originatingMessageId: string | null;
+  canonicalQuestion: string;
+  proposedAnswer: string;
+  knowledgeType: string;
+  proposedScope: string;
+  proposedVisibility: string;
+  proposedFreshnessClass: string;
+  sourceType: string;
+  evidence: Record<string, unknown>;
+  confidence: number;
+  reasonForCandidate: string;
+  duplicateOfId: string | null;
+  similarityScore: number | null;
+  status: string;
+  assignedReviewerId: string | null;
+  reviewedAt: string | null;
+  reviewNotes: string | null;
+  finalKnowledgeId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminGovernanceKnowledgeRow {
+  id: string;
+  title: string;
+  canonicalQuestion: string | null;
+  canonicalAnswer: string | null;
+  knowledgeType: string | null;
+  scope: string;
+  visibility: string;
+  lifecycleStatus: string | null;
+  version: number;
+  freshnessClass: string | null;
+  approvedAt: string | null;
+  approvedBy: string | null;
+  deprecatedAt: string | null;
+  retrievalCount: number;
+  createdAt: string;
+}
+
+export interface AdminApproveOptions {
+  editedAnswer?: string;
+  reviewerNotes?: string;
+  deprecateRelatedIds?: string[];
+}
+
+export interface AdminApproveResult {
+  outcome: string;
+  knowledgeId?: string;
+  reindexNeeded?: boolean;
+  blockedReasons?: string[];
+}
+
+export interface AdminRejectResult {
+  outcome: string;
+}
+
+export interface AdminTransitionResult {
+  outcome: string;
 }

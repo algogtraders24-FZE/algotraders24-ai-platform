@@ -43,6 +43,9 @@ const CRON_SECRET_EXEMPT_PATHS = new Set([
   // frontend/vercel.json. Same terms: valid cron secret only.
   "/api/private/automations/cron/dispatch/morning-ist",
   "/api/private/automations/cron/dispatch/evening-ist",
+  // K4.2-C Phase 1 - the Knowledge Governance freshness-sweep cron. Keep in
+  // lockstep with frontend/vercel.json.
+  "/api/private/admin/knowledge-loop/cron/freshness-sweep",
 ]);
 
 export async function proxy(request: NextRequest) {

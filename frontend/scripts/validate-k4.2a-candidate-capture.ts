@@ -388,11 +388,25 @@ async function main(): Promise<void> {
     }
   });
 
-  await test("E4: only prisma-adapters.ts references prisma.knowledgeCandidate — no other file writes the table directly", () => {
+  // K4.2-C Phase 1 (owner-authorized, 2026-09-15) added admin-queries.ts —
+  // a deliberate, LOCKED exception (K4.2C-D2): a read-only module for the
+  // admin UI's list/detail views, intentionally NOT routed through
+  // CandidateStorePort (extending that locked write-path port for a
+  // read-only concern would have touched K4.2-A's own file for nothing).
+  // The real invariant this test protects is unchanged: no file WRITES to
+  // KnowledgeCandidate outside prisma-adapters.ts. A read is not a write.
+  await test("E4: only prisma-adapters.ts WRITES prisma.knowledgeCandidate — reads are allowed from the sanctioned admin-queries.ts (K4.2C-D2), never elsewhere", () => {
     for (const f of governanceFiles) {
       if (f.endsWith("prisma-adapters.ts")) continue;
       const src = readFileSync(f, "utf8");
-      assert.doesNotMatch(src, /prisma\.knowledgeCandidate\./, `${f} bypasses PrismaCandidateStore`);
+      assert.doesNotMatch(
+        src,
+        /prisma\.knowledgeCandidate\.(create|update|updateMany|delete|upsert)/,
+        `${f} writes KnowledgeCandidate directly`,
+      );
+      if (!f.endsWith("admin-queries.ts")) {
+        assert.doesNotMatch(src, /prisma\.knowledgeCandidate\./, `${f} bypasses PrismaCandidateStore/admin-queries.ts`);
+      }
     }
   });
 
@@ -403,25 +417,16 @@ async function main(): Promise<void> {
     }
   });
 
-  // K4.2-A originally asserted `governance-service.ts` itself must not
-  // exist — a snapshot-in-time scope boundary for THIS sprint alone, which
-  // necessarily goes stale the moment the next authorized step (K4.2-B)
-  // correctly lands it (2026-09-15, owner-authorized). Not a K4.2-A defect —
-  // updated to assert the invariant that is still actually true: no admin
-  // ROUTE or UI exists yet (that remains K4.2-C).
-  await test("E6: no admin route / admin UI exists yet (K4.2-C, not this or the K4.2-B sprint)", () => {
-    const adminRoute = join(ROOT, "app", "api", "private", "admin", "knowledge-loop");
-    const adminUi = join(ROOT, "app", "dashboard", "admin", "knowledge-loop");
-    for (const p of [adminRoute, adminUi]) {
-      let exists = true;
-      try {
-        statSync(p);
-      } catch {
-        exists = false;
-      }
-      assert.equal(exists, false, `${p} should not exist yet`);
-    }
-  });
+  // E6's history: originally asserted `governance-service.ts` must not
+  // exist (narrowed when K4.2-B landed it), then "no admin route/UI exists
+  // yet" (now also stale — K4.2-C Phase 1, owner-authorized 2026-09-15,
+  // correctly built both). Every snapshot-in-time boundary this test could
+  // meaningfully assert has now been fulfilled by the authorized sequence
+  // A -> B -> C it was gating — not a K4.2-A defect at any point. Retired
+  // rather than invented a new artificial check just to keep a test here;
+  // K4.2-C Phase 1's own suite (validate-k4.2c-phase1-admin-governance.ts,
+  // Part B) now owns the live scope boundary that actually still matters
+  // (K3/K1/K2 untouched).
 
   await test("E7: governance/index.ts is server-only (Prisma adapter dynamically imported, not a top-level import)", () => {
     const src = readFileSync(join(governanceDir, "index.ts"), "utf8");

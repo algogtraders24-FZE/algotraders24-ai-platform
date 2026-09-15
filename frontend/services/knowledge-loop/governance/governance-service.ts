@@ -22,12 +22,17 @@ import type {
   TransitionActionResult,
 } from "@/types/knowledge-loop";
 import { scanCandidatePrivacy } from "./privacy-scan";
-import type { GovernanceStorePort } from "./ports";
+import type { AnalyticsPort, GovernanceStorePort } from "./ports";
 import type { IngestionPort } from "../knowledge/ingestion-adapter";
+
+const NOOP_ANALYTICS: AnalyticsPort = { record: async () => {} };
 
 export interface GovernanceServiceDeps {
   store: GovernanceStorePort;
   ingestion: IngestionPort;
+  /** K4.2-C Phase 1 — optional; omitting it is a no-op, so K4.2-B's own
+   *  test file is unaffected (K4.2C_PHASE1_ADMIN_GOVERNANCE.md §2). */
+  analytics?: AnalyticsPort;
   clock?: () => Date;
 }
 
@@ -38,11 +43,13 @@ function candidateApprovable(status: CandidateRecord["status"]): boolean {
 export class GovernanceService {
   private readonly store: GovernanceStorePort;
   private readonly ingestion: IngestionPort;
+  private readonly analytics: AnalyticsPort;
   private readonly now: () => Date;
 
   constructor(deps: GovernanceServiceDeps) {
     this.store = deps.store;
     this.ingestion = deps.ingestion;
+    this.analytics = deps.analytics ?? NOOP_ANALYTICS;
     this.now = deps.clock ?? (() => new Date());
   }
 
@@ -143,6 +150,27 @@ export class GovernanceService {
       }
     }
 
+    // K0.6 §2.2/§4 — both fire together, same code path as the AuditLog
+    // write, neither depends on the other (§2.3 of the contract).
+    const reviewLatencyMs = this.now().getTime() - candidate.createdAt.getTime();
+    void this.analytics
+      .record(adminId, "KNOWLEDGE_CANDIDATE_REVIEWED", {
+        candidateId,
+        decision: "approved",
+        reviewLatencyMs,
+        ...(editedByReviewer ? { editedByReviewer: true } : {}),
+      })
+      .catch(() => {});
+    void this.analytics
+      .record(adminId, "KNOWLEDGE_APPROVED", {
+        knowledgeId: result.knowledge?.id,
+        candidateId,
+        version: 1,
+        knowledgeType: result.knowledge?.knowledgeType,
+        scope: result.knowledge?.scope,
+      })
+      .catch(() => {});
+
     return {
       outcome: "approved",
       knowledgeId: result.knowledge?.id,
@@ -172,6 +200,21 @@ export class GovernanceService {
     });
     if (result.outcome === "not-found") return { outcome: "not-found" };
     if (result.outcome === "wrong-status") return { outcome: "wrong-status", candidate: result.candidate };
+
+    const reviewLatencyMs = result.candidate
+      ? this.now().getTime() - result.candidate.createdAt.getTime()
+      : undefined;
+    void this.analytics
+      .record(adminId, "KNOWLEDGE_CANDIDATE_REVIEWED", {
+        candidateId,
+        decision: "rejected",
+        ...(reviewLatencyMs !== undefined ? { reviewLatencyMs } : {}),
+      })
+      .catch(() => {});
+    void this.analytics
+      .record(adminId, "KNOWLEDGE_REJECTED", { candidateId, reason, closeAs })
+      .catch(() => {});
+
     return { outcome: "rejected", candidate: result.candidate, auditLogId: result.auditLogId };
   }
 
@@ -230,6 +273,19 @@ export class GovernanceService {
     });
     if (result.outcome === "not-found") return { outcome: "not-found" };
     if (result.outcome === "wrong-status") return { outcome: "wrong-status", knowledge: result.knowledge };
+
+    // K0.6 §2.2 only defines an event for deprecation — archive/reinstate
+    // have no canonical event and none is invented for them.
+    if (args.outcome === "deprecated") {
+      void this.analytics
+        .record(adminId, "KNOWLEDGE_DEPRECATED", {
+          knowledgeId,
+          reason: args.reason ?? "manual",
+          actorUserId: adminId,
+        })
+        .catch(() => {});
+    }
+
     return {
       outcome: args.outcome,
       knowledge: result.knowledge,
@@ -302,6 +358,18 @@ export class GovernanceService {
         reindexNeeded = true;
       }
     }
+
+    // K0.2 §4.2 — active -> active(v+1) is a KNOWLEDGE_APPROVED-class
+    // transition (a new authoritative version reaching `active`).
+    void this.analytics
+      .record(adminId, "KNOWLEDGE_APPROVED", {
+        knowledgeId: result.created?.id,
+        previousVersionId: knowledgeId,
+        version: result.created?.version,
+        knowledgeType: result.created?.knowledgeType,
+        scope: result.created?.scope,
+      })
+      .catch(() => {});
 
     return {
       outcome: "new-version-published",

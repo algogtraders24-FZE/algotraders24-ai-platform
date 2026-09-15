@@ -26,6 +26,7 @@ import {
   scanCandidatePrivacy,
 } from "./privacy-scan";
 import type {
+  AnalyticsPort,
   CandidateStorePort,
   EmbeddingPort,
   VectorSearchPort,
@@ -38,10 +39,15 @@ const C = KNOWLEDGE_LOOP_CONFIG;
 const ALL_VISIBILITIES = ["public", "customer", "admin", "internal"];
 const DEDUP_TOP_K = 5;
 
+const NOOP_ANALYTICS: AnalyticsPort = { record: async () => {} };
+
 export interface CandidateServiceDeps {
   store: CandidateStorePort;
   embed: EmbeddingPort;
   vectors: VectorSearchPort;
+  /** K4.2-C Phase 1 — optional; omitting it is a no-op, so K4.2-A's own
+   *  test file is unaffected (K4.2C_PHASE1_ADMIN_GOVERNANCE.md §2). */
+  analytics?: AnalyticsPort;
   clock?: () => Date;
 }
 
@@ -49,12 +55,14 @@ export class CandidateService {
   private readonly store: CandidateStorePort;
   private readonly embed: EmbeddingPort;
   private readonly vectors: VectorSearchPort;
+  private readonly analytics: AnalyticsPort;
   private readonly now: () => Date;
 
   constructor(deps: CandidateServiceDeps) {
     this.store = deps.store;
     this.embed = deps.embed;
     this.vectors = deps.vectors;
+    this.analytics = deps.analytics ?? NOOP_ANALYTICS;
     this.now = deps.clock ?? (() => new Date());
   }
 
@@ -154,6 +162,21 @@ export class CandidateService {
       similarityScore: isHardDuplicate || isSoftDuplicate ? bestSimilarity : null,
       status: isHardDuplicate ? "duplicate" : "candidate",
     });
+
+    // K0.6 §2.2/§4 — fires whenever a row is actually written (created or
+    // duplicate-of-active), never on a replay/block (no row exists then).
+    // Best-effort, never on the write's own critical path.
+    void this.analytics
+      .record(input.createdByUserId, "KNOWLEDGE_CANDIDATE_CREATED", {
+        candidateId: candidate.id,
+        reasonForCandidate: input.reasonForCandidate,
+        sourceType: input.sourceType,
+        knowledgeType: input.knowledgeType,
+        confidence: input.confidence,
+        ...(candidate.duplicateOfId ? { duplicateOfId: candidate.duplicateOfId } : {}),
+        ...(candidate.similarityScore !== null ? { similarityScore: candidate.similarityScore } : {}),
+      })
+      .catch(() => {});
 
     return {
       outcome: isHardDuplicate ? "duplicate-of-active" : "created",

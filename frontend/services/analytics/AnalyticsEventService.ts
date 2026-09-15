@@ -17,7 +17,16 @@ export type AnalyticsEventType =
   | "knowledge_upload"
   | "market_analysis"
   | "subscription_click"
-  | "product_view";
+  | "product_view"
+  // K4.2-C Phase 1 — Knowledge Governance candidate lifecycle
+  // (KNOWLEDGE_ANALYTICS_CONTRACT.md §2.2). Emitted from
+  // services/knowledge-loop/governance/{candidate-service,governance-service}.ts
+  // only — never from K1/K2/K3 code.
+  | "KNOWLEDGE_CANDIDATE_CREATED"
+  | "KNOWLEDGE_CANDIDATE_REVIEWED"
+  | "KNOWLEDGE_APPROVED"
+  | "KNOWLEDGE_REJECTED"
+  | "KNOWLEDGE_DEPRECATED";
 
 // Event types a client may report about itself directly (no server-side
 // action to hang the call off of). Every other type is only ever recorded

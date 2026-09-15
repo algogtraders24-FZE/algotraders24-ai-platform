@@ -20,6 +20,11 @@ const ACTIONS = [
   "subscription.canceled",
   "subscription.reactivated",
   "knowledge.deleted",
+  // K4.2-C Phase 1 - Knowledge Governance (candidate approve/reject,
+  // Knowledge deprecate). Reuses this existing page rather than a new one.
+  "knowledge.approve",
+  "knowledge.reject",
+  "knowledge.deprecate",
 ];
 
 export default function AdminAuditLogsPage() {

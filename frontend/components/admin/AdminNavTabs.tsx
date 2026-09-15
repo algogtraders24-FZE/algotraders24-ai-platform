@@ -12,6 +12,7 @@ const ADMIN_NAV = [
   { label: "Users", href: "/dashboard/admin/users" },
   { label: "Subscriptions", href: "/dashboard/admin/subscriptions" },
   { label: "Knowledge", href: "/dashboard/admin/knowledge" },
+  { label: "Knowledge Governance", href: "/dashboard/admin/knowledge-loop/candidates" },
   { label: "AI Usage Analytics", href: "/dashboard/admin/analytics" },
   { label: "System Health", href: "/dashboard/admin/health" },
   { label: "Audit Logs", href: "/dashboard/admin/audit-logs" },
@@ -26,8 +27,15 @@ export default function AdminNavTabs() {
     <nav className="flex flex-wrap gap-1 border-b border-border">
       {ADMIN_NAV.map((item) => {
         // Overview (/dashboard/admin) must match exactly; the others match
-        // their own subtree so a nested page keeps its tab highlighted.
-        const active = item.href === "/dashboard/admin" ? pathname === item.href : pathname.startsWith(item.href);
+        // their own subtree so a nested page keeps its tab highlighted. A
+        // path-BOUNDARY match (not a bare string prefix) — otherwise
+        // "/dashboard/admin/knowledge-loop/..." (K4.2-C) would also light
+        // up the unrelated "Knowledge" tab, since it naively starts with
+        // "/dashboard/admin/knowledge".
+        const active =
+          item.href === "/dashboard/admin"
+            ? pathname === item.href
+            : pathname === item.href || pathname.startsWith(`${item.href}/`);
         return (
           <Link
             key={item.href}

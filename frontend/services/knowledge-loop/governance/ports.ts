@@ -23,6 +23,14 @@ import type {
 
 export type { EmbeddingPort, VectorSearchPort, VectorSearchQuery, VectorHit } from "../knowledge/ports";
 
+// ── K4.2-C Phase 1 — lifecycle analytics (KNOWLEDGE_ANALYTICS_CONTRACT.md
+//    §2.2/§4). Optional on both services' deps — omitting it is a no-op, so
+//    K4.2-A's and K4.2-B's own test files are unaffected by this addition
+//    (K4.2C_PHASE1_ADMIN_GOVERNANCE.md §2). ──
+export interface AnalyticsPort {
+  record(userId: string | null, type: string, metadata?: Record<string, unknown>): Promise<void>;
+}
+
 /** everything `CandidateService.propose()` needs to insert one row. */
 export interface CreateCandidateInput {
   createdByUserId: string;
