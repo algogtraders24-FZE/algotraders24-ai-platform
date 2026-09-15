@@ -20,6 +20,10 @@
     {
       "path": "/api/private/automations/cron/dispatch/evening-ist",
       "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/private/admin/knowledge-loop/cron/freshness-sweep",
+      "schedule": "0 3 * * *"
     }
   ]
 }

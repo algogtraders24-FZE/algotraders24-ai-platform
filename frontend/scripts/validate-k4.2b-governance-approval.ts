@@ -464,19 +464,16 @@ async function main(): Promise<void> {
     assert.doesNotMatch(src, /\bmarkActive\b|\bcreateVersionOf\b|KnowledgeService/);
   });
 
-  await test("H6: no admin route / admin UI / cron / analytics-event code exists yet (K4.2-C, not this sprint)", () => {
-    const adminRoute = join(ROOT, "app", "api", "private", "admin", "knowledge-loop");
-    const adminUi = join(ROOT, "app", "dashboard", "admin", "knowledge-loop");
-    for (const p of [adminRoute, adminUi]) {
-      let exists = true;
-      try {
-        statSync(p);
-      } catch {
-        exists = false;
-      }
-      assert.equal(exists, false, `${p} should not exist yet`);
-    }
-  });
+  // H6 originally asserted no admin route/UI/cron/analytics-event code
+  // existed yet — a snapshot-in-time scope boundary for K4.2-B's own
+  // closure. K4.2-C Phase 1 (owner-authorized 2026-09-15) correctly built
+  // exactly that: admin routes/UI/cron + candidate-lifecycle analytics
+  // (the latter via an OPTIONAL, additive AnalyticsPort injected into
+  // GovernanceService itself — H5 above already proves that addition
+  // didn't touch K4.2-A's file, and this file's own analytics lines are
+  // exercised by validate-k4.2c-phase1-admin-governance.ts Part A, not
+  // re-asserted here). Not a K4.2-B defect — retired for the same reason
+  // K4.2-A's own E6 was retired.
 
   await test("H7: no services/agent-framework/** file imports services/knowledge-loop (existing INV-1, unchanged by K4.2-B)", () => {
     const agentFiles = walk(join(ROOT, "services", "agent-framework"));
