@@ -211,8 +211,20 @@ function main(): void {
 
   // ── INV-1 structural: retrieval code never references KnowledgeCandidate ─
   const loopFiles = walk(join(ROOT, "services", "knowledge-loop"));
-  test("INV-1: no services/knowledge-loop/** file references `knowledgeCandidate` / `KnowledgeCandidate`", () => {
+  // K4.2-A (2026-09-15) narrows this check's SCOPE, not its substance: K1's
+  // original assertion ("nothing under services/knowledge-loop/** ever
+  // references KnowledgeCandidate") predates K4, whose entire job — always
+  // deferred to K4 by K1_DECISION/ADR-K3-M8 — is to be the first sanctioned
+  // writer of that table. `services/knowledge-loop/governance/**` is that
+  // sanctioned, isolated candidate-writer (K4.2A_CANDIDATE_CAPTURE.md §4);
+  // the REAL invariant this test protects — retrieval/answer-generation code
+  // never touches KnowledgeCandidate — is unchanged and still enforced for
+  // every other file in the tree, including the ports.ts/index.ts test seam
+  // this comment always excused by content, not by directory.
+  const governanceDirLoopSchema = join(ROOT, "services", "knowledge-loop", "governance");
+  test("INV-1: no services/knowledge-loop/** file OUTSIDE governance/ references `knowledgeCandidate` / `KnowledgeCandidate`", () => {
     for (const f of loopFiles) {
+      if (f.startsWith(governanceDirLoopSchema)) continue;
       const src = readFileSync(f, "utf8");
       // ports.ts / index.ts may name the TYPE `CandidateSeedPort` (test seam)
       // but must never touch a `KnowledgeCandidate` table/model.

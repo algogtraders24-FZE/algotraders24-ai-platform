@@ -32,10 +32,13 @@ const EXPLICIT_FRESHNESS =
 const DYNAMIC_VALUE =
   /\b(price|quote|rate|cost|how much (is|does|are)|availability|in stock|market cap|exchange rate)\b/i;
 // the user is asking about THEIR OWN account state.
-const ACCOUNT_SPECIFIC =
+// Exported (K4.2-A) — the same regex family is the right building block for
+// the candidate-creation privacy scan (KNOWLEDGE_GOVERNANCE_CONTRACT.md §7.2,
+// K4.1 §2.7's own recommendation), reused as-is rather than duplicated.
+export const ACCOUNT_SPECIFIC =
   /\b(my (account|subscription|plan|order|purchase|licen[cs]e|invoice|billing|payment|receipt|card|email|profile|password)|refund me|cancel my|when (does|will) my|charged me|my last (payment|invoice|order))\b/i;
 // PII / secrets in the message itself.
-const SENSITIVE =
+export const SENSITIVE =
   /(\bsk-[a-z0-9]{8,}|bearer\s+[a-z0-9._-]{16,}|-----BEGIN|\b\d{13,19}\b(?![.\d])|[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b|\b\d{3}-\d{2}-\d{4}\b)/i;
 const HOW_TO =
   /\b(how (do|can|to|would) i|how to|steps? to|guide to|walk me through|set up|configure|enable|connect|where (do|can) i|where is)\b/i;

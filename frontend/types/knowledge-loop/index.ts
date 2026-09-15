@@ -390,3 +390,86 @@ export interface KnowledgeAnswerProvenanceInput {
   servedFromCache: boolean;
   latencyMs: number;
 }
+
+// ── K4.2-A — Candidate capture (KNOWLEDGE_GOVERNANCE_CONTRACT.md §7-8,
+//    K4.2A_CANDIDATE_CAPTURE.md). Additive only — nothing above this line
+//    changes. `CandidateService.propose()` is the ONLY writer of these. ──
+
+export type CandidateReason =
+  | "unanswered-high-value"
+  | "web-answer-worth-keeping"
+  | "assistant-correction"
+  | "admin-flagged"
+  | "support-resolution"
+  | "imported-doc";
+
+/** the subset of a `KnowledgeCandidate` row callers need — a store adapter
+ *  maps the real Prisma row (or an in-memory fixture) to this. */
+export interface CandidateRecord {
+  id: string;
+  createdByUserId: string;
+  originatingConversationId: string | null;
+  originatingMessageId: string | null;
+  canonicalQuestion: string;
+  proposedAnswer: string;
+  knowledgeType: KnowledgeType;
+  proposedScope: KnowledgeScope;
+  proposedVisibility: KnowledgeVisibility;
+  proposedFreshnessClass: KnowledgeFreshnessClass;
+  sourceType: KnowledgeSourceType;
+  evidence: KnowledgeProvenance;
+  confidence: number;
+  reasonForCandidate: string;
+  duplicateOfId: string | null;
+  similarityScore: number | null;
+  status: CandidateStatus;
+  assignedReviewerId: string | null;
+  reviewedAt: Date | null;
+  reviewNotes: string | null;
+  finalKnowledgeId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+}
+
+export interface ProposeCandidateInput {
+  createdByUserId: string;
+  originatingConversationId?: string;
+  originatingMessageId?: string;
+  canonicalQuestion: string;
+  proposedAnswer: string;
+  knowledgeType: KnowledgeType;
+  /** default "assistant" (K0.2 §8.1). */
+  proposedScope?: KnowledgeScope;
+  /** default "public". */
+  proposedVisibility?: KnowledgeVisibility;
+  /** default "STATIC" — a DYNAMIC proposal is a red flag for the reviewer. */
+  proposedFreshnessClass?: KnowledgeFreshnessClass;
+  sourceType: KnowledgeSourceType;
+  reasonForCandidate: CandidateReason;
+  /** 0-1, pipeline confidence at creation (K0.2 §8.1). */
+  confidence: number;
+  evidence?: {
+    knowledgeSources?: KnowledgeSourceRef[];
+    webSources?: WebSourceRef[];
+  };
+}
+
+export type ProposeOutcome =
+  | "created"
+  | "idempotent-replay"
+  | "blocked-privacy"
+  | "blocked-invalid"
+  | "duplicate-of-active";
+
+export interface ProposeCandidateResult {
+  outcome: ProposeOutcome;
+  /** present for every outcome except blocked-privacy/blocked-invalid. */
+  candidate?: CandidateRecord;
+  /** present only for outcome === "blocked-privacy". */
+  blockedReasons?: string[];
+  /** present only for outcome === "blocked-invalid". */
+  invalidReason?: string;
+  /** non-blocking — always computed, never gates creation (K0.5 §7.2). */
+  forbiddenLanguageWarnings: string[];
+}
