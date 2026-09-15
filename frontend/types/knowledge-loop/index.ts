@@ -473,3 +473,78 @@ export interface ProposeCandidateResult {
   /** non-blocking — always computed, never gates creation (K0.5 §7.2). */
   forbiddenLanguageWarnings: string[];
 }
+
+// ── K4.2-B — Governance approval (KNOWLEDGE_GOVERNANCE_CONTRACT.md §2-6,
+//    K4.2B_GOVERNANCE_APPROVAL.md). `GovernanceService` is the ONLY module
+//    that ever creates an `active` Knowledge row from a candidate, or writes
+//    an `AuditLog` row for a governance transition. Additive only. ──
+
+export type GovernanceOutcome =
+  | "approved"
+  | "rejected"
+  | "deprecated"
+  | "archived"
+  | "reinstated"
+  | "new-version-published"
+  | "not-found"
+  | "wrong-status"
+  | "unauthorized"
+  | "blocked-privacy";
+
+export interface ApproveOptions {
+  editedAnswer?: string;
+  knowledgeType?: KnowledgeType;
+  scope?: KnowledgeScope;
+  visibility?: KnowledgeVisibility;
+  freshnessClass?: KnowledgeFreshnessClass;
+  freshnessReviewEveryDays?: number | null;
+  expiresAt?: Date | null;
+  reviewerNotes?: string;
+  /** deprecate these existing Knowledge rows in the same review action. */
+  deprecateRelatedIds?: string[];
+}
+
+export interface ApproveResult {
+  outcome: GovernanceOutcome;
+  knowledgeId?: string;
+  candidate?: CandidateRecord;
+  auditLogId?: string;
+  versionFingerprint?: string;
+  /** true when some/all chunks failed to embed — row is still active. */
+  reindexNeeded?: boolean;
+  /** present only for outcome === "blocked-privacy" (the re-scan, §2.1 step 3). */
+  blockedReasons?: string[];
+}
+
+export interface RejectResult {
+  outcome: GovernanceOutcome;
+  candidate?: CandidateRecord;
+  auditLogId?: string;
+}
+
+export interface TransitionActionResult {
+  outcome: GovernanceOutcome;
+  knowledge?: KnowledgeRecord;
+  auditLogId?: string;
+  versionFingerprint?: string;
+}
+
+export interface PublishNewVersionOptions {
+  newAnswer: string;
+  knowledgeType?: KnowledgeType;
+  scope?: KnowledgeScope;
+  visibility?: KnowledgeVisibility;
+  freshnessClass?: KnowledgeFreshnessClass;
+  freshnessReviewEveryDays?: number | null;
+  expiresAt?: Date | null;
+  reason: string;
+}
+
+export interface PublishNewVersionResult {
+  outcome: GovernanceOutcome;
+  createdKnowledgeId?: string;
+  deprecatedKnowledgeId?: string;
+  auditLogId?: string;
+  versionFingerprint?: string;
+  reindexNeeded?: boolean;
+}

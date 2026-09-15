@@ -148,6 +148,7 @@
     "validate:knowledge-loop-adversarial": "tsx scripts/validate-knowledge-loop-adversarial.ts",
     "validate:knowledge-loop-telemetry": "tsx scripts/validate-knowledge-loop-telemetry.ts",
     "validate:k4.2a-candidate-capture": "tsx scripts/validate-k4.2a-candidate-capture.ts",
+    "validate:k4.2b-governance-approval": "tsx scripts/validate-k4.2b-governance-approval.ts",
     "validate:automation-workflow-validation": "tsx scripts/validate-automation-workflow-validation.ts",
     "validate:automation-condition-eval": "tsx scripts/validate-automation-condition-eval.ts",
     "validate:automation-scheduler": "tsx scripts/validate-automation-scheduler.ts",

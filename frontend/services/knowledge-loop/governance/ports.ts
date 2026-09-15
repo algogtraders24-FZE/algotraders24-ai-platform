@@ -14,6 +14,7 @@ import type {
   CandidateStatus,
   KnowledgeFreshnessClass,
   KnowledgeProvenance,
+  KnowledgeRecord,
   KnowledgeScope,
   KnowledgeSourceType,
   KnowledgeType,
@@ -56,4 +57,116 @@ export interface CandidateStorePort {
     canonicalQuestion: string,
     proposedAnswer: string,
   ): Promise<CandidateRecord | null>;
+}
+
+// ── K4.2-B — governance approval (K4.2B_GOVERNANCE_APPROVAL.md) ───────────
+
+export interface ApproveCandidateStoreInput {
+  candidateId: string;
+  adminId: string;
+  knowledge: {
+    userId: string;
+    title: string;
+    description: string;
+    category: string;
+    canonicalQuestion: string;
+    canonicalAnswer: string;
+    knowledgeType: KnowledgeType;
+    scope: KnowledgeScope;
+    visibility: KnowledgeVisibility;
+    source: string;
+    sourceType: KnowledgeSourceType;
+    provenance: KnowledgeProvenance;
+    confidence: number;
+    freshnessClass: KnowledgeFreshnessClass;
+    freshnessReviewEveryDays: number | null;
+    expiresAt: Date | null;
+  };
+  auditMetadata: Record<string, unknown>;
+}
+
+export interface ApproveCandidateStoreResult {
+  /** "ok" | the candidate wasn't in {candidate, under_review} (race or
+   *  already-decided) | the candidate id doesn't exist. */
+  outcome: "ok" | "wrong-status" | "not-found";
+  knowledge?: KnowledgeRecord;
+  candidate?: CandidateRecord;
+  auditLogId?: string;
+  versionFingerprint?: string;
+}
+
+export interface RejectCandidateStoreInput {
+  candidateId: string;
+  adminId: string;
+  reason: string;
+  closeAs: "rejected" | "duplicate" | "superseded";
+  auditMetadata: Record<string, unknown>;
+}
+
+export interface RejectCandidateStoreResult {
+  outcome: "ok" | "wrong-status" | "not-found";
+  candidate?: CandidateRecord;
+  auditLogId?: string;
+}
+
+export interface TransitionKnowledgeStoreInput {
+  knowledgeId: string;
+  /** the status(es) this transition is valid FROM — enforced as a
+   *  conditional update, race-safe (K4.2B-D3). */
+  fromStatuses: string[];
+  to: "deprecated" | "archived" | "active";
+  adminId: string;
+  reason?: string;
+  action: string;
+  auditMetadata: Record<string, unknown>;
+}
+
+export interface TransitionKnowledgeStoreResult {
+  outcome: "ok" | "wrong-status" | "not-found";
+  knowledge?: KnowledgeRecord;
+  auditLogId?: string;
+  versionFingerprint?: string;
+}
+
+export interface PublishNewVersionStoreInput {
+  fromKnowledgeId: string;
+  adminId: string;
+  newFields: {
+    userId: string;
+    title: string;
+    description: string;
+    category: string;
+    canonicalQuestion: string;
+    canonicalAnswer: string;
+    knowledgeType: KnowledgeType;
+    scope: KnowledgeScope;
+    visibility: KnowledgeVisibility;
+    source: string;
+    sourceType: KnowledgeSourceType;
+    provenance: KnowledgeProvenance;
+    confidence: number;
+    freshnessClass: KnowledgeFreshnessClass;
+    freshnessReviewEveryDays: number | null;
+    expiresAt: Date | null;
+  };
+  reason: string;
+  auditMetadata: Record<string, unknown>;
+}
+
+export interface PublishNewVersionStoreResult {
+  outcome: "ok" | "not-found";
+  created?: KnowledgeRecord;
+  deprecated?: KnowledgeRecord;
+  auditLogId?: string;
+  versionFingerprint?: string;
+}
+
+export interface GovernanceStorePort {
+  isAdmin(userId: string): Promise<boolean>;
+  getCandidateById(id: string): Promise<CandidateRecord | null>;
+  getKnowledgeById(id: string): Promise<KnowledgeRecord | null>;
+  approveCandidate(input: ApproveCandidateStoreInput): Promise<ApproveCandidateStoreResult>;
+  rejectCandidate(input: RejectCandidateStoreInput): Promise<RejectCandidateStoreResult>;
+  transitionKnowledge(input: TransitionKnowledgeStoreInput): Promise<TransitionKnowledgeStoreResult>;
+  publishNewVersion(input: PublishNewVersionStoreInput): Promise<PublishNewVersionStoreResult>;
 }

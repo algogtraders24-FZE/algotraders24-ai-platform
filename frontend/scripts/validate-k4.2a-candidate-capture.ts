@@ -403,9 +403,13 @@ async function main(): Promise<void> {
     }
   });
 
-  await test("E6: no governance-service.ts / admin route / admin UI exists yet (K4.2-B, not this sprint)", () => {
-    const names = governanceFiles.map((f) => f.split(/[\\/]/).pop());
-    assert.ok(!names.includes("governance-service.ts"));
+  // K4.2-A originally asserted `governance-service.ts` itself must not
+  // exist — a snapshot-in-time scope boundary for THIS sprint alone, which
+  // necessarily goes stale the moment the next authorized step (K4.2-B)
+  // correctly lands it (2026-09-15, owner-authorized). Not a K4.2-A defect —
+  // updated to assert the invariant that is still actually true: no admin
+  // ROUTE or UI exists yet (that remains K4.2-C).
+  await test("E6: no admin route / admin UI exists yet (K4.2-C, not this or the K4.2-B sprint)", () => {
     const adminRoute = join(ROOT, "app", "api", "private", "admin", "knowledge-loop");
     const adminUi = join(ROOT, "app", "dashboard", "admin", "knowledge-loop");
     for (const p of [adminRoute, adminUi]) {
