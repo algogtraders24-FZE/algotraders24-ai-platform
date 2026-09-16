@@ -5,6 +5,7 @@
 import type { AiCompileAndRunRequest, AlgoTestRunRequest, AlgoTestRunView, AlgoTestStrategyDefinition, StrategyLibraryDetail, StrategyLibraryItem } from "@/types/algo-test";
 import type { QuantChatConversationState, QuantChatModificationKind } from "@/types/quant-chat";
 import type { CompileNaturalLanguageStrategyResult } from "@/services/algo-test/nl-strategy-compiler.service";
+import type { QuantChatPreviewData } from "@/services/algo-test/quant-chat-preview.service";
 
 const BASE = "/api/private/algo-test";
 
@@ -101,7 +102,15 @@ export async function compileAndRunAiStrategy(request: AiCompileAndRunRequest): 
  * Deliberately calls /strategy-builder, never /ai-runs - this never
  * backtests (locked QP-2 scope).
  */
-export async function applyStrategyBuilderModification(userText: string, state: QuantChatConversationState): Promise<{ state: QuantChatConversationState; run: CompileNaturalLanguageStrategyResult; modificationKind: QuantChatModificationKind }> {
+export interface StrategyBuilderModificationResult {
+  state: QuantChatConversationState;
+  run: CompileNaturalLanguageStrategyResult;
+  modificationKind: QuantChatModificationKind;
+  /** QP-3 - best-effort chart-preview data; undefined whenever compilation failed or the preview genuinely couldn't be built (a provider hiccup, e.g.) - never a stale/fabricated preview. */
+  preview?: QuantChatPreviewData;
+}
+
+export async function applyStrategyBuilderModification(userText: string, state: QuantChatConversationState): Promise<StrategyBuilderModificationResult> {
   const res = await fetch(`${BASE}/strategy-builder`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -109,7 +118,7 @@ export async function applyStrategyBuilderModification(userText: string, state: 
   });
   if (!res.ok) throw new Error(await parseErrorMessage(res));
   const json = await res.json();
-  return json.data as { state: QuantChatConversationState; run: CompileNaturalLanguageStrategyResult; modificationKind: QuantChatModificationKind };
+  return json.data as StrategyBuilderModificationResult;
 }
 
 /**
