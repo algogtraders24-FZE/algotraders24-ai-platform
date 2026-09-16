@@ -142,6 +142,114 @@ const DOCS: SeedDoc[] = [
       "account setting. When you ask for one of those, or when it has no answer, it hands the request to human " +
       "support. It is not a financial adviser and does not give trading advice.",
   },
+
+  // --- Content-expansion batch (2026-09-16) - owner-reviewed content gap
+  // closure. The first 6 are sourced VERBATIM from the live public FAQ
+  // (sections/FAQ.tsx) so the support corpus stops missing the platform's
+  // own already-published answers; the last 2 (troubleshooting, contact
+  // channels) are new, owner-approved wording, grounded only in real,
+  // verified facts (the actual /company/contact channels + the real,
+  // actively-used support@algotraders24.ai inbox - the other aliases shown
+  // to the owner, billing@/contact@/security@/admin@, were deliberately
+  // left out of these two entries; they belong in their own more specific
+  // context, not a general support/troubleshooting answer).
+  {
+    title: "What Algotraders24 AI is",
+    knowledgeType: "faq",
+    visibility: "public",
+    category: "product",
+    canonicalQuestion: "What is Algotraders24 AI?",
+    body:
+      "An AI Trading Intelligence Platform. It runs market evidence through a deterministic pipeline - evidence, " +
+      "reasoning, risk, and confidence - and explains every conclusion in plain language. It's built for " +
+      "decision support, not for handing you a verdict to follow blindly.",
+  },
+  {
+    title: "Is Algotraders24 AI a signal service?",
+    knowledgeType: "faq",
+    visibility: "public",
+    category: "product",
+    canonicalQuestion: "Is this a signal service? Do you tell me when to buy or sell?",
+    body:
+      "No. We don't sell buy-or-sell signals. Instead of a bare instruction, you see the supporting and opposing " +
+      "evidence, an eight-category risk breakdown, and a confidence score - so you can weigh the reasoning and " +
+      "check the work yourself.",
+  },
+  {
+    title: "How the platform's analysis pipeline works",
+    knowledgeType: "faq",
+    visibility: "public",
+    category: "product",
+    canonicalQuestion: "How does the platform work?",
+    body:
+      "Every analysis runs the same services in the same order: market data is ingested, evidence is fused and " +
+      "ranked, reasoning classifies each item as supporting, opposing, or unresolved, risk is assessed across " +
+      "eight categories, confidence is scored, and the result is composed into a plain-language explanation. " +
+      "Because it's deterministic, the same evidence always produces the same analysis.",
+  },
+  {
+    title: "Markets and platforms covered",
+    knowledgeType: "faq",
+    visibility: "public",
+    category: "product",
+    canonicalQuestion: "Which markets are supported?",
+    body:
+      "Across its tools and products, the platform covers forex, crypto, and Indian markets, with integrations " +
+      "for MetaTrader 5, TradingView, cTrader, NinjaTrader, and major crypto exchanges. Live analysis coverage " +
+      "depends on the connected market-data provider and continues to expand.",
+  },
+  {
+    title: "Free plan and pricing tiers",
+    knowledgeType: "faq",
+    visibility: "public",
+    category: "billing",
+    canonicalQuestion: "Is there a free plan, and can I upgrade later?",
+    body:
+      "Yes. The Free plan is $0 and includes core tools - 500 AI credits a month, an AI agent, and automations - " +
+      "so you can try the platform before deciding to upgrade. You can move between Free, Pro, Elite, and " +
+      "Enterprise from your billing dashboard at any time; your plan simply sets your limits, and upgrading " +
+      "raises them right away.",
+  },
+  {
+    title: "How data and payments are handled",
+    knowledgeType: "faq",
+    visibility: "public",
+    category: "policies",
+    canonicalQuestion: "How is my data handled? Is my payment information safe?",
+    body:
+      "You sign in through an authenticated account, and payments are processed entirely by established " +
+      "providers - Stripe for cards and NOWPayments for crypto - so sensitive payment details are handled by " +
+      "them, not stored by us.",
+  },
+  {
+    title: "Something isn't working - general troubleshooting",
+    knowledgeType: "support",
+    visibility: "public",
+    category: "troubleshooting",
+    canonicalQuestion: "Something on the platform isn't working - what should I do?",
+    body:
+      "If something on the platform doesn't seem to be working - a page won't load, a feature seems stuck, or " +
+      "you see an unexpected error - start with the basics: refresh the page, check your internet connection, " +
+      "and try signing out and signing back in. Clearing your browser cache or trying a different browser can " +
+      "also help if something looks broken or out of date. This assistant is read-only and cannot diagnose or " +
+      "fix a technical problem itself. If refreshing doesn't help, describe what you were doing and what " +
+      "happened (including any error message you saw) and reach human support by email at " +
+      "support@algotraders24.ai, through the Contact page (WhatsApp or Telegram), or the 'Talk to a human' " +
+      "option in this chat - a person can look into the specific issue.",
+  },
+  {
+    title: "How to reach human support",
+    knowledgeType: "faq",
+    visibility: "public",
+    category: "contact",
+    canonicalQuestion: "How do I contact human support or talk to a real person?",
+    body:
+      "You can reach human support three ways: email support@algotraders24.ai, the Contact page " +
+      "(algotraders24.ai/company/contact), which links to WhatsApp and Telegram, or the 'Talk to a human' link " +
+      "in this chat, which is always available if you'd rather skip straight to a person. This assistant also " +
+      "hands off automatically when it doesn't have a confident, evidence-backed answer to your question, so " +
+      "you don't need to ask for a human every time something is outside what it can help with.",
+  },
 ];
 
 async function resolveActor(): Promise<{ id: string; email: string }> {
