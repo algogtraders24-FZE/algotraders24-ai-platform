@@ -29,9 +29,23 @@ interface Props {
   stage?: string | null;
   /** Sprint D2.3.S2 - true while on the blocking market-analysis path, which has no stage events to report. */
   showElapsed?: boolean;
+  /**
+   * QP-2 - the empty-state copy/link below were hardcoded K-series text.
+   * Optional so every existing caller (app/dashboard/assistant/page.tsx)
+   * is byte-for-byte unaffected - omitting this prop renders the exact
+   * same original text as before this change.
+   */
+  emptyState?: { title: string; body: string; linkHref?: string; linkLabel?: string };
 }
 
-export default function ChatWindow({ messages, thinking, error, streamingId, onCopy, onRetry, stage, showElapsed }: Props) {
+const DEFAULT_EMPTY_STATE = {
+  title: "Start your first conversation",
+  body: "Ask about trading concepts, strategies, or request a live analysis - try “Ask about Gold” or “What’s your outlook on EUR/USD?”",
+  linkHref: "/dashboard/knowledge",
+  linkLabel: "Upload knowledge first →",
+};
+
+export default function ChatWindow({ messages, thinking, error, streamingId, onCopy, onRetry, stage, showElapsed, emptyState }: Props) {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -41,16 +55,16 @@ export default function ChatWindow({ messages, thinking, error, streamingId, onC
   const lastAssistantId = [...messages].reverse().find((m) => m.role === "assistant")?.id ?? null;
 
   if (messages.length === 0 && !thinking) {
+    const empty = emptyState ?? DEFAULT_EMPTY_STATE;
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-        <p className="text-sm font-semibold text-text-2">Start your first conversation</p>
-        <p className="max-w-sm text-xs text-text-3">
-          Ask about trading concepts, strategies, or request a live analysis - try &ldquo;Ask about Gold&rdquo; or
-          &ldquo;What&rsquo;s your outlook on EUR/USD?&rdquo;
-        </p>
-        <Link href="/dashboard/knowledge" className="text-xs font-medium text-gold hover:text-gold-strong">
-          Upload knowledge first &rarr;
-        </Link>
+        <p className="text-sm font-semibold text-text-2">{empty.title}</p>
+        <p className="max-w-sm text-xs text-text-3">{empty.body}</p>
+        {empty.linkHref && empty.linkLabel && (
+          <Link href={empty.linkHref} className="text-xs font-medium text-gold hover:text-gold-strong">
+            {empty.linkLabel}
+          </Link>
+        )}
       </div>
     );
   }

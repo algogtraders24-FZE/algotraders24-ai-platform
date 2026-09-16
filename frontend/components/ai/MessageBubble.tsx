@@ -17,19 +17,29 @@
 // surface than the `marketAnalysis` field above, see assistant.service
 // .ts's header) renders as VerifiedAIAnswerCard when present, never a
 // fabricated substitute when it's absent.
+//
+// QP-2 - a fifth, similarly conditional addition: `strategyState`, an
+// AT24 Quant Chat compiler result, renders as StrategyStateCard when
+// present. This is the ONLY QP-2 touch to this shared K-series file -
+// additive only, every existing field/branch above is unchanged, and no
+// existing caller (app/dashboard/assistant/page.tsx) is affected since it
+// never sets this field.
 import type { Message } from "@/types/message";
 import type { ChatSource } from "@/services/ai/assistant.service";
 import type { MarketAnalysisResult } from "@/types/market-analysis-orchestration";
 import type { VerifiedAnswerResponse } from "@/types/verified-answer-response";
+import type { QuantChatMessageStrategyState } from "@/types/quant-chat";
 import SourcesPanel from "./SourcesPanel";
 import AnalysisResult from "@/components/market-intelligence/AnalysisResult";
 import VerifiedAIAnswerCard from "@/components/intelligence-workspace/VerifiedAIAnswerCard";
+import StrategyStateCard from "@/components/quant-chat/StrategyStateCard";
 import Disclaimer from "@/components/ui/Disclaimer";
 
 export type DisplayMessage = Message & {
   sources?: ChatSource[];
   marketAnalysis?: MarketAnalysisResult;
   intelligence?: VerifiedAnswerResponse;
+  strategyState?: QuantChatMessageStrategyState;
 };
 
 interface Props {
@@ -75,6 +85,8 @@ export default function MessageBubble({ message, isStreaming, isLastAssistant, o
           </div>
         )}
 
+        {!isUser && !isStreaming && message.strategyState && <StrategyStateCard strategyState={message.strategyState} />}
+
         {/* Sprint D2.3 Final Audit - every other assistant reply (free-text
             chat, RAG-grounded or plain) had no disclaimer at all - only the
             deterministic market-analysis branch above did (via
@@ -84,7 +96,7 @@ export default function MessageBubble({ message, isStreaming, isLastAssistant, o
             evidence-backed reply is presented") didn't actually reach.
             Sprint D2.6.10 - the same exclusion applies to
             VerifiedAIAnswerCard, which renders its own <Disclaimer />. */}
-        {!isUser && !isStreaming && !message.marketAnalysis && !message.intelligence && <Disclaimer className="mt-2 border-t-0 pt-0" />}
+        {!isUser && !isStreaming && !message.marketAnalysis && !message.intelligence && !message.strategyState && <Disclaimer className="mt-2 border-t-0 pt-0" />}
 
         <div className={`mt-1 flex items-center gap-3 text-[10px] text-text-3 ${isUser ? "justify-end" : "justify-start"}`}>
           <span>{time}</span>
