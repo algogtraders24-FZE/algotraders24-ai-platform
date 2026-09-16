@@ -58,6 +58,12 @@ export const POST = withContext(async (req, ctx) => {
         // charged with license issuance stuck retrying until the keys are
         // set. Verify these are set in this deployment's real env before
         // any real purchase can be expected to complete end-to-end.
+        //
+        // session.id (the Checkout Session id) is passed as providerRef -
+        // stable across every retried delivery of this same event, and the
+        // one thing issueLicenseForPurchase uses to guarantee a retry never
+        // creates a second Purchase/Entitlement/License (see that
+        // function's own header comment).
         if (session.metadata?.type === "marketplace_purchase") {
           const m = session.metadata;
           if (m.buyerId && m.listingId && m.tradingSystemId && m.versionId && m.platform && m.releaseId) {
@@ -71,6 +77,8 @@ export const POST = withContext(async (req, ctx) => {
               amount: (session.amount_total ?? 0) / 100,
               currency: (session.currency ?? "usd").toUpperCase(),
               expiresAt: null,
+              provider: "stripe",
+              providerRef: session.id,
             });
           }
           break;

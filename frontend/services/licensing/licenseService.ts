@@ -14,16 +14,25 @@ import { recordLicenseAudit } from "./auditTrail";
 import type { ActivationPolicy, LicensePayload, LicenseStatus, RevocationReason, RuntimeValidationResult } from "@/types/marketplace-license";
 import { DEFAULT_ACTIVATION_POLICY } from "@/types/marketplace-license";
 import type { PlatformName } from "@/types/marketplace-factory";
-import type { Prisma } from "@/lib/generated/prisma/client";
+import { Prisma } from "@/lib/generated/prisma/client";
 
 function isPlatformName(value: string): value is PlatformName {
   return getLicenseAdapter(value) !== null;
 }
 
-// --- Issuance (internal - triggered by a completed Purchase, not a public
-// buyer-facing endpoint this sprint; no real payment flow exists yet, so
-// this is called only by the test suite / a future payment-webhook, never
-// by an unauthenticated client). ---
+// --- Issuance (called by the Stripe webhook after a verified
+// checkout.session.completed "marketplace_purchase" event - see
+// app/api/webhooks/stripe/route.ts - never by an unauthenticated client).
+//
+// Idempotent on `providerRef` (the Stripe Checkout Session id): Stripe
+// retries a webhook on any non-2xx response, so the exact same event can
+// be delivered more than once. Purchase.providerRef's DB-level @unique
+// constraint is the ONLY idempotency mechanism - a retried delivery finds
+// the already-issued Purchase/Entitlement/License and returns it unchanged
+// instead of creating a second one. Purchase+Entitlement+License are
+// written in one DB transaction so a mid-write crash can never leave a
+// Purchase without its Entitlement/License (which would otherwise make the
+// providerRef check above insufficient on its own). ---
 
 export interface IssueForPurchaseInput {
   buyerId: string;
@@ -39,78 +48,126 @@ export interface IssueForPurchaseInput {
   // default even before a real payment webhook exists to wire this up.
   activationPolicy?: ActivationPolicy;
   expiresAt: Date | null;
+  // The payment provider that authorized this purchase (e.g. "stripe") and
+  // its stable reference for this exact purchase attempt (e.g. the Stripe
+  // Checkout Session id) - see Purchase.provider/providerRef in schema.prisma.
+  provider: string;
+  providerRef: string;
+}
+
+async function loadIssuedChain(providerRef: string) {
+  return prisma.purchase.findUnique({
+    where: { providerRef },
+    include: { entitlements: { include: { licenses: true } } },
+  });
+}
+
+function toDuplicateResult(existing: NonNullable<Awaited<ReturnType<typeof loadIssuedChain>>>, providerRef: string) {
+  const entitlement = existing.entitlements[0];
+  const license = entitlement?.licenses[0];
+  if (!license) {
+    // A Purchase exists for this providerRef but its Entitlement/License
+    // never got created (should be structurally impossible now that all
+    // three are written in one transaction - see issueLicenseForPurchase).
+    // Refuse to silently re-issue into a state we can't explain.
+    throw new Error(`Purchase for providerRef "${providerRef}" already exists without an entitlement/license - inconsistent state, refusing to silently re-issue.`);
+  }
+  return { license, rawApiKey: null as string | null, payload: toPayload(license), duplicate: true };
 }
 
 export async function issueLicenseForPurchase(input: IssueForPurchaseInput) {
+  const existing = await loadIssuedChain(input.providerRef);
+  if (existing) return toDuplicateResult(existing, input.providerRef);
+
   const activationPolicy = input.activationPolicy ?? DEFAULT_ACTIVATION_POLICY;
   const release = await prisma.releaseArtifact.findUnique({ where: { id: input.releaseId } });
   if (!release || release.tradingSystemId !== input.tradingSystemId || release.versionId !== input.versionId || release.platform !== input.platform) {
     throw new Error("Release does not match the requested tradingSystemId/versionId/platform.");
   }
 
-  const purchase = await prisma.purchase.create({
-    data: {
-      buyerId: input.buyerId,
-      marketplaceListingId: input.marketplaceListingId,
-      tradingSystemId: input.tradingSystemId,
-      amount: input.amount,
-      currency: input.currency,
-      status: "COMPLETED",
-      purchasedAt: new Date(),
-    },
-  });
-
-  const entitlement = await prisma.entitlement.create({
-    data: {
-      purchaseId: purchase.id,
-      buyerId: input.buyerId,
-      tradingSystemId: input.tradingSystemId,
-      marketplaceListingId: input.marketplaceListingId,
-      platform: input.platform,
-      status: "ACTIVE",
-    },
-  });
-
-  const licenseId = `lic_${purchase.id}_${Date.now().toString(36)}`;
   const now = new Date();
-  const { payload, signature } = coreIssueLicense(
-    {
-      licenseId,
-      buyerId: input.buyerId,
-      tradingSystemId: input.tradingSystemId,
-      versionId: input.versionId,
-      releaseId: input.releaseId,
-      platform: input.platform,
-      activationPolicy,
-      expiresAt: input.expiresAt ? input.expiresAt.toISOString() : null,
-      now,
-    },
-    signLicensePayload,
-  );
-
   const rawApiKey = generateApiKey();
-  const license = await prisma.license.create({
-    data: {
-      id: licenseId,
-      entitlementId: entitlement.id,
-      buyerId: input.buyerId,
-      tradingSystemId: input.tradingSystemId,
-      versionId: input.versionId,
-      releaseId: input.releaseId,
-      platform: input.platform,
-      licenseStatus: "ISSUED",
-      licenseSchemaVersion: payload.licenseSchemaVersion,
-      activationPolicy: activationPolicy as unknown as Prisma.InputJsonValue,
-      issuedAt: now,
-      expiresAt: input.expiresAt,
-      signature,
-      apiKeyHash: hashApiKey(rawApiKey),
-    },
-  });
 
-  await recordLicenseAudit({ actorUserId: input.buyerId, action: "license.issued", licenseId: license.id, metadata: { tradingSystemId: input.tradingSystemId, platform: input.platform, result: "OK" } });
+  try {
+    const { license, payload } = await prisma.$transaction(async (tx) => {
+      const purchase = await tx.purchase.create({
+        data: {
+          buyerId: input.buyerId,
+          marketplaceListingId: input.marketplaceListingId,
+          tradingSystemId: input.tradingSystemId,
+          amount: input.amount,
+          currency: input.currency,
+          provider: input.provider,
+          providerRef: input.providerRef,
+          status: "COMPLETED",
+          purchasedAt: now,
+        },
+      });
 
-  return { license, rawApiKey, payload };
+      const entitlement = await tx.entitlement.create({
+        data: {
+          purchaseId: purchase.id,
+          buyerId: input.buyerId,
+          tradingSystemId: input.tradingSystemId,
+          marketplaceListingId: input.marketplaceListingId,
+          platform: input.platform,
+          status: "ACTIVE",
+        },
+      });
+
+      const licenseId = `lic_${purchase.id}_${now.getTime().toString(36)}`;
+      const { payload, signature } = coreIssueLicense(
+        {
+          licenseId,
+          buyerId: input.buyerId,
+          tradingSystemId: input.tradingSystemId,
+          versionId: input.versionId,
+          releaseId: input.releaseId,
+          platform: input.platform,
+          activationPolicy,
+          expiresAt: input.expiresAt ? input.expiresAt.toISOString() : null,
+          now,
+        },
+        signLicensePayload,
+      );
+
+      const license = await tx.license.create({
+        data: {
+          id: licenseId,
+          entitlementId: entitlement.id,
+          buyerId: input.buyerId,
+          tradingSystemId: input.tradingSystemId,
+          versionId: input.versionId,
+          releaseId: input.releaseId,
+          platform: input.platform,
+          licenseStatus: "ISSUED",
+          licenseSchemaVersion: payload.licenseSchemaVersion,
+          activationPolicy: activationPolicy as unknown as Prisma.InputJsonValue,
+          issuedAt: now,
+          expiresAt: input.expiresAt,
+          signature,
+          apiKeyHash: hashApiKey(rawApiKey),
+        },
+      });
+
+      return { license, payload };
+    });
+
+    await recordLicenseAudit({ actorUserId: input.buyerId, action: "license.issued", licenseId: license.id, metadata: { tradingSystemId: input.tradingSystemId, platform: input.platform, provider: input.provider, result: "OK" } });
+
+    return { license, rawApiKey: rawApiKey as string | null, payload, duplicate: false };
+  } catch (err) {
+    // A concurrent delivery of the same webhook event can race past the
+    // loadIssuedChain() check above before either transaction commits -
+    // the DB's own @unique constraint on providerRef is what actually
+    // prevents the duplicate; this just turns that race into the same
+    // "return the existing chain" behavior as a sequential retry.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      const raced = await loadIssuedChain(input.providerRef);
+      if (raced) return toDuplicateResult(raced, input.providerRef);
+    }
+    throw err;
+  }
 }
 
 // --- Authentication helper shared by every runtime-facing endpoint ---
