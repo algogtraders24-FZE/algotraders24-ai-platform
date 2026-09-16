@@ -3,6 +3,8 @@
 // same "thin wrapper, mutation functions throw with a real message" shape
 // lib/paper-trading/store.ts already establishes.
 import type { AiCompileAndRunRequest, AlgoTestRunRequest, AlgoTestRunView, AlgoTestStrategyDefinition, StrategyLibraryDetail, StrategyLibraryItem } from "@/types/algo-test";
+import type { QuantChatConversationState, QuantChatModificationKind } from "@/types/quant-chat";
+import type { CompileNaturalLanguageStrategyResult } from "@/services/algo-test/nl-strategy-compiler.service";
 
 const BASE = "/api/private/algo-test";
 
@@ -91,6 +93,23 @@ export async function compileAndRunAiStrategy(request: AiCompileAndRunRequest): 
   if (!res.ok) throw new Error(await parseErrorMessage(res));
   const json = await res.json();
   return json.data.run as AlgoTestRunView;
+}
+
+/**
+ * QP-2 - Conversational Strategy Builder's own thin client wrapper, same
+ * "thin wrapper, throw with a real message" shape as every function above.
+ * Deliberately calls /strategy-builder, never /ai-runs - this never
+ * backtests (locked QP-2 scope).
+ */
+export async function applyStrategyBuilderModification(userText: string, state: QuantChatConversationState): Promise<{ state: QuantChatConversationState; run: CompileNaturalLanguageStrategyResult; modificationKind: QuantChatModificationKind }> {
+  const res = await fetch(`${BASE}/strategy-builder`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userText, state }),
+  });
+  if (!res.ok) throw new Error(await parseErrorMessage(res));
+  const json = await res.json();
+  return json.data as { state: QuantChatConversationState; run: CompileNaturalLanguageStrategyResult; modificationKind: QuantChatModificationKind };
 }
 
 /**

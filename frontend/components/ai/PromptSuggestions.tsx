@@ -4,11 +4,19 @@
 import { promptSuggestions } from "@/data/mock-prompts";
 import { EDUCATIONAL_TERMS } from "@/data/educational-terms";
 import InfoTooltip from "@/components/ui/InfoTooltip";
+import type { PromptSuggestion } from "@/types/prompt";
 
-export default function PromptSuggestions({ onPick }: { onPick: (prompt: string) => void }) {
+interface Props {
+  onPick: (prompt: string) => void;
+  /** QP-2 - optional so every existing caller keeps its original K-series suggestions unchanged; omit to get promptSuggestions as before this change. */
+  suggestions?: PromptSuggestion[];
+}
+
+export default function PromptSuggestions({ onPick, suggestions }: Props) {
+  const items = suggestions ?? promptSuggestions;
   return (
     <div className="flex flex-wrap gap-2">
-      {promptSuggestions.map((s) => {
+      {items.map((s) => {
         // Sprint D2.3.S4 - optional educational tooltip when a suggestion's
         // label names a defined term (e.g. "Order Blocks" -> "order block").
         const term = EDUCATIONAL_TERMS[s.label.toLowerCase().replace(/s$/, "")];
