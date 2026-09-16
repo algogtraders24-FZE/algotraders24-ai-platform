@@ -24,15 +24,28 @@
 //     explainStrategySpec() over the current compiledSpec - zero network,
 //     zero LLM, matching the locked "no LLM call merely to paraphrase
 //     structured data we already possess" decision.
+//
+// QP-3 - a persistent "current strategy" chart preview, separate from the
+// per-turn StrategyStateCard already shown in each assistant message
+// (that stays as-is, unchanged). `preview` only ever advances on a
+// SUCCESSFUL compile - a failed MODIFY turn leaves it exactly as it was
+// (the underlying compiledSpec genuinely didn't change either, see
+// quant-strategy-builder.service.ts's own "only advance currentIntent on
+// success" rule), so the panel keeps showing an accurate preview of
+// whatever the current strategy actually is, never a preview mislabeled
+// as belonging to a turn that failed.
 import { useState } from "react";
 import ChatWindow from "@/components/ai/ChatWindow";
 import ChatInput from "@/components/ai/ChatInput";
 import PromptSuggestions from "@/components/ai/PromptSuggestions";
 import type { DisplayMessage } from "@/components/ai/MessageBubble";
 import { quantChatPromptSuggestions } from "@/data/quant-chat-prompts";
-import { applyStrategyBuilderModification } from "@/lib/algo-test/store";
+import { applyStrategyBuilderModification, type StrategyBuilderModificationResult } from "@/lib/algo-test/store";
 import { explainStrategySpec } from "@/lib/ai/strategy-compiler/strategy-explainer";
+import StrategyChartPreview from "@/components/quant-chat/StrategyChartPreview";
 import { EMPTY_QUANT_CHAT_STATE, type QuantChatConversationState } from "@/types/quant-chat";
+
+type PreviewState = StrategyBuilderModificationResult["preview"];
 
 function newId(): string {
   return `qc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -44,6 +57,7 @@ export default function QuantChatPage() {
   const [chatMode, setChatMode] = useState<"modify" | "explain">("modify");
   const [thinking, setThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<PreviewState>(undefined);
 
   function pushMessage(msg: DisplayMessage) {
     setMessages((prev) => [...prev, msg]);
@@ -69,6 +83,11 @@ export default function QuantChatPage() {
     try {
       const result = await applyStrategyBuilderModification(text, conversationState);
       setConversationState(result.state);
+      // Only advance on a real new preview - a failed compile (or a
+      // successful compile whose best-effort chart data genuinely
+      // couldn't be built) leaves whatever was already showing untouched,
+      // never blanked or replaced with something stale-but-mislabeled.
+      if (result.preview) setPreview(result.preview);
       const explanation = result.run.compiledSpec ? explainStrategySpec(result.run.compiledSpec) : undefined;
       pushMessage({
         id: newId(),
@@ -108,6 +127,22 @@ export default function QuantChatPage() {
           Ask a question
         </button>
       </div>
+
+      {preview && (
+        <div className="border-b border-border px-4 py-3">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-text-3">Current strategy preview</p>
+          {/* QP-3 implementation review - the label alone didn't disambiguate a failed MODIFY turn from "the chart just updated to match it." A failed compile never touches `preview` (see handleSend above), so this stays visibly true on a failed turn instead of only being true by omission. */}
+          <p className="mb-2 text-[11px] text-text-3">Reflects the last successfully compiled strategy - unaffected by a failed attempt below.</p>
+          <StrategyChartPreview
+            symbol={preview.symbol}
+            timeframe={preview.timeframe}
+            name={preview.name}
+            candles={preview.candles}
+            indicatorSeries={preview.indicatorSeries}
+            activePanels={preview.activePanels}
+          />
+        </div>
+      )}
 
       <ChatWindow
         messages={messages}

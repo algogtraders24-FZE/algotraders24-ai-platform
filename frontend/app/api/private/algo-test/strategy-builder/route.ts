@@ -6,11 +6,19 @@
 // unmodified compileNaturalLanguageStrategy() - this route never
 // duplicates compiler logic, and never calls compileAndRunAiStrategy()
 // (which would auto-backtest - explicitly out of QP-2's locked scope).
+//
+// QP-3 - a successful compile also gets a best-effort chart-preview
+// payload attached (services/algo-test/quant-chat-preview.service.ts) -
+// real candles + the strategy's own indicator overlays. Never blocks or
+// fails the response: a preview failure (provider hiccup, no real
+// instrument yet) simply omits `preview`, exactly like a failed compile
+// already omits `run.compiledSpec`.
 import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { Errors } from "@/services/backend/ErrorHandler";
 import { applyModification } from "@/services/algo-test/quant-strategy-builder.service";
+import { buildQuantChatPreview } from "@/services/algo-test/quant-chat-preview.service";
 import type { QuantChatConversationState } from "@/types/quant-chat";
 import { EMPTY_QUANT_CHAT_STATE } from "@/types/quant-chat";
 
@@ -46,5 +54,7 @@ export const POST = withContext(async (req, ctx) => {
     userText,
   });
 
-  return ApiResponse.success(result, ctx.requestId, 200, ctx.startedAt);
+  const preview = await buildQuantChatPreview(result.run);
+
+  return ApiResponse.success({ ...result, preview }, ctx.requestId, 200, ctx.startedAt);
 });
