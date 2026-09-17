@@ -89,12 +89,22 @@ export default function SupportAssistantPage() {
                   }`}>
                     {out.coverage === "kb-answered" ? "Answered from the knowledge base"
                       : out.coverage === "account-context" ? "Answered from your account status"
-                        : "No answer found"}
+                        : out.coverage === "kb-generated" ? "Generated from the support knowledge base"
+                          : "No answer found"}
                   </span>
                   {out.topics?.map((t) => (
                     <span key={t} className="rounded border border-border px-1.5 py-0.5 text-text-3">{t}</span>
                   ))}
                 </div>
+
+                {out.coverage === "kb-generated" && out.generatedAnswer && (
+                  <div className="rounded-lg border border-border bg-ink p-3 text-sm text-text-2">
+                    {out.generatedAnswer}
+                    <div className="mt-1 text-[11px] text-text-3">
+                      Generated from the support knowledge base{out.generatedProvider ? ` (${out.generatedProvider})` : ""} - not a direct citation.
+                    </div>
+                  </div>
+                )}
 
                 {citedPassages.length > 0 && (
                   <div>

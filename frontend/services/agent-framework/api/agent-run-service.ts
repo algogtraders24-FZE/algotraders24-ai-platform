@@ -25,6 +25,7 @@ import { marketIntelligenceAgentDefinition } from "../agents/market-intelligence
 import { strategyResearchAgentDefinition } from "../agents/strategy-research-agent";
 import { supportAgentDefinition } from "../agents/support-agent";
 import type { AgentDefinition } from "@/types/agent-framework";
+import { generateSupportAnswerForRun, isEligibleForGeneration } from "@/services/support/generate-answer";
 
 /** The agent types that have a real, callable canonical definition today
  *  (A11-A13, + CS1 SUPPORT). The other AGENT_TYPE_REGISTRY entries are declared
@@ -148,9 +149,39 @@ export async function advanceAgentRun(userId: string, runId: string): Promise<Ad
     advanced = true;
   }
 
-  const observability = await getRunObservability(runId, observabilityDeps(userId));
+  let observability = await getRunObservability(runId, observabilityDeps(userId));
   if (!observability) return null; // deleted between the check and the read - treat as gone
-  return { observability, terminal: isTerminalRunStatus(observability.run!.status), advanced };
+  const terminal = isTerminalRunStatus(observability.run!.status);
+
+  // Phase A generative fallback (SUPPORT_CHAT_MASTER_ARCHITECTURE.md
+  // "GENERATION ACCOUNTING DECISION"): runs entirely OUTSIDE
+  // agentRuntime.tick()'s own state machine, delegated to a Support-owned
+  // module exactly like every other piece of Support-specific behavior in
+  // this file already delegates to agentRuntime itself - this does not
+  // reimplement the runtime, planner, authorization, credit, or integrity
+  // logic (owner G14, still holds), it calls a sibling service that does.
+  // Only ever attempted once, right after a SUPPORT run newly reaches a
+  // terminal, eligible (no-coverage, non-mutation) state - never on an
+  // already-terminal run re-polled later (isEligibleForGeneration() would
+  // already see "kb-generated", not "no-coverage", so this is a safe no-op
+  // even if called again).
+  const metadata = (observability.run!.metadata ?? {}) as { definition?: { type?: string } };
+  if (
+    terminal &&
+    advanced &&
+    metadata.definition?.type === "SUPPORT" &&
+    isEligibleForGeneration(observability.run!.output)
+  ) {
+    const generated = await generateSupportAnswerForRun(runId, userId).catch(() => false);
+    if (generated) {
+      // re-read once so the caller (and the widget) sees the patched
+      // output/evidence in the SAME response - no extra round trip needed.
+      const refreshed = await getRunObservability(runId, observabilityDeps(userId));
+      if (refreshed) observability = refreshed;
+    }
+  }
+
+  return { observability, terminal, advanced };
 }
 
 export interface AgentRunListItem {

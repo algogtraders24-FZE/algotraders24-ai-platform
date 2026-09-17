@@ -13,7 +13,7 @@ export type Evidence = { id: string; type: string; claim: string; source: string
 export type SupportOutput = {
   kind?: string;
   resolved?: boolean;
-  coverage?: "kb-answered" | "account-context" | "no-coverage";
+  coverage?: "kb-answered" | "account-context" | "no-coverage" | "kb-generated";
   citationCount?: number;
   topics?: string[];
   citations?: { evidenceId: string; topic: string; source: string; relevance: number }[];
@@ -21,6 +21,11 @@ export type SupportOutput = {
   escalate?: boolean;
   escalationReason?: string | null;
   disclaimer?: string;
+  /** Phase A generative fallback only - present when coverage is
+   *  "kb-generated". Never present for "kb-answered" (a real citation), by
+   *  construction - see services/support/generate-answer.ts. */
+  generatedAnswer?: string;
+  generatedProvider?: string;
 };
 
 export type ResolutionConfirmation = { confirmed: boolean; confirmedAt: string };
