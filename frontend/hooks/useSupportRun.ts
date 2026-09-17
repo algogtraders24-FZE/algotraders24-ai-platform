@@ -79,6 +79,15 @@ export function useSupportRun() {
   const [error, setError] = useState<string | null>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
+  // Phase B (Support conversation continuity): remembered across ask() calls
+  // within the SAME hook instance so a follow-up question continues the same
+  // backend conversation - context feeds Phase A's generative fallback only
+  // (services/support/generate-answer.ts); the deterministic KB-match /
+  // account-lookup / mutation-escalation paths are unaffected. Undefined on
+  // the first ask(); the server generates and returns one, every later
+  // ask() echoes it back. No other UI change needed - the widget already
+  // accumulates a visible multi-turn thread (authHistory) client-side.
+  const [conversationId, setConversationId] = useState<string | undefined>(undefined);
 
   const ask = useCallback(async (question: string) => {
     const q = question.trim();
@@ -87,10 +96,14 @@ export function useSupportRun() {
     setBusy(true);
     setObs(null);
     try {
-      const { runId } = await api<{ runId: string }>("/api/private/agents/framework/runs", {
-        method: "POST",
-        body: JSON.stringify({ agentType: "SUPPORT", goal: { question: q } }),
-      });
+      const { runId, conversationId: nextConversationId } = await api<{ runId: string; conversationId?: string }>(
+        "/api/private/agents/framework/runs",
+        {
+          method: "POST",
+          body: JSON.stringify({ agentType: "SUPPORT", goal: { question: q }, conversationId }),
+        },
+      );
+      if (nextConversationId) setConversationId(nextConversationId);
       const first = await api<{ run: Observability }>(`/api/private/agents/framework/runs/${runId}`);
       setObs(first.run);
       for (let i = 0; i < MAX_ADVANCES; i++) {
@@ -106,7 +119,7 @@ export function useSupportRun() {
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [conversationId]);
 
   /** POST the caller's explicit resolution answer for the CURRENT run
    *  (P1 SS10). A no-op if there is no run yet. */
@@ -135,7 +148,8 @@ export function useSupportRun() {
     setObs(null);
     setError(null);
     setConfirmError(null);
+    setConversationId(undefined); // start a genuinely new conversation, not a continued one
   }, []);
 
-  return { obs, busy, error, ask, confirmResolution, confirmBusy, confirmError, reset };
+  return { obs, busy, error, ask, confirmResolution, confirmBusy, confirmError, reset, conversationId };
 }

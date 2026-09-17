@@ -26,6 +26,8 @@ import { strategyResearchAgentDefinition } from "../agents/strategy-research-age
 import { supportAgentDefinition } from "../agents/support-agent";
 import type { AgentDefinition } from "@/types/agent-framework";
 import { generateSupportAnswerForRun, isEligibleForGeneration } from "@/services/support/generate-answer";
+import { normalizeConversationId } from "@/services/support/conversation-context";
+import { randomUUID } from "node:crypto";
 
 /** The agent types that have a real, callable canonical definition today
  *  (A11-A13, + CS1 SUPPORT). The other AGENT_TYPE_REGISTRY entries are declared
@@ -97,19 +99,48 @@ export interface StartAgentRunInput {
    *  /dashboard/agents path). AT24 Automation passes "schedule" for a
    *  scheduled automation run so the AgentRun row records the real origin. */
   trigger?: "manual" | "schedule";
+  /** Phase B (Support conversation continuity), SUPPORT only - continues an
+   *  existing conversation when supplied and well-shaped, otherwise a new
+   *  conversation id is generated. Ignored for every other agent type. */
+  conversationId?: string;
+}
+
+export interface StartAgentRunResult {
+  runId: string;
+  /** Present only when agentType is SUPPORT (Phase B). The caller should
+   *  pass this back as `conversationId` on the NEXT turn to continue the
+   *  same conversation. */
+  conversationId?: string;
 }
 
 /** Create a queued run for `agentType` and return its id. No execution
- *  happens here (startRun persists a `queued` row and returns). */
-export async function startAgentRun(input: StartAgentRunInput): Promise<{ runId: string }> {
+ *  happens here (startRun persists a `queued` row and returns).
+ *
+ *  SUPPORT runs additionally get a `conversation.id` tag written into the
+ *  run's own `metadata` Json column (additive patch, same zero-migration
+ *  pattern P1's resolutionConfirmation and Phase A's output patch already
+ *  used) - this is what services/support/generate-answer.ts reads to find
+ *  a conversation's prior turns. Every other agent type is untouched. */
+export async function startAgentRun(input: StartAgentRunInput): Promise<StartAgentRunResult> {
   if (!isRunnableAgentType(input.agentType)) throw new UnknownAgentTypeError(input.agentType);
   const definition = DEFINITION_FACTORIES[input.agentType]();
-  return agentRuntime.startRun({
+  const { runId } = await agentRuntime.startRun({
     definition,
     input: input.goal ?? {},
     userId: input.userId,
     trigger: input.trigger ?? "manual",
   });
+
+  if (input.agentType !== "SUPPORT") return { runId };
+
+  const conversationId = normalizeConversationId(input.conversationId) ?? randomUUID();
+  const created = await agentRunRepository.getRun(runId);
+  const existingMetadata = (created?.metadata ?? {}) as Record<string, unknown>;
+  await agentRunRepository.patchRun(runId, {
+    metadata: { ...existingMetadata, conversation: { id: conversationId } },
+  });
+
+  return { runId, conversationId };
 }
 
 /** Read credits + evaluation from the SAME instances the shared runtime
