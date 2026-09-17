@@ -56,6 +56,17 @@ type Coverage = "kb-answered" | "account-context" | "no-coverage";
 export const SUPPORT_STRONG_MATCH = 0.6;
 export const SUPPORT_CITE_BAND = 0.1;
 
+// Exported (non-behavioral) so Phase A's generative fallback
+// (services/support/generate-answer.ts) can distinguish "no-coverage
+// because nothing matched" from "no-coverage because it's a mutation
+// request the KB was never going to answer" using only the run's own
+// already-persisted output - never a second regex pass over the raw
+// question. Generation must never run for the mutation case (constraint
+// #13) - this constant is the single source of truth for that reason
+// string, referenced here and in generate-answer.ts, never duplicated.
+export const MUTATION_ESCALATION_REASON =
+  "requires-an-account-change-only-a-human-or-an-authorised-flow-can-make";
+
 interface Citation {
   evidenceId: string;
   /** knowledgeType / category of the cited support row (faq | support | policy | product | ...). */
@@ -151,7 +162,7 @@ export const supportSpecialist: Specialist = {
     const escalationReason: string | null = !escalate
       ? null
       : mutationIntent
-        ? "requires-an-account-change-only-a-human-or-an-authorised-flow-can-make"
+        ? MUTATION_ESCALATION_REASON
         : bestRelevance > 0
           ? "the-support-knowledge-base-had-no-strong-match-for-this-question"
           : "the-support-knowledge-base-did-not-contain-an-answer";

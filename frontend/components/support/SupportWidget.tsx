@@ -134,6 +134,14 @@ function AuthTurnView({
 
       {out?.kind === "support-answer" && (
         <>
+          {out.coverage === "kb-generated" && out.generatedAnswer && (
+            <div className="rounded-lg border border-border bg-ink p-3 text-sm text-text-2">
+              {out.generatedAnswer}
+              <div className="mt-1 text-[11px] text-text-3">
+                Generated from the support knowledge base{out.generatedProvider ? ` (${out.generatedProvider})` : ""} - not a direct citation.
+              </div>
+            </div>
+          )}
           {citations.length > 0 && (
             <ul className="space-y-2 text-sm">
               {citations.map((c) => (
