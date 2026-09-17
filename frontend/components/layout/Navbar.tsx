@@ -30,13 +30,17 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: "Products", href: "/products" },
   // Sprint M12 branding follow-on - the public Marketplace catalog
   // (independently verified, seller-listed products) had no top-nav entry
   // anywhere; only reachable by scrolling the homepage's "From The
   // Marketplace" section. Distinct from "My Products" in the dashboard
   // sidebar, which is the seller-only backoffice, not this public browse
   // page.
+  //
+  // The standalone "Products" nav entry (-> /products) was removed once
+  // every legacy Product-table entry was migrated into a real
+  // MarketplaceListing and /products became a redirect into /marketplace -
+  // one catalogue, one nav entry, not two pointing at the same content.
   { label: "Marketplace", href: "/marketplace" },
   // Sprint Q1.6 - same gap as Marketplace above had before M12: Quant Lite
   // (app/quant-lite/**, built out across Q0.7-Q1.5) had zero entry point
@@ -151,7 +155,7 @@ function MobileAccordion({ item, onNavigate }: { item: NavItem; onNavigate: () =
   );
 }
 
-export default function Navbar() {
+export default function Navbar({ isAuthenticated = false }: { isAuthenticated?: boolean } = {}) {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -188,9 +192,15 @@ export default function Navbar() {
         </div>
 
         <div className="hidden lg:flex items-center gap-5">
-          <Link href="/login" className="text-sm font-medium text-text-2 transition-colors hover:text-text">
-            Login
-          </Link>
+          {isAuthenticated ? (
+            <Link href="/dashboard" className="text-sm font-medium text-text-2 transition-colors hover:text-text">
+              Dashboard
+            </Link>
+          ) : (
+            <Link href="/login" className="text-sm font-medium text-text-2 transition-colors hover:text-text">
+              Login
+            </Link>
+          )}
           <Link
             href="/dashboard/assistant"
             className="inline-flex rounded-control bg-gold px-5 py-2 text-sm font-semibold text-ink transition hover:brightness-110"
@@ -219,9 +229,15 @@ export default function Navbar() {
           {NAV_ITEMS.map((item) => (
             <MobileAccordion key={item.href} item={item} onNavigate={() => setOpen(false)} />
           ))}
-          <Link href="/login" className="text-text-2 hover:text-text" onClick={() => setOpen(false)}>
-            Login
-          </Link>
+          {isAuthenticated ? (
+            <Link href="/dashboard" className="text-text-2 hover:text-text" onClick={() => setOpen(false)}>
+              Dashboard
+            </Link>
+          ) : (
+            <Link href="/login" className="text-text-2 hover:text-text" onClick={() => setOpen(false)}>
+              Login
+            </Link>
+          )}
           <Link
             href="/dashboard/assistant"
             className="rounded-control bg-gold px-5 py-2 text-center font-semibold text-ink"

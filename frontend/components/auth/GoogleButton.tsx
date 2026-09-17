@@ -4,9 +4,10 @@
 // bg-neutral-950/hover:bg-neutral-800 -> border/ink-2/ink-3).
 import { signInWithGoogleAction } from "@/app/(auth)/actions/auth.actions";
 
-export default function GoogleButton() {
+export default function GoogleButton({ redirectTo }: { redirectTo?: string } = {}) {
+  const action = signInWithGoogleAction.bind(null, redirectTo);
   return (
-    <form action={signInWithGoogleAction}>
+    <form action={action}>
       <button
         type="submit"
         className="flex w-full items-center justify-center gap-2 rounded-control border border-border bg-ink-2 px-4 py-2 font-medium text-text transition hover:bg-ink-3"

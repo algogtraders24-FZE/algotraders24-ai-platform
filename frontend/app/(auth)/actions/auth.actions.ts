@@ -14,6 +14,15 @@ export interface ActionState {
   message?: string;
 }
 
+// A `redirect`/`redirectTo` value always originates from a query param an
+// attacker could set, so it must be constrained to a same-origin relative
+// path before ever being used as a redirect target - otherwise this would
+// be an open redirect (e.g. ?redirect=https://evil.example).
+function safeRedirect(target: string | null | undefined, fallback: string): string {
+  if (!target || !target.startsWith("/") || target.startsWith("//")) return fallback;
+  return target;
+}
+
 export async function signUpAction(
   _prev: ActionState,
   formData: FormData
@@ -69,8 +78,9 @@ export async function signInAction(
     await analyticsEventService.record(sessionUser.profile.id, "login").catch(() => {});
   }
 
-  revalidatePath("/dashboard");
-  redirect("/dashboard");
+  const destination = safeRedirect(String(formData.get("redirect") ?? ""), "/dashboard");
+  revalidatePath(destination);
+  redirect(destination);
 }
 
 export async function signOutAction(): Promise<void> {
@@ -155,18 +165,22 @@ export async function resetPasswordAction(
   redirect("/dashboard");
 }
 
-// Sprint 14C+ - Google OAuth sign-in.
-export async function signInWithGoogleAction(): Promise<void> {
+// Sprint 14C+ - Google OAuth sign-in. `redirectTarget` is bound onto this
+// action from the login page (see GoogleButton) so the page the user was
+// trying to reach survives the round trip through Google and back through
+// /auth/callback, instead of always landing on /dashboard.
+export async function signInWithGoogleAction(redirectTarget?: string): Promise<void> {
   const { createSupabaseServerClient } = await import("@/lib/supabase/server");
   const supabase = await createSupabaseServerClient();
 
   const baseUrl =
     process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const destination = safeRedirect(redirectTarget, "/dashboard");
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${baseUrl}/auth/callback`,
+      redirectTo: `${baseUrl}/auth/callback?redirectTo=${encodeURIComponent(destination)}`,
     },
   });
 
