@@ -43,7 +43,7 @@ export const POST = withContext(async (req, ctx) => {
   if (!body || typeof body !== "object") {
     throw Errors.validation('A JSON body with { "agentType", "goal" } is required');
   }
-  const { agentType, goal } = body as Record<string, unknown>;
+  const { agentType, goal, conversationId } = body as Record<string, unknown>;
   if (typeof agentType !== "string" || !isRunnableAgentType(agentType)) {
     throw Errors.validation(
       `agentType must be one of: ${listRunnableAgentTypes().map((t) => t.type).join(", ")}`,
@@ -53,14 +53,27 @@ export const POST = withContext(async (req, ctx) => {
   if (goal !== undefined && typeof goal !== "string" && (typeof goal !== "object" || goal === null || Array.isArray(goal))) {
     throw Errors.validation("goal must be a string or a JSON object when provided");
   }
+  // conversationId (Phase B, SUPPORT only): optional, loosely validated here
+  // (a malformed value is just treated as "start a new conversation" by
+  // startAgentRun's own normalizeConversationId - no need to duplicate that
+  // logic in the route).
+  if (conversationId !== undefined && typeof conversationId !== "string") {
+    throw Errors.validation("conversationId must be a string when provided");
+  }
 
   try {
-    const { runId } = await startAgentRun({
+    const { runId, conversationId: returnedConversationId } = await startAgentRun({
       userId: sessionUser.profile.id, // server session - never the body
       agentType,
       goal: goal ?? {},
+      conversationId,
     });
-    return ApiResponse.success({ runId, status: "queued" }, ctx.requestId, 202, ctx.startedAt);
+    return ApiResponse.success(
+      { runId, status: "queued", conversationId: returnedConversationId },
+      ctx.requestId,
+      202,
+      ctx.startedAt,
+    );
   } catch (err) {
     if (err instanceof UnknownAgentTypeError) throw Errors.validation(err.message);
     throw err;

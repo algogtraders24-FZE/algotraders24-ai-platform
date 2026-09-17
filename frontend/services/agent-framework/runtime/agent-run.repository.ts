@@ -117,6 +117,39 @@ export const agentRunRepository = {
     });
   },
 
+  /** Phase B (Support conversation continuity) - the `limit` MOST RECENT
+   *  runs tagged with `metadata.conversation.id === conversationId`,
+   *  returned oldest-first (chronological), SCOPED TO `userId` (never a
+   *  client-supplied one - the same ownership discipline every other read
+   *  in this repository uses). This is what makes cross-user conversation
+   *  isolation structural rather than a convention: even if a caller
+   *  supplies another user's real conversationId string, this query still
+   *  only ever returns ITS OWN caller's rows, because `userId` is always
+   *  the first, AND-ed condition - a guessed id just looks like an empty/
+   *  fresh conversation, never a leak.
+   *
+   *  Queries DESCENDING + `take` (the `limit` newest rows), then reverses
+   *  to chronological order before returning - taking ASCENDING + `take`
+   *  would instead grab the `limit` OLDEST rows, exactly backwards for a
+   *  bounded context window, which only wants recent history.
+   *
+   *  Additive JSON-path filter (Postgres jsonb, no schema change) - the
+   *  same "no migration" choice P1's resolutionConfirmation and Phase A's
+   *  output patch already made for this program. Per-user conversation
+   *  volume is small, and the `userId` index bounds the scan before the
+   *  JSON predicate runs; revisit with a real index if that stops holding. */
+  async listRunsForConversation(userId: string, conversationId: string, limit = 20) {
+    const rows = await prisma.agentRun.findMany({
+      where: {
+        userId,
+        metadata: { path: ["conversation", "id"], equals: conversationId },
+      },
+      orderBy: { createdAt: "desc" },
+      take: Math.min(Math.max(limit, 1), 50),
+    });
+    return rows.reverse();
+  },
+
   /** Full forensic trace: run + ordered steps + tool calls + evidence. */
   async getRunTrace(runId: string) {
     const [run, steps, toolCalls, evidence] = await Promise.all([
