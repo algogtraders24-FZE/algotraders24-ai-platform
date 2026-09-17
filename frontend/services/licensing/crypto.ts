@@ -23,13 +23,27 @@ function requireEnv(name: string): string {
   return value;
 }
 
+// Rebuilds a canonical PEM from just the base64 payload, discarding
+// whatever whitespace/newline shape the env var arrived in (escaped \n,
+// real newlines, stray \r, extra spaces). Deployment platforms are
+// inconsistent about preserving multi-line env var formatting exactly, and
+// this keeps key loading correct regardless of how a given platform's
+// dashboard stores or round-trips the value.
+function normalizePem(raw: string, label: string): string {
+  const unescaped = raw.replace(/\\n/g, "\n");
+  const match = unescaped.match(new RegExp(`-----BEGIN ${label}-----([\\s\\S]*?)-----END ${label}-----`));
+  const body = (match ? match[1] : unescaped).replace(/\s+/g, "");
+  const lines = body.match(/.{1,64}/g) ?? [];
+  return `-----BEGIN ${label}-----\n${lines.join("\n")}\n-----END ${label}-----\n`;
+}
+
 function loadPrivateKey() {
-  const pem = requireEnv("LICENSE_SIGNING_PRIVATE_KEY").replace(/\\n/g, "\n");
+  const pem = normalizePem(requireEnv("LICENSE_SIGNING_PRIVATE_KEY"), "PRIVATE KEY");
   return createPrivateKey({ key: pem, format: "pem" });
 }
 
 function loadPublicKey() {
-  const pem = requireEnv("LICENSE_SIGNING_PUBLIC_KEY").replace(/\\n/g, "\n");
+  const pem = normalizePem(requireEnv("LICENSE_SIGNING_PUBLIC_KEY"), "PUBLIC KEY");
   return createPublicKey({ key: pem, format: "pem" });
 }
 
