@@ -34,16 +34,32 @@
 // success" rule), so the panel keeps showing an accurate preview of
 // whatever the current strategy actually is, never a preview mislabeled
 // as belonging to a turn that failed.
+//
+// QP-4 - "Run Backtest". Locked decision: recompile-on-run, reusing the
+// EXISTING, unmodified compileAndRunAiStrategy() client wrapper (already
+// in lib/algo-test/store.ts, calling the already-live /api/private/
+// algo-test/ai-runs route - no new backend route needed for this sprint,
+// that endpoint already IS "a thin adapter around the canonical service").
+// The execution input is always `conversationState.currentIntent` at the
+// moment the button is clicked - never a stale compiledSpec - so a
+// backtest genuinely reflects whatever the user has modified the strategy
+// to since, even across several turns. Available any time a successful
+// compile exists, not only immediately after one. In-memory only
+// (`backtestResult`) - no persistence beyond what compileAndRunAiStrategy
+// already writes to AlgoTestRun itself.
 import { useState } from "react";
 import ChatWindow from "@/components/ai/ChatWindow";
 import ChatInput from "@/components/ai/ChatInput";
 import PromptSuggestions from "@/components/ai/PromptSuggestions";
 import type { DisplayMessage } from "@/components/ai/MessageBubble";
 import { quantChatPromptSuggestions } from "@/data/quant-chat-prompts";
-import { applyStrategyBuilderModification, type StrategyBuilderModificationResult } from "@/lib/algo-test/store";
+import { applyStrategyBuilderModification, compileAndRunAiStrategy, type StrategyBuilderModificationResult } from "@/lib/algo-test/store";
 import { explainStrategySpec } from "@/lib/ai/strategy-compiler/strategy-explainer";
 import StrategyChartPreview from "@/components/quant-chat/StrategyChartPreview";
+import BacktestResultCard from "@/components/quant-chat/BacktestResultCard";
+import { buildQuantChatBacktestRequest } from "@/lib/algo-test/quant-chat-backtest-defaults";
 import { EMPTY_QUANT_CHAT_STATE, type QuantChatConversationState } from "@/types/quant-chat";
+import type { AlgoTestRunView } from "@/types/algo-test";
 
 type PreviewState = StrategyBuilderModificationResult["preview"];
 
@@ -58,9 +74,27 @@ export default function QuantChatPage() {
   const [thinking, setThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<PreviewState>(undefined);
+  const [backtestResult, setBacktestResult] = useState<AlgoTestRunView | undefined>(undefined);
+  const [backtestRunning, setBacktestRunning] = useState(false);
+  const [backtestError, setBacktestError] = useState<string | null>(null);
 
   function pushMessage(msg: DisplayMessage) {
     setMessages((prev) => [...prev, msg]);
+  }
+
+  async function handleRunBacktest() {
+    if (backtestRunning) return; // prevent duplicate submissions
+    setBacktestRunning(true);
+    setBacktestError(null);
+    try {
+      const request = buildQuantChatBacktestRequest(conversationState.currentIntent);
+      const run = await compileAndRunAiStrategy(request);
+      setBacktestResult(run);
+    } catch (err) {
+      setBacktestError(err instanceof Error ? err.message : "Something went wrong running this backtest.");
+    } finally {
+      setBacktestRunning(false);
+    }
   }
 
   async function handleSend(text: string) {
@@ -126,6 +160,14 @@ export default function QuantChatPage() {
         >
           Ask a question
         </button>
+        <button
+          onClick={handleRunBacktest}
+          disabled={!conversationState.lastCompileResult?.compiledSpec || backtestRunning}
+          title={!conversationState.lastCompileResult?.compiledSpec ? "Compile a strategy successfully first" : undefined}
+          className="ml-auto rounded-lg border border-gold/40 px-3 py-1.5 text-xs font-medium text-gold-strong hover:text-gold disabled:cursor-not-allowed disabled:border-border disabled:text-text-3 disabled:hover:text-text-3"
+        >
+          {backtestRunning ? "Running backtest…" : "Run Backtest"}
+        </button>
       </div>
 
       {preview && (
@@ -141,6 +183,14 @@ export default function QuantChatPage() {
             indicatorSeries={preview.indicatorSeries}
             activePanels={preview.activePanels}
           />
+        </div>
+      )}
+
+      {(backtestResult || backtestError) && (
+        <div className="border-b border-border px-4 py-3">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-text-3">Backtest result</p>
+          {backtestError && <p className="text-xs text-danger">{backtestError}</p>}
+          {backtestResult && <BacktestResultCard run={backtestResult} />}
         </div>
       )}
 
