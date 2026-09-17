@@ -16,6 +16,17 @@ import { stripeProvider } from "@/services/billing/providers/StripeProvider";
 import { PaymentProviderError } from "@/lib/payments/errors";
 import { PUBLICLY_VISIBLE_STATES } from "@/types/marketplace";
 
+// PAY-4C - pin this function to a single region. Production smoke testing
+// found the Edge Middleware (proxy.ts, region varies by request origin) ->
+// Node function (previously unpinned, defaulting into iad1) handoff
+// intermittently returning a raw platform 502 to the client even though
+// this handler itself completed successfully (Stripe session created,
+// JSON response returned) - matching Vercel's own documented incident
+// category "deployments that use IAD1 Function regions or Routing
+// Middleware" (2026-09-01). Pinning removes the cross-region hop as a
+// variable; this does not change any business logic.
+export const preferredRegion = "iad1";
+
 function listingIdFromPath(reqPath: string): string | undefined {
   const segments = reqPath.split("/").filter(Boolean);
   const idx = segments.indexOf("listings");
