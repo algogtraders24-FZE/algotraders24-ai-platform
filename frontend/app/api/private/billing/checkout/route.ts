@@ -9,6 +9,12 @@ import { stripeProvider } from "@/services/billing/providers/StripeProvider";
 import { PaymentProviderError } from "@/lib/payments/errors";
 import { isPlanId } from "@/config/plan-limits";
 
+// PAY-4C - see the same-named export in the marketplace checkout route for
+// why: pins this Stripe-calling function to a single region to remove a
+// cross-region Edge-Middleware-to-Function hop implicated in an
+// intermittent platform 502 found during production smoke testing.
+export const preferredRegion = "iad1";
+
 export const POST = withContext(async (req, ctx) => {
   const sessionUser = await getUserOrNull();
   if (!sessionUser) {
