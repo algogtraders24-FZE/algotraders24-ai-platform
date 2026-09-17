@@ -23,16 +23,23 @@ function requireEnv(name: string): string {
   return value;
 }
 
-// Rebuilds a canonical PEM from just the base64 payload, discarding
-// whatever whitespace/newline shape the env var arrived in (escaped \n,
-// real newlines, stray \r, extra spaces). Deployment platforms are
-// inconsistent about preserving multi-line env var formatting exactly, and
-// this keeps key loading correct regardless of how a given platform's
-// dashboard stores or round-trips the value.
+// Rebuilds a canonical PEM from just the base64 payload between the
+// BEGIN/END markers, discarding anything else in the raw value: escaped
+// \n, real newlines, stray \r, extra whitespace, and - critically - any
+// leading/trailing garbage on the marker lines themselves (e.g. a stray
+// `VAR_NAME="..."` wrapper left over from copying a whole .env line
+// instead of just its value). Only the marker LINES are used to find
+// where the body starts/ends; their own contents are never parsed.
 function normalizePem(raw: string, label: string): string {
   const unescaped = raw.replace(/\\n/g, "\n");
-  const match = unescaped.match(new RegExp(`-----BEGIN ${label}-----([\\s\\S]*?)-----END ${label}-----`));
-  const body = (match ? match[1] : unescaped).replace(/\s+/g, "");
+  const allLines = unescaped.split(/\r?\n/);
+  const beginIdx = allLines.findIndex((line) => /BEGIN/i.test(line));
+  const endIdx = allLines.findIndex((line, i) => i > beginIdx && /END/i.test(line));
+  const bodyLines =
+    beginIdx !== -1 && endIdx !== -1
+      ? allLines.slice(beginIdx + 1, endIdx)
+      : allLines.filter((line) => !/BEGIN|END/i.test(line) && !/^-+$/.test(line.trim()));
+  const body = bodyLines.join("").replace(/\s+/g, "");
   const lines = body.match(/.{1,64}/g) ?? [];
   return `-----BEGIN ${label}-----\n${lines.join("\n")}\n-----END ${label}-----\n`;
 }
