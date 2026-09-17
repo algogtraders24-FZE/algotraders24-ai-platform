@@ -24,22 +24,21 @@ function requireEnv(name: string): string {
 }
 
 // Rebuilds a canonical PEM from just the base64 payload between the
-// BEGIN/END markers, discarding anything else in the raw value: escaped
-// \n, real newlines, stray \r, extra whitespace, and - critically - any
-// leading/trailing garbage on the marker lines themselves (e.g. a stray
-// `VAR_NAME="..."` wrapper left over from copying a whole .env line
-// instead of just its value). Only the marker LINES are used to find
-// where the body starts/ends; their own contents are never parsed.
+// BEGIN/END markers, locating those markers by TEXT POSITION rather than
+// by line - some deployment platforms' env var input fields are
+// single-line and silently strip newlines on paste, which would otherwise
+// merge "-----BEGIN...-----" directly against the base64 body with no
+// separator at all. This also discards any other raw-value noise: escaped
+// \n, real newlines, stray \r, extra whitespace, and leading/trailing
+// garbage around the markers (e.g. a stray `VAR_NAME="..."` wrapper left
+// over from copying a whole .env line instead of just its value).
 function normalizePem(raw: string, label: string): string {
   const unescaped = raw.replace(/\\n/g, "\n");
-  const allLines = unescaped.split(/\r?\n/);
-  const beginIdx = allLines.findIndex((line) => /BEGIN/i.test(line));
-  const endIdx = allLines.findIndex((line, i) => i > beginIdx && /END/i.test(line));
-  const bodyLines =
-    beginIdx !== -1 && endIdx !== -1
-      ? allLines.slice(beginIdx + 1, endIdx)
-      : allLines.filter((line) => !/BEGIN|END/i.test(line) && !/^-+$/.test(line.trim()));
-  const body = bodyLines.join("").replace(/\s+/g, "");
+  const beginMatch = unescaped.match(/-----BEGIN[^-]*-----/i);
+  const endMatch = unescaped.match(/-----END[^-]*-----/i);
+  const start = beginMatch ? beginMatch.index! + beginMatch[0].length : 0;
+  const end = endMatch ? endMatch.index! : unescaped.length;
+  const body = unescaped.slice(start, end).replace(/\s+/g, "");
   const lines = body.match(/.{1,64}/g) ?? [];
   return `-----BEGIN ${label}-----\n${lines.join("\n")}\n-----END ${label}-----\n`;
 }
