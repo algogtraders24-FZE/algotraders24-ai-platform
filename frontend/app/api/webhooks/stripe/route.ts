@@ -127,9 +127,10 @@ export const POST = withContext(async (req, ctx) => {
         // never silently "handled", just not relevant yet.
         break;
     }
-  } catch {
+  } catch (error) {
     // Stripe retries on non-2xx; a transient DB error here should not be
     // swallowed as success, but should also not leak internals.
+    console.error("[webhook:stripe] processing failed:", error);
     return ApiResponse.error({ code: "WEBHOOK_PROCESSING_FAILED", message: "Could not apply webhook event" }, ctx.requestId, 500, ctx.startedAt);
   }
 
