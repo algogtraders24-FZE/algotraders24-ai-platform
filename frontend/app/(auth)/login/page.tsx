@@ -25,9 +25,7 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   auth_callback_failed: "Sign-in link was invalid or expired. Please try again.",
 };
 
-function OAuthError() {
-  const searchParams = useSearchParams();
-  const error = searchParams.get("error");
+function OAuthError({ error }: { error: string | null }) {
   if (!error) return null;
   return (
     <Alert tone="danger" className="mb-4">
@@ -36,21 +34,24 @@ function OAuthError() {
   );
 }
 
-export default function LoginPage() {
+// Reads ?redirect= (set by requireUser() when it sends an unauthenticated
+// visitor here, e.g. /login?redirect=/marketplace/sell) so a successful
+// sign-in sends them back to the page they actually wanted instead of
+// always landing on /dashboard. Wrapped in Suspense because useSearchParams
+// requires it.
+function LoginFormBody() {
+  const searchParams = useSearchParams();
+  const error = searchParams.get("error");
+  const redirect = searchParams.get("redirect");
   const [state, formAction, pending] = useActionState(signInAction, initialState);
 
   return (
-    <Card padding="lg" raised>
-      <h1 className="text-2xl font-semibold text-text">Welcome back</h1>
-      <p className="mt-1 text-sm text-text-2">Sign in to your Algotraders24 account.</p>
+    <>
+      <div className="mt-4">
+        <OAuthError error={error} />
+      </div>
 
-      <Suspense fallback={null}>
-        <div className="mt-4">
-          <OAuthError />
-        </div>
-      </Suspense>
-
-      <GoogleButton />
+      <GoogleButton redirectTo={redirect ?? undefined} />
 
       <div className="my-4 flex items-center gap-3">
         <div className="h-px flex-1 bg-border" />
@@ -59,6 +60,7 @@ export default function LoginPage() {
       </div>
 
       <form action={formAction} className="mt-6 space-y-4">
+        <input type="hidden" name="redirect" value={redirect ?? ""} />
         <div>
           <label className="block text-sm font-medium text-text-2">Email</label>
           <Input type="email" name="email" required autoComplete="email" className="mt-1" />
@@ -75,6 +77,19 @@ export default function LoginPage() {
           {pending ? "Signing in..." : "Sign in"}
         </Button>
       </form>
+    </>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Card padding="lg" raised>
+      <h1 className="text-2xl font-semibold text-text">Welcome back</h1>
+      <p className="mt-1 text-sm text-text-2">Sign in to your Algotraders24 account.</p>
+
+      <Suspense fallback={null}>
+        <LoginFormBody />
+      </Suspense>
 
       <div className="mt-4 flex items-center justify-between text-sm">
         <Link href="/forgot-password" className="text-text-3 hover:text-text">

@@ -20,6 +20,7 @@ import ButtonLink from "@/components/ui/ButtonLink";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import ExecutionAssumptionsPanel from "@/components/quant-lite/ExecutionAssumptionsPanel";
+import { SessionService } from "@/services/auth/SessionService";
 
 export const metadata: Metadata = {
   title: "Quant Lite",
@@ -51,10 +52,21 @@ const FREE_FEATURES = [
   "Pine Script code generation",
 ] as const;
 
-export default function QuantLiteHomePage() {
+export default async function QuantLiteHomePage() {
+  // Sprint fix - this page (and the shared public Navbar it composes) had
+  // no idea whether the visitor was already logged in, so an authenticated
+  // user clicking "Quant Lite" from the dashboard sidebar landed on a page
+  // that still showed "Login" - reading as "bounced back to the logged-out
+  // homepage" even though nothing actually redirected. No dashboard-native
+  // Quant Lite route exists yet (a bigger feature than this fix), so this
+  // is a scoped mitigation: check the session here and let Navbar reflect
+  // it, without changing Navbar's behavior on any page that doesn't pass
+  // this prop.
+  const sessionUser = await SessionService.getSessionUser();
+
   return (
     <main className="min-h-screen bg-ink pt-20 text-text">
-      <Navbar />
+      <Navbar isAuthenticated={!!sessionUser} />
 
       <section className="mx-auto max-w-4xl px-6 py-16 text-center">
         <div className="flex items-center justify-center gap-2">

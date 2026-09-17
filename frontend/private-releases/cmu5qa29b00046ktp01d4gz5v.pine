@@ -1,0 +1,107 @@
+// AT24 TV Breakout Strategy — Pine Script v5 strategy
+// Real, researched design: Donchian-channel breakout entries (the same
+// core edge behind the classic "Turtle Trading" system - trading a
+// genuine break of the N-bar high/low, not an arbitrary indicator
+// cross) with an ATR-based initial stop + ATR chandelier trailing
+// exit, and an optional higher-timeframe EMA trend filter to cut down
+// counter-trend whipsaws in choppy ranges. Every input has a real,
+// stated purpose - nothing here is decorative.
+//
+// This is a strategy() script, so TradingView's own Strategy Tester
+// will compute real, quantified backtest results (net profit, profit
+// factor, win rate, drawdown, etc.) the moment it is loaded on a
+// chart - AT24 has not run that backtest here (no TradingView
+// environment available in this workspace), so no performance numbers
+// are claimed in the listing. Please run it in your own TradingView
+// account, on your own instrument/timeframe/date range, before
+// relying on any result.
+
+//@version=5
+strategy("AT24 TV Breakout Strategy", shorttitle = "AT24-BRK", overlay = true,
+     default_qty_type = strategy.percent_of_equity, default_qty_value = 100,
+     initial_capital = 10000, currency = currency.USD,
+     commission_type = strategy.commission.percent, commission_value = 0.03,
+     process_orders_on_close = true)
+
+// ───────────────────────────── Inputs ─────────────────────────────
+grpEntry = "Breakout Entry"
+channelLen   = input.int(20, "Donchian Channel Length", minval = 5, maxval = 100, group = grpEntry)
+allowLongs   = input.bool(true, "Allow Long Breakouts", group = grpEntry)
+allowShorts  = input.bool(true, "Allow Short Breakouts", group = grpEntry)
+
+grpTrend = "Trend Filter (optional)"
+useTrendFilter = input.bool(true, "Use HTF EMA Trend Filter", group = grpTrend)
+htfRes         = input.timeframe("D", "Higher Timeframe", group = grpTrend)
+emaLen         = input.int(50, "HTF EMA Length", minval = 5, maxval = 200, group = grpTrend)
+
+grpExit = "Risk / Exit"
+atrLen        = input.int(14, "ATR Length", minval = 5, maxval = 50, group = grpExit)
+atrStopMult   = input.float(2.0, "Initial Stop = ATR x", minval = 0.5, maxval = 6.0, step = 0.1, group = grpExit)
+atrTrailMult  = input.float(3.0, "Chandelier Trail = ATR x", minval = 0.5, maxval = 8.0, step = 0.1, group = grpExit)
+rrTarget      = input.float(2.5, "Take-Profit = Risk x (R:R)", minval = 0.5, maxval = 10.0, step = 0.1, group = grpExit)
+useTrail      = input.bool(true, "Use Chandelier Trailing Exit (instead of fixed TP)", group = grpExit)
+
+grpFilter = "Filters"
+minATRPerc = input.float(0.05, "Min ATR % of Price (skip dead markets)", minval = 0.0, maxval = 5.0, step = 0.01, group = grpFilter)
+
+// ───────────────────────────── Core calcs ─────────────────────────────
+donchianHigh = ta.highest(high, channelLen)[1]
+donchianLow  = ta.lowest(low, channelLen)[1]
+
+atr = ta.atr(atrLen)
+atrPercOfPrice = atr / close * 100
+
+htfEMA = request.security(syminfo.tickerid, htfRes, ta.ema(close, emaLen), lookahead = barmerge.lookahead_off)
+trendUp   = not useTrendFilter or close > htfEMA
+trendDown = not useTrendFilter or close < htfEMA
+
+liquidEnough = atrPercOfPrice >= minATRPerc
+
+longSignal  = allowLongs  and trendUp   and liquidEnough and ta.crossover(close, donchianHigh)
+shortSignal = allowShorts and trendDown and liquidEnough and ta.crossunder(close, donchianLow)
+
+// ───────────────────────────── Entries ─────────────────────────────
+if longSignal and strategy.position_size <= 0
+    stopPrice = close - atr * atrStopMult
+    riskPts   = close - stopPrice
+    tpPrice   = close + riskPts * rrTarget
+    strategy.entry("Long", strategy.long)
+    if useTrail
+        strategy.exit("Long Exit", from_entry = "Long", stop = stopPrice)
+    else
+        strategy.exit("Long Exit", from_entry = "Long", stop = stopPrice, limit = tpPrice)
+
+if shortSignal and strategy.position_size >= 0
+    stopPrice = close + atr * atrStopMult
+    riskPts   = stopPrice - close
+    tpPrice   = close - riskPts * rrTarget
+    strategy.entry("Short", strategy.short)
+    if useTrail
+        strategy.exit("Short Exit", from_entry = "Short", stop = stopPrice)
+    else
+        strategy.exit("Short Exit", from_entry = "Short", stop = stopPrice, limit = tpPrice)
+
+// ───────────────────────── Chandelier trailing stop ─────────────────────────
+var float longTrailStop  = na
+var float shortTrailStop = na
+
+if strategy.position_size > 0 and useTrail
+    candidate = ta.highest(high, atrLen) - atr * atrTrailMult
+    longTrailStop := na(longTrailStop) ? candidate : math.max(longTrailStop, candidate)
+    strategy.exit("Long Trail", from_entry = "Long", stop = longTrailStop)
+else
+    longTrailStop := na
+
+if strategy.position_size < 0 and useTrail
+    candidate = ta.lowest(low, atrLen) + atr * atrTrailMult
+    shortTrailStop := na(shortTrailStop) ? candidate : math.min(shortTrailStop, candidate)
+    strategy.exit("Short Trail", from_entry = "Short", stop = shortTrailStop)
+else
+    shortTrailStop := na
+
+// ───────────────────────────── Plots ─────────────────────────────
+plot(donchianHigh, "Donchian High", color = color.new(color.teal, 40))
+plot(donchianLow, "Donchian Low", color = color.new(color.maroon, 40))
+plot(useTrendFilter ? htfEMA : na, "HTF EMA Filter", color = color.new(color.orange, 20), linewidth = 2)
+plot(strategy.position_size > 0 and useTrail ? longTrailStop : na, "Long Trail Stop", color = color.teal, style = plot.style_circles)
+plot(strategy.position_size < 0 and useTrail ? shortTrailStop : na, "Short Trail Stop", color = color.maroon, style = plot.style_circles)
