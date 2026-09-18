@@ -19,11 +19,15 @@
 //     distinct Mission page would be an artificial split) - a second link
 //     with a different label pointing at the same page would misrepresent
 //     it as distinct content.
-//   - Legal is mostly disabled: Privacy/Terms/Cookie/Refund/AML-KYC require
-//     real legal text and lawyer review per the user's own content policy
-//     (Claude must never draft these). Disclaimer and Risk Disclosure both
-//     link to /company/disclaimer, which already covers both the risk
-//     disclosure and the AI-output disclaimer - not two different pages.
+//   - Privacy/Terms/Cookie/Refund/AML-KYC were withheld under this same
+//     policy until the platform actually needed to process real (live-mode)
+//     payments - at that point the user explicitly asked for real pages
+//     rather than continuing to launch live payments with none at all, and
+//     to keep drafting them in-house rather than blocking on outside legal
+//     review. Each page says exactly that in its own footer note. Disclaimer
+//     and Risk Disclosure both link to /company/disclaimer, which already
+//     covers both the risk disclosure and the AI-output disclaimer - not
+//     two different pages.
 //   - Developers is entirely disabled: explicitly scoped "Future" with no
 //     real API/SDK/docs/GitHub today.
 //   - No Social column: no real social profiles are confirmed to exist
@@ -103,11 +107,11 @@ const DEVELOPERS: FooterItem[] = [{ label: "API" }, { label: "SDK" }, { label: "
 const LEGAL: FooterItem[] = [
   { label: "Disclaimer", href: "/company/disclaimer" },
   { label: "Risk Disclosure", href: "/company/disclaimer" },
-  { label: "Privacy Policy" },
-  { label: "Terms of Service" },
-  { label: "Cookie Policy" },
-  { label: "Refund Policy" },
-  { label: "AML / KYC" },
+  { label: "Privacy Policy", href: "/company/privacy-policy" },
+  { label: "Terms of Service", href: "/company/terms-of-service" },
+  { label: "Cookie Policy", href: "/company/cookie-policy" },
+  { label: "Refund Policy", href: "/company/refund-policy" },
+  { label: "AML / KYC", href: "/company/aml-kyc" },
 ];
 
 const ACCOUNT: FooterItem[] = [
