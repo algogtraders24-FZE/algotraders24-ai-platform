@@ -46,7 +46,7 @@ export default function RefundPolicyPage() {
         {
           heading: "Contact us",
           body: [
-            "To request a refund, contact us via WhatsApp or Telegram on our Contact page, or by email at algogtraders24@gmail.com, with your order reference and the reason for your request.",
+            "To request a refund, contact us via WhatsApp or Telegram on our Contact page, or by email at billing@algotraders24.ai, with your order reference and the reason for your request.",
           ],
         },
       ]}

@@ -80,7 +80,7 @@ export default function TermsOfServicePage() {
         {
           heading: "Contact us",
           body: [
-            "For any question about these terms, reach us via WhatsApp or Telegram on our Contact page, or by email at algogtraders24@gmail.com.",
+            "For any question about these terms, reach us via WhatsApp or Telegram on our Contact page, or by email at support@algotraders24.ai.",
           ],
         },
       ]}

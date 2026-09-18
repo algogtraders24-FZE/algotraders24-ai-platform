@@ -5,7 +5,7 @@
 // infrastructure needed - each link opens the real, existing channel
 // directly.
 import type { Metadata } from "next";
-import { MessageCircle, Send } from "lucide-react";
+import { MessageCircle, Send, Mail } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
 import PageHero from "@/components/marketing/PageHero";
@@ -28,6 +28,12 @@ const CHANNELS = [
     description: "Reach us on Telegram.",
     href: "https://t.me/algotraders24AI",
     icon: Send,
+  },
+  {
+    title: "Email",
+    description: "contact@algotraders24.ai — for anything not urgent enough for chat.",
+    href: "mailto:contact@algotraders24.ai",
+    icon: Mail,
   },
 ];
 
