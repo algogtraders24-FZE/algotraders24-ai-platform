@@ -39,7 +39,7 @@ export default function AmlKycPage() {
         {
           heading: "Contact us",
           body: [
-            "Questions about this policy: reach us via WhatsApp or Telegram on our Contact page, or by email at algogtraders24@gmail.com.",
+            "Questions about this policy: reach us via WhatsApp or Telegram on our Contact page, or by email at security@algotraders24.ai.",
           ],
         },
       ]}
