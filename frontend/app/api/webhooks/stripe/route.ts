@@ -12,6 +12,8 @@ import { stripeProvider } from "@/services/billing/providers/StripeProvider";
 import { PaymentProviderError } from "@/lib/payments/errors";
 import { subscriptionActionService } from "@/services/billing/SubscriptionActionService";
 import { issueLicenseForPurchase } from "@/services/licensing/licenseService";
+import { sendPurchaseConfirmationEmail } from "@/services/notifications/EmailService";
+import { prisma } from "@/lib/prisma";
 import type { PlatformName } from "@/types/marketplace-factory";
 import type Stripe from "stripe";
 
@@ -67,19 +69,44 @@ export const POST = withContext(async (req, ctx) => {
         if (session.metadata?.type === "marketplace_purchase") {
           const m = session.metadata;
           if (m.buyerId && m.listingId && m.tradingSystemId && m.versionId && m.platform && m.releaseId) {
-            await issueLicenseForPurchase({
+            const amount = (session.amount_total ?? 0) / 100;
+            const currency = (session.currency ?? "usd").toUpperCase();
+            const result = await issueLicenseForPurchase({
               buyerId: m.buyerId,
               marketplaceListingId: m.listingId,
               tradingSystemId: m.tradingSystemId,
               versionId: m.versionId,
               releaseId: m.releaseId,
               platform: m.platform as PlatformName,
-              amount: (session.amount_total ?? 0) / 100,
-              currency: (session.currency ?? "usd").toUpperCase(),
+              amount,
+              currency,
               expiresAt: null,
               provider: "stripe",
               providerRef: session.id,
             });
+
+            // Never let an email failure affect the webhook's success
+            // response - Stripe would retry an already-completed purchase.
+            if (!result.duplicate) {
+              try {
+                const [buyer, listing] = await Promise.all([
+                  prisma.user.findUnique({ where: { id: m.buyerId }, select: { email: true, name: true } }),
+                  prisma.marketplaceListing.findUnique({ where: { id: m.listingId }, select: { title: true } }),
+                ]);
+                if (buyer) {
+                  await sendPurchaseConfirmationEmail({
+                    to: buyer.email,
+                    buyerName: buyer.name || "there",
+                    productName: listing?.title ?? m.tradingSystemId,
+                    amount,
+                    currency,
+                    licenseId: result.license.id,
+                  });
+                }
+              } catch (emailError) {
+                console.error("[webhook:stripe] purchase confirmation email failed:", emailError);
+              }
+            }
           }
           break;
         }
