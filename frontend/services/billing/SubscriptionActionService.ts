@@ -162,6 +162,40 @@ export class SubscriptionActionService {
   async findByStripeSubscriptionId(stripeSubscriptionId: string) {
     return prisma.subscription.findUnique({ where: { stripeSubscriptionId } });
   }
+
+  // AT24 Email Communication Sprint 2 (P01) - real, webhook-driven
+  // transition into the TRANSIENT/retryable failed-payment state, called
+  // only from Stripe's `invoice.payment_failed`. Distinct from
+  // markCanceledByProvider: "past_due" already exists as a real
+  // SubscriptionStatus value (types/billing.ts) with real UI treatment
+  // (components/billing/SubscriptionCard.tsx, config/billing.config.ts) -
+  // this just wires the one write path that was never connected to it,
+  // rather than inventing a new payment state.
+  //
+  // Returns null - no mutation - when no Subscription matches this provider
+  // id, when it is already "past_due" (see below), or when it is already
+  // "canceled" (a permanently-ended subscription must never be resurrected
+  // into a "please update your payment method" state by a late/out-of-order
+  // payment-failed event - the terminal cancellation email already covers
+  // that subscription's lifecycle end).
+  //
+  // The "already past_due" case is the idempotency guard the webhook route
+  // relies on to decide whether to email: Stripe redelivers the identical
+  // event on any non-2xx webhook response, and Stripe's own dunning flow can
+  // fire this event again for a further retry attempt on the SAME
+  // still-unpaid invoice - neither is a new canonical failure, so only the
+  // first transition into past_due returns non-null. Recovery (a later
+  // successful charge) clears this back to "active" via the existing
+  // activateFromPayment path, so a genuinely new failure after that can
+  // notify again.
+  async markPastDueByProvider(stripeSubscriptionId: string) {
+    const existing = await prisma.subscription.findUnique({ where: { stripeSubscriptionId } });
+    if (!existing || existing.status === "past_due" || existing.status === "canceled") return null;
+    return prisma.subscription.update({
+      where: { id: existing.id },
+      data: { status: "past_due" },
+    });
+  }
 }
 
 export const subscriptionActionService = new SubscriptionActionService();

@@ -33,6 +33,7 @@
     "validate:admin": "tsx scripts/validate-admin-control-center.ts",
     "validate:payments": "tsx scripts/validate-payment-infrastructure.ts",
     "validate:marketplace-idempotency": "tsx --conditions=react-server --env-file=.env.local --env-file=.env scripts/validate-marketplace-purchase-idempotency.ts",
+    "validate:payment-failed": "tsx --conditions=react-server --env-file=.env.local --env-file=.env scripts/validate-payment-failed-notifications.ts",
     "validate:market-data-resilience": "tsx scripts/validate-market-data-resilience.ts",
     "validate:ai-response-compliance": "tsx scripts/validate-ai-response-compliance.ts",
     "validate:intelligence-memory": "tsx scripts/validate-intelligence-analysis-memory.ts",
