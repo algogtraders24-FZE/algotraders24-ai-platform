@@ -13,6 +13,12 @@ import { getSiteUrl } from "@/lib/payments/env";
 // replies to this email actually reaches someone.
 const FROM_ADDRESS = "Algotraders24 AI <billing@algotraders24.ai>";
 
+// Where to route the internal ops alert (see sendLicenseIssuanceFailureAlert
+// below) - the team that would actually act on "a customer paid and got
+// nothing" by manually completing the purchase, same as this session did
+// by hand before this alert existed.
+const OPS_ALERT_ADDRESS = "support@algotraders24.ai";
+
 function getClient(): Resend | null {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return null;
@@ -51,6 +57,51 @@ export async function sendPurchaseConfirmationEmail(params: {
         </table>
         <a href="${dashboardUrl}" style="display: inline-block; background: #d4af37; color: #1a1a1a; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">View your license</a>
         <p style="margin-top: 32px; font-size: 12px; color: #999;">Algotraders24 AI &middot; Need help? Reply to this email or reach us at support@algotraders24.ai</p>
+      </div>
+    `,
+  });
+}
+
+// AT24_EMAIL_COMMUNICATION_RECONCILIATION.md's top finding: if
+// issueLicenseForPurchase() throws AFTER Stripe has already charged the
+// buyer (e.g. a signing-key misconfiguration, a DB error), the webhook
+// only console.error's and returns 500 - nobody is alerted that a paying
+// customer has no license. This session hit exactly that failure mode
+// live and fixed it by hand (a diagnostic script + manual DB write); this
+// alert exists so that never has to happen silently again. Sent to the
+// team, never the buyer - the buyer's own experience (redirect, no
+// confirmation email) is unchanged until this is manually resolved.
+export async function sendLicenseIssuanceFailureAlert(params: {
+  buyerEmail: string;
+  tradingSystemId: string;
+  amount: number;
+  currency: string;
+  providerRef: string;
+  errorMessage: string;
+}): Promise<void> {
+  const client = getClient();
+  if (!client) {
+    console.warn("[email] RESEND_API_KEY not set - skipping license issuance failure alert");
+    return;
+  }
+
+  const price = `${params.amount.toFixed(2)} ${params.currency}`;
+
+  await client.emails.send({
+    from: FROM_ADDRESS,
+    to: OPS_ALERT_ADDRESS,
+    subject: `[ACTION NEEDED] License issuance failed after payment - ${params.tradingSystemId}`,
+    html: `
+      <div style="font-family: -apple-system, sans-serif; max-width: 560px; margin: 0 auto; color: #1a1a1a;">
+        <h1 style="font-size: 18px; color: #b91c1c;">A customer paid but did not receive a license</h1>
+        <p>Stripe charged this customer successfully, but issuing their license failed. They have received no confirmation email and cannot see this purchase in their dashboard yet. This needs manual follow-up.</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr><td style="padding: 8px 0; color: #666;">Buyer email</td><td style="padding: 8px 0; text-align: right;">${escapeHtml(params.buyerEmail)}</td></tr>
+          <tr><td style="padding: 8px 0; color: #666;">Product</td><td style="padding: 8px 0; text-align: right;">${escapeHtml(params.tradingSystemId)}</td></tr>
+          <tr><td style="padding: 8px 0; color: #666;">Amount charged</td><td style="padding: 8px 0; text-align: right;">${price}</td></tr>
+          <tr><td style="padding: 8px 0; color: #666;">Stripe session</td><td style="padding: 8px 0; text-align: right; font-family: monospace; font-size: 11px;">${escapeHtml(params.providerRef)}</td></tr>
+        </table>
+        <p style="color: #666; font-size: 13px;">Error: <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">${escapeHtml(params.errorMessage)}</code></p>
       </div>
     `,
   });
