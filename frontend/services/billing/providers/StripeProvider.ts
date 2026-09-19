@@ -31,13 +31,31 @@ export class StripeProvider {
 
   // Real Stripe Customer, reused across checkouts - created once per user
   // and persisted to User.stripeCustomerId, never re-created.
+  //
+  // A stored customerId is only valid within the Stripe key context (test
+  // vs live) it was created under - switching STRIPE_SECRET_KEY from test
+  // to live (or vice versa) leaves a stale id on the user record that the
+  // *other* mode's API genuinely does not recognize. Blindly trusting it
+  // (as this used to) surfaced as a real, confusing "Failed to create
+  // Stripe checkout session" once live-mode payments actually went live.
+  // Retrieving it first and falling through to a fresh create on any
+  // failure makes this resilient to that switch without needing a manual
+  // DB fix per affected user.
   async getOrCreateCustomer(userId: string): Promise<string> {
     const stripe = getClient();
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
       throw new PaymentProviderError("invalid_response", `User not found: ${userId}`, "stripe");
     }
-    if (user.stripeCustomerId) return user.stripeCustomerId;
+    if (user.stripeCustomerId) {
+      try {
+        const existing = await stripe.customers.retrieve(user.stripeCustomerId);
+        if (!existing.deleted) return existing.id;
+      } catch {
+        // Not retrievable in the current key context (e.g. a test-mode id
+        // under a live key) - fall through and create a fresh one below.
+      }
+    }
 
     try {
       const customer = await stripe.customers.create({
