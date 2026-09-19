@@ -12,7 +12,12 @@ import { stripeProvider } from "@/services/billing/providers/StripeProvider";
 import { PaymentProviderError } from "@/lib/payments/errors";
 import { subscriptionActionService } from "@/services/billing/SubscriptionActionService";
 import { issueLicenseForPurchase } from "@/services/licensing/licenseService";
-import { sendPurchaseConfirmationEmail, sendLicenseIssuanceFailureAlert } from "@/services/notifications/EmailService";
+import {
+  sendPurchaseConfirmationEmail,
+  sendLicenseIssuanceFailureAlert,
+  sendSubscriptionActiveEmail,
+  sendSubscriptionCancelledEmail,
+} from "@/services/notifications/EmailService";
 import { prisma } from "@/lib/prisma";
 import type { PlatformName } from "@/types/marketplace-factory";
 import type Stripe from "stripe";
@@ -21,6 +26,31 @@ function addMonths(date: Date, months: number): Date {
   const next = new Date(date);
   next.setMonth(next.getMonth() + months);
   return next;
+}
+
+// Shared by both the first-subscribe (checkout.session.completed) and
+// every renewal (customer.subscription.updated) path, since both call
+// subscriptionActionService.activateFromPayment() and both genuinely mean
+// "tell the buyer their plan is active through this date." Best-effort -
+// never allowed to fail the webhook.
+async function notifySubscriptionActive(userId: string, planId: string, periodEnd: Date): Promise<void> {
+  try {
+    const [buyer, plan] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId }, select: { email: true, name: true } }),
+      prisma.plan.findUnique({ where: { id: planId }, select: { name: true, price: true } }),
+    ]);
+    if (!buyer || !plan) return;
+    await sendSubscriptionActiveEmail({
+      to: buyer.email,
+      buyerName: buyer.name || "there",
+      planName: plan.name,
+      amount: plan.price,
+      currency: "USD",
+      periodEnd,
+    });
+  } catch (error) {
+    console.error("[webhook:stripe] subscription active email failed:", error);
+  }
 }
 
 export const POST = withContext(async (req, ctx) => {
@@ -140,14 +170,16 @@ export const POST = withContext(async (req, ctx) => {
         const subscriptionId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
         if (userId && planId) {
           const now = new Date();
+          const currentPeriodEnd = addMonths(now, session.metadata?.cycle === "yearly" ? 12 : 1);
           await subscriptionActionService.activateFromPayment({
             userId,
             planId,
             provider: "stripe",
             currentPeriodStart: now,
-            currentPeriodEnd: addMonths(now, session.metadata?.cycle === "yearly" ? 12 : 1),
+            currentPeriodEnd,
             stripeSubscriptionId: subscriptionId,
           });
+          await notifySubscriptionActive(userId, planId, currentPeriodEnd);
         }
         break;
       }
@@ -157,20 +189,35 @@ export const POST = withContext(async (req, ctx) => {
         const planId = sub.metadata?.planId;
         const item = sub.items.data[0];
         if (userId && planId && item) {
+          const currentPeriodEnd = new Date(item.current_period_end * 1000);
           await subscriptionActionService.activateFromPayment({
             userId,
             planId,
             provider: "stripe",
             currentPeriodStart: new Date(item.current_period_start * 1000),
-            currentPeriodEnd: new Date(item.current_period_end * 1000),
+            currentPeriodEnd,
             stripeSubscriptionId: sub.id,
           });
+          await notifySubscriptionActive(userId, planId, currentPeriodEnd);
         }
         break;
       }
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
-        await subscriptionActionService.markCanceledByProvider(sub.id);
+        const canceled = await subscriptionActionService.markCanceledByProvider(sub.id);
+        if (canceled) {
+          try {
+            const [buyer, plan] = await Promise.all([
+              prisma.user.findUnique({ where: { id: canceled.userId }, select: { email: true, name: true } }),
+              prisma.plan.findUnique({ where: { id: canceled.planId }, select: { name: true } }),
+            ]);
+            if (buyer && plan) {
+              await sendSubscriptionCancelledEmail({ to: buyer.email, buyerName: buyer.name || "there", planName: plan.name });
+            }
+          } catch (error) {
+            console.error("[webhook:stripe] subscription cancelled email failed:", error);
+          }
+        }
         break;
       }
       default:
