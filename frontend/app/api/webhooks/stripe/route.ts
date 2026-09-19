@@ -17,6 +17,7 @@ import {
   sendLicenseIssuanceFailureAlert,
   sendSubscriptionActiveEmail,
   sendSubscriptionCancelledEmail,
+  sendPaymentFailedEmail,
 } from "@/services/notifications/EmailService";
 import { prisma } from "@/lib/prisma";
 import type { PlatformName } from "@/types/marketplace-factory";
@@ -188,7 +189,19 @@ export const POST = withContext(async (req, ctx) => {
         const userId = sub.metadata?.userId;
         const planId = sub.metadata?.planId;
         const item = sub.items.data[0];
-        if (userId && planId && item) {
+        // AT24 Email Communication Sprint 2 (P01) - Stripe fires this same
+        // event type when a subscription's payment fails and its status
+        // moves to "past_due"/"unpaid", not only on a genuine renewal.
+        // Before this guard, activateFromPayment() ran unconditionally here
+        // and would have immediately overwritten the "past_due" state the
+        // invoice.payment_failed case below just wrote (re-activating a
+        // subscription Stripe itself still considers unpaid, and silently
+        // discarding the payment-failed transition/email decision). Only
+        // treat this as "payment succeeded, keep/renew access" when
+        // Stripe's own status says so - this does not change behavior for
+        // the existing successful-renewal case, which always reports
+        // "active" or "trialing" here.
+        if (userId && planId && item && (sub.status === "active" || sub.status === "trialing")) {
           const currentPeriodEnd = new Date(item.current_period_end * 1000);
           await subscriptionActionService.activateFromPayment({
             userId,
@@ -199,6 +212,52 @@ export const POST = withContext(async (req, ctx) => {
             stripeSubscriptionId: sub.id,
           });
           await notifySubscriptionActive(userId, planId, currentPeriodEnd);
+        }
+        break;
+      }
+      // AT24 Email Communication Sprint 2 (P01) - the canonical Stripe event
+      // for a failed subscription-invoice charge (transient/retryable -
+      // Stripe keeps retrying per its dunning schedule; the terminal case is
+      // the existing customer.subscription.deleted handler above/below).
+      // markPastDueByProvider() is the single idempotency gate: it returns
+      // null (no email) for a webhook retry of this same event, for a
+      // repeated dunning attempt on the same still-unpaid invoice, and for
+      // any invoice we have no matching Subscription for (e.g. a one-off,
+      // non-subscription invoice, or an id from another environment) - see
+      // that method's own header comment.
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        // This Stripe API version nests the generating subscription under
+        // parent.subscription_details (the older top-level
+        // Invoice.subscription field this app's other code was written
+        // against no longer exists on this SDK's types) - a one-off,
+        // non-subscription invoice has no parent.subscription_details at
+        // all, which is exactly the "not eligible for this notification"
+        // case.
+        const subscriptionRef = invoice.parent?.subscription_details?.subscription;
+        const subscriptionId = typeof subscriptionRef === "string" ? subscriptionRef : subscriptionRef?.id;
+        if (!subscriptionId) break;
+
+        const marked = await subscriptionActionService.markPastDueByProvider(subscriptionId);
+        if (marked) {
+          try {
+            const [buyer, plan] = await Promise.all([
+              prisma.user.findUnique({ where: { id: marked.userId }, select: { email: true, name: true } }),
+              prisma.plan.findUnique({ where: { id: marked.planId }, select: { name: true } }),
+            ]);
+            if (buyer && plan) {
+              await sendPaymentFailedEmail({
+                to: buyer.email,
+                buyerName: buyer.name || "there",
+                planName: plan.name,
+                amount: (invoice.amount_due ?? 0) / 100,
+                currency: (invoice.currency ?? "usd").toUpperCase(),
+                failedAt: new Date(),
+              });
+            }
+          } catch (error) {
+            console.error("[webhook:stripe] payment failed email failed:", error);
+          }
         }
         break;
       }

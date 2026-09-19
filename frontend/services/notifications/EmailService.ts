@@ -267,6 +267,56 @@ export async function sendPasswordChangedEmail(params: { to: string }): Promise<
   });
 }
 
+// AT24 Email Communication Sprint 2 (P01) - Stripe `invoice.payment_failed`
+// on a subscription that is still in transient/retryable dunning (NOT the
+// terminal cancellation handled by sendSubscriptionCancelledEmail, which
+// fires from the separate `customer.subscription.deleted` event once Stripe
+// gives up). Sent from the webhook only on the real state transition into
+// "past_due" - see SubscriptionActionService.markPastDueByProvider's own
+// idempotency guard for why a webhook retry or a repeated dunning attempt on
+// the same still-unpaid invoice never re-sends this. No raw Stripe error
+// payload, exception, or payment credential is ever included - only the
+// plan, amount, and a link to the account's own existing Billing page (the
+// one real place a user can update payment details or retry today; this app
+// has no dedicated "retry payment" URL to link instead).
+export async function sendPaymentFailedEmail(params: {
+  to: string;
+  buyerName: string;
+  planName: string;
+  amount: number;
+  currency: string;
+  failedAt: Date;
+}): Promise<void> {
+  const client = getClient();
+  if (!client) {
+    console.warn("[email] RESEND_API_KEY not set - skipping payment failed email");
+    return;
+  }
+
+  const billingUrl = `${getSiteUrl()}/dashboard/billing`;
+  const price = `${params.amount.toFixed(2)} ${params.currency}`;
+  const failedOn = params.failedAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+
+  await client.emails.send({
+    from: FROM_ADDRESS,
+    to: params.to,
+    subject: `Payment failed for your ${params.planName} subscription`,
+    html: `
+      <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
+        <h1 style="font-size: 20px;">${escapeHtml(params.buyerName)}, we couldn't process your payment</h1>
+        <p>Your payment for the <strong>${escapeHtml(params.planName)}</strong> subscription didn't go through. Your access hasn't been cancelled yet - please update your payment method to keep your subscription active.</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr><td style="padding: 8px 0; color: #666;">Plan</td><td style="padding: 8px 0; text-align: right;">${escapeHtml(params.planName)}</td></tr>
+          <tr><td style="padding: 8px 0; color: #666;">Amount due</td><td style="padding: 8px 0; text-align: right;">${price}</td></tr>
+          <tr><td style="padding: 8px 0; color: #666;">Failed on</td><td style="padding: 8px 0; text-align: right;">${failedOn}</td></tr>
+        </table>
+        <a href="${billingUrl}" style="display: inline-block; background: #d4af37; color: #1a1a1a; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Update payment method</a>
+        <p style="margin-top: 32px; font-size: 12px; color: #999;">Algotraders24 AI &middot; Can't resolve this? Contact us at support@algotraders24.ai</p>
+      </div>
+    `,
+  });
+}
+
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
