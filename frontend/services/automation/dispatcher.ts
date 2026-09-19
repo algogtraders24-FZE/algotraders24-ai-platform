@@ -34,6 +34,7 @@ import { artifactSink } from "./artifact-sink";
 import { evaluateCondition } from "./condition-eval";
 import { emptyRunContext, resolveContextPath, type AutomationRunContext } from "./context-path";
 import { computeNextRunAt } from "./scheduler";
+import { prisma } from "@/lib/prisma";
 
 const log = logger.child("automation-dispatch");
 
@@ -349,6 +350,7 @@ async function finalize(
   if (!run) return;
   const startedAtMs = run.startedAt ? run.startedAt.getTime() : run.createdAt.getTime();
   const completedAt = new Date();
+  const wasAlreadyTerminal = isTerminal(run.status);
   await automationRepository.patchRun(automationRunId, {
     status,
     completedAt,
@@ -358,6 +360,40 @@ async function finalize(
     outputRef: outputRef ?? undefined,
     contextSnapshot: ctx ? { trigger: ctx.trigger, steps: ctx.steps } : undefined,
   });
+
+  // Per AT24_EMAIL_COMMUNICATION_RECONCILIATION.md - a real, terminal,
+  // per-run failure with no notification today. `wasAlreadyTerminal` guards
+  // against double-sending if finalize() is ever reached twice for the same
+  // run. Deliberately excludes SUCCEEDED (see EmailService's own comment).
+  // Best-effort: never allowed to affect run finalization.
+  if (!wasAlreadyTerminal && (status === "FAILED" || status === "CREDIT_BLOCKED")) {
+    try {
+      // Lazy import: EmailService has a top-level `import "server-only"`,
+      // which throws immediately at module load under this repo's
+      // validate-automation-* scripts (run via plain tsx, outside the
+      // Next.js "react-server" module resolution those scripts otherwise
+      // don't need). A static import here would break that tooling for
+      // every run, not just ones that hit this failure branch; deferring
+      // resolution to here means only a real FAILED/CREDIT_BLOCKED run
+      // ever needs it, exactly like the real app does.
+      const { sendAutomationRunFailedEmail } = await import("@/services/notifications/EmailService");
+      const [buyer, automation] = await Promise.all([
+        prisma.user.findUnique({ where: { id: run.userId }, select: { email: true, name: true } }),
+        prisma.automation.findUnique({ where: { id: run.automationId }, select: { name: true } }),
+      ]);
+      if (buyer && automation) {
+        await sendAutomationRunFailedEmail({
+          to: buyer.email,
+          buyerName: buyer.name || "there",
+          automationName: automation.name,
+          status,
+          errorMessage: error?.message ?? "No error details were recorded for this run.",
+        });
+      }
+    } catch (emailError) {
+      log.warn("automation run failed email failed", { automationRunId, err: String(emailError) });
+    }
+  }
 
   // best-effort: advance the parent automation's lastRunAt / nextRunAt
   try {

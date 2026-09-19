@@ -176,6 +176,46 @@ export async function sendSubscriptionCancelledEmail(params: {
   });
 }
 
+// AU03/AU-credit-block from AT24_EMAIL_COMMUNICATION_RECONCILIATION.md's
+// "second-best candidate": AutomationRun reaching FAILED or CREDIT_BLOCKED
+// is a real, terminal, per-run event with zero notification today - the
+// owner otherwise only finds out by opening the run history themselves.
+// Deliberately does NOT cover SUCCEEDED (the reconciliation doc's own
+// note: a success email on every run would need an opt-in preference this
+// system doesn't have yet - failure alerting doesn't have that problem,
+// since silence-by-default already means "nothing to report").
+export async function sendAutomationRunFailedEmail(params: {
+  to: string;
+  buyerName: string;
+  automationName: string;
+  status: "FAILED" | "CREDIT_BLOCKED";
+  errorMessage: string;
+}): Promise<void> {
+  const client = getClient();
+  if (!client) {
+    console.warn("[email] RESEND_API_KEY not set - skipping automation run failed email");
+    return;
+  }
+
+  const dashboardUrl = `${getSiteUrl()}/dashboard/automation`;
+  const reason = params.status === "CREDIT_BLOCKED" ? "ran out of credits" : "failed";
+
+  await client.emails.send({
+    from: FROM_ADDRESS,
+    to: params.to,
+    subject: `Your automation "${params.automationName}" ${reason}`,
+    html: `
+      <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
+        <h1 style="font-size: 20px;">${escapeHtml(params.buyerName)}, your automation ${reason}</h1>
+        <p><strong>${escapeHtml(params.automationName)}</strong> did not complete successfully on its last run.</p>
+        <p style="color: #666; font-size: 13px;">${escapeHtml(params.errorMessage)}</p>
+        <a href="${dashboardUrl}" style="display: inline-block; background: #d4af37; color: #1a1a1a; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">View automation</a>
+        <p style="margin-top: 32px; font-size: 12px; color: #999;">Algotraders24 AI &middot; Need help? Reply to this email or reach us at support@algotraders24.ai</p>
+      </div>
+    `,
+  });
+}
+
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
