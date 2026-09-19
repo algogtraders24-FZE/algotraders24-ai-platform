@@ -30,6 +30,26 @@ export type SupportOutput = {
 
 export type ResolutionConfirmation = { confirmed: boolean; confirmedAt: string };
 
+// Support Human Handoff MVP (SUPPORT_HUMAN_HANDOFF_ARCHITECTURE_LOCK.md) -
+// AT24's first internal Support Ticket/Case system. The backend canonical
+// name is SupportHandoff; this hook's own naming stays "handoff" too, to
+// match services/support/handoff-service.ts exactly - product copy is free
+// to say "Support Case" without renaming anything at the code layer.
+export type HandoffMessage = { id: string; authorType: string; content: string; createdAt: string };
+export type SupportHandoff = {
+  id: string;
+  status: "OPEN" | "ASSIGNED" | "IN_PROGRESS" | "RESOLVED" | "CANCELLED";
+  createdAt: string;
+  resolvedAt: string | null;
+  messages: HandoffMessage[];
+};
+
+/** D11 - the exact "active" set; a widget/page must route a new user
+ *  message to sendHandoffMessage() while true, and to ask() once false. */
+export function isHandoffActive(status: SupportHandoff["status"] | undefined): boolean {
+  return status === "OPEN" || status === "ASSIGNED" || status === "IN_PROGRESS";
+}
+
 export type Observability = {
   run: {
     id: string;
@@ -89,6 +109,28 @@ export function useSupportRun() {
   // accumulates a visible multi-turn thread (authHistory) client-side.
   const [conversationId, setConversationId] = useState<string | undefined>(undefined);
 
+  // Support Human Handoff MVP - the active handoff (if any) for the
+  // current conversation. Refreshed after every ask() cycle (covers the
+  // AI_ESCALATION auto-creation path, which happens server-side inside
+  // advanceAgentRun with no separate client action) and after every
+  // handoff-specific action below.
+  const [handoff, setHandoff] = useState<SupportHandoff | null>(null);
+  const [handoffBusy, setHandoffBusy] = useState(false);
+  const [handoffError, setHandoffError] = useState<string | null>(null);
+
+  const refreshHandoff = useCallback(async (forConversationId: string | undefined) => {
+    if (!forConversationId) return;
+    try {
+      const { handoff: active } = await api<{ handoff: SupportHandoff | null }>(
+        `/api/private/support/handoff?conversationId=${encodeURIComponent(forConversationId)}`,
+      );
+      setHandoff(active);
+    } catch {
+      // best-effort - a failed handoff check must never block the
+      // underlying Support answer from rendering.
+    }
+  }, []);
+
   const ask = useCallback(async (question: string) => {
     const q = question.trim();
     if (!q) return;
@@ -114,12 +156,76 @@ export function useSupportRun() {
         setObs(data.run);
         if (data.terminal || TERMINAL.has(data.run.run?.status ?? "")) break;
       }
+      await refreshHandoff(nextConversationId ?? conversationId);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
+  }, [conversationId, refreshHandoff]);
+
+  /** "Talk to a human" (D2 USER_REQUEST). Creates or reuses the
+   *  conversation's active handoff - a no-op-looking call if one already
+   *  exists (D1), never a duplicate ticket. */
+  const requestHuman = useCallback(async () => {
+    if (!conversationId) return;
+    setHandoffError(null);
+    setHandoffBusy(true);
+    try {
+      const { handoffId } = await api<{ handoffId: string; status: string }>("/api/private/support/handoff", {
+        method: "POST",
+        body: JSON.stringify({ conversationId }),
+      });
+      const { handoff: detail } = await api<{ handoff: SupportHandoff }>(`/api/private/support/handoff/${handoffId}`);
+      setHandoff(detail);
+    } catch (e) {
+      setHandoffError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setHandoffBusy(false);
+    }
   }, [conversationId]);
+
+  /** D11: a new message while the handoff is active - never a new
+   *  AgentRun. The caller (widget/page) is responsible for checking
+   *  isHandoffActive(handoff?.status) and routing here instead of ask(). */
+  const sendHandoffMessage = useCallback(
+    async (content: string) => {
+      const text = content.trim();
+      if (!text || !handoff) return;
+      setHandoffError(null);
+      setHandoffBusy(true);
+      try {
+        const { handoff: updated } = await api<{ handoff: SupportHandoff }>(`/api/private/support/handoff/${handoff.id}/messages`, {
+          method: "POST",
+          body: JSON.stringify({ content: text }),
+        });
+        setHandoff(updated);
+      } catch (e) {
+        setHandoffError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setHandoffBusy(false);
+      }
+    },
+    [handoff],
+  );
+
+  /** §18: the one transition a regular user may trigger themselves
+   *  (RESOLVED -> OPEN, own handoff only). */
+  const reopenHandoff = useCallback(async () => {
+    if (!handoff) return;
+    setHandoffError(null);
+    setHandoffBusy(true);
+    try {
+      const { handoff: updated } = await api<{ handoff: SupportHandoff }>(`/api/private/support/handoff/${handoff.id}/reopen`, {
+        method: "POST",
+      });
+      setHandoff(updated);
+    } catch (e) {
+      setHandoffError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setHandoffBusy(false);
+    }
+  }, [handoff]);
 
   /** POST the caller's explicit resolution answer for the CURRENT run
    *  (P1 SS10). A no-op if there is no run yet. */
@@ -149,7 +255,25 @@ export function useSupportRun() {
     setError(null);
     setConfirmError(null);
     setConversationId(undefined); // start a genuinely new conversation, not a continued one
+    setHandoff(null);
+    setHandoffError(null);
   }, []);
 
-  return { obs, busy, error, ask, confirmResolution, confirmBusy, confirmError, reset, conversationId };
+  return {
+    obs,
+    busy,
+    error,
+    ask,
+    confirmResolution,
+    confirmBusy,
+    confirmError,
+    reset,
+    conversationId,
+    handoff,
+    handoffBusy,
+    handoffError,
+    requestHuman,
+    sendHandoffMessage,
+    reopenHandoff,
+  };
 }

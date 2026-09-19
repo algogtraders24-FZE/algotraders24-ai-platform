@@ -27,6 +27,7 @@ import { supportAgentDefinition } from "../agents/support-agent";
 import type { AgentDefinition } from "@/types/agent-framework";
 import { generateSupportAnswerForRun, isEligibleForGeneration } from "@/services/support/generate-answer";
 import { normalizeConversationId } from "@/services/support/conversation-context";
+import { ensureSupportHandoff } from "@/services/support/handoff-service";
 import { randomUUID } from "node:crypto";
 
 /** The agent types that have a real, callable canonical definition today
@@ -209,6 +210,38 @@ export async function advanceAgentRun(userId: string, runId: string): Promise<Ad
       // output/evidence in the SAME response - no extra round trip needed.
       const refreshed = await getRunObservability(runId, observabilityDeps(userId));
       if (refreshed) observability = refreshed;
+    }
+  }
+
+  // Support Human Handoff MVP (SUPPORT_HUMAN_HANDOFF_ARCHITECTURE_LOCK.md
+  // D2/D3): the AI_ESCALATION trigger. Runs AFTER the Phase A generation
+  // attempt above, on the (possibly refreshed) output - a generation that
+  // clears escalate:true must never still create a handoff. This consumes
+  // the specialist's own already-computed escalate/escalationReason
+  // (D3 - never re-derives or reinterprets it) and Phase B's own
+  // metadata.conversation.id; a run with no conversation tag (pre-Phase-B,
+  // or a non-conversational start) is skipped - there is nothing to anchor
+  // a handoff to. Best-effort (.catch), matching the same house pattern the
+  // Phase A hook right above already uses - a handoff-creation failure must
+  // never unwind an already-persisted escalation; the existing "Talk to a
+  // human" link still renders regardless.
+  const metadataAfterGeneration = (observability.run!.metadata ?? {}) as { definition?: { type?: string }; conversation?: { id?: string } };
+  if (
+    terminal &&
+    advanced &&
+    metadataAfterGeneration.definition?.type === "SUPPORT" &&
+    (observability.run!.output as { escalate?: boolean } | null)?.escalate === true
+  ) {
+    const conversationId = metadataAfterGeneration.conversation?.id;
+    const escalationReason = (observability.run!.output as { escalationReason?: string | null } | null)?.escalationReason;
+    if (conversationId) {
+      await ensureSupportHandoff({
+        userId,
+        conversationId,
+        triggerSource: "AI_ESCALATION",
+        reason: escalationReason ?? "the-support-knowledge-base-did-not-contain-an-answer",
+        agentRunId: runId,
+      }).catch(() => null);
     }
   }
 

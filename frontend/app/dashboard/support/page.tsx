@@ -20,12 +20,13 @@
 // confirmation prompt is intentionally a widget-only affordance in P1
 // (contract SS5/SS10) and is not added to this page.
 import { useState } from "react";
-import { useSupportRun } from "@/hooks/useSupportRun";
+import { useSupportRun, isHandoffActive } from "@/hooks/useSupportRun";
 import type { SupportOutput } from "@/hooks/useSupportRun";
 
 export default function SupportAssistantPage() {
   const [question, setQuestion] = useState("");
-  const { obs, busy, error, ask } = useSupportRun();
+  const [handoffReply, setHandoffReply] = useState("");
+  const { obs, busy, error, ask, handoff, handoffBusy, handoffError, requestHuman, sendHandoffMessage, reopenHandoff } = useSupportRun();
 
   const out = (obs?.run?.output ?? null) as SupportOutput | null;
   const evById = new Map((obs?.evidence ?? []).map((e) => [e.id, e]));
@@ -52,24 +53,78 @@ export default function SupportAssistantPage() {
           <div className="rounded-xl border border-danger/30 bg-danger/10 p-4 text-sm text-danger">{error}</div>
         )}
 
-        <section className="rounded-2xl border border-border bg-ink-2 p-5 space-y-3">
-          <label htmlFor="support-q" className="text-sm font-semibold text-text-2">Your question</label>
-          <textarea
-            id="support-q"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            rows={3}
-            placeholder="e.g. How do I upgrade my plan, and what is my subscription status?"
-            className="w-full rounded-lg border border-border bg-ink px-3 py-2 text-sm text-text outline-none focus:border-gold"
-          />
-          <button
-            onClick={() => ask(question)}
-            disabled={busy || !question.trim()}
-            className="rounded-lg border border-gold bg-gold/10 px-4 py-2 text-sm font-medium text-gold transition hover:bg-gold/20 disabled:opacity-40"
-          >
-            {busy ? "Working…" : "Ask Support"}
-          </button>
-        </section>
+        {/* Support Human Handoff MVP - while a case is active, this page's
+            input sends to the human thread, never a new AgentRun (D11) -
+            same routing rule the widget uses. */}
+        {isHandoffActive(handoff?.status) ? (
+          <section className="rounded-2xl border border-gold/40 bg-gold/5 p-5 space-y-3">
+            <p className="text-sm font-medium text-gold">
+              {handoff!.status === "OPEN" && "Your request has been sent to our support team."}
+              {handoff!.status === "ASSIGNED" && "A member of our support team has picked up your case."}
+              {handoff!.status === "IN_PROGRESS" && "Our support team is working on your case."}
+            </p>
+            {handoff!.messages.length > 0 && (
+              <ul className="space-y-2">
+                {handoff!.messages.map((m) => (
+                  <li
+                    key={m.id}
+                    className={`rounded-lg p-3 text-sm ${m.authorType === "HUMAN" ? "border border-border bg-ink text-text-2" : "bg-ink-3 text-text"}`}
+                  >
+                    {m.content}
+                    <div className="mt-1 text-[11px] text-text-3">{m.authorType === "HUMAN" ? "Support team" : "You"}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <textarea
+              value={handoffReply}
+              onChange={(e) => setHandoffReply(e.target.value)}
+              rows={2}
+              placeholder="Message our support team…"
+              className="w-full rounded-lg border border-border bg-ink px-3 py-2 text-sm text-text outline-none focus:border-gold"
+            />
+            <button
+              onClick={async () => {
+                if (!handoffReply.trim()) return;
+                await sendHandoffMessage(handoffReply.trim());
+                setHandoffReply("");
+              }}
+              disabled={handoffBusy || !handoffReply.trim()}
+              className="rounded-lg border border-gold bg-gold/10 px-4 py-2 text-sm font-medium text-gold transition hover:bg-gold/20 disabled:opacity-40"
+            >
+              {handoffBusy ? "Sending…" : "Send to support"}
+            </button>
+            {handoffError && <p className="text-xs text-danger">{handoffError}</p>}
+          </section>
+        ) : (
+          <section className="rounded-2xl border border-border bg-ink-2 p-5 space-y-3">
+            <label htmlFor="support-q" className="text-sm font-semibold text-text-2">Your question</label>
+            <textarea
+              id="support-q"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              rows={3}
+              placeholder="e.g. How do I upgrade my plan, and what is my subscription status?"
+              className="w-full rounded-lg border border-border bg-ink px-3 py-2 text-sm text-text outline-none focus:border-gold"
+            />
+            <button
+              onClick={() => ask(question)}
+              disabled={busy || !question.trim()}
+              className="rounded-lg border border-gold bg-gold/10 px-4 py-2 text-sm font-medium text-gold transition hover:bg-gold/20 disabled:opacity-40"
+            >
+              {busy ? "Working…" : "Ask Support"}
+            </button>
+            {handoff?.status === "RESOLVED" && (
+              <button
+                onClick={reopenHandoff}
+                disabled={handoffBusy}
+                className="ml-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-2 transition hover:bg-ink-3 disabled:opacity-40"
+              >
+                This isn&rsquo;t resolved
+              </button>
+            )}
+          </section>
+        )}
 
         {obs?.run && (
           <section className="rounded-2xl border border-border bg-ink-2 p-5 space-y-4">
@@ -133,13 +188,19 @@ export default function SupportAssistantPage() {
                   </div>
                 )}
 
-                {out.escalate && (
+                {out.escalate && !handoff && (
                   <div className="rounded-lg border border-gold/40 bg-gold/10 p-3 text-sm text-text-2">
                     <p className="font-medium text-gold">This needs a human.</p>
                     <p className="mt-1 text-xs text-text-3">
-                      Reason: {String(out.escalationReason ?? "").replace(/-/g, " ")}. Please contact human support
-                      &mdash; a support ticket flow is not yet wired into this assistant.
+                      Reason: {String(out.escalationReason ?? "").replace(/-/g, " ")}.
                     </p>
+                    <button
+                      onClick={requestHuman}
+                      disabled={handoffBusy}
+                      className="mt-2 rounded-lg border border-gold bg-gold/10 px-3 py-1.5 text-xs font-medium text-gold transition hover:bg-gold/20 disabled:opacity-40"
+                    >
+                      {handoffBusy ? "Connecting…" : "Connect me to support"}
+                    </button>
                   </div>
                 )}
 

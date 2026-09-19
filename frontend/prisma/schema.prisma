@@ -1745,9 +1745,15 @@ model AgentRun {
   updatedAt        DateTime        @updatedAt
   deletedAt        DateTime?
 
-  steps     AgentStep[]
-  toolCalls AgentToolCall[]
-  evidence  AgentEvidence[]
+  steps           AgentStep[]
+  toolCalls       AgentToolCall[]
+  evidence        AgentEvidence[]
+  // Support Human Handoff MVP - inverse side only (SupportHandoff owns the
+  // FK). A run rarely has more than one handoff (SUPPORT_HANDOFF_ARCHITECTURE
+  // _LOCK.md D1 caps active handoffs per conversation, not per run), so this
+  // is never queried from the AgentRun side - present only because Prisma
+  // requires both sides of a relation to be declared.
+  supportHandoffs SupportHandoff[]
 
   @@index([userId])
   @@index([agentId])
@@ -2620,4 +2626,103 @@ model KnowledgeRetrievalCache {
 
   @@index([expiresAt])
   @@index([knowledgeVersionFingerprint])
+}
+
+// AT24 Support Human Handoff MVP - SUPPORT_HUMAN_HANDOFF_ARCHITECTURE_LOCK.md.
+// AT24's first internal Support Ticket/Case system, layered ON TOP of the
+// existing Support Chat (CS1/A1-A15/Phase A/Phase B) - never a second
+// conversation engine. userId/assignedAdminUserId/conversationId are plain
+// String references (no @relation), matching this schema's own established
+// convention for ownership tags (AgentRun.userId, Message.userId, etc. are
+// none of them a declared Prisma relation to User either). agentRunId IS a
+// real relation (onDelete: Cascade), matching every other AgentRun-child
+// table (AgentStep/AgentToolCall/AgentEvidence).
+//
+// PURELY ADDITIVE: 2 new tables, 3 new enums, 1 new inverse-only relation
+// field on AgentRun (see above). Zero change to Conversation/Message/
+// Feedback/AuditLog/User. Migration GENERATED offline via `prisma migrate
+// diff` (no DB, no shadow DB), hand-reviewed, header marks it NOT APPLIED -
+// never `prisma migrate dev` (pgvector-reset trap).
+//
+// D1's "one active handoff per conversation" invariant (OPEN/ASSIGNED/
+// IN_PROGRESS are the active set) is NOT expressible as a Prisma `@@unique`
+// (no partial/filtered unique support in the schema DSL) - it is enforced by
+// a hand-added PARTIAL UNIQUE INDEX in the generated migration.sql itself,
+// documented there, never by an application-level check alone (Architecture
+// Lock §6 / D1's own instruction).
+enum SupportHandoffStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  CANCELLED
+}
+
+enum SupportHandoffTriggerSource {
+  AI_ESCALATION
+  USER_REQUEST
+}
+
+enum SupportHandoffMessageAuthorType {
+  USER
+  HUMAN
+  SYSTEM
+}
+
+// AT24's internal Support Ticket / Case record (Architecture Lock's
+// terminology lock: "SupportHandoff" is the canonical backend name; product
+// UX may say "Support Case"). One row per ticket. Every field here is
+// either immutable-once-created or has an explicit, narrow mutation path -
+// see the Architecture Lock's D8 field-by-field justification; no
+// speculative field was added beyond what that document locked.
+model SupportHandoff {
+  id                  String                      @id @default(cuid())
+  userId              String
+  conversationId      String
+  agentRunId          String
+  status              SupportHandoffStatus        @default(OPEN)
+  triggerSource       SupportHandoffTriggerSource
+  reason              String
+  evidenceIds         String[]                    @default([])
+  assignedAdminUserId String?
+  createdAt           DateTime                    @default(now())
+  updatedAt           DateTime                    @updatedAt
+  resolvedAt          DateTime?
+
+  agentRun AgentRun                @relation(fields: [agentRunId], references: [id], onDelete: Cascade)
+  messages SupportHandoffMessage[]
+
+  @@index([userId])
+  @@index([conversationId])
+  @@index([agentRunId])
+  @@index([status])
+  @@index([status, createdAt])
+  @@index([assignedAdminUserId])
+  // The D1 "one active handoff per conversation" partial unique index is
+  // added by hand in the generated migration.sql (see the model's own
+  // header comment) - Prisma's schema DSL cannot express a WHERE-filtered
+  // unique constraint, so it is NOT declared here as a @@unique.
+}
+
+// A human (or, rarely, the user) reply on a SupportHandoff. Deliberately NOT
+// a Conversation/Message row (CS1.2 D1 forbids Support from touching that
+// stack) and NOT an AgentStep (a human reply has no plan/tool-call/credit -
+// forcing it into AgentStep's execution-ledger shape would misuse that
+// table). Append-only: no updatedAt, no deletedAt, no edit path - matching
+// AgentEvidence's own immutable-history discipline for the same reason.
+model SupportHandoffMessage {
+  id           String                          @id @default(cuid())
+  handoffId    String
+  authorType   SupportHandoffMessageAuthorType
+  // Null only for a SYSTEM-authored message (none exist yet - reserved for
+  // a future automated notice, e.g. "this case was reassigned"). Always
+  // populated for USER/HUMAN.
+  authorUserId String?
+  content      String
+  createdAt    DateTime                        @default(now())
+
+  handoff SupportHandoff @relation(fields: [handoffId], references: [id], onDelete: Cascade)
+
+  @@index([handoffId])
+  @@index([createdAt])
 }
