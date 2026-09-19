@@ -8,7 +8,10 @@ import "server-only";
 import { Resend } from "resend";
 import { getSiteUrl } from "@/lib/payments/env";
 
-const FROM_ADDRESS = "Algotraders24 AI <purchases@algotraders24.ai>";
+// billing@ is a real, active mailbox on this domain (unlike a
+// purchases@/no-reply@ address with no inbox behind it) - a buyer who
+// replies to this email actually reaches someone.
+const FROM_ADDRESS = "Algotraders24 AI <billing@algotraders24.ai>";
 
 function getClient(): Resend | null {
   const apiKey = process.env.RESEND_API_KEY;
