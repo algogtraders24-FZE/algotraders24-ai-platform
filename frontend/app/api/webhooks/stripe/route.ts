@@ -12,7 +12,7 @@ import { stripeProvider } from "@/services/billing/providers/StripeProvider";
 import { PaymentProviderError } from "@/lib/payments/errors";
 import { subscriptionActionService } from "@/services/billing/SubscriptionActionService";
 import { issueLicenseForPurchase } from "@/services/licensing/licenseService";
-import { sendPurchaseConfirmationEmail } from "@/services/notifications/EmailService";
+import { sendPurchaseConfirmationEmail, sendLicenseIssuanceFailureAlert } from "@/services/notifications/EmailService";
 import { prisma } from "@/lib/prisma";
 import type { PlatformName } from "@/types/marketplace-factory";
 import type Stripe from "stripe";
@@ -71,19 +71,43 @@ export const POST = withContext(async (req, ctx) => {
           if (m.buyerId && m.listingId && m.tradingSystemId && m.versionId && m.platform && m.releaseId) {
             const amount = (session.amount_total ?? 0) / 100;
             const currency = (session.currency ?? "usd").toUpperCase();
-            const result = await issueLicenseForPurchase({
-              buyerId: m.buyerId,
-              marketplaceListingId: m.listingId,
-              tradingSystemId: m.tradingSystemId,
-              versionId: m.versionId,
-              releaseId: m.releaseId,
-              platform: m.platform as PlatformName,
-              amount,
-              currency,
-              expiresAt: null,
-              provider: "stripe",
-              providerRef: session.id,
-            });
+            let result: Awaited<ReturnType<typeof issueLicenseForPurchase>>;
+            try {
+              result = await issueLicenseForPurchase({
+                buyerId: m.buyerId,
+                marketplaceListingId: m.listingId,
+                tradingSystemId: m.tradingSystemId,
+                versionId: m.versionId,
+                releaseId: m.releaseId,
+                platform: m.platform as PlatformName,
+                amount,
+                currency,
+                expiresAt: null,
+                provider: "stripe",
+                providerRef: session.id,
+              });
+            } catch (issueError) {
+              // The buyer was already charged by Stripe at this point - see
+              // AT24_EMAIL_COMMUNICATION_RECONCILIATION.md's top finding.
+              // Alert the team so this gets resolved by hand rather than
+              // silently sitting as a charge with no license, and still
+              // rethrow so Stripe retries and the outer catch's 500/log
+              // behavior is unchanged.
+              try {
+                const buyer = await prisma.user.findUnique({ where: { id: m.buyerId }, select: { email: true } });
+                await sendLicenseIssuanceFailureAlert({
+                  buyerEmail: buyer?.email ?? m.buyerId,
+                  tradingSystemId: m.tradingSystemId,
+                  amount,
+                  currency,
+                  providerRef: session.id,
+                  errorMessage: issueError instanceof Error ? issueError.message : String(issueError),
+                });
+              } catch (alertError) {
+                console.error("[webhook:stripe] license issuance failure alert also failed:", alertError);
+              }
+              throw issueError;
+            }
 
             // Never let an email failure affect the webhook's success
             // response - Stripe would retry an already-completed purchase.
