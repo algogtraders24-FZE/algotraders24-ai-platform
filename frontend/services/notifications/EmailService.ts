@@ -107,6 +107,75 @@ export async function sendLicenseIssuanceFailureAlert(params: {
   });
 }
 
+// Covers both a fresh subscribe and every renewal - both go through
+// SubscriptionActionService.activateFromPayment(), called from
+// checkout.session.completed (subscription mode) and
+// customer.subscription.updated alike, so one email function naturally
+// handles both triggers without duplicating the "your plan is active"
+// message.
+export async function sendSubscriptionActiveEmail(params: {
+  to: string;
+  buyerName: string;
+  planName: string;
+  amount: number;
+  currency: string;
+  periodEnd: Date;
+}): Promise<void> {
+  const client = getClient();
+  if (!client) {
+    console.warn("[email] RESEND_API_KEY not set - skipping subscription active email");
+    return;
+  }
+
+  const dashboardUrl = `${getSiteUrl()}/dashboard`;
+  const price = `${params.amount.toFixed(2)} ${params.currency}`;
+  const renewsOn = params.periodEnd.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+
+  await client.emails.send({
+    from: FROM_ADDRESS,
+    to: params.to,
+    subject: `Your ${params.planName} subscription is active`,
+    html: `
+      <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
+        <h1 style="font-size: 20px;">Thanks, ${escapeHtml(params.buyerName)} - your subscription is active</h1>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr><td style="padding: 8px 0; color: #666;">Plan</td><td style="padding: 8px 0; text-align: right;">${escapeHtml(params.planName)}</td></tr>
+          <tr><td style="padding: 8px 0; color: #666;">Amount</td><td style="padding: 8px 0; text-align: right;">${price}</td></tr>
+          <tr><td style="padding: 8px 0; color: #666;">Renews on</td><td style="padding: 8px 0; text-align: right;">${renewsOn}</td></tr>
+        </table>
+        <a href="${dashboardUrl}" style="display: inline-block; background: #d4af37; color: #1a1a1a; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Go to dashboard</a>
+        <p style="margin-top: 32px; font-size: 12px; color: #999;">Algotraders24 AI &middot; Need help? Reply to this email or reach us at support@algotraders24.ai</p>
+      </div>
+    `,
+  });
+}
+
+export async function sendSubscriptionCancelledEmail(params: {
+  to: string;
+  buyerName: string;
+  planName: string;
+}): Promise<void> {
+  const client = getClient();
+  if (!client) {
+    console.warn("[email] RESEND_API_KEY not set - skipping subscription cancelled email");
+    return;
+  }
+
+  await client.emails.send({
+    from: FROM_ADDRESS,
+    to: params.to,
+    subject: `Your ${params.planName} subscription has been cancelled`,
+    html: `
+      <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
+        <h1 style="font-size: 20px;">Your subscription has been cancelled</h1>
+        <p>${escapeHtml(params.buyerName)}, your <strong>${escapeHtml(params.planName)}</strong> subscription is now cancelled and will not renew. You can resubscribe anytime from your dashboard.</p>
+        <a href="${getSiteUrl()}/pricing" style="display: inline-block; background: #d4af37; color: #1a1a1a; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">View plans</a>
+        <p style="margin-top: 32px; font-size: 12px; color: #999;">Algotraders24 AI &middot; Need help? Reply to this email or reach us at support@algotraders24.ai</p>
+      </div>
+    `,
+  });
+}
+
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
