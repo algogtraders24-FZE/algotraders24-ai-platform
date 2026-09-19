@@ -9,15 +9,90 @@
 // action - not a form of settings that don't yet do anything. Plan/billing
 // management is real and already lives at /dashboard/billing, linked below
 // rather than duplicated here.
+//
+// Sprint fix - this page was entirely read-only (name/email/role/status
+// display only, no way to actually change anything), which is a genuine
+// gap for an "Account Settings" page. Adds the two real, buildable
+// settings: editing your display name, and changing your password from an
+// active session (see actions.ts's own header comment).
+import { useActionState, useState } from "react";
 import { useUserContext } from "@/context/UserContext";
-import { signOutAction } from "@/app/(auth)/actions/auth.actions";
+import { signOutAction, type ActionState } from "@/app/(auth)/actions/auth.actions";
+import { updateNameAction, changePasswordAction } from "./actions";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import ButtonLink from "@/components/ui/ButtonLink";
+import Input from "@/components/ui/Input";
 import ErrorState from "@/components/ui/ErrorState";
 import { PLAN_LABELS } from "@/config/billing.config";
 import type { PlanId } from "@/types/billing";
+
+const initialState: ActionState = {};
+
+function NameEditor({ currentName }: { currentName: string }) {
+  const [editing, setEditing] = useState(false);
+  const [state, formAction, pending] = useActionState(updateNameAction, initialState);
+
+  if (state.success && editing) setEditing(false);
+
+  if (!editing) {
+    return (
+      <div className="flex items-center justify-between gap-4">
+        <dt className="text-sm text-text-2">Name</dt>
+        <dd className="flex items-center gap-3 text-sm text-text">
+          {currentName}
+          <button type="button" onClick={() => setEditing(true)} className="text-xs font-medium text-gold hover:text-gold-strong">
+            Edit
+          </button>
+        </dd>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <dt className="text-sm text-text-2">Name</dt>
+      <dd>
+        <form action={formAction} className="flex items-center gap-2">
+          <Input name="name" defaultValue={currentName} required maxLength={100} className="h-8 w-40 text-sm" />
+          <Button type="submit" size="sm" loading={pending}>
+            Save
+          </Button>
+          <button type="button" onClick={() => setEditing(false)} className="text-xs text-text-3 hover:text-text">
+            Cancel
+          </button>
+        </form>
+        {state.error && <p className="mt-1 text-xs text-danger">{state.error}</p>}
+      </dd>
+    </div>
+  );
+}
+
+function ChangePasswordForm() {
+  const [state, formAction, pending] = useActionState(changePasswordAction, initialState);
+
+  return (
+    <Card padding="lg">
+      <h2 className="text-sm font-semibold uppercase tracking-wider text-text-3">Change password</h2>
+      <form action={formAction} className="mt-4 space-y-3">
+        <div>
+          <label className="block text-sm text-text-2">New password</label>
+          <Input type="password" name="password" required autoComplete="new-password" className="mt-1" />
+        </div>
+        <div>
+          <label className="block text-sm text-text-2">Confirm new password</label>
+          <Input type="password" name="confirmPassword" required autoComplete="new-password" className="mt-1" />
+        </div>
+        {state.error && <p className="text-sm text-danger">{state.error}</p>}
+        {state.success && <p className="text-sm text-success">Password changed.</p>}
+        <Button type="submit" loading={pending} variant="secondary">
+          {pending ? "Changing..." : "Change password"}
+        </Button>
+      </form>
+    </Card>
+  );
+}
 
 export default function SettingsPage() {
   const { user } = useUserContext();
@@ -50,10 +125,7 @@ export default function SettingsPage() {
       <Card padding="lg">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-text-3">Account</h2>
         <dl className="mt-4 space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <dt className="text-sm text-text-2">Name</dt>
-            <dd className="text-sm text-text">{user.name}</dd>
-          </div>
+          <NameEditor currentName={user.name} />
           <div className="flex items-center justify-between gap-4">
             <dt className="text-sm text-text-2">Email</dt>
             <dd className="text-sm text-text">{user.email}</dd>
@@ -78,6 +150,8 @@ export default function SettingsPage() {
           </div>
         </dl>
       </Card>
+
+      <ChangePasswordForm />
 
       <Card padding="lg">
         <div className="flex items-center justify-between gap-4">
