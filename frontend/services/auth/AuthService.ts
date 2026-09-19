@@ -131,6 +131,29 @@ export class AuthService {
     return { success: true, userId: data.user?.id, email: data.user?.email ?? undefined };
   }
 
+  // Sprint fix - Settings previously had no way to change your email at
+  // all. Supabase's updateUser({ email }) does not change the email
+  // immediately - it sends a confirmation link to the NEW address first
+  // (same emailRedirectTo pattern as resendVerificationEmail above); the
+  // address only actually changes once that link is clicked and exchanged
+  // at /auth/callback. This app's own User.email mirror is synced on the
+  // next session check afterward (see UserRepository.findOrCreateByAuth).
+  static async changeEmail(newEmail: string): Promise<AuthResult> {
+    const supabase = await createSupabaseServerClient();
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
+    const { error } = await supabase.auth.updateUser(
+      { email: newEmail },
+      { emailRedirectTo: `${baseUrl}/auth/callback?redirectTo=${encodeURIComponent("/dashboard/settings")}` }
+    );
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, email: newEmail };
+  }
+
   static async getCurrentAuthUser(): Promise<{
     id: string;
     email: string | undefined;
