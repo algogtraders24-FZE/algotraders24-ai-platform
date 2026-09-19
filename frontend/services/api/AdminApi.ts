@@ -11,6 +11,7 @@ import type { AdminHealthReport } from "@/services/admin/AdminHealthService";
 import type { AuditLogEntry } from "@/services/admin/AuditLogService";
 import type { AdminFeedbackEntry, FeedbackStatus } from "@/services/admin/AdminFeedbackService";
 import type { BetaOverview, JourneyEvent } from "@/services/admin/AdminBetaService";
+import type { AdminQueueEntry, AdminHandoffDetail } from "@/services/support/handoff-service";
 
 export interface Page<T> {
   items: T[];
@@ -106,5 +107,33 @@ export class AdminApi {
       query: { userId },
     });
     return data.journey;
+  }
+
+  // Support Human Handoff MVP - AT24's first internal Support Ticket/Case
+  // queue (SUPPORT_HUMAN_HANDOFF_ARCHITECTURE_LOCK.md D12).
+  static async listSupportHandoffs(params: { page: number; pageSize: number; status?: string }): Promise<Page<AdminQueueEntry>> {
+    return ApiClient.get<Page<AdminQueueEntry>>("/api/private/admin/support-handoffs", {
+      query: { page: params.page, pageSize: params.pageSize, status: params.status },
+    });
+  }
+
+  static async getSupportHandoff(id: string): Promise<AdminHandoffDetail> {
+    const data = await ApiClient.get<{ handoff: AdminHandoffDetail }>(`/api/private/admin/support-handoffs/${id}`);
+    return data.handoff;
+  }
+
+  static async assignSupportHandoff(id: string, adminUserId?: string) {
+    const data = await ApiClient.post<{ handoff: unknown }>(`/api/private/admin/support-handoffs/${id}/assign`, { adminUserId });
+    return data.handoff;
+  }
+
+  static async transitionSupportHandoff(id: string, status: string) {
+    const data = await ApiClient.post<{ handoff: unknown }>(`/api/private/admin/support-handoffs/${id}/status`, { status });
+    return data.handoff;
+  }
+
+  static async replyToSupportHandoff(id: string, content: string): Promise<AdminHandoffDetail> {
+    const data = await ApiClient.post<{ handoff: AdminHandoffDetail }>(`/api/private/admin/support-handoffs/${id}/messages`, { content });
+    return data.handoff;
   }
 }

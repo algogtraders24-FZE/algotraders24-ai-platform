@@ -51,7 +51,17 @@ export type AuditAction =
   // publish attempt fails terminally.
   | "article.drafted"
   | "article.published"
-  | "article.publish_failed";
+  | "article.publish_failed"
+  // Support Human Handoff MVP - AT24's first internal Support Ticket/Case
+  // system (SUPPORT_HUMAN_HANDOFF_ARCHITECTURE_LOCK.md D13). Reuses this
+  // same existing, already-append-only AuditLog model - no second audit
+  // system. targetType is always "SupportHandoff", targetId the handoff id.
+  | "support_handoff.created"
+  | "support_handoff.assigned"
+  | "support_handoff.reassigned"
+  | "support_handoff.status_changed"
+  | "support_handoff.reopened"
+  | "support_handoff.human_reply_added";
 
 export interface AuditLogEntry {
   id: string;
