@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { AuthService } from "@/services/auth/AuthService";
 import { SessionService } from "@/services/auth/SessionService";
 import { analyticsEventService } from "@/services/analytics/AnalyticsEventService";
+import { sendWelcomeEmail, sendPasswordChangedEmail } from "@/services/notifications/EmailService";
 
 export interface ActionState {
   error?: string;
@@ -45,6 +46,13 @@ export async function signUpAction(
 
   // Provision the Prisma profile immediately (also happens on first login).
   await SessionService.getSessionUser();
+
+  // Best-effort - never allowed to fail signup, which already succeeded.
+  try {
+    await sendWelcomeEmail({ to: email, name });
+  } catch (error) {
+    console.error("[auth] welcome email failed:", error);
+  }
 
   return {
     success: true,
@@ -159,6 +167,14 @@ export async function resetPasswordAction(
         result.error ??
         "Could not reset your password. Your reset link may have expired - request a new one.",
     };
+  }
+
+  if (result.email) {
+    try {
+      await sendPasswordChangedEmail({ to: result.email });
+    } catch (error) {
+      console.error("[auth] password changed email failed:", error);
+    }
   }
 
   revalidatePath("/dashboard");
