@@ -216,6 +216,57 @@ export async function sendAutomationRunFailedEmail(params: {
   });
 }
 
+// A01/A02 from AT24_EMAIL_COMMUNICATION_RECONCILIATION.md - Supabase sends
+// its own account-verification email, but nothing welcomes a new user or
+// orients them once they've actually signed up. Sent from signUpAction
+// immediately on success, independent of whether they've verified their
+// email yet.
+export async function sendWelcomeEmail(params: { to: string; name: string }): Promise<void> {
+  const client = getClient();
+  if (!client) {
+    console.warn("[email] RESEND_API_KEY not set - skipping welcome email");
+    return;
+  }
+
+  await client.emails.send({
+    from: FROM_ADDRESS,
+    to: params.to,
+    subject: "Welcome to Algotraders24 AI",
+    html: `
+      <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
+        <h1 style="font-size: 20px;">Welcome, ${escapeHtml(params.name)}!</h1>
+        <p>Your Algotraders24 AI account is ready. Check your inbox for a separate verification email to confirm your address, then explore the AI Assistant, Market Intelligence, and the Marketplace from your dashboard.</p>
+        <a href="${getSiteUrl()}/dashboard" style="display: inline-block; background: #d4af37; color: #1a1a1a; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Go to dashboard</a>
+        <p style="margin-top: 32px; font-size: 12px; color: #999;">Algotraders24 AI &middot; Need help? Reply to this email or reach us at support@algotraders24.ai</p>
+      </div>
+    `,
+  });
+}
+
+// A04 - a security notification (not the reset link itself, which Supabase
+// already sends): confirms to the account owner that their password was
+// just changed, so they'd notice if it wasn't actually them.
+export async function sendPasswordChangedEmail(params: { to: string }): Promise<void> {
+  const client = getClient();
+  if (!client) {
+    console.warn("[email] RESEND_API_KEY not set - skipping password changed email");
+    return;
+  }
+
+  await client.emails.send({
+    from: FROM_ADDRESS,
+    to: params.to,
+    subject: "Your password was changed",
+    html: `
+      <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
+        <h1 style="font-size: 20px;">Your password was just changed</h1>
+        <p>This confirms the password on your Algotraders24 AI account was changed. If this was you, no action is needed.</p>
+        <p>If you didn't make this change, contact us immediately at security@algotraders24.ai.</p>
+      </div>
+    `,
+  });
+}
+
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
