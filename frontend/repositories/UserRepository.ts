@@ -119,10 +119,17 @@ export class UserRepository extends BaseRepository<UserEntity> {
       where: { authId: params.authId },
     });
     if (existing) {
-      if (existing.emailVerified !== params.emailVerified) {
+      // Sync email too, not just emailVerified: a confirmed email change
+      // (see app/dashboard/settings/actions.ts's changeEmailAction) updates
+      // Supabase Auth's own record via updateUser(), but this app's own
+      // User.email mirror was never written back here before - the next
+      // session check after confirmation is exactly where that drift gets
+      // caught and corrected.
+      const drifted = existing.emailVerified !== params.emailVerified || existing.email !== params.email;
+      if (drifted) {
         const updated = await prisma.user.update({
           where: { authId: params.authId },
-          data: { emailVerified: params.emailVerified },
+          data: { emailVerified: params.emailVerified, email: params.email },
         });
         return toEntity(updated);
       }

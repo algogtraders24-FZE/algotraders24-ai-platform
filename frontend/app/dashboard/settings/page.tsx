@@ -4,21 +4,19 @@
 // Sprint IA1 - New page. The ACCOUNT/Settings slot in the locked backoffice
 // IA had no existing destination (a prior sprint, L2.3, explicitly removed
 // a "Settings" nav entry because it pointed at a route that didn't exist).
-// This is real account information read from the same UserContext every
-// other dashboard page uses (no invented fields), plus the real sign-out
-// action - not a form of settings that don't yet do anything. Plan/billing
-// management is real and already lives at /dashboard/billing, linked below
-// rather than duplicated here.
 //
-// Sprint fix - this page was entirely read-only (name/email/role/status
-// display only, no way to actually change anything), which is a genuine
-// gap for an "Account Settings" page. Adds the two real, buildable
-// settings: editing your display name, and changing your password from an
-// active session (see actions.ts's own header comment).
-import { useActionState, useState } from "react";
+// Sprint fix - rebuilt from a single read-only card into a sectioned
+// layout (a mini sidebar + real, always-visible edit forms), matching the
+// account owner's own request for a more professional settings surface.
+// Deliberately only lists sections that have real content behind them
+// today (Account, Billing) - no invented "Preferences"/"Privacy"/etc.
+// placeholder sections with nothing real in them. More sections get added
+// here as real features exist to put in them, not before.
+import { useActionState } from "react";
+import Link from "next/link";
 import { useUserContext } from "@/context/UserContext";
 import { signOutAction, type ActionState } from "@/app/(auth)/actions/auth.actions";
-import { updateNameAction, changePasswordAction } from "./actions";
+import { updateNameAction, changePasswordAction, changeEmailAction } from "./actions";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -30,67 +28,94 @@ import type { PlanId } from "@/types/billing";
 
 const initialState: ActionState = {};
 
-function NameEditor({ currentName }: { currentName: string }) {
-  const [editing, setEditing] = useState(false);
-  const [state, formAction, pending] = useActionState(updateNameAction, initialState);
-
-  if (state.success && editing) setEditing(false);
-
-  if (!editing) {
-    return (
-      <div className="flex items-center justify-between gap-4">
-        <dt className="text-sm text-text-2">Name</dt>
-        <dd className="flex items-center gap-3 text-sm text-text">
-          {currentName}
-          <button type="button" onClick={() => setEditing(true)} className="text-xs font-medium text-gold hover:text-gold-strong">
-            Edit
-          </button>
-        </dd>
-      </div>
-    );
-  }
-
+function SettingsNav() {
   return (
-    <div className="flex items-center justify-between gap-4">
-      <dt className="text-sm text-text-2">Name</dt>
-      <dd>
-        <form action={formAction} className="flex items-center gap-2">
-          <Input name="name" defaultValue={currentName} required maxLength={100} className="h-8 w-40 text-sm" />
-          <Button type="submit" size="sm" loading={pending}>
-            Save
-          </Button>
-          <button type="button" onClick={() => setEditing(false)} className="text-xs text-text-3 hover:text-text">
-            Cancel
-          </button>
-        </form>
-        {state.error && <p className="mt-1 text-xs text-danger">{state.error}</p>}
-      </dd>
-    </div>
+    <nav className="w-full shrink-0 space-y-1 sm:w-44">
+      <div className="rounded-control bg-ink-2 px-3 py-2 text-sm font-medium text-text">Account</div>
+      <Link href="/dashboard/billing" className="block rounded-control px-3 py-2 text-sm text-text-2 transition-colors hover:bg-ink-2 hover:text-text">
+        Billing
+      </Link>
+    </nav>
   );
 }
 
-function ChangePasswordForm() {
+function SectionCard({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+  return (
+    <Card padding="lg">
+      <h2 className="text-base font-semibold text-text">{title}</h2>
+      {description && <p className="mt-1 text-sm text-text-3">{description}</p>}
+      <div className="mt-5">{children}</div>
+    </Card>
+  );
+}
+
+function ProfileSection({ name }: { name: string }) {
+  const [state, formAction, pending] = useActionState(updateNameAction, initialState);
+
+  return (
+    <SectionCard title="Profile" description="Your display name, shown across the platform.">
+      <form action={formAction} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="flex-1">
+          <label className="block text-sm font-medium text-text-2">Name</label>
+          <Input name="name" defaultValue={name} required maxLength={100} className="mt-1" />
+        </div>
+        <Button type="submit" loading={pending} variant="secondary">
+          Save
+        </Button>
+      </form>
+      {state.error && <p className="mt-2 text-sm text-danger">{state.error}</p>}
+      {state.success && <p className="mt-2 text-sm text-success">{state.message}</p>}
+    </SectionCard>
+  );
+}
+
+function EmailSection({ currentEmail, emailVerified }: { currentEmail: string; emailVerified: boolean }) {
+  const [state, formAction, pending] = useActionState(changeEmailAction, initialState);
+
+  return (
+    <SectionCard title="Email address" description="Changing this sends a confirmation link to your new address - nothing changes until you click it.">
+      <div className="mb-4 flex items-center justify-between gap-4 rounded-control border border-border bg-ink-2 px-4 py-3">
+        <span className="text-sm text-text">{currentEmail}</span>
+        <Badge tone={emailVerified ? "success" : "warning"}>{emailVerified ? "Verified" : "Unverified"}</Badge>
+      </div>
+      <form action={formAction} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="flex-1">
+          <label className="block text-sm font-medium text-text-2">New email address</label>
+          <Input type="email" name="email" required placeholder="you@example.com" className="mt-1" />
+        </div>
+        <Button type="submit" loading={pending} variant="secondary">
+          Send confirmation
+        </Button>
+      </form>
+      {state.error && <p className="mt-2 text-sm text-danger">{state.error}</p>}
+      {state.success && <p className="mt-2 text-sm text-success">{state.message}</p>}
+    </SectionCard>
+  );
+}
+
+function PasswordSection() {
   const [state, formAction, pending] = useActionState(changePasswordAction, initialState);
 
   return (
-    <Card padding="lg">
-      <h2 className="text-sm font-semibold uppercase tracking-wider text-text-3">Change password</h2>
-      <form action={formAction} className="mt-4 space-y-3">
+    <SectionCard title="Password" description="Choose a strong password you don't use anywhere else.">
+      <form action={formAction} className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="block text-sm text-text-2">New password</label>
+          <label className="block text-sm font-medium text-text-2">New password</label>
           <Input type="password" name="password" required autoComplete="new-password" className="mt-1" />
         </div>
         <div>
-          <label className="block text-sm text-text-2">Confirm new password</label>
+          <label className="block text-sm font-medium text-text-2">Confirm new password</label>
           <Input type="password" name="confirmPassword" required autoComplete="new-password" className="mt-1" />
         </div>
-        {state.error && <p className="text-sm text-danger">{state.error}</p>}
-        {state.success && <p className="text-sm text-success">Password changed.</p>}
-        <Button type="submit" loading={pending} variant="secondary">
-          {pending ? "Changing..." : "Change password"}
-        </Button>
+        <div className="sm:col-span-2">
+          {state.error && <p className="mb-3 text-sm text-danger">{state.error}</p>}
+          {state.success && <p className="mb-3 text-sm text-success">{state.message}</p>}
+          <Button type="submit" loading={pending} variant="secondary">
+            Change password
+          </Button>
+        </div>
       </form>
-    </Card>
+    </SectionCard>
   );
 }
 
@@ -103,11 +128,9 @@ export default function SettingsPage() {
   // here; this branch only exists as a defensive guard for a genuinely
   // unexpected state (this page only renders inside app/dashboard/layout.tsx,
   // which already gates on requireUser() before this component can mount).
-  // A blank `return null` previously left a silently empty page if that
-  // guard was ever somehow hit - now an honest, non-fabricated fallback.
   if (!user) {
     return (
-      <div className="max-w-2xl">
+      <div className="max-w-3xl">
         <ErrorState title="Could not load your account details" description="Try reloading the page." />
       </div>
     );
@@ -116,66 +139,46 @@ export default function SettingsPage() {
   const planLabel = PLAN_LABELS[user.planId as PlanId] ?? user.planId;
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <div>
+    <div className="max-w-3xl">
+      <div className="mb-6">
         <h1 className="text-2xl font-bold text-text">Settings</h1>
-        <p className="mt-1 text-sm text-text-3">Your account details and sign-in.</p>
+        <p className="mt-1 text-sm text-text-3">Manage your account, security, and billing.</p>
       </div>
 
-      <Card padding="lg">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-text-3">Account</h2>
-        <dl className="mt-4 space-y-4">
-          <NameEditor currentName={user.name} />
-          <div className="flex items-center justify-between gap-4">
-            <dt className="text-sm text-text-2">Email</dt>
-            <dd className="text-sm text-text">{user.email}</dd>
-          </div>
-          <div className="flex items-center justify-between gap-4">
-            <dt className="text-sm text-text-2">Email verified</dt>
-            <dd>
-              <Badge tone={user.emailVerified ? "success" : "warning"}>
-                {user.emailVerified ? "Verified" : "Unverified"}
-              </Badge>
-            </dd>
-          </div>
-          <div className="flex items-center justify-between gap-4">
-            <dt className="text-sm text-text-2">Role</dt>
-            <dd className="text-sm capitalize text-text">{user.role}</dd>
-          </div>
-          <div className="flex items-center justify-between gap-4">
-            <dt className="text-sm text-text-2">Account status</dt>
-            <dd>
-              <Badge tone={user.status === "active" ? "success" : "danger"}>{user.status}</Badge>
-            </dd>
-          </div>
-        </dl>
-      </Card>
+      <div className="flex flex-col gap-8 sm:flex-row">
+        <SettingsNav />
 
-      <ChangePasswordForm />
-
-      <Card padding="lg">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-text-3">Plan & billing</h2>
-            <p className="mt-1 text-sm text-text-2">
-              Current plan: <span className="font-medium text-text">{planLabel}</span>
-            </p>
+        <div className="min-w-0 flex-1 space-y-6">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-text-3">
+            <span>Role: <span className="capitalize text-text-2">{user.role}</span></span>
+            <span aria-hidden="true">&middot;</span>
+            <span>Plan: <span className="text-text-2">{planLabel}</span></span>
+            <span aria-hidden="true">&middot;</span>
+            <Badge tone={user.status === "active" ? "success" : "danger"}>{user.status}</Badge>
           </div>
-          <ButtonLink href="/dashboard/billing" variant="secondary">
-            Manage billing
-          </ButtonLink>
+
+          <ProfileSection name={user.name} />
+          <EmailSection currentEmail={user.email} emailVerified={user.emailVerified} />
+          <PasswordSection />
+
+          <SectionCard title="Billing">
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-sm text-text-2">
+                Current plan: <span className="font-medium text-text">{planLabel}</span>
+              </p>
+              <ButtonLink href="/dashboard/billing" variant="secondary">
+                Manage billing
+              </ButtonLink>
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Session" description="Sign out of your account on this device.">
+            <Button variant="danger" onClick={() => void signOutAction()}>
+              Sign out
+            </Button>
+          </SectionCard>
         </div>
-      </Card>
-
-      <Card padding="lg">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-text-3">Session</h2>
-        <p className="mt-1 text-sm text-text-2">Sign out of your account on this device.</p>
-        <div className="mt-4">
-          <Button variant="danger" onClick={() => void signOutAction()}>
-            Sign out
-          </Button>
-        </div>
-      </Card>
+      </div>
     </div>
   );
 }

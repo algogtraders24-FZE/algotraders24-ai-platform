@@ -74,3 +74,31 @@ export async function changePasswordAction(
 
   return { success: true, message: "Password changed." };
 }
+
+export async function changeEmailAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const sessionUser = await SessionService.getSessionUser();
+  if (!sessionUser) {
+    return { error: "You must be signed in to change your email." };
+  }
+
+  const newEmail = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (!newEmail || !newEmail.includes("@")) {
+    return { error: "Enter a valid email address." };
+  }
+  if (newEmail === sessionUser.profile.email) {
+    return { error: "That's already your current email address." };
+  }
+
+  const result = await AuthService.changeEmail(newEmail);
+  if (!result.success) {
+    return { error: result.error ?? "Could not change your email." };
+  }
+
+  // Not applied yet - Supabase requires clicking the confirmation link sent
+  // to the new address first (see AuthService.changeEmail's own comment).
+  // User.email is updated once that confirmation completes, not here.
+  return { success: true, message: `Check ${newEmail} for a confirmation link to finish changing your email.` };
+}
