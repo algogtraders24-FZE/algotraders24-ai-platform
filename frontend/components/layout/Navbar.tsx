@@ -155,9 +155,10 @@ function MobileAccordion({ item, onNavigate }: { item: NavItem; onNavigate: () =
   );
 }
 
-export default function Navbar({ isAuthenticated = false }: { isAuthenticated?: boolean } = {}) {
+export default function Navbar({ isAuthenticated: knownAuthenticated }: { isAuthenticated?: boolean } = {}) {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const [selfCheckedAuth, setSelfCheckedAuth] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > SCROLL_THRESHOLD);
@@ -165,6 +166,34 @@ export default function Navbar({ isAuthenticated = false }: { isAuthenticated?: 
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Sprint fix - this Navbar is shared by every public page (homepage,
+  // Marketplace, Quant Lite, Products, etc.) and none of them knew whether
+  // the visitor was already logged in, so an authenticated user always saw
+  // "Login" here - reading as being logged out on every public page, not
+  // just Quant Lite (which got a page-specific fix first; this replaces
+  // that with a self-contained one that works everywhere at once). Uses
+  // the existing guest-reachable /api/support/session probe (already
+  // built for this exact "which UI to show" purpose, grants nothing on
+  // its own) rather than requiring every page to check its own session
+  // server-side and thread a prop through. A caller that already knows
+  // (like a Server Component that did its own session check) can still
+  // pass `isAuthenticated` to skip this fetch entirely.
+  useEffect(() => {
+    if (knownAuthenticated !== undefined) return;
+    let cancelled = false;
+    fetch("/api/support/session")
+      .then((res) => res.json())
+      .then((body) => {
+        if (!cancelled && body?.data?.authenticated) setSelfCheckedAuth(true);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [knownAuthenticated]);
+
+  const isAuthenticated = knownAuthenticated ?? selfCheckedAuth;
 
   return (
     <header

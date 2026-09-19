@@ -29,15 +29,22 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-export default async function MarketplaceListingPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function MarketplaceListingPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ checkout?: string }>;
+}) {
   const { slug } = await params;
+  const { checkout } = await searchParams;
   const listing = await MarketplaceCatalogue.getBySlug(slug);
   if (!listing) notFound();
 
   return (
     <main className="min-h-screen bg-ink text-text">
       <Navbar />
-      <ListingDetailView listing={listing} />
+      <ListingDetailView listing={listing} justPurchased={checkout === "success"} />
       <Footer />
     </main>
   );

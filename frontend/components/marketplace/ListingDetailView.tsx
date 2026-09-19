@@ -23,10 +23,12 @@ export default function ListingDetailView({
   listing,
   backHref = "/marketplace",
   backLabel = "← Back to Marketplace",
+  justPurchased = false,
 }: {
   listing: MarketplaceListingDetail;
   backHref?: string;
   backLabel?: string;
+  justPurchased?: boolean;
 }) {
   const icon = listing.media[0];
   const banner = listing.media[1];
@@ -40,6 +42,17 @@ export default function ListingDetailView({
           <Link href={backHref} className="text-sm text-text-3 hover:text-gold">
             {backLabel}
           </Link>
+
+          {justPurchased && (
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gold/30 bg-gold/10 px-6 py-4">
+              <p className="text-sm font-medium text-text">
+                Payment successful — your license for {listing.title} has been issued.
+              </p>
+              <Link href="/dashboard/purchases" className="shrink-0 rounded-control bg-gold px-4 py-2 text-sm font-semibold text-ink transition hover:brightness-110">
+                View your license →
+              </Link>
+            </div>
+          )}
 
           {banner && (
             <div className="mt-6 overflow-hidden rounded-2xl border border-border">
