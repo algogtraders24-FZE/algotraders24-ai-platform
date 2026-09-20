@@ -11,6 +11,9 @@ import { nowPaymentsProvider } from "@/services/billing/providers/NowPaymentsPro
 import { PaymentProviderError } from "@/lib/payments/errors";
 import { subscriptionActionService } from "@/services/billing/SubscriptionActionService";
 import { isPlanId } from "@/config/plan-limits";
+import { prisma } from "@/lib/prisma";
+import { issueLicenseForPurchase } from "@/services/licensing/licenseService";
+import type { PlatformName } from "@/types/marketplace-factory";
 
 const FINAL_SUCCESS_STATUSES = new Set(["finished", "confirmed"]);
 
@@ -58,20 +61,49 @@ export const POST = withContext(async (req, ctx) => {
 
   const body = payload as { payment_status?: string; order_id?: string; payment_id?: string };
   if (body.payment_status && body.order_id && FINAL_SUCCESS_STATUSES.has(body.payment_status)) {
-    const parsed = parseOrderId(body.order_id);
-    if (parsed) {
+    if (body.order_id.startsWith("mkt_")) {
+      const intentId = body.order_id.slice("mkt_".length);
       try {
-        const now = new Date();
-        await subscriptionActionService.activateFromPayment({
-          userId: parsed.userId,
-          planId: parsed.planId,
-          provider: "nowpayments",
-          currentPeriodStart: now,
-          currentPeriodEnd: addMonths(now, parsed.cycle === "yearly" ? 12 : 1),
-          nowPaymentsInvoiceId: body.payment_id,
-        });
+        // Re-fetched fresh every call, not cached - a retried IPN must see
+        // the CONSUMED status the first call just wrote, or it would issue
+        // a second license for the same payment.
+        const intent = await prisma.marketplacePurchaseIntent.findUnique({ where: { id: intentId } });
+        if (intent && intent.status === "PENDING") {
+          await issueLicenseForPurchase({
+            buyerId: intent.buyerId,
+            marketplaceListingId: intent.marketplaceListingId,
+            tradingSystemId: intent.tradingSystemId,
+            versionId: intent.versionId,
+            releaseId: intent.releaseId,
+            platform: intent.platform as PlatformName,
+            amount: intent.amount,
+            currency: intent.currency,
+            expiresAt: null,
+          });
+          await prisma.marketplacePurchaseIntent.update({
+            where: { id: intent.id },
+            data: { status: "CONSUMED", consumedAt: new Date() },
+          });
+        }
       } catch {
         return ApiResponse.error({ code: "WEBHOOK_PROCESSING_FAILED", message: "Could not apply IPN event" }, ctx.requestId, 500, ctx.startedAt);
+      }
+    } else {
+      const parsed = parseOrderId(body.order_id);
+      if (parsed) {
+        try {
+          const now = new Date();
+          await subscriptionActionService.activateFromPayment({
+            userId: parsed.userId,
+            planId: parsed.planId,
+            provider: "nowpayments",
+            currentPeriodStart: now,
+            currentPeriodEnd: addMonths(now, parsed.cycle === "yearly" ? 12 : 1),
+            nowPaymentsInvoiceId: body.payment_id,
+          });
+        } catch {
+          return ApiResponse.error({ code: "WEBHOOK_PROCESSING_FAILED", message: "Could not apply IPN event" }, ctx.requestId, 500, ctx.startedAt);
+        }
       }
     }
   }
