@@ -31,8 +31,15 @@ function toEngineTimestamp(dateOnly: string, endOfDay: boolean): string {
  * never a stale compiledSpec, matching the locked "current-intent" rule.
  * `now` is injectable only for deterministic tests; production callers
  * omit it.
+ *
+ * QP-5 - `parentStrategyId`, when supplied, is this conversation's own
+ * most-recently-persisted Strategy.id (see quant-chat/page.tsx's own
+ * latestPersistedStrategyId) - passed straight through unmodified; this
+ * function never inspects or validates it, the server remains the sole
+ * authority (algo-test.service.ts's own persistAiStrategy() re-verifies
+ * ownership before ever using it).
  */
-export function buildQuantChatBacktestRequest(intent: string, now: Date = new Date()): AiCompileAndRunRequest {
+export function buildQuantChatBacktestRequest(intent: string, now: Date = new Date(), parentStrategyId?: string): AiCompileAndRunRequest {
   const startDate = isoDateNDaysAgo(QUANT_CHAT_BACKTEST_DEFAULT_LOOKBACK_DAYS, now);
   const endDate = isoDateNDaysAgo(1, now);
   return {
@@ -40,5 +47,6 @@ export function buildQuantChatBacktestRequest(intent: string, now: Date = new Da
     startTime: toEngineTimestamp(startDate, false),
     endTime: toEngineTimestamp(endDate, true),
     initialBalance: QUANT_CHAT_BACKTEST_DEFAULT_INITIAL_BALANCE,
+    ...(parentStrategyId ? { parentStrategyId } : {}),
   };
 }

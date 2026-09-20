@@ -321,6 +321,19 @@ export interface AlgoTestRunView {
   /** P4.3 - see AlgoTestStrategyHash's own doc comment. Present for both registry and AI-compiled runs that reached EXECUTION_VALID. P4.5 - now genuinely persisted and indexed (AlgoTestRun_userId_strategyHash_idx); see `lifecycle`'s own doc comment for the reopen convention. */
   strategyHash?: AlgoTestStrategyHash;
   /**
+   * QP-5 (docs/architecture/QP5_RECONCILIATION_DECISION.md) - the exact
+   * persisted Strategy row's own `id` (never the semantic `strategyId`
+   * string), present whenever compilation reached EXECUTION_VALID and
+   * `persistAiStrategy()` therefore ran - regardless of whether the
+   * backtest itself went on to succeed. Registry runs never set this
+   * (registry strategies have no Strategy row - AlgoTestPanel.tsx's own
+   * P4.8-T2.1 finding). A Quant Chat caller uses this, on a completed
+   * run only, as the parentStrategyId for its own NEXT successful Run
+   * Backtest - never persisted here itself, never re-derived from
+   * strategyHash.
+   */
+  strategyRefId?: string;
+  /**
    * P4.4 - present whenever `status === "completed"` and `trades`/
    * `equityCurve`/`metrics` are present, for EVERY strategy source (no
    * strategy-specific branch) - on a fresh run AND on a reopened one too,
@@ -342,6 +355,19 @@ export interface AiCompileAndRunRequest {
   startTime: string;
   endTime: string;
   initialBalance?: number;
+  /**
+   * QP-5 - the caller's own most-recently-persisted Strategy.id (a
+   * conversation-scoped, client-remembered value - see
+   * QuantChatConversationState.latestPersistedStrategyId), used to link
+   * a NEW semantically-distinct Strategy artifact to whichever one
+   * preceded it. Optional and best-effort: the server independently
+   * re-verifies ownership before ever using it (never trusted blindly),
+   * and an invalid/foreign/stale id is silently treated as "no parent"
+   * rather than failing the whole request - a lineage edge is a nice-to-
+   * have annotation, never a precondition for compiling or backtesting.
+   * AlgoTestPanel.tsx's own existing AI-mode submit never sets this.
+   */
+  parentStrategyId?: string;
 }
 
 /**

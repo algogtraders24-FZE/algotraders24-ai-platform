@@ -492,8 +492,28 @@ function describeTakeProfit(risk: RiskSpecification): string | undefined {
  * let a later, cosmetically-different compile silently replace an
  * earlier one's frozen artifact.
  */
-async function persistAiStrategy(userId: string, spec: StrategySpec): Promise<string> {
+/**
+ * QP-5 (docs/architecture/QP5_RECONCILIATION_DECISION.md, D1/D9/section 8) -
+ * `parentStrategyId`, when supplied, is a best-effort lineage annotation
+ * only - never a precondition for persisting/reusing the Strategy itself.
+ * Re-verified against `userId` here (never trusted from the caller
+ * blindly, per the locked ownership rule) - an invalid, foreign, or
+ * stale id is silently treated as "no parent" rather than failing the
+ * whole compile+persist attempt, the same "a best-effort side detail
+ * must never block the primary operation" discipline
+ * services/algo-test/quant-chat-preview.service.ts's own header comment
+ * already established for QP-3. Only ever set on the `create` branch -
+ * an existing row's parent, like its artifact/name/origin, is NEVER
+ * rewritten by a later recompile (see this function's own immutability
+ * doc comment above).
+ */
+async function persistAiStrategy(userId: string, spec: StrategySpec, parentStrategyId?: string): Promise<string> {
   const versionRecord: StrategyVersionRecord = freezeStrategyVersion(spec, Date.now());
+  let verifiedParentId: string | undefined;
+  if (parentStrategyId) {
+    const parentRow = await prisma.strategy.findFirst({ where: { id: parentStrategyId, userId } });
+    verifiedParentId = parentRow?.id;
+  }
   const row = await prisma.strategy.upsert({
     where: { userId_strategyId: { userId, strategyId: spec.identity.strategyId } },
     create: {
@@ -502,10 +522,12 @@ async function persistAiStrategy(userId: string, spec: StrategySpec): Promise<st
       origin: "ai-generated",
       name: spec.identity.name,
       artifact: versionRecord as unknown as object,
+      ...(verifiedParentId ? { parentStrategyId: verifiedParentId } : {}),
     },
-    // Deliberately empty - an existing row's artifact/name/origin are
-    // NEVER touched by a later recompile, only `updatedAt` (Prisma's own
-    // @updatedAt still bumps on an update() call with no other fields).
+    // Deliberately empty - an existing row's artifact/name/origin/parent
+    // are NEVER touched by a later recompile, only `updatedAt` (Prisma's
+    // own @updatedAt still bumps on an update() call with no other
+    // fields).
     update: {},
   });
   return row.id;
@@ -958,7 +980,7 @@ export const algoTestService = {
     // of what happens to THIS run next (RANGE_TOO_LARGE, a DATA_VALID
     // failure below, or a genuine completed run) - persist/reuse the
     // Strategy row now, once, so every branch below can attach it.
-    const strategyRefId = await persistAiStrategy(userId, compilation.compiledSpec);
+    const strategyRefId = await persistAiStrategy(userId, compilation.compiledSpec, request.parentStrategyId);
 
     // P4.4 Phase C - now that compilation succeeded and `timeframe` is a
     // real, known engine Timeframe, the deferred range-vs-cap check (see
@@ -994,6 +1016,7 @@ export const algoTestService = {
         parameters: { intent: request.intent },
         compiledStrategy,
         strategyHash,
+        strategyRefId,
         symbol,
         timeframe,
         startTime: request.startTime,
@@ -1070,6 +1093,7 @@ export const algoTestService = {
         lifecycle,
         compiledStrategy,
         strategyHash,
+        strategyRefId,
         analytics: buildAnalyticsView(trades, equityCurve, metrics),
         createdAt: row.createdAt.toISOString(),
       };
@@ -1102,6 +1126,7 @@ export const algoTestService = {
         parameters: { intent: request.intent },
         compiledStrategy,
         strategyHash,
+        strategyRefId,
         symbol,
         timeframe,
         startTime: request.startTime,
