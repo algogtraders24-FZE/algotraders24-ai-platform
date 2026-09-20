@@ -11,6 +11,10 @@ import { nowPaymentsProvider } from "@/services/billing/providers/NowPaymentsPro
 import { PaymentProviderError } from "@/lib/payments/errors";
 import { subscriptionActionService } from "@/services/billing/SubscriptionActionService";
 import { isPlanId } from "@/config/plan-limits";
+import { prisma } from "@/lib/prisma";
+import { issueLicenseForPurchase } from "@/services/licensing/licenseService";
+import { sendPurchaseConfirmationEmail, sendLicenseIssuanceFailureAlert } from "@/services/notifications/EmailService";
+import type { PlatformName } from "@/types/marketplace-factory";
 
 const FINAL_SUCCESS_STATUSES = new Set(["finished", "confirmed"]);
 
@@ -58,20 +62,99 @@ export const POST = withContext(async (req, ctx) => {
 
   const body = payload as { payment_status?: string; order_id?: string; payment_id?: string };
   if (body.payment_status && body.order_id && FINAL_SUCCESS_STATUSES.has(body.payment_status)) {
-    const parsed = parseOrderId(body.order_id);
-    if (parsed) {
+    if (body.order_id.startsWith("mkt_")) {
+      const intentId = body.order_id.slice("mkt_".length);
+      const paymentId = body.payment_id;
       try {
-        const now = new Date();
-        await subscriptionActionService.activateFromPayment({
-          userId: parsed.userId,
-          planId: parsed.planId,
-          provider: "nowpayments",
-          currentPeriodStart: now,
-          currentPeriodEnd: addMonths(now, parsed.cycle === "yearly" ? 12 : 1),
-          nowPaymentsInvoiceId: body.payment_id,
-        });
+        if (!paymentId) throw new Error("NOWPayments IPN missing payment_id - cannot use as an idempotency key");
+
+        const intent = await prisma.marketplacePurchaseIntent.findUnique({ where: { id: intentId } });
+        if (intent) {
+          // providerRef (paymentId) is the real idempotency guarantee -
+          // issueLicenseForPurchase's Purchase.providerRef @unique
+          // constraint makes a retried IPN for the same payment a no-op
+          // duplicate return, mirroring the Stripe webhook's own pattern
+          // (session.id) exactly - see that function's header comment.
+          let result: Awaited<ReturnType<typeof issueLicenseForPurchase>>;
+          try {
+            result = await issueLicenseForPurchase({
+              buyerId: intent.buyerId,
+              marketplaceListingId: intent.marketplaceListingId,
+              tradingSystemId: intent.tradingSystemId,
+              versionId: intent.versionId,
+              releaseId: intent.releaseId,
+              platform: intent.platform as PlatformName,
+              amount: intent.amount,
+              currency: intent.currency,
+              expiresAt: null,
+              provider: "nowpayments",
+              providerRef: paymentId,
+            });
+          } catch (issueError) {
+            // The buyer's crypto payment already confirmed on-chain at this
+            // point - alert the team rather than silently leaving a
+            // confirmed payment with no license, same as the Stripe path.
+            try {
+              const buyer = await prisma.user.findUnique({ where: { id: intent.buyerId }, select: { email: true } });
+              await sendLicenseIssuanceFailureAlert({
+                buyerEmail: buyer?.email ?? intent.buyerId,
+                tradingSystemId: intent.tradingSystemId,
+                amount: intent.amount,
+                currency: intent.currency,
+                providerRef: paymentId,
+                errorMessage: issueError instanceof Error ? issueError.message : String(issueError),
+              });
+            } catch (alertError) {
+              console.error("[webhook:nowpayments] license issuance failure alert also failed:", alertError);
+            }
+            throw issueError;
+          }
+
+          await prisma.marketplacePurchaseIntent.update({
+            where: { id: intent.id },
+            data: { status: "CONSUMED", consumedAt: new Date() },
+          });
+
+          if (!result.duplicate) {
+            try {
+              const [buyer, listing] = await Promise.all([
+                prisma.user.findUnique({ where: { id: intent.buyerId }, select: { email: true, name: true } }),
+                prisma.marketplaceListing.findUnique({ where: { id: intent.marketplaceListingId }, select: { title: true } }),
+              ]);
+              if (buyer) {
+                await sendPurchaseConfirmationEmail({
+                  to: buyer.email,
+                  buyerName: buyer.name || "there",
+                  productName: listing?.title ?? intent.tradingSystemId,
+                  amount: intent.amount,
+                  currency: intent.currency,
+                  licenseId: result.license.id,
+                });
+              }
+            } catch (emailError) {
+              console.error("[webhook:nowpayments] purchase confirmation email failed:", emailError);
+            }
+          }
+        }
       } catch {
         return ApiResponse.error({ code: "WEBHOOK_PROCESSING_FAILED", message: "Could not apply IPN event" }, ctx.requestId, 500, ctx.startedAt);
+      }
+    } else {
+      const parsed = parseOrderId(body.order_id);
+      if (parsed) {
+        try {
+          const now = new Date();
+          await subscriptionActionService.activateFromPayment({
+            userId: parsed.userId,
+            planId: parsed.planId,
+            provider: "nowpayments",
+            currentPeriodStart: now,
+            currentPeriodEnd: addMonths(now, parsed.cycle === "yearly" ? 12 : 1),
+            nowPaymentsInvoiceId: body.payment_id,
+          });
+        } catch {
+          return ApiResponse.error({ code: "WEBHOOK_PROCESSING_FAILED", message: "Could not apply IPN event" }, ctx.requestId, 500, ctx.startedAt);
+        }
       }
     }
   }

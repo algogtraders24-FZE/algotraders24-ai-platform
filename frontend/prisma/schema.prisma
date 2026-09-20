@@ -1329,6 +1329,36 @@ model Activation {
   @@map("activations")
 }
 
+// NOWPayments marketplace purchase support: unlike Stripe Checkout (whose
+// session carries all metadata straight through to the webhook),
+// NOWPayments' IPN callback returns only order_id/payment_id/status - no
+// room for buyer/listing/release context. This row holds that context
+// between invoice creation and IPN confirmation; order_id sent to
+// NOWPayments is `mkt_<this row's id>`, so the webhook looks the context
+// back up rather than trusting anything client-supplied. consumedAt makes
+// issueLicenseForPurchase idempotent against IPN retries - purely
+// additive, zero changes to Purchase/Entitlement/License or the Stripe path.
+model MarketplacePurchaseIntent {
+  id                   String    @id @default(cuid())
+  buyerId              String
+  marketplaceListingId String
+  tradingSystemId      String
+  versionId            String
+  platform             String
+  releaseId            String
+  amount               Float
+  currency             String    @default("USD")
+  status               String    @default("PENDING") // PENDING|CONSUMED|EXPIRED
+  nowPaymentsInvoiceId String?
+  consumedAt           DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([buyerId])
+  @@index([status])
+  @@map("marketplace_purchase_intents")
+}
+
 // ── Sprint M12 branding follow-on: real Evidence/Validation/Risk/Trust
 // storage, replacing the flat-file convention (data/marketplace-evidence/
 // *.json) two things depended on: mt5EvidenceAdapter.ts's discoverMt5Evidence
