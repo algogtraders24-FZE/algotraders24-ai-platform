@@ -14,6 +14,12 @@ import { nowPaymentsProvider } from "@/services/billing/providers/NowPaymentsPro
 import { PaymentProviderError } from "@/lib/payments/errors";
 import { PUBLICLY_VISIBLE_STATES } from "@/types/marketplace";
 
+// PAY-4C - same region pin as ../checkout/route.ts (Stripe): production
+// smoke testing found the Edge Middleware -> Node function region handoff
+// intermittently returning a raw platform 502 despite this handler
+// completing successfully. Pinning removes that cross-region hop.
+export const preferredRegion = "iad1";
+
 function listingIdFromPath(reqPath: string): string | undefined {
   const segments = reqPath.split("/").filter(Boolean);
   const idx = segments.indexOf("listings");
