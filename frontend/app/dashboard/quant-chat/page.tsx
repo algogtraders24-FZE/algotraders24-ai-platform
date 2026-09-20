@@ -47,6 +47,27 @@
 // compile exists, not only immediately after one. In-memory only
 // (`backtestResult`) - no persistence beyond what compileAndRunAiStrategy
 // already writes to AlgoTestRun itself.
+//
+// QP-5 (docs/architecture/QP5_RECONCILIATION_DECISION.md) - Strategy
+// lineage. `latestPersistedStrategyId` is this conversation's own
+// most-recently-persisted Strategy.id (D2: set only on a SUCCESSFUL Run
+// Backtest, never on MODIFY - MODIFY stays purely in-memory, exactly as
+// QP-2 already locked). It is sent as `parentStrategyId` on the NEXT Run
+// Backtest so the server can link a semantically-new Strategy artifact to
+// whichever one preceded it in this conversation - the server remains
+// authoritative (re-verifies ownership, ignores an invalid id) per the
+// locked contract; the client only ever remembers an opaque id, never
+// reconstructs identity itself. Kept as page-local state (the same
+// pattern QP-4 already established for `backtestResult`), NOT added to
+// QuantChatConversationState itself - that type round-trips through
+// quant-strategy-builder.service.ts's compile-only MODIFY endpoint, which
+// has no reason to read or write a Run-Backtest-only concern, and D3
+// locked that QP-2's in-memory contract stays untouched.
+// `backtestResultIntent` records which `currentIntent` the currently-shown
+// `backtestResult` actually ran against, so the UI can tell (D5) whether
+// the conversation has since moved on - mirroring QP-3's own already-
+// validated "keep it visible, but explicitly re-label" resolution to the
+// identical staleness problem for the chart preview.
 import { useState } from "react";
 import ChatWindow from "@/components/ai/ChatWindow";
 import ChatInput from "@/components/ai/ChatInput";
@@ -75,8 +96,10 @@ export default function QuantChatPage() {
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<PreviewState>(undefined);
   const [backtestResult, setBacktestResult] = useState<AlgoTestRunView | undefined>(undefined);
+  const [backtestResultIntent, setBacktestResultIntent] = useState<string | undefined>(undefined);
   const [backtestRunning, setBacktestRunning] = useState(false);
   const [backtestError, setBacktestError] = useState<string | null>(null);
+  const [latestPersistedStrategyId, setLatestPersistedStrategyId] = useState<string | undefined>(undefined);
 
   function pushMessage(msg: DisplayMessage) {
     setMessages((prev) => [...prev, msg]);
@@ -86,10 +109,17 @@ export default function QuantChatPage() {
     if (backtestRunning) return; // prevent duplicate submissions
     setBacktestRunning(true);
     setBacktestError(null);
+    const intentAtRequestTime = conversationState.currentIntent;
     try {
-      const request = buildQuantChatBacktestRequest(conversationState.currentIntent);
+      const request = buildQuantChatBacktestRequest(intentAtRequestTime, new Date(), latestPersistedStrategyId);
       const run = await compileAndRunAiStrategy(request);
       setBacktestResult(run);
+      setBacktestResultIntent(intentAtRequestTime);
+      // D2/D9 - only a genuinely successful run advances the conversation's
+      // own lineage pointer; a failed run (compile or execution) leaves
+      // latestPersistedStrategyId exactly as it was, never corrupted with
+      // an id from a run that didn't actually complete.
+      if (run.status === "completed" && run.strategyRefId) setLatestPersistedStrategyId(run.strategyRefId);
     } catch (err) {
       setBacktestError(err instanceof Error ? err.message : "Something went wrong running this backtest.");
     } finally {
@@ -189,6 +219,16 @@ export default function QuantChatPage() {
       {(backtestResult || backtestError) && (
         <div className="border-b border-border px-4 py-3">
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-text-3">Backtest result</p>
+          {/* QP-5 (D5) - the result itself is never cleared or replaced by a
+              later MODIFY (it remains a genuinely accurate record of what
+              was actually run, traceable via its own strategyRefId/
+              strategyHash) - only its label changes, once the conversation's
+              currentIntent has diverged from whatever intent this specific
+              result was produced from. Mirrors QP-3's own already-validated
+              caption pattern for the chart preview's identical problem. */}
+          {backtestResult && backtestResultIntent !== undefined && backtestResultIntent !== conversationState.currentIntent && (
+            <p className="mb-2 text-[11px] text-text-3">This backtest reflects the previous strategy. Run Backtest again to test the current modified strategy.</p>
+          )}
           {backtestError && <p className="text-xs text-danger">{backtestError}</p>}
           {backtestResult && <BacktestResultCard run={backtestResult} />}
         </div>

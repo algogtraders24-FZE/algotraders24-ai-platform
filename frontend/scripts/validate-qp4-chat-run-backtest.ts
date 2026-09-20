@@ -81,12 +81,13 @@ async function main(): Promise<void> {
     assert.ok(/if \(backtestRunning\) return;/.test(fnBody));
   });
 
-  await test("the execution input is the CURRENT accumulated intent, never a stale compiledSpec - buildQuantChatBacktestRequest is called with conversationState.currentIntent", () => {
+  await test("the execution input is the CURRENT accumulated intent, never a stale compiledSpec - buildQuantChatBacktestRequest is called with a value captured fresh from conversationState.currentIntent (QP-5 - captured into intentAtRequestTime so the same value can also be recorded as backtestResultIntent for staleness labeling, still read fresh at click time, never a stale compiledSpec)", () => {
     const page = stripLineComments(readSource("../app/dashboard/quant-chat/page.tsx"));
-    assert.ok(page.includes("buildQuantChatBacktestRequest(conversationState.currentIntent)"));
-    // The request builder itself must never be handed a compiledSpec/compiledIR - only a plain intent string.
     const fnStart = page.indexOf("async function handleRunBacktest()");
     const fnBody = page.slice(fnStart, page.indexOf("\n  }", fnStart));
+    assert.ok(/const intentAtRequestTime = conversationState\.currentIntent;/.test(fnBody));
+    assert.ok(/buildQuantChatBacktestRequest\(intentAtRequestTime,/.test(fnBody));
+    // The request builder itself must never be handed a compiledSpec/compiledIR - only a plain intent string.
     assert.ok(!fnBody.includes("compiledSpec"));
     assert.ok(!fnBody.includes("compiledIR"));
   });
@@ -114,10 +115,10 @@ async function main(): Promise<void> {
     assert.ok(clientWrapper.includes("${BASE}/ai-runs"));
   });
 
-  await test("the existing compileAndRunAiStrategy() service function itself is untouched - it is the exact same canonical execution path (compileNaturalLanguageStrategy -> persistAiStrategy -> runBacktest) discovery already traced", () => {
+  await test("the existing compileAndRunAiStrategy() service function itself is still the exact same canonical execution path (compileNaturalLanguageStrategy -> persistAiStrategy -> runBacktest) discovery already traced - QP-5 only extended persistAiStrategy's own call with an additional optional lineage argument, never a different persistence path", () => {
     const service = readSource("../services/algo-test/algo-test.service.ts");
     assert.ok(service.includes("async compileAndRunAiStrategy(userId: string, request: AiCompileAndRunRequest"));
-    assert.ok(service.includes("persistAiStrategy(userId, compilation.compiledSpec)"));
+    assert.ok(/persistAiStrategy\(userId, compilation\.compiledSpec(,|\))/.test(service));
     assert.ok(service.includes("await runBacktest("));
   });
 

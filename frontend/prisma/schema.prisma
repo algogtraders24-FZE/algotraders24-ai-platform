@@ -1508,10 +1508,30 @@ model Strategy {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  // QP-5 (docs/architecture/QP5_RECONCILIATION_DECISION.md, D1) - a
+  // nullable self-relation, not a second version/history table. Each
+  // Strategy row is still exactly what it always was - one immutable,
+  // hash-identified artifact (never mutated after creation, see
+  // persistAiStrategy()'s own `update: {}`). `parentStrategyId` only ever
+  // records "which OTHER already-persisted Strategy artifact was this
+  // conversation's most recent one, at the moment a semantically
+  // DIFFERENT strategy was persisted next" - set exactly once, at create
+  // time, by persistAiStrategy() itself, never edited afterward. NULL
+  // means a root artifact - every pre-QP-5 row is (and stays) a root, and
+  // so is any future first-ever persisted artifact in a new conversation.
+  // `onDelete: SetNull` mirrors AlgoTestRun.strategyRefId's own existing
+  // convention on this exact model (see the CreateTable migration comment
+  // above it) - a deleted parent must never cascade-delete its children;
+  // they simply become roots.
+  parentStrategyId String?
+  parent            Strategy?  @relation("StrategyLineage", fields: [parentStrategyId], references: [id], onDelete: SetNull)
+  children          Strategy[] @relation("StrategyLineage")
+
   runs AlgoTestRun[]
 
   @@unique([userId, strategyId])
   @@index([userId, createdAt])
+  @@index([parentStrategyId])
 }
 
 // P3.2B - Algo Testing (Pro). One row per deterministic backtest run
