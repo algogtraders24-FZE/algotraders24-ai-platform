@@ -1,0 +1,46 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19"/>
+      <stop offset="100%" stop-color="#171008"/>
+    </linearGradient>
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e7c86b"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="34%" r="46%">
+      <stop offset="0%" stop-color="#d4af37" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="#d4af37" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff3d1"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="url(#bg)"/>
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="none" stroke="url(#borderGrad)" stroke-width="6"/>
+
+  <ellipse cx="256" cy="176" rx="150" ry="118" fill="url(#glow)"/>
+
+  <!-- shield blocking a volatility spike -->
+  <g filter="url(#softGlow)">
+    <path d="M 256 70 L 340 105 L 340 175 C 340 225 305 255 256 275 C 207 255 172 225 172 175 L 172 105 Z"
+          fill="url(#shieldGrad)" opacity="0.95"/>
+    <path d="M 256 70 L 340 105 L 340 175 C 340 225 305 255 256 275 C 207 255 172 225 172 175 L 172 105 Z"
+          fill="none" stroke="#2c1a02" stroke-width="2" opacity="0.3"/>
+
+    <!-- jagged volatility spike, snapped at the shield face -->
+    <path d="M 100 200 L 150 160 L 175 190 L 200 130" fill="none" stroke="#ef4444" stroke-width="6" stroke-linecap="round" opacity="0.9"/>
+    <circle cx="200" cy="130" r="8" fill="#ef4444"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="256" y="330" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="800" letter-spacing="1" fill="#ffffff">VOLATILITY</text>
+  <text x="256" y="366" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="27" font-weight="800" letter-spacing="1" fill="url(#borderGrad)">SHIELD</text>
+  <text x="256" y="398" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" letter-spacing="2" fill="#94a3b8">CIRCUIT BREAKER · SPIKE PROTECTION</text>
+</svg>

@@ -1,0 +1,42 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19"/>
+      <stop offset="100%" stop-color="#0f1a12"/>
+    </linearGradient>
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e7c86b"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="34%" r="46%">
+      <stop offset="0%" stop-color="#4caf50" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="#4caf50" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#e7c86b"/>
+      <stop offset="100%" stop-color="#4caf50"/>
+    </linearGradient>
+    <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="url(#bg)"/>
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="none" stroke="url(#borderGrad)" stroke-width="6"/>
+
+  <ellipse cx="256" cy="176" rx="150" ry="118" fill="url(#glow)"/>
+
+  <!-- multi-timeframe swing wave: a slow macro wave behind a faster entry wave -->
+  <g filter="url(#softGlow)">
+    <path d="M 100 200 Q 150 120 200 180 T 300 160 T 412 190" fill="none" stroke="#94a3b8" stroke-width="4" opacity="0.5"/>
+    <path d="M 100 190 Q 140 150 180 190 T 260 150 T 340 195 T 412 150" fill="none" stroke="url(#waveGrad)" stroke-width="6"/>
+    <circle cx="340" cy="195" r="8" fill="#4caf50"/>
+    <circle cx="412" cy="150" r="8" fill="#e7c86b"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="256" y="320" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="38" font-weight="800" letter-spacing="1" fill="#ffffff">CTRADER</text>
+  <text x="256" y="356" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="800" letter-spacing="0.5" fill="url(#borderGrad)">SWING CBOT</text>
+  <text x="256" y="390" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" letter-spacing="2" fill="#94a3b8">MULTI-TIMEFRAME EMA/ADX · CALGO</text>
+</svg>

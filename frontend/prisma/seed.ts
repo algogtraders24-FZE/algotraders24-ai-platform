@@ -11,16 +11,22 @@ const prisma = new PrismaClient({ adapter });
 
 async function seedPlans() {
   const plans = [
-    { id: "free", name: "Free", price: 0, interval: "month", sortOrder: 1, features: ["500 AI credits / month", "1 AI agent", "2 automations", "10 knowledge documents", "100 MB storage", "Community support"] },
-    { id: "pro", name: "Pro", price: 29, interval: "month", sortOrder: 2, features: ["10,000 AI credits / month", "5 AI agents", "25 automations", "200 knowledge documents", "5 GB storage", "API access", "3 team members"] },
-    { id: "elite", name: "Elite", price: 99, interval: "month", sortOrder: 3, features: ["50,000 AI credits / month", "20 AI agents", "100 automations", "1,000 knowledge documents", "25 GB storage", "API access", "Priority support", "Custom branding", "10 team members"] },
-    { id: "enterprise", name: "Enterprise", price: 499, interval: "month", sortOrder: 4, features: ["500,000 AI credits / month", "100 AI agents", "1,000 automations", "Unlimited knowledge documents", "500 GB storage", "API access", "Dedicated support & SLA", "Custom branding", "100 team members"] },
+    // Quant Pro production launch closure - Quant Pro (Quant Chat + Algo
+    // Testing Pro) is included with every paid plan, per the locked
+    // commercial decision. Free intentionally gets no line here - its
+    // features list is an included-only UX (a checkmark per item); the
+    // existing QuantProUpgradeGate CTA on /dashboard/quant-chat already
+    // makes the paid-plan requirement clear for Free-plan users.
+    { id: "free", name: "Free", priceMonthly: 0, priceYearly: 0, sortOrder: 1, features: ["500 AI credits / month", "1 AI agent", "2 automations", "10 knowledge documents", "100 MB storage", "Community support"] },
+    { id: "pro", name: "Pro", priceMonthly: 29, priceYearly: 279, sortOrder: 2, features: ["10,000 AI credits / month", "5 AI agents", "25 automations", "200 knowledge documents", "5 GB storage", "API access", "3 team members", "Quant Pro — AI strategy builder + backtesting"] },
+    { id: "elite", name: "Elite", priceMonthly: 99, priceYearly: 949, sortOrder: 3, features: ["50,000 AI credits / month", "20 AI agents", "100 automations", "1,000 knowledge documents", "25 GB storage", "API access", "Priority support", "Custom branding", "10 team members", "Quant Pro — AI strategy builder + backtesting"] },
+    { id: "enterprise", name: "Enterprise", priceMonthly: 499, priceYearly: 4790, sortOrder: 4, features: ["500,000 AI credits / month", "100 AI agents", "1,000 automations", "Unlimited knowledge documents", "500 GB storage", "API access", "Dedicated support & SLA", "Custom branding", "100 team members", "Quant Pro — AI strategy builder + backtesting"] },
   ];
 
   for (const p of plans) {
     await prisma.plan.upsert({
       where: { id: p.id },
-      update: { name: p.name, price: p.price, interval: p.interval, sortOrder: p.sortOrder, features: p.features, isActive: true },
+      update: { name: p.name, priceMonthly: p.priceMonthly, priceYearly: p.priceYearly, sortOrder: p.sortOrder, features: p.features, isActive: true },
       create: { ...p, isActive: true },
     });
   }

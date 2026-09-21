@@ -2,7 +2,7 @@
 // Sprint D2.4.A1 - the Company nav dropdown's landing page.
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Building2, Compass, Mail, ShieldAlert } from "lucide-react";
+import { Sparkles, Building2, Compass, Mail, ShieldAlert } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
@@ -15,6 +15,7 @@ export const metadata: Metadata = {
 };
 
 const LINKS: { title: string; description: string; href: string; icon: LucideIcon }[] = [
+  { title: "Our Story", description: "From algorithmic trading discipline to an AI trading intelligence platform.", href: "/company/story", icon: Sparkles },
   { title: "About", description: "Who we are and what the platform does.", href: "/company/about", icon: Building2 },
   { title: "Vision", description: "Why we're building this, and where it's going.", href: "/company/vision", icon: Compass },
   { title: "Contact", description: "Real, working ways to reach us.", href: "/company/contact", icon: Mail },

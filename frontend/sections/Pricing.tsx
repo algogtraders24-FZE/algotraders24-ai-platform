@@ -33,6 +33,7 @@ function featuresFor(id: (typeof PLAN_IDS)[number]): string[] {
   if (p.apiAccess) feats.push("API access");
   if (p.prioritySupport) feats.push("Priority support");
   if (p.customBranding) feats.push("Custom branding");
+  if (p.quantPro) feats.push("Quant Pro — AI strategy builder + backtesting");
   return feats;
 }
 

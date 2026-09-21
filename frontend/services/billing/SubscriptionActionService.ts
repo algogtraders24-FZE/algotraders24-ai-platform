@@ -72,7 +72,7 @@ export class SubscriptionActionService {
     const plan = await prisma.plan.findUnique({ where: { id: targetPlanId } });
     if (!plan) throw new InvalidPlanError(targetPlanId);
 
-    if (plan.price > 0) {
+    if (plan.priceMonthly > 0) {
       throw new PaymentRequiredError(
         `Switching to ${plan.name} requires payment processing, which is not yet connected. Contact support to complete this change.`
       );
