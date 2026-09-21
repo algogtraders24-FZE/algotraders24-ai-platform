@@ -1,0 +1,42 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19"/>
+      <stop offset="100%" stop-color="#1a1010"/>
+    </linearGradient>
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e7c86b"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="34%" r="46%">
+      <stop offset="0%" stop-color="#ef4444" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="#ef4444" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="starGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f3f4f6"/>
+      <stop offset="100%" stop-color="#9ca3af"/>
+    </linearGradient>
+    <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="url(#bg)"/>
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="none" stroke="url(#borderGrad)" stroke-width="6"/>
+
+  <ellipse cx="256" cy="176" rx="150" ry="118" fill="url(#glow)"/>
+
+  <!-- shuriken (momentum star) with a directional streak -->
+  <g filter="url(#softGlow)" transform="translate(256,168)">
+    <path d="M 0 -70 L 18 -18 L 70 0 L 18 18 L 0 70 L -18 18 L -70 0 L -18 -18 Z" fill="url(#starGrad)"/>
+    <circle cx="0" cy="0" r="16" fill="#ef4444"/>
+    <line x1="40" y1="-40" x2="85" y2="-85" stroke="#ef4444" stroke-width="6" stroke-linecap="round" opacity="0.85"/>
+    <path d="M 78 -92 L 92 -78 L 82 -68 Z" fill="#ef4444" opacity="0.85"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="256" y="320" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="38" font-weight="800" letter-spacing="1" fill="#ffffff">NINJA</text>
+  <text x="256" y="356" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="800" letter-spacing="0.5" fill="url(#borderGrad)">MOMENTUM BOT</text>
+  <text x="256" y="390" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" letter-spacing="2" fill="#94a3b8">RSI + MACD · FUTURES · NINJATRADER</text>
+</svg>

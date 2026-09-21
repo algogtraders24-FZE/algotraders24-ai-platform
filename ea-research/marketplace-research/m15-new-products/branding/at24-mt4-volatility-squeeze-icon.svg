@@ -1,0 +1,42 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19"/>
+      <stop offset="100%" stop-color="#151020"/>
+    </linearGradient>
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e7c86b"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="34%" r="46%">
+      <stop offset="0%" stop-color="#c084fc" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="#c084fc" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="url(#bg)"/>
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="none" stroke="url(#borderGrad)" stroke-width="6"/>
+
+  <ellipse cx="256" cy="176" rx="150" ry="118" fill="url(#glow)"/>
+
+  <!-- Bollinger bands squeezing then expanding, with a breakout candle at the release point -->
+  <g filter="url(#softGlow)">
+    <path d="M 100 100 C 180 130, 220 150, 270 158 C 320 150, 370 110, 410 70" fill="none" stroke="#c084fc" stroke-width="3.5" opacity="0.85"/>
+    <path d="M 100 220 C 180 190, 220 172, 270 165 C 320 172, 370 205, 410 245" fill="none" stroke="#c084fc" stroke-width="3.5" opacity="0.85"/>
+
+    <rect x="255" y="150" width="16" height="26" rx="2" fill="#94a3b8"/>
+    <line x1="263" y1="144" x2="263" y2="182" stroke="#94a3b8" stroke-width="3"/>
+
+    <rect x="330" y="90" width="22" height="60" rx="3" fill="#3fb27f"/>
+    <line x1="341" y1="75" x2="341" y2="162" stroke="#3fb27f" stroke-width="5"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="256" y="320" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" letter-spacing="1" fill="#ffffff">MT4 VOLATILITY</text>
+  <text x="256" y="356" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" letter-spacing="1" fill="url(#borderGrad)">SQUEEZE</text>
+  <text x="256" y="390" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" letter-spacing="2" fill="#94a3b8">BOLLINGER BAND BREAKOUT · MT4</text>
+</svg>

@@ -1,0 +1,48 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19"/>
+      <stop offset="100%" stop-color="#0f1a17"/>
+    </linearGradient>
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e7c86b"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="34%" r="46%">
+      <stop offset="0%" stop-color="#2962ff" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="#2962ff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="url(#bg)"/>
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="none" stroke="url(#borderGrad)" stroke-width="6"/>
+
+  <ellipse cx="256" cy="176" rx="150" ry="118" fill="url(#glow)"/>
+
+  <!-- Donchian channel (two parallel bands) with a candle breaking the upper band -->
+  <g filter="url(#softGlow)">
+    <line x1="110" y1="120" x2="402" y2="120" stroke="#2962ff" stroke-width="3" stroke-dasharray="9 7" opacity="0.8"/>
+    <line x1="110" y1="220" x2="402" y2="220" stroke="#2962ff" stroke-width="3" stroke-dasharray="9 7" opacity="0.8"/>
+
+    <rect x="140" y="175" width="16" height="34" rx="2" fill="#5b7a9c"/>
+    <line x1="148" y1="167" x2="148" y2="213" stroke="#5b7a9c" stroke-width="4"/>
+    <rect x="180" y="160" width="16" height="40" rx="2" fill="#5b7a9c"/>
+    <line x1="188" y1="150" x2="188" y2="208" stroke="#5b7a9c" stroke-width="4"/>
+    <rect x="220" y="145" width="16" height="45" rx="2" fill="#94a3b8"/>
+    <line x1="228" y1="135" x2="228" y2="195" stroke="#94a3b8" stroke-width="4"/>
+
+    <rect x="270" y="70" width="22" height="90" rx="3" fill="#3fb27f"/>
+    <line x1="281" y1="55" x2="281" y2="172" stroke="#3fb27f" stroke-width="5"/>
+    <rect x="320" y="48" width="22" height="72" rx="3" fill="#3fb27f"/>
+    <line x1="331" y1="35" x2="331" y2="130" stroke="#3fb27f" stroke-width="5"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="256" y="320" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="38" font-weight="800" letter-spacing="1" fill="#ffffff">TV BREAKOUT</text>
+  <text x="256" y="356" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="800" letter-spacing="0.5" fill="url(#borderGrad)">STRATEGY</text>
+  <text x="256" y="390" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" letter-spacing="2" fill="#94a3b8">DONCHIAN CHANNEL · ATR RISK · TRADINGVIEW</text>
+</svg>
