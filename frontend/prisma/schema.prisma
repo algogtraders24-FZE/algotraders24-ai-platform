@@ -1963,3 +1963,21 @@ model OptimizationCandidate {
   @@unique([experimentId, candidateHash])
   @@index([experimentId, status])
 }
+
+// Sprint R1.3 - Signup abuse hit (200+ scripted signups in a few hours, zero
+// confirmations) with no protection anywhere on the unauthenticated
+// email-sending actions. This table backs a DB-persisted IP/email rate limit
+// (serverless functions have no shared memory, so an in-process limiter would
+// reset every cold start) for signup, resend-verification and
+// forgot-password. Rows are cheap and short-lived - swept on each check.
+model SignupAttempt {
+  id        String   @id @default(cuid())
+  ip        String
+  email     String?
+  action    String
+  createdAt DateTime @default(now())
+
+  @@index([ip, createdAt])
+  @@index([email, createdAt])
+  @@map("signup_attempts")
+}
