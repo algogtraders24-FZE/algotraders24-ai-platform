@@ -8,6 +8,9 @@ import { AuthService } from "@/services/auth/AuthService";
 import { SessionService } from "@/services/auth/SessionService";
 import { analyticsEventService } from "@/services/analytics/AnalyticsEventService";
 import { sendWelcomeEmail, sendPasswordChangedEmail } from "@/services/notifications/EmailService";
+import { getClientIp } from "@/lib/security/getClientIp";
+import { checkSignupRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/security/signupRateLimit";
+import { verifyTurnstileToken } from "@/lib/security/turnstile";
 
 export interface ActionState {
   error?: string;
@@ -24,6 +27,9 @@ function safeRedirect(target: string | null | undefined, fallback: string): stri
   return target;
 }
 
+const SIGNUP_SUCCESS_MESSAGE =
+  "Account created. Please check your email to verify your address, then log in.";
+
 export async function signUpAction(
   _prev: ActionState,
   formData: FormData
@@ -32,11 +38,36 @@ export async function signUpAction(
   const password = String(formData.get("password") ?? "");
   const name = String(formData.get("name") ?? "").trim();
 
+  // Honeypot: a hidden field real users never see or fill (components/auth
+  // TurnstileWidget's sibling field in the signup form). Bots that fill every
+  // input get a fake success so they don't learn to skip it - no Supabase
+  // call, no rate-limit row, nothing actually happens.
+  const honeypot = String(formData.get("company") ?? "").trim();
+  if (honeypot) {
+    return { success: true, message: SIGNUP_SUCCESS_MESSAGE };
+  }
+
   if (!email || !password || !name) {
     return { error: "All fields are required." };
   }
   if (password.length < 8) {
     return { error: "Password must be at least 8 characters." };
+  }
+
+  const ip = await getClientIp();
+
+  const rateLimit = await checkSignupRateLimit({ action: "signup", ip, email });
+  if (!rateLimit.allowed) {
+    return { error: RATE_LIMIT_MESSAGE };
+  }
+
+  const turnstileToken = formData.get("cf-turnstile-response");
+  const captchaOk = await verifyTurnstileToken(
+    typeof turnstileToken === "string" ? turnstileToken : null,
+    ip
+  );
+  if (!captchaOk) {
+    return { error: "We couldn't verify you're human. Please try again." };
   }
 
   const result = await AuthService.signUp(email, password, name);
@@ -54,11 +85,7 @@ export async function signUpAction(
     console.error("[auth] welcome email failed:", error);
   }
 
-  return {
-    success: true,
-    message:
-      "Account created. Please check your email to verify your address, then log in.",
-  };
+  return { success: true, message: SIGNUP_SUCCESS_MESSAGE };
 }
 
 export async function signInAction(
@@ -104,6 +131,12 @@ export async function forgotPasswordAction(
   const email = String(formData.get("email") ?? "").trim();
   if (!email) {
     return { error: "Email is required." };
+  }
+
+  const ip = await getClientIp();
+  const rateLimit = await checkSignupRateLimit({ action: "forgot_password", ip, email });
+  if (!rateLimit.allowed) {
+    return { error: RATE_LIMIT_MESSAGE };
   }
 
   const result = await AuthService.forgotPassword(email);
