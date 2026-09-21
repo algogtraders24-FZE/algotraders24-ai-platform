@@ -153,8 +153,19 @@ string AT24_PostJson(const string path, const string bodyJson)
    string url = InpApiBaseUrl + path;
    string headers = "Content-Type: application/json\r\n";
    uchar postData[];
-   StringToCharArray(bodyJson, postData, 0, StringLen(bodyJson), CP_UTF8);
-   ArrayResize(postData, ArraySize(postData) - 1);
+   // Real bug found live (2026-09-22): StringToCharArray's trailing-null
+   // behavior when an explicit count is passed is not guaranteed the same
+   // across MT5 builds. The old code assumed one was always appended and
+   // unconditionally chopped the last byte via ArrayResize(-1) - on a
+   // build where no null was appended, that chop removed the JSON body's
+   // own closing '}' instead, producing invalid JSON the server's
+   // req.json() failed to parse (silently becoming null), which then
+   // reported "licenseId, apiKey, and deviceInfo are required" even
+   // though every field was genuinely present in the real request this
+   // EA sent. Fixed to check the actual trailing byte rather than assume.
+   int n = StringToCharArray(bodyJson, postData, 0, WHOLE_ARRAY, CP_UTF8);
+   if(n > 0 && postData[n - 1] == 0) ArrayResize(postData, n - 1);
+   else if(n != ArraySize(postData)) ArrayResize(postData, n);
 
    uchar result[];
    string resultHeaders;
