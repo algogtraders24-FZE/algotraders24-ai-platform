@@ -48,8 +48,9 @@ export default function NewUserOnboarding({
       <div>
         <h1 className="text-2xl font-bold text-text">Welcome to Algotraders24, {name} &#128075;</h1>
         <p className="mt-1 max-w-2xl text-text-2">
-          Your account is set up. Algotraders24 is built around three modules that work together - pick any one
-          below to get started, there&apos;s no required order.
+          Your account is set up. Here are three good places to start - pick any one below, there&apos;s no
+          required order. The full platform (Quant, Automation, Marketplace, and more) is in the sidebar whenever
+          you&apos;re ready for it.
         </p>
         <p className="mt-1 text-xs text-text-3">
           {email}
