@@ -11,6 +11,7 @@ import { nowPaymentsProvider } from "@/services/billing/providers/NowPaymentsPro
 import { PaymentProviderError } from "@/lib/payments/errors";
 import { isPlanId } from "@/config/plan-limits";
 import { prisma } from "@/lib/prisma";
+import { getPlanCyclePrice } from "@/services/billing/planPricing";
 
 export const POST = withContext(async (req, ctx) => {
   const sessionUser = await getUserOrNull();
@@ -34,10 +35,10 @@ export const POST = withContext(async (req, ctx) => {
   const cycle = body.cycle === "yearly" ? "yearly" : "monthly";
 
   const plan = await prisma.plan.findUnique({ where: { id: body.planId } });
-  if (!plan || plan.price <= 0) {
+  if (!plan || plan.priceMonthly <= 0) {
     return ApiResponse.error({ code: "VALIDATION", message: "Plan is not a valid paid plan" }, ctx.requestId, 400, ctx.startedAt);
   }
-  const priceUsd = cycle === "yearly" ? plan.price * 12 : plan.price;
+  const priceUsd = getPlanCyclePrice(plan, cycle);
   const orderId = `${sessionUser.profile.id}:${plan.id}:${cycle}:${Date.now()}`;
 
   try {

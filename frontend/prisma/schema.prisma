@@ -33,16 +33,16 @@ model User {
 }
 
 model Plan {
-  id        String    @id
-  name      String
-  price     Float     @default(0)
-  interval  String    @default("month")
-  features  String[]  @default([])
-  isActive  Boolean   @default(true)
-  sortOrder Int       @default(0)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  id           String    @id
+  name         String
+  priceMonthly Float     @default(0)
+  priceYearly  Float     @default(0)
+  features     String[]  @default([])
+  isActive     Boolean   @default(true)
+  sortOrder    Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
 
   @@index([deletedAt])
 }

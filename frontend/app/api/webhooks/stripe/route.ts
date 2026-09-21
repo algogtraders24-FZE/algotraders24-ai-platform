@@ -38,14 +38,14 @@ async function notifySubscriptionActive(userId: string, planId: string, periodEn
   try {
     const [buyer, plan] = await Promise.all([
       prisma.user.findUnique({ where: { id: userId }, select: { email: true, name: true } }),
-      prisma.plan.findUnique({ where: { id: planId }, select: { name: true, price: true } }),
+      prisma.plan.findUnique({ where: { id: planId }, select: { name: true, priceMonthly: true } }),
     ]);
     if (!buyer || !plan) return;
     await sendSubscriptionActiveEmail({
       to: buyer.email,
       buyerName: buyer.name || "there",
       planName: plan.name,
-      amount: plan.price,
+      amount: plan.priceMonthly,
       currency: "USD",
       periodEnd,
     });

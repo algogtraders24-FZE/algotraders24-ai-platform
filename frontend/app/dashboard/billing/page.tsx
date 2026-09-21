@@ -15,7 +15,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import type { PlanId, PlanChangePreview } from "@/types/billing";
+import type { PlanId, PlanChangePreview, BillingCycle } from "@/types/billing";
 import { billingEngine } from "@/services/billing/BillingEngine";
 import { BillingApi, type PaymentConfig } from "@/services/api/BillingApi";
 import { AnalyticsApi } from "@/services/api/AnalyticsApi";
@@ -45,6 +45,13 @@ export default function BillingPage() {
   const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(null);
   const [checkoutBusy, setCheckoutBusy] = useState<"stripe" | "crypto" | null>(null);
   const [checkoutNotice, setCheckoutNotice] = useState<"success" | "cancel" | null>(null);
+  // Sprint BILLING-03 - the cycle the user actually selected on the
+  // Monthly/Yearly toggle (PricingTable), threaded through to the real
+  // checkout call below. Previously `handleCheckout` derived cycle from the
+  // user's EXISTING subscription instead of this selection, silently
+  // defaulting every new/free user to monthly regardless of what they
+  // picked - see AT24_BILLING02_PRICING_CONTRACT_DECISION_LOCK.md S7.
+  const [selectedCycle, setSelectedCycle] = useState<BillingCycle>("monthly");
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -129,8 +136,9 @@ export default function BillingPage() {
   }, [ready, version]);
 
   const handleSelectPlan = useCallback(
-    (planId: PlanId) => {
+    (planId: PlanId, cycle: BillingCycle = "monthly") => {
       setActionMessage(null);
+      setSelectedCycle(cycle);
       if (!subscription || planId === subscription.planId) {
         setPreview(null);
         return;
@@ -165,18 +173,22 @@ export default function BillingPage() {
       setCheckoutBusy(provider);
       setActionMessage(null);
       try {
-        const cycle: "monthly" | "yearly" = subscription?.billingCycle ?? "monthly";
+        // Sprint BILLING-03 - use the cycle the user actually selected on
+        // the toggle (selectedCycle), not the existing subscription's
+        // cycle - a new/free user has no existing paid cycle to derive
+        // from, and would otherwise always be checked out at monthly
+        // regardless of choosing "Yearly".
         const url =
           provider === "stripe"
-            ? await BillingApi.createCheckoutSession(preview.toPlanId, cycle)
-            : await BillingApi.createCryptoInvoice(preview.toPlanId, cycle);
+            ? await BillingApi.createCheckoutSession(preview.toPlanId, selectedCycle)
+            : await BillingApi.createCryptoInvoice(preview.toPlanId, selectedCycle);
         window.location.href = url;
       } catch (err) {
         setActionMessage(err instanceof Error ? err.message : "Could not start checkout.");
         setCheckoutBusy(null);
       }
     },
-    [preview, subscription],
+    [preview, selectedCycle],
   );
 
   const handleCancel = useCallback(async () => {
@@ -306,7 +318,8 @@ export default function BillingPage() {
               {preview.requiresPayment ? (
                 paymentConfig?.stripeConfigured || paymentConfig?.nowPaymentsConfigured ? (
                   <p className="mt-2 text-text-2">
-                    This plan requires payment - choose a real payment method below to complete it.
+                    This plan requires payment, billed <span className="font-semibold text-text">{selectedCycle}</span> as selected above -
+                    choose a real payment method below to complete it.
                   </p>
                 ) : (
                   <p className="mt-2 text-warning">
