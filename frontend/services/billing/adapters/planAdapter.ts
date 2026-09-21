@@ -15,7 +15,7 @@ export function toPlan(row: ApiPlan): Plan | null {
     id: planId,
     name: row.name,
     description: limits.description,
-    priceMonthly: row.price,
+    priceMonthly: row.priceMonthly,
     priceYearly: limits.priceYearly,
     aiCredits: limits.aiCredits,
     maxAgents: limits.maxAgents,

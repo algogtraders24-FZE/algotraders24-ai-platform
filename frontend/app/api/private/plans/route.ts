@@ -25,8 +25,7 @@ export const GET = withContext(async (_req, ctx) => {
   const items = rows.map((p) => ({
     id: p.id,
     name: p.name,
-    price: p.price,
-    interval: p.interval,
+    priceMonthly: p.priceMonthly,
     features: p.features,
     sortOrder: p.sortOrder,
   }));

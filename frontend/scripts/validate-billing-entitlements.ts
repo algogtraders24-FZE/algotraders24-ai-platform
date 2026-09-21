@@ -107,7 +107,7 @@ async function main(): Promise<void> {
 
     await test("aiMessages: entitlement matches the pro plan's real aiCredits limit", async () => {
       const e = await entitlementService.getEntitlements(user.id, "pro", periodStart, periodEnd);
-      assert.equal(e.aiMessages.limit, proPlan!.price >= 0 ? e.aiMessages.limit : -1); // sanity: limit is a real positive number
+      assert.equal(e.aiMessages.limit, proPlan!.priceMonthly >= 0 ? e.aiMessages.limit : -1); // sanity: limit is a real positive number
       assert.ok(e.aiMessages.limit > 0);
       assert.equal(e.aiMessages.remaining, e.aiMessages.limit - 3);
     });
@@ -185,7 +185,7 @@ async function main(): Promise<void> {
     });
 
     await test("changePlan: a plan priced above $0 throws PaymentRequiredError, never a silent grant", async () => {
-      assert.ok(proPlan!.price > 0, "fixture assumption: pro plan is priced above $0");
+      assert.ok(proPlan!.priceMonthly > 0, "fixture assumption: pro plan is priced above $0");
       await assert.rejects(
         () => subscriptionActionService.changePlan(user.id, "pro"),
         PaymentRequiredError,
@@ -197,7 +197,7 @@ async function main(): Promise<void> {
     });
 
     await test("changePlan: a $0 plan is a real, persisted change (no payment needed)", async () => {
-      assert.equal(freePlan!.price, 0, "fixture assumption: free plan is $0");
+      assert.equal(freePlan!.priceMonthly, 0, "fixture assumption: free plan is $0");
       const updated = await subscriptionActionService.changePlan(user.id, "free");
       assert.equal(updated.planId, "free");
       assert.equal(updated.cancelAtPeriodEnd, false);

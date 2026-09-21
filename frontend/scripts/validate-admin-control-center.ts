@@ -130,7 +130,7 @@ async function main(): Promise<void> {
     });
 
     await test("AdminSubscriptionService.overridePlan: admin CAN grant a paid plan (unlike self-service L2.5 flow)", async () => {
-      assert.ok(proPlan!.price > 0, "fixture assumption: pro plan is priced above $0");
+      assert.ok(proPlan!.priceMonthly > 0, "fixture assumption: pro plan is priced above $0");
       const sub = await adminSubscriptionService.overridePlan(target.id, "pro");
       assert.equal(sub.planId, "pro");
       const freshUser = await prisma.user.findUnique({ where: { id: target.id } });

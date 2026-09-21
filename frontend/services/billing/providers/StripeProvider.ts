@@ -10,6 +10,7 @@ import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { loadStripeEnv, getSiteUrl } from "@/lib/payments/env";
 import { PaymentProviderError } from "@/lib/payments/errors";
+import { getPlanCyclePrice } from "@/services/billing/planPricing";
 
 let client: Stripe | null = null;
 
@@ -77,13 +78,14 @@ export class StripeProvider {
   }): Promise<{ url: string }> {
     const stripe = getClient();
     const plan = await prisma.plan.findUnique({ where: { id: params.planId } });
-    if (!plan || plan.price <= 0) {
+    const cyclePrice = plan ? getPlanCyclePrice(plan, params.cycle) : 0;
+    if (!plan || !cyclePrice || cyclePrice <= 0) {
       throw new PaymentProviderError("invalid_response", `Plan is not a valid paid plan: ${params.planId}`, "stripe");
     }
 
     const customerId = await this.getOrCreateCustomer(params.userId);
     const siteUrl = getSiteUrl();
-    const unitAmount = Math.round(plan.price * 100);
+    const unitAmount = Math.round(cyclePrice * 100);
 
     try {
       const session = await stripe.checkout.sessions.create({
