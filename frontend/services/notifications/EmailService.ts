@@ -1,28 +1,111 @@
 // services/notifications/EmailService.ts
-// Real transactional email via Resend, for the one email this platform
-// actually needs right now: confirming a marketplace purchase and telling
-// the buyer where their license/download lives. Every call is best-effort
-// from the caller's side (see the webhook route) - a failed email must
-// never fail the purchase/license issuance that already succeeded.
+// Real transactional email via Resend. Every call is best-effort from the
+// caller's side (see the webhook route) - a failed email must never fail
+// the purchase/license issuance/domain action that already succeeded.
 import "server-only";
 import { Resend } from "resend";
 import { getSiteUrl } from "@/lib/payments/env";
+import { recordEmailLog } from "./EmailLogService";
 
 // billing@ is a real, active mailbox on this domain (unlike a
 // purchases@/no-reply@ address with no inbox behind it) - a buyer who
 // replies to this email actually reaches someone.
 const FROM_ADDRESS = "Algotraders24 AI <billing@algotraders24.ai>";
 
-// Where to route the internal ops alert (see sendLicenseIssuanceFailureAlert
-// below) - the team that would actually act on "a customer paid and got
-// nothing" by manually completing the purchase, same as this session did
-// by hand before this alert existed.
+// Where to route internal ops alerts (license issuance failure, new support
+// tickets) - the team that would actually act on them.
 const OPS_ALERT_ADDRESS = "support@algotraders24.ai";
 
 function getClient(): Resend | null {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return null;
   return new Resend(apiKey);
+}
+
+// ---------------------------------------------------------------------
+// Shared layout - every email body renders through this so brand chrome
+// (font, button style, footer) lives in one place instead of being
+// hand-copied into each template.
+// ---------------------------------------------------------------------
+
+const DEFAULT_FOOTER = `<p style="margin-top: 32px; font-size: 12px; color: #999;">Algotraders24 AI &middot; Need help? Reply to this email or reach us at support@algotraders24.ai</p>`;
+
+function renderLayout(params: {
+  title: string;
+  titleColor?: string;
+  maxWidth?: number;
+  bodyHtml: string;
+  cta?: { text: string; url: string };
+  /** Pass null to omit the footer entirely (e.g. the security-sensitive
+   *  password-changed email, which intentionally has no "reply to this
+   *  email" invitation). Omit the field to get the default footer. */
+  footerHtml?: string | null;
+}): string {
+  const maxWidth = params.maxWidth ?? 480;
+  const titleColor = params.titleColor ?? "#1a1a1a";
+  const footer = params.footerHtml === null ? "" : (params.footerHtml ?? DEFAULT_FOOTER);
+  const cta = params.cta
+    ? `<a href="${params.cta.url}" style="display: inline-block; background: #d4af37; color: #1a1a1a; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">${escapeHtml(params.cta.text)}</a>`
+    : "";
+  return `
+    <div style="font-family: -apple-system, sans-serif; max-width: ${maxWidth}px; margin: 0 auto; color: #1a1a1a;">
+      <h1 style="font-size: 20px; color: ${titleColor};">${params.title}</h1>
+      ${params.bodyHtml}
+      ${cta}
+      ${footer}
+    </div>
+  `;
+}
+
+function detailTable(rows: [label: string, value: string][]): string {
+  const cells = rows
+    .map(([label, value]) => `<tr><td style="padding: 8px 0; color: #666;">${label}</td><td style="padding: 8px 0; text-align: right;">${value}</td></tr>`)
+    .join("");
+  return `<table style="width: 100%; border-collapse: collapse; margin: 20px 0;">${cells}</table>`;
+}
+
+/** Every send goes through this one chokepoint so delivery outcomes are
+ *  logged uniformly (EmailLogService) without every template function
+ *  re-implementing the same try/log/return dance. Never throws - a logging
+ *  failure or a Resend failure both resolve to a no-op for the caller,
+ *  exactly as before this existed. */
+async function dispatch(params: {
+  type: string;
+  to: string;
+  subject: string;
+  html: string;
+  recipientUserId?: string;
+  dedupeKey?: string;
+}): Promise<void> {
+  const client = getClient();
+  if (!client) {
+    console.warn(`[email] RESEND_API_KEY not set - skipping ${params.type} email`);
+    await recordEmailLog({ type: params.type, recipientEmail: params.to, recipientUserId: params.recipientUserId, dedupeKey: params.dedupeKey, status: "SKIPPED" });
+    return;
+  }
+
+  try {
+    const result = await client.emails.send({ from: FROM_ADDRESS, to: params.to, subject: params.subject, html: params.html });
+    await recordEmailLog({
+      type: params.type,
+      recipientEmail: params.to,
+      recipientUserId: params.recipientUserId,
+      dedupeKey: params.dedupeKey,
+      status: result.error ? "FAILED" : "SENT",
+      providerMessageId: result.data?.id,
+      errorMessage: result.error?.message,
+    });
+  } catch (err) {
+    await recordEmailLog({
+      type: params.type,
+      recipientEmail: params.to,
+      recipientUserId: params.recipientUserId,
+      dedupeKey: params.dedupeKey,
+      status: "FAILED",
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
 }
 
 export async function sendPurchaseConfirmationEmail(params: {
@@ -33,33 +116,23 @@ export async function sendPurchaseConfirmationEmail(params: {
   currency: string;
   licenseId: string;
 }): Promise<void> {
-  const client = getClient();
-  if (!client) {
-    console.warn("[email] RESEND_API_KEY not set - skipping purchase confirmation email");
-    return;
-  }
-
   const dashboardUrl = `${getSiteUrl()}/dashboard/purchases`;
   const price = `${params.amount.toFixed(2)} ${params.currency}`;
 
-  await client.emails.send({
-    from: FROM_ADDRESS,
-    to: params.to,
-    subject: `Your purchase: ${params.productName}`,
-    html: `
-      <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
-        <h1 style="font-size: 20px;">Thanks for your purchase, ${escapeHtml(params.buyerName)}!</h1>
-        <p>Your license for <strong>${escapeHtml(params.productName)}</strong> has been issued.</p>
-        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-          <tr><td style="padding: 8px 0; color: #666;">Product</td><td style="padding: 8px 0; text-align: right;">${escapeHtml(params.productName)}</td></tr>
-          <tr><td style="padding: 8px 0; color: #666;">Amount</td><td style="padding: 8px 0; text-align: right;">${price}</td></tr>
-          <tr><td style="padding: 8px 0; color: #666;">License ID</td><td style="padding: 8px 0; text-align: right; font-family: monospace; font-size: 12px;">${escapeHtml(params.licenseId)}</td></tr>
-        </table>
-        <a href="${dashboardUrl}" style="display: inline-block; background: #d4af37; color: #1a1a1a; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">View your license</a>
-        <p style="margin-top: 32px; font-size: 12px; color: #999;">Algotraders24 AI &middot; Need help? Reply to this email or reach us at support@algotraders24.ai</p>
-      </div>
+  const html = renderLayout({
+    title: `Thanks for your purchase, ${escapeHtml(params.buyerName)}!`,
+    bodyHtml: `
+      <p>Your license for <strong>${escapeHtml(params.productName)}</strong> has been issued.</p>
+      ${detailTable([
+        ["Product", escapeHtml(params.productName)],
+        ["Amount", price],
+        ["License ID", `<span style="font-family: monospace; font-size: 12px;">${escapeHtml(params.licenseId)}</span>`],
+      ])}
     `,
+    cta: { text: "View your license", url: dashboardUrl },
   });
+
+  await dispatch({ type: "purchase_confirmation", to: params.to, subject: `Your purchase: ${params.productName}`, html });
 }
 
 // AT24_EMAIL_COMMUNICATION_RECONCILIATION.md's top finding: if
@@ -79,32 +152,26 @@ export async function sendLicenseIssuanceFailureAlert(params: {
   providerRef: string;
   errorMessage: string;
 }): Promise<void> {
-  const client = getClient();
-  if (!client) {
-    console.warn("[email] RESEND_API_KEY not set - skipping license issuance failure alert");
-    return;
-  }
-
   const price = `${params.amount.toFixed(2)} ${params.currency}`;
 
-  await client.emails.send({
-    from: FROM_ADDRESS,
-    to: OPS_ALERT_ADDRESS,
-    subject: `[ACTION NEEDED] License issuance failed after payment - ${params.tradingSystemId}`,
-    html: `
-      <div style="font-family: -apple-system, sans-serif; max-width: 560px; margin: 0 auto; color: #1a1a1a;">
-        <h1 style="font-size: 18px; color: #b91c1c;">A customer paid but did not receive a license</h1>
-        <p>Stripe charged this customer successfully, but issuing their license failed. They have received no confirmation email and cannot see this purchase in their dashboard yet. This needs manual follow-up.</p>
-        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-          <tr><td style="padding: 8px 0; color: #666;">Buyer email</td><td style="padding: 8px 0; text-align: right;">${escapeHtml(params.buyerEmail)}</td></tr>
-          <tr><td style="padding: 8px 0; color: #666;">Product</td><td style="padding: 8px 0; text-align: right;">${escapeHtml(params.tradingSystemId)}</td></tr>
-          <tr><td style="padding: 8px 0; color: #666;">Amount charged</td><td style="padding: 8px 0; text-align: right;">${price}</td></tr>
-          <tr><td style="padding: 8px 0; color: #666;">Stripe session</td><td style="padding: 8px 0; text-align: right; font-family: monospace; font-size: 11px;">${escapeHtml(params.providerRef)}</td></tr>
-        </table>
-        <p style="color: #666; font-size: 13px;">Error: <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">${escapeHtml(params.errorMessage)}</code></p>
-      </div>
+  const html = renderLayout({
+    title: "A customer paid but did not receive a license",
+    titleColor: "#b91c1c",
+    maxWidth: 560,
+    bodyHtml: `
+      <p>Stripe charged this customer successfully, but issuing their license failed. They have received no confirmation email and cannot see this purchase in their dashboard yet. This needs manual follow-up.</p>
+      ${detailTable([
+        ["Buyer email", escapeHtml(params.buyerEmail)],
+        ["Product", escapeHtml(params.tradingSystemId)],
+        ["Amount charged", price],
+        ["Stripe session", `<span style="font-family: monospace; font-size: 11px;">${escapeHtml(params.providerRef)}</span>`],
+      ])}
+      <p style="color: #666; font-size: 13px;">Error: <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">${escapeHtml(params.errorMessage)}</code></p>
     `,
+    footerHtml: "",
   });
+
+  await dispatch({ type: "license_issuance_failure_alert", to: OPS_ALERT_ADDRESS, subject: `[ACTION NEEDED] License issuance failed after payment - ${params.tradingSystemId}`, html });
 }
 
 // Covers both a fresh subscribe and every renewal - both go through
@@ -121,33 +188,21 @@ export async function sendSubscriptionActiveEmail(params: {
   currency: string;
   periodEnd: Date;
 }): Promise<void> {
-  const client = getClient();
-  if (!client) {
-    console.warn("[email] RESEND_API_KEY not set - skipping subscription active email");
-    return;
-  }
-
   const dashboardUrl = `${getSiteUrl()}/dashboard`;
   const price = `${params.amount.toFixed(2)} ${params.currency}`;
   const renewsOn = params.periodEnd.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
-  await client.emails.send({
-    from: FROM_ADDRESS,
-    to: params.to,
-    subject: `Your ${params.planName} subscription is active`,
-    html: `
-      <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
-        <h1 style="font-size: 20px;">Thanks, ${escapeHtml(params.buyerName)} - your subscription is active</h1>
-        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-          <tr><td style="padding: 8px 0; color: #666;">Plan</td><td style="padding: 8px 0; text-align: right;">${escapeHtml(params.planName)}</td></tr>
-          <tr><td style="padding: 8px 0; color: #666;">Amount</td><td style="padding: 8px 0; text-align: right;">${price}</td></tr>
-          <tr><td style="padding: 8px 0; color: #666;">Renews on</td><td style="padding: 8px 0; text-align: right;">${renewsOn}</td></tr>
-        </table>
-        <a href="${dashboardUrl}" style="display: inline-block; background: #d4af37; color: #1a1a1a; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Go to dashboard</a>
-        <p style="margin-top: 32px; font-size: 12px; color: #999;">Algotraders24 AI &middot; Need help? Reply to this email or reach us at support@algotraders24.ai</p>
-      </div>
-    `,
+  const html = renderLayout({
+    title: `Thanks, ${escapeHtml(params.buyerName)} - your subscription is active`,
+    bodyHtml: detailTable([
+      ["Plan", escapeHtml(params.planName)],
+      ["Amount", price],
+      ["Renews on", renewsOn],
+    ]),
+    cta: { text: "Go to dashboard", url: dashboardUrl },
   });
+
+  await dispatch({ type: "subscription_active", to: params.to, subject: `Your ${params.planName} subscription is active`, html });
 }
 
 export async function sendSubscriptionCancelledEmail(params: {
@@ -155,25 +210,13 @@ export async function sendSubscriptionCancelledEmail(params: {
   buyerName: string;
   planName: string;
 }): Promise<void> {
-  const client = getClient();
-  if (!client) {
-    console.warn("[email] RESEND_API_KEY not set - skipping subscription cancelled email");
-    return;
-  }
-
-  await client.emails.send({
-    from: FROM_ADDRESS,
-    to: params.to,
-    subject: `Your ${params.planName} subscription has been cancelled`,
-    html: `
-      <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
-        <h1 style="font-size: 20px;">Your subscription has been cancelled</h1>
-        <p>${escapeHtml(params.buyerName)}, your <strong>${escapeHtml(params.planName)}</strong> subscription is now cancelled and will not renew. You can resubscribe anytime from your dashboard.</p>
-        <a href="${getSiteUrl()}/pricing" style="display: inline-block; background: #d4af37; color: #1a1a1a; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">View plans</a>
-        <p style="margin-top: 32px; font-size: 12px; color: #999;">Algotraders24 AI &middot; Need help? Reply to this email or reach us at support@algotraders24.ai</p>
-      </div>
-    `,
+  const html = renderLayout({
+    title: "Your subscription has been cancelled",
+    bodyHtml: `<p>${escapeHtml(params.buyerName)}, your <strong>${escapeHtml(params.planName)}</strong> subscription is now cancelled and will not renew. You can resubscribe anytime from your dashboard.</p>`,
+    cta: { text: "View plans", url: `${getSiteUrl()}/pricing` },
   });
+
+  await dispatch({ type: "subscription_cancelled", to: params.to, subject: `Your ${params.planName} subscription has been cancelled`, html });
 }
 
 // AU03/AU-credit-block from AT24_EMAIL_COMMUNICATION_RECONCILIATION.md's
@@ -191,29 +234,19 @@ export async function sendAutomationRunFailedEmail(params: {
   status: "FAILED" | "CREDIT_BLOCKED";
   errorMessage: string;
 }): Promise<void> {
-  const client = getClient();
-  if (!client) {
-    console.warn("[email] RESEND_API_KEY not set - skipping automation run failed email");
-    return;
-  }
-
   const dashboardUrl = `${getSiteUrl()}/dashboard/automation`;
   const reason = params.status === "CREDIT_BLOCKED" ? "ran out of credits" : "failed";
 
-  await client.emails.send({
-    from: FROM_ADDRESS,
-    to: params.to,
-    subject: `Your automation "${params.automationName}" ${reason}`,
-    html: `
-      <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
-        <h1 style="font-size: 20px;">${escapeHtml(params.buyerName)}, your automation ${reason}</h1>
-        <p><strong>${escapeHtml(params.automationName)}</strong> did not complete successfully on its last run.</p>
-        <p style="color: #666; font-size: 13px;">${escapeHtml(params.errorMessage)}</p>
-        <a href="${dashboardUrl}" style="display: inline-block; background: #d4af37; color: #1a1a1a; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">View automation</a>
-        <p style="margin-top: 32px; font-size: 12px; color: #999;">Algotraders24 AI &middot; Need help? Reply to this email or reach us at support@algotraders24.ai</p>
-      </div>
+  const html = renderLayout({
+    title: `${escapeHtml(params.buyerName)}, your automation ${reason}`,
+    bodyHtml: `
+      <p><strong>${escapeHtml(params.automationName)}</strong> did not complete successfully on its last run.</p>
+      <p style="color: #666; font-size: 13px;">${escapeHtml(params.errorMessage)}</p>
     `,
+    cta: { text: "View automation", url: dashboardUrl },
   });
+
+  await dispatch({ type: "automation_run_failed", to: params.to, subject: `Your automation "${params.automationName}" ${reason}`, html });
 }
 
 // A01/A02 from AT24_EMAIL_COMMUNICATION_RECONCILIATION.md - Supabase sends
@@ -222,49 +255,29 @@ export async function sendAutomationRunFailedEmail(params: {
 // immediately on success, independent of whether they've verified their
 // email yet.
 export async function sendWelcomeEmail(params: { to: string; name: string }): Promise<void> {
-  const client = getClient();
-  if (!client) {
-    console.warn("[email] RESEND_API_KEY not set - skipping welcome email");
-    return;
-  }
-
-  await client.emails.send({
-    from: FROM_ADDRESS,
-    to: params.to,
-    subject: "Welcome to Algotraders24 AI",
-    html: `
-      <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
-        <h1 style="font-size: 20px;">Welcome, ${escapeHtml(params.name)}!</h1>
-        <p>Your Algotraders24 AI account is ready. Check your inbox for a separate verification email to confirm your address, then explore the AI Assistant, Market Intelligence, and the Marketplace from your dashboard.</p>
-        <a href="${getSiteUrl()}/dashboard" style="display: inline-block; background: #d4af37; color: #1a1a1a; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Go to dashboard</a>
-        <p style="margin-top: 32px; font-size: 12px; color: #999;">Algotraders24 AI &middot; Need help? Reply to this email or reach us at support@algotraders24.ai</p>
-      </div>
-    `,
+  const html = renderLayout({
+    title: `Welcome, ${escapeHtml(params.name)}!`,
+    bodyHtml: `<p>Your Algotraders24 AI account is ready. Check your inbox for a separate verification email to confirm your address, then explore the AI Assistant, Market Intelligence, and the Marketplace from your dashboard.</p>`,
+    cta: { text: "Go to dashboard", url: `${getSiteUrl()}/dashboard` },
   });
+
+  await dispatch({ type: "welcome", to: params.to, subject: "Welcome to Algotraders24 AI", html });
 }
 
 // A04 - a security notification (not the reset link itself, which Supabase
 // already sends): confirms to the account owner that their password was
 // just changed, so they'd notice if it wasn't actually them.
 export async function sendPasswordChangedEmail(params: { to: string }): Promise<void> {
-  const client = getClient();
-  if (!client) {
-    console.warn("[email] RESEND_API_KEY not set - skipping password changed email");
-    return;
-  }
-
-  await client.emails.send({
-    from: FROM_ADDRESS,
-    to: params.to,
-    subject: "Your password was changed",
-    html: `
-      <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
-        <h1 style="font-size: 20px;">Your password was just changed</h1>
-        <p>This confirms the password on your Algotraders24 AI account was changed. If this was you, no action is needed.</p>
-        <p>If you didn't make this change, contact us immediately at security@algotraders24.ai.</p>
-      </div>
+  const html = renderLayout({
+    title: "Your password was just changed",
+    bodyHtml: `
+      <p>This confirms the password on your Algotraders24 AI account was changed. If this was you, no action is needed.</p>
+      <p>If you didn't make this change, contact us immediately at security@algotraders24.ai.</p>
     `,
+    footerHtml: null,
   });
+
+  await dispatch({ type: "password_changed", to: params.to, subject: "Your password was changed", html });
 }
 
 // AT24 Email Communication Sprint 2 (P01) - Stripe `invoice.payment_failed`
@@ -287,34 +300,87 @@ export async function sendPaymentFailedEmail(params: {
   currency: string;
   failedAt: Date;
 }): Promise<void> {
-  const client = getClient();
-  if (!client) {
-    console.warn("[email] RESEND_API_KEY not set - skipping payment failed email");
-    return;
-  }
-
   const billingUrl = `${getSiteUrl()}/dashboard/billing`;
   const price = `${params.amount.toFixed(2)} ${params.currency}`;
   const failedOn = params.failedAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
-  await client.emails.send({
-    from: FROM_ADDRESS,
-    to: params.to,
-    subject: `Payment failed for your ${params.planName} subscription`,
-    html: `
-      <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
-        <h1 style="font-size: 20px;">${escapeHtml(params.buyerName)}, we couldn't process your payment</h1>
-        <p>Your payment for the <strong>${escapeHtml(params.planName)}</strong> subscription didn't go through. Your access hasn't been cancelled yet - please update your payment method to keep your subscription active.</p>
-        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-          <tr><td style="padding: 8px 0; color: #666;">Plan</td><td style="padding: 8px 0; text-align: right;">${escapeHtml(params.planName)}</td></tr>
-          <tr><td style="padding: 8px 0; color: #666;">Amount due</td><td style="padding: 8px 0; text-align: right;">${price}</td></tr>
-          <tr><td style="padding: 8px 0; color: #666;">Failed on</td><td style="padding: 8px 0; text-align: right;">${failedOn}</td></tr>
-        </table>
-        <a href="${billingUrl}" style="display: inline-block; background: #d4af37; color: #1a1a1a; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Update payment method</a>
-        <p style="margin-top: 32px; font-size: 12px; color: #999;">Algotraders24 AI &middot; Can't resolve this? Contact us at support@algotraders24.ai</p>
-      </div>
+  const html = renderLayout({
+    title: `${escapeHtml(params.buyerName)}, we couldn't process your payment`,
+    bodyHtml: `
+      <p>Your payment for the <strong>${escapeHtml(params.planName)}</strong> subscription didn't go through. Your access hasn't been cancelled yet - please update your payment method to keep your subscription active.</p>
+      ${detailTable([
+        ["Plan", escapeHtml(params.planName)],
+        ["Amount due", price],
+        ["Failed on", failedOn],
+      ])}
     `,
+    cta: { text: "Update payment method", url: billingUrl },
+    footerHtml: `<p style="margin-top: 32px; font-size: 12px; color: #999;">Algotraders24 AI &middot; Can't resolve this? Contact us at support@algotraders24.ai</p>`,
   });
+
+  await dispatch({ type: "payment_failed", to: params.to, subject: `Payment failed for your ${params.planName} subscription`, html });
+}
+
+// SP01 (AT24_EMAIL_COMMUNICATION_RECONCILIATION.md Section 11/17) - a new
+// SupportHandoff ("ticket") is created (either the AI escalated, or the
+// user asked for a human) and nobody on the team is told. Sent to the ops
+// inbox, not the requester - the requester already sees their own widget
+// switch into "handed to support" mode, so this alert exists purely to get
+// a human looking at the queue.
+export async function sendSupportTicketOpenedAlert(params: {
+  handoffId: string;
+  userEmail: string;
+  triggerSource: "AI_ESCALATION" | "USER_REQUEST";
+  reason: string;
+}): Promise<void> {
+  const queueUrl = `${getSiteUrl()}/admin/support-handoffs/${params.handoffId}`;
+  const source = params.triggerSource === "AI_ESCALATION" ? "the AI Assistant escalated this" : "the user asked for a human";
+
+  const html = renderLayout({
+    title: "A new support ticket needs attention",
+    maxWidth: 560,
+    bodyHtml: `
+      <p>A support conversation was just handed off to the team - ${source}.</p>
+      ${detailTable([
+        ["User", escapeHtml(params.userEmail)],
+        ["Reason", escapeHtml(params.reason)],
+        ["Ticket ID", `<span style="font-family: monospace; font-size: 12px;">${escapeHtml(params.handoffId)}</span>`],
+      ])}
+    `,
+    cta: { text: "Open ticket", url: queueUrl },
+    footerHtml: "",
+  });
+
+  await dispatch({ type: "support_ticket_opened_alert", to: OPS_ALERT_ADDRESS, subject: "New support ticket needs attention", html, dedupeKey: params.handoffId });
+}
+
+// SP02 - the human-reply capability the reconciliation doc found entirely
+// missing. A user who filed a ticket and closed the tab has no way to know
+// support wrote back other than polling the widget - this closes that gap.
+export async function sendSupportReplyEmail(params: { to: string; handoffId: string }): Promise<void> {
+  const conversationUrl = `${getSiteUrl()}/dashboard/support?handoff=${params.handoffId}`;
+
+  const html = renderLayout({
+    title: "Support replied to your ticket",
+    bodyHtml: `<p>Someone from the Algotraders24 AI team just replied to your support conversation.</p>`,
+    cta: { text: "View reply", url: conversationUrl },
+  });
+
+  await dispatch({ type: "support_reply", to: params.to, subject: "Support replied to your ticket", html });
+}
+
+// SP03 - the resolution transition already exists (transitionSupportHandoffAsAdmin
+// to RESOLVED); nothing told the user their ticket was closed.
+export async function sendSupportTicketResolvedEmail(params: { to: string; handoffId: string }): Promise<void> {
+  const conversationUrl = `${getSiteUrl()}/dashboard/support?handoff=${params.handoffId}`;
+
+  const html = renderLayout({
+    title: "Your support ticket has been resolved",
+    bodyHtml: `<p>Your support ticket has been marked resolved. If this didn't actually fix things, you can reopen it from your dashboard at any time.</p>`,
+    cta: { text: "View ticket", url: conversationUrl },
+  });
+
+  await dispatch({ type: "support_ticket_resolved", to: params.to, subject: "Your support ticket has been resolved", html });
 }
 
 function escapeHtml(value: string): string {

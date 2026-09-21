@@ -25,6 +25,12 @@ import {
 } from "./handoff.repository";
 import { agentRunRepository } from "@/services/agent-framework/runtime/agent-run.repository";
 import { auditLogService } from "@/services/admin/AuditLogService";
+import { prisma } from "@/lib/prisma";
+import {
+  sendSupportTicketOpenedAlert,
+  sendSupportReplyEmail,
+  sendSupportTicketResolvedEmail,
+} from "@/services/notifications/EmailService";
 import type {
   SupportHandoffStatus,
   SupportHandoffTriggerSource,
@@ -124,6 +130,23 @@ export async function ensureSupportHandoff(params: {
       targetId: created.id,
       metadata: { triggerSource: params.triggerSource, conversationId: params.conversationId },
     });
+
+    // Best-effort ops alert (SP01) - a failed email must never fail ticket
+    // creation, which has already succeeded above.
+    try {
+      const requester = await prisma.user.findUnique({ where: { id: params.userId }, select: { email: true } });
+      if (requester) {
+        await sendSupportTicketOpenedAlert({
+          handoffId: created.id,
+          userEmail: requester.email,
+          triggerSource: params.triggerSource,
+          reason: params.reason,
+        });
+      }
+    } catch (err) {
+      console.error("[support-handoff] failed to send ticket-opened alert (non-fatal)", err);
+    }
+
     return created;
   } catch (err) {
     if (err instanceof DuplicateActiveHandoffError) {
@@ -424,6 +447,17 @@ export async function transitionSupportHandoffAsAdmin(params: {
     metadata: { from: row.status, to: params.toStatus },
   });
 
+  // SP03 - tell the user their ticket closed; best-effort, never fails the
+  // transition that already succeeded above.
+  if (params.toStatus === "RESOLVED") {
+    try {
+      const requester = await prisma.user.findUnique({ where: { id: row.userId }, select: { email: true } });
+      if (requester) await sendSupportTicketResolvedEmail({ to: requester.email, handoffId: params.id });
+    } catch (err) {
+      console.error("[support-handoff] failed to send ticket-resolved email (non-fatal)", err);
+    }
+  }
+
   return updated;
 }
 
@@ -447,6 +481,16 @@ export async function replyAsSupportAdmin(params: {
     targetType: "SupportHandoff",
     targetId: params.id,
   });
+
+  // SP02 - the human-reply notification the reconciliation doc found
+  // entirely missing; best-effort, never fails the reply that already
+  // succeeded above.
+  try {
+    const requester = await prisma.user.findUnique({ where: { id: row.userId }, select: { email: true } });
+    if (requester) await sendSupportReplyEmail({ to: requester.email, handoffId: params.id });
+  } catch (err) {
+    console.error("[support-handoff] failed to send support-reply email (non-fatal)", err);
+  }
 
   return getSupportHandoffDetailForAdmin(params.id);
 }
