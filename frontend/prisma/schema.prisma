@@ -2794,3 +2794,30 @@ model SignupAttempt {
   @@index([email, createdAt])
   @@map("signup_attempts")
 }
+
+// AT24_EMAIL_COMMUNICATION_RECONCILIATION.md Section 22/24's own
+// recommendation: closes the "did we already send this" gap (nothing
+// persisted a Resend outcome before this) and doubles as the dedupe source
+// for polled/computed notifications (credits thresholds, renewal
+// reminders, ...) that have no naturally-idempotent domain event to key
+// off of, the way webhook/run-terminal-state emails already do.
+// dedupeKey is only set by callers that need this guarantee (e.g.
+// "credits_low:<userId>:<periodStart>"); the unique constraint only
+// applies to rows where it's non-null (Postgres treats NULLs as distinct),
+// so purely event-driven emails (which already have their own idempotency
+// upstream) can leave it unset without colliding with each other.
+model EmailLog {
+  id                String   @id @default(cuid())
+  type              String
+  recipientEmail    String
+  recipientUserId   String?
+  dedupeKey         String?
+  providerMessageId String?
+  status            String // "SENT" | "SKIPPED" | "FAILED"
+  errorMessage      String?
+  sentAt            DateTime @default(now())
+
+  @@unique([type, dedupeKey])
+  @@index([recipientUserId])
+  @@index([type, sentAt])
+}
