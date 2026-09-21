@@ -97,10 +97,10 @@ async function main(): Promise<void> {
     assert.ok(elite.features.includes(QUANT_PRO_LINE));
     assert.ok(enterprise.features.includes(QUANT_PRO_LINE));
 
-    assert.equal(pro.price, 29);
-    assert.equal(elite.price, 99);
-    assert.equal(enterprise.price, 499);
-    assert.equal(pro.interval, "month");
+    assert.equal(pro.priceMonthly, 29);
+    assert.equal(elite.priceMonthly, 99);
+    assert.equal(enterprise.priceMonthly, 499);
+    assert.equal(pro.priceYearly, 279);
     assert.equal(pro.sortOrder, 2);
     assert.equal(pro.isActive, true);
   });
