@@ -383,6 +383,43 @@ export async function sendSupportTicketResolvedEmail(params: { to: string; hando
   await dispatch({ type: "support_ticket_resolved", to: params.to, subject: "Your support ticket has been resolved", html });
 }
 
+// B05 (AT24_EMAIL_COMMUNICATION_RECONCILIATION.md Section 18) - nothing
+// previously read Subscription.currentPeriodEnd for a reminder purpose.
+// Called from RenewalReminderService's daily cron sweep, which owns the
+// dedupe (EmailLog keyed on subscriptionId + the exact periodEnd being
+// reminded about) - this function itself has no idempotency of its own.
+export async function sendRenewalReminderEmail(params: {
+  to: string;
+  buyerName: string;
+  planName: string;
+  amount: number;
+  currency: string;
+  periodEnd: Date;
+  /** subscriptionId:periodEnd - the caller's own dedupe key, persisted onto
+   *  the EmailLog row so the DB-level unique constraint backstops
+   *  RenewalReminderService's own pre-send wasEmailAlreadySent check. */
+  dedupeKey: string;
+}): Promise<void> {
+  const billingUrl = `${getSiteUrl()}/dashboard/billing`;
+  const price = `${params.amount.toFixed(2)} ${params.currency}`;
+  const renewsOn = params.periodEnd.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+
+  const html = renderLayout({
+    title: `${escapeHtml(params.buyerName)}, your ${escapeHtml(params.planName)} plan renews soon`,
+    bodyHtml: `
+      <p>Your subscription will automatically renew in a few days. No action is needed if you want to keep your plan.</p>
+      ${detailTable([
+        ["Plan", escapeHtml(params.planName)],
+        ["Amount", price],
+        ["Renews on", renewsOn],
+      ])}
+    `,
+    cta: { text: "Manage subscription", url: billingUrl },
+  });
+
+  await dispatch({ type: "renewal_reminder", to: params.to, subject: `Your ${params.planName} plan renews soon`, html, dedupeKey: params.dedupeKey });
+}
+
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
