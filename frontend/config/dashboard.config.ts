@@ -74,10 +74,14 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
         icon: "QT",
         children: [
           { label: "Quant Lite", href: "/quant-lite" },
-          // Quant Pro has no built product yet - /quant-lite/upgrade is
-          // the existing, honest "not yet available" comparison page
-          // (Sprint Q0.8), not a fabricated placeholder.
-          { label: "Quant Pro", href: "/quant-lite/upgrade" },
+          // Quant Pro launched (Quant Chat, under Algo Testing Pro) -
+          // /quant-lite/upgrade's "not yet available" framing is now
+          // stale, so this link was repointed to the real product instead
+          // of left dead. Not consolidated into a single nav entry with
+          // Algo Testing Pro's own child link, to avoid a duplicate
+          // "Quant Pro" label in the sidebar (see that item's own
+          // comment) - this simply fixes it to go somewhere real.
+          { label: "Quant Pro", href: "/dashboard/quant-chat" },
         ],
       },
       // Sprint IA1 - the at24-quant-engine integration (P3.x program) has
