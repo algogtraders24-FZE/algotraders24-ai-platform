@@ -25,8 +25,10 @@ import Input from "@/components/ui/Input";
 import {
   useSupportRun,
   isResolutionConfirmationEligible,
+  isHandoffActive,
   type Observability,
   type SupportOutput,
+  type SupportHandoff,
 } from "@/hooks/useSupportRun";
 import type { GuestAnswer, GuestCitation } from "@/services/support/guest-knowledge-query";
 
@@ -65,16 +67,116 @@ async function probeAuthenticated(): Promise<boolean> {
   }
 }
 
-function EscalationNotice({ reason }: { reason: string | null | undefined }) {
+function EscalationNotice({
+  reason,
+  onRequestHuman,
+  requestBusy,
+}: {
+  reason: string | null | undefined;
+  /** Authenticated mode only - Support Human Handoff MVP (D2 USER_REQUEST /
+   *  D12). Guest mode omits this (D9 - guest handoff stays disabled) and
+   *  keeps the plain contact-page link below as its only option. */
+  onRequestHuman?: () => void;
+  requestBusy?: boolean;
+}) {
   return (
     <div className="rounded-lg border border-gold/40 bg-gold/10 p-3 text-sm text-text-2">
       <p className="font-medium text-gold">This needs a human.</p>
       <p className="mt-1 text-xs text-text-3">
         Reason: {String(reason ?? "").replace(/-/g, " ")}.
       </p>
-      <Link href={CONTACT_HREF} className="mt-2 inline-block text-xs font-semibold text-gold underline">
-        Talk to a human &rarr;
-      </Link>
+      {onRequestHuman ? (
+        <Button size="sm" variant="secondary" className="mt-2" onClick={onRequestHuman} loading={requestBusy}>
+          Connect me to support
+        </Button>
+      ) : (
+        <Link href={CONTACT_HREF} className="mt-2 inline-block text-xs font-semibold text-gold underline">
+          Talk to a human &rarr;
+        </Link>
+      )}
+    </div>
+  );
+}
+
+/** Support Human Handoff MVP (D12/D10) - the "handed to support" state
+ *  (§9/§20's own required copy) plus the human-reply thread. Rendered once
+ *  a SupportHandoff exists for the current conversation - never a second
+ *  conversation, always anchored to the SAME thread the user was already
+ *  in. */
+function HandoffPanel({
+  handoff,
+  onSend,
+  onReopen,
+  busy,
+  error,
+}: {
+  handoff: SupportHandoff;
+  onSend: (content: string) => void;
+  onReopen: () => void;
+  busy: boolean;
+  error: string | null;
+}) {
+  const [reply, setReply] = useState("");
+  const statusLabel: Record<SupportHandoff["status"], string> = {
+    OPEN: "Your request has been sent to our support team.",
+    ASSIGNED: "A member of our support team has picked up your case.",
+    IN_PROGRESS: "Our support team is working on your case.",
+    RESOLVED: "This case was marked resolved by our support team.",
+    CANCELLED: "This support case was cancelled.",
+  };
+
+  return (
+    <div className="space-y-2 rounded-lg border border-gold/40 bg-gold/5 p-3">
+      <p className="text-xs font-medium text-gold">{statusLabel[handoff.status]}</p>
+      {handoff.messages.length > 0 && (
+        <ul className="space-y-2">
+          {handoff.messages.map((m) => (
+            <li
+              key={m.id}
+              className={`rounded-lg p-2 text-sm ${m.authorType === "HUMAN" ? "border border-border bg-ink text-text-2" : "bg-ink-3 text-text"}`}
+            >
+              {m.content}
+              <div className="mt-1 text-[10px] text-text-3">{m.authorType === "HUMAN" ? "Support team" : "You"}</div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {isHandoffActive(handoff.status) && (
+        <div className="flex items-center gap-2">
+          <Input
+            value={reply}
+            onChange={(e) => setReply(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && reply.trim()) {
+                e.preventDefault();
+                onSend(reply.trim());
+                setReply("");
+              }
+            }}
+            placeholder="Message our support team…"
+            disabled={busy}
+            aria-label="Message to support"
+          />
+          <Button
+            size="sm"
+            disabled={busy || !reply.trim()}
+            loading={busy}
+            onClick={() => {
+              if (!reply.trim()) return;
+              onSend(reply.trim());
+              setReply("");
+            }}
+          >
+            Send
+          </Button>
+        </div>
+      )}
+      {handoff.status === "RESOLVED" && (
+        <Button size="sm" variant="ghost" onClick={onReopen} loading={busy}>
+          This isn&rsquo;t resolved
+        </Button>
+      )}
+      {error && <p className="text-[11px] text-danger">{error}</p>}
     </div>
   );
 }
@@ -113,6 +215,8 @@ function AuthTurnView({
   onConfirm,
   confirmBusy,
   confirmError,
+  onRequestHuman,
+  requestHumanBusy,
 }: {
   question: string;
   obs: Observability;
@@ -120,6 +224,8 @@ function AuthTurnView({
   onConfirm?: (confirmed: boolean) => void;
   confirmBusy?: boolean;
   confirmError?: string | null;
+  onRequestHuman?: () => void;
+  requestHumanBusy?: boolean;
 }) {
   const out = (obs.run?.output ?? null) as SupportOutput | null;
   const evById = new Map(obs.evidence.map((e) => [e.id, e]));
@@ -161,7 +267,9 @@ function AuthTurnView({
               ))}
             </ul>
           )}
-          {out.escalate && <EscalationNotice reason={out.escalationReason} />}
+          {out.escalate && (
+            <EscalationNotice reason={out.escalationReason} onRequestHuman={live ? onRequestHuman : undefined} requestBusy={requestHumanBusy} />
+          )}
         </>
       )}
 
@@ -196,7 +304,21 @@ export default function SupportWidget() {
   const [guestBusy, setGuestBusy] = useState(false);
   const [guestError, setGuestError] = useState<string | null>(null);
 
-  const { obs, busy, error, ask, confirmResolution, confirmBusy, confirmError } = useSupportRun();
+  const {
+    obs,
+    busy,
+    error,
+    ask,
+    confirmResolution,
+    confirmBusy,
+    confirmError,
+    handoff,
+    handoffBusy,
+    handoffError,
+    requestHuman,
+    sendHandoffMessage,
+    reopenHandoff,
+  } = useSupportRun();
   const [authHistory, setAuthHistory] = useState<{ question: string; obs: Observability }[]>([]);
   const [authQuestion, setAuthQuestion] = useState<string | null>(null);
 
@@ -263,13 +385,21 @@ export default function SupportWidget() {
     if (!text) return;
     setInput("");
     if (mode === "authenticated") {
+      // D11: while a handoff is active, a new message goes to the human
+      // thread, NOT a new AgentRun - the deterministic/generative Support
+      // pipeline stays completely paused for this conversation until the
+      // case is resolved or cancelled.
+      if (isHandoffActive(handoff?.status)) {
+        await sendHandoffMessage(text);
+        return;
+      }
       if (authQuestion && obs) setAuthHistory((h) => [...h, { question: authQuestion, obs }]);
       setAuthQuestion(text);
       await ask(text);
     } else {
       await sendGuest(text);
     }
-  }, [input, mode, authQuestion, obs, ask, sendGuest]);
+  }, [input, mode, authQuestion, obs, ask, sendGuest, handoff?.status, sendHandoffMessage]);
 
   const busyNow = mode === "authenticated" ? busy : guestBusy;
   const errorNow = mode === "authenticated" ? error : guestError;
@@ -360,7 +490,17 @@ export default function SupportWidget() {
                 onConfirm={confirmResolution}
                 confirmBusy={confirmBusy}
                 confirmError={confirmError}
+                onRequestHuman={requestHuman}
+                requestHumanBusy={handoffBusy}
               />
+            )}
+
+            {/* Support Human Handoff MVP - rendered whenever an active OR
+                historical handoff exists for the current conversation,
+                whether it was created automatically (AI_ESCALATION, no
+                click needed) or via the button above (USER_REQUEST). */}
+            {mode === "authenticated" && handoff && (
+              <HandoffPanel handoff={handoff} onSend={sendHandoffMessage} onReopen={reopenHandoff} busy={handoffBusy} error={handoffError} />
             )}
 
             {busyNow && <p className="text-xs text-text-3">Working…</p>}
@@ -377,7 +517,7 @@ export default function SupportWidget() {
                   send();
                 }
               }}
-              placeholder="Ask a support question…"
+              placeholder={mode === "authenticated" && isHandoffActive(handoff?.status) ? "Message our support team…" : "Ask a support question…"}
               disabled={busyNow}
               aria-label="Your question"
             />
@@ -385,9 +525,22 @@ export default function SupportWidget() {
               Send
             </Button>
           </div>
-          <Link href={CONTACT_HREF} className="border-t border-border px-4 py-2 text-center text-[11px] text-text-3 underline hover:text-text">
-            Talk to a human
-          </Link>
+          {mode === "authenticated" ? (
+            !handoff && (
+              <button
+                type="button"
+                onClick={requestHuman}
+                disabled={handoffBusy || !obs?.run}
+                className="border-t border-border px-4 py-2 text-center text-[11px] text-text-3 underline hover:text-text disabled:opacity-40"
+              >
+                Talk to a human
+              </button>
+            )
+          ) : (
+            <Link href={CONTACT_HREF} className="border-t border-border px-4 py-2 text-center text-[11px] text-text-3 underline hover:text-text">
+              Talk to a human
+            </Link>
+          )}
         </div>
       )}
     </>
