@@ -17,8 +17,7 @@ export interface PaymentConfig {
 export interface ApiPlan {
   id: string;
   name: string;
-  price: number;
-  interval: string;
+  priceMonthly: number;
   features: string[];
   sortOrder: number;
 }

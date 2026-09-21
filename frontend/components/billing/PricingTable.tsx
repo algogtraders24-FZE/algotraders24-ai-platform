@@ -11,7 +11,7 @@ import PlanCard from "./PlanCard";
 interface Props {
   plans: Plan[];
   currentPlanId: PlanId;
-  onSelectPlan?: (planId: PlanId) => void;
+  onSelectPlan?: (planId: PlanId, cycle: BillingCycle) => void;
 }
 
 export default function PricingTable({
@@ -55,7 +55,7 @@ export default function PricingTable({
             plan={plan}
             cycle={cycle}
             currentPlanId={currentPlanId}
-            onSelect={onSelectPlan}
+            onSelect={(planId) => onSelectPlan?.(planId, cycle)}
           />
         ))}
       </div>
