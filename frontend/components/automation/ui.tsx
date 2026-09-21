@@ -16,10 +16,20 @@ const STATUS_TONE: Record<AutomationStatus, string> = {
   ARCHIVED: "border-border bg-ink-3 text-text-3",
 };
 
+// Beta content pass - both pills rendered the raw UPPERCASE enum value
+// directly (e.g. "CREDIT_BLOCKED"). Same STEP_KIND_LABEL convention this
+// file already established below, applied to status too.
+const STATUS_LABEL: Record<AutomationStatus, string> = {
+  DRAFT: "Draft",
+  ACTIVE: "Active",
+  PAUSED: "Paused",
+  ARCHIVED: "Archived",
+};
+
 export function AutomationStatusPill({ status }: { status: AutomationStatus }) {
   return (
     <span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${STATUS_TONE[status] ?? STATUS_TONE.DRAFT}`}>
-      {status}
+      {STATUS_LABEL[status] ?? status}
     </span>
   );
 }
@@ -34,10 +44,20 @@ const RUN_TONE: Record<AutomationRunStatus, string> = {
   CANCELLED: "border-border bg-ink-3 text-text-3",
 };
 
+const RUN_STATUS_LABEL: Record<AutomationRunStatus, string> = {
+  QUEUED: "Queued",
+  RUNNING: "Running",
+  SUCCEEDED: "Succeeded",
+  FAILED: "Failed",
+  CREDIT_BLOCKED: "Credit blocked",
+  CONDITION_HALTED: "Condition halted",
+  CANCELLED: "Cancelled",
+};
+
 export function RunStatusPill({ status }: { status: AutomationRunStatus }) {
   return (
     <span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${RUN_TONE[status] ?? RUN_TONE.QUEUED}`}>
-      {status.replace("_", " ")}
+      {RUN_STATUS_LABEL[status] ?? status.replace(/_/g, " ")}
     </span>
   );
 }

@@ -26,11 +26,32 @@ const SLOTS = [
 ] as const;
 const WEEKDAYS: AutomationWeekday[] = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 const AGENT_TYPES: AutomationAgentType[] = ["MARKET_INTELLIGENCE", "RESEARCH", "STRATEGY_RESEARCH"];
+// Beta content pass - the agent-type <select> rendered these raw enum
+// values directly as its visible option text.
+const AGENT_TYPE_LABEL: Record<AutomationAgentType, string> = {
+  MARKET_INTELLIGENCE: "Market Intelligence",
+  RESEARCH: "Research",
+  STRATEGY_RESEARCH: "Strategy Research",
+};
 const CATEGORIES = [
   "technical-analysis", "fundamental-analysis", "market-outlook", "economic-preview",
   "forex-analysis", "gold-analysis", "crypto-analysis", "index-analysis", "weekly-review",
 ];
 const OPS: AutomationConditionOp[] = ["gte", "gt", "lte", "lt", "eq", "neq"];
+// Beta content pass - operators and categories below were rendered as raw
+// internal codes ("gte", "technical-analysis") in their <select> options.
+const OP_LABEL: Record<AutomationConditionOp, string> = { gte: "≥", gt: ">", lte: "≤", lt: "<", eq: "=", neq: "≠" };
+const CATEGORY_LABEL: Record<string, string> = {
+  "technical-analysis": "Technical Analysis",
+  "fundamental-analysis": "Fundamental Analysis",
+  "market-outlook": "Market Outlook",
+  "economic-preview": "Economic Preview",
+  "forex-analysis": "Forex Analysis",
+  "gold-analysis": "Gold Analysis",
+  "crypto-analysis": "Crypto Analysis",
+  "index-analysis": "Index Analysis",
+  "weekly-review": "Weekly Review",
+};
 
 const btn = "rounded-lg border px-4 py-2 text-sm font-medium transition disabled:opacity-40";
 const btnGold = `${btn} border-gold bg-gold/10 text-gold hover:bg-gold/20`;
@@ -423,7 +444,7 @@ function StepFields({
           onChange={(e) => onChange({ ...step, action: { ...step.action, agentType: e.target.value as AutomationAgentType } })}
         >
           {AGENT_TYPES.map((t) => (
-            <option key={t} value={t}>{t}</option>
+            <option key={t} value={t}>{AGENT_TYPE_LABEL[t]}</option>
           ))}
         </select>
         <input
@@ -456,7 +477,7 @@ function StepFields({
           onChange={(e) => onChange({ ...step, condition: { ...step.condition, op: e.target.value as AutomationConditionOp } })}
         >
           {OPS.map((o) => (
-            <option key={o} value={o}>{o}</option>
+            <option key={o} value={o}>{OP_LABEL[o]}</option>
           ))}
         </select>
         <input
@@ -480,7 +501,7 @@ function StepFields({
         onChange={(e) => onChange({ ...step, action: { ...step.action, category: e.target.value } })}
       >
         {CATEGORIES.map((c) => (
-          <option key={c} value={c}>{c}</option>
+          <option key={c} value={c}>{CATEGORY_LABEL[c] ?? c}</option>
         ))}
       </select>
     );

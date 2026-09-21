@@ -19,6 +19,9 @@ import SEOScoreCard from "@/components/publishing/SEOScoreCard";
 import PublishingQueue from "@/components/publishing/PublishingQueue";
 import ArticlePreview from "@/components/publishing/ArticlePreview";
 import ContentCalendar from "@/components/publishing/ContentCalendar";
+import EmptyState from "@/components/ui/EmptyState";
+import ErrorState from "@/components/ui/ErrorState";
+import Skeleton from "@/components/ui/Skeleton";
 
 // Simple, client-side default keyword sets (buildSeo requires >=3 for a
 // clean validateArticle pass) - not shared service logic, so kept local
@@ -191,16 +194,17 @@ export default function PublishingPage() {
         </section>
 
         {state === "loading" ? (
-          <div className="rounded-xl border border-border bg-ink-2 p-6 text-sm text-text-3">Loading articles...</div>
+          <div className="space-y-3" aria-busy="true" aria-live="polite">
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
         ) : state === "error" ? (
-          <div className="rounded-xl border border-danger/30 bg-danger/10 p-6 text-sm text-danger">
-            Could not load articles. Try refreshing.
-          </div>
+          <ErrorState
+            title="Could not load articles"
+            description="Try refreshing the page. If the problem continues, contact Support."
+          />
         ) : articles.length === 0 ? (
-          <div className="rounded-xl border border-border bg-ink-2 p-8 text-center">
-            <p className="text-sm font-semibold text-text">No articles yet</p>
-            <p className="mt-1 text-xs text-text-3">Pick a category above and generate your first AI draft.</p>
-          </div>
+          <EmptyState title="No articles yet." description="Pick a category above and generate your first AI draft." />
         ) : (
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className="space-y-3 lg:col-span-1">

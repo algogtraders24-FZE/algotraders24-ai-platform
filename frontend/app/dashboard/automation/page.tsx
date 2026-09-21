@@ -9,6 +9,8 @@ import Link from "next/link";
 import type { AutomationListItem } from "@/types/automation";
 import { AutomationApi } from "@/services/api/AutomationApi";
 import { AutomationStatusPill, RunStatusPill, describeTrigger } from "@/components/automation/ui";
+import ErrorState from "@/components/ui/ErrorState";
+import Skeleton from "@/components/ui/Skeleton";
 
 export default function AutomationPage() {
   const [items, setItems] = useState<AutomationListItem[] | null>(null);
@@ -33,7 +35,7 @@ export default function AutomationPage() {
           <div>
             <h1 className="text-2xl font-bold">Automation</h1>
             <p className="text-sm text-text-3">
-              Build workflows that automatically run AT24 intelligence, research and AI agents.
+              Build automations that run AT24 intelligence, research and AI agents on a schedule.
             </p>
           </div>
           <Link
@@ -45,9 +47,13 @@ export default function AutomationPage() {
         </header>
 
         {error ? (
-          <div className="rounded-xl border border-danger/40 bg-danger/10 p-6 text-sm text-danger">{error}</div>
+          <ErrorState title="Could not load automations" description={error} />
         ) : items === null ? (
-          <div className="rounded-xl border border-border bg-ink-2 p-8 text-center text-sm text-text-3">Loading…</div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-5" aria-busy="true" aria-live="polite">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
+          </div>
         ) : (
           <>
             <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
@@ -119,13 +125,13 @@ function EmptyState() {
     <div className="rounded-xl border border-border bg-ink-2 p-10 text-center">
       <p className="text-lg font-semibold">No automations yet</p>
       <p className="mx-auto mt-2 max-w-md text-sm text-text-3">
-        Automate recurring market research, intelligence and AI agent tasks. Create your first workflow to get started.
+        Automate recurring market research, intelligence and AI agent tasks. Create your first automation to get started.
       </p>
       <Link
         href="/dashboard/automation/new"
         className="mt-4 inline-block rounded-lg border border-gold bg-gold/10 px-4 py-2 text-sm font-medium text-gold transition hover:bg-gold/20"
       >
-        Create your first workflow
+        Create your first automation
       </Link>
     </div>
   );
