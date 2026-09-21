@@ -107,7 +107,16 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
         label: "Algo Testing Pro",
         href: "/dashboard/workspace",
         icon: "AT",
+        // Quant Pro production launch - Quant Chat (QP-0->QP-5, the
+        // natural-language AI strategy builder) is the other real surface
+        // of the same Quant Pro product as this registry-strategy suite
+        // (locked launch decision: one paid product, two surfaces, not two
+        // separate customer-facing products). Nested here rather than
+        // given its own top-level PRODUCTS slot or a second "Quant Pro"
+        // nav entry - smallest change that makes it discoverable at all
+        // (it previously had zero navigation links anywhere in the app).
         children: [
+          { label: "Quant Chat", href: "/dashboard/quant-chat" },
           { label: "Run History", href: "/dashboard/algo-test-history" },
           { label: "Strategy Library", href: "/dashboard/algo-test-library" },
           { label: "Optimize", href: "/dashboard/algo-test-optimize" },

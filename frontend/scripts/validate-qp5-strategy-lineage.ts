@@ -115,17 +115,17 @@ async function main(): Promise<void> {
   console.log("\n=== C - Quant Chat client-side lineage/staleness rules (structural) ===");
 
   await test("Run Backtest sends the conversation's own latestPersistedStrategyId as parentStrategyId - never an arbitrary/global/other-conversation id", () => {
-    const page = stripLineComments(readSource("../app/dashboard/quant-chat/page.tsx"));
+    const page = stripLineComments(readSource("../app/dashboard/quant-chat/QuantChatClient.tsx"));
     assert.ok(page.includes("buildQuantChatBacktestRequest(intentAtRequestTime, new Date(), latestPersistedStrategyId)"));
   });
 
   await test("latestPersistedStrategyId only advances on a genuinely completed run - a failed run never corrupts the previously-tracked identity", () => {
-    const page = stripLineComments(readSource("../app/dashboard/quant-chat/page.tsx"));
+    const page = stripLineComments(readSource("../app/dashboard/quant-chat/QuantChatClient.tsx"));
     assert.ok(page.includes('if (run.status === "completed" && run.strategyRefId) setLatestPersistedStrategyId(run.strategyRefId);'));
   });
 
   await test("MODIFY (handleSend) never references latestPersistedStrategyId or persistAiStrategy - MODIFY stays purely in-memory (D2/D3)", () => {
-    const page = stripLineComments(readSource("../app/dashboard/quant-chat/page.tsx"));
+    const page = stripLineComments(readSource("../app/dashboard/quant-chat/QuantChatClient.tsx"));
     const fnStart = page.indexOf("async function handleSend(");
     const fnBody = page.slice(fnStart, page.indexOf("\n  }", fnStart));
     assert.ok(!fnBody.includes("latestPersistedStrategyId"));
@@ -142,7 +142,7 @@ async function main(): Promise<void> {
   });
 
   await test("a stale backtest result is never cleared/replaced by MODIFY - it stays visible with an explicit re-label once currentIntent has diverged from what it was actually run against", () => {
-    const page = stripLineComments(readSource("../app/dashboard/quant-chat/page.tsx"));
+    const page = stripLineComments(readSource("../app/dashboard/quant-chat/QuantChatClient.tsx"));
     assert.ok(!page.includes("setBacktestResult(undefined)"));
     assert.ok(page.includes("backtestResultIntent !== conversationState.currentIntent"));
     assert.ok(page.includes("This backtest reflects the previous strategy"));
