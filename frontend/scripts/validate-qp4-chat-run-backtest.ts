@@ -69,12 +69,12 @@ async function main(): Promise<void> {
   console.log("\n=== B - structural checks (locked QP-4 architecture actually holds in the real source) ===");
 
   await test("Run Backtest is unavailable before a successful compile - the button's own disabled condition checks lastCompileResult?.compiledSpec", () => {
-    const page = readSource("../app/dashboard/quant-chat/page.tsx");
+    const page = readSource("../app/dashboard/quant-chat/QuantChatClient.tsx");
     assert.ok(page.includes("disabled={!conversationState.lastCompileResult?.compiledSpec || backtestRunning}"));
   });
 
   await test("duplicate submissions are prevented - handleRunBacktest guards on its own running flag before starting a new request", () => {
-    const page = stripLineComments(readSource("../app/dashboard/quant-chat/page.tsx"));
+    const page = stripLineComments(readSource("../app/dashboard/quant-chat/QuantChatClient.tsx"));
     const fnStart = page.indexOf("async function handleRunBacktest()");
     assert.ok(fnStart !== -1, "handleRunBacktest must exist");
     const fnBody = page.slice(fnStart, fnStart + 300);
@@ -82,7 +82,7 @@ async function main(): Promise<void> {
   });
 
   await test("the execution input is the CURRENT accumulated intent, never a stale compiledSpec - buildQuantChatBacktestRequest is called with a value captured fresh from conversationState.currentIntent (QP-5 - captured into intentAtRequestTime so the same value can also be recorded as backtestResultIntent for staleness labeling, still read fresh at click time, never a stale compiledSpec)", () => {
-    const page = stripLineComments(readSource("../app/dashboard/quant-chat/page.tsx"));
+    const page = stripLineComments(readSource("../app/dashboard/quant-chat/QuantChatClient.tsx"));
     const fnStart = page.indexOf("async function handleRunBacktest()");
     const fnBody = page.slice(fnStart, page.indexOf("\n  }", fnStart));
     assert.ok(/const intentAtRequestTime = conversationState\.currentIntent;/.test(fnBody));
@@ -93,7 +93,7 @@ async function main(): Promise<void> {
   });
 
   await test("Run Backtest reuses the EXISTING compileAndRunAiStrategy client wrapper (already calling the canonical /ai-runs route) - never a new backend route, never a direct call to runBacktest/runSimulation/applyModification", () => {
-    const page = stripLineComments(readSource("../app/dashboard/quant-chat/page.tsx"));
+    const page = stripLineComments(readSource("../app/dashboard/quant-chat/QuantChatClient.tsx"));
     assert.ok(page.includes('import { applyStrategyBuilderModification, compileAndRunAiStrategy,'));
     assert.ok(page.includes("await compileAndRunAiStrategy(request)"));
     assert.ok(!page.includes("runBacktest("));
@@ -157,7 +157,7 @@ async function main(): Promise<void> {
   });
 
   await test("no AgentRuntime/AgentType surface, no schema/migration file, no Optimize/WFO reference was introduced in the QP-4 page or its new files", () => {
-    for (const f of ["../app/dashboard/quant-chat/page.tsx", "../lib/algo-test/quant-chat-backtest-defaults.ts", "../components/quant-chat/BacktestResultCard.tsx"]) {
+    for (const f of ["../app/dashboard/quant-chat/QuantChatClient.tsx", "../lib/algo-test/quant-chat-backtest-defaults.ts", "../components/quant-chat/BacktestResultCard.tsx"]) {
       const src = readSource(f);
       assert.ok(!src.includes("AgentRuntime"));
       assert.ok(!src.includes("optimization.service"));
