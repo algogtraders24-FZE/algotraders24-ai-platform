@@ -53,10 +53,12 @@ assumption in a later sprint.
 ## 3. Launch notes (disclosed limitations, not gaps hidden from the call)
 
 ### 3.1 Market Intelligence
-EURUSD is live end-to-end. Gold/Silver (XAU/XAG) remain unavailable with
-the current market-data provider key — a genuine provider-coverage limit,
-not a code defect. Revisit if/when a provider with XAU/XAG coverage is
-provisioned.
+EURUSD is live end-to-end. XAUUSD (Gold) and XAGUSD (Silver) are also live
+end-to-end via the MT5 bridge, which is now the primary provider for the
+symbols it covers (XAUUSD/XAGUSD/EURUSD/GBPUSD/USDJPY/BTCUSD/ETHUSD).
+Twelve Data and Alpha Vantage remain configured as fallback providers
+where applicable. See §5 for the amendment superseding the prior
+Gold/Silver provider-coverage limitation.
 
 ### 3.2 Billing
 The real subscription lifecycle (Plan/Subscription/Entitlement, feature
@@ -99,3 +101,4 @@ Deferred/parked items stay exactly as previously decided:
 | Date | Change | By |
 | --- | --- | --- |
 | 2026-09-13 | Initial lock: BETA GO, K3-C/K4/P4.9-B.5/Migration B non-gating | Product owner |
+| 2026-09-22 | Corrected §3.1: Gold/Silver now live via MT5 bridge, superseding the 2026-09-13 provider-coverage limitation. | Product owner |
