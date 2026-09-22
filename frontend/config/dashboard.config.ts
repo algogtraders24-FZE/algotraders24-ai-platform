@@ -24,6 +24,37 @@
 // judgment call (Trading Copilot, Knowledge Base, Publishing, Billing,
 // Orders, the Quant Lite/Pro split, the Workspace section) lives in
 // docs/IA1-BACKOFFICE-NAVIGATION-REFACTOR.md.
+//
+// Sprint UI-01 - the `icon` field changed from a 2-letter placeholder
+// string ("DB", "QT", ...) that the sidebar rendered as literal text to a
+// real lucide-react icon component. Structure, grouping, order, labels and
+// hrefs are all untouched - the locked IA is unchanged, only the glyph is
+// now a real icon (required for the collapsed icon-rail).
+import {
+  LayoutDashboard,
+  LineChart,
+  FlaskConical,
+  Store,
+  Bot,
+  Signal,
+  Globe,
+  Newspaper,
+  CalendarDays,
+  Microscope,
+  Cpu,
+  Workflow,
+  FolderKanban,
+  Activity,
+  FileText,
+  LifeBuoy,
+  CreditCard,
+  ShoppingBag,
+  KeyRound,
+  Settings,
+  Shield,
+  type LucideIcon,
+} from "lucide-react";
+
 export interface DashboardNavChild {
   label: string;
   href: string;
@@ -32,7 +63,7 @@ export interface DashboardNavChild {
 export interface DashboardNavItem {
   label: string;
   href: string;
-  icon: string;
+  icon: LucideIcon;
   // Sprint L2.6 - only rendered for role === "admin" (see
   // DashboardSidebar.tsx); the real gate is still server-side
   // (requireRole in app/dashboard/admin/layout.tsx) - hiding the link is
@@ -55,7 +86,7 @@ export interface DashboardNavGroup {
 export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
   {
     label: null,
-    items: [{ label: "Dashboard", href: "/dashboard", icon: "DB" }],
+    items: [{ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard }],
   },
   {
     label: "PRODUCTS",
@@ -71,7 +102,7 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
         // either product, using the same feature lists /quant-lite/upgrade
         // already showed (data/quant-positioning.ts, one source of truth).
         href: "/quant",
-        icon: "QT",
+        icon: LineChart,
         children: [
           { label: "Quant Lite", href: "/quant-lite" },
           // Quant Pro launched (Quant Chat, under Algo Testing Pro) -
@@ -110,7 +141,7 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       {
         label: "Algo Testing Pro",
         href: "/dashboard/workspace",
-        icon: "AT",
+        icon: FlaskConical,
         // Quant Pro production launch - Quant Chat (QP-0->QP-5, the
         // natural-language AI strategy builder) is the other real surface
         // of the same Quant Pro product as this registry-strategy suite
@@ -130,7 +161,7 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       {
         label: "Marketplace",
         href: "/marketplace",
-        icon: "MK",
+        icon: Store,
         children: [
           // Sprint M12 - the seller backoffice existed with a working page
           // but no nav entry anywhere (undiscoverable except by typing the
@@ -146,7 +177,7 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       {
         label: "AI Assistant",
         href: "/dashboard/assistant",
-        icon: "AI",
+        icon: Bot,
         children: [
           // Trading Copilot is a real, distinct pre-existing page - not
           // the sprint's "contextual Copilot" concept. Nested rather than
@@ -157,25 +188,25 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
           { label: "Knowledge Base", href: "/dashboard/knowledge" },
         ],
       },
-      { label: "AI Signals", href: "/dashboard/signals", icon: "SG" },
-      { label: "Market Intelligence", href: "/dashboard/market-intelligence", icon: "MI" },
-      { label: "AI News", href: "/dashboard/news", icon: "NW" },
+      { label: "AI Signals", href: "/dashboard/signals", icon: Signal },
+      { label: "Market Intelligence", href: "/dashboard/market-intelligence", icon: Globe },
+      { label: "AI News", href: "/dashboard/news", icon: Newspaper },
       // AN2 - the Economic Calendar AN1.7 deferred (it removed the old mock
       // "High Impact Economic Events" section with a note that calendar data
       // "needs its own future provider/contract/audit"). Real feed now, so
       // it earns a real slot next to AI News rather than a nested child.
-      { label: "Economic Calendar", href: "/dashboard/calendar", icon: "EC" },
+      { label: "Economic Calendar", href: "/dashboard/calendar", icon: CalendarDays },
       // No standalone Research page exists (Sprint D2.4.A1 deliberately
       // redirected the marketing /platform/research page into Assistant,
       // since Research wasn't distinct content there). Inside the
       // backoffice, real per-symbol research evidence does exist - the
       // Workspace's own "Research" section - so this links straight to it
       // instead of duplicating that content on a second page.
-      { label: "AI Research", href: "/dashboard/workspace#research", icon: "RS" },
+      { label: "AI Research", href: "/dashboard/workspace#research", icon: Microscope },
       // The real A1-A15 Agent Framework run console. /dashboard/agents (the
       // older agent-builder scaffold) now redirects here, so the nav points
       // straight at it - one "AI Agents" destination, the framework itself.
-      { label: "AI Agents", href: "/dashboard/agents/runs", icon: "AG" },
+      { label: "AI Agents", href: "/dashboard/agents/runs", icon: Cpu },
     ],
   },
   {
@@ -184,7 +215,7 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       {
         label: "Automations",
         href: "/dashboard/automation",
-        icon: "AU",
+        icon: Workflow,
         children: [
           // Publishing (AI content drafting + a schedule/queue/calendar)
           // doesn't fit Products/Intelligence/Workspace/Account - it's
@@ -204,14 +235,14 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       // as a persisted, per-account list does not exist"). These three
       // link to the closest real, honest equivalents rather than a
       // fabricated history feature:
-      { label: "Strategies", href: "/quant-lite/builder", icon: "ST" },
-      { label: "Backtests", href: "/quant-lite/backtest", icon: "BT" },
+      { label: "Strategies", href: "/quant-lite/builder", icon: FolderKanban },
+      { label: "Backtests", href: "/quant-lite/backtest", icon: Activity },
       // Sprint IA2 - was temporarily mapped to the Strategy Library (a
       // fixed, unrelated sample set) since there was no real "my results"
       // surface at all. Now points at a real one: a per-browser recent-
       // runs list (services/quant-lite/recentRuns.ts) - honest given the
       // backend has no per-account job history to build a real one from.
-      { label: "Results", href: "/quant-lite/results", icon: "RE" },
+      { label: "Results", href: "/quant-lite/results", icon: FileText },
     ],
   },
   {
@@ -223,17 +254,17 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       // Support Agent is strictly separate - CS1.2 D1). Its own route
       // (app/dashboard/support/page.tsx), backed by the same framework
       // runs API with agentType SUPPORT.
-      { label: "Support", href: "/dashboard/support", icon: "SP" },
+      { label: "Support", href: "/dashboard/support", icon: LifeBuoy },
       // No credit-metering system exists yet (product decision explicitly
       // deferred this sprint). This links to a real page that states that
       // status honestly rather than a fabricated balance/usage widget.
-      { label: "Credits", href: "/dashboard/credits", icon: "CR" },
-      { label: "Purchases", href: "/dashboard/purchases", icon: "PU" },
-      { label: "Licenses", href: "/dashboard/licenses", icon: "LC" },
+      { label: "Credits", href: "/dashboard/credits", icon: CreditCard },
+      { label: "Purchases", href: "/dashboard/purchases", icon: ShoppingBag },
+      { label: "Licenses", href: "/dashboard/licenses", icon: KeyRound },
       {
         label: "Settings",
         href: "/dashboard/settings",
-        icon: "SE",
+        icon: Settings,
         children: [
           // Plan/subscription/invoice management - a settings concern,
           // and the locked ACCOUNT list has no separate slot for it.
@@ -248,7 +279,7 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
     // "customer-facing"); unchanged admin-only behavior, still gated both
     // here (discoverability) and server-side (requireRole).
     label: null,
-    items: [{ label: "Admin", href: "/dashboard/admin", icon: "AD", adminOnly: true }],
+    items: [{ label: "Admin", href: "/dashboard/admin", icon: Shield, adminOnly: true }],
   },
 ];
 
