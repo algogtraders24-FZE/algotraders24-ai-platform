@@ -6,6 +6,13 @@
 // advanced by POSTing .../advance in a loop - each call does one bounded
 // server-side slice. Failed steps are always shown. "Execution succeeded"
 // is never presented as "analysis verified".
+//
+// Sprint UI-02.3 - visual-only pass: self min-h-screen/max-w-3xl wrapper
+// removed (AppShell provides the content column), the run-summary block
+// -> Card, top-level loading/error -> LoadingState/ErrorState. StepRow's
+// per-status border/mark treatment is left as its own pattern - a status
+// timeline entry, not a Badge use case - only its outer wrapper moved onto
+// Card. Same pump()/advance-loop logic, same MAX_ADVANCES safety cap.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -13,6 +20,9 @@ import type { AutomationRunDetail, AutomationStepRunView } from "@/types/automat
 import { AutomationApi } from "@/services/api/AutomationApi";
 import { RunStatusPill } from "@/components/automation/ui";
 import { isTerminalAutomationRunStatus } from "@/types/automation";
+import Card from "@/components/ui/Card";
+import ErrorState from "@/components/ui/ErrorState";
+import LoadingState from "@/components/ui/LoadingState";
 
 const MAX_ADVANCES = 60;
 
@@ -48,63 +58,57 @@ export default function AutomationRunDetailPage() {
   }, [pump]);
 
   if (error && !run) {
-    return (
-      <div className="min-h-screen bg-ink p-6 text-text">
-        <div className="mx-auto max-w-3xl rounded-xl border border-danger/40 bg-danger/10 p-6 text-sm text-danger">{error}</div>
-      </div>
-    );
+    return <ErrorState title="Could not load run" description={error} />;
   }
-  if (!run) return <div className="min-h-screen bg-ink p-6 text-center text-sm text-text-3">Loading…</div>;
+  if (!run) return <LoadingState variant="page" />;
 
   const terminal = isTerminalAutomationRunStatus(run.status);
 
   return (
-    <div className="min-h-screen bg-ink p-6 text-text">
-      <div className="mx-auto max-w-3xl space-y-5">
-        <Link href={`/dashboard/automation/${run.automationId}`} className="text-sm text-text-3 hover:text-text">
-          ← {run.automationName}
-        </Link>
+    <div className="space-y-5">
+      <Link href={`/dashboard/automation/${run.automationId}`} className="text-sm text-text-3 hover:text-text">
+        ← {run.automationName}
+      </Link>
 
-        <header className="rounded-xl border border-border bg-ink-2 p-5">
-          <div className="flex items-center justify-between">
-            <h1 className="text-lg font-bold">Run #{run.id.slice(-8)}</h1>
-            <RunStatusPill status={run.status} />
-          </div>
-          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">
-            <Meta k="Version" v={`v${run.definitionVersion}`} />
-            <Meta k="Trigger" v={run.trigger} />
-            <Meta k="Started" v={run.startedAt ? new Date(run.startedAt).toLocaleTimeString() : "—"} />
-            <Meta k="Duration" v={run.durationMs != null ? `${(run.durationMs / 1000).toFixed(1)}s` : advancing ? "running…" : "—"} />
-            <Meta k="Credits" v={String(run.creditsUsed)} />
-          </dl>
-          {run.error && (
-            <p className="mt-3 rounded-lg border border-danger/30 bg-danger/5 p-2 text-xs text-danger">
-              <strong>{run.error.code}</strong>: {run.error.message}
-              {run.error.failedStepId ? ` (step ${run.error.failedStepId})` : ""}
-            </p>
-          )}
-          {run.status === "SUCCEEDED" && (
-            <p className="mt-3 rounded-lg border border-border bg-ink-3 p-2 text-xs text-text-3">
-              All steps completed. This confirms the automation ran — it does not verify the analysis. Open the agent run
-              for its evidence and confidence.
-            </p>
-          )}
-          {run.status === "CONDITION_HALTED" && (
-            <p className="mt-3 rounded-lg border border-warn/30 bg-warn/5 p-2 text-xs text-warn">
-              A condition was not met, so the run stopped here. This is a normal outcome, not a failure.
-            </p>
-          )}
-          {!terminal && (
-            <p className="mt-3 text-xs text-text-3">{advancing ? "Advancing run…" : "Waiting for the next slice."}</p>
-          )}
-        </header>
+      <Card>
+        <div className="flex items-center justify-between">
+          <h1 className="text-lg font-bold text-text">Run #{run.id.slice(-8)}</h1>
+          <RunStatusPill status={run.status} />
+        </div>
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">
+          <Meta k="Version" v={`v${run.definitionVersion}`} />
+          <Meta k="Trigger" v={run.trigger} />
+          <Meta k="Started" v={run.startedAt ? new Date(run.startedAt).toLocaleTimeString() : "—"} />
+          <Meta k="Duration" v={run.durationMs != null ? `${(run.durationMs / 1000).toFixed(1)}s` : advancing ? "running…" : "—"} />
+          <Meta k="Credits" v={String(run.creditsUsed)} />
+        </dl>
+        {run.error && (
+          <p className="mt-3 rounded-control border border-danger/30 bg-danger/5 p-2 text-xs text-danger">
+            <strong>{run.error.code}</strong>: {run.error.message}
+            {run.error.failedStepId ? ` (step ${run.error.failedStepId})` : ""}
+          </p>
+        )}
+        {run.status === "SUCCEEDED" && (
+          <p className="mt-3 rounded-control border border-border bg-ink-3 p-2 text-xs text-text-3">
+            All steps completed. This confirms the automation ran — it does not verify the analysis. Open the agent run
+            for its evidence and confidence.
+          </p>
+        )}
+        {run.status === "CONDITION_HALTED" && (
+          <p className="mt-3 rounded-control border border-warn/30 bg-warn/5 p-2 text-xs text-warn">
+            A condition was not met, so the run stopped here. This is a normal outcome, not a failure.
+          </p>
+        )}
+        {!terminal && (
+          <p className="mt-3 text-xs text-text-3">{advancing ? "Advancing run…" : "Waiting for the next slice."}</p>
+        )}
+      </Card>
 
-        <ol className="space-y-2">
-          {run.steps.map((s) => (
-            <StepRow key={s.index} step={s} />
-          ))}
-        </ol>
-      </div>
+      <ol className="space-y-2">
+        {run.steps.map((s) => (
+          <StepRow key={s.index} step={s} />
+        ))}
+      </ol>
     </div>
   );
 }
@@ -120,7 +124,7 @@ function StepRow({ step }: { step: AutomationStepRunView }) {
           : "border-gold/30";
   const mark = step.status === "OK" ? "✓" : step.status === "FAILED" ? "✕" : step.status === "SKIPPED" ? "–" : "…";
   return (
-    <li className={`rounded-lg border bg-ink-2 p-3 ${tone}`}>
+    <li className={`rounded-card border bg-ink-2 p-3 ${tone}`}>
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">
           <span className="mr-2 text-text-3">{mark}</span>

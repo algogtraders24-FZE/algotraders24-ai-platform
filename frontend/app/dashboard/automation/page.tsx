@@ -4,13 +4,27 @@
 // LOCKED: AUTOMATION_DECISION_LOCK.md. Pure view over /api/private/automations
 // - every metric is a sum of real AutomationRun stats returned by the server.
 // No client-computed run status, no fabricated numbers, no "Workflow" naming.
+//
+// Sprint UI-02.3 - visual-only pass: self min-h-screen/max-w-6xl wrapper
+// removed (AppShell already provides the centered content column), <h1> ->
+// PageHeader, the 5 hand-rolled metric tiles -> StatCard (all 5 are real
+// AutomationRun-derived sums, same summarise() logic, unchanged), the raw
+// <table> -> DataTable, the local duplicate EmptyState() -> the shared
+// EmptyState primitive, "+ Create Automation" link -> ButtonLink. Same
+// AutomationApi.list() call, same summarise() math, same states.
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { AutomationListItem } from "@/types/automation";
 import { AutomationApi } from "@/services/api/AutomationApi";
 import { AutomationStatusPill, RunStatusPill, describeTrigger } from "@/components/automation/ui";
 import ErrorState from "@/components/ui/ErrorState";
+import EmptyState from "@/components/ui/EmptyState";
 import Skeleton from "@/components/ui/Skeleton";
+import PageHeader from "@/components/ui/PageHeader";
+import ButtonLink from "@/components/ui/ButtonLink";
+import StatCard from "@/components/ui/StatCard";
+import DataTable, { type DataTableColumn } from "@/components/ui/DataTable";
+import { Zap, Calendar, CheckCircle2, XCircle, CreditCard } from "lucide-react";
 
 export default function AutomationPage() {
   const [items, setItems] = useState<AutomationListItem[] | null>(null);
@@ -28,112 +42,62 @@ export default function AutomationPage() {
 
   const m = summarise(items ?? []);
 
+  const columns: DataTableColumn<AutomationListItem>[] = [
+    { key: "name", header: "Name", render: (a) => <NameLink item={a} /> },
+    { key: "status", header: "Status", render: (a) => <AutomationStatusPill status={a.status} /> },
+    { key: "trigger", header: "Trigger", render: (a) => describeTrigger(a) },
+    { key: "lastRun", header: "Last run", render: (a) => (a.lastRun ? <RunStatusPill status={a.lastRun.status} /> : "—") },
+    { key: "nextRun", header: "Next run", render: (a) => (a.nextRunAt ? new Date(a.nextRunAt).toLocaleString() : "—") },
+    { key: "credits", header: "Credits 30d", align: "right", render: (a) => a.stats30d.creditsUsed },
+  ];
+
   return (
-    <div className="min-h-screen bg-ink p-6 text-text">
-      <div className="mx-auto max-w-6xl space-y-6">
-        <header className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">Automation</h1>
-            <p className="text-sm text-text-3">
-              Build automations that run AT24 intelligence, research and AI agents on a schedule.
-            </p>
-          </div>
-          <Link
-            href="/dashboard/automation/new"
-            className="rounded-lg border border-gold bg-gold/10 px-4 py-2 text-sm font-medium text-gold transition hover:bg-gold/20"
-          >
-            + Create Automation
-          </Link>
-        </header>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Automation"
+        title="Automation"
+        description="Build automations that run AT24 intelligence, research and AI agents on a schedule."
+        action={<ButtonLink href="/dashboard/automation/new">+ Create Automation</ButtonLink>}
+      />
 
-        {error ? (
-          <ErrorState title="Could not load automations" description={error} />
-        ) : items === null ? (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-5" aria-busy="true" aria-live="polite">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-16 w-full" />
-            ))}
+      {error ? (
+        <ErrorState title="Could not load automations" description={error} />
+      ) : items === null ? (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5" aria-busy="true" aria-live="polite">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-24 w-full" />
+          ))}
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+            <StatCard label="Active Automations" value={m.active} icon={Zap} />
+            <StatCard label="Runs Today" value={m.runsToday} icon={Calendar} />
+            <StatCard label="Successful Runs (30d)" value={m.succeeded} icon={CheckCircle2} />
+            <StatCard label="Failed Runs (30d)" value={m.failed} icon={XCircle} />
+            <StatCard label="Credits Used (30d)" value={m.credits} icon={CreditCard} />
           </div>
-        ) : (
-          <>
-            <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
-              {(
-                [
-                  ["Active Automations", m.active],
-                  ["Runs Today", m.runsToday],
-                  ["Successful Runs (30d)", m.succeeded],
-                  ["Failed Runs (30d)", m.failed],
-                  ["Credits Used (30d)", m.credits],
-                ] as [string, number][]
-              ).map(([label, value]) => (
-                <div key={label} className="rounded-xl border border-border bg-ink-2 p-4">
-                  <p className="text-xs text-text-3">{label}</p>
-                  <p className="mt-1 text-2xl font-bold tabular-nums">{value}</p>
-                </div>
-              ))}
-            </section>
 
-            {items.length === 0 ? (
-              <EmptyState />
-            ) : (
-              <div className="overflow-x-auto rounded-xl border border-border bg-ink-2">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-xs uppercase tracking-wide text-text-3">
-                      <th className="p-3">Name</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3">Trigger</th>
-                      <th className="p-3">Last run</th>
-                      <th className="p-3">Next run</th>
-                      <th className="p-3 text-right">Credits 30d</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((a) => (
-                      <tr key={a.id} className="border-t border-border hover:bg-ink-3/50">
-                        <td className="p-3">
-                          <Link href={`/dashboard/automation/${a.id}`} className="font-medium text-text hover:text-gold">
-                            {a.name}
-                          </Link>
-                        </td>
-                        <td className="p-3">
-                          <AutomationStatusPill status={a.status} />
-                        </td>
-                        <td className="p-3 text-text-2">{describeTrigger(a)}</td>
-                        <td className="p-3">
-                          {a.lastRun ? <RunStatusPill status={a.lastRun.status} /> : <span className="text-text-3">—</span>}
-                        </td>
-                        <td className="p-3 text-text-2">
-                          {a.nextRunAt ? new Date(a.nextRunAt).toLocaleString() : "—"}
-                        </td>
-                        <td className="p-3 text-right tabular-nums text-text-2">{a.stats30d.creditsUsed}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+          {items.length === 0 ? (
+            <EmptyState
+              title="No automations yet"
+              description="Automate recurring market research, intelligence and AI agent tasks. Create your first automation to get started."
+              action={<ButtonLink href="/dashboard/automation/new">Create your first automation</ButtonLink>}
+            />
+          ) : (
+            <DataTable columns={columns} rows={items} getRowKey={(a) => a.id} />
+          )}
+        </>
+      )}
     </div>
   );
 }
 
-function EmptyState() {
+function NameLink({ item }: { item: AutomationListItem }) {
   return (
-    <div className="rounded-xl border border-border bg-ink-2 p-10 text-center">
-      <p className="text-lg font-semibold">No automations yet</p>
-      <p className="mx-auto mt-2 max-w-md text-sm text-text-3">
-        Automate recurring market research, intelligence and AI agent tasks. Create your first automation to get started.
-      </p>
-      <Link
-        href="/dashboard/automation/new"
-        className="mt-4 inline-block rounded-lg border border-gold bg-gold/10 px-4 py-2 text-sm font-medium text-gold transition hover:bg-gold/20"
-      >
-        Create your first automation
-      </Link>
-    </div>
+    <Link href={`/dashboard/automation/${item.id}`} className="font-medium text-text hover:text-gold">
+      {item.name}
+    </Link>
   );
 }
 
