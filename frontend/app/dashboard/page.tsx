@@ -45,10 +45,30 @@ export default async function DashboardHome() {
   }
 
   const stats = [
-    { label: "Conversations", value: overview.totalConversations, icon: MessageSquare },
-    { label: "Documents", value: overview.totalDocuments, icon: FileText },
-    { label: "Indexed chunks", value: overview.totalChunks, icon: Database },
-    { label: "Knowledge retrievals", value: overview.totalRetrievals, icon: Search },
+    {
+      label: "Conversations",
+      value: overview.totalConversations,
+      icon: MessageSquare,
+      hint: "AI Assistant conversations you've started.",
+    },
+    {
+      label: "Documents",
+      value: overview.totalDocuments,
+      icon: FileText,
+      hint: "Documents you've uploaded to your Knowledge Base.",
+    },
+    {
+      label: "Indexed chunks",
+      value: overview.totalChunks,
+      icon: Database,
+      hint: "Passages your documents were split into so the AI Assistant can search and cite them.",
+    },
+    {
+      label: "Knowledge retrievals",
+      value: overview.totalRetrievals,
+      icon: Search,
+      hint: "Times the AI Assistant pulled a passage from your documents to answer a question.",
+    },
   ];
 
   const planLabel = PLAN_LABELS[user.planId as PlanId] ?? user.planId;
@@ -94,7 +114,7 @@ export default async function DashboardHome() {
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map((stat) => (
-          <StatCard key={stat.label} label={stat.label} value={stat.value} icon={stat.icon} />
+          <StatCard key={stat.label} label={stat.label} value={stat.value} icon={stat.icon} hint={stat.hint} />
         ))}
       </div>
 

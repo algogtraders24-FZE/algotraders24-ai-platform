@@ -18,9 +18,10 @@ import Link from "next/link";
 import EmptyState from "@/components/ui/EmptyState";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Badge, { type BadgeTone } from "@/components/ui/Badge";
+import Skeleton from "@/components/ui/Skeleton";
 import { fetchStrategyLibrary } from "@/lib/algo-test/store";
 import { formatTimestamp } from "@/lib/financial-format";
-import type { AlgoTestStrategyOrigin, StrategyLibraryItem } from "@/types/algo-test";
+import { ALGO_TEST_STRATEGY_ORIGIN_LABEL, type AlgoTestStrategyOrigin, type StrategyLibraryItem } from "@/types/algo-test";
 
 function originTone(origin: AlgoTestStrategyOrigin): BadgeTone {
   return origin === "registry" ? "info" : "gold";
@@ -44,7 +45,13 @@ export default function AlgoTestLibraryPage() {
         <p className="mt-1 text-sm text-text-2">Every strategy available to Algo Testing Pro - built-in registry strategies and your own AI-compiled ones.</p>
       </div>
 
-      {strategies === null ? null : strategies.length === 0 ? (
+      {strategies === null ? (
+        <div className="space-y-3" aria-busy="true" aria-live="polite">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-24 w-full" />
+          ))}
+        </div>
+      ) : strategies.length === 0 ? (
         <EmptyState
           title="No strategies yet."
           description="Compile a strategy from Algo Testing Pro and it will show up here."
@@ -62,7 +69,7 @@ export default function AlgoTestLibraryPage() {
                 <p className="font-semibold text-text" title={strategy.strategyId}>
                   {strategy.name}
                 </p>
-                <Badge tone={originTone(strategy.origin)}>{strategy.origin}</Badge>
+                <Badge tone={originTone(strategy.origin)}>{ALGO_TEST_STRATEGY_ORIGIN_LABEL[strategy.origin]}</Badge>
               </div>
               <p className="mt-1 text-xs text-text-3">
                 {strategy.runCount} {strategy.runCount === 1 ? "run" : "runs"}

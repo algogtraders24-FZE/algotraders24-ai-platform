@@ -51,13 +51,43 @@ type ListItem = { runId: string; agentType: string | null; status: string; creat
 const TERMINAL = new Set(["succeeded", "failed", "tool_error", "permission_denied", "credit_limit", "step_limit", "timeout", "cancelled"]);
 const MAX_ADVANCES = 40;
 
+// Beta content pass - status pills and the error banner were rendering raw
+// internal status codes ("tool_error", "credit_limit") and, on a network
+// failure or an API response with no error.message, a raw HTTP status line
+// ("500 Internal Server Error") or browser exception text directly to the
+// user. This maps known statuses to plain language and gives non-product
+// failures one honest, generic fallback - never a raw status/exception
+// string (same rule components/ui/ErrorState.tsx documents for itself).
+const STATUS_LABEL: Record<string, string> = {
+  succeeded: "Succeeded",
+  failed: "Failed",
+  tool_error: "Tool error",
+  permission_denied: "Permission denied",
+  credit_limit: "Credit limit reached",
+  step_limit: "Step limit reached",
+  timeout: "Timed out",
+  cancelled: "Cancelled",
+  running: "Running",
+  queued: "Queued",
+  pending: "Pending",
+};
+const GENERIC_ERROR = "Something went wrong. Please try again.";
+
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { ...init, headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) } });
   const json = await res.json().catch(() => null);
   if (!res.ok || !json || json.status !== "ok") {
-    throw new Error(json?.error?.message ?? `${res.status} ${res.statusText}`);
+    // A real error.message from the API is product-level and safe to show
+    // as-is; anything else (raw HTTP status line, or none at all) falls
+    // back to the generic message rather than leaking transport details.
+    throw new Error(json?.error?.message || GENERIC_ERROR);
   }
   return json.data as T;
+}
+
+function friendlyErrorMessage(e: unknown): string {
+  if (e instanceof Error && e.message && !/^\d{3}\s/.test(e.message)) return e.message;
+  return GENERIC_ERROR;
 }
 
 function StatusPill({ status }: { status: string }) {
@@ -65,7 +95,7 @@ function StatusPill({ status }: { status: string }) {
     status === "succeeded" ? "border-success/40 bg-success/10 text-success"
       : TERMINAL.has(status) ? "border-danger/40 bg-danger/10 text-danger"
         : "border-gold/40 bg-gold/10 text-gold";
-  return <span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${tone}`}>{status}</span>;
+  return <span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${tone}`}>{STATUS_LABEL[status] ?? status}</span>;
 }
 
 export default function AgentRunsPage() {
@@ -86,7 +116,7 @@ export default function AgentRunsPage() {
   }, []);
 
   useEffect(() => {
-    loadList().catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    loadList().catch((e) => setError(friendlyErrorMessage(e)));
   }, [loadList]);
 
   const driveToTerminal = useCallback(async (runId: string) => {
@@ -123,7 +153,7 @@ export default function AgentRunsPage() {
       setObs(first.run);
       await driveToTerminal(runId);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyErrorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -136,7 +166,7 @@ export default function AgentRunsPage() {
       setObs(data.run);
       if (!TERMINAL.has(data.run.run?.status ?? "")) await driveToTerminal(runId);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyErrorMessage(e));
     }
   }, [driveToTerminal]);
 
@@ -146,10 +176,10 @@ export default function AgentRunsPage() {
     <div className="min-h-screen bg-ink p-6 text-text">
       <div className="mx-auto max-w-5xl space-y-6">
         <header className="rounded-2xl border border-border bg-gradient-to-r from-gold/20 to-gold/10 p-6">
-          <h1 className="text-2xl font-bold">Agent Framework - Runs</h1>
+          <h1 className="text-2xl font-bold">AI Agents</h1>
           <p className="mt-1 text-sm text-text-2">
-            Real runs on the A1-A14 runtime. Every value below is persisted state - plan, tool calls,
-            evidence, output, integrity, evaluation and credits.
+            Start a focused agent on a task and watch it work in real time - every plan step, tool call, and
+            piece of evidence below is the agent&apos;s actual run, never a simulated preview.
           </p>
         </header>
 
@@ -234,7 +264,7 @@ export default function AgentRunsPage() {
                       <span className={tc.status === "ok" ? "text-text-3" : "text-danger"}>{tc.status}</span>
                     </li>
                   ))}
-                  {obs.toolCalls.length === 0 && <li className="text-text-3">none yet</li>}
+                  {obs.toolCalls.length === 0 && <li className="text-text-3">No tool calls yet.</li>}
                 </ul>
               </div>
             </div>
@@ -266,8 +296,8 @@ export default function AgentRunsPage() {
             )}
 
             <div className="flex items-center gap-4 text-xs text-text-3">
-              <span>credits charged: {obs.credits.totalCharged}</span>
-              <span>run.creditsConsumed: {obs.run.creditsConsumed}</span>
+              <span>Credits charged: {obs.credits.totalCharged}</span>
+              <span>Total credits used: {obs.run.creditsConsumed}</span>
             </div>
 
             {obs.run.output != null && (
@@ -296,7 +326,7 @@ export default function AgentRunsPage() {
                 </button>
               </li>
             ))}
-            {runs.length === 0 && <li className="py-2 text-text-3">no runs yet</li>}
+            {runs.length === 0 && <li className="py-2 text-text-3">No runs yet - start one above to see it here.</li>}
           </ul>
         </section>
       </div>

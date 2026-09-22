@@ -4,7 +4,12 @@
 // verified to resolve to a real page.
 // Sprint D1.0 - Retrofitted onto the Card primitive/token system.
 // Sprint UI-01 - real lucide icons instead of emoji, matching the rest of
-// the shell (sidebar, topbar). Same 4 actions, same hrefs.
+// the shell (sidebar, topbar). Same 4 actions.
+// Beta content pass (reapplied post-UI-01) - "Browse Products" linked to
+// /products, a redirect-only route into /marketplace (app/products/page.tsx)
+// - relabeled to match the product's own locked "Marketplace" naming
+// (Navbar/Footer/dashboard nav all use it) and linked directly, no redirect
+// hop.
 import Link from "next/link";
 import { Bot, Upload, LineChart, Package } from "lucide-react";
 import Card from "@/components/ui/Card";
@@ -13,7 +18,7 @@ const ACTIONS = [
   { label: "Ask AI Assistant", href: "/dashboard/assistant", icon: Bot },
   { label: "Upload Document", href: "/dashboard/knowledge", icon: Upload },
   { label: "Market Intelligence", href: "/dashboard/market-intelligence", icon: LineChart },
-  { label: "Browse Products", href: "/products", icon: Package },
+  { label: "Browse Marketplace", href: "/marketplace", icon: Package },
 ] as const;
 
 export default function QuickActions() {
