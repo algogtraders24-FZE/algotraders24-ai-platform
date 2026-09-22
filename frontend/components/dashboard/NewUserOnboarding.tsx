@@ -5,7 +5,11 @@
 // Sprint UI-01 - header now uses the shared PageHeader (same eyebrow/title/
 // description shape as the rest of the app), module icons are real lucide
 // components instead of emoji, matching QuickActions/StatCard. Same three
-// modules, same copy, same hrefs.
+// modules, same hrefs.
+// Beta content pass (reapplied post-UI-01) - the description previously
+// claimed "Algotraders24 is built around three modules that work together",
+// inaccurate now that the real nav has far more than three. Reworded to not
+// imply totality.
 import { Bot, LineChart, FileText } from "lucide-react";
 import ResendVerificationButton from "@/components/auth/ResendVerificationButton";
 import Card from "@/components/ui/Card";
@@ -55,8 +59,9 @@ export default function NewUserOnboarding({
         title={`Welcome to Algotraders24, ${name}`}
         description={
           <>
-            Your account is set up. Algotraders24 is built around three modules that work together - pick any one
-            below to get started, there&apos;s no required order.
+            Your account is set up. Here are three good places to start - pick any one below, there&apos;s no
+            required order. The full platform (Quant, Automation, Marketplace, and more) is in the sidebar whenever
+            you&apos;re ready for it.
             <br />
             <span className="text-xs text-text-3">
               {email}
