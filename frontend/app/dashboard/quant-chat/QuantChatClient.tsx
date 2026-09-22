@@ -76,6 +76,12 @@
 // the conversation has since moved on - mirroring QP-3's own already-
 // validated "keep it visible, but explicitly re-label" resolution to the
 // identical staleness problem for the chart preview.
+// Sprint UI-02.2 - the mode-toggle and Run Backtest controls now use the
+// shared Button primitive (variant swaps for the toggle's active/inactive
+// state, `loading` prop for Run Backtest's own text-swap) instead of 3
+// hand-rolled <button> elements. The fixed-height chat-app header/shell
+// is kept as its own bespoke layout - it's a chat surface, not a
+// scrolling content page, so PageHeader's shape doesn't apply here.
 import { useState } from "react";
 import ChatWindow from "@/components/ai/ChatWindow";
 import ChatInput from "@/components/ai/ChatInput";
@@ -84,6 +90,7 @@ import type { DisplayMessage } from "@/components/ai/MessageBubble";
 import { quantChatPromptSuggestions } from "@/data/quant-chat-prompts";
 import { applyStrategyBuilderModification, compileAndRunAiStrategy, type StrategyBuilderModificationResult } from "@/lib/algo-test/store";
 import { explainStrategySpec } from "@/lib/ai/strategy-compiler/strategy-explainer";
+import Button from "@/components/ui/Button";
 import StrategyChartPreview from "@/components/quant-chat/StrategyChartPreview";
 import BacktestResultCard from "@/components/quant-chat/BacktestResultCard";
 import { buildQuantChatBacktestRequest } from "@/lib/algo-test/quant-chat-backtest-defaults";
@@ -186,26 +193,23 @@ export default function QuantChatClient() {
       </header>
 
       <div className="flex items-center gap-2 border-b border-border px-4 py-2">
-        <button
-          onClick={() => setChatMode("modify")}
-          className={`rounded-lg px-3 py-1.5 text-xs font-medium ${chatMode === "modify" ? "bg-gold text-ink" : "border border-border text-text-2 hover:text-text"}`}
-        >
+        <Button size="sm" variant={chatMode === "modify" ? "primary" : "secondary"} onClick={() => setChatMode("modify")}>
           Modify strategy
-        </button>
-        <button
-          onClick={() => setChatMode("explain")}
-          className={`rounded-lg px-3 py-1.5 text-xs font-medium ${chatMode === "explain" ? "bg-gold text-ink" : "border border-border text-text-2 hover:text-text"}`}
-        >
+        </Button>
+        <Button size="sm" variant={chatMode === "explain" ? "primary" : "secondary"} onClick={() => setChatMode("explain")}>
           Ask a question
-        </button>
-        <button
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          className="ml-auto"
           onClick={handleRunBacktest}
-          disabled={!conversationState.lastCompileResult?.compiledSpec || backtestRunning}
+          disabled={!conversationState.lastCompileResult?.compiledSpec}
+          loading={backtestRunning}
           title={!conversationState.lastCompileResult?.compiledSpec ? "Compile a strategy successfully first" : undefined}
-          className="ml-auto rounded-lg border border-gold/40 px-3 py-1.5 text-xs font-medium text-gold-strong hover:text-gold disabled:cursor-not-allowed disabled:border-border disabled:text-text-3 disabled:hover:text-text-3"
         >
-          {backtestRunning ? "Running backtest…" : "Run Backtest"}
-        </button>
+          Run Backtest
+        </Button>
       </div>
 
       {preview && (
