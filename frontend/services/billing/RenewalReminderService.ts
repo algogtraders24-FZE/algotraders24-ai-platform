@@ -14,11 +14,21 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { sendRenewalReminderEmail } from "@/services/notifications/EmailService";
 import { wasEmailAlreadySent } from "@/services/notifications/EmailLogService";
+import { getPlanCyclePrice } from "@/services/billing/planPricing";
 
 export const REMINDER_WINDOW_DAYS = 3;
 
 function dedupeKeyFor(subscriptionId: string, periodEnd: Date): string {
   return `${subscriptionId}:${periodEnd.toISOString()}`;
+}
+
+// Same day-count heuristic subscriptionAdapter.ts's own toCycle() already
+// uses to derive a Subscription's billing cycle from its real period
+// length - reused here so a yearly subscriber's reminder shows the real
+// amount they're about to be charged, not always the monthly price.
+function cycleFromPeriod(start: Date, end: Date): "monthly" | "yearly" {
+  const days = (end.getTime() - start.getTime()) / 86_400_000;
+  return days > 200 ? "yearly" : "monthly";
 }
 
 export interface RenewalReminderReport {
@@ -55,18 +65,20 @@ export async function dispatchRenewalReminders(windowDays: number = REMINDER_WIN
 
       const [buyer, plan] = await Promise.all([
         prisma.user.findUnique({ where: { id: sub.userId }, select: { email: true, name: true } }),
-        prisma.plan.findUnique({ where: { id: sub.planId }, select: { name: true, price: true } }),
+        prisma.plan.findUnique({ where: { id: sub.planId }, select: { name: true, priceMonthly: true, priceYearly: true } }),
       ]);
       if (!buyer || !plan) {
         report.skipped++;
         continue;
       }
 
+      const cycle = cycleFromPeriod(sub.currentPeriodStart, sub.currentPeriodEnd);
+
       await sendRenewalReminderEmail({
         to: buyer.email,
         buyerName: buyer.name || "there",
         planName: plan.name,
-        amount: plan.price,
+        amount: getPlanCyclePrice(plan, cycle),
         currency: "USD", // matches the existing subscription-active/payment-failed emails - Plan has no currency field, product is USD-only today
         periodEnd: sub.currentPeriodEnd,
         dedupeKey,
