@@ -13,7 +13,8 @@ import { subscriptionActionService } from "@/services/billing/SubscriptionAction
 import { isPlanId } from "@/config/plan-limits";
 import { prisma } from "@/lib/prisma";
 import { issueLicenseForPurchase } from "@/services/licensing/licenseService";
-import { sendPurchaseConfirmationEmail, sendLicenseIssuanceFailureAlert } from "@/services/notifications/EmailService";
+import { sendPurchaseConfirmationEmail, sendLicenseIssuanceFailureAlert, sendSubscriptionActivationFailureAlert } from "@/services/notifications/EmailService";
+import { notifySubscriptionActive } from "@/services/billing/subscriptionNotifications";
 import type { PlatformName } from "@/types/marketplace-factory";
 
 const FINAL_SUCCESS_STATUSES = new Set(["finished", "confirmed"]);
@@ -142,19 +143,42 @@ export const POST = withContext(async (req, ctx) => {
     } else {
       const parsed = parseOrderId(body.order_id);
       if (parsed) {
+        const now = new Date();
+        const currentPeriodEnd = addMonths(now, parsed.cycle === "yearly" ? 12 : 1);
         try {
-          const now = new Date();
           await subscriptionActionService.activateFromPayment({
             userId: parsed.userId,
             planId: parsed.planId,
             provider: "nowpayments",
             currentPeriodStart: now,
-            currentPeriodEnd: addMonths(now, parsed.cycle === "yearly" ? 12 : 1),
+            currentPeriodEnd,
             nowPaymentsInvoiceId: body.payment_id,
           });
-        } catch {
+        } catch (activationError) {
+          // The buyer's crypto payment already confirmed at this point (a
+          // real incident: 2026-09-22, a finished NOWPayments subscription
+          // payment left the buyer silently on their old plan with zero
+          // record anywhere that anything had gone wrong) - alert the team
+          // rather than repeating that silently, and still return 500 so
+          // NOWPayments retries the IPN.
+          try {
+            await sendSubscriptionActivationFailureAlert({
+              userId: parsed.userId,
+              planId: parsed.planId,
+              provider: "nowpayments",
+              providerRef: body.payment_id ?? body.order_id,
+              errorMessage: activationError instanceof Error ? activationError.message : String(activationError),
+            });
+          } catch (alertError) {
+            console.error("[webhook:nowpayments] subscription activation failure alert also failed:", alertError);
+          }
           return ApiResponse.error({ code: "WEBHOOK_PROCESSING_FAILED", message: "Could not apply IPN event" }, ctx.requestId, 500, ctx.startedAt);
         }
+        // AT24_EMAIL_COMMUNICATION_RECONCILIATION.md's B01/B02 gap, found
+        // live: unlike the Stripe subscription path, this branch never told
+        // the buyer their subscription was active. Best-effort, never fails
+        // the webhook - activation above has already succeeded.
+        await notifySubscriptionActive(parsed.userId, parsed.planId, currentPeriodEnd);
       }
     }
   }
