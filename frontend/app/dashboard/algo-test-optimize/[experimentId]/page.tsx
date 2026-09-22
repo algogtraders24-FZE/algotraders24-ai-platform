@@ -87,6 +87,7 @@ import ErrorState from "@/components/ui/ErrorState";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
+import Card from "@/components/ui/Card";
 import { Table, Thead, Th, Tbody, Tr, Td } from "@/components/ui/Table";
 import { FIN_LABEL } from "@/components/ui/financial-typography";
 import { fetchOptimizationExperiment, continueOptimizationExperiment, cancelOptimizationExperiment, OptimizationClientError } from "@/lib/algo-test/optimization-store";
@@ -205,6 +206,15 @@ function CandidateRow({ candidate, sweptParameterIds, minEligibleTrades, isConfi
   );
 }
 
+// Sprint UI-02.2 - visual-only pass: self max-w-3xl wrapper removed
+// (AppShell provides the content column), the hand-rolled <h1> gets a
+// PageHeader-style eyebrow line (kept as its own row rather than
+// PageHeader itself, since the status Badge sits inline with the title -
+// same exception as the Strategy Library detail page), and the repeated
+// `rounded-card border border-border bg-ink-2 p-5` divs now render
+// through Card (padding="none" + className="p-5" to keep the exact
+// existing spacing rather than snapping to Card's md/p-6 preset). None of
+// the polling/cancellation/winner-integrity logic below is touched.
 export default function AlgoTestOptimizeMonitorPage() {
   const params = useParams<{ experimentId: string }>();
   const experimentId = decodeURIComponent(params.experimentId);
@@ -504,7 +514,7 @@ export default function AlgoTestOptimizeMonitorPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="space-y-6">
       <Link href="/dashboard/algo-test-optimize" className="text-xs text-text-3 hover:text-gold">
         ← Optimize Parameters
       </Link>
@@ -518,12 +528,15 @@ export default function AlgoTestOptimizeMonitorPage() {
         <ErrorState title="Optimization experiment not found." description="It may not exist, or it may belong to someone else." />
       ) : (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h1 className="text-2xl font-bold text-text">Optimization</h1>
-            <Badge tone={STATUS_TONE[view.status]}>{titleCaseLabel(view.status)}</Badge>
+          <div>
+            <p className="text-eyebrow uppercase text-gold">Algo Testing Pro</p>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+              <h1 className="text-2xl font-bold text-text">Optimization</h1>
+              <Badge tone={STATUS_TONE[view.status]}>{titleCaseLabel(view.status)}</Badge>
+            </div>
           </div>
 
-          <div className="rounded-card border border-border bg-ink-2 p-5">
+          <Card padding="none" className="p-5">
             <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
               <div>
                 <dt className={FIN_LABEL}>Strategy</dt>
@@ -542,10 +555,10 @@ export default function AlgoTestOptimizeMonitorPage() {
                 </dd>
               </div>
             </dl>
-          </div>
+          </Card>
 
           {!isTerminalStatus(view.status) ? (
-            <div className="rounded-card border border-border bg-ink-2 p-5">
+            <Card padding="none" className="p-5">
               <p className={FIN_LABEL}>Progress</p>
               <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-ink-3">
                 <div
@@ -561,16 +574,16 @@ export default function AlgoTestOptimizeMonitorPage() {
                   Cancel Optimization
                 </Button>
               </div>
-            </div>
+            </Card>
           ) : view.status === "CANCELLED" ? (
-            <div className="rounded-card border border-border bg-ink-2 p-5">
+            <Card padding="none" className="p-5">
               <p className="text-sm text-text-2">
                 Cancelled — {view.processedCandidates}/{view.totalCandidates} candidates processed before cancellation.
               </p>
               {renderCandidateEvidence(view)}
-            </div>
+            </Card>
           ) : view.status === "COMPLETED" ? (
-            <div className="rounded-card border border-border bg-ink-2 p-5">
+            <Card padding="none" className="p-5">
               <p className="text-sm text-text-2">
                 Finished — {view.processedCandidates}/{view.totalCandidates} candidates processed.
               </p>
@@ -655,15 +668,15 @@ export default function AlgoTestOptimizeMonitorPage() {
                   failed-to-load) - it is driven by the same winnerDetail
                   fetch but is otherwise independent of the winner card. */}
               {renderCandidateEvidence(view)}
-            </div>
+            </Card>
           ) : (
-            <div className="rounded-card border border-border bg-ink-2 p-5">
+            <Card padding="none" className="p-5">
               <p className="text-sm text-text-2">
                 This experiment finished — {view.processedCandidates}/{view.totalCandidates} candidates processed.
               </p>
               {view.status === "FAILED" && view.errorMessage && <p className="mt-2 text-sm text-danger">{view.errorMessage}</p>}
               {renderCandidateEvidence(view)}
-            </div>
+            </Card>
           )}
 
           {continueError && (

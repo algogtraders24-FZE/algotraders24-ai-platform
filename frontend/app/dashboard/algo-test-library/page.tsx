@@ -13,12 +13,17 @@
 // sorting, no run-again action, no editing/versioning/clone/favorites/
 // tags, no best-metric display. Every row links to this Strategy's own
 // detail page - never a second reopen/rerun code path.
+// Sprint UI-02.2 - same visual-only pass as algo-test-history/page.tsx
+// (its sibling list page): <h1>/<p> -> PageHeader, self max-w-6xl wrapper
+// removed (AppShell provides the content column), rounded-2xl -> the
+// rounded-card token. Row stays a <Link> for real anchor semantics.
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import EmptyState from "@/components/ui/EmptyState";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Badge, { type BadgeTone } from "@/components/ui/Badge";
 import Skeleton from "@/components/ui/Skeleton";
+import PageHeader from "@/components/ui/PageHeader";
 import { fetchStrategyLibrary } from "@/lib/algo-test/store";
 import { formatTimestamp } from "@/lib/financial-format";
 import { ALGO_TEST_STRATEGY_ORIGIN_LABEL, type AlgoTestStrategyOrigin, type StrategyLibraryItem } from "@/types/algo-test";
@@ -39,11 +44,12 @@ export default function AlgoTestLibraryPage() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-text">Strategy Library</h1>
-        <p className="mt-1 text-sm text-text-2">Every strategy available to Algo Testing Pro - built-in registry strategies and your own AI-compiled ones.</p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Algo Testing Pro"
+        title="Strategy Library"
+        description="Every strategy available to Algo Testing Pro - built-in registry strategies and your own AI-compiled ones."
+      />
 
       {strategies === null ? (
         <div className="space-y-3" aria-busy="true" aria-live="polite">
@@ -63,7 +69,7 @@ export default function AlgoTestLibraryPage() {
             <Link
               key={strategy.strategyId}
               href={`/dashboard/algo-test-library/${encodeURIComponent(strategy.strategyId)}`}
-              className="block rounded-2xl border border-border bg-ink-2 p-5 transition hover:border-gold"
+              className="block rounded-card border border-border bg-ink-2 p-5 transition hover:border-gold"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-semibold text-text" title={strategy.strategyId}>

@@ -16,12 +16,22 @@
 // analytics payload. Every row links to the SAME existing reopen
 // mechanism AlgoTestPanel already has (?algoTestId=<id> on
 // /dashboard/workspace) - never a second reopen code path.
+// Sprint UI-02.2 - visual-only pass onto the UI-01/UI-02.1 system: the
+// hand-rolled <h1>/<p> header is now PageHeader, the page's own
+// mx-auto/max-w-6xl wrapper is gone (AppShell already provides a centered
+// content column - Overview/Market Intelligence have no self-wrapper
+// either), and the row-card radius is corrected from rounded-2xl (16px,
+// not a design token) to rounded-card (the approved 12px token). The row
+// stays a <Link> (not the Card component, which renders a <div>) - a
+// whole-row-clickable list needs real anchor semantics. Same data fetch,
+// same states, same fields.
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import EmptyState from "@/components/ui/EmptyState";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Badge, { type BadgeTone } from "@/components/ui/Badge";
 import Skeleton from "@/components/ui/Skeleton";
+import PageHeader from "@/components/ui/PageHeader";
 import { fetchAlgoTestRuns } from "@/lib/algo-test/store";
 import { formatPrice, formatPercent, formatTimestamp } from "@/lib/financial-format";
 import type { AlgoTestRunView } from "@/types/algo-test";
@@ -74,11 +84,12 @@ export default function AlgoTestHistoryPage() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-text">Run History</h1>
-        <p className="mt-1 text-sm text-text-2">Your most recent Algo Testing Pro backtests, most recent first.</p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Algo Testing Pro"
+        title="Run History"
+        description="Your most recent Algo Testing Pro backtests, most recent first."
+      />
 
       {runs === null ? (
         <div className="space-y-3" aria-busy="true" aria-live="polite">
@@ -98,7 +109,7 @@ export default function AlgoTestHistoryPage() {
             <Link
               key={run.testId}
               href={`/dashboard/workspace?algoTestId=${encodeURIComponent(run.testId)}`}
-              className="block rounded-2xl border border-border bg-ink-2 p-5 transition hover:border-gold"
+              className="block rounded-card border border-border bg-ink-2 p-5 transition hover:border-gold"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-semibold text-text" title={run.strategyId}>

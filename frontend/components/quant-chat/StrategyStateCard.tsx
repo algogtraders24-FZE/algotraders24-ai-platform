@@ -6,6 +6,7 @@
 // deliberately not folded into the shared components/ai/* layer, which
 // has no equivalent concept.
 import { FIN_LABEL, FIN_TERTIARY } from "@/components/ui/financial-typography";
+import Badge, { type BadgeTone } from "@/components/ui/Badge";
 import type { QuantChatMessageStrategyState } from "@/types/quant-chat";
 
 const STAGE_LABEL: Record<string, string> = {
@@ -15,6 +16,16 @@ const STAGE_LABEL: Record<string, string> = {
   EXECUTION_VALID: "Ready to compile",
 };
 
+// Sprint UI-02.2 - was a hand-rolled pill re-deriving Badge's own tone
+// logic (PASSED/FAILED/neutral). The outer card keeps its own
+// rounded-2xl/bg-ink recipe - this renders inside a chat message bubble,
+// a deliberately different "sits on canvas" tone from a page-level Card.
+function stageTone(outcome: string): BadgeTone {
+  if (outcome === "PASSED") return "success";
+  if (outcome === "FAILED") return "danger";
+  return "neutral";
+}
+
 export default function StrategyStateCard({ strategyState }: { strategyState: QuantChatMessageStrategyState }) {
   const { compileResult, explanation } = strategyState;
   const failedStage = compileResult.stages.find((s) => s.outcome === "FAILED");
@@ -23,14 +34,9 @@ export default function StrategyStateCard({ strategyState }: { strategyState: Qu
     <div className="mt-3 rounded-2xl border border-border bg-ink p-4">
       <div className="flex flex-wrap items-center gap-2">
         {compileResult.stages.map((stage) => (
-          <span
-            key={stage.stage}
-            className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-              stage.outcome === "PASSED" ? "bg-signal-up/15 text-signal-up" : stage.outcome === "FAILED" ? "bg-danger/15 text-danger" : "bg-ink-3 text-text-3"
-            }`}
-          >
+          <Badge key={stage.stage} tone={stageTone(stage.outcome)}>
             {STAGE_LABEL[stage.stage] ?? stage.stage}
-          </span>
+          </Badge>
         ))}
       </div>
 

@@ -15,6 +15,14 @@
 //
 // No run-again action, no editing/versioning/clone/favorites/tags, no
 // best-metric display - all explicitly out of the locked T3.4 scope.
+//
+// Sprint UI-02.2 - self max-w-3xl wrapper removed (AppShell provides the
+// content column). The title sits inline with an origin Badge, which
+// PageHeader's string-only `title` prop can't represent - kept as its own
+// eyebrow+h1+Badge row (using PageHeader's exact eyebrow/title classes,
+// so it reads identically) rather than forcing an awkward fit. The
+// "artifact not verified" notice is now the shared Alert primitive
+// (tone="warning") instead of a hand-rolled dashed box - same message.
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -22,6 +30,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Badge, { type BadgeTone } from "@/components/ui/Badge";
 import Skeleton from "@/components/ui/Skeleton";
+import Alert from "@/components/ui/Alert";
 import CompiledStrategyCard from "@/components/algo-test/CompiledStrategyCard";
 import { fetchStrategyLibraryDetail } from "@/lib/algo-test/store";
 import { formatTimestamp } from "@/lib/financial-format";
@@ -46,7 +55,7 @@ export default function AlgoTestLibraryDetailPage() {
   }, [strategyId]);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="space-y-6">
       <Link href="/dashboard/algo-test-library" className="text-xs text-text-3 hover:text-gold">
         ← Strategy Library
       </Link>
@@ -65,11 +74,12 @@ export default function AlgoTestLibraryDetailPage() {
       ) : (
         <div className="space-y-4">
           <div>
-            <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-eyebrow uppercase text-gold">Strategy Library</p>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
               <h1 className="text-2xl font-bold text-text">{detail.name}</h1>
               <Badge tone={originTone(detail.origin)}>{ALGO_TEST_STRATEGY_ORIGIN_LABEL[detail.origin]}</Badge>
             </div>
-            <p className="mt-1 text-sm text-text-2">
+            <p className="mt-2 text-sm text-text-2">
               {detail.runCount} {detail.runCount === 1 ? "run" : "runs"}
               {detail.lastRunAt ? ` · last run ${formatTimestamp(toEpoch(detail.lastRunAt), "datetime")}` : " · never run"}
             </p>
@@ -79,10 +89,10 @@ export default function AlgoTestLibraryDetailPage() {
           {detail.artifactVerified && detail.compiledStrategy ? (
             <CompiledStrategyCard strategy={detail.compiledStrategy} />
           ) : (
-            <div className="rounded-control border border-dashed border-warning/30 bg-warning/10 px-2.5 py-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-warning">Compiled Strategy</p>
-              <p className="mt-1 text-[11px] text-warning">This strategy&apos;s persisted artifact could not currently be verified - it exists and can still be identified, but its executable details cannot be shown right now.</p>
-            </div>
+            <Alert tone="warning" title="Compiled Strategy">
+              This strategy&apos;s persisted artifact could not currently be verified - it exists and can still be
+              identified, but its executable details cannot be shown right now.
+            </Alert>
           )}
         </div>
       )}

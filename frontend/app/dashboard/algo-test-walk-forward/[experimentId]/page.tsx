@@ -45,6 +45,7 @@ import ErrorState from "@/components/ui/ErrorState";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
+import Card from "@/components/ui/Card";
 import { Table, Thead, Th, Tbody, Tr, Td } from "@/components/ui/Table";
 import { FIN_LABEL } from "@/components/ui/financial-typography";
 import { fetchWalkForwardExperiment, continueWalkForwardExperiment, cancelWalkForwardExperiment, WalkForwardClientError } from "@/lib/algo-test/walk-forward-store";
@@ -212,13 +213,16 @@ function WalkForwardCandidateRow({ candidate, sweptParameterIds, isWinner }: { c
 // winner-candidate-IS-metrics vs fold-OOS-metrics), then this fold's own
 // candidate table nested beneath it (never flattened into one global
 // table - sprint §11, there is no global WFO winner).
+// Sprint UI-02.2 - FoldSection's own card recipe -> Card (padding="none"
+// + className="p-5" to keep the exact existing spacing). No fold logic
+// touched.
 function FoldSection({ fold, searchSpace }: { fold: WalkForwardFoldDetailView; searchSpace: readonly WalkForwardParameterRange[] }) {
   const sweptParameterIds = searchSpace.map((range) => range.parameterId);
   const winner = fold.winnerCandidateId ? fold.candidates.find((c) => c.id === fold.winnerCandidateId) : undefined;
   const noWinner = isNoWinnerCompletion(fold);
 
   return (
-    <div className="rounded-card border border-border bg-ink-2 p-5">
+    <Card padding="none" className="p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-text">Fold {fold.foldIndex + 1}</h3>
         <Badge tone={FOLD_STATUS_TONE[fold.status]}>{titleCaseLabel(fold.status)}</Badge>
@@ -288,10 +292,17 @@ function FoldSection({ fold, searchSpace }: { fold: WalkForwardFoldDetailView; s
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
+// Sprint UI-02.2 - same visual-only pass as the sibling
+// algo-test-optimize/[experimentId]/page.tsx: self max-w-4xl wrapper
+// removed, hand-rolled <h1> gets a PageHeader-style eyebrow row (kept as
+// its own row rather than PageHeader itself - the status Badge sits
+// inline with the title), and the repeated rounded-card divs now render
+// through Card (padding="none" + className="p-5", exact spacing
+// preserved). No polling/cancellation/fold logic touched.
 export default function AlgoTestWalkForwardMonitorPage() {
   const params = useParams<{ experimentId: string }>();
   const experimentId = decodeURIComponent(params.experimentId);
@@ -439,7 +450,7 @@ export default function AlgoTestWalkForwardMonitorPage() {
   const totalCandidatesSoFar = detail ? detail.folds.reduce((sum, f) => sum + f.candidates.length, 0) : 0;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="space-y-6">
       <Link href="/dashboard/algo-test-walk-forward" className="text-xs text-text-3 hover:text-gold">
         ← Walk-Forward Setup
       </Link>
@@ -453,12 +464,15 @@ export default function AlgoTestWalkForwardMonitorPage() {
         <ErrorState title="Walk-forward experiment not found." description="It may not exist, or it may belong to someone else." />
       ) : (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h1 className="text-2xl font-bold text-text">Walk-Forward Optimization</h1>
-            <Badge tone={STATUS_TONE[detail.status]}>{titleCaseLabel(detail.status)}</Badge>
+          <div>
+            <p className="text-eyebrow uppercase text-gold">Algo Testing Pro</p>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+              <h1 className="text-2xl font-bold text-text">Walk-Forward Optimization</h1>
+              <Badge tone={STATUS_TONE[detail.status]}>{titleCaseLabel(detail.status)}</Badge>
+            </div>
           </div>
 
-          <div className="rounded-card border border-border bg-ink-2 p-5">
+          <Card padding="none" className="p-5">
             <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
               <div>
                 <dt className={FIN_LABEL}>Strategy</dt>
@@ -491,7 +505,7 @@ export default function AlgoTestWalkForwardMonitorPage() {
                 <dd className="mt-0.5 text-text">{totalCandidatesSoFar}</dd>
               </div>
             </dl>
-          </div>
+          </Card>
 
           {/* P4.9-C.2 lock (sprint §6/§7) - the process verdict has its own
               clearly-labelled, structurally separate card, rendered ONLY
@@ -499,7 +513,7 @@ export default function AlgoTestWalkForwardMonitorPage() {
               from a computed/inferred value - detail.verdict is read
               verbatim, exactly as bestCandidateId is in Optimization. */}
           {detail.verdict && (
-            <div className="rounded-card border border-border bg-ink-2 p-5">
+            <Card padding="none" className="p-5">
               <p className={FIN_LABEL}>Process Verdict</p>
               <div className="mt-2 flex flex-wrap items-center gap-3">
                 <Badge tone={VERDICT_TONE[detail.verdict]}>{titleCaseLabel(detail.verdict)}</Badge>
@@ -511,11 +525,11 @@ export default function AlgoTestWalkForwardMonitorPage() {
               <p className="mt-3 text-xs text-text-3">
                 This verdict reflects out-of-sample evidence across every fold, not any single candidate&apos;s own in-sample performance. A high in-sample profit factor on an individual candidate does not by itself mean this experiment PASSED.
               </p>
-            </div>
+            </Card>
           )}
 
           {!isTerminalStatus(detail.status) ? (
-            <div className="rounded-card border border-border bg-ink-2 p-5">
+            <Card padding="none" className="p-5">
               <p className={FIN_LABEL}>Progress</p>
               <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-ink-3">
                 <div
@@ -531,17 +545,17 @@ export default function AlgoTestWalkForwardMonitorPage() {
                   Cancel Experiment
                 </Button>
               </div>
-            </div>
+            </Card>
           ) : detail.status === "CANCELLED" ? (
-            <div className="rounded-card border border-border bg-ink-2 p-5">
+            <Card padding="none" className="p-5">
               <p className="text-sm text-text-2">
                 Cancelled — {detail.foldsCompleted}/{detail.totalFolds} folds completed before cancellation.
               </p>
-            </div>
+            </Card>
           ) : detail.status === "FAILED" && detail.errorMessage ? (
-            <div className="rounded-card border border-border bg-ink-2 p-5">
+            <Card padding="none" className="p-5">
               <p className="text-sm text-danger">{detail.errorMessage}</p>
-            </div>
+            </Card>
           ) : null}
 
           {/* Fold-level evidence remains inspectable regardless of terminal
