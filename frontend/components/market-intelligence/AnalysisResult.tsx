@@ -6,12 +6,21 @@
 // the engines computed them. Nothing here is decorative: every section
 // maps to a real field on the result, and an empty list renders as an
 // explicit "None available" rather than being hidden.
+//
+// Sprint UI-02.1 - visual-only pass onto the UI-01 system: LevelCard,
+// CategoryGrid's items and EvidenceColumn now reuse the Card primitive
+// (their border/bg/radius/padding were Card's own recipe, hand-copied)
+// instead of each hand-rolling it; score numerics get the .fin-num
+// tabular-figure class. The AI Summary panel keeps its own rounded-panel
+// treatment - a genuine hero-emphasis radius Card doesn't offer. No field,
+// data shape, or rendering logic changed.
 import type { MarketAnalysisResult } from "@/types/market-analysis-orchestration";
 import type { ExplanationLine } from "@/types/explainable-analysis";
 import type { RiskLevel } from "@/types/risk";
 import type { ConfidenceLevel } from "@/types/confidence-intelligence";
 import InfoTooltip from "@/components/ui/InfoTooltip";
 import Disclaimer from "@/components/ui/Disclaimer";
+import Card from "@/components/ui/Card";
 
 const GUIDANCE = {
   risk: "The worst (highest) result found across 8 risk categories - market, event, liquidity, volatility, execution, evidence conflict, data quality, and uncertainty. It's always the worst category, never an average, so one high-risk category can't be hidden by the rest.",
@@ -50,7 +59,7 @@ function LevelCard({
 }) {
   const tone = title === "Risk" ? RISK_TONE[level as RiskLevel] : CONFIDENCE_TONE[level as ConfidenceLevel];
   return (
-    <div className="rounded-card border border-border bg-ink-2 p-6">
+    <Card>
       <p className="flex items-center text-sm font-semibold uppercase tracking-[0.2em] text-text-3">
         {title}
         <InfoTooltip label={title} text={title === "Risk" ? GUIDANCE.risk : GUIDANCE.confidence} />
@@ -59,9 +68,9 @@ function LevelCard({
         <span className={`inline-block rounded-control border px-3 py-1 text-sm font-semibold capitalize ${tone}`}>
           {level}
         </span>
-        {score !== undefined && <span className="font-mono text-sm text-text-2">{score}/100</span>}
+        {score !== undefined && <span className="fin-num font-mono text-sm text-text-2">{score}/100</span>}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -86,10 +95,13 @@ function EvidenceColumn({
   lines: ExplanationLine[];
   tone: "gold" | "down";
 }) {
-  const border = tone === "gold" ? "border-gold" : "border-signal-down/60";
+  const borderColor = tone === "gold" ? "var(--gold)" : "rgba(209, 89, 74, 0.6)"; // border-signal-down/60
   const label = tone === "gold" ? "text-gold" : "text-signal-down";
   return (
-    <div className={`rounded-card border-l-2 ${border} border-y border-r border-border bg-ink-2 p-5`}>
+    // Inline style (not a border-l-* utility) for the 2px accent: guarantees
+    // it wins over Card's own all-sides `border` shorthand regardless of
+    // Tailwind's utility generation order, rather than relying on it.
+    <Card padding="sm" style={{ borderLeftWidth: 2, borderLeftColor: borderColor }}>
       <p className={`flex items-center text-xs font-semibold uppercase tracking-[0.14em] ${label}`}>
         {title}
         <InfoTooltip label={title} text={GUIDANCE.evidence} />
@@ -110,7 +122,7 @@ function EvidenceColumn({
           ))}
         </ul>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -126,7 +138,7 @@ function CategoryGrid({
       <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-gold">{title}</h3>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         {items.map((item) => (
-          <div key={item.label} className="rounded-card border border-border bg-ink-2 p-4">
+          <Card key={item.label} padding="sm">
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-medium text-text">{formatLabel(item.label)}</span>
               <span className={`inline-block rounded-control border px-2 py-0.5 text-xs font-semibold capitalize ${item.tone}`}>
@@ -140,7 +152,7 @@ function CategoryGrid({
                 </li>
               ))}
             </ul>
-          </div>
+          </Card>
         ))}
       </div>
     </div>
