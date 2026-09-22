@@ -3,6 +3,10 @@
 // Sprint L2.6 - Phase 7: real, paginated, filterable audit log list. Every
 // row is a real AuditLog record written by an admin route.
 // Sprint D1.0 - Retrofitted onto Table/Select/Button/Alert + tokens.
+// Sprint UI-02.5 - already mostly on-system from D1.0; the remaining gaps
+// were the heading (-> text-title token) and the hand-rolled empty-state
+// <p> (-> EmptyState). Same AdminApi.listAuditLogs() call, same real
+// pagination/filter state.
 import { useCallback, useEffect, useState } from "react";
 import { AdminApi } from "@/services/api/AdminApi";
 import type { AuditLogEntry } from "@/services/admin/AuditLogService";
@@ -11,6 +15,7 @@ import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
 import Alert from "@/components/ui/Alert";
 import Skeleton from "@/components/ui/Skeleton";
+import EmptyState from "@/components/ui/EmptyState";
 
 const PAGE_SIZE = 25;
 const ACTIONS = [
@@ -53,7 +58,7 @@ export default function AdminAuditLogsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-text">Audit Logs ({total})</h2>
+        <h2 className="text-title text-text">Audit Logs ({total})</h2>
         <Select
           value={action}
           onChange={(e) => {
@@ -101,7 +106,9 @@ export default function AdminAuditLogsPage() {
           </Tbody>
         </Table>
       )}
-      {!loading && items.length === 0 && <p className="p-6 text-center text-sm text-text-3">No audit log entries found.</p>}
+      {!loading && items.length === 0 && (
+        <EmptyState title="No audit log entries found." description="Actions taken by admins will show up here." />
+      )}
 
       <div className="flex items-center justify-between text-sm text-text-3">
         <span>
