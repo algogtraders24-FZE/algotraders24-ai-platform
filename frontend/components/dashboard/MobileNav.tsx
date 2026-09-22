@@ -20,6 +20,7 @@ import { Menu, X, ChevronDown } from "lucide-react";
 import { DASHBOARD_NAV_GROUPS, type DashboardNavItem } from "@/config/dashboard.config";
 import { useUserContext } from "@/context/UserContext";
 import BrandLogo from "@/components/brand/BrandLogo";
+import { NavIcon } from "@/components/dashboard/navIcons";
 
 export default function MobileNav() {
   const [open, setOpen] = useState(false);
@@ -126,7 +127,7 @@ export default function MobileNav() {
                                     : "text-text-2 hover:bg-ink-3 hover:text-text"
                                 }`}
                               >
-                                <span className="font-mono text-xs text-text-3">{item.icon}</span>
+                                <NavIcon code={item.icon} className={pathname === item.href ? "text-gold" : "text-text-3"} />
                                 {item.label}
                               </Link>
                               {hasChildren && (

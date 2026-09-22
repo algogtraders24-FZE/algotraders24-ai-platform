@@ -4,6 +4,10 @@
 // real capabilities, all verified to resolve to a real page.
 // Sprint D1.0 - Retrofitted onto the Card primitive/token system
 // (bg-[#0C1324]/bg-[#111827]/hover:border-blue-500 -> ink-2/ink-3/gold).
+// Beta content pass - "Browse Products" linked to /products, a redirect-
+// only route into /marketplace (app/products/page.tsx) - relabeled to match
+// the product's own locked "Marketplace" naming (Navbar/Footer/dashboard
+// nav all use it) and linked directly, no redirect hop.
 import Link from "next/link";
 import Card from "@/components/ui/Card";
 
@@ -11,7 +15,7 @@ const ACTIONS = [
   { label: "Ask AI Assistant", href: "/dashboard/assistant", icon: "🤖" },
   { label: "Upload Document", href: "/dashboard/knowledge", icon: "📄" },
   { label: "Market Intelligence", href: "/dashboard/market-intelligence", icon: "📊" },
-  { label: "Browse Products", href: "/products", icon: "📦" },
+  { label: "Browse Marketplace", href: "/marketplace", icon: "📦" },
 ];
 
 export default function QuickActions() {

@@ -9,16 +9,9 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth/protectedRoute";
 import { getMyPurchases } from "@/services/licensing/myPurchases";
 import EmptyState from "@/components/ui/EmptyState";
-import Badge from "@/components/ui/Badge";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Card from "@/components/ui/Card";
-
-function licenseStatusTone(status: string | null) {
-  if (status === "ACTIVE") return "success" as const;
-  if (status === "REVOKED" || status === "EXPIRED") return "danger" as const;
-  if (status === "SUSPENDED") return "warning" as const;
-  return "neutral" as const;
-}
+import LicenseStatusBadge from "@/components/licensing/LicenseStatusBadge";
 
 export default async function MyPurchasesPage() {
   const sessionUser = await requireUser();
@@ -48,7 +41,7 @@ export default async function MyPurchasesPage() {
                 </p>
               </div>
               <div className="flex items-center gap-3">
-                <Badge tone={licenseStatusTone(p.licenseStatus)}>{p.licenseStatus ?? p.status}</Badge>
+                <LicenseStatusBadge status={p.licenseStatus ?? p.status} />
                 {p.licenseId ? (
                   <Link href={`/dashboard/purchases/${p.licenseId}`} className="rounded-control border border-border px-4 py-2 text-sm font-semibold text-text transition hover:border-gold">
                     View License

@@ -91,6 +91,7 @@ import { Table, Thead, Th, Tbody, Tr, Td } from "@/components/ui/Table";
 import { FIN_LABEL } from "@/components/ui/financial-typography";
 import { fetchOptimizationExperiment, continueOptimizationExperiment, cancelOptimizationExperiment, OptimizationClientError } from "@/lib/algo-test/optimization-store";
 import { fetchAlgoTestStrategies } from "@/lib/algo-test/store";
+import { titleCaseLabel } from "@/lib/format-label";
 import type { OptimizationCandidateStatus, OptimizationCandidateView, OptimizationExperimentStatus, OptimizationExperimentView, OptimizationExperimentDetailView, OptimizationProfitFactor } from "@/types/optimization";
 import type { AlgoTestStrategyDefinition } from "@/types/algo-test";
 
@@ -186,7 +187,7 @@ function CandidateRow({ candidate, sweptParameterIds, minEligibleTrades, isConfi
     <Tr className={isConfirmedWinner ? "bg-gold/5" : undefined}>
       <Td>
         <span className="inline-flex items-center gap-2">
-          <Badge tone={CANDIDATE_STATUS_TONE[candidate.status]}>{candidate.status}</Badge>
+          <Badge tone={CANDIDATE_STATUS_TONE[candidate.status]}>{titleCaseLabel(candidate.status)}</Badge>
           {isConfirmedWinner && (
             <span className="text-xs font-semibold text-gold" title="Server-designated winner">
               ★ Winner
@@ -519,7 +520,7 @@ export default function AlgoTestOptimizeMonitorPage() {
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h1 className="text-2xl font-bold text-text">Optimization</h1>
-            <Badge tone={STATUS_TONE[view.status]}>{view.status}</Badge>
+            <Badge tone={STATUS_TONE[view.status]}>{titleCaseLabel(view.status)}</Badge>
           </div>
 
           <div className="rounded-card border border-border bg-ink-2 p-5">

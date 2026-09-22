@@ -144,7 +144,7 @@ export default function AutomationDetailPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-text-2">Workflow</h2>
+          <h2 className="text-sm font-semibold text-text-2">Steps</h2>
           <div className="rounded-xl border border-border bg-ink-2 p-4">
             <WorkflowSequence def={a.definition} />
           </div>

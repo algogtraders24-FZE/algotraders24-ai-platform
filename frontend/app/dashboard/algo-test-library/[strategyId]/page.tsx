@@ -21,10 +21,11 @@ import Link from "next/link";
 import EmptyState from "@/components/ui/EmptyState";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Badge, { type BadgeTone } from "@/components/ui/Badge";
+import Skeleton from "@/components/ui/Skeleton";
 import CompiledStrategyCard from "@/components/algo-test/CompiledStrategyCard";
 import { fetchStrategyLibraryDetail } from "@/lib/algo-test/store";
 import { formatTimestamp } from "@/lib/financial-format";
-import type { AlgoTestStrategyOrigin, StrategyLibraryDetail } from "@/types/algo-test";
+import { ALGO_TEST_STRATEGY_ORIGIN_LABEL, type AlgoTestStrategyOrigin, type StrategyLibraryDetail } from "@/types/algo-test";
 
 function originTone(origin: AlgoTestStrategyOrigin): BadgeTone {
   return origin === "registry" ? "info" : "gold";
@@ -50,7 +51,12 @@ export default function AlgoTestLibraryDetailPage() {
         ← Strategy Library
       </Link>
 
-      {detail === null ? null : detail === undefined ? (
+      {detail === null ? (
+        <div className="space-y-4" aria-busy="true" aria-live="polite">
+          <Skeleton className="h-8 w-1/2" />
+          <Skeleton className="h-32 w-full" />
+        </div>
+      ) : detail === undefined ? (
         <EmptyState
           title="Strategy not found."
           description="It may not exist, or it may belong to someone else."
@@ -61,7 +67,7 @@ export default function AlgoTestLibraryDetailPage() {
           <div>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h1 className="text-2xl font-bold text-text">{detail.name}</h1>
-              <Badge tone={originTone(detail.origin)}>{detail.origin}</Badge>
+              <Badge tone={originTone(detail.origin)}>{ALGO_TEST_STRATEGY_ORIGIN_LABEL[detail.origin]}</Badge>
             </div>
             <p className="mt-1 text-sm text-text-2">
               {detail.runCount} {detail.runCount === 1 ? "run" : "runs"}

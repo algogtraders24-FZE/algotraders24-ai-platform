@@ -230,7 +230,7 @@ export default function AssistantPage() {
         <header className="border-b border-border px-4 py-3">
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gold">AI Assistant</p>
           <h1 className="mt-0.5 text-lg font-bold">AI Strategy Assistant</h1>
-          <p className="text-xs text-text-3">Persistent - Gemini 2.5 Flash</p>
+          <p className="text-xs text-text-3">Research markets, strategies, and trading concepts - conversations are saved automatically</p>
         </header>
 
         <ChatWindow

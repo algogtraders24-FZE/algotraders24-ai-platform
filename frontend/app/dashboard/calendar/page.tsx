@@ -7,8 +7,12 @@
 // Scope honesty (surfaced in the header, not hidden): the free
 // FairEconomy/ForexFactory weekly feed carries the schedule, forecast and
 // previous value - but NOT the released `actual`. The Actual column is
-// rendered as an explicit "-" with a link to ForexFactory for the live
-// number, rather than omitted (so the gap is visible) or faked.
+// rendered as an explicit "-" (so the gap is visible, never faked), with
+// one general link to ForexFactory's public calendar where the released
+// number can be checked once it's out - not a per-event deep link, since
+// EconomicEvent carries no per-event source URL (see types/economic-
+// calendar.ts) and guessing one from title/date would risk pointing at
+// the wrong page.
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -112,6 +116,18 @@ export default function EconomicCalendarPage() {
           title="Economic Calendar"
           description="This week's scheduled high-impact economic releases and central-bank events, with consensus forecast and prior value."
         />
+        <p className="mb-6 text-xs text-text-3">
+          This feed doesn&apos;t carry the released value once an event goes live, so Actual always shows as
+          &ldquo;-&rdquo;.{" "}
+          <a
+            href="https://www.forexfactory.com/calendar"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-gold hover:text-gold-strong"
+          >
+            Check the released number on ForexFactory →
+          </a>
+        </p>
 
         {state.status === "ready" && (
           <Alert

@@ -36,10 +36,18 @@ export default async function DashboardHome() {
   }
 
   const stats = [
-    { label: "Conversations", value: overview.totalConversations },
-    { label: "Documents", value: overview.totalDocuments },
-    { label: "Indexed Chunks", value: overview.totalChunks },
-    { label: "Knowledge Retrievals", value: overview.totalRetrievals },
+    { label: "Conversations", value: overview.totalConversations, hint: "AI Assistant conversations you've started." },
+    { label: "Documents", value: overview.totalDocuments, hint: "Documents you've uploaded to your Knowledge Base." },
+    {
+      label: "Indexed Chunks",
+      value: overview.totalChunks,
+      hint: "Passages your documents were split into so the AI Assistant can search and cite them.",
+    },
+    {
+      label: "Knowledge Retrievals",
+      value: overview.totalRetrievals,
+      hint: "Times the AI Assistant pulled a passage from your documents to answer a question.",
+    },
   ];
 
   const planLabel = PLAN_LABELS[user.planId as PlanId] ?? user.planId;

@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import Alert from "@/components/ui/Alert";
 import EmptyState from "@/components/ui/EmptyState";
+import ErrorState from "@/components/ui/ErrorState";
 import Button from "@/components/ui/Button";
 import NewsCard, { type NewsArticleDTO } from "@/components/news/NewsCard";
 import { NEWS_CATEGORIES, type NewsCategory } from "@/types/news-category";
@@ -151,13 +152,15 @@ export default function NewsPage() {
         )}
 
         {state.status === "error" && (
-          <div className="rounded-card border border-danger/30 bg-danger/10 p-6">
-            <p className="text-sm font-semibold text-danger">Could not load news</p>
-            <p className="mt-1 text-sm text-text-2">{state.message}</p>
-            <Button variant="secondary" className="mt-4" onClick={() => fetchNews(1, false)}>
-              Retry
-            </Button>
-          </div>
+          <ErrorState
+            title="Could not load news"
+            description={state.message}
+            action={
+              <Button variant="secondary" onClick={() => fetchNews(1, false)}>
+                Retry
+              </Button>
+            }
+          />
         )}
 
         {state.status === "ready" && state.items.length === 0 && (
