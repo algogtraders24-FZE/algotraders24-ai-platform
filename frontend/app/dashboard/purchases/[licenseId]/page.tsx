@@ -8,8 +8,8 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth/protectedRoute";
 import { getMyLicenseDetail } from "@/services/licensing/myPurchases";
-import Badge from "@/components/ui/Badge";
 import RevealApiKeyButton from "@/components/license/RevealApiKeyButton";
+import LicenseStatusBadge from "@/components/licensing/LicenseStatusBadge";
 
 function CopyField({ label, value }: { label: string; value: string }) {
   return (
@@ -18,10 +18,6 @@ function CopyField({ label, value }: { label: string; value: string }) {
       <code className="mt-1 block overflow-x-auto rounded-lg border border-border bg-ink px-3 py-2 text-xs text-text">{value}</code>
     </div>
   );
-}
-
-function activationStatusTone(status: string) {
-  return status === "ACTIVE" ? ("success" as const) : ("neutral" as const);
 }
 
 export default async function LicenseDetailPage({ params }: { params: Promise<{ licenseId: string }> }) {
@@ -35,7 +31,7 @@ export default async function LicenseDetailPage({ params }: { params: Promise<{ 
       <div>
         <h1 className="text-2xl font-bold text-text">{license.listingTitle}</h1>
         <div className="mt-2 flex items-center gap-2">
-          <Badge tone={license.licenseStatus === "ACTIVE" || license.licenseStatus === "ISSUED" ? "success" : "danger"}>{license.licenseStatus}</Badge>
+          <LicenseStatusBadge status={license.licenseStatus} />
           <span className="text-xs text-text-3">Issued {new Date(license.issuedAt).toLocaleDateString()}</span>
         </div>
       </div>
@@ -90,7 +86,7 @@ export default async function LicenseDetailPage({ params }: { params: Promise<{ 
                     {a.lastValidatedAt ? ` · last validated ${new Date(a.lastValidatedAt).toLocaleString()}` : ""}
                   </p>
                 </div>
-                <Badge tone={activationStatusTone(a.status)}>{a.status}</Badge>
+                <LicenseStatusBadge status={a.status} />
               </div>
             ))}
           </div>
