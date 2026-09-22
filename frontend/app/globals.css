@@ -40,6 +40,17 @@
   --warning: var(--warn);
   --danger: var(--signal-down);
   --info: var(--steel);
+
+  /* Sprint UI-01 - AT24 Premium UI Foundation. Layout geometry tokens for
+     the shared AppShell (components/shell/*). Additive only - no colour, no
+     override of Tailwind's own scale. Consumed as arbitrary values
+     (w-[var(--sidebar-w)]) so the shell has one source of truth for its
+     dimensions and transitions animate against a real number. */
+  --sidebar-w: 16rem; /* 256px - expanded rail */
+  --sidebar-w-collapsed: 4.25rem; /* 68px - icon-only rail (< 1280px default) */
+  --topbar-h: 3.5rem; /* 56px */
+  --app-max-w: 85rem; /* 1360px - centered content column */
+  --page-gutter: 2rem; /* 32px desktop; components step down on small screens */
 }
 
 @theme inline {
@@ -71,6 +82,24 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-display: var(--font-urbanist);
+
+  /* Sprint UI-01 - Semantic type scale. Three named steps on top of
+     Tailwind's own text-xs..text-9xl (never replacing it): the page H1
+     (text-display), section/card headings (text-title), and the uppercase
+     tracked eyebrow (text-eyebrow) that PageHeader and the sidebar group
+     labels already hand-rolled identically. Each bakes in its own
+     line-height / tracking / weight so a heading is one class, not four. */
+  --text-display: 2rem;
+  --text-display--line-height: 1.1;
+  --text-display--letter-spacing: -0.01em;
+  --text-display--font-weight: 800;
+  --text-title: 1.25rem;
+  --text-title--line-height: 1.3;
+  --text-title--font-weight: 700;
+  --text-eyebrow: 0.75rem;
+  --text-eyebrow--line-height: 1;
+  --text-eyebrow--letter-spacing: 0.2em;
+  --text-eyebrow--font-weight: 700;
 
   /* Semantic radius scale (approved system) - additive alongside
      Tailwind's own default xs/sm/md/lg/xl/2xl/3xl scale, never replacing it. */
