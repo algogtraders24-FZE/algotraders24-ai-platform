@@ -174,6 +174,40 @@ export async function sendLicenseIssuanceFailureAlert(params: {
   await dispatch({ type: "license_issuance_failure_alert", to: OPS_ALERT_ADDRESS, subject: `[ACTION NEEDED] License issuance failed after payment - ${params.tradingSystemId}`, html });
 }
 
+// Found live in production (2026-09-22): a real NOWPayments crypto
+// subscription payment finished on the provider's side, but the
+// NOWPayments webhook's subscription branch had no equivalent of
+// sendLicenseIssuanceFailureAlert - a failed/never-arriving
+// activateFromPayment() call was completely silent, leaving a paying
+// customer on the free plan with no record anywhere that anything had gone
+// wrong. This closes that gap for both providers' subscription paths.
+export async function sendSubscriptionActivationFailureAlert(params: {
+  userId: string;
+  planId: string;
+  provider: "stripe" | "nowpayments";
+  providerRef: string;
+  errorMessage: string;
+}): Promise<void> {
+  const html = renderLayout({
+    title: "A subscription payment succeeded but activation failed",
+    titleColor: "#b91c1c",
+    maxWidth: 560,
+    bodyHtml: `
+      <p>${params.provider === "nowpayments" ? "NOWPayments" : "Stripe"} confirmed this payment, but writing the Subscription record failed. The customer is still on their old plan and has received no confirmation email. This needs manual follow-up.</p>
+      ${detailTable([
+        ["User ID", `<span style="font-family: monospace; font-size: 12px;">${escapeHtml(params.userId)}</span>`],
+        ["Plan", escapeHtml(params.planId)],
+        ["Provider", params.provider],
+        ["Provider ref", `<span style="font-family: monospace; font-size: 11px;">${escapeHtml(params.providerRef)}</span>`],
+      ])}
+      <p style="color: #666; font-size: 13px;">Error: <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">${escapeHtml(params.errorMessage)}</code></p>
+    `,
+    footerHtml: "",
+  });
+
+  await dispatch({ type: "subscription_activation_failure_alert", to: OPS_ALERT_ADDRESS, subject: `[ACTION NEEDED] Subscription activation failed after payment - ${params.userId}`, html });
+}
+
 // Covers both a fresh subscribe and every renewal - both go through
 // SubscriptionActionService.activateFromPayment(), called from
 // checkout.session.completed (subscription mode) and
