@@ -18,11 +18,34 @@
 // Stop Out itself happens server-side - see paper-trading.service.ts's
 // checkStopOut() - this panel only reflects its outcome via the normal
 // refetch, same as any other position-count/balance change).
+// Sprint UI-02.4 - presentation-only pass onto the UI-01/02.x system.
+// This is a compact panel embedded directly in NativeChart.tsx (not a
+// dashboard page) - its density (text-xs, tight px/py) is a real
+// requirement, not an oversight, so DataTable/Card/PageHeader's
+// page-scale padding is deliberately NOT forced in here; using them
+// would visually break the embedded layout, not fix it. What changed:
+// row-action buttons (Close/Cancel), the Place Order CTA, and both
+// modals' buttons now use the shared Button primitive (`loading` prop
+// replaces each manual "Closing…"/"Placing…" text-swap); the Quantity/
+// Limit Price fields now use Input (width + financial-typography class
+// preserved via className). The BUY/SELL and MARKET/LIMIT segmented
+// toggles are left as their own hand-rolled joined-pill control - no
+// existing primitive (Button, Tabs) represents a two-option control
+// with a single shared border and no gap between segments, and
+// inventing one for this single use site isn't justified. The two
+// tables are left as plain <table> - already using the border-border/
+// FIN_LABEL tokens correctly; Table.tsx's own px-4/py-3 scale and
+// extra bordered wrapper are tuned for full-page tables and would add
+// a visible "box inside a box" here. No prop, handler, calculation,
+// or the PaperTradingPanelHandle/PaperTradingPanelProps contract
+// changed - NativeChart.tsx needed no changes to keep working.
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { usePaperTrading } from "@/context/PaperTradingContext";
 import { useLiveQuote } from "./useLiveQuote";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
 import StatField from "@/components/workspace/StatField";
 import { formatPrice, formatDecimalQuantity } from "@/lib/financial-format";
 import { FIN_LABEL, FIN_PRIMARY, FIN_SECONDARY, FIN_TERTIARY } from "@/components/ui/financial-typography";
@@ -86,14 +109,9 @@ function PositionRow({
         {pnl === undefined ? "—" : `${pnl >= 0 ? "+" : ""}${formatPrice(pnl, { maxDecimals: 2 })}`}
       </td>
       <td className="py-1.5">
-        <button
-          type="button"
-          onClick={() => onClose(position.id)}
-          disabled={closing}
-          className="rounded-control border border-border px-2 py-1 text-xs text-text-2 transition hover:border-danger hover:text-danger disabled:opacity-50"
-        >
-          {closing ? "Closing…" : "Close"}
-        </button>
+        <Button variant="danger" size="sm" onClick={() => onClose(position.id)} loading={closing}>
+          Close
+        </Button>
       </td>
     </tr>
   );
@@ -110,14 +128,9 @@ function PendingOrderRow({ position, onCancel, cancelling }: { position: PaperPo
       <td className={`py-1.5 pr-3 ${FIN_SECONDARY}`}>{formatDecimalQuantity(position.quantity)}</td>
       <td className={`py-1.5 pr-3 ${FIN_SECONDARY}`}>{position.limitPrice !== undefined ? formatPrice(position.limitPrice, { maxDecimals: 5 }) : "—"}</td>
       <td className="py-1.5">
-        <button
-          type="button"
-          onClick={() => onCancel(position.id)}
-          disabled={cancelling}
-          className="rounded-control border border-border px-2 py-1 text-xs text-text-2 transition hover:border-danger hover:text-danger disabled:opacity-50"
-        >
-          {cancelling ? "Cancelling…" : "Cancel"}
-        </button>
+        <Button variant="danger" size="sm" onClick={() => onCancel(position.id)} loading={cancelling}>
+          Cancel
+        </Button>
       </td>
     </tr>
   );
@@ -333,7 +346,12 @@ const PaperTradingPanel = forwardRef<PaperTradingPanelHandle, PaperTradingPanelP
         </div>
         <label className="flex flex-col gap-0.5">
           <span className={FIN_LABEL}>Quantity ({symbol})</span>
-          <input
+          {/* Input hard-codes w-full/px-3/py-2 in its own class list; a
+              same-property override (w-28/px-2/py-1) can't reliably beat
+              that via className alone (Tailwind's generation order, not
+              the class string order, decides which wins) - inline style
+              guarantees it. */}
+          <Input
             ref={quantityInputRef}
             type="number"
             min="0"
@@ -341,20 +359,22 @@ const PaperTradingPanel = forwardRef<PaperTradingPanelHandle, PaperTradingPanelP
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
             placeholder="0.00"
-            className={`w-28 rounded-control border border-border bg-ink px-2 py-1 text-sm text-text ${FIN_PRIMARY}`}
+            className={FIN_PRIMARY}
+            style={{ width: "7rem", paddingLeft: "0.5rem", paddingRight: "0.5rem", paddingTop: "0.25rem", paddingBottom: "0.25rem" }}
           />
         </label>
         {orderType === "limit" && (
           <label className="flex flex-col gap-0.5">
             <span className={FIN_LABEL}>Limit Price</span>
-            <input
+            <Input
               type="number"
               min="0"
               step="any"
               value={limitPrice}
               onChange={(e) => setLimitPrice(e.target.value)}
               placeholder="0.00000"
-              className={`w-28 rounded-control border border-border bg-ink px-2 py-1 text-sm text-text ${FIN_PRIMARY}`}
+              className={FIN_PRIMARY}
+              style={{ width: "7rem", paddingLeft: "0.5rem", paddingRight: "0.5rem", paddingTop: "0.25rem", paddingBottom: "0.25rem" }}
             />
           </label>
         )}
@@ -375,14 +395,9 @@ const PaperTradingPanel = forwardRef<PaperTradingPanelHandle, PaperTradingPanelP
             </>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => setConfirmOpen(true)}
-          disabled={!canSubmit}
-          className="rounded-control border border-gold/40 bg-gold/10 px-3 py-1.5 text-xs font-semibold text-gold transition hover:bg-gold/20 disabled:cursor-not-allowed disabled:opacity-40"
-        >
+        <Button size="sm" onClick={() => setConfirmOpen(true)} disabled={!canSubmit}>
           Place Order
-        </button>
+        </Button>
       </div>
 
       {error && <p className="mt-1.5 text-[11px] text-danger">{error}</p>}
@@ -460,17 +475,12 @@ const PaperTradingPanel = forwardRef<PaperTradingPanelHandle, PaperTradingPanelP
           Required margin ≈ {previewMargin !== undefined ? formatPrice(previewMargin, { maxDecimals: 2 }) : "—"}.
         </p>
         <div className="mt-4 flex justify-end gap-2">
-          <button type="button" onClick={() => setConfirmOpen(false)} className="rounded-control border border-border px-3 py-1.5 text-xs text-text-2">
+          <Button variant="secondary" size="sm" onClick={() => setConfirmOpen(false)}>
             Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="rounded-control border border-gold/40 bg-gold/10 px-3 py-1.5 text-xs font-semibold text-gold disabled:opacity-50"
-          >
-            {submitting ? "Placing…" : "Confirm"}
-          </button>
+          </Button>
+          <Button size="sm" onClick={handleSubmit} loading={submitting}>
+            Confirm
+          </Button>
         </div>
       </Modal>
 
@@ -479,20 +489,12 @@ const PaperTradingPanel = forwardRef<PaperTradingPanelHandle, PaperTradingPanelP
           This discards all open positions and restores your balance to {formatPrice(10000, { maxDecimals: 0 })}. This cannot be undone.
         </p>
         <div className="mt-4 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => setResetConfirmOpen(false)}
-            className="rounded-control border border-border px-3 py-1.5 text-xs text-text-2"
-          >
+          <Button variant="secondary" size="sm" onClick={() => setResetConfirmOpen(false)}>
             Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleReset}
-            className="rounded-control border border-danger/40 bg-danger/10 px-3 py-1.5 text-xs font-semibold text-danger"
-          >
+          </Button>
+          <Button variant="danger" size="sm" onClick={handleReset}>
             Reset
-          </button>
+          </Button>
         </div>
       </Modal>
     </div>
