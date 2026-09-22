@@ -23,13 +23,16 @@ interface RibbonItem {
 // Requested set (Phase 4). Crypto is served as USD (the platform's Twelve Data
 // mapping), shown here with the familiar pairing.
 //
-// Sprint D2.6.11 - NIFTY/BANKNIFTY flip to live: this ribbon was its own
-// separate, stale symbol list (the exact "UI-only symbol object" class of
-// bug this sprint's audit was told to look for) - it used the wrong id
-// ("NIFTY" instead of the real catalog/registry id "NIFTY50") and marked
-// both pending from before D2.6.6 added real, live-verified Angel One
-// coverage for them. market-registry.ts (the single source of truth
-// isEnabledMarket() checks) has listed both enabled: true since D2.6.6.
+// Production Smoke (Beta) - NIFTY50/BANKNIFTY removed from this ribbon
+// only: the Angel One provider is currently failing to serve them in
+// production (both showed "unavailable" live), which is honest but noisy
+// clutter on the one row every dashboard page shows. Display-only change -
+// market-registry.ts still lists both enabled: true (chat resolution via
+// AI Assistant is unaffected) and instrument-catalog.ts's provider
+// mappings are untouched, so this is trivially reversible once Angel One
+// connectivity is fixed. Owner decided against touching the ~12 validator
+// scripts that treat both as required test instruments - that's a
+// separate, larger scoped change, not a display fix.
 const ITEMS: RibbonItem[] = [
   { symbol: "EURUSD", label: "EUR/USD", live: true },
   { symbol: "GBPUSD", label: "GBP/USD", live: true },
@@ -38,8 +41,6 @@ const ITEMS: RibbonItem[] = [
   { symbol: "XAGUSD", label: "Silver", live: true },
   { symbol: "BTCUSD", label: "BTC/USD", live: true },
   { symbol: "ETHUSD", label: "ETH/USD", live: true },
-  { symbol: "NIFTY50", label: "NIFTY 50", live: true },
-  { symbol: "BANKNIFTY", label: "BANK NIFTY", live: true },
 ];
 
 interface Snap {
