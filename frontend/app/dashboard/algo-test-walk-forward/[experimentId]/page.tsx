@@ -48,6 +48,7 @@ import Modal from "@/components/ui/Modal";
 import { Table, Thead, Th, Tbody, Tr, Td } from "@/components/ui/Table";
 import { FIN_LABEL } from "@/components/ui/financial-typography";
 import { fetchWalkForwardExperiment, continueWalkForwardExperiment, cancelWalkForwardExperiment, WalkForwardClientError } from "@/lib/algo-test/walk-forward-store";
+import { titleCaseLabel } from "@/lib/format-label";
 import type {
   WalkForwardCandidateStatus,
   WalkForwardCandidateView,
@@ -186,7 +187,7 @@ function WalkForwardCandidateRow({ candidate, sweptParameterIds, isWinner }: { c
     <Tr className={isWinner ? "bg-gold/5" : undefined}>
       <Td>
         <span className="inline-flex items-center gap-2">
-          <Badge tone={CANDIDATE_STATUS_TONE[candidate.status]}>{candidate.status}</Badge>
+          <Badge tone={CANDIDATE_STATUS_TONE[candidate.status]}>{titleCaseLabel(candidate.status)}</Badge>
           {isWinner && (
             <span className="text-xs font-semibold text-gold" title="Fold-local winner (in-sample)">
               ★ Fold Winner
@@ -220,7 +221,7 @@ function FoldSection({ fold, searchSpace }: { fold: WalkForwardFoldDetailView; s
     <div className="rounded-card border border-border bg-ink-2 p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-text">Fold {fold.foldIndex + 1}</h3>
-        <Badge tone={FOLD_STATUS_TONE[fold.status]}>{fold.status}</Badge>
+        <Badge tone={FOLD_STATUS_TONE[fold.status]}>{titleCaseLabel(fold.status)}</Badge>
       </div>
 
       <dl className="mt-3 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
@@ -254,7 +255,7 @@ function FoldSection({ fold, searchSpace }: { fold: WalkForwardFoldDetailView; s
             </div>
             <div>
               <dt className="text-xs text-text-3">OOS Outcome</dt>
-              <dd className="mt-0.5">{fold.oosOutcome ? <Badge tone={OOS_OUTCOME_TONE[fold.oosOutcome]}>{fold.oosOutcome}</Badge> : <span className="text-text">—</span>}</dd>
+              <dd className="mt-0.5">{fold.oosOutcome ? <Badge tone={OOS_OUTCOME_TONE[fold.oosOutcome]}>{titleCaseLabel(fold.oosOutcome)}</Badge> : <span className="text-text">—</span>}</dd>
             </div>
           </dl>
         )}
@@ -454,7 +455,7 @@ export default function AlgoTestWalkForwardMonitorPage() {
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h1 className="text-2xl font-bold text-text">Walk-Forward Optimization</h1>
-            <Badge tone={STATUS_TONE[detail.status]}>{detail.status}</Badge>
+            <Badge tone={STATUS_TONE[detail.status]}>{titleCaseLabel(detail.status)}</Badge>
           </div>
 
           <div className="rounded-card border border-border bg-ink-2 p-5">
@@ -501,7 +502,7 @@ export default function AlgoTestWalkForwardMonitorPage() {
             <div className="rounded-card border border-border bg-ink-2 p-5">
               <p className={FIN_LABEL}>Process Verdict</p>
               <div className="mt-2 flex flex-wrap items-center gap-3">
-                <Badge tone={VERDICT_TONE[detail.verdict]}>{detail.verdict}</Badge>
+                <Badge tone={VERDICT_TONE[detail.verdict]}>{titleCaseLabel(detail.verdict)}</Badge>
                 <span className="text-xs text-text-3">
                   {detail.passedFoldCount} / {detail.conclusiveFoldCount} conclusive fold{detail.conclusiveFoldCount === 1 ? "" : "s"} passed out-of-sample validation
                   {detail.totalFolds !== detail.conclusiveFoldCount ? ` (${detail.totalFolds - detail.conclusiveFoldCount} inconclusive)` : ""}

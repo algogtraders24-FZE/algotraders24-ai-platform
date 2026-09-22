@@ -21,15 +21,8 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth/protectedRoute";
 import { getMyPurchases } from "@/services/licensing/myPurchases";
 import EmptyState from "@/components/ui/EmptyState";
-import Badge from "@/components/ui/Badge";
 import ButtonLink from "@/components/ui/ButtonLink";
-
-function licenseStatusTone(status: string | null) {
-  if (status === "ACTIVE") return "success" as const;
-  if (status === "REVOKED" || status === "EXPIRED") return "danger" as const;
-  if (status === "SUSPENDED") return "warning" as const;
-  return "neutral" as const;
-}
+import LicenseStatusBadge from "@/components/licensing/LicenseStatusBadge";
 
 export default async function LicensesPage() {
   const sessionUser = await requireUser();
@@ -59,7 +52,7 @@ export default async function LicensesPage() {
             >
               <div className="mb-4 flex items-center justify-between">
                 <p className="font-semibold text-text">{l.listingTitle}</p>
-                <Badge tone={licenseStatusTone(l.licenseStatus)}>{l.licenseStatus}</Badge>
+                <LicenseStatusBadge status={l.licenseStatus} />
               </div>
               <div className="space-y-1 text-sm text-text-2">
                 <div>

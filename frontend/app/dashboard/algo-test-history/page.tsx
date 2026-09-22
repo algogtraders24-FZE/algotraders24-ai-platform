@@ -21,9 +21,15 @@ import Link from "next/link";
 import EmptyState from "@/components/ui/EmptyState";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Badge, { type BadgeTone } from "@/components/ui/Badge";
+import Skeleton from "@/components/ui/Skeleton";
 import { fetchAlgoTestRuns } from "@/lib/algo-test/store";
 import { formatPrice, formatPercent, formatTimestamp } from "@/lib/financial-format";
 import type { AlgoTestRunView } from "@/types/algo-test";
+
+// Beta content pass - `runs === null` (still loading) rendered nothing at
+// all - a blank content area with no loading signal. Title-cased the
+// status badge text too ("completed"/"failed" DB values shown raw).
+const STATUS_LABEL: Record<string, string> = { completed: "Completed", failed: "Failed" };
 
 /**
  * `AlgoTestStatus` is `"completed" | "failed"` only - there is no normal
@@ -74,7 +80,13 @@ export default function AlgoTestHistoryPage() {
         <p className="mt-1 text-sm text-text-2">Your most recent Algo Testing Pro backtests, most recent first.</p>
       </div>
 
-      {runs === null ? null : runs.length === 0 ? (
+      {runs === null ? (
+        <div className="space-y-3" aria-busy="true" aria-live="polite">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-24 w-full" />
+          ))}
+        </div>
+      ) : runs.length === 0 ? (
         <EmptyState
           title="No backtests run yet."
           description="Run a strategy from Algo Testing Pro and it will show up here."
@@ -92,7 +104,7 @@ export default function AlgoTestHistoryPage() {
                 <p className="font-semibold text-text" title={run.strategyId}>
                   {runLabel(run)}
                 </p>
-                <Badge tone={statusTone(run.status)}>{run.status}</Badge>
+                <Badge tone={statusTone(run.status)}>{STATUS_LABEL[run.status] ?? run.status}</Badge>
               </div>
               <p className="mt-1 text-xs text-text-3">
                 {run.symbol} · {run.timeframe} · {formatTimestamp(toEpoch(run.startTime), "date")} – {formatTimestamp(toEpoch(run.endTime), "date")}

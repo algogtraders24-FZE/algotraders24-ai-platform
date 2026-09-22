@@ -436,6 +436,15 @@ export interface AlgoTestCompiledStrategyView {
  */
 export type AlgoTestStrategyOrigin = "registry" | "ai-generated";
 
+// Beta content pass - shared display label so the Strategy Library list
+// and detail pages don't each keep their own copy (and don't render the
+// raw "ai-generated" value, which reads as "Ai-Generated" with a plain
+// Title Case transform, not the correct "AI-Generated" acronym).
+export const ALGO_TEST_STRATEGY_ORIGIN_LABEL: Record<AlgoTestStrategyOrigin, string> = {
+  registry: "Registry",
+  "ai-generated": "AI-Generated",
+};
+
 export interface StrategyLibraryItem {
   readonly strategyId: string;
   readonly name: string;
