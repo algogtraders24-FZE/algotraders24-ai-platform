@@ -23,6 +23,10 @@ import EmptyState from "@/components/ui/EmptyState";
 import ErrorState from "@/components/ui/ErrorState";
 import Skeleton from "@/components/ui/Skeleton";
 import { Table, Thead, Th, Tbody, Tr, Td } from "@/components/ui/Table";
+// Sprint UI-02.7 - self min-h-screen/max-w-6xl wrapper removed (AppShell
+// already provides it); FilterChip now renders through Button internally
+// (call sites below are unchanged). Table already wraps itself in
+// overflow-x-auto, so the fixed-width columns don't need an extra wrapper.
 import {
   CALENDAR_FILTER_CURRENCIES,
   ECONOMIC_IMPACTS,
@@ -109,8 +113,7 @@ export default function EconomicCalendarPage() {
   }, [state]);
 
   return (
-    <div className="min-h-screen bg-ink p-6 text-text">
-      <div className="mx-auto max-w-6xl">
+    <div>
         <PageHeader
           eyebrow="Economic Calendar"
           title="Economic Calendar"
@@ -221,20 +224,14 @@ export default function EconomicCalendarPage() {
             ))}
           </div>
         )}
-      </div>
     </div>
   );
 }
 
 function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
-        active ? "border-gold/40 bg-gold/15 text-gold" : "border-border text-text-2 hover:border-gold/40"
-      }`}
-    >
+    <Button size="sm" variant={active ? "primary" : "secondary"} onClick={onClick}>
       {label}
-    </button>
+    </Button>
   );
 }

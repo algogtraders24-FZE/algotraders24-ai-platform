@@ -13,6 +13,9 @@
 // Workspace Research panel already shows for one symbol, batched across a
 // fixed set of core instruments via GET /api/private/intelligence/overview
 // (ResearchSnapshotService, unmodified - no second engine).
+// Sprint UI-02.7 - cross-dashboard consistency: self min-h-screen/max-w-6xl
+// wrapper removed (AppShell already provides it). Same overview fetch,
+// same loading/error/ready states.
 import { useCallback, useEffect, useState } from "react";
 import Skeleton from "@/components/ui/Skeleton";
 import ErrorState from "@/components/ui/ErrorState";
@@ -54,45 +57,43 @@ export default function SignalsPage() {
   }, [reloadKey]);
 
   return (
-    <div className="min-h-screen bg-ink p-6 text-text">
-      <div className="mx-auto max-w-6xl">
-        <PageHeader
-          eyebrow="AI Signals"
-          title="Market regime, at a glance"
-          description="Real market regime, decision state, and Intelligence Score for the core markets - never a BUY/SELL call, never a trade recommendation."
-        />
+    <div>
+      <PageHeader
+        eyebrow="AI Signals"
+        title="Market regime, at a glance"
+        description="Real market regime, decision state, and Intelligence Score for the core markets - never a BUY/SELL call, never a trade recommendation."
+      />
 
-        {state === "loading" && (
-          <section className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true" aria-live="polite">
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <Skeleton key={i} className="h-32 w-full" />
+      {state === "loading" && (
+        <section className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true" aria-live="polite">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} className="h-32 w-full" />
+          ))}
+        </section>
+      )}
+
+      {state === "error" && (
+        <ErrorState
+          title="Could not load market overview"
+          description="Check an individual symbol from the Market Intelligence page, or try again."
+          action={
+            <Button onClick={retry} variant="secondary" size="sm">
+              Try again
+            </Button>
+          }
+        />
+      )}
+
+      {state === "ready" && (
+        <>
+          <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {items.map((item) => (
+              <RegimeOverviewCard key={item.symbol} item={item} />
             ))}
           </section>
-        )}
-
-        {state === "error" && (
-          <ErrorState
-            title="Could not load market overview"
-            description="Check an individual symbol from the Market Intelligence page, or try again."
-            action={
-              <Button onClick={retry} variant="secondary" size="sm">
-                Try again
-              </Button>
-            }
-          />
-        )}
-
-        {state === "ready" && (
-          <>
-            <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {items.map((item) => (
-                <RegimeOverviewCard key={item.symbol} item={item} />
-              ))}
-            </section>
-            <Disclaimer />
-          </>
-        )}
-      </div>
+          <Disclaimer />
+        </>
+      )}
     </div>
   );
 }

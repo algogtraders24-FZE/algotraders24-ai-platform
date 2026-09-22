@@ -19,9 +19,23 @@
 // duplicated. UI and behavior here are unchanged; the resolution-
 // confirmation prompt is intentionally a widget-only affordance in P1
 // (contract SS5/SS10) and is not added to this page.
+// Sprint UI-02.7 - cross-dashboard consistency: self min-h-screen/max-w-3xl
+// wrapper removed (AppShell already provides it), the gradient hero header
+// (bg-gradient-to-r from-gold/20 to-gold/10 - a direct violation of the
+// locked no-gradients direction) replaced with PageHeader, every hand-rolled
+// rounded-2xl/rounded-lg box -> Card, every hand-rolled button -> Button,
+// the top-level error banner -> Alert. Same useSupportRun hook, same
+// ask/handoff/requestHuman/sendHandoffMessage/reopenHandoff calls, same
+// SUPPORT-agent-only routing (CS1.2 D1) - no behavior touched.
 import { useState } from "react";
 import { useSupportRun, isHandoffActive } from "@/hooks/useSupportRun";
 import type { SupportOutput } from "@/hooks/useSupportRun";
+import PageHeader from "@/components/ui/PageHeader";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import Alert from "@/components/ui/Alert";
+import Badge from "@/components/ui/Badge";
+import Textarea from "@/components/ui/Textarea";
 
 export default function SupportAssistantPage() {
   const [question, setQuestion] = useState("");
@@ -38,26 +52,20 @@ export default function SupportAssistantPage() {
     .filter((f) => f.evidence);
 
   return (
-    <div className="min-h-screen bg-ink p-6 text-text">
-      <div className="mx-auto max-w-3xl space-y-6">
-        <header className="rounded-2xl border border-border bg-gradient-to-r from-gold/20 to-gold/10 p-6">
-          <h1 className="text-2xl font-bold">Support Assistant</h1>
-          <p className="mt-1 text-sm text-text-2">
-            Answers from AT24&rsquo;s own support knowledge base and the read-only status of your own
-            account. It cannot change your account, billing, credits or licenses &mdash; when it can&rsquo;t
-            resolve a question it hands off to a human. Separate from the main AI Assistant.
-          </p>
-        </header>
+    <div className="max-w-3xl space-y-6">
+      <PageHeader
+        eyebrow="Account"
+        title="Support Assistant"
+        description="Answers from AT24's own support knowledge base and the read-only status of your own account. It cannot change your account, billing, credits or licenses - when it can't resolve a question it hands off to a human. Separate from the main AI Assistant."
+      />
 
-        {error && (
-          <div className="rounded-xl border border-danger/30 bg-danger/10 p-4 text-sm text-danger">{error}</div>
-        )}
+      {error && <Alert tone="danger">{error}</Alert>}
 
         {/* Support Human Handoff MVP - while a case is active, this page's
             input sends to the human thread, never a new AgentRun (D11) -
             same routing rule the widget uses. */}
         {isHandoffActive(handoff?.status) ? (
-          <section className="rounded-2xl border border-gold/40 bg-gold/5 p-5 space-y-3">
+          <Card className="space-y-3" style={{ borderColor: "rgba(212, 175, 55, 0.4)", background: "rgba(212, 175, 55, 0.05)" }}>
             <p className="text-sm font-medium text-gold">
               {handoff!.status === "OPEN" && "Your request has been sent to our support team."}
               {handoff!.status === "ASSIGNED" && "A member of our support team has picked up your case."}
@@ -68,7 +76,7 @@ export default function SupportAssistantPage() {
                 {handoff!.messages.map((m) => (
                   <li
                     key={m.id}
-                    className={`rounded-lg p-3 text-sm ${m.authorType === "HUMAN" ? "border border-border bg-ink text-text-2" : "bg-ink-3 text-text"}`}
+                    className={`rounded-control p-3 text-sm ${m.authorType === "HUMAN" ? "border border-border bg-ink text-text-2" : "bg-ink-3 text-text"}`}
                   >
                     {m.content}
                     <div className="mt-1 text-[11px] text-text-3">{m.authorType === "HUMAN" ? "Support team" : "You"}</div>
@@ -76,60 +84,45 @@ export default function SupportAssistantPage() {
                 ))}
               </ul>
             )}
-            <textarea
-              value={handoffReply}
-              onChange={(e) => setHandoffReply(e.target.value)}
-              rows={2}
-              placeholder="Message our support team…"
-              className="w-full rounded-lg border border-border bg-ink px-3 py-2 text-sm text-text outline-none focus:border-gold"
-            />
-            <button
+            <Textarea value={handoffReply} onChange={(e) => setHandoffReply(e.target.value)} rows={2} placeholder="Message our support team…" />
+            <Button
               onClick={async () => {
                 if (!handoffReply.trim()) return;
                 await sendHandoffMessage(handoffReply.trim());
                 setHandoffReply("");
               }}
-              disabled={handoffBusy || !handoffReply.trim()}
-              className="rounded-lg border border-gold bg-gold/10 px-4 py-2 text-sm font-medium text-gold transition hover:bg-gold/20 disabled:opacity-40"
+              loading={handoffBusy}
+              disabled={!handoffReply.trim()}
             >
-              {handoffBusy ? "Sending…" : "Send to support"}
-            </button>
+              Send to support
+            </Button>
             {handoffError && <p className="text-xs text-danger">{handoffError}</p>}
-          </section>
+          </Card>
         ) : (
-          <section className="rounded-2xl border border-border bg-ink-2 p-5 space-y-3">
+          <Card className="space-y-3">
             <label htmlFor="support-q" className="text-sm font-semibold text-text-2">Your question</label>
-            <textarea
+            <Textarea
               id="support-q"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               rows={3}
               placeholder="e.g. How do I upgrade my plan, and what is my subscription status?"
-              className="w-full rounded-lg border border-border bg-ink px-3 py-2 text-sm text-text outline-none focus:border-gold"
             />
-            <button
-              onClick={() => ask(question)}
-              disabled={busy || !question.trim()}
-              className="rounded-lg border border-gold bg-gold/10 px-4 py-2 text-sm font-medium text-gold transition hover:bg-gold/20 disabled:opacity-40"
-            >
-              {busy ? "Working…" : "Ask Support"}
-            </button>
+            <Button onClick={() => ask(question)} loading={busy} disabled={!question.trim()}>
+              Ask Support
+            </Button>
             {handoff?.status === "RESOLVED" && (
-              <button
-                onClick={reopenHandoff}
-                disabled={handoffBusy}
-                className="ml-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-2 transition hover:bg-ink-3 disabled:opacity-40"
-              >
+              <Button variant="secondary" onClick={reopenHandoff} disabled={handoffBusy} className="ml-2">
                 This isn&rsquo;t resolved
-              </button>
+              </Button>
             )}
-          </section>
+          </Card>
         )}
 
         {obs?.run && (
-          <section className="rounded-2xl border border-border bg-ink-2 p-5 space-y-4">
+          <Card className="space-y-4">
             {obs.run.errorCode && (
-              <p className="rounded-lg border border-danger/30 bg-danger/5 p-2 text-xs text-danger">
+              <p className="rounded-control border border-danger/30 bg-danger/5 p-2 text-xs text-danger">
                 {obs.run.errorCode}: {obs.run.errorMessage}
               </p>
             )}
@@ -137,23 +130,19 @@ export default function SupportAssistantPage() {
             {out?.kind === "support-answer" && (
               <>
                 <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className={`rounded-md border px-2 py-0.5 font-medium ${
-                    out.coverage === "no-coverage"
-                      ? "border-danger/40 bg-danger/10 text-danger"
-                      : "border-success/40 bg-success/10 text-success"
-                  }`}>
+                  <Badge tone={out.coverage === "no-coverage" ? "danger" : "success"}>
                     {out.coverage === "kb-answered" ? "Answered from the knowledge base"
                       : out.coverage === "account-context" ? "Answered from your account status"
                         : out.coverage === "kb-generated" ? "Generated from the support knowledge base"
                           : "No answer found"}
-                  </span>
+                  </Badge>
                   {out.topics?.map((t) => (
                     <span key={t} className="rounded border border-border px-1.5 py-0.5 text-text-3">{t}</span>
                   ))}
                 </div>
 
                 {out.coverage === "kb-generated" && out.generatedAnswer && (
-                  <div className="rounded-lg border border-border bg-ink p-3 text-sm text-text-2">
+                  <div className="rounded-control border border-border bg-ink p-3 text-sm text-text-2">
                     {out.generatedAnswer}
                     <div className="mt-1 text-[11px] text-text-3">
                       Generated from the support knowledge base{out.generatedProvider ? ` (${out.generatedProvider})` : ""} - not a direct citation.
@@ -166,7 +155,7 @@ export default function SupportAssistantPage() {
                     <h3 className="mb-1 text-xs font-semibold text-text-3">From the support knowledge base</h3>
                     <ul className="space-y-2 text-sm">
                       {citedPassages.map((c) => (
-                        <li key={c.evidenceId} className="rounded-lg border border-border bg-ink p-3 text-text-2">
+                        <li key={c.evidenceId} className="rounded-control border border-border bg-ink p-3 text-text-2">
                           {c.evidence!.claim}
                           <div className="mt-1 text-[11px] text-text-3">{c.source}</div>
                         </li>
@@ -189,18 +178,14 @@ export default function SupportAssistantPage() {
                 )}
 
                 {out.escalate && !handoff && (
-                  <div className="rounded-lg border border-gold/40 bg-gold/10 p-3 text-sm text-text-2">
+                  <div className="rounded-control border border-gold/40 bg-gold/10 p-3 text-sm text-text-2">
                     <p className="font-medium text-gold">This needs a human.</p>
                     <p className="mt-1 text-xs text-text-3">
                       Reason: {String(out.escalationReason ?? "").replace(/-/g, " ")}.
                     </p>
-                    <button
-                      onClick={requestHuman}
-                      disabled={handoffBusy}
-                      className="mt-2 rounded-lg border border-gold bg-gold/10 px-3 py-1.5 text-xs font-medium text-gold transition hover:bg-gold/20 disabled:opacity-40"
-                    >
-                      {handoffBusy ? "Connecting…" : "Connect me to support"}
-                    </button>
+                    <Button size="sm" onClick={requestHuman} loading={handoffBusy} className="mt-2">
+                      Connect me to support
+                    </Button>
                   </div>
                 )}
 
@@ -223,9 +208,8 @@ export default function SupportAssistantPage() {
               </ol>
               <p className="mt-2 font-mono text-[11px] text-text-3">run {obs.run.id} · {obs.run.status}</p>
             </details>
-          </section>
+          </Card>
         )}
-      </div>
     </div>
   );
 }

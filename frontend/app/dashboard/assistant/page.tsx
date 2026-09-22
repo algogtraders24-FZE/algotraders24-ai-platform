@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Menu } from "lucide-react";
 import type { StoredConversation } from "@/types/conversation-metadata";
 import {
   createUserMessage,
@@ -16,11 +17,16 @@ import ConversationSidebar from "@/components/ai/ConversationSidebar";
 import ChatWindow from "@/components/ai/ChatWindow";
 import ChatInput from "@/components/ai/ChatInput";
 import PromptSuggestions from "@/components/ai/PromptSuggestions";
+import Drawer from "@/components/ui/Drawer";
 import type { DisplayMessage } from "@/components/ai/MessageBubble";
 
 export default function AssistantPage() {
   const [list, setList] = useState<StoredConversation[]>([]);
   const [active, setActive] = useState<StoredConversation | null>(null);
+  // Sprint UI-02.7 - the conversation list had no mobile presentation at all
+  // (see ConversationSidebar.tsx's own header comment). This mirrors it into
+  // a Drawer below md, opened from a hamburger in the chat header strip.
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [thinking, setThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Sprint L2.4 - the in-progress assistant reply. Never persisted on every
@@ -196,41 +202,64 @@ export default function AssistantPage() {
   const messages: DisplayMessage[] = [...(active?.messages ?? []), ...(streamingDraft ? [streamingDraft] : [])];
   const isGenerating = thinking || streamingDraft !== null;
 
+  const sidebarProps = {
+    conversations: list,
+    activeId: active?.id ?? null,
+    onNew: newChat,
+    onRename: async (id: string, title: string) => { const c = list.find((x) => x.id === id); if (c) { await mgr.rename(c, title); await refresh(); } },
+    onDelete: async (id: string) => {
+      // Sprint 15C.8 - best-effort propagation; the local delete always
+      // proceeds regardless of the server call's outcome.
+      const c = list.find((x) => x.id === id);
+      if (c?.serverConversationId) await deleteServerConversation(c.serverConversationId);
+      await mgr.deleteConversation(id);
+      if (active?.id === id) setActive(null);
+      await refresh();
+    },
+    onPin: async (id: string, p: boolean) => { const c = list.find((x) => x.id === id); if (c) { await mgr.setPinned(c, p); await refresh(); } },
+    onArchive: async (id: string, a: boolean) => {
+      // Sprint 15C.8 - best-effort propagation, same rationale as onDelete.
+      const c = list.find((x) => x.id === id);
+      if (c) {
+        if (c.serverConversationId) await archiveServerConversation(c.serverConversationId, a);
+        await mgr.setArchived(c, a);
+        await refresh();
+      }
+    },
+  };
+
   return (
     <div className="flex h-[calc(100vh-2rem)] overflow-hidden rounded-xl border border-border bg-ink text-text">
-      <ConversationSidebar
-        conversations={list}
-        activeId={active?.id ?? null}
-        onSelect={select}
-        onNew={newChat}
-        onRename={async (id, title) => { const c = list.find((x) => x.id === id); if (c) { await mgr.rename(c, title); await refresh(); } }}
-        onDelete={async (id) => {
-          // Sprint 15C.8 - best-effort propagation; the local delete always
-          // proceeds regardless of the server call's outcome.
-          const c = list.find((x) => x.id === id);
-          if (c?.serverConversationId) await deleteServerConversation(c.serverConversationId);
-          await mgr.deleteConversation(id);
-          if (active?.id === id) setActive(null);
-          await refresh();
-        }}
-        onPin={async (id, p) => { const c = list.find((x) => x.id === id); if (c) { await mgr.setPinned(c, p); await refresh(); } }}
-        onArchive={async (id, a) => {
-          // Sprint 15C.8 - best-effort propagation, same rationale as onDelete.
-          const c = list.find((x) => x.id === id);
-          if (c) {
-            if (c.serverConversationId) await archiveServerConversation(c.serverConversationId, a);
-            await mgr.setArchived(c, a);
-            await refresh();
-          }
-        }}
-      />
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-border md:flex">
+        <ConversationSidebar {...sidebarProps} onSelect={select} />
+      </aside>
+
+      <Drawer open={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)} side="left" title="Conversations">
+        <ConversationSidebar
+          {...sidebarProps}
+          onSelect={async (id) => {
+            await select(id);
+            setMobileSidebarOpen(false);
+          }}
+        />
+      </Drawer>
 
       <div className="flex flex-1 flex-col">
         {/* Sprint IA4 - a compact eyebrow, not the full PageHeader primitive: this is a chat-shell header strip that must stay thin so ChatWindow keeps the rest of the viewport height, not a full page hero. Same gold-eyebrow visual language as the rest of Intelligence, sized for this context. */}
-        <header className="border-b border-border px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gold">AI Assistant</p>
-          <h1 className="mt-0.5 text-lg font-bold">AI Strategy Assistant</h1>
-          <p className="text-xs text-text-3">Research markets, strategies, and trading concepts - conversations are saved automatically</p>
+        <header className="flex items-start gap-3 border-b border-border px-4 py-3">
+          <button
+            type="button"
+            onClick={() => setMobileSidebarOpen(true)}
+            aria-label="Open conversation list"
+            className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-text-2 transition hover:text-text md:hidden"
+          >
+            <Menu size={18} aria-hidden="true" />
+          </button>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gold">AI Assistant</p>
+            <h1 className="mt-0.5 text-lg font-bold">AI Strategy Assistant</h1>
+            <p className="text-xs text-text-3">Research markets, strategies, and trading concepts - conversations are saved automatically</p>
+          </div>
         </header>
 
         <ChatWindow

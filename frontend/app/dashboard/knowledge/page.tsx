@@ -8,6 +8,13 @@
 // afterward, instead of hand-patching a local fake record. onSearch is
 // async (searchKnowledge now calls the real vector search route).
 // onReindex calls the real re-embed route.
+// Sprint UI-02.7 - cross-dashboard consistency: self min-h-screen/max-w-6xl
+// wrapper (triple-duplicated across the error/loading/ready branches)
+// removed - AppShell already provides it. The gradient header
+// (bg-gradient-to-r from-gold/10 to-transparent, duplicated identically
+// in the loading and ready branches) is gone - the locked AT24 direction
+// is explicitly no-gradients; both branches now use PageHeader. Same
+// data/handlers throughout.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { KnowledgeDocument } from "@/types/knowledge";
 import {
@@ -38,6 +45,7 @@ import KnowledgeSources from "@/components/knowledge/KnowledgeSources";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
 import Skeleton from "@/components/ui/Skeleton";
+import PageHeader from "@/components/ui/PageHeader";
 
 export default function KnowledgePage() {
   const [ready, setReady] = useState(false);
@@ -155,92 +163,76 @@ export default function KnowledgePage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-ink p-6 text-text">
-        <div className="mx-auto max-w-6xl">
-          <Alert tone="danger" title="Could not load knowledge base">
-            <p>{error}</p>
-            <Button variant="secondary" onClick={retry} className="mt-4">
-              Retry
-            </Button>
-          </Alert>
-        </div>
+      <div>
+        <Alert tone="danger" title="Could not load knowledge base">
+          <p>{error}</p>
+          <Button variant="secondary" onClick={retry} className="mt-4">
+            Retry
+          </Button>
+        </Alert>
       </div>
     );
   }
 
   if (!ready || !metrics) {
     return (
-      <div className="min-h-screen bg-ink p-6 text-text">
-        <div className="mx-auto max-w-6xl space-y-6">
-          <header className="rounded-panel border border-border bg-gradient-to-r from-gold/10 to-transparent p-6">
-            <h1 className="text-2xl font-bold">AI Knowledge Base</h1>
-            <p className="mt-1 text-sm text-text-2">
-              Retrieval-augmented knowledge foundation
-            </p>
-          </header>
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {[0, 1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-24" />
-            ))}
-          </div>
-          <Skeleton className="h-14" />
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <Skeleton className="h-96 lg:col-span-2" />
-            <Skeleton className="h-96" />
-          </div>
+      <div className="space-y-6">
+        <PageHeader eyebrow="Intelligence" title="AI Knowledge Base" description="Retrieval-augmented knowledge foundation" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-24" />
+          ))}
+        </div>
+        <Skeleton className="h-14" />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <Skeleton className="h-96 lg:col-span-2" />
+          <Skeleton className="h-96" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-ink p-6 text-text">
-      <div className="mx-auto max-w-6xl space-y-6">
-        <header className="rounded-panel border border-border bg-gradient-to-r from-gold/10 to-transparent p-6">
-          <h1 className="text-2xl font-bold">AI Knowledge Base</h1>
-          <p className="mt-1 text-sm text-text-2">
-            Retrieval-augmented knowledge foundation
-          </p>
-        </header>
+    <div className="space-y-6">
+      <PageHeader eyebrow="Intelligence" title="AI Knowledge Base" description="Retrieval-augmented knowledge foundation" />
 
-        <KnowledgeMetrics metrics={metrics} />
-        <KnowledgeSearch onSearch={onSearch} onOpen={setActiveId} />
-        <KnowledgeCategories
-          categories={categories}
-          active={category}
-          onSelect={setCategory}
-        />
+      <KnowledgeMetrics metrics={metrics} />
+      <KnowledgeSearch onSearch={onSearch} onOpen={setActiveId} />
+      <KnowledgeCategories
+        categories={categories}
+        active={category}
+        onSelect={setCategory}
+      />
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="space-y-4 lg:col-span-2">
-            <h2 className="text-sm font-semibold text-text-2">
-              Document Library
-            </h2>
-            <KnowledgeGrid docs={visible} onOpen={setActiveId} totalCount={docs.length} />
-          </div>
-          <div className="space-y-4">
-            <KnowledgeDetails
-              doc={active}
-              related={related}
-              retrievals={history}
-              onReindex={onReindex}
-            />
-            <KnowledgeUploader collections={collections} uploading={uploading} error={uploadError} onUpload={onUpload} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <KnowledgeCollections collections={collections} />
-          <KnowledgeSources />
-        </div>
-
-        <section>
-          <h2 className="mb-3 text-sm font-semibold text-text-2">
-            Retrieval History
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="space-y-4 lg:col-span-2">
+          <h2 className="text-sm font-semibold text-text-2">
+            Document Library
           </h2>
-          <KnowledgeHistory records={history} />
-        </section>
+          <KnowledgeGrid docs={visible} onOpen={setActiveId} totalCount={docs.length} />
+        </div>
+        <div className="space-y-4">
+          <KnowledgeDetails
+            doc={active}
+            related={related}
+            retrievals={history}
+            onReindex={onReindex}
+          />
+          <KnowledgeUploader collections={collections} uploading={uploading} error={uploadError} onUpload={onUpload} />
+        </div>
       </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <KnowledgeCollections collections={collections} />
+        <KnowledgeSources />
+      </div>
+
+      <section>
+        <h2 className="mb-3 text-sm font-semibold text-text-2">
+          Retrieval History
+        </h2>
+        <KnowledgeHistory records={history} />
+      </section>
     </div>
   );
 }
