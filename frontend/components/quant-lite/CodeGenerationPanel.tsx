@@ -8,6 +8,9 @@
 // network) - the filename is derived deterministically from the strategy
 // name + language, sanitized independently of the generated CODE's own
 // server-side sanitization (Q1.4_SECURITY_VALIDATION.md).
+// Sprint UI-02.2 - each language button uses Button's own `loading` prop
+// instead of a hand-rolled text swap. Same handleGenerate call, same
+// per-language disabled-while-any-loading behavior.
 import { useState } from "react";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -66,8 +69,15 @@ export default function CodeGenerationPanel({ strategy }: { strategy: StrategySp
       </p>
       <div className="flex flex-wrap gap-2">
         {SUPPORTED_CODEGEN_LANGUAGES.map((lang) => (
-          <Button key={lang} variant="secondary" size="sm" onClick={() => handleGenerate(lang)} disabled={loading !== null}>
-            {loading === lang ? "Generating..." : `Generate ${LANGUAGE_LABEL[lang]}`}
+          <Button
+            key={lang}
+            variant="secondary"
+            size="sm"
+            onClick={() => handleGenerate(lang)}
+            loading={loading === lang}
+            disabled={loading !== null && loading !== lang}
+          >
+            Generate {LANGUAGE_LABEL[lang]}
           </Button>
         ))}
       </div>

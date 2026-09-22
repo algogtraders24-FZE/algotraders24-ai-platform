@@ -20,6 +20,11 @@
 // not next/navigation's useSearchParams() - mirrors the Optimization setup
 // page's own established convention (this codebase's documented prior
 // useSearchParams()/prerender hydration bug).
+// Sprint UI-02.2 - same visual-only pass as its sibling
+// algo-test-optimize/page.tsx: self max-w-3xl wrapper removed, "no
+// optimizable strategy" text now uses EmptyState. Form <section>s
+// unchanged (same rounded-card/border-border/bg-ink-2 tokens Card would
+// render, kept as <section> for the same reasons noted there).
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
@@ -28,6 +33,7 @@ import Select from "@/components/ui/Select";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Alert from "@/components/ui/Alert";
+import EmptyState from "@/components/ui/EmptyState";
 import { FIN_LABEL } from "@/components/ui/financial-typography";
 import { fetchAlgoTestStrategies } from "@/lib/algo-test/store";
 import { createWalkForwardExperiment } from "@/lib/algo-test/walk-forward-store";
@@ -218,7 +224,7 @@ export default function AlgoTestWalkForwardSetupPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="space-y-6">
       <PageHeader
         eyebrow="Algo Testing Pro"
         title="Walk-Forward Optimization"
@@ -232,7 +238,7 @@ export default function AlgoTestWalkForwardSetupPage() {
           <Skeleton className="h-40 w-full" />
         </div>
       ) : strategies.length === 0 ? (
-        <p className="text-sm text-text-2">No registry strategy currently declares an optimizable parameter.</p>
+        <EmptyState title="No optimizable strategies" description="No registry strategy currently declares an optimizable parameter." />
       ) : (
         <div className="space-y-6">
           <section className="space-y-4 rounded-card border border-border bg-ink-2 p-5">

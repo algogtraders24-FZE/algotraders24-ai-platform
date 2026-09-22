@@ -28,6 +28,15 @@
 // than imported from AlgoTestPanel.tsx - that file is explicitly untouched
 // per the locked contract, and extracting from a 1288-line client
 // component locked out of scope is itself a change to that file.
+// Sprint UI-02.2 - self max-w-3xl wrapper removed (AppShell provides the
+// content column); the "no optimizable strategy" text now uses EmptyState.
+// The three form <section>s already use the exact rounded-card/border-
+// border/bg-ink-2 tokens Card renders - kept as <section> rather than
+// wrapped in Card (a <div>-only primitive) since Card's fixed sm/md/lg
+// padding scale doesn't cleanly represent this page's p-5, and <section>
+// is the more correct element for a multi-part form. No PageHeader,
+// Button/loading, Select/Input, or Alert usage changed - all already
+// correct.
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
@@ -36,6 +45,7 @@ import Select from "@/components/ui/Select";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Alert from "@/components/ui/Alert";
+import EmptyState from "@/components/ui/EmptyState";
 import { FIN_LABEL } from "@/components/ui/financial-typography";
 import { fetchAlgoTestStrategies } from "@/lib/algo-test/store";
 import { createOptimizationExperiment } from "@/lib/algo-test/optimization-store";
@@ -219,7 +229,7 @@ export default function AlgoTestOptimizeSetupPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="space-y-6">
       <PageHeader eyebrow="Algo Testing Pro" title="Optimize Parameters" description="Sweep a strategy's own parameters across a grid and let the engine find the highest-profit-factor configuration." />
 
       {strategies === null ? (
@@ -229,7 +239,7 @@ export default function AlgoTestOptimizeSetupPage() {
           <Skeleton className="h-40 w-full" />
         </div>
       ) : strategies.length === 0 ? (
-        <p className="text-sm text-text-2">No registry strategy currently declares an optimizable parameter.</p>
+        <EmptyState title="No optimizable strategies" description="No registry strategy currently declares an optimizable parameter." />
       ) : (
         <div className="space-y-6">
           <section className="space-y-4 rounded-card border border-border bg-ink-2 p-5">
