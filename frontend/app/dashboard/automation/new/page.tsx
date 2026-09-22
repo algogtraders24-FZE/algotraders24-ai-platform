@@ -6,6 +6,16 @@
 // Validator), enforces plan limits and owns every downstream decision. This
 // component never runs anything or fakes a status. IST-only scheduling, the
 // two locked slots, no "Workflow" naming, no arbitrary-time picker.
+//
+// Sprint UI-02.3 - visual-only pass onto the UI-01/02.1/02.2 system: the
+// page's own min-h-screen/max-w-3xl self-wrapper is gone (AppShell already
+// provides the centered content column), header -> PageHeader, every
+// hand-rolled button/input/select/textarea (the local btn/btnGold/btnGhost/
+// field class-string constants) -> Button/Input/Select/Textarea, section
+// wrappers' rounded-xl -> the rounded-card token they were already
+// numerically equal to, the error banner -> Alert. Every state, handler,
+// validation rule and the buildDefinition()/defaultStep() logic is
+// byte-for-byte unchanged - only the markup layer moved.
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -19,6 +29,13 @@ import type {
 } from "@/types/automation";
 import { AutomationApi, AutomationApiError, type TemplateSummary } from "@/services/api/AutomationApi";
 import { WorkflowSequence } from "@/components/automation/ui";
+import PageHeader from "@/components/ui/PageHeader";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
+import Textarea from "@/components/ui/Textarea";
+import Alert from "@/components/ui/Alert";
 
 const SLOTS = [
   { id: "morning_ist", label: "Morning — 08:00 IST" },
@@ -52,11 +69,6 @@ const CATEGORY_LABEL: Record<string, string> = {
   "index-analysis": "Index Analysis",
   "weekly-review": "Weekly Review",
 };
-
-const btn = "rounded-lg border px-4 py-2 text-sm font-medium transition disabled:opacity-40";
-const btnGold = `${btn} border-gold bg-gold/10 text-gold hover:bg-gold/20`;
-const btnGhost = `${btn} border-border text-text-2 hover:bg-ink-3`;
-const field = "w-full rounded-lg border border-border bg-ink px-3 py-2 text-sm text-text outline-none focus:border-gold";
 
 type Draft = {
   name: string;
@@ -137,58 +149,65 @@ export default function NewAutomationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-ink p-6 text-text">
-      <div className="mx-auto max-w-3xl space-y-6">
-        <header className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Create automation</h1>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Automation"
+        title="Create automation"
+        action={
           <Link href="/dashboard/automation" className="text-sm text-text-3 hover:text-text">
             Cancel
           </Link>
-        </header>
+        }
+      />
 
-        {error && (
-          <div className="rounded-lg border border-danger/40 bg-danger/10 p-3 text-sm text-danger">
-            {error}
-            {issues.length > 0 && (
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-xs">
-                {issues.map((i, n) => (
-                  <li key={n}>
-                    <code className="text-danger/80">{i.path}</code> — {i.message}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
+      {error && (
+        <Alert tone="danger">
+          {error}
+          {issues.length > 0 && (
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-xs">
+              {issues.map((i, n) => (
+                <li key={n}>
+                  <code className="text-danger/80">{i.path}</code> — {i.message}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Alert>
+      )}
 
-        {mode === "choose" && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <button className={`${btnGhost} h-32 flex-col text-left`} onClick={() => setMode("template")}>
-              <span className="text-base font-semibold text-text">Start from a template</span>
-              <span className="mt-1 block text-xs text-text-3">Daily Market Brief · Gold Morning Intelligence · Research Monitor</span>
-            </button>
-            <button className={`${btnGhost} h-32 flex-col text-left`} onClick={() => setMode("scratch")}>
-              <span className="text-base font-semibold text-text">Build from scratch</span>
-              <span className="mt-1 block text-xs text-text-3">Choose a trigger, add steps, add an optional condition</span>
-            </button>
-          </div>
-        )}
+      {mode === "choose" && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <button
+            className="h-32 flex flex-col justify-center rounded-card border border-border bg-ink-2 p-4 text-left text-text-2 transition hover:border-gold/50"
+            onClick={() => setMode("template")}
+          >
+            <span className="text-base font-semibold text-text">Start from a template</span>
+            <span className="mt-1 block text-xs text-text-3">Daily Market Brief · Gold Morning Intelligence · Research Monitor</span>
+          </button>
+          <button
+            className="h-32 flex flex-col justify-center rounded-card border border-border bg-ink-2 p-4 text-left text-text-2 transition hover:border-gold/50"
+            onClick={() => setMode("scratch")}
+          >
+            <span className="text-base font-semibold text-text">Build from scratch</span>
+            <span className="mt-1 block text-xs text-text-3">Choose a trigger, add steps, add an optional condition</span>
+          </button>
+        </div>
+      )}
 
-        {mode === "template" && (
-          <TemplatePicker templates={templates} busy={busy} onBack={() => setMode("choose")} onUse={useTemplate} />
-        )}
+      {mode === "template" && (
+        <TemplatePicker templates={templates} busy={busy} onBack={() => setMode("choose")} onUse={useTemplate} />
+      )}
 
-        {mode === "scratch" && (
-          <ScratchBuilder
-            draft={draft}
-            setDraft={setDraft}
-            definition={definition}
-            busy={busy}
-            onBack={() => setMode("choose")}
-            onSubmit={submit}
-          />
-        )}
-      </div>
+      {mode === "scratch" && (
+        <ScratchBuilder
+          draft={draft}
+          setDraft={setDraft}
+          definition={definition}
+          busy={busy}
+          onBack={() => setMode("choose")}
+          onSubmit={submit}
+        />
+      )}
     </div>
   );
 }
@@ -214,7 +233,7 @@ function TemplatePicker({
 
   if (selected) {
     return (
-      <div className="space-y-4 rounded-xl border border-border bg-ink-2 p-5">
+      <Card className="space-y-4">
         <button onClick={() => setSelected(null)} className="text-xs text-text-3 hover:text-text">
           ← other templates
         </button>
@@ -222,21 +241,21 @@ function TemplatePicker({
         <p className="text-sm text-text-3">{selected.description}</p>
         <label className="block text-xs text-text-3">
           Name
-          <input className={`${field} mt-1`} value={name} placeholder={selected.name} onChange={(e) => setName(e.target.value)} />
+          <Input className="mt-1" value={name} placeholder={selected.name} onChange={(e) => setName(e.target.value)} />
         </label>
         {selected.overridable.includes("symbol") && (
           <label className="block text-xs text-text-3">
             Instrument
-            <input className={`${field} mt-1`} value={symbol} onChange={(e) => setSymbol(e.target.value)} />
+            <Input className="mt-1" value={symbol} onChange={(e) => setSymbol(e.target.value)} />
           </label>
         )}
-        <div className="rounded-lg border border-border bg-ink p-3">
+        <div className="rounded-control border border-border bg-ink p-3">
           <WorkflowSequence def={selected.definition} />
         </div>
-        <button className={btnGold} disabled={busy} onClick={() => onUse(selected, symbol, name)}>
-          {busy ? "Creating…" : "Create as draft"}
-        </button>
-      </div>
+        <Button loading={busy} onClick={() => onUse(selected, symbol, name)}>
+          Create as draft
+        </Button>
+      </Card>
     );
   }
 
@@ -249,7 +268,7 @@ function TemplatePicker({
         <button
           key={t.id}
           onClick={() => setSelected(t)}
-          className="block w-full rounded-xl border border-border bg-ink-2 p-4 text-left hover:border-gold/50"
+          className="block w-full rounded-card border border-border bg-ink-2 p-4 text-left transition hover:border-gold/50"
         >
           <p className="font-semibold text-text">{t.name}</p>
           <p className="mt-1 text-xs text-text-3">{t.description}</p>
@@ -285,28 +304,24 @@ function ScratchBuilder({
         ← back
       </button>
 
-      <section className="space-y-3 rounded-xl border border-border bg-ink-2 p-5">
+      <Card className="space-y-3">
         <h2 className="text-sm font-semibold text-text-2">1 · Basic information</h2>
-        <input className={field} placeholder="Automation name" value={draft.name} onChange={(e) => set("name", e.target.value)} />
-        <textarea
-          className={`${field} min-h-[64px]`}
+        <Input placeholder="Automation name" value={draft.name} onChange={(e) => set("name", e.target.value)} />
+        <Textarea
+          className="min-h-[64px]"
           placeholder="Description (optional)"
           value={draft.description}
           onChange={(e) => set("description", e.target.value)}
         />
-      </section>
+      </Card>
 
-      <section className="space-y-3 rounded-xl border border-border bg-ink-2 p-5">
+      <Card className="space-y-3">
         <h2 className="text-sm font-semibold text-text-2">2 · Trigger</h2>
         <div className="flex flex-wrap gap-2">
           {(["manual", "once", "daily", "weekly"] as AutomationTriggerType[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => set("triggerType", t)}
-              className={`${btn} ${draft.triggerType === t ? "border-gold bg-gold/10 text-gold" : "border-border text-text-2 hover:bg-ink-3"}`}
-            >
+            <Button key={t} size="sm" variant={draft.triggerType === t ? "primary" : "secondary"} onClick={() => set("triggerType", t)}>
               {t}
-            </button>
+            </Button>
           ))}
         </div>
         {draft.triggerType !== "manual" && (
@@ -316,13 +331,9 @@ function ScratchBuilder({
             </p>
             <div className="flex flex-wrap gap-2">
               {SLOTS.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => set("slot", s.id)}
-                  className={`${btn} ${draft.slot === s.id ? "border-gold bg-gold/10 text-gold" : "border-border text-text-2 hover:bg-ink-3"}`}
-                >
+                <Button key={s.id} size="sm" variant={draft.slot === s.id ? "primary" : "secondary"} onClick={() => set("slot", s.id)}>
                   {s.label}
-                </button>
+                </Button>
               ))}
             </div>
           </>
@@ -332,13 +343,14 @@ function ScratchBuilder({
             {WEEKDAYS.map((d) => {
               const on = draft.daysOfWeek.includes(d);
               return (
-                <button
+                <Button
                   key={d}
+                  size="sm"
+                  variant={on ? "primary" : "secondary"}
                   onClick={() => set("daysOfWeek", on ? draft.daysOfWeek.filter((x) => x !== d) : [...draft.daysOfWeek, d])}
-                  className={`${btn} px-2.5 ${on ? "border-gold bg-gold/10 text-gold" : "border-border text-text-3 hover:bg-ink-3"}`}
                 >
                   {d}
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -346,30 +358,30 @@ function ScratchBuilder({
         {draft.triggerType === "once" && (
           <label className="block text-xs text-text-3">
             Run on/after
-            <input type="date" className={`${field} mt-1`} value={draft.runAt} onChange={(e) => set("runAt", e.target.value)} />
+            <Input type="date" className="mt-1" value={draft.runAt} onChange={(e) => set("runAt", e.target.value)} />
           </label>
         )}
-      </section>
+      </Card>
 
-      <section className="space-y-3 rounded-xl border border-border bg-ink-2 p-5">
+      <Card className="space-y-3">
         <h2 className="text-sm font-semibold text-text-2">3 · Steps</h2>
         <StepEditor steps={draft.steps} priorAgentIds={priorAgentIds} onChange={(steps) => set("steps", steps)} />
-      </section>
+      </Card>
 
-      <section className="space-y-3 rounded-xl border border-border bg-ink-2 p-5">
+      <Card className="space-y-3">
         <h2 className="text-sm font-semibold text-text-2">4 · Review</h2>
-        <div className="rounded-lg border border-border bg-ink p-3">
+        <div className="rounded-control border border-border bg-ink p-3">
           <WorkflowSequence def={definition} />
         </div>
         <div className="flex gap-2">
-          <button className={btnGhost} disabled={busy} onClick={() => onSubmit(false)}>
+          <Button variant="secondary" disabled={busy} onClick={() => onSubmit(false)}>
             Save as draft
-          </button>
-          <button className={btnGold} disabled={busy} onClick={() => onSubmit(true)}>
-            {busy ? "Creating…" : "Create & activate"}
-          </button>
+          </Button>
+          <Button loading={busy} onClick={() => onSubmit(true)}>
+            Create & activate
+          </Button>
         </div>
-      </section>
+      </Card>
     </div>
   );
 }
@@ -401,7 +413,7 @@ function StepEditor({
   return (
     <div className="space-y-2">
       {steps.map((s, i) => (
-        <div key={s.id} className="rounded-lg border border-border bg-ink-3 p-3">
+        <div key={s.id} className="rounded-control border border-border bg-ink-3 p-3">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-xs font-medium text-text-2">
               {s.id} · {s.kind}
@@ -416,10 +428,10 @@ function StepEditor({
         </div>
       ))}
       <div className="flex flex-wrap gap-2 pt-1">
-        <button className={`${btnGhost} text-xs`} onClick={() => add("agent_run")}>+ Agent</button>
-        <button className={`${btnGhost} text-xs`} onClick={() => add("condition")}>+ Condition</button>
-        <button className={`${btnGhost} text-xs`} onClick={() => add("publication_draft")}>+ Publication draft</button>
-        <button className={`${btnGhost} text-xs`} onClick={() => add("workspace_save")}>+ Save to Workspace</button>
+        <Button size="sm" variant="secondary" onClick={() => add("agent_run")}>+ Agent</Button>
+        <Button size="sm" variant="secondary" onClick={() => add("condition")}>+ Condition</Button>
+        <Button size="sm" variant="secondary" onClick={() => add("publication_draft")}>+ Publication draft</Button>
+        <Button size="sm" variant="secondary" onClick={() => add("workspace_save")}>+ Save to Workspace</Button>
       </div>
     </div>
   );
@@ -438,17 +450,16 @@ function StepFields({
     const symbol = typeof step.action.input.symbol === "string" ? step.action.input.symbol : "";
     return (
       <div className="grid gap-2 sm:grid-cols-2">
-        <select
-          className={field}
+        <Select
+          className="w-full"
           value={step.action.agentType}
           onChange={(e) => onChange({ ...step, action: { ...step.action, agentType: e.target.value as AutomationAgentType } })}
         >
           {AGENT_TYPES.map((t) => (
             <option key={t} value={t}>{AGENT_TYPE_LABEL[t]}</option>
           ))}
-        </select>
-        <input
-          className={field}
+        </Select>
+        <Input
           placeholder="symbol (e.g. XAUUSD)"
           value={symbol}
           onChange={(e) => onChange({ ...step, action: { ...step.action, input: { ...step.action.input, symbol: e.target.value } } })}
@@ -459,8 +470,8 @@ function StepFields({
   if (step.kind === "condition") {
     return (
       <div className="grid gap-2 sm:grid-cols-3">
-        <select
-          className={field}
+        <Select
+          className="w-full"
           value={step.condition.left}
           onChange={(e) => onChange({ ...step, condition: { ...step.condition, left: e.target.value } })}
         >
@@ -470,18 +481,17 @@ function StepFields({
               <option key={`${id}.${f}`} value={`$.steps.${id}.${f}`}>{id}.{f}</option>
             )),
           )}
-        </select>
-        <select
-          className={field}
+        </Select>
+        <Select
+          className="w-full"
           value={step.condition.op}
           onChange={(e) => onChange({ ...step, condition: { ...step.condition, op: e.target.value as AutomationConditionOp } })}
         >
           {OPS.map((o) => (
             <option key={o} value={o}>{OP_LABEL[o]}</option>
           ))}
-        </select>
-        <input
-          className={field}
+        </Select>
+        <Input
           placeholder="value (e.g. 0.75)"
           value={String(step.condition.right)}
           onChange={(e) => {
@@ -495,20 +505,19 @@ function StepFields({
   }
   if (step.kind === "publication_draft") {
     return (
-      <select
-        className={field}
+      <Select
+        className="w-full"
         value={step.action.category}
         onChange={(e) => onChange({ ...step, action: { ...step.action, category: e.target.value } })}
       >
         {CATEGORIES.map((c) => (
           <option key={c} value={c}>{CATEGORY_LABEL[c] ?? c}</option>
         ))}
-      </select>
+      </Select>
     );
   }
   return (
-    <input
-      className={field}
+    <Input
       placeholder="Result title"
       value={step.action.title}
       onChange={(e) => onChange({ ...step, action: { ...step.action, title: e.target.value } })}
