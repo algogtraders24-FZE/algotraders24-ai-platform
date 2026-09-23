@@ -134,6 +134,7 @@ export async function compileNaturalLanguageStrategy(intent: string, provider: A
       { role: "system", content: STRATEGY_COMPILER_SYSTEM_PROMPT },
       { role: "user", content: buildStrategyCompilerUserPrompt(intent) },
     ],
+    temperature: 0,
   });
 
   const byName: Partial<Record<StrategyLifecycleStage, StageResult>> = {};
