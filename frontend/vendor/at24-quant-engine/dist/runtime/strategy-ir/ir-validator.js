@@ -1,5 +1,7 @@
 import { validateStrategyIRStructure } from "../../domain/strategy-ir/strategy-ir.js";
 import { indicatorKey } from "../../domain/indicator-reference.js";
+/** The reserved close-price pseudo-indicator (domain/indicator-reference.ts's `indicator("PRICE")`, golden-strategy.ts's own established convention) is documented as never needing declaration — an AI-compiled strategy's schema.ts explicitly tells its LLM caller "PRICE... never needs declaring". `declaredIndicatorKeys` must never require it. */
+const PRICE_INDICATOR_KEY = "PRICE()";
 function declaredIndicatorKeys(indicators) {
     const keys = new Set();
     for (const ind of indicators) {
@@ -46,7 +48,7 @@ function checkIndicatorReferencesDeclared(ir) {
             collectIndicatorRefs(e.condition, used);
     });
     ir.conditions.forEach((c) => collectIndicatorRefs(c.expression, used));
-    const undeclared = [...used].filter((key) => !declared.has(key));
+    const undeclared = [...used].filter((key) => key !== PRICE_INDICATOR_KEY && !declared.has(key));
     return undeclared.map((key) => `condition references indicator "${key}" which is not declared in ir.indicators — unknown indicator`);
 }
 /**
