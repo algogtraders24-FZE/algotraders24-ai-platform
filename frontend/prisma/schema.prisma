@@ -1359,6 +1359,37 @@ model MarketplacePurchaseIntent {
   @@map("marketplace_purchase_intents")
 }
 
+// Shareable Payment Links - an admin-generated shareable checkout URL for a
+// specific marketplace listing. marketplaceListingId is a plain,
+// unconstrained string, matching MarketplaceListing's own established
+// convention (see that model's comment) - not a live Prisma relation.
+// Deliberately a thin pointer, not a parallel payment/entitlement
+// architecture: opening the link still runs through the exact same
+// checkout-creation code the direct listing page uses, resolving the
+// listing (and its current price/publication state) fresh every time -
+// never cached here. usageCount counts checkout attempts INITIATED through
+// this link, not completed purchases (a deliberate, documented choice - see
+// PaymentLink checkout route), incremented via a single atomic conditional
+// UPDATE (status/expiry/maxUses all re-checked in the same statement) to
+// avoid a check-then-increment race under concurrent requests.
+model PaymentLink {
+  id                   String    @id @default(cuid())
+  token                String    @unique
+  marketplaceListingId String
+  status               String    @default("ACTIVE") // ACTIVE|REVOKED|EXPIRED
+  expiresAt            DateTime?
+  maxUses              Int?
+  usageCount           Int       @default(0)
+  createdByUserId      String
+  revokedAt            DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([status])
+  @@index([marketplaceListingId])
+  @@map("payment_links")
+}
+
 // ── Sprint M12 branding follow-on: real Evidence/Validation/Risk/Trust
 // storage, replacing the flat-file convention (data/marketplace-evidence/
 // *.json) two things depended on: mt5EvidenceAdapter.ts's discoverMt5Evidence
