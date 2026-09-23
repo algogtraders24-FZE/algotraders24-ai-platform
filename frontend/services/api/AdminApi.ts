@@ -12,10 +12,15 @@ import type { AuditLogEntry } from "@/services/admin/AuditLogService";
 import type { AdminFeedbackEntry, FeedbackStatus } from "@/services/admin/AdminFeedbackService";
 import type { BetaOverview, JourneyEvent } from "@/services/admin/AdminBetaService";
 import type { AdminQueueEntry, AdminHandoffDetail } from "@/services/support/handoff-service";
+import type { PaymentLinkListItem } from "@/services/marketplace/paymentLinkService";
 
 export interface Page<T> {
   items: T[];
   total: number;
+}
+
+export interface PaymentLinkRow extends PaymentLinkListItem {
+  url: string;
 }
 
 export class AdminApi {
@@ -135,5 +140,20 @@ export class AdminApi {
   static async replyToSupportHandoff(id: string, content: string): Promise<AdminHandoffDetail> {
     const data = await ApiClient.post<{ handoff: AdminHandoffDetail }>(`/api/private/admin/support-handoffs/${id}/messages`, { content });
     return data.handoff;
+  }
+
+  // Shareable Payment Links - admin create/list/revoke.
+  static async listPaymentLinks(params: { page: number; pageSize: number }): Promise<Page<PaymentLinkRow>> {
+    return ApiClient.get<Page<PaymentLinkRow>>("/api/private/admin/payment-links", {
+      query: { page: params.page, pageSize: params.pageSize },
+    });
+  }
+
+  static async createPaymentLink(input: { listingSlug: string; expiresAt?: string; maxUses?: number }): Promise<{ id: string; token: string; url: string }> {
+    return ApiClient.post<{ id: string; token: string; url: string }>("/api/private/admin/payment-links", input);
+  }
+
+  static async revokePaymentLink(id: string) {
+    return ApiClient.patch(`/api/private/admin/payment-links/${encodeURIComponent(id)}`, { action: "revoke" });
   }
 }
