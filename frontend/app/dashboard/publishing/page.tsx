@@ -8,6 +8,13 @@
 // the same real sendMessage() AI service the old page did (proven live
 // during the audit), it just persists the result now instead of discarding
 // it into a side-panel-only aiDraft state.
+// Sprint UI-03 - this whole surface predated the AT24 design system
+// (Publishing was closed/frozen before UI-01 shipped) - same situation
+// Automation was in before UI-02.3. Self min-h-screen/max-w-6xl wrapper
+// removed (AppShell provides it), <h1> -> PageHeader (category Select +
+// Generate button moved into its action slot), raw select/button ->
+// Select/Button, the error div -> Alert, the two hand-rolled stat divs ->
+// StatCard. Same fetch/generate/publish/schedule logic throughout.
 import { useEffect, useMemo, useState } from "react";
 import type { Article } from "@/types/article";
 import type { ContentCategory } from "@/types/content-category";
@@ -22,6 +29,11 @@ import ContentCalendar from "@/components/publishing/ContentCalendar";
 import EmptyState from "@/components/ui/EmptyState";
 import ErrorState from "@/components/ui/ErrorState";
 import Skeleton from "@/components/ui/Skeleton";
+import PageHeader from "@/components/ui/PageHeader";
+import Select from "@/components/ui/Select";
+import Button from "@/components/ui/Button";
+import Alert from "@/components/ui/Alert";
+import StatCard from "@/components/ui/StatCard";
 
 // Simple, client-side default keyword sets (buildSeo requires >=3 for a
 // clean validateArticle pass) - not shared service logic, so kept local
@@ -147,87 +159,69 @@ export default function PublishingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-ink p-6 text-text">
-      <div className="mx-auto max-w-6xl space-y-6">
-        <header className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold">AI Publishing & SEO</h1>
-            <p className="text-xs text-text-3">Automated market research</p>
-          </div>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Intelligence"
+        title="AI Publishing & SEO"
+        description="Automated market research"
+        action={
           <div className="flex items-center gap-2">
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value as ContentCategory)}
-              className="rounded-lg border border-border bg-ink-2 px-3 py-2 text-sm text-text"
-              aria-label="Article category"
-            >
+            <Select value={category} onChange={(e) => setCategory(e.target.value as ContentCategory)} aria-label="Article category">
               {Object.entries(CATEGORY_TITLES).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
               ))}
-            </select>
-            <button
-              onClick={generateDraft}
-              disabled={generating}
-              className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-ink hover:brightness-110 disabled:opacity-50"
-            >
-              {generating ? "Generating…" : "Generate AI Draft"}
-            </button>
+            </Select>
+            <Button onClick={generateDraft} loading={generating}>
+              Generate AI Draft
+            </Button>
           </div>
-        </header>
+        }
+      />
 
-        {actionError && (
-          <div className="rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">{actionError}</div>
-        )}
+      {actionError && <Alert tone="danger">{actionError}</Alert>}
 
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border border-border bg-ink-2 p-4">
-            <p className="text-xs text-text-3">Published</p>
-            <p className="mt-1 text-2xl font-bold text-text">{published.length}</p>
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard label="Published" value={published.length} />
+        <SEOScoreCard score={avgSeo} />
+        <StatCard label="Total Articles" value={articles.length} />
+      </section>
+
+      {state === "loading" ? (
+        <div className="space-y-3" aria-busy="true" aria-live="polite">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+      ) : state === "error" ? (
+        <ErrorState
+          title="Could not load articles"
+          description="Try refreshing the page. If the problem continues, contact Support."
+        />
+      ) : articles.length === 0 ? (
+        <EmptyState title="No articles yet." description="Pick a category above and generate your first AI draft." />
+      ) : (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="space-y-3 lg:col-span-1">
+            <h2 className="text-sm font-semibold text-text-2">Articles</h2>
+            {articles.map((a) => (
+              <ArticleCard key={a.id} article={a} onOpen={setActiveId} />
+            ))}
+            <ContentCalendar schedule={schedule} />
           </div>
-          <SEOScoreCard score={avgSeo} />
-          <div className="rounded-xl border border-border bg-ink-2 p-4">
-            <p className="text-xs text-text-3">Total Articles</p>
-            <p className="mt-1 text-2xl font-bold text-text">{articles.length}</p>
+
+          <div className="lg:col-span-2">
+            <ArticlePreview article={active} onPublish={handlePublish} onSchedule={handleSchedule} onDuplicate={handleDuplicate} />
           </div>
+        </div>
+      )}
+
+      {articles.length > 0 && (
+        <section>
+          <h2 className="mb-3 text-sm font-semibold text-text-2">Publishing Queue</h2>
+          <PublishingQueue articles={articles} />
         </section>
-
-        {state === "loading" ? (
-          <div className="space-y-3" aria-busy="true" aria-live="polite">
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-24 w-full" />
-          </div>
-        ) : state === "error" ? (
-          <ErrorState
-            title="Could not load articles"
-            description="Try refreshing the page. If the problem continues, contact Support."
-          />
-        ) : articles.length === 0 ? (
-          <EmptyState title="No articles yet." description="Pick a category above and generate your first AI draft." />
-        ) : (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <div className="space-y-3 lg:col-span-1">
-              <h2 className="text-sm font-semibold text-text-2">Articles</h2>
-              {articles.map((a) => (
-                <ArticleCard key={a.id} article={a} onOpen={setActiveId} />
-              ))}
-              <ContentCalendar schedule={schedule} />
-            </div>
-
-            <div className="lg:col-span-2">
-              <ArticlePreview article={active} onPublish={handlePublish} onSchedule={handleSchedule} onDuplicate={handleDuplicate} />
-            </div>
-          </div>
-        )}
-
-        {articles.length > 0 && (
-          <section>
-            <h2 className="mb-3 text-sm font-semibold text-text-2">Publishing Queue</h2>
-            <PublishingQueue articles={articles} />
-          </section>
-        )}
-      </div>
+      )}
     </div>
   );
 }

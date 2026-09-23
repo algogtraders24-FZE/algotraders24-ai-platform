@@ -6,10 +6,18 @@
 // clicking an article only changed local preview state - there was no way
 // to actually publish or schedule anything). Also renders the article's
 // real history log, satisfying the audit's "History" verification item.
+// Sprint UI-03 - hand-rolled rounded-xl recipes -> Card (the p-5 main card
+// uses padding="none" + className="p-5" since 5 doesn't land on Card's sm/
+// md/lg scale, same technique UI-02.2 established), raw buttons -> Button,
+// the datetime-local input -> Input (type passes straight through). Same
+// publish/schedule/duplicate handlers throughout.
 import { useState } from "react";
 import type { Article } from "@/types/article";
 import PublishingStatus from "./PublishingStatus";
 import Disclaimer from "@/components/ui/Disclaimer";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
 
 interface Props {
   article: Article | null;
@@ -37,9 +45,9 @@ export default function ArticlePreview({ article, onPublish, onSchedule, onDupli
 
   if (!article) {
     return (
-      <div className="rounded-xl border border-border bg-ink-2 p-6 text-sm text-text-3">
+      <Card className="text-sm text-text-3">
         Select an article to preview.
-      </div>
+      </Card>
     );
   }
 
@@ -75,7 +83,7 @@ export default function ArticlePreview({ article, onPublish, onSchedule, onDupli
   };
 
   return (
-    <div className="rounded-xl border border-border bg-ink-2 p-5">
+    <Card padding="none" className="p-5">
       <div className="flex items-start justify-between gap-3">
         <h2 className="text-lg font-bold text-text">{article.title}</h2>
         <PublishingStatus status={article.status} />
@@ -97,40 +105,34 @@ export default function ArticlePreview({ article, onPublish, onSchedule, onDupli
 
       {canAct && (
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
-          <button
-            onClick={handlePublish}
-            disabled={busy !== null}
-            className="rounded-lg bg-gold px-3 py-1.5 text-xs font-semibold text-ink hover:brightness-110 disabled:opacity-50"
-          >
-            {busy === "publish" ? "Publishing..." : "Publish now"}
-          </button>
-          <input
+          <Button size="sm" onClick={handlePublish} loading={busy === "publish"} disabled={busy !== null && busy !== "publish"}>
+            Publish now
+          </Button>
+          <Input
             type="datetime-local"
             value={scheduledFor}
             onChange={(e) => setScheduledFor(e.target.value)}
-            className="rounded-lg border border-border bg-ink px-2 py-1.5 text-xs text-text"
+            style={{ width: "auto" }}
             aria-label="Schedule for"
           />
-          <button
+          <Button
+            size="sm"
+            variant="secondary"
             onClick={handleSchedule}
-            disabled={busy !== null || !scheduledFor}
-            className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-text hover:bg-ink-3 disabled:opacity-50"
+            loading={busy === "schedule"}
+            disabled={(busy !== null && busy !== "schedule") || !scheduledFor}
           >
-            {busy === "schedule" ? "Scheduling..." : "Schedule"}
-          </button>
+            Schedule
+          </Button>
         </div>
       )}
 
       {isPublished && (
         <div className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-4">
           <p className="text-xs text-text-3">Published articles are read-only. Duplicate it to make changes.</p>
-          <button
-            onClick={handleDuplicate}
-            disabled={busy !== null}
-            className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-text hover:bg-ink-3 disabled:opacity-50"
-          >
-            {busy === "duplicate" ? "Duplicating..." : "Duplicate as Draft"}
-          </button>
+          <Button size="sm" variant="secondary" onClick={handleDuplicate} loading={busy === "duplicate"} disabled={busy !== null && busy !== "duplicate"} className="shrink-0">
+            Duplicate as Draft
+          </Button>
         </div>
       )}
 
@@ -146,6 +148,6 @@ export default function ArticlePreview({ article, onPublish, onSchedule, onDupli
           </ul>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

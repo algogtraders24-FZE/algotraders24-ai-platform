@@ -1,9 +1,12 @@
 // components/publishing/ContentCalendar.tsx
+// Sprint UI-03 - hand-rolled rounded-xl recipe -> Card (padding="sm" is the
+// same p-4).
 import type { ScheduledContent } from "@/services/ai/publishing/content-planner.service";
+import Card from "@/components/ui/Card";
 
 export default function ContentCalendar({ schedule }: { schedule: ScheduledContent[] }) {
   return (
-    <div className="rounded-xl border border-border bg-ink-2 p-4">
+    <Card padding="sm">
       <p className="mb-3 text-sm font-semibold text-text-2">Content Calendar</p>
       <div className="space-y-2">
         {schedule.map((s, i) => (
@@ -14,6 +17,6 @@ export default function ContentCalendar({ schedule }: { schedule: ScheduledConte
           </div>
         ))}
       </div>
-    </div>
+    </Card>
   );
 }

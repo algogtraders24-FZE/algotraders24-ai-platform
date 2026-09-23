@@ -1,34 +1,35 @@
 // components/publishing/PublishingQueue.tsx
+// Sprint UI-03 - hand-rolled table shell -> the shared Table primitive
+// (same header/row/border contract every other dashboard table uses).
 import type { Article } from "@/types/article";
 import PublishingStatus from "./PublishingStatus";
+import { Table, Thead, Th, Tbody, Tr, Td } from "@/components/ui/Table";
 
 export default function PublishingQueue({ articles }: { articles: Article[] }) {
   const queued = articles.filter((a) => a.status === "scheduled" || a.status === "draft");
   return (
-    <div className="overflow-x-auto rounded-xl border border-border">
-      <table className="w-full text-sm">
-        <thead className="bg-ink-2 text-left text-xs uppercase text-text-3">
-          <tr>
-            <th className="px-4 py-3">Article</th>
-            <th className="px-4 py-3">Category</th>
-            <th className="px-4 py-3">Scheduled</th>
-            <th className="px-4 py-3">Status</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
-          {queued.map((a) => (
-            <tr key={a.id} className="hover:bg-ink-2">
-              <td className="px-4 py-3 font-medium text-text">{a.title}</td>
-              <td className="px-4 py-3 capitalize text-text-2">{a.category.replace(/-/g, " ")}</td>
-              <td className="px-4 py-3 text-text-2">{a.scheduledFor ? new Date(a.scheduledFor).toLocaleString() : "—"}</td>
-              <td className="px-4 py-3"><PublishingStatus status={a.status} /></td>
-            </tr>
-          ))}
-          {queued.length === 0 && (
-            <tr><td colSpan={4} className="px-4 py-6 text-center text-xs text-text-3">Queue is empty.</td></tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+    <Table>
+      <Thead>
+        <tr>
+          <Th>Article</Th>
+          <Th>Category</Th>
+          <Th>Scheduled</Th>
+          <Th>Status</Th>
+        </tr>
+      </Thead>
+      <Tbody>
+        {queued.map((a) => (
+          <Tr key={a.id}>
+            <Td className="font-medium text-text">{a.title}</Td>
+            <Td className="capitalize">{a.category.replace(/-/g, " ")}</Td>
+            <Td>{a.scheduledFor ? new Date(a.scheduledFor).toLocaleString() : "—"}</Td>
+            <Td><PublishingStatus status={a.status} /></Td>
+          </Tr>
+        ))}
+        {queued.length === 0 && (
+          <Tr><Td colSpan={4} className="py-6 text-center text-xs text-text-3">Queue is empty.</Td></Tr>
+        )}
+      </Tbody>
+    </Table>
   );
 }
