@@ -20,6 +20,8 @@ import Alert from "@/components/ui/Alert";
 import Badge from "@/components/ui/Badge";
 import Textarea from "@/components/ui/Textarea";
 import PageHeader from "@/components/ui/PageHeader";
+import PromptSuggestions from "@/components/ai/PromptSuggestions";
+import { liveExecutionPromptSuggestions } from "@/data/live-execution-prompts";
 import { compileStrategyForLiveExecution, tickLiveExecution } from "@/lib/algo-test/store";
 import { fetchAccount } from "@/lib/paper-trading/store";
 import { explainStrategySpec } from "@/lib/ai/strategy-compiler/strategy-explainer";
@@ -147,6 +149,7 @@ export default function LiveExecutionClient() {
             disabled={compiling}
           />
           <p className="text-xs text-text-3">Only fixed-quantity position sizing is supported for live execution right now - name a specific quantity, not a percentage of equity.</p>
+          <PromptSuggestions onPick={setIntent} suggestions={liveExecutionPromptSuggestions} />
           {compileError && <Alert tone="danger">{compileError}</Alert>}
           <Button onClick={handleCompile} loading={compiling} disabled={!intent.trim()}>
             Compile
