@@ -81,8 +81,8 @@ function issuesToDetail(issues: readonly SchemaIssue[]): string {
   return issues.map((i) => `${i.path}: ${i.message}`).join("; ");
 }
 
-/** Builds an indicatorSeries map generically from a compiled strategy's own declared, engine-implemented, single-output indicators - the SAME calculateSeries() fold (runtime/indicator-engine.ts) every other registry entry's own indicator builder already uses, dispatched by family via a lookup table instead of hand-written per strategy. Includes the PRICE pseudo-indicator unconditionally (Golden Strategy's own established convention) since the schema allows referencing it without a declared entry. */
-function buildIndicatorSeriesFromCompiledIndicators(indicators: readonly { readonly family: string; readonly params: readonly number[] }[]): (bars: readonly OHLCVBar[]) => ReadonlyMap<string, readonly (number | boolean | undefined)[]> {
+/** Builds an indicatorSeries map generically from a compiled strategy's own declared, engine-implemented, single-output indicators - the SAME calculateSeries() fold (runtime/indicator-engine.ts) every other registry entry's own indicator builder already uses, dispatched by family via a lookup table instead of hand-written per strategy. Includes the PRICE pseudo-indicator unconditionally (Golden Strategy's own established convention) since the schema allows referencing it without a declared entry. Exported for services/algo-test/live-execution/live-execution.service.ts, which has only a compiledSpec (not this module's own parsed.value.indicators) and pairs this with strategy-spec-indicators.ts's collectStrategyIndicatorRefs() to recover the same input shape. */
+export function buildIndicatorSeriesFromCompiledIndicators(indicators: readonly { readonly family: string; readonly params: readonly number[] }[]): (bars: readonly OHLCVBar[]) => ReadonlyMap<string, readonly (number | boolean | undefined)[]> {
   return (bars) => {
     const series = new Map<string, readonly (number | boolean | undefined)[]>();
     series.set(indicatorKey(indicator("PRICE")), bars.map((b) => b.close));
