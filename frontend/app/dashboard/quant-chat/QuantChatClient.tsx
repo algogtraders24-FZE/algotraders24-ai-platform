@@ -91,6 +91,7 @@ import { quantChatPromptSuggestions } from "@/data/quant-chat-prompts";
 import { applyStrategyBuilderModification, compileAndRunAiStrategy, type StrategyBuilderModificationResult } from "@/lib/algo-test/store";
 import { explainStrategySpec } from "@/lib/ai/strategy-compiler/strategy-explainer";
 import { sendMessageStreaming } from "@/services/ai/assistant.service";
+import type { AIImageInput } from "@/lib/ai/types";
 import Button from "@/components/ui/Button";
 import StrategyChartPreview from "@/components/quant-chat/StrategyChartPreview";
 import BacktestResultCard from "@/components/quant-chat/BacktestResultCard";
@@ -103,6 +104,14 @@ type PreviewState = StrategyBuilderModificationResult["preview"];
 function newId(): string {
   return `qc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
+
+// Quant Chat "Ask AI Anything" image attachments. Mirrors the route's own
+// limits (app/api/private/knowledge/chat/route.ts) exactly - rejecting a
+// too-large/unsupported image HERE, before ever reading it, is strictly
+// better UX than a round-trip 400, and the server-side check stays the real
+// boundary regardless (never trust the client alone).
+const ALLOWED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+const MAX_IMAGE_BYTES = 1_500_000; // ~1.5MB raw
 
 // "Ask AI" mode - one-click code generation for the strategy on hand.
 // Deliberately NOT a deterministic IR->template compiler per platform
@@ -156,6 +165,12 @@ export default function QuantChatClient() {
   // would otherwise silently depend on.
   const askServerConversationIdRef = useRef<string | undefined>(undefined);
   const [attachedFile, setAttachedFile] = useState<{ name: string; content: string } | null>(null);
+  // Mutually exclusive with attachedFile - attaching one clears the other
+  // (a single attachment slot, matching ChatInput's single-chip UI).
+  // `previewUrl` is a data: URL (readAsDataURL) - reused directly as both
+  // the base64 payload sent to Claude (prefix stripped) and the <img> src
+  // shown in ChatInput/MessageBubble, no separate object-URL lifecycle to manage.
+  const [attachedImage, setAttachedImage] = useState<{ name: string; mediaType: string; base64: string; previewUrl: string } | null>(null);
   const [preview, setPreview] = useState<PreviewState>(undefined);
   const [backtestResult, setBacktestResult] = useState<AlgoTestRunView | undefined>(undefined);
   const [backtestResultIntent, setBacktestResultIntent] = useState<string | undefined>(undefined);
@@ -204,6 +219,28 @@ export default function QuantChatClient() {
   }
 
   function handleAttachFile(file: File) {
+    if (file.type.startsWith("image/")) {
+      if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+        setError(`Unsupported image type "${file.type}" - use PNG, JPEG, WEBP, or GIF.`);
+        return;
+      }
+      if (file.size > MAX_IMAGE_BYTES) {
+        setError(`"${file.name}" is too large (max ~1.5MB) - try a smaller image or a screenshot crop.`);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = typeof reader.result === "string" ? reader.result : "";
+        const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
+        setAttachedFile(null);
+        setAttachedImage({ name: file.name, mediaType: file.type, base64, previewUrl: dataUrl });
+      };
+      reader.onerror = () => setError(`Could not read "${file.name}".`);
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    setAttachedImage(null);
     const reader = new FileReader();
     reader.onload = () => {
       const content = typeof reader.result === "string" ? reader.result : "";
@@ -219,9 +256,11 @@ export default function QuantChatClient() {
     // user actually typed - both are shown so the sent turn is never a
     // surprise relative to what appeared in the input.
     const text = attachedFile ? `Attached file "${attachedFile.name}":\n\`\`\`\n${attachedFile.content}\n\`\`\`\n\n${rawText}`.trim() : rawText;
+    const image = attachedImage;
     setAttachedFile(null);
+    setAttachedImage(null);
     const now = new Date().toISOString();
-    pushMessage({ id: newId(), role: "user", content: text, createdAt: now });
+    pushMessage({ id: newId(), role: "user", content: text, createdAt: now, attachedImageUrl: image?.previewUrl });
 
     if (chatMode === "explain") {
       const spec = conversationState.lastCompileResult?.compiledSpec;
@@ -242,9 +281,10 @@ export default function QuantChatClient() {
       setAskStreamingDraft({ id: draftId, role: "assistant", content: "", createdAt: draftCreatedAt });
       const controller = new AbortController();
       askAbortRef.current = controller;
+      const images: AIImageInput[] | undefined = image ? [{ mediaType: image.mediaType, base64: image.base64 }] : undefined;
       try {
         const result = await sendMessageStreaming(
-          { conversationId: `quant-chat-${draftId}`, message: text, serverConversationId: askServerConversationIdRef.current },
+          { conversationId: `quant-chat-${draftId}`, message: text, serverConversationId: askServerConversationIdRef.current, images },
           (chunk) => {
             setThinking(false);
             askDraftRef.current += chunk;
@@ -374,7 +414,7 @@ export default function QuantChatClient() {
         onRetry={() => {}}
         emptyState={
           chatMode === "ask"
-            ? { title: "Ask anything", body: "Trading concepts, indicators, code, or general questions - answered in plain language, not limited to strategy syntax." }
+            ? { title: "Ask anything", body: "Trading concepts, indicators, code, or general questions - answered in plain language. Attach a chart screenshot or a strategy file for extra context." }
             : { title: "Describe your strategy", body: "e.g. “Buy XAUUSD on the 1H when EMA(9) crosses above EMA(21), with a 2% equity risk stop.”" }
         }
       />
@@ -401,8 +441,12 @@ export default function QuantChatClient() {
         onStop={() => askAbortRef.current?.abort()}
         isGenerating={thinking || askStreamingDraft !== null}
         onAttachFile={chatMode === "ask" ? handleAttachFile : undefined}
-        attachedFileName={attachedFile?.name ?? null}
-        onRemoveAttachment={() => setAttachedFile(null)}
+        attachedFileName={attachedImage?.name ?? attachedFile?.name ?? null}
+        attachedImagePreviewUrl={attachedImage?.previewUrl ?? null}
+        onRemoveAttachment={() => {
+          setAttachedFile(null);
+          setAttachedImage(null);
+        }}
       />
     </div>
   );

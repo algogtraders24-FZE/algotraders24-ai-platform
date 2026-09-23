@@ -10,6 +10,7 @@ import type {
   RetrievalOptions,
   RetrievalResult,
 } from "@/types/knowledge-loop";
+import type { AIImageInput } from "@/lib/ai/types";
 
 /**
  * The single K1/K2 capability the orchestrator consumes — `KnowledgeService`
@@ -36,6 +37,10 @@ export interface AnswerGenInput {
   /** the orchestrator's web-search gate result — a slot that supports web
    *  search acts on it; others ignore it. */
   webSearchEnabled: boolean;
+  /** Quant Chat "Ask AI Anything" attachments — only ClaudeProvider builds
+   *  real image content blocks from these (AICompletionRequest.images's own
+   *  doc comment); every other slot ignores the field. */
+  images?: AIImageInput[];
 }
 
 export interface AnswerGenResult {
