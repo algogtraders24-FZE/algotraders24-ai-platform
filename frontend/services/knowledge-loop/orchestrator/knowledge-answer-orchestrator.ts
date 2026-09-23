@@ -168,6 +168,7 @@ export class KnowledgeAnswerOrchestrator {
       history,
       userMessage: turn.message,
       webSearchEnabled: decision.webSearchOffered,
+      images: turn.images,
     };
 
     // ── provider chain — strict first-clean-wins (§12.3, LOCKED). ──

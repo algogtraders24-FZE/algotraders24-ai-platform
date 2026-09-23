@@ -48,6 +48,7 @@ import type { AIProvider } from "../provider.interface";
 import type {
   AICompletionRequest,
   AICompletionResponse,
+  AIImageInput,
   AIMessage,
   AIToolSpec,
   AIWebSource,
@@ -137,6 +138,7 @@ export class ClaudeProvider implements AIProvider {
   async complete(req: AICompletionRequest): Promise<AICompletionResponse> {
     const started = Date.now();
     const { system, messages } = this.splitSystem(req.messages);
+    this.attachImages(messages, req.images);
     const anthropicTools = this.buildTools(req.tools);
     const wantsTools = anthropicTools.length > 0;
     const timeoutMs = wantsTools ? WEB_SEARCH_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
@@ -285,6 +287,29 @@ export class ClaudeProvider implements AIProvider {
     } catch {
       throw new AIProviderError("invalid_output", "Claude response was not valid JSON", this.name);
     }
+  }
+
+  // Quant Chat "Ask AI Anything" image attachments (additive, ClaudeProvider-
+  // only per `AICompletionRequest.images`'s own doc comment). Mutates the
+  // LAST message (always the current user turn - buildMessages() in
+  // services/knowledge-loop/orchestrator/providers.ts always ends the array
+  // there) from a plain string into Anthropic's multimodal content-block
+  // array: image blocks first, then the original text as its own block -
+  // Anthropic reads images in document order relative to the text that
+  // references them. A no-op when `images` is absent/empty, or the last
+  // message isn't a plain string (defensive - never true at this call site,
+  // which runs before the pause_turn loop below ever appends anything).
+  private attachImages(messages: WireMessage[], images: AIImageInput[] | undefined): void {
+    if (!images || images.length === 0) return;
+    const last = messages[messages.length - 1];
+    if (!last || typeof last.content !== "string") return;
+    last.content = [
+      ...images.map((img) => ({
+        type: "image",
+        source: { type: "base64", media_type: img.mediaType, data: img.base64 },
+      })),
+      { type: "text", text: last.content },
+    ];
   }
 
   // K3_PREFLIGHT §1.2 - `web_search_20250305` (basic, every model, direct

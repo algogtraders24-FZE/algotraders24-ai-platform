@@ -202,7 +202,11 @@ export async function sendMessageStreaming(
   signal?: AbortSignal,
   onStage?: (stage: string) => void,
 ): Promise<SendStreamingResult> {
-  const symbol = detectSupportedMarketSymbol(req.message);
+  // An attached image forces the knowledge/chat -> ClaudeProvider path
+  // regardless of what the text alone would otherwise route to - the
+  // market-analysis pipeline is text-only and would silently ignore the
+  // image, which is worse than not offering the shortcut at all.
+  const symbol = req.images && req.images.length > 0 ? null : detectSupportedMarketSymbol(req.message);
 
   if (symbol) {
     const res = await fetch("/api/private/market-intelligence/analyze", {
@@ -231,6 +235,7 @@ export async function sendMessageStreaming(
       useSearch: needsLiveInfo(req.message),
       stream: true,
       ...(req.serverConversationId ? { conversationId: req.serverConversationId } : {}),
+      ...(req.images && req.images.length > 0 ? { images: req.images } : {}),
     }),
     signal,
   });

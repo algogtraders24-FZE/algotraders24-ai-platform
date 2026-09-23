@@ -23,9 +23,20 @@ interface Props {
   onAttachFile?: (file: File) => void;
   attachedFileName?: string | null;
   onRemoveAttachment?: () => void;
+  /** a real object-URL thumbnail when the attachment is an image (the caller
+   *  owns/revokes it) - shown instead of the generic filename chip. */
+  attachedImagePreviewUrl?: string | null;
 }
 
-export default function ChatInput({ onSend, onStop, isGenerating, onAttachFile, attachedFileName, onRemoveAttachment }: Props) {
+export default function ChatInput({
+  onSend,
+  onStop,
+  isGenerating,
+  onAttachFile,
+  attachedFileName,
+  onRemoveAttachment,
+  attachedImagePreviewUrl,
+}: Props) {
   const [text, setText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -40,7 +51,12 @@ export default function ChatInput({ onSend, onStop, isGenerating, onAttachFile, 
     <div className="border-t border-border p-3">
       {attachedFileName && (
         <div className="mb-2 flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-text-2">
-          <Paperclip size={12} aria-hidden="true" />
+          {attachedImagePreviewUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- a transient client-side object URL, never a remote/optimizable asset.
+            <img src={attachedImagePreviewUrl} alt="" className="h-8 w-8 rounded object-cover" />
+          ) : (
+            <Paperclip size={12} aria-hidden="true" />
+          )}
           <span className="flex-1 truncate">{attachedFileName}</span>
           <button type="button" onClick={onRemoveAttachment} aria-label="Remove attachment" className="text-text-3 hover:text-danger">
             <X size={12} aria-hidden="true" />
@@ -53,7 +69,7 @@ export default function ChatInput({ onSend, onStop, isGenerating, onAttachFile, 
             <input
               ref={fileInputRef}
               type="file"
-              accept=".txt,.md,.csv,.json"
+              accept=".txt,.md,.csv,.json,image/png,image/jpeg,image/webp,image/gif"
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -64,8 +80,8 @@ export default function ChatInput({ onSend, onStop, isGenerating, onAttachFile, 
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              aria-label="Attach a file"
-              title="Attach a file"
+              aria-label="Attach a file or image"
+              title="Attach a file or image"
               className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border border-border text-text-2 transition hover:border-gold/50 hover:text-text"
             >
               <Paperclip size={16} aria-hidden="true" />

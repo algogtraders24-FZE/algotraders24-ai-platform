@@ -12,6 +12,7 @@ import type {
   KnowledgeSourceType,
   CandidateStatus,
 } from "@/lib/generated/prisma/enums";
+import type { AIImageInput } from "@/lib/ai/types";
 
 export type {
   KnowledgeStatus,
@@ -21,6 +22,7 @@ export type {
   KnowledgeFreshnessClass,
   KnowledgeSourceType,
   CandidateStatus,
+  AIImageInput,
 };
 
 // ── Provenance (KNOWLEDGE_CONTRACT.md §3) ──────────────────────────────
@@ -281,6 +283,9 @@ export interface AnswerTurn {
   /** optional single-document scoping — restricts retrieval to this
    *  Knowledge row (the route's legacy `knowledgeId` body param). */
   knowledgeId?: string;
+  /** Quant Chat "Ask AI Anything" image attachments — validated server-side
+   *  (app/api/private/knowledge/chat/route.ts) before this is set. */
+  images?: AIImageInput[];
 }
 
 export interface AnswerSourceRef {

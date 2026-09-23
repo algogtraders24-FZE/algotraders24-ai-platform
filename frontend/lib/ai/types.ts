@@ -43,6 +43,18 @@ export interface AIWebSource {
   citedTexts: string[];
 }
 
+// Quant Chat "Ask AI Anything" image attachments — additive, same pattern as
+// `tools` above: only ClaudeProvider builds real multimodal content blocks
+// from it; Gemini/OpenAI ignore the field and answer from `messages` text
+// alone (a graceful, truthful degradation if Claude is unavailable, never a
+// crash or a fabricated "I can't see images" refusal baked into the text).
+export interface AIImageInput {
+  /** e.g. "image/png", "image/jpeg" — validated server-side before this is built. */
+  mediaType: string;
+  /** raw base64 payload, no "data:...;base64," prefix. */
+  base64: string;
+}
+
 export interface AICompletionRequest {
   messages: AIMessage[];
   model?: string;
@@ -50,6 +62,8 @@ export interface AICompletionRequest {
   maxTokens?: number;
   /** Sprint K3 — server tools. Currently only `web_search` (ClaudeProvider). */
   tools?: AIToolSpec[];
+  /** attached to the LAST user message only (ClaudeProvider). */
+  images?: AIImageInput[];
 }
 
 export interface AICompletionResponse {
