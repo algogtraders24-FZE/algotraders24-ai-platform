@@ -30,6 +30,7 @@ import type { MarketAnalysisResult } from "@/types/market-analysis-orchestration
 import type { VerifiedAnswerResponse } from "@/types/verified-answer-response";
 import type { QuantChatMessageStrategyState } from "@/types/quant-chat";
 import SourcesPanel from "./SourcesPanel";
+import MessageContent from "./MessageContent";
 import AnalysisResult from "@/components/market-intelligence/AnalysisResult";
 import VerifiedAIAnswerCard from "@/components/intelligence-workspace/VerifiedAIAnswerCard";
 import StrategyStateCard from "@/components/quant-chat/StrategyStateCard";
@@ -58,11 +59,11 @@ export default function MessageBubble({ message, isStreaming, isLastAssistant, o
     <div className={`group flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div className="max-w-[85%]">
         <div
-          className={`rounded-2xl px-4 py-3 text-sm leading-6 whitespace-pre-wrap ${
+          className={`rounded-2xl px-4 py-3 text-sm leading-6 ${
             isUser ? "bg-gold text-ink" : "border border-border bg-ink-2 text-text"
           }`}
         >
-          {message.content}
+          <MessageContent content={message.content} />
           {isStreaming && (
             <span
               aria-hidden="true"
