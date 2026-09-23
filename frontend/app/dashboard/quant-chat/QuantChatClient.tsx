@@ -82,7 +82,7 @@
 // hand-rolled <button> elements. The fixed-height chat-app header/shell
 // is kept as its own bespoke layout - it's a chat surface, not a
 // scrolling content page, so PageHeader's shape doesn't apply here.
-import { useState } from "react";
+import { useRef, useState } from "react";
 import ChatWindow from "@/components/ai/ChatWindow";
 import ChatInput from "@/components/ai/ChatInput";
 import PromptSuggestions from "@/components/ai/PromptSuggestions";
@@ -90,6 +90,7 @@ import type { DisplayMessage } from "@/components/ai/MessageBubble";
 import { quantChatPromptSuggestions } from "@/data/quant-chat-prompts";
 import { applyStrategyBuilderModification, compileAndRunAiStrategy, type StrategyBuilderModificationResult } from "@/lib/algo-test/store";
 import { explainStrategySpec } from "@/lib/ai/strategy-compiler/strategy-explainer";
+import { sendMessageStreaming } from "@/services/ai/assistant.service";
 import Button from "@/components/ui/Button";
 import StrategyChartPreview from "@/components/quant-chat/StrategyChartPreview";
 import BacktestResultCard from "@/components/quant-chat/BacktestResultCard";
@@ -106,9 +107,24 @@ function newId(): string {
 export default function QuantChatClient() {
   const [conversationState, setConversationState] = useState<QuantChatConversationState>(EMPTY_QUANT_CHAT_STATE);
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
-  const [chatMode, setChatMode] = useState<"modify" | "explain">("modify");
+  const [chatMode, setChatMode] = useState<"modify" | "explain" | "ask">("modify");
   const [thinking, setThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // "Ask AI" mode - a real, general-purpose LLM turn (unlike "explain",
+  // which is a deterministic, zero-network paraphrase of an already-
+  // compiled StrategySpec). Reuses the SAME production chat backend the
+  // dashboard Assistant page calls (services/ai/assistant.service.ts's
+  // sendMessageStreaming - the RAG/knowledge chat route), so this mode
+  // gets identical answer quality/sourcing, no new LLM plumbing. Kept
+  // purely in-memory (streamingDraft/askAbortRef only) - never wired into
+  // ConversationSidebar/conversation-manager.service.ts - matching QP-2's
+  // own locked "session-only, not saved across a refresh" decision for
+  // this whole page; the server-side chat route still persists its own
+  // Conversation record regardless (existing, unrelated behavior every
+  // other sendMessage/sendMessageStreaming caller already has).
+  const [askStreamingDraft, setAskStreamingDraft] = useState<DisplayMessage | null>(null);
+  const askDraftRef = useRef<string>("");
+  const askAbortRef = useRef<AbortController | null>(null);
   const [preview, setPreview] = useState<PreviewState>(undefined);
   const [backtestResult, setBacktestResult] = useState<AlgoTestRunView | undefined>(undefined);
   const [backtestResultIntent, setBacktestResultIntent] = useState<string | undefined>(undefined);
@@ -158,6 +174,45 @@ export default function QuantChatClient() {
       return;
     }
 
+    if (chatMode === "ask") {
+      setThinking(true);
+      askDraftRef.current = "";
+      const draftId = newId();
+      const draftCreatedAt = new Date().toISOString();
+      setAskStreamingDraft({ id: draftId, role: "assistant", content: "", createdAt: draftCreatedAt });
+      const controller = new AbortController();
+      askAbortRef.current = controller;
+      try {
+        const result = await sendMessageStreaming(
+          { conversationId: `quant-chat-${draftId}`, message: text },
+          (chunk) => {
+            setThinking(false);
+            askDraftRef.current += chunk;
+            setAskStreamingDraft((d) => (d ? { ...d, content: askDraftRef.current } : d));
+          },
+          controller.signal,
+        );
+        pushMessage(
+          result.kind === "market-analysis"
+            ? { id: draftId, role: "assistant", content: result.result.summary, createdAt: draftCreatedAt, marketAnalysis: result.result }
+            : { id: draftId, role: "assistant", content: result.fullText, createdAt: draftCreatedAt, sources: result.sources, intelligence: result.intelligence },
+        );
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          if (askDraftRef.current.trim().length > 0) {
+            pushMessage({ id: draftId, role: "assistant", content: askDraftRef.current, createdAt: draftCreatedAt });
+          }
+        } else {
+          setError(err instanceof Error ? err.message : "Something went wrong answering this question.");
+        }
+      } finally {
+        setThinking(false);
+        setAskStreamingDraft(null);
+        askAbortRef.current = null;
+      }
+      return;
+    }
+
     setThinking(true);
     try {
       const result = await applyStrategyBuilderModification(text, conversationState);
@@ -197,7 +252,10 @@ export default function QuantChatClient() {
           Modify strategy
         </Button>
         <Button size="sm" variant={chatMode === "explain" ? "primary" : "secondary"} onClick={() => setChatMode("explain")}>
-          Ask a question
+          Explain this strategy
+        </Button>
+        <Button size="sm" variant={chatMode === "ask" ? "primary" : "secondary"} onClick={() => setChatMode("ask")}>
+          Ask AI Anything
         </Button>
         <Button
           size="sm"
@@ -247,22 +305,24 @@ export default function QuantChatClient() {
       )}
 
       <ChatWindow
-        messages={messages}
+        messages={askStreamingDraft ? [...messages, askStreamingDraft] : messages}
         thinking={thinking}
         error={error}
+        streamingId={askStreamingDraft?.id ?? null}
         onCopy={(content) => navigator.clipboard?.writeText(content)}
         onRetry={() => {}}
-        emptyState={{
-          title: "Describe your strategy",
-          body: "e.g. “Buy XAUUSD on the 1H when EMA(9) crosses above EMA(21), with a 2% equity risk stop.”",
-        }}
+        emptyState={
+          chatMode === "ask"
+            ? { title: "Ask anything", body: "Trading concepts, indicators, code, or general questions - answered in plain language, not limited to strategy syntax." }
+            : { title: "Describe your strategy", body: "e.g. “Buy XAUUSD on the 1H when EMA(9) crosses above EMA(21), with a 2% equity risk stop.”" }
+        }
       />
 
       <div className="px-4 py-2">
         <PromptSuggestions onPick={handleSend} suggestions={quantChatPromptSuggestions} />
       </div>
 
-      <ChatInput onSend={handleSend} onStop={() => {}} isGenerating={thinking} />
+      <ChatInput onSend={handleSend} onStop={() => askAbortRef.current?.abort()} isGenerating={thinking || askStreamingDraft !== null} />
     </div>
   );
 }
