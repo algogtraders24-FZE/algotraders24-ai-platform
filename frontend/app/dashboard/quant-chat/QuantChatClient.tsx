@@ -82,7 +82,7 @@
 // hand-rolled <button> elements. The fixed-height chat-app header/shell
 // is kept as its own bespoke layout - it's a chat surface, not a
 // scrolling content page, so PageHeader's shape doesn't apply here.
-import { useState } from "react";
+import { useRef, useState } from "react";
 import ChatWindow from "@/components/ai/ChatWindow";
 import ChatInput from "@/components/ai/ChatInput";
 import PromptSuggestions from "@/components/ai/PromptSuggestions";
@@ -90,6 +90,7 @@ import type { DisplayMessage } from "@/components/ai/MessageBubble";
 import { quantChatPromptSuggestions } from "@/data/quant-chat-prompts";
 import { applyStrategyBuilderModification, compileAndRunAiStrategy, type StrategyBuilderModificationResult } from "@/lib/algo-test/store";
 import { explainStrategySpec } from "@/lib/ai/strategy-compiler/strategy-explainer";
+import { sendMessageStreaming } from "@/services/ai/assistant.service";
 import Button from "@/components/ui/Button";
 import StrategyChartPreview from "@/components/quant-chat/StrategyChartPreview";
 import BacktestResultCard from "@/components/quant-chat/BacktestResultCard";
@@ -103,12 +104,58 @@ function newId(): string {
   return `qc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// "Ask AI" mode - one-click code generation for the strategy on hand.
+// Deliberately NOT a deterministic IR->template compiler per platform
+// (that's Quant Lite's own, separate, much narrower approach at
+// app/api/quant-lite/codegen/route.ts, limited to mql4/mql5/pine) - this
+// asks Claude directly to WRITE the target platform's real code.
+// buildCodegenPrompt() (below) grounds {SUBJECT}: the current compiled
+// strategy's plain-English explanation when one exists (Modify mode's
+// compiledSpec, a reliable, structured source), falling back to the Ask-AI
+// conversation's own prior turns otherwise (askServerConversationIdRef's
+// continuity is what makes that fallback resolve correctly).
+// Never claims backtest-verified correctness the way the compiled/reduced
+// StrategySpec path does - this is a code-authoring aid, always reviewed by
+// the trader before use on a live account.
+const CODEGEN_TARGETS: ReadonlyArray<{ label: string; instruction: string }> = [
+  { label: "MT4", instruction: "Write the complete MetaTrader 4 (MQL4) Expert Advisor code for {SUBJECT}. Return it as a single ```mql4 fenced code block, ready to compile in MetaEditor." },
+  { label: "MT5", instruction: "Write the complete MetaTrader 5 (MQL5) Expert Advisor code for {SUBJECT}. Return it as a single ```mql5 fenced code block, ready to compile in MetaEditor." },
+  { label: "Pine Script", instruction: "Write the complete TradingView Pine Script (v5) strategy code for {SUBJECT}. Return it as a single ```pine fenced code block." },
+  { label: "cBot", instruction: "Write the complete cTrader cBot (C#/cAlgo API) code for {SUBJECT}. Return it as a single ```cbot fenced code block." },
+  { label: "NinjaScript", instruction: "Write the complete NinjaTrader 8 NinjaScript (C#) strategy code for {SUBJECT}. Return it as a single ```ninjascript fenced code block." },
+];
+
 export default function QuantChatClient() {
   const [conversationState, setConversationState] = useState<QuantChatConversationState>(EMPTY_QUANT_CHAT_STATE);
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
-  const [chatMode, setChatMode] = useState<"modify" | "explain">("modify");
+  const [chatMode, setChatMode] = useState<"modify" | "explain" | "ask">("modify");
   const [thinking, setThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // "Ask AI" mode - a real, general-purpose LLM turn (unlike "explain",
+  // which is a deterministic, zero-network paraphrase of an already-
+  // compiled StrategySpec). Reuses the SAME production chat backend the
+  // dashboard Assistant page calls (services/ai/assistant.service.ts's
+  // sendMessageStreaming - the RAG/knowledge chat route), so this mode
+  // gets identical answer quality/sourcing, no new LLM plumbing. Kept
+  // purely in-memory (streamingDraft/askAbortRef only) - never wired into
+  // ConversationSidebar/conversation-manager.service.ts - matching QP-2's
+  // own locked "session-only, not saved across a refresh" decision for
+  // this whole page; the server-side chat route still persists its own
+  // Conversation record regardless (existing, unrelated behavior every
+  // other sendMessage/sendMessageStreaming caller already has).
+  const [askStreamingDraft, setAskStreamingDraft] = useState<DisplayMessage | null>(null);
+  const askDraftRef = useRef<string>("");
+  const askAbortRef = useRef<AbortController | null>(null);
+  // Real multi-turn continuity for "Ask AI" - the FIRST turn sends no
+  // serverConversationId (the route creates one and returns it in the
+  // "done" event, exactly like the dashboard Assistant page's own first
+  // turn); every turn after that echoes it back so the server actually
+  // has history to answer a follow-up like "now write the MT5 code for
+  // that" against. Without this, each turn was a brand-new, memoryless
+  // server conversation - a real bug the platform-codegen buttons below
+  // would otherwise silently depend on.
+  const askServerConversationIdRef = useRef<string | undefined>(undefined);
+  const [attachedFile, setAttachedFile] = useState<{ name: string; content: string } | null>(null);
   const [preview, setPreview] = useState<PreviewState>(undefined);
   const [backtestResult, setBacktestResult] = useState<AlgoTestRunView | undefined>(undefined);
   const [backtestResultIntent, setBacktestResultIntent] = useState<string | undefined>(undefined);
@@ -142,8 +189,37 @@ export default function QuantChatClient() {
     }
   }
 
-  async function handleSend(text: string) {
+  // A codegen click's target "strategy" can come from either mode's own
+  // context - Modify's compiledSpec (a different, server-side-separate
+  // conversation via /strategy-builder) or Ask AI's own prior turns in
+  // THIS conversation. Grounding on the compiled spec whenever one exists
+  // is strictly more reliable than hoping the Ask-AI conversation already
+  // has equivalent context, and never conflicts with it (both describe the
+  // same strategy by construction, since Modify is the only place a
+  // compiledSpec comes from).
+  function buildCodegenPrompt(instruction: string): string {
+    const spec = conversationState.lastCompileResult?.compiledSpec;
+    const subject = spec ? `the following strategy:\n\n${explainStrategySpec(spec)}` : "the strategy we've just been discussing";
+    return instruction.replace("{SUBJECT}", subject);
+  }
+
+  function handleAttachFile(file: File) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const content = typeof reader.result === "string" ? reader.result : "";
+      setAttachedFile({ name: file.name, content });
+    };
+    reader.onerror = () => setError(`Could not read "${file.name}" - try a plain text file.`);
+    reader.readAsText(file);
+  }
+
+  async function handleSend(rawText: string) {
     setError(null);
+    // A file attaches as extra context, never silently replacing what the
+    // user actually typed - both are shown so the sent turn is never a
+    // surprise relative to what appeared in the input.
+    const text = attachedFile ? `Attached file "${attachedFile.name}":\n\`\`\`\n${attachedFile.content}\n\`\`\`\n\n${rawText}`.trim() : rawText;
+    setAttachedFile(null);
     const now = new Date().toISOString();
     pushMessage({ id: newId(), role: "user", content: text, createdAt: now });
 
@@ -155,6 +231,46 @@ export default function QuantChatClient() {
         content: spec ? explainStrategySpec(spec) : "There's no successfully compiled strategy yet to explain - switch to Modify and describe a strategy first.",
         createdAt: new Date().toISOString(),
       });
+      return;
+    }
+
+    if (chatMode === "ask") {
+      setThinking(true);
+      askDraftRef.current = "";
+      const draftId = newId();
+      const draftCreatedAt = new Date().toISOString();
+      setAskStreamingDraft({ id: draftId, role: "assistant", content: "", createdAt: draftCreatedAt });
+      const controller = new AbortController();
+      askAbortRef.current = controller;
+      try {
+        const result = await sendMessageStreaming(
+          { conversationId: `quant-chat-${draftId}`, message: text, serverConversationId: askServerConversationIdRef.current },
+          (chunk) => {
+            setThinking(false);
+            askDraftRef.current += chunk;
+            setAskStreamingDraft((d) => (d ? { ...d, content: askDraftRef.current } : d));
+          },
+          controller.signal,
+        );
+        if (result.kind === "chat" && result.serverConversationId) askServerConversationIdRef.current = result.serverConversationId;
+        pushMessage(
+          result.kind === "market-analysis"
+            ? { id: draftId, role: "assistant", content: result.result.summary, createdAt: draftCreatedAt, marketAnalysis: result.result }
+            : { id: draftId, role: "assistant", content: result.fullText, createdAt: draftCreatedAt, sources: result.sources, intelligence: result.intelligence },
+        );
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          if (askDraftRef.current.trim().length > 0) {
+            pushMessage({ id: draftId, role: "assistant", content: askDraftRef.current, createdAt: draftCreatedAt });
+          }
+        } else {
+          setError(err instanceof Error ? err.message : "Something went wrong answering this question.");
+        }
+      } finally {
+        setThinking(false);
+        setAskStreamingDraft(null);
+        askAbortRef.current = null;
+      }
       return;
     }
 
@@ -197,7 +313,10 @@ export default function QuantChatClient() {
           Modify strategy
         </Button>
         <Button size="sm" variant={chatMode === "explain" ? "primary" : "secondary"} onClick={() => setChatMode("explain")}>
-          Ask a question
+          Explain this strategy
+        </Button>
+        <Button size="sm" variant={chatMode === "ask" ? "primary" : "secondary"} onClick={() => setChatMode("ask")}>
+          Ask AI Anything
         </Button>
         <Button
           size="sm"
@@ -247,22 +366,44 @@ export default function QuantChatClient() {
       )}
 
       <ChatWindow
-        messages={messages}
+        messages={askStreamingDraft ? [...messages, askStreamingDraft] : messages}
         thinking={thinking}
         error={error}
+        streamingId={askStreamingDraft?.id ?? null}
         onCopy={(content) => navigator.clipboard?.writeText(content)}
         onRetry={() => {}}
-        emptyState={{
-          title: "Describe your strategy",
-          body: "e.g. “Buy XAUUSD on the 1H when EMA(9) crosses above EMA(21), with a 2% equity risk stop.”",
-        }}
+        emptyState={
+          chatMode === "ask"
+            ? { title: "Ask anything", body: "Trading concepts, indicators, code, or general questions - answered in plain language, not limited to strategy syntax." }
+            : { title: "Describe your strategy", body: "e.g. “Buy XAUUSD on the 1H when EMA(9) crosses above EMA(21), with a 2% equity risk stop.”" }
+        }
       />
+
+      {chatMode === "ask" && (conversationState.lastCompileResult?.compiledSpec || messages.some((m) => m.role === "assistant")) && (
+        <div className="border-t border-border px-4 py-2">
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-text-3">Generate code for</p>
+          <div className="flex flex-wrap gap-2">
+            {CODEGEN_TARGETS.map((target) => (
+              <Button key={target.label} size="sm" variant="secondary" onClick={() => handleSend(buildCodegenPrompt(target.instruction))} disabled={thinking || askStreamingDraft !== null}>
+                {target.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="px-4 py-2">
         <PromptSuggestions onPick={handleSend} suggestions={quantChatPromptSuggestions} />
       </div>
 
-      <ChatInput onSend={handleSend} onStop={() => {}} isGenerating={thinking} />
+      <ChatInput
+        onSend={handleSend}
+        onStop={() => askAbortRef.current?.abort()}
+        isGenerating={thinking || askStreamingDraft !== null}
+        onAttachFile={chatMode === "ask" ? handleAttachFile : undefined}
+        attachedFileName={attachedFile?.name ?? null}
+        onRemoveAttachment={() => setAttachedFile(null)}
+      />
     </div>
   );
 }
