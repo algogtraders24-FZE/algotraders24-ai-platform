@@ -134,10 +134,18 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       // listings; Sprint M12: app/marketplace/my-products, the seller
       // backoffice - price/media/screenshots + a real "Submit for review"
       // ingestion+eligibility pipeline, screenshots explicitly captioned
-      // "strategy tester results" from the seller's own platform). Points
-      // at /marketplace/sell (the actual creation entry point) - SellClient
-      // itself redirects to /marketplace/my-products once a draft exists,
-      // which is also reachable directly from Marketplace below.
+      // "strategy tester results" from the seller's own platform).
+      //
+      // 2026-09-24 fix - this originally pointed at /marketplace/sell (the
+      // CREATE form), so a seller who had already listed a product landed
+      // back on a blank draft form every time, never a view of what they'd
+      // actually listed. Owner's own words: "jo user apne product list
+      // karega usko apne product dikhne chahiye" - re-pointed at
+      // /marketplace/my-products (the seller backoffice that actually shows
+      // their own listings) instead. Creating a NEW listing is still one
+      // click away from there via that page's own "+ New submission" link
+      // (app/marketplace/my-products/page.tsx) - this is additive
+      // discoverability, not a removed capability.
       {
         label: "Algo Testing Pro",
         href: "/dashboard/workspace",
@@ -158,7 +166,7 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
           // own headers for the full design (tab-resident polling only,
           // no new cron/Agent Framework tool).
           { label: "Live Execution (Paper)", href: "/dashboard/algo-test-live" },
-          { label: "My Product Listing", href: "/marketplace/sell" },
+          { label: "My Product Listing", href: "/marketplace/my-products" },
         ],
       },
       {

@@ -13,6 +13,7 @@ import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Skeleton from "@/components/ui/Skeleton";
 import EmptyState from "@/components/ui/EmptyState";
+import ButtonLink from "@/components/ui/ButtonLink";
 import { deriveSubmissionState } from "@/services/marketplace/factory/submissionState";
 import { publicationStateTone, trustStateLabel, trustStateTone } from "@/lib/marketplace";
 
@@ -186,7 +187,7 @@ export default function MyProductsClient() {
   if (error) return <Alert tone="danger">{error}</Alert>;
   if (items === null) return <Skeleton className="h-40 w-full" />;
   if (items.length === 0) {
-    return <EmptyState title="No submissions yet" description="Create your first draft to get started." />;
+    return <EmptyState title="No submissions yet" description="Create your first draft to get started." action={<ButtonLink href="/marketplace/sell">+ New submission</ButtonLink>} />;
   }
 
   return (
