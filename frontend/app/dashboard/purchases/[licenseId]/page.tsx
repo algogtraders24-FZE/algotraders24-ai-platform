@@ -8,20 +8,25 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth/protectedRoute";
 import { getMyLicenseDetail } from "@/services/licensing/myPurchases";
-import Badge from "@/components/ui/Badge";
 import RevealApiKeyButton from "@/components/license/RevealApiKeyButton";
+import LicenseStatusBadge from "@/components/licensing/LicenseStatusBadge";
+import Card from "@/components/ui/Card";
+import PageHeader from "@/components/ui/PageHeader";
+import { buttonClasses } from "@/components/ui/Button";
 
+// Sprint UI-02.7 - cross-dashboard consistency: hand-rolled <h1> -> PageHeader
+// (badge+date row moved into its `description` slot, which accepts ReactNode
+// for exactly this), the 3 hand-rolled rounded-2xl/border-border/bg-ink-3
+// sections -> Card, and the download link now shares Button's visual classes
+// via the exported `buttonClasses` helper (it targets an API route directly,
+// so it stays a plain <a>, not a Next Link/ButtonLink).
 function CopyField({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-[10px] uppercase tracking-wide text-text-3">{label}</p>
-      <code className="mt-1 block overflow-x-auto rounded-lg border border-border bg-ink px-3 py-2 text-xs text-text">{value}</code>
+      <code className="mt-1 block overflow-x-auto rounded-control border border-border bg-ink px-3 py-2 text-xs text-text">{value}</code>
     </div>
   );
-}
-
-function activationStatusTone(status: string) {
-  return status === "ACTIVE" ? ("success" as const) : ("neutral" as const);
 }
 
 export default async function LicenseDetailPage({ params }: { params: Promise<{ licenseId: string }> }) {
@@ -32,26 +37,26 @@ export default async function LicenseDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-text">{license.listingTitle}</h1>
-        <div className="mt-2 flex items-center gap-2">
-          <Badge tone={license.licenseStatus === "ACTIVE" || license.licenseStatus === "ISSUED" ? "success" : "danger"}>{license.licenseStatus}</Badge>
-          <span className="text-xs text-text-3">Issued {new Date(license.issuedAt).toLocaleDateString()}</span>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Account"
+        title={license.listingTitle}
+        description={
+          <span className="flex items-center gap-2">
+            <LicenseStatusBadge status={license.licenseStatus} />
+            <span className="text-xs text-text-3">Issued {new Date(license.issuedAt).toLocaleDateString()}</span>
+          </span>
+        }
+      />
 
-      <div className="rounded-2xl border border-border bg-ink-3 p-6">
+      <Card>
         <h2 className="text-sm font-semibold text-text">1. Download</h2>
         <p className="mt-1 text-xs text-text-2">The exact compiled build your license authorizes.</p>
-        <a
-          href={`/api/private/licenses/${license.licenseId}/download`}
-          className="mt-3 inline-block rounded-control bg-gold px-5 py-2 text-sm font-semibold text-ink transition hover:brightness-110"
-        >
+        <a href={`/api/private/licenses/${license.licenseId}/download`} className={`mt-3 ${buttonClasses("primary", "md")}`}>
           Download EA (.ex5)
         </a>
-      </div>
+      </Card>
 
-      <div className="rounded-2xl border border-border bg-ink-3 p-6">
+      <Card>
         <h2 className="text-sm font-semibold text-text">2. EA Setup Values</h2>
         <p className="mt-1 text-xs text-text-2">
           Paste these into the EA&apos;s inputs after attaching it to your chart. You also need one one-time MT5 setting:
@@ -73,16 +78,16 @@ export default async function LicenseDetailPage({ params }: { params: Promise<{ 
         <p className="mt-4 text-xs text-text-3">
           Activation limit: {license.activationPolicy.maxActivations} device{license.activationPolicy.maxActivations === 1 ? "" : "s"} at a time.
         </p>
-      </div>
+      </Card>
 
-      <div className="rounded-2xl border border-border bg-ink-3 p-6">
+      <Card>
         <h2 className="text-sm font-semibold text-text">3. Activation History</h2>
         {license.activations.length === 0 ? (
           <p className="mt-2 text-sm text-text-2">No activations yet - attach the EA with the values above to activate.</p>
         ) : (
           <div className="mt-3 space-y-2">
             {license.activations.map((a) => (
-              <div key={a.id} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+              <div key={a.id} className="flex items-center justify-between rounded-control border border-border px-4 py-3">
                 <div>
                   <p className="text-sm text-text">{a.deviceLabel || "Unlabeled device"}</p>
                   <p className="mt-0.5 text-[11px] text-text-3">
@@ -90,12 +95,12 @@ export default async function LicenseDetailPage({ params }: { params: Promise<{ 
                     {a.lastValidatedAt ? ` · last validated ${new Date(a.lastValidatedAt).toLocaleString()}` : ""}
                   </p>
                 </div>
-                <Badge tone={activationStatusTone(a.status)}>{a.status}</Badge>
+                <LicenseStatusBadge status={a.status} />
               </div>
             ))}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

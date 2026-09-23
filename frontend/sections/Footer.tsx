@@ -49,6 +49,7 @@ interface FooterItem {
 }
 
 const COMPANY: FooterItem[] = [
+  { label: "Our Story", href: "/company/story" },
   { label: "About", href: "/company/about" },
   { label: "Vision", href: "/company/vision" },
   { label: "Contact", href: "/company/contact" },

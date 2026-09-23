@@ -6,6 +6,7 @@
 // hyphenated) - never relabeled. Provenance is disclosed via each asset
 // tag's title tooltip rather than always-visible text, per "where useful."
 import Badge, { type BadgeTone } from "@/components/ui/Badge";
+import Card from "@/components/ui/Card";
 
 export interface NewsArticleDTO {
   id: string;
@@ -43,10 +44,13 @@ function provenanceLabel(method: string): string {
   }
 }
 
+// Sprint UI-02.7 - hand-rolled rounded-xl recipe (16px, not a design token)
+// -> Card (padding="sm" is the same p-4), with the existing hover accent
+// preserved.
 export default function NewsCard({ article }: { article: NewsArticleDTO }) {
   const provenance = article.tagProvenance ?? {};
   return (
-    <div className="rounded-xl border border-border bg-ink-2 p-4 transition hover:border-gold/40">
+    <Card padding="sm" className="transition hover:border-gold/40">
       <div className="flex items-start justify-between gap-3">
         <h3 className="text-sm font-semibold text-text">{article.headline}</h3>
         {article.sentimentLabel && <Badge tone={sentimentTone(article.sentimentLabel)}>{article.sentimentLabel}</Badge>}
@@ -81,6 +85,6 @@ export default function NewsCard({ article }: { article: NewsArticleDTO }) {
           </a>
         )}
       </div>
-    </div>
+    </Card>
   );
 }

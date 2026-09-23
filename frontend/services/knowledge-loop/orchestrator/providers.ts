@@ -86,6 +86,9 @@ export class ProviderSlot implements AnswerProviderSlot {
       ...(this.supportsWebSearch && input.webSearchEnabled
         ? { tools: [{ kind: "web_search", maxUses: C.WEB_SEARCH_MAX_USES }] }
         : {}),
+      // Additive, ClaudeProvider-only (AICompletionRequest.images's own doc
+      // comment) - every other slot's provider silently ignores it.
+      ...(input.images && input.images.length > 0 ? { images: input.images } : {}),
     };
     const res = await provider.complete(req);
     const webSources = res.webSources ?? [];

@@ -1,6 +1,13 @@
 // components/automation/ui.tsx
 // AT24 Automation (MVP) - shared presentational bits. Pure view - every
 // value shown here comes straight from a server response.
+//
+// Sprint UI-02.3 - AutomationStatusPill/RunStatusPill were hand-rolling
+// their own pill markup (a rounded-md/border/bg/text recipe that
+// duplicated Badge's own tone system). Both now render through the
+// shared Badge primitive - same exported names/props, so no caller
+// changes - just tone lookup instead of a hand-copied class string.
+import Badge, { type BadgeTone } from "@/components/ui/Badge";
 import type {
   AutomationListItem,
   AutomationRunStatus,
@@ -9,37 +16,49 @@ import type {
   AutomationWorkflowDefinition,
 } from "@/types/automation";
 
-const STATUS_TONE: Record<AutomationStatus, string> = {
-  DRAFT: "border-border bg-ink-3 text-text-2",
-  ACTIVE: "border-success/40 bg-success/10 text-success",
-  PAUSED: "border-warn/40 bg-warn/10 text-warn",
-  ARCHIVED: "border-border bg-ink-3 text-text-3",
+const STATUS_TONE: Record<AutomationStatus, BadgeTone> = {
+  DRAFT: "neutral",
+  ACTIVE: "success",
+  PAUSED: "warning",
+  ARCHIVED: "neutral",
+};
+
+// Beta content pass - both pills rendered the raw UPPERCASE enum value
+// directly (e.g. "CREDIT_BLOCKED"). Same STEP_KIND_LABEL convention this
+// file already established below, applied to status too.
+const STATUS_LABEL: Record<AutomationStatus, string> = {
+  DRAFT: "Draft",
+  ACTIVE: "Active",
+  PAUSED: "Paused",
+  ARCHIVED: "Archived",
 };
 
 export function AutomationStatusPill({ status }: { status: AutomationStatus }) {
-  return (
-    <span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${STATUS_TONE[status] ?? STATUS_TONE.DRAFT}`}>
-      {status}
-    </span>
-  );
+  return <Badge tone={STATUS_TONE[status] ?? STATUS_TONE.DRAFT}>{STATUS_LABEL[status] ?? status}</Badge>;
 }
 
-const RUN_TONE: Record<AutomationRunStatus, string> = {
-  QUEUED: "border-border bg-ink-3 text-text-2",
-  RUNNING: "border-gold/40 bg-gold/10 text-gold",
-  SUCCEEDED: "border-success/40 bg-success/10 text-success",
-  FAILED: "border-danger/40 bg-danger/10 text-danger",
-  CREDIT_BLOCKED: "border-danger/40 bg-danger/10 text-danger",
-  CONDITION_HALTED: "border-warn/40 bg-warn/10 text-warn",
-  CANCELLED: "border-border bg-ink-3 text-text-3",
+const RUN_TONE: Record<AutomationRunStatus, BadgeTone> = {
+  QUEUED: "neutral",
+  RUNNING: "gold",
+  SUCCEEDED: "success",
+  FAILED: "danger",
+  CREDIT_BLOCKED: "danger",
+  CONDITION_HALTED: "warning",
+  CANCELLED: "neutral",
+};
+
+const RUN_STATUS_LABEL: Record<AutomationRunStatus, string> = {
+  QUEUED: "Queued",
+  RUNNING: "Running",
+  SUCCEEDED: "Succeeded",
+  FAILED: "Failed",
+  CREDIT_BLOCKED: "Credit blocked",
+  CONDITION_HALTED: "Condition halted",
+  CANCELLED: "Cancelled",
 };
 
 export function RunStatusPill({ status }: { status: AutomationRunStatus }) {
-  return (
-    <span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${RUN_TONE[status] ?? RUN_TONE.QUEUED}`}>
-      {status.replace("_", " ")}
-    </span>
-  );
+  return <Badge tone={RUN_TONE[status] ?? RUN_TONE.QUEUED}>{RUN_STATUS_LABEL[status] ?? status.replace(/_/g, " ")}</Badge>;
 }
 
 export function describeTrigger(a: Pick<AutomationListItem, "trigger">): string {
@@ -67,7 +86,7 @@ const STEP_KIND_LABEL: Record<AutomationStepKind, string> = {
 export function WorkflowSequence({ def }: { def: AutomationWorkflowDefinition }) {
   return (
     <ol className="space-y-2">
-      <li className="rounded-lg border border-gold/30 bg-gold/5 px-3 py-2 text-sm">
+      <li className="rounded-control border border-gold/30 bg-gold/5 px-3 py-2 text-sm">
         <span className="text-xs uppercase tracking-wide text-text-3">Trigger</span>
         <div className="text-text">{describeTrigger({ trigger: {
           type: def.trigger.type,
@@ -77,7 +96,7 @@ export function WorkflowSequence({ def }: { def: AutomationWorkflowDefinition })
         } })}</div>
       </li>
       {def.steps.map((s) => (
-        <li key={s.id} className="rounded-lg border border-border bg-ink-3 px-3 py-2 text-sm">
+        <li key={s.id} className="rounded-control border border-border bg-ink-3 px-3 py-2 text-sm">
           <span className="text-xs uppercase tracking-wide text-text-3">{STEP_KIND_LABEL[s.kind]}</span>
           <div className="text-text">{stepSummary(s)}</div>
         </li>

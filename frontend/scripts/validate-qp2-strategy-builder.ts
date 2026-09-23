@@ -226,7 +226,7 @@ async function main(): Promise<void> {
   });
 
   await test("no new AgentType/AgentRuntime surface was introduced anywhere in the QP-2 files (locked decision: lightweight service, not AgentRuntime)", () => {
-    for (const f of ["../services/algo-test/quant-strategy-builder.service.ts", "../app/api/private/algo-test/strategy-builder/route.ts", "../app/dashboard/quant-chat/page.tsx"]) {
+    for (const f of ["../services/algo-test/quant-strategy-builder.service.ts", "../app/api/private/algo-test/strategy-builder/route.ts", "../app/dashboard/quant-chat/QuantChatClient.tsx"]) {
       const src = stripLineComments(readSource(f));
       assert.ok(!src.includes("AgentRuntime"), `${f} must not reference AgentRuntime`);
       assert.ok(!src.includes("AGENT_TYPE_REGISTRY"), `${f} must not reference the agent type registry`);

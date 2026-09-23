@@ -1,0 +1,46 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19"/>
+      <stop offset="100%" stop-color="#0f1a20"/>
+    </linearGradient>
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e7c86b"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="34%" r="46%">
+      <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="#22d3ee" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="url(#bg)"/>
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="none" stroke="url(#borderGrad)" stroke-width="6"/>
+
+  <ellipse cx="256" cy="176" rx="150" ry="118" fill="url(#glow)"/>
+
+  <!-- 4 independent signal lines converging to one confluence node -->
+  <g filter="url(#softGlow)">
+    <line x1="120" y1="90" x2="256" y2="175" stroke="#22d3ee" stroke-width="4" opacity="0.85"/>
+    <line x1="392" y1="90" x2="256" y2="175" stroke="#22d3ee" stroke-width="4" opacity="0.85"/>
+    <line x1="120" y1="260" x2="256" y2="175" stroke="#94a3b8" stroke-width="4" opacity="0.6"/>
+    <line x1="392" y1="260" x2="256" y2="175" stroke="#94a3b8" stroke-width="4" opacity="0.6"/>
+
+    <circle cx="120" cy="90" r="10" fill="#22d3ee"/>
+    <circle cx="392" cy="90" r="10" fill="#22d3ee"/>
+    <circle cx="120" cy="260" r="10" fill="#94a3b8"/>
+    <circle cx="392" cy="260" r="10" fill="#94a3b8"/>
+
+    <circle cx="256" cy="175" r="32" fill="url(#borderGrad)"/>
+    <text x="256" y="184" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="800" fill="#2c1a02">3/4</text>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="256" y="330" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="800" letter-spacing="1" fill="#ffffff">AXON SIGNAL</text>
+  <text x="256" y="366" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="27" font-weight="800" letter-spacing="0.5" fill="url(#borderGrad)">ENGINE</text>
+  <text x="256" y="398" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" letter-spacing="2" fill="#94a3b8">4-FACTOR CONFLUENCE · RULE-BASED</text>
+</svg>

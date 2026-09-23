@@ -7,6 +7,9 @@
 // debounced as the user edits dates - rather than a client-side
 // approximation, so this screen can never show a different number than
 // what the job itself will be judged against.
+// Sprint UI-02.2 - Run Backtest now uses Button's own `loading` prop
+// (real Spinner, auto-disabled) instead of a hand-rolled text swap. Same
+// submit handler, same disabled condition.
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
@@ -169,8 +172,8 @@ export default function BacktestSetupForm() {
 
       <ExecutionAssumptionsPanel />
 
-      <Button size="lg" onClick={handleRun} disabled={submitting || coverage?.policy === "DATA_UNAVAILABLE"}>
-        {submitting ? "Submitting..." : "Run Backtest"}
+      <Button size="lg" onClick={handleRun} loading={submitting} disabled={coverage?.policy === "DATA_UNAVAILABLE"}>
+        Run Backtest
       </Button>
     </div>
   );

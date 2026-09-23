@@ -46,7 +46,12 @@ const PROVIDER_LABELS: Record<string, string> = {
 // point (never a whitelist - any other instrument any configured provider
 // can discover remains fully searchable). Mirrors MarketRibbon's own
 // already-curated "popular" set rather than inventing a second list.
-const DEFAULT_SUGGESTION_IDS = ["EURUSD", "XAUUSD", "BTCUSD", "ETHUSD", "NIFTY50", "BANKNIFTY", "RELIANCE"];
+// Production Smoke (Beta) - NIFTY50/BANKNIFTY dropped from this default
+// suggestion list only, same reasoning as MarketRibbon.tsx: Angel One is
+// currently failing to serve them, and a default suggestion that reliably
+// fails isn't useful. Still fully searchable by typing "NIFTY" directly -
+// this list was never a whitelist.
+const DEFAULT_SUGGESTION_IDS = ["EURUSD", "XAUUSD", "BTCUSD", "ETHUSD", "RELIANCE"];
 
 const DEBOUNCE_MS = 200;
 

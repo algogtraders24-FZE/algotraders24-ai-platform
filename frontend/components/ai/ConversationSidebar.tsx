@@ -2,6 +2,13 @@
 // Sprint L2.4 - added a real relative timestamp per conversation
 // (StoredConversation.updatedAt already existed, just wasn't shown).
 // Active-conversation highlight and sorting were already real; unchanged.
+// Sprint UI-02.7 - cross-dashboard consistency: this had NO mobile handling
+// at all (a fixed w-64 <aside>, unusable below md - a real UX gap, not just
+// a styling one). Root changed from a self-sized <aside> to a fill-parent
+// <div> so the SAME component can be rendered twice by the parent page -
+// once inside a static desktop <aside>, once inside a mobile Drawer - the
+// "one source, two presentations" pattern MobileNav.tsx already established
+// for the main dashboard nav. No behavior here changed, only what wraps it.
 "use client";
 
 import { useState } from "react";
@@ -41,7 +48,7 @@ export default function ConversationSidebar({
   );
 
   return (
-    <aside className="flex w-64 flex-col border-r border-border bg-ink">
+    <div className="flex h-full w-full flex-col bg-ink">
       <button onClick={onNew} className="m-3 rounded-lg bg-gold px-3 py-2 text-sm font-semibold text-ink hover:brightness-110">
         + New Chat
       </button>
@@ -81,6 +88,6 @@ export default function ConversationSidebar({
         ))}
         {filtered.length === 0 && <p className="px-3 text-xs text-text-3">No conversations.</p>}
       </nav>
-    </aside>
+    </div>
   );
 }

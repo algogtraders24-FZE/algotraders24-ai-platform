@@ -1,6 +1,7 @@
 // types/assistant.ts
 import type { Message } from "./message";
 import type { PromptVariables } from "./prompt";
+import type { AIImageInput } from "@/lib/ai/types";
 
 export interface AssistantRequest {
   conversationId: string;
@@ -15,6 +16,10 @@ export interface AssistantRequest {
   // the same server conversation is reused across turns. Omit it to let
   // the server create a new conversation (its existing default behavior).
   serverConversationId?: string;
+  // Quant Chat "Ask AI Anything" image attachments - forces routing past the
+  // market-analysis heuristic (sendMessageStreaming's own gate) since only
+  // the knowledge/chat -> ClaudeProvider path can actually see an image.
+  images?: AIImageInput[];
 }
 
 export interface AssistantResponse {

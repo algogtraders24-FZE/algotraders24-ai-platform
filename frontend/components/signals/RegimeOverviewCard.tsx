@@ -7,15 +7,18 @@
 // uses (components/intelligence-workspace/format.ts), so a "Trending
 // Bullish" badge here means the identical thing it means there.
 import Badge from "@/components/ui/Badge";
+import Card from "@/components/ui/Card";
 import RiskBadge from "./RiskBadge";
 import { formatLabel, regimeTone, DECISION_STATE_TONE } from "@/components/intelligence-workspace/format";
 import { formatScore } from "@/lib/financial-format";
 import type { MarketRegimeOverviewItem } from "@/types/market-regime-overview";
 
+// Sprint UI-02.7 - the hand-rolled rounded-card/border-border/bg-ink-2
+// recipe (an exact duplicate of Card's own output) now composes Card.
 export default function RegimeOverviewCard({ item }: { item: MarketRegimeOverviewItem }) {
   if (item.status !== "resolved") {
     return (
-      <div className="rounded-card border border-border bg-ink-2 p-4">
+      <Card padding="sm">
         <p className="text-sm font-semibold text-text">{item.symbol}</p>
         <p className="mt-1 text-xs text-text-3">{item.name}</p>
         <p className="mt-3 text-xs text-text-3">
@@ -23,12 +26,12 @@ export default function RegimeOverviewCard({ item }: { item: MarketRegimeOvervie
             ? "No verified intelligence available right now - shown honestly rather than fabricated."
             : "Could not resolve this instrument right now."}
         </p>
-      </div>
+      </Card>
     );
   }
 
   return (
-    <div className="rounded-card border border-border bg-ink-2 p-4 transition hover:border-border">
+    <Card padding="sm">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-text">{item.symbol}</p>
@@ -46,6 +49,6 @@ export default function RegimeOverviewCard({ item }: { item: MarketRegimeOvervie
           Intelligence <span className="font-mono text-text-2">{formatScore(item.intelligenceScore)}</span>
         </span>
       </div>
-    </div>
+    </Card>
   );
 }

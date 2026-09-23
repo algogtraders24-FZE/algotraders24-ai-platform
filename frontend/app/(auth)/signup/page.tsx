@@ -7,6 +7,7 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { signUpAction, type ActionState } from "@/app/(auth)/actions/auth.actions";
 import GoogleButton from "@/components/auth/GoogleButton";
+import TurnstileWidget from "@/components/auth/TurnstileWidget";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
@@ -40,6 +41,14 @@ export default function SignupPage() {
             <div className="h-px flex-1 bg-border" />
           </div>
           <form action={formAction} className="mt-6 space-y-4">
+            {/* Honeypot: hidden from real users, off-screen rather than
+                display:none so unsophisticated bots that check for that
+                still fill it in. Server rejects silently (fake success). */}
+            <div className="absolute left-[-9999px] top-auto h-px w-px overflow-hidden" aria-hidden="true">
+              <label htmlFor="company">Company</label>
+              <input type="text" id="company" name="company" tabIndex={-1} autoComplete="off" />
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-text-2">Name</label>
               <Input type="text" name="name" required autoComplete="name" className="mt-1" />
@@ -55,6 +64,8 @@ export default function SignupPage() {
               <Input type="password" name="password" required minLength={8} autoComplete="new-password" className="mt-1" />
               <p className="mt-1 text-xs text-text-3">At least 8 characters.</p>
             </div>
+
+            <TurnstileWidget />
 
             {state.error ? <p className="text-sm text-danger">{state.error}</p> : null}
 

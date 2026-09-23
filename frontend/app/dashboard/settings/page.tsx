@@ -12,6 +12,17 @@
 // today (Account, Billing) - no invented "Preferences"/"Privacy"/etc.
 // placeholder sections with nothing real in them. More sections get added
 // here as real features exist to put in them, not before.
+// Sprint UI-02.6 - visual-only pass: this page was already substantially
+// on the AT24 system (Card/Badge/Button/ButtonLink/Input/ErrorState in
+// use since it was built). Remaining gaps: the hand-rolled <h1>/<p>
+// header -> PageHeader, and each section's inline success/error <p> ->
+// Alert (its own header comment states its purpose as exactly this -
+// "form errors, action results"). Note: /dashboard/billing itself is
+// deliberately NOT touched this sprint - PR #111 (BILLING-03) is
+// actively modifying it; this page's own small Billing summary card
+// (plan label + link-out, a different file) is unaffected and still
+// in scope. Same updateNameAction/changePasswordAction/changeEmailAction
+// server actions, same real user/plan data, same signOutAction.
 import { useActionState } from "react";
 import Link from "next/link";
 import { useUserContext } from "@/context/UserContext";
@@ -23,6 +34,8 @@ import Button from "@/components/ui/Button";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Input from "@/components/ui/Input";
 import ErrorState from "@/components/ui/ErrorState";
+import Alert from "@/components/ui/Alert";
+import PageHeader from "@/components/ui/PageHeader";
 import { PLAN_LABELS } from "@/config/billing.config";
 import type { PlanId } from "@/types/billing";
 
@@ -63,8 +76,8 @@ function ProfileSection({ name }: { name: string }) {
           Save
         </Button>
       </form>
-      {state.error && <p className="mt-2 text-sm text-danger">{state.error}</p>}
-      {state.success && <p className="mt-2 text-sm text-success">{state.message}</p>}
+      {state.error && <Alert tone="danger" className="mt-3">{state.error}</Alert>}
+      {state.success && <Alert tone="success" className="mt-3">{state.message}</Alert>}
     </SectionCard>
   );
 }
@@ -87,8 +100,8 @@ function EmailSection({ currentEmail, emailVerified }: { currentEmail: string; e
           Send confirmation
         </Button>
       </form>
-      {state.error && <p className="mt-2 text-sm text-danger">{state.error}</p>}
-      {state.success && <p className="mt-2 text-sm text-success">{state.message}</p>}
+      {state.error && <Alert tone="danger" className="mt-3">{state.error}</Alert>}
+      {state.success && <Alert tone="success" className="mt-3">{state.message}</Alert>}
     </SectionCard>
   );
 }
@@ -108,8 +121,8 @@ function PasswordSection() {
           <Input type="password" name="confirmPassword" required autoComplete="new-password" className="mt-1" />
         </div>
         <div className="sm:col-span-2">
-          {state.error && <p className="mb-3 text-sm text-danger">{state.error}</p>}
-          {state.success && <p className="mb-3 text-sm text-success">{state.message}</p>}
+          {state.error && <Alert tone="danger" className="mb-3">{state.error}</Alert>}
+          {state.success && <Alert tone="success" className="mb-3">{state.message}</Alert>}
           <Button type="submit" loading={pending} variant="secondary">
             Change password
           </Button>
@@ -140,10 +153,7 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-3xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-text">Settings</h1>
-        <p className="mt-1 text-sm text-text-3">Manage your account, security, and billing.</p>
-      </div>
+      <PageHeader eyebrow="Account" title="Settings" description="Manage your account, security, and billing." className="mb-6" />
 
       <div className="flex flex-col gap-8 sm:flex-row">
         <SettingsNav />

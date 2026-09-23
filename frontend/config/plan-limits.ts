@@ -18,6 +18,14 @@ export interface PlanLimits {
   customBranding: boolean;
   teamMembers: number;
   highlighted: boolean;
+  // Quant Pro production launch closure - included with every paid plan
+  // (locked commercial decision), mirroring the identical
+  // apiAccess/prioritySupport/customBranding boolean-flag convention this
+  // interface already uses. The DB Plan.features array (rendered on
+  // /dashboard/billing) carries the equivalent line separately - see
+  // scripts/update-plan-quant-pro-copy.ts - since that surface has never
+  // read from PLAN_LIMITS.
+  quantPro: boolean;
 }
 
 export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
@@ -34,6 +42,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     customBranding: false,
     teamMembers: 1,
     highlighted: false,
+    quantPro: false,
   },
   pro: {
     description: "For active traders scaling their AI workflows.",
@@ -48,6 +57,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     customBranding: false,
     teamMembers: 3,
     highlighted: true,
+    quantPro: true,
   },
   elite: {
     description: "Advanced multi-agent trading at full throttle.",
@@ -62,6 +72,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     customBranding: true,
     teamMembers: 10,
     highlighted: false,
+    quantPro: true,
   },
   enterprise: {
     description: "Custom limits, SLAs, and dedicated support.",
@@ -76,6 +87,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     customBranding: true,
     teamMembers: 100,
     highlighted: false,
+    quantPro: true,
   },
 };
 

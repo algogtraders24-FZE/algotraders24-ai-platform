@@ -5,7 +5,16 @@
 // identically to every user. Added a real profile row (plan, joined date)
 // - both already-real fields (session.profile.planId/createdAt) that just
 // weren't displayed anywhere before.
-import DashboardStatCard from "@/components/dashboard/DashboardStatCard";
+// Sprint UI-01 - AT24 Premium UI Foundation reference implementation: the
+// hand-rolled <h1>/grid markup is now built entirely from the shared system
+// (PageHeader, StatCard, the same Card/EmptyState RecentActivity and
+// QuickActions already used). No data, query or behavior change - same
+// overview/activity from dashboardService, same new-user branch, same
+// email-verification notice.
+import { MessageSquare, FileText, Database, Search } from "lucide-react";
+import PageHeader from "@/components/ui/PageHeader";
+import StatCard from "@/components/ui/StatCard";
+import ButtonLink from "@/components/ui/ButtonLink";
 import QuickActions from "@/components/dashboard/QuickActions";
 import RecentActivity from "@/components/dashboard/RecentActivity";
 import NewUserOnboarding from "@/components/dashboard/NewUserOnboarding";
@@ -36,10 +45,30 @@ export default async function DashboardHome() {
   }
 
   const stats = [
-    { label: "Conversations", value: overview.totalConversations },
-    { label: "Documents", value: overview.totalDocuments },
-    { label: "Indexed Chunks", value: overview.totalChunks },
-    { label: "Knowledge Retrievals", value: overview.totalRetrievals },
+    {
+      label: "Conversations",
+      value: overview.totalConversations,
+      icon: MessageSquare,
+      hint: "AI Assistant conversations you've started.",
+    },
+    {
+      label: "Documents",
+      value: overview.totalDocuments,
+      icon: FileText,
+      hint: "Documents you've uploaded to your Knowledge Base.",
+    },
+    {
+      label: "Indexed chunks",
+      value: overview.totalChunks,
+      icon: Database,
+      hint: "Passages your documents were split into so the AI Assistant can search and cite them.",
+    },
+    {
+      label: "Knowledge retrievals",
+      value: overview.totalRetrievals,
+      icon: Search,
+      hint: "Times the AI Assistant pulled a passage from your documents to answer a question.",
+    },
   ];
 
   const planLabel = PLAN_LABELS[user.planId as PlanId] ?? user.planId;
@@ -51,21 +80,26 @@ export default async function DashboardHome() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-text">
-          Welcome back, {user.name} &#128075;
-        </h1>
-        <p className="text-text-2 mt-1">Here&apos;s your account overview.</p>
-        <p className="text-xs text-text-3 mt-1">
-          {user.email}
-          {!user.emailVerified && (
-            <>
-              {" "}
-              · email not verified · <ResendVerificationButton />
-            </>
-          )}
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Account"
+        title={`Welcome back, ${user.name}`}
+        description={
+          <>
+            {user.email}
+            {!user.emailVerified && (
+              <>
+                {" "}
+                · email not verified · <ResendVerificationButton />
+              </>
+            )}
+          </>
+        }
+        action={
+          <ButtonLink href="/dashboard/billing" variant="secondary" size="sm">
+            Manage plan
+          </ButtonLink>
+        }
+      />
 
       <Card className="flex flex-wrap gap-6">
         <div>
@@ -78,13 +112,13 @@ export default async function DashboardHome() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map((stat) => (
-          <DashboardStatCard key={stat.label} stat={stat} />
+          <StatCard key={stat.label} label={stat.label} value={stat.value} icon={stat.icon} hint={stat.hint} />
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid gap-6 lg:grid-cols-2">
         <RecentActivity items={activity} />
         <QuickActions />
       </div>

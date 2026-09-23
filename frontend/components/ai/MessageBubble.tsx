@@ -30,6 +30,7 @@ import type { MarketAnalysisResult } from "@/types/market-analysis-orchestration
 import type { VerifiedAnswerResponse } from "@/types/verified-answer-response";
 import type { QuantChatMessageStrategyState } from "@/types/quant-chat";
 import SourcesPanel from "./SourcesPanel";
+import MessageContent from "./MessageContent";
 import AnalysisResult from "@/components/market-intelligence/AnalysisResult";
 import VerifiedAIAnswerCard from "@/components/intelligence-workspace/VerifiedAIAnswerCard";
 import StrategyStateCard from "@/components/quant-chat/StrategyStateCard";
@@ -40,6 +41,10 @@ export type DisplayMessage = Message & {
   marketAnalysis?: MarketAnalysisResult;
   intelligence?: VerifiedAnswerResponse;
   strategyState?: QuantChatMessageStrategyState;
+  /** Quant Chat "Ask AI Anything" - a data: URL for the image the USER
+   *  attached to this turn, shown for provenance (what did the model
+   *  actually see). Never set on an assistant message. */
+  attachedImageUrl?: string;
 };
 
 interface Props {
@@ -58,11 +63,15 @@ export default function MessageBubble({ message, isStreaming, isLastAssistant, o
     <div className={`group flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div className="max-w-[85%]">
         <div
-          className={`rounded-2xl px-4 py-3 text-sm leading-6 whitespace-pre-wrap ${
+          className={`rounded-2xl px-4 py-3 text-sm leading-6 ${
             isUser ? "bg-gold text-ink" : "border border-border bg-ink-2 text-text"
           }`}
         >
-          {message.content}
+          {message.attachedImageUrl && (
+            // eslint-disable-next-line @next/next/no-img-element -- an in-memory data: URL, never a remote/optimizable asset.
+            <img src={message.attachedImageUrl} alt="Attached" className="mb-2 max-h-48 rounded-lg object-contain" />
+          )}
+          <MessageContent content={message.content} />
           {isStreaming && (
             <span
               aria-hidden="true"

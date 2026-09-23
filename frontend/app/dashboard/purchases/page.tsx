@@ -5,31 +5,24 @@
 // Sprint IA3 - app/dashboard/licenses is now also wired to this same real
 // service (a license-centric view vs. this purchase-centric one) - the
 // mock chain that used to live there is gone.
-import Link from "next/link";
 import { requireUser } from "@/lib/auth/protectedRoute";
 import { getMyPurchases } from "@/services/licensing/myPurchases";
 import EmptyState from "@/components/ui/EmptyState";
-import Badge from "@/components/ui/Badge";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Card from "@/components/ui/Card";
+import PageHeader from "@/components/ui/PageHeader";
+import LicenseStatusBadge from "@/components/licensing/LicenseStatusBadge";
 
-function licenseStatusTone(status: string | null) {
-  if (status === "ACTIVE") return "success" as const;
-  if (status === "REVOKED" || status === "EXPIRED") return "danger" as const;
-  if (status === "SUSPENDED") return "warning" as const;
-  return "neutral" as const;
-}
-
+// Sprint UI-02.7 - cross-dashboard consistency: hand-rolled <h1> -> PageHeader,
+// the manually-styled "View License" <Link> -> ButtonLink (same navigation
+// target, just sharing Button's visual classes instead of duplicating them).
 export default async function MyPurchasesPage() {
   const sessionUser = await requireUser();
   const purchases = await getMyPurchases(sessionUser.profile.id);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-text">My Purchases</h1>
-        <p className="mt-1 text-sm text-text-2">Every real Marketplace purchase, with its License and EA download.</p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader eyebrow="Account" title="My Purchases" description="Every real Marketplace purchase, with its License and EA download." />
 
       {purchases.length === 0 ? (
         <EmptyState
@@ -48,11 +41,11 @@ export default async function MyPurchasesPage() {
                 </p>
               </div>
               <div className="flex items-center gap-3">
-                <Badge tone={licenseStatusTone(p.licenseStatus)}>{p.licenseStatus ?? p.status}</Badge>
+                <LicenseStatusBadge status={p.licenseStatus ?? p.status} />
                 {p.licenseId ? (
-                  <Link href={`/dashboard/purchases/${p.licenseId}`} className="rounded-control border border-border px-4 py-2 text-sm font-semibold text-text transition hover:border-gold">
+                  <ButtonLink href={`/dashboard/purchases/${p.licenseId}`} variant="secondary" size="sm">
                     View License
-                  </Link>
+                  </ButtonLink>
                 ) : null}
               </div>
             </Card>

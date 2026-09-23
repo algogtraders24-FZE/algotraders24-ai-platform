@@ -9,6 +9,7 @@
 import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
+import { hasQuantProAccess } from "@/lib/access/quant-pro";
 import { Errors } from "@/services/backend/ErrorHandler";
 import { algoTestService } from "@/services/algo-test/algo-test.service";
 import type { AiCompileAndRunRequest } from "@/types/algo-test";
@@ -22,6 +23,13 @@ export const POST = withContext(async (req, ctx) => {
   const sessionUser = await getUserOrNull();
   if (!sessionUser) {
     return ApiResponse.error({ code: "UNAUTHORIZED", message: "Authentication required" }, ctx.requestId, 401, ctx.startedAt);
+  }
+
+  // Quant Pro production launch - the real access boundary. The
+  // /dashboard/quant-chat page gate is UX only; this is what actually
+  // enforces it, since a client can always call this route directly.
+  if (!(await hasQuantProAccess(sessionUser.profile.id))) {
+    return ApiResponse.error({ code: "QUANT_PRO_REQUIRED", message: "Quant Pro is a paid feature. Upgrade your plan to run backtests." }, ctx.requestId, 403, ctx.startedAt);
   }
 
   const body = await req.json().catch(() => null);

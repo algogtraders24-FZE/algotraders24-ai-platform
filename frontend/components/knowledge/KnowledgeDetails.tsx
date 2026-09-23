@@ -1,8 +1,15 @@
 // components/knowledge/KnowledgeDetails.tsx
 "use client";
 
+// Sprint UI-03 - the main card carried a leftover bg-gradient-to-br
+// from-ink-2 to-ink-2 (same start/end color, so visually flat - but still a
+// literal gradient utility, against the locked no-gradients rule). Both
+// hand-rolled divs -> Card (the p-5 one uses padding="none" + className
+// since 5 doesn't land on the sm/md/lg scale), Re-index -> Button.
 import type { KnowledgeDocument, RetrievalRecord } from "@/types/knowledge";
 import { DOC_STATUS_STYLES } from "@/config/knowledge.config";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
 
 interface Props {
   doc: KnowledgeDocument | null;
@@ -13,13 +20,13 @@ interface Props {
 
 export default function KnowledgeDetails({ doc, related, retrievals, onReindex }: Props) {
   if (!doc) {
-    return <div className="rounded-xl border border-border bg-ink-2 p-6 text-sm text-text-3">Select a document to view details.</div>;
+    return <Card className="text-sm text-text-3">Select a document to view details.</Card>;
   }
 
   const kb = (doc.documentSize / 1024).toFixed(1);
 
   return (
-    <div className="rounded-xl border border-border bg-gradient-to-br from-ink-2 to-ink-2 p-5">
+    <Card padding="none" className="p-5">
       <div className="flex items-start justify-between gap-3">
         <h2 className="text-lg font-bold text-text">{doc.title}</h2>
         <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${DOC_STATUS_STYLES[doc.status]}`}>{doc.status}</span>
@@ -44,7 +51,7 @@ export default function KnowledgeDetails({ doc, related, retrievals, onReindex }
         </div>
       )}
 
-      <button onClick={() => onReindex(doc.id)} className="mt-4 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-2 hover:border-border">Re-index</button>
+      <Button size="sm" variant="secondary" onClick={() => onReindex(doc.id)} className="mt-4">Re-index</Button>
 
       {related.length > 0 && (
         <div className="mt-5">
@@ -65,6 +72,6 @@ export default function KnowledgeDetails({ doc, related, retrievals, onReindex }
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

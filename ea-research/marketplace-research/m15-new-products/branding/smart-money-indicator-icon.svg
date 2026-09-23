@@ -1,0 +1,46 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19"/>
+      <stop offset="100%" stop-color="#14101a"/>
+    </linearGradient>
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e7c86b"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="34%" r="46%">
+      <stop offset="0%" stop-color="#a78bfa" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="#a78bfa" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="url(#bg)"/>
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="none" stroke="url(#borderGrad)" stroke-width="6"/>
+
+  <ellipse cx="256" cy="176" rx="150" ry="118" fill="url(#glow)"/>
+
+  <!-- order block (shaded zone) + structure break line + BOS label -->
+  <g filter="url(#softGlow)">
+    <rect x="130" y="155" width="70" height="40" fill="#3fb27f" opacity="0.28"/>
+    <rect x="130" y="155" width="70" height="40" fill="none" stroke="#3fb27f" stroke-width="2.5"/>
+
+    <line x1="130" y1="120" x2="300" y2="120" stroke="#94a3b8" stroke-width="3" stroke-dasharray="7 6" opacity="0.7"/>
+
+    <rect x="220" y="140" width="16" height="30" rx="2" fill="#5b7a9c"/>
+    <line x1="228" y1="132" x2="228" y2="176" stroke="#5b7a9c" stroke-width="4"/>
+    <rect x="255" y="95" width="20" height="60" rx="3" fill="#3fb27f"/>
+    <line x1="265" y1="80" x2="265" y2="162" stroke="#3fb27f" stroke-width="5"/>
+
+    <path d="M 300 130 L 340 130 L 320 105 Z" fill="url(#borderGrad)"/>
+    <text x="320" y="152" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="800" fill="url(#borderGrad)">BOS</text>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="256" y="320" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="800" letter-spacing="1" fill="#ffffff">SMART MONEY</text>
+  <text x="256" y="356" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="800" letter-spacing="1" fill="url(#borderGrad)">STRUCTURE</text>
+  <text x="256" y="390" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" letter-spacing="2" fill="#94a3b8">BOS/CHOCH · ORDER BLOCKS · FVG</text>
+</svg>

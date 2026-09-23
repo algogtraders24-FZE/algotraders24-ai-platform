@@ -83,6 +83,15 @@ import type { AnswerResult } from "@/types/knowledge-loop";
 
 const MAX_TITLE_LENGTH = 60;
 
+// Quant Chat "Ask AI Anything" image attachments. Kept deliberately small:
+// Vercel serverless functions cap the ENTIRE request body at 4.5MB
+// (platform limit, not ours) - 2 images x ~1.5MB raw (~2MB base64-encoded)
+// leaves real headroom for the rest of the JSON payload (history, knowledge
+// block, etc.) rather than assuming images are the only thing in the body.
+const MAX_IMAGES_PER_TURN = 2;
+const MAX_IMAGE_BASE64_LENGTH = 2_000_000; // ~1.5MB raw per image
+const ALLOWED_IMAGE_MEDIA_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+
 const messageService = new ConversationMessageService();
 const intelligencePresentationService = new IntelligencePresentationService();
 
@@ -137,6 +146,7 @@ export const POST = withContext(async (req, ctx) => {
     conversationId?: unknown;
     stream?: unknown;
     symbol?: unknown;
+    images?: unknown;
   } | null;
 
   // Sprint L2.4 - opt-in only. Default (stream !== true) reproduces the
@@ -160,6 +170,41 @@ export const POST = withContext(async (req, ctx) => {
     typeof body?.knowledgeId === "string" && body.knowledgeId.trim().length > 0
       ? body.knowledgeId
       : undefined;
+
+  // --- Image attachments (Quant Chat "Ask AI Anything") ---
+  // Validated fully here, the ONLY boundary untrusted client input crosses
+  // into AIImageInput - the orchestrator/ClaudeProvider trust this shape
+  // completely once it leaves this block.
+  let images: { mediaType: string; base64: string }[] | undefined;
+  if (body?.images !== undefined) {
+    if (!Array.isArray(body.images)) {
+      return ApiResponse.error({ code: "VALIDATION", message: "images must be an array" }, ctx.requestId, 400, ctx.startedAt);
+    }
+    if (body.images.length > MAX_IMAGES_PER_TURN) {
+      return ApiResponse.error({ code: "VALIDATION", message: `images must contain at most ${MAX_IMAGES_PER_TURN} entries` }, ctx.requestId, 400, ctx.startedAt);
+    }
+    const parsed: { mediaType: string; base64: string }[] = [];
+    for (const entry of body.images) {
+      if (
+        typeof entry !== "object" ||
+        entry === null ||
+        typeof (entry as { mediaType?: unknown }).mediaType !== "string" ||
+        typeof (entry as { base64?: unknown }).base64 !== "string"
+      ) {
+        return ApiResponse.error({ code: "VALIDATION", message: "each image must be { mediaType: string, base64: string }" }, ctx.requestId, 400, ctx.startedAt);
+      }
+      const mediaType = (entry as { mediaType: string }).mediaType;
+      const base64 = (entry as { base64: string }).base64;
+      if (!ALLOWED_IMAGE_MEDIA_TYPES.has(mediaType)) {
+        return ApiResponse.error({ code: "VALIDATION", message: `unsupported image type "${mediaType}" - use PNG, JPEG, WEBP, or GIF` }, ctx.requestId, 400, ctx.startedAt);
+      }
+      if (base64.length === 0 || base64.length > MAX_IMAGE_BASE64_LENGTH) {
+        return ApiResponse.error({ code: "VALIDATION", message: "image is too large (max ~1.5MB per image)" }, ctx.requestId, 400, ctx.startedAt);
+      }
+      parsed.push({ mediaType, base64 });
+    }
+    if (parsed.length > 0) images = parsed;
+  }
 
   if (body?.conversationId !== undefined && typeof body.conversationId !== "string") {
     return ApiResponse.error(
@@ -359,6 +404,7 @@ export const POST = withContext(async (req, ctx) => {
       })),
       symbol: requestedSymbol,
       knowledgeId,
+      images,
     });
   } catch {
     // Defensive only - the orchestrator does not throw. The persisted user

@@ -14,11 +14,23 @@
 // maps EURUSD, GBPUSD, USDJPY, XAUUSD, XAGUSD, BTCUSD, and ETHUSD (see the
 // route's header). All seven are real "Run Analysis" buttons now - there is
 // no PENDING_MARKETS list left, because nothing here is pending anymore.
+//
+// Sprint UI-02.1 - visual-only pass onto the UI-01 system: the page's own
+// min-h-screen/max-w wrapper is gone (AppShell already provides the ink
+// background and centered content column - Overview has no self-wrapper
+// either), hand-rolled market/idle/error boxes are now Card/EmptyState, and
+// both buttons are the shared Button primitive (Run Analysis uses its
+// built-in `loading` spinner instead of a manual text swap). Same fetch
+// call, same states, same data - no behavior change.
 import { useState } from "react";
 import type { MarketAnalysisResult } from "@/types/market-analysis-orchestration";
 import AnalysisResult from "@/components/market-intelligence/AnalysisResult";
 import PageHeader from "@/components/ui/PageHeader";
 import ErrorState from "@/components/ui/ErrorState";
+import EmptyState from "@/components/ui/EmptyState";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import Spinner from "@/components/ui/Spinner";
 
 const AVAILABLE_MARKETS = [
   { symbol: "EURUSD", label: "Euro", pair: "EUR/USD" },
@@ -69,71 +81,63 @@ export default function MarketIntelligencePage() {
   };
 
   return (
-    <div className="min-h-screen bg-ink p-6 text-text">
-      <div className="mx-auto max-w-6xl">
-        <PageHeader
-          eyebrow="Market Intelligence"
-          title="Run a real analysis"
-          description="Powered by the deterministic evidence → reasoning → risk → confidence → explainable-analysis pipeline. More markets are being added as data sources are connected."
-        />
+    <div className="space-y-8">
+      <PageHeader
+        eyebrow="Market Intelligence"
+        title="Run a real analysis"
+        description="Powered by the deterministic evidence → reasoning → risk → confidence → explainable-analysis pipeline. More markets are being added as data sources are connected."
+      />
 
-        <div className="grid gap-4 sm:grid-cols-3">
-          {AVAILABLE_MARKETS.map((market) => {
-            const isThis = run.status !== "idle" && run.symbol === market.symbol;
-            const loading = isThis && run.status === "loading";
-            return (
-              <div key={market.symbol} className="rounded-card border border-border bg-ink-2 p-6">
-                <p className="text-lg font-semibold">{market.label}</p>
-                <p className="mt-1 font-mono text-xs text-text-3">{market.pair}</p>
-                <button
-                  type="button"
-                  onClick={() => runAnalysis(market.symbol)}
-                  disabled={loading}
-                  className="mt-4 rounded-control bg-gold px-5 py-2.5 text-sm font-semibold text-ink transition hover:brightness-110 disabled:opacity-50"
-                >
-                  {loading ? "Running analysis…" : "Run Analysis"}
-                </button>
-              </div>
-            );
-          })}
-        </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {AVAILABLE_MARKETS.map((market) => {
+          const isThis = run.status !== "idle" && run.symbol === market.symbol;
+          const loading = isThis && run.status === "loading";
+          const active = isThis && run.status === "completed";
+          return (
+            <Card key={market.symbol} className={active ? "border-gold/40" : ""}>
+              <p className="text-lg font-semibold text-text">{market.label}</p>
+              <p className="mt-1 font-mono text-xs text-text-3">{market.pair}</p>
+              <Button
+                type="button"
+                onClick={() => runAnalysis(market.symbol)}
+                loading={loading}
+                className="mt-4"
+              >
+                Run Analysis
+              </Button>
+            </Card>
+          );
+        })}
+      </div>
 
-        <div className="mt-8">
-          {run.status === "idle" && (
-            <div className="rounded-card border border-dashed border-border bg-ink-2/50 p-6 text-sm text-text-2">
-              <p className="font-semibold text-text">No analysis yet</p>
-              <p className="mt-1">
-                Click <span className="text-text">Run Analysis</span> on any market above to generate your first
-                evidence-backed market analysis - it runs the real pipeline against live data, so it takes a few
-                seconds.
-              </p>
-            </div>
-          )}
+      <div>
+        {run.status === "idle" && (
+          <EmptyState
+            title="No analysis yet"
+            description="Click Run Analysis on any market above to generate your first evidence-backed market analysis - it runs the real pipeline against live data, so it takes a few seconds."
+          />
+        )}
 
-          {run.status === "loading" && (
-            <div className="rounded-card border border-border bg-ink-2 p-6 text-sm text-text-2">
-              Running the deterministic pipeline against live market data — this takes a few seconds.
-            </div>
-          )}
+        {run.status === "loading" && (
+          <Card className="flex items-center gap-3 text-sm text-text-2">
+            <Spinner size="sm" />
+            Running the deterministic pipeline against live market data — this takes a few seconds.
+          </Card>
+        )}
 
-          {run.status === "error" && (
-            <ErrorState
-              title="Analysis unavailable"
-              description={run.message}
-              action={
-                <button
-                  type="button"
-                  onClick={() => runAnalysis(run.symbol)}
-                  className="rounded-control border border-border px-4 py-2 text-sm font-medium text-text transition hover:border-gold"
-                >
-                  Retry
-                </button>
-              }
-            />
-          )}
+        {run.status === "error" && (
+          <ErrorState
+            title="Analysis unavailable"
+            description={run.message}
+            action={
+              <Button type="button" variant="secondary" size="sm" onClick={() => runAnalysis(run.symbol)}>
+                Retry
+              </Button>
+            }
+          />
+        )}
 
-          {run.status === "completed" && <AnalysisResult result={run.result} />}
-        </div>
+        {run.status === "completed" && <AnalysisResult result={run.result} />}
       </div>
     </div>
   );

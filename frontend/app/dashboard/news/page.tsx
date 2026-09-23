@@ -8,11 +8,19 @@
 // data" label this page used to carry (data provenance consistency).
 "use client";
 
+// Sprint UI-02.7 - cross-dashboard consistency: self min-h-screen/max-w-6xl
+// wrapper removed (AppShell already provides it), symbol/category filter
+// chips -> Button (variant swap for the active/inactive state, same
+// technique established for every other segmented toggle in this program),
+// hand-rolled loading pulse divs -> Skeleton. Same fetch/filter/pagination
+// logic throughout.
 import { useCallback, useEffect, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import Alert from "@/components/ui/Alert";
 import EmptyState from "@/components/ui/EmptyState";
+import ErrorState from "@/components/ui/ErrorState";
 import Button from "@/components/ui/Button";
+import Skeleton from "@/components/ui/Skeleton";
 import NewsCard, { type NewsArticleDTO } from "@/components/news/NewsCard";
 import { NEWS_CATEGORIES, type NewsCategory } from "@/types/news-category";
 
@@ -94,93 +102,79 @@ export default function NewsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-ink p-6 text-text">
-      <div className="mx-auto max-w-6xl">
-        <PageHeader eyebrow="AI News" title="AI Financial News" description="Real financial headlines with sentiment and asset relevance for the instruments you trade." />
+    <div>
+      <PageHeader eyebrow="AI News" title="AI Financial News" description="Real financial headlines with sentiment and asset relevance for the instruments you trade." />
 
-        {state.status === "ready" && (
-          <Alert tone={state.freshness.isStale ? "warning" : "info"} title={state.freshness.isStale ? "News may be out of date" : "Updated"} className="mb-6">
-            {state.freshness.latestFetchedAt
-              ? `Last successful update ${timeAgo(state.freshness.latestFetchedAt)}${state.freshness.isStale ? " - may not reflect the latest news." : "."}`
-              : "No successful update yet."}
-          </Alert>
-        )}
+      {state.status === "ready" && (
+        <Alert tone={state.freshness.isStale ? "warning" : "info"} title={state.freshness.isStale ? "News may be out of date" : "Updated"} className="mb-6">
+          {state.freshness.latestFetchedAt
+            ? `Last successful update ${timeAgo(state.freshness.latestFetchedAt)}${state.freshness.isStale ? " - may not reflect the latest news." : "."}`
+            : "No successful update yet."}
+        </Alert>
+      )}
 
-        <div className="mb-4 flex flex-wrap gap-2">
-          <button
-            onClick={() => setSymbol(null)}
-            className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${symbol === null ? "border-gold/40 bg-gold/15 text-gold" : "border-border text-text-2 hover:border-border"}`}
-          >
-            All symbols
-          </button>
-          {FILTER_SYMBOLS.map((s) => (
-            <button
-              key={s}
-              onClick={() => setSymbol(s)}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${symbol === s ? "border-gold/40 bg-gold/15 text-gold" : "border-border text-text-2 hover:border-border"}`}
-            >
-              {s}
-            </button>
+      <div className="mb-4 flex flex-wrap gap-2">
+        <Button size="sm" variant={symbol === null ? "primary" : "secondary"} onClick={() => setSymbol(null)}>
+          All symbols
+        </Button>
+        {FILTER_SYMBOLS.map((s) => (
+          <Button key={s} size="sm" variant={symbol === s ? "primary" : "secondary"} onClick={() => setSymbol(s)}>
+            {s}
+          </Button>
+        ))}
+      </div>
+
+      <div className="mb-6 flex flex-wrap gap-2">
+        <Button size="sm" variant={category === null ? "primary" : "secondary"} className="capitalize" onClick={() => setCategory(null)}>
+          All categories
+        </Button>
+        {NEWS_CATEGORIES.map((c) => (
+          <Button key={c} size="sm" variant={category === c ? "primary" : "secondary"} className="capitalize" onClick={() => setCategory(c)}>
+            {c}
+          </Button>
+        ))}
+      </div>
+
+      {state.status === "loading" && (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-40" />
           ))}
         </div>
+      )}
 
-        <div className="mb-6 flex flex-wrap gap-2">
-          <button
-            onClick={() => setCategory(null)}
-            className={`rounded-lg border px-3 py-1.5 text-xs font-medium capitalize transition ${category === null ? "border-gold/40 bg-gold/15 text-gold" : "border-border text-text-2 hover:border-border"}`}
-          >
-            All categories
-          </button>
-          {NEWS_CATEGORIES.map((c) => (
-            <button
-              key={c}
-              onClick={() => setCategory(c)}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-medium capitalize transition ${category === c ? "border-gold/40 bg-gold/15 text-gold" : "border-border text-text-2 hover:border-border"}`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-
-        {state.status === "loading" && (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="h-40 animate-pulse rounded-xl border border-border bg-ink-2" />
-            ))}
-          </div>
-        )}
-
-        {state.status === "error" && (
-          <div className="rounded-card border border-danger/30 bg-danger/10 p-6">
-            <p className="text-sm font-semibold text-danger">Could not load news</p>
-            <p className="mt-1 text-sm text-text-2">{state.message}</p>
-            <Button variant="secondary" className="mt-4" onClick={() => fetchNews(1, false)}>
+      {state.status === "error" && (
+        <ErrorState
+          title="Could not load news"
+          description={state.message}
+          action={
+            <Button variant="secondary" onClick={() => fetchNews(1, false)}>
               Retry
             </Button>
-          </div>
-        )}
+          }
+        />
+      )}
 
-        {state.status === "ready" && state.items.length === 0 && (
-          <EmptyState title="No news matches the current filters." description="Try a different symbol or category above." />
-        )}
+      {state.status === "ready" && state.items.length === 0 && (
+        <EmptyState title="No news matches the current filters." description="Try a different symbol or category above." />
+      )}
 
-        {state.status === "ready" && state.items.length > 0 && (
-          <>
-            <section className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {state.items.map((article) => (
-                <NewsCard key={article.id} article={article} />
-              ))}
-            </section>
-            {state.items.length < state.total && (
-              <div className="mt-6 flex justify-center">
-                <Button variant="secondary" onClick={loadMore}>
-                  Load more
-                </Button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+      {state.status === "ready" && state.items.length > 0 && (
+        <>
+          <section className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {state.items.map((article) => (
+              <NewsCard key={article.id} article={article} />
+            ))}
+          </section>
+          {state.items.length < state.total && (
+            <div className="mt-6 flex justify-center">
+              <Button variant="secondary" onClick={loadMore}>
+                Load more
+              </Button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
