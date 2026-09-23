@@ -1,72 +1,62 @@
 // app/dashboard/credits/page.tsx
-// Sprint IA1 - New page. The ACCOUNT/Credits slot in the locked backoffice
-// IA has no built feature behind it yet: no credit ledger, no metering on
-// any AI-powered action, no pricing (explicitly deferred by this sprint's
-// own scope - "the exact credit prices/amounts are NOT being finalized").
-// Rather than fabricate a balance/usage widget with invented numbers, this
-// states that status honestly and points at what IS real today (plan-based
-// access, managed in Billing) - the same disclosure pattern already used
-// by /quant-lite/upgrade for the not-yet-built Quant Pro.
-// Sprint IA2 - "give Credits a ready structure for the future AI-credit
-// system, without implementing fake metering." The structure is
-// types/credits.ts (an inert type skeleton + CREDIT_ACTION_LABELS, nothing
-// reads/writes it) plus the roadmap list below, sourced from that same
-// labels map - still zero numbers, zero fake balance, just naming what the
-// categories will be so a future metering sprint isn't designing from
-// scratch.
+// Sprint IA1/IA2 history: originally shipped with no real ledger behind it
+// (honest "not yet available" disclosure, correct at the time).
 //
-// Beta Production Smoke, Batch 4 (owner-authorized) - this page previously
-// said "Credit-based metering...has not been built yet", which read as
-// contradicting the real per-run usage already shown on the AI Agents and
-// Automation pages. There are two distinct systems: A8's live per-run
-// budget counter (real, active, already displayed elsewhere - see
-// services/agent-framework/credits/credit-ledger.ts's own header) and A9's
-// account-level balance ledger (real, built, but deliberately INERT until
-// its migration is applied - see services/agent-framework/credits/
-// index.ts). Owner decision: keep A9 inert, correct the copy only to
-// distinguish the two rather than imply neither exists.
+// Email audit follow-up (2026-09-24) - that disclosure went stale without
+// anyone updating this page: the A9 credit ledger has been live in
+// production since 2026-09-07 (services/agent-framework/credits/credit-
+// ledger.ts), computing a real, correct per-user balance on every real
+// agent-run charge - confirmed via a direct database check (343 real
+// ledger entries), not just reading the code. This page's own comment
+// previously claimed A9 was "deliberately INERT until its migration is
+// applied" - that migration has been applied the whole time; the comment
+// was simply never corrected after whatever landed A9 shipped. Now shows
+// the real balance instead of a stale "not available" message.
 import type { Metadata } from "next";
 import Card from "@/components/ui/Card";
-import Badge from "@/components/ui/Badge";
 import ButtonLink from "@/components/ui/ButtonLink";
 import PageHeader from "@/components/ui/PageHeader";
 import { CREDIT_ACTION_LABELS } from "@/types/credits";
+import { requireUser } from "@/lib/auth/protectedRoute";
+import { createCreditLedger } from "@/services/agent-framework/credits";
 
 export const metadata: Metadata = {
   title: "Credits",
 };
 
 // Sprint UI-02.7 - cross-dashboard consistency: hand-rolled <h1> -> PageHeader.
-export default function CreditsPage() {
+export default async function CreditsPage() {
+  const sessionUser = await requireUser();
+  const balance = await createCreditLedger().balance(sessionUser.profile.id);
+  const usedPct = balance.allowance > 0 ? Math.min(100, Math.round((balance.consumed / balance.allowance) * 100)) : 0;
+  const periodEnd = new Date(balance.periodEnd).toLocaleDateString(undefined, { month: "long", day: "numeric" });
+  const barColor = usedPct >= 100 ? "bg-danger" : usedPct >= 80 ? "bg-warning" : "bg-success";
+
   return (
     <div className="max-w-2xl space-y-6">
-      <PageHeader
-        eyebrow="Account"
-        title="Credits"
-        description="AI usage tracking is active for this account. Account-level credit balances are not yet available."
-      />
+      <PageHeader eyebrow="Account" title="Credits" description="Your real AI-credit usage for this billing period." />
 
       <Card padding="lg">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-text-3">Status</h2>
-          <Badge tone="neutral">Balance not yet available</Badge>
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-text-3">This period</h2>
+          <span className="text-xs text-text-3">Resets {periodEnd}</span>
         </div>
-        <p className="mt-3 text-sm text-text-2">
-          AI usage tracking is active for this account - actions like AI Agent runs and Automations already record
-          and display real usage (see AI Agents and Automation). What&apos;s not yet available is an account-level
-          credit balance: pricing and the credit policy have not been finalized, so there is no balance to show
-          here. This is not a bug.
+        <p className="mt-2 text-2xl font-bold text-text">
+          {Math.max(0, Math.round(balance.balance)).toLocaleString()} <span className="text-sm font-normal text-text-3">/ {balance.allowance.toLocaleString()} remaining</span>
         </p>
+        <div className="mt-3 h-2 w-full rounded-full bg-ink-3">
+          <div className={`h-2 rounded-full ${barColor}`} style={{ width: `${usedPct}%` }} />
+        </div>
+        <p className="mt-2 text-xs text-text-3">{balance.consumed.toLocaleString()} used ({usedPct}%) on real AI Agent runs and Automations this period.</p>
         <p className="mt-3 text-sm text-text-2">
-          Today, access to AI features is governed by your plan, not by an individual credit balance. Deterministic
-          Quant backtesting is not credit-metered.
+          This is a real, live count - every AI Agent run and Automation execution charges against it. Deterministic Quant backtesting is not credit-metered.
         </p>
       </Card>
 
       <Card padding="lg">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-text-3">What's planned</h2>
         <p className="mt-1 text-sm text-text-2">
-          Actions expected to consume credits once metering ships - listed for transparency, not yet active:
+          Metering itself is live (above) - this is a future, more granular per-action breakdown, listed for transparency, not yet active:
         </p>
         <ul className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1.5 text-sm text-text-2 sm:grid-cols-2">
           {Object.values(CREDIT_ACTION_LABELS).map((label) => (

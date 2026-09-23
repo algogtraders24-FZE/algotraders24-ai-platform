@@ -70,13 +70,30 @@ export interface ChargeResult {
   balance: CreditBalance;
 }
 
+// Email audit follow-up (2026-09-24) - optional, injected dependency so the
+// ledger stays pure/dependency-free for the in-memory test harness (see
+// credits/index.ts's own "must not write real ledger rows" comment) -
+// nothing here imports EmailService directly. The real production factory
+// (createCreditLedger()) wires in the real notifier; every other caller
+// (including every validate-*.ts script) gets the no-op default and never
+// triggers a real email.
+export interface CreditThresholdNotifier {
+  checkThreshold(userId: string, balance: CreditBalance): Promise<void> | void;
+}
+
+class NoopThresholdNotifier implements CreditThresholdNotifier {
+  checkThreshold(): void {}
+}
+
 export class CreditLedger {
   private readonly store: CreditStore;
   private readonly allowances: AllowanceResolver;
+  private readonly notifier: CreditThresholdNotifier;
 
-  constructor(deps: { store?: CreditStore; allowances?: AllowanceResolver } = {}) {
+  constructor(deps: { store?: CreditStore; allowances?: AllowanceResolver; notifier?: CreditThresholdNotifier } = {}) {
     this.store = deps.store ?? new InMemoryCreditStore();
     this.allowances = deps.allowances ?? new PlanAllowanceResolver();
+    this.notifier = deps.notifier ?? new NoopThresholdNotifier();
   }
 
   /** Authoritative balance - recomputed from the allowance minus the period
@@ -138,7 +155,17 @@ export class CreditLedger {
         periodStart: a.periodStart,
       });
       log.info("credit charge", { userId: req.userId, runId: req.runId, toolCallId: req.toolCallId, kind: req.kind, amount: req.amount, balanceAfter });
-      return { charged: true, alreadyApplied: false, entry, balance: await this.balance(req.userId) };
+      const balance = await this.balance(req.userId);
+      // Best-effort, never blocks or fails a charge that has already
+      // succeeded - only checked on a genuinely fresh charge (not the
+      // idempotent-no-op paths above/below, where the balance didn't
+      // actually change).
+      try {
+        await this.notifier.checkThreshold(req.userId, balance);
+      } catch (notifyErr) {
+        log.error("credit threshold notification failed (non-fatal)", { userId: req.userId, error: notifyErr instanceof Error ? notifyErr.message : String(notifyErr) });
+      }
+      return { charged: true, alreadyApplied: false, entry, balance };
     } catch (err) {
       if (err instanceof DuplicateLedgerEntryError) {
         // lost a race with a concurrent identical charge - treat as applied.
