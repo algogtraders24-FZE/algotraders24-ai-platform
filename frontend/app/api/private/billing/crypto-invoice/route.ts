@@ -9,6 +9,7 @@ import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { nowPaymentsProvider } from "@/services/billing/providers/NowPaymentsProvider";
 import { PaymentProviderError } from "@/lib/payments/errors";
+import { MAX_REASONABLE_PAYMENT_AMOUNT_USD } from "@/lib/payments/env";
 import { isPlanId } from "@/config/plan-limits";
 import { prisma } from "@/lib/prisma";
 import { getPlanCyclePrice } from "@/services/billing/planPricing";
@@ -39,6 +40,9 @@ export const POST = withContext(async (req, ctx) => {
     return ApiResponse.error({ code: "VALIDATION", message: "Plan is not a valid paid plan" }, ctx.requestId, 400, ctx.startedAt);
   }
   const priceUsd = getPlanCyclePrice(plan, cycle);
+  if (priceUsd > MAX_REASONABLE_PAYMENT_AMOUNT_USD) {
+    return ApiResponse.error({ code: "AMOUNT_EXCEEDS_LIMIT", message: "This plan's price exceeds the platform's sanity limit - contact support." }, ctx.requestId, 409, ctx.startedAt);
+  }
   const orderId = `${sessionUser.profile.id}:${plan.id}:${cycle}:${Date.now()}`;
 
   try {

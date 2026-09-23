@@ -8,7 +8,7 @@
 // places a price could live).
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
-import { loadStripeEnv, getSiteUrl } from "@/lib/payments/env";
+import { loadStripeEnv, getSiteUrl, MAX_REASONABLE_PAYMENT_AMOUNT_USD } from "@/lib/payments/env";
 import { PaymentProviderError } from "@/lib/payments/errors";
 import { getPlanCyclePrice } from "@/services/billing/planPricing";
 
@@ -81,6 +81,9 @@ export class StripeProvider {
     const cyclePrice = plan ? getPlanCyclePrice(plan, params.cycle) : 0;
     if (!plan || !cyclePrice || cyclePrice <= 0) {
       throw new PaymentProviderError("invalid_response", `Plan is not a valid paid plan: ${params.planId}`, "stripe");
+    }
+    if (cyclePrice > MAX_REASONABLE_PAYMENT_AMOUNT_USD) {
+      throw new PaymentProviderError("invalid_response", `Plan price exceeds the platform's sanity limit: ${params.planId}`, "stripe");
     }
 
     const customerId = await this.getOrCreateCustomer(params.userId);

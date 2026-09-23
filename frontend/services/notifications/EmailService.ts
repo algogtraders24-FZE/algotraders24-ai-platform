@@ -208,6 +208,41 @@ export async function sendSubscriptionActivationFailureAlert(params: {
   await dispatch({ type: "subscription_activation_failure_alert", to: OPS_ALERT_ADDRESS, subject: `[ACTION NEEDED] Subscription activation failed after payment - ${params.userId}`, html });
 }
 
+// Payment Verification/Hardening - found via audit, not yet observed in
+// production: if a Stripe checkout.session.completed event's metadata is
+// ever missing/malformed a required field (buyerId/listingId/... for a
+// marketplace purchase, userId/planId for a subscription), the webhook's
+// existence-check silently skips processing - no error, no alert, nothing.
+// A buyer could be charged with zero record anywhere that anything went
+// wrong. This closes that silent-skip gap the same way
+// sendLicenseIssuanceFailureAlert closes the license-issuance-failure one.
+export async function sendWebhookMetadataMissingAlert(params: {
+  provider: "stripe" | "nowpayments";
+  eventContext: string;
+  providerRef: string;
+  missingFields: string[];
+  rawMetadata: Record<string, unknown>;
+}): Promise<void> {
+  const html = renderLayout({
+    title: "A payment webhook fired with missing/malformed metadata",
+    titleColor: "#b91c1c",
+    maxWidth: 560,
+    bodyHtml: `
+      <p>${params.provider === "nowpayments" ? "NOWPayments" : "Stripe"} sent a ${escapeHtml(params.eventContext)} event, but required metadata was missing or malformed, so nothing was processed - no Purchase, no Entitlement, no License, no subscription activation. If this event represents a real successful payment, the customer was charged with no record of it. This needs manual follow-up.</p>
+      ${detailTable([
+        ["Provider", params.provider],
+        ["Event context", escapeHtml(params.eventContext)],
+        ["Provider ref", `<span style="font-family: monospace; font-size: 11px;">${escapeHtml(params.providerRef)}</span>`],
+        ["Missing/invalid fields", escapeHtml(params.missingFields.join(", ") || "(none identified)")],
+      ])}
+      <p style="color: #666; font-size: 13px;">Raw metadata: <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px; word-break: break-all;">${escapeHtml(JSON.stringify(params.rawMetadata))}</code></p>
+    `,
+    footerHtml: "",
+  });
+
+  await dispatch({ type: "webhook_metadata_missing_alert", to: OPS_ALERT_ADDRESS, subject: `[ACTION NEEDED] ${params.provider} webhook metadata missing - ${params.eventContext}`, html });
+}
+
 // Covers both a fresh subscribe and every renewal - both go through
 // SubscriptionActionService.activateFromPayment(), called from
 // checkout.session.completed (subscription mode) and

@@ -14,6 +14,7 @@ import { prisma } from "@/lib/prisma";
 import { withTableFallback } from "@/services/marketplace/tableGuard";
 import { stripeProvider } from "@/services/billing/providers/StripeProvider";
 import { PaymentProviderError } from "@/lib/payments/errors";
+import { MAX_REASONABLE_PAYMENT_AMOUNT_USD } from "@/lib/payments/env";
 import { PUBLICLY_VISIBLE_STATES } from "@/types/marketplace";
 
 // PAY-4C - pin this function to a single region. Production smoke testing
@@ -62,6 +63,9 @@ export const POST = withContext(async (req, ctx) => {
   const amount = pricing && typeof pricing === "object" ? pricing.amount : null;
   if (model !== "one_time" || typeof amount !== "number" || amount <= 0) {
     return ApiResponse.error({ code: "NOT_PURCHASABLE", message: "This listing does not have a valid one-time price set" }, ctx.requestId, 409, ctx.startedAt);
+  }
+  if (amount > MAX_REASONABLE_PAYMENT_AMOUNT_USD) {
+    return ApiResponse.error({ code: "AMOUNT_EXCEEDS_LIMIT", message: "This listing's price exceeds the platform's sanity limit - contact support." }, ctx.requestId, 409, ctx.startedAt);
   }
 
   if (!listing.tradingSystemId || !listing.versionId) {

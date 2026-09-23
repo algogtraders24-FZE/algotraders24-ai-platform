@@ -35,3 +35,12 @@ export function loadNowPaymentsEnv(): NowPaymentsEnv | null {
 export function getSiteUrl(): string {
   return process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 }
+
+// Payment Verification/Hardening - every checkout-creation path already
+// rejects amount <= 0, but had no upper bound at all, so a data-entry
+// error (a seller/admin typing $50,000 instead of $50.00) would sail
+// through every layer unblocked. The highest real price in production
+// today is $4,790 (Enterprise yearly); this is a generous sanity ceiling
+// to catch an obvious mistake, not a real business limit - raise it, not
+// remove it, if a legitimate product ever needs to price above this.
+export const MAX_REASONABLE_PAYMENT_AMOUNT_USD = 10_000;

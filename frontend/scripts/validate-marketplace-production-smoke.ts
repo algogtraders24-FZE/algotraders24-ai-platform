@@ -9,8 +9,10 @@
 // sellerId values that are clearly synthetic markers, not real User ids.
 // Both are hard-deleted in a `finally` block regardless of pass/fail, and
 // a final assertion confirms zero rows remain matching the smoke-test
-// slug pattern. This script creates NO real product, NO Gold product, and
-// leaves NO listing in production when it exits.
+// slug pattern - THIS script's own rows, not the table as a whole. Real
+// production listings now exist (this table stopped being empty long
+// after M8.1 shipped) - this script never touches, counts, or requires
+// zero of anything outside its own unmistakable smoke-test slug prefix.
 import "dotenv/config";
 import assert from "node:assert/strict";
 import { prisma } from "../lib/prisma";
@@ -246,12 +248,19 @@ main()
         failed += 1;
       }
     }
+    // Payment Verification/Hardening - this script's own safety contract
+    // used to also assert `marketplaceListing.count() === 0` (the whole
+    // table, not just this script's rows), correct only back when M8.1
+    // shipped and the table was genuinely empty. Real, non-trivial
+    // production listings/purchases now exist (confirmed via the payment-
+    // verification audit) - that assertion has been permanently false ever
+    // since, independent of whether this script's own cleanup actually
+    // worked. Scoped strictly to this script's own smoke-test slug prefix
+    // now, which is what the cleanup guarantee was actually supposed to mean.
     const remaining = await prisma.marketplaceListing.count({ where: { slug: { startsWith: SMOKE_SLUG_PREFIX } } });
-    const totalReal = await prisma.marketplaceListing.count();
     console.log(`  remaining smoke-test rows: ${remaining} (must be 0)`);
-    console.log(`  TOTAL marketplace_listings rows in production: ${totalReal} (must be 0)`);
-    if (remaining !== 0 || totalReal !== 0) {
-      console.error("CLEANUP VERIFICATION FAILED - production is not at zero listings.");
+    if (remaining !== 0) {
+      console.error("CLEANUP VERIFICATION FAILED - this script's own smoke-test rows were not fully removed.");
       failed += 1;
     }
     await prisma.$disconnect();
