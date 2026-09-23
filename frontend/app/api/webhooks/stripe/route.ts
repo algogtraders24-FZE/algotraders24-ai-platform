@@ -18,6 +18,7 @@ import {
   sendSubscriptionActivationFailureAlert,
   sendSubscriptionCancelledEmail,
   sendPaymentFailedEmail,
+  sendWebhookMetadataMissingAlert,
 } from "@/services/notifications/EmailService";
 import { notifySubscriptionActive } from "@/services/billing/subscriptionNotifications";
 import { prisma } from "@/lib/prisma";
@@ -138,6 +139,34 @@ export const POST = withContext(async (req, ctx) => {
                 console.error("[webhook:stripe] purchase confirmation email failed:", emailError);
               }
             }
+          } else {
+            // Payment Verification/Hardening - this used to be a silent
+            // skip: Stripe charged the buyer, this branch's own condition
+            // failed, and execution fell straight through to `break` below
+            // with zero signal anywhere. Now alerts the team instead.
+            const missingFields = (
+              [
+                ["buyerId", m.buyerId],
+                ["listingId", m.listingId],
+                ["tradingSystemId", m.tradingSystemId],
+                ["versionId", m.versionId],
+                ["platform", m.platform],
+                ["releaseId", m.releaseId],
+              ] as const
+            )
+              .filter(([, v]) => !v)
+              .map(([k]) => k);
+            try {
+              await sendWebhookMetadataMissingAlert({
+                provider: "stripe",
+                eventContext: "checkout.session.completed (marketplace_purchase)",
+                providerRef: session.id,
+                missingFields,
+                rawMetadata: m as Record<string, unknown>,
+              });
+            } catch (alertError) {
+              console.error("[webhook:stripe] metadata-missing alert failed:", alertError);
+            }
           }
           break;
         }
@@ -172,6 +201,23 @@ export const POST = withContext(async (req, ctx) => {
             throw activationError;
           }
           await notifySubscriptionActive(userId, planId, currentPeriodEnd);
+        } else if (session.metadata?.type !== "marketplace_purchase") {
+          // Payment Verification/Hardening - same silent-skip gap as the
+          // marketplace branch above, for the subscription checkout path.
+          // Only fires for a genuine checkout.session.completed with no
+          // recognized metadata shape at all (not the marketplace branch,
+          // which already alerted and `break`s before reaching here).
+          try {
+            await sendWebhookMetadataMissingAlert({
+              provider: "stripe",
+              eventContext: "checkout.session.completed (subscription)",
+              providerRef: session.id,
+              missingFields: [!userId && "userId", !planId && "planId"].filter((v): v is string => !!v),
+              rawMetadata: (session.metadata ?? {}) as Record<string, unknown>,
+            });
+          } catch (alertError) {
+            console.error("[webhook:stripe] metadata-missing alert failed:", alertError);
+          }
         }
         break;
       }
@@ -283,6 +329,43 @@ export const POST = withContext(async (req, ctx) => {
             console.error("[webhook:stripe] subscription cancelled email failed:", error);
           }
         }
+        break;
+      }
+      // Payment Verification/Hardening - these three previously fell into
+      // the generic `default` no-op with zero trace anywhere. Marketplace
+      // one-time purchases write no AT24 row before completion (unlike the
+      // NOWPayments crypto path's MarketplacePurchaseIntent), so there is
+      // nothing to update to a terminal state here - this is visibility
+      // logging only, not a new abandonment-cleanup feature.
+      case "checkout.session.expired": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        console.warn("[webhook:stripe] checkout session expired (no purchase completed):", { sessionId: session.id, metadataType: session.metadata?.type });
+        break;
+      }
+      case "payment_intent.payment_failed": {
+        const intent = event.data.object as Stripe.PaymentIntent;
+        console.warn("[webhook:stripe] payment intent failed:", { paymentIntentId: intent.id, lastError: intent.last_payment_error?.message });
+        break;
+      }
+      case "charge.failed": {
+        const charge = event.data.object as Stripe.Charge;
+        console.warn("[webhook:stripe] charge failed:", { chargeId: charge.id, failureMessage: charge.failure_message });
+        break;
+      }
+      // Payment Verification/Hardening - refund/dispute visibility only,
+      // deliberately NOT a refund-processing feature (explicitly out of
+      // scope). No Purchase/Entitlement/License state is touched - this
+      // only makes sure the team finds out a refund/dispute happened
+      // instead of it being invisible, same "log real gaps, don't build
+      // around them" spirit as the two cases above.
+      case "charge.refunded": {
+        const charge = event.data.object as Stripe.Charge;
+        console.warn("[webhook:stripe] charge refunded (no automated handling - manual review needed):", { chargeId: charge.id, amountRefunded: (charge.amount_refunded ?? 0) / 100 });
+        break;
+      }
+      case "charge.dispute.created": {
+        const dispute = event.data.object as Stripe.Dispute;
+        console.warn("[webhook:stripe] dispute opened (no automated handling - manual review needed):", { disputeId: dispute.id, chargeId: typeof dispute.charge === "string" ? dispute.charge : dispute.charge?.id, reason: dispute.reason });
         break;
       }
       default:

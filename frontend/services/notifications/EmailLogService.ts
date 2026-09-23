@@ -1,9 +1,8 @@
 // services/notifications/EmailLogService.ts
 // Delivery-outcome logging for EmailService.dispatch(). The `EmailLog`
-// table's migration (prisma/migrations/20260921120000_add_email_log) is
-// generated but NOT yet applied to the database - every call here is
-// wrapped so a missing table (or any other DB error) degrades to a
-// console.warn, never a thrown error. Logging email delivery must never be
+// table (migration 20260921120000_add_email_log) is applied to production.
+// Every call here is still wrapped so any DB error degrades to a
+// console.warn, never a thrown error - logging email delivery must never be
 // the reason an actual email send (or the domain action that triggered it)
 // fails.
 import "server-only";
