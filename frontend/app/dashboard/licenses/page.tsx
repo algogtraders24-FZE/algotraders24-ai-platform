@@ -22,19 +22,23 @@ import { requireUser } from "@/lib/auth/protectedRoute";
 import { getMyPurchases } from "@/services/licensing/myPurchases";
 import EmptyState from "@/components/ui/EmptyState";
 import ButtonLink from "@/components/ui/ButtonLink";
+import PageHeader from "@/components/ui/PageHeader";
 import LicenseStatusBadge from "@/components/licensing/LicenseStatusBadge";
 
+// Sprint UI-02.7 - cross-dashboard consistency: hand-rolled <h1> -> PageHeader.
+// The card-shaped <Link> grid below stays a hand-rolled rounded-card/
+// border-border/bg-ink-2 recipe rather than composing Card - the whole
+// element IS the link (entire card clickable), and Card doesn't expose an
+// "as Link" mode, so wrapping it would mean either an invalid <a><div></a>-
+// style nesting workaround or losing the full-card click target.
 export default async function LicensesPage() {
   const sessionUser = await requireUser();
   const purchases = await getMyPurchases(sessionUser.profile.id);
   const licenses = purchases.filter((p) => p.licenseId !== null);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-text">My Licenses</h1>
-        <p className="mt-1 text-sm text-text-2">Every license issued from a real Marketplace purchase.</p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader eyebrow="Account" title="My Licenses" description="Every license issued from a real Marketplace purchase." />
 
       {licenses.length === 0 ? (
         <EmptyState

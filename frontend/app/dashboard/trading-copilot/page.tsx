@@ -9,12 +9,28 @@
 // former synthetic cards (invented bias, RSI, support/resistance, trade
 // setups) are gone entirely. Any indicator that cannot be computed from the
 // available candles renders "Insufficient data" - never an estimate.
+// Sprint UI-02.7 - cross-dashboard consistency: self min-h-screen/max-w-6xl
+// wrapper removed (AppShell already provides it); the symbol <select> ->
+// Select, Run Analysis/Retry raw buttons -> Button, the dashed idle box ->
+// EmptyState, the loading box -> Card + Spinner (same pattern Market
+// Intelligence already established). The 6 `rounded-panel` sections in
+// Result() and the Metric tile's bg-ink are intentionally left as-is -
+// rounded-panel is an approved 20px "hero" radius token Card can't produce
+// (Card is hardcoded to rounded-card/12px), and Metric's bg-ink (vs
+// Card's bg-ink-2) gives it visible depth against the bg-ink-2 section it
+// sits inside - forcing either through Card would be a real token/
+// hierarchy regression, not a fix. Same analyze() call, same data.
 import { useState } from "react";
 import type { CopilotAnalysis } from "@/services/ai/trading-copilot.service";
 import { listEnabledMarkets } from "@/lib/market-data/market-registry";
 import Disclaimer from "@/components/ui/Disclaimer";
 import PageHeader from "@/components/ui/PageHeader";
 import ErrorState from "@/components/ui/ErrorState";
+import EmptyState from "@/components/ui/EmptyState";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import Select from "@/components/ui/Select";
+import Spinner from "@/components/ui/Spinner";
 
 const MARKETS = listEnabledMarkets();
 
@@ -66,73 +82,56 @@ export default function TradingCopilotPage() {
   };
 
   return (
-    <div className="min-h-screen bg-ink p-6 text-text">
-      <div className="mx-auto max-w-6xl space-y-6">
-        <PageHeader
-          eyebrow="Trading Copilot"
-          title="Real technical analysis"
-          description={
-            <>
-              Live market data → real indicators (RSI, EMA, SMA, ATR, MACD, Bollinger) → an AI explanation of the
-              computed evidence. Nothing is estimated: where history is too short, values show{" "}
-              <span className="text-text">Insufficient data</span>.
-            </>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Trading Copilot"
+        title="Real technical analysis"
+        description={
+          <>
+            Live market data → real indicators (RSI, EMA, SMA, ATR, MACD, Bollinger) → an AI explanation of the
+            computed evidence. Nothing is estimated: where history is too short, values show{" "}
+            <span className="text-text">Insufficient data</span>.
+          </>
+        }
+      />
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Select value={symbol} onChange={(e) => setSymbol(e.target.value)}>
+          {MARKETS.map((m) => (
+            <option key={m.symbol} value={m.symbol}>
+              {m.name} ({m.symbol})
+            </option>
+          ))}
+        </Select>
+        <Button onClick={analyze} loading={run.status === "loading"}>
+          Run Analysis
+        </Button>
+      </div>
+
+      {run.status === "idle" && (
+        <EmptyState title="No analysis yet" description="Pick a market and run a real, indicator-based analysis against live data." />
+      )}
+
+      {run.status === "loading" && (
+        <Card className="flex items-center gap-3 text-sm text-text-2">
+          <Spinner size="sm" />
+          Fetching live data and computing indicators — this takes a few seconds.
+        </Card>
+      )}
+
+      {run.status === "error" && (
+        <ErrorState
+          title="Analysis unavailable"
+          description={run.message}
+          action={
+            <Button variant="secondary" size="sm" onClick={analyze}>
+              Retry
+            </Button>
           }
         />
+      )}
 
-        <div className="flex flex-wrap items-center gap-3">
-          <select
-            value={symbol}
-            onChange={(e) => setSymbol(e.target.value)}
-            className="rounded-control border border-border bg-ink-2 px-4 py-2.5 text-sm text-text focus-visible:border-gold"
-          >
-            {MARKETS.map((m) => (
-              <option key={m.symbol} value={m.symbol}>
-                {m.name} ({m.symbol})
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={analyze}
-            disabled={run.status === "loading"}
-            className="rounded-control bg-gold px-5 py-2.5 text-sm font-semibold text-ink transition hover:brightness-110 disabled:opacity-50"
-          >
-            {run.status === "loading" ? "Analyzing…" : "Run Analysis"}
-          </button>
-        </div>
-
-        {run.status === "idle" && (
-          <div className="rounded-card border border-dashed border-border bg-ink-2/50 p-6 text-sm text-text-2">
-            <p className="font-semibold text-text">No analysis yet</p>
-            <p className="mt-1">Pick a market and run a real, indicator-based analysis against live data.</p>
-          </div>
-        )}
-
-        {run.status === "loading" && (
-          <div className="rounded-card border border-border bg-ink-2 p-6 text-sm text-text-2">
-            Fetching live data and computing indicators — this takes a few seconds.
-          </div>
-        )}
-
-        {run.status === "error" && (
-          <ErrorState
-            title="Analysis unavailable"
-            description={run.message}
-            action={
-              <button
-                type="button"
-                onClick={analyze}
-                className="rounded-control border border-border px-4 py-2 text-sm font-medium text-text transition hover:border-gold"
-              >
-                Retry
-              </button>
-            }
-          />
-        )}
-
-        {run.status === "completed" && <Result analysis={run.analysis} />}
-      </div>
+      {run.status === "completed" && <Result analysis={run.analysis} />}
     </div>
   );
 }

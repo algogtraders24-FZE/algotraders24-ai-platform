@@ -29,21 +29,22 @@ import type { Metadata } from "next";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import ButtonLink from "@/components/ui/ButtonLink";
+import PageHeader from "@/components/ui/PageHeader";
 import { CREDIT_ACTION_LABELS } from "@/types/credits";
 
 export const metadata: Metadata = {
   title: "Credits",
 };
 
+// Sprint UI-02.7 - cross-dashboard consistency: hand-rolled <h1> -> PageHeader.
 export default function CreditsPage() {
   return (
     <div className="max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-text">Credits</h1>
-        <p className="mt-1 text-sm text-text-3">
-          AI usage tracking is active for this account. Account-level credit balances are not yet available.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Account"
+        title="Credits"
+        description="AI usage tracking is active for this account. Account-level credit balances are not yet available."
+      />
 
       <Card padding="lg">
         <div className="flex items-center gap-2">
