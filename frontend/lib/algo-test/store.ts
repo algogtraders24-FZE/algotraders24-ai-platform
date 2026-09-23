@@ -6,6 +6,9 @@ import type { AiCompileAndRunRequest, AlgoTestRunRequest, AlgoTestRunView, AlgoT
 import type { QuantChatConversationState, QuantChatModificationKind } from "@/types/quant-chat";
 import type { CompileNaturalLanguageStrategyResult } from "@/services/algo-test/nl-strategy-compiler.service";
 import type { QuantChatPreviewData } from "@/services/algo-test/quant-chat-preview.service";
+import type { CompiledStrategySummary } from "@/services/algo-test/nl-strategy-compiler-summary";
+import type { LiveExecutionTickResult } from "@/services/algo-test/live-execution/live-execution.service";
+import type { StrategySpec } from "at24-quant-engine";
 
 const BASE = "/api/private/algo-test";
 
@@ -156,4 +159,28 @@ export async function fetchStrategyLibraryDetail(strategyId: string): Promise<St
   } catch {
     return undefined;
   }
+}
+
+/** Live Execution (Paper) - Phase 1. Compile-only, same POST /compile route the natural-language compiler has always exposed - never runs a backtest, never opens a position. */
+export async function compileStrategyForLiveExecution(intent: string): Promise<CompiledStrategySummary> {
+  const res = await fetch(`${BASE}/compile`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ intent }),
+  });
+  if (!res.ok) throw new Error(await parseErrorMessage(res));
+  const json = await res.json();
+  return json.data.compilation as CompiledStrategySummary;
+}
+
+/** Live Execution (Paper) - Phase 1. One evaluation cycle: fetch fresh bars, decide, maybe open/close a paper position. The CALLER (LiveExecutionClient.tsx) owns the polling interval - this is a single, stateless request every tick, matching the route's own "no server-side running state" design. */
+export async function tickLiveExecution(spec: StrategySpec): Promise<LiveExecutionTickResult> {
+  const res = await fetch(`${BASE}/live-execution/tick`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ spec }),
+  });
+  if (!res.ok) throw new Error(await parseErrorMessage(res));
+  const json = await res.json();
+  return json.data.result as LiveExecutionTickResult;
 }

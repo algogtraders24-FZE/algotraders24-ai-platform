@@ -152,6 +152,12 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
         // (it previously had zero navigation links anywhere in the app).
         children: [
           { label: "Quant Chat", href: "/dashboard/quant-chat" },
+          // Owner-directed live/paper-trading auto-execution (Phase 1,
+          // 2026-09-23) - see app/dashboard/algo-test-live/page.tsx and
+          // services/algo-test/live-execution/live-execution.service.ts's
+          // own headers for the full design (tab-resident polling only,
+          // no new cron/Agent Framework tool).
+          { label: "Live Execution (Paper)", href: "/dashboard/algo-test-live" },
           { label: "My Product Listing", href: "/marketplace/sell" },
         ],
       },
