@@ -119,25 +119,25 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       // no standalone page: it's a toolbar/panel inside the Native Chart
       // workspace, scoped today to XAUUSD/M5. Links to that real surface
       // rather than inventing a dedicated page around it.
-      // P4.7-T2 - gained a real second surface (Run History,
-      // app/dashboard/algo-test-history) - nested the same way "Quant"
-      // nests Quant Lite/Pro and "AI Assistant" nests Trading Copilot/
-      // Knowledge Base, per this file's own established children
-      // convention (a sub-capability of the parent, not a distinct
-      // locked top-level slot). The parent href is unchanged.
-      // P4.8-T3.4.2 - gained a third surface (Strategy Library,
-      // app/dashboard/algo-test-library) - same children convention,
-      // same reasoning.
-      // P4.9-C.2 - gained a fourth surface (Walk-Forward Optimization,
-      // app/dashboard/algo-test-walk-forward) - same children convention,
-      // same reasoning. The "Optimize" entry was deliberately deferred at
-      // the time as a separate follow-up - P4.11 closes exactly that gap
-      // below (docs/architecture/p4.10-quant-pro-roadmap-audit.md, QP-02).
-      // P4.11 - gained a fifth surface (grid-sweep Optimization,
-      // app/dashboard/algo-test-optimize) - same children convention. This
-      // was the P4.9-A optimization UI's own real, pre-existing
-      // discoverability gap (it had zero nav entry anywhere), re-confirmed
-      // by the P4.10 audit as the product's single P0 beta blocker.
+      // Owner decision (2026-09-23) - Run History/Strategy Library/Optimize/
+      // Walk-Forward (P4.7-T2/P4.8-T3.4.2/P4.9-C.2/P4.11) removed from this
+      // nav. Owner's stated reasoning: these surfaces have no real use for
+      // this product's actual flow - a user generates/brings their own code
+      // and tests it independently on their own platform, so AT24 doesn't
+      // need to run/validate it internally. The underlying pages/routes are
+      // untouched (still reachable by URL if ever needed again), only their
+      // navigation entries are gone. Replaced with "My Product Listing" -
+      // the REAL existing mechanism for "test your own code, then sell it"
+      // that turned out to ALREADY EXIST, fully built, with simply no nav
+      // entry anywhere (Sprint M9: app/marketplace/sell/SellClient.tsx, a
+      // complete draft-creation form -> POST /api/private/marketplace/
+      // listings; Sprint M12: app/marketplace/my-products, the seller
+      // backoffice - price/media/screenshots + a real "Submit for review"
+      // ingestion+eligibility pipeline, screenshots explicitly captioned
+      // "strategy tester results" from the seller's own platform). Points
+      // at /marketplace/sell (the actual creation entry point) - SellClient
+      // itself redirects to /marketplace/my-products once a draft exists,
+      // which is also reachable directly from Marketplace below.
       {
         label: "Algo Testing Pro",
         href: "/dashboard/workspace",
@@ -152,10 +152,7 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
         // (it previously had zero navigation links anywhere in the app).
         children: [
           { label: "Quant Chat", href: "/dashboard/quant-chat" },
-          { label: "Run History", href: "/dashboard/algo-test-history" },
-          { label: "Strategy Library", href: "/dashboard/algo-test-library" },
-          { label: "Optimize", href: "/dashboard/algo-test-optimize" },
-          { label: "Walk-Forward", href: "/dashboard/algo-test-walk-forward" },
+          { label: "My Product Listing", href: "/marketplace/sell" },
         ],
       },
       {
@@ -165,7 +162,8 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
         children: [
           // Sprint M12 - the seller backoffice existed with a working page
           // but no nav entry anywhere (undiscoverable except by typing the
-          // URL). Nested here as the seller-side view of Marketplace.
+          // URL). Nested here as the seller-side view of Marketplace, and
+          // also surfaced under Algo Testing Pro above (own comment there).
           { label: "My Products", href: "/marketplace/my-products" },
         ],
       },
