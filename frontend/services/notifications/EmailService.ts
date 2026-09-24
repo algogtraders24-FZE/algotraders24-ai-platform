@@ -423,6 +423,23 @@ export async function sendSupportTicketOpenedAlert(params: {
   await dispatch({ type: "support_ticket_opened_alert", to: OPS_ALERT_ADDRESS, subject: "New support ticket needs attention", html, dedupeKey: params.handoffId });
 }
 
+// Email audit follow-up (2026-09-24) - the buyer's own side of ticket
+// creation had no confirmation at all: sendSupportTicketOpenedAlert (above)
+// only ever emails ops. A user who opens a ticket and closes the tab had no
+// receipt that it was received, unlike the reply/resolved transitions,
+// which both already email them. Closes that one-sided gap.
+export async function sendSupportTicketReceivedEmail(params: { to: string; handoffId: string }): Promise<void> {
+  const conversationUrl = `${getSiteUrl()}/dashboard/support?handoff=${params.handoffId}`;
+
+  const html = renderLayout({
+    title: "We received your support request",
+    bodyHtml: `<p>Your support ticket has been opened and the team has been notified. We'll follow up here as soon as someone picks it up - you don't need to do anything else right now.</p>`,
+    cta: { text: "View your ticket", url: conversationUrl },
+  });
+
+  await dispatch({ type: "support_ticket_received", to: params.to, subject: "We received your support request", html, dedupeKey: params.handoffId });
+}
+
 // SP02 - the human-reply capability the reconciliation doc found entirely
 // missing. A user who filed a ticket and closed the tab has no way to know
 // support wrote back other than polling the widget - this closes that gap.

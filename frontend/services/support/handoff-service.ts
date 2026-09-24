@@ -28,6 +28,7 @@ import { auditLogService } from "@/services/admin/AuditLogService";
 import { prisma } from "@/lib/prisma";
 import {
   sendSupportTicketOpenedAlert,
+  sendSupportTicketReceivedEmail,
   sendSupportReplyEmail,
   sendSupportTicketResolvedEmail,
 } from "@/services/notifications/EmailService";
@@ -142,6 +143,16 @@ export async function ensureSupportHandoff(params: {
           triggerSource: params.triggerSource,
           reason: params.reason,
         });
+      }
+      // Email audit follow-up (2026-09-24) - the buyer's own confirmation,
+      // separate from the ops alert above. Independently caught so a
+      // failure in one never blocks the other.
+      if (requester) {
+        try {
+          await sendSupportTicketReceivedEmail({ to: requester.email, handoffId: created.id });
+        } catch (receivedErr) {
+          console.error("[support-handoff] failed to send ticket-received confirmation (non-fatal)", receivedErr);
+        }
       }
     } catch (err) {
       console.error("[support-handoff] failed to send ticket-opened alert (non-fatal)", err);
