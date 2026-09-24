@@ -35,6 +35,7 @@
     "validate:payments": "tsx scripts/validate-payment-infrastructure.ts",
     "validate:payment-links": "tsx scripts/validate-payment-links.ts",
     "validate:payment-hardening": "tsx --conditions=react-server --env-file=.env.local --env-file=.env scripts/validate-payment-hardening.ts",
+    "validate:credits-threshold-email": "tsx --conditions=react-server --env-file=.env.local --env-file=.env scripts/validate-credits-threshold-email.ts",
     "validate:marketplace-idempotency": "tsx --conditions=react-server --env-file=.env.local --env-file=.env scripts/validate-marketplace-purchase-idempotency.ts",
     "validate:payment-failed": "tsx --conditions=react-server --env-file=.env.local --env-file=.env scripts/validate-payment-failed-notifications.ts",
     "validate:market-data-resilience": "tsx scripts/validate-market-data-resilience.ts",

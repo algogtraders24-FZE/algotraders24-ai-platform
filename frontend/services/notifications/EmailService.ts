@@ -506,6 +506,69 @@ export async function sendRenewalReminderEmail(params: {
   await dispatch({ type: "renewal_reminder", to: params.to, subject: `Your ${params.planName} plan renews soon`, html, dedupeKey: params.dedupeKey });
 }
 
+// Email audit follow-up (2026-09-24) - the A9 credit ledger has been live
+// in production since 2026-09-07 (services/agent-framework/credits/credit-
+// ledger.ts), computing a real, correct per-user balance on every real
+// agent-run charge - it was simply never surfaced anywhere, dashboard or
+// email. wasEmailAlreadySent's own doc comment already anticipated this
+// ("credits thresholds") - this is that, finally wired. Both functions are
+// called from CreditThresholdNotifier (services/agent-framework/credits/
+// threshold-notifier.ts), never called directly from a route.
+export async function sendCreditsLowEmail(params: {
+  to: string;
+  balance: number;
+  allowance: number;
+  planId: string;
+  periodEnd: Date;
+  dedupeKey: string;
+}): Promise<void> {
+  const billingUrl = `${getSiteUrl()}/dashboard/billing`;
+  const renewsOn = params.periodEnd.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+
+  const html = renderLayout({
+    title: "You're running low on AI credits",
+    titleColor: "#b45309",
+    bodyHtml: `
+      <p>You've used most of this period's AI credits. AI-powered actions (AI Agents, Automation runs) may start failing with "insufficient credits" once your balance reaches zero.</p>
+      ${detailTable([
+        ["Remaining", `${Math.max(0, Math.round(params.balance)).toLocaleString()} credits`],
+        ["Plan allowance", `${params.allowance.toLocaleString()} credits / period`],
+        ["Resets on", renewsOn],
+      ])}
+      <p style="color: #666; font-size: 13px;">Upgrading your plan increases your allowance immediately - it doesn't wait for the next period.</p>
+    `,
+    cta: { text: "View plans", url: billingUrl },
+  });
+
+  await dispatch({ type: "credits_low", to: params.to, subject: "You're running low on AI credits", html, dedupeKey: params.dedupeKey });
+}
+
+export async function sendCreditsExhaustedEmail(params: {
+  to: string;
+  allowance: number;
+  planId: string;
+  periodEnd: Date;
+  dedupeKey: string;
+}): Promise<void> {
+  const billingUrl = `${getSiteUrl()}/dashboard/billing`;
+  const renewsOn = params.periodEnd.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+
+  const html = renderLayout({
+    title: "You've used all your AI credits for this period",
+    titleColor: "#b91c1c",
+    bodyHtml: `
+      <p>AI-powered actions (AI Agents, Automation runs) will be blocked with "insufficient credits" until your allowance resets or you upgrade.</p>
+      ${detailTable([
+        ["Plan allowance", `${params.allowance.toLocaleString()} credits / period`],
+        ["Resets on", renewsOn],
+      ])}
+    `,
+    cta: { text: "Upgrade plan", url: billingUrl },
+  });
+
+  await dispatch({ type: "credits_exhausted", to: params.to, subject: "You've used all your AI credits for this period", html, dedupeKey: params.dedupeKey });
+}
+
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
