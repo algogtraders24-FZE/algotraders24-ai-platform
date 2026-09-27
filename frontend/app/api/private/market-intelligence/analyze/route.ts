@@ -49,8 +49,8 @@ import { ConfidenceEngineService } from "@/services/ai/confidence/confidence-eng
 import { marketData } from "@/services/market-data/shared-instance";
 import { SharedNewsCacheProvider } from "@/services/news/market-intelligence-news-provider";
 import { systemClock } from "@/lib/market-data/cache";
-import { requestLogService } from "@/services/tracking/RequestLogService";
 import { analyticsEventService } from "@/services/analytics/AnalyticsEventService";
+import { checkAndRecordAiRateLimit, AI_RATE_LIMIT_MESSAGE } from "@/lib/security/aiRateLimit";
 import { toMarketDataErrorDTO, statusCodeForReason, reasonForKind, type MarketDataErrorDTO } from "@/lib/market-data/error-dto";
 
 const SUPPORTED_SYMBOLS = {
@@ -123,17 +123,24 @@ export const POST = withContext(async (req, ctx) => {
     question = body.question.trim().slice(0, MAX_QUESTION_CHARS);
   }
 
+  // AT24 Security Hardening P1.1 - admits + records this request against
+  // both the per-user burst limiter and the global emergency guard in one
+  // atomic step (see lib/security/aiRateLimit.ts). This replaces the old
+  // post-hoc requestLogService.record() call below (removed) - recording
+  // now happens at admission time, not after the analysis completes, so
+  // the RequestLog row this route writes is the same one the gate itself
+  // needs to count against the limit.
+  const rateLimit = await checkAndRecordAiRateLimit(sessionUser.profile.id, "market_analysis");
+  if (!rateLimit.allowed) {
+    return ApiResponse.error({ code: "RATE_LIMITED", message: AI_RATE_LIMIT_MESSAGE }, ctx.requestId, 429, ctx.startedAt);
+  }
+
   const outcome = await orchestrator.analyze({
     userId: sessionUser.profile.id,
     symbol,
     question,
   });
 
-  // Sprint L2.7 - Phase 6: durable request tracking, additive only. Never
-  // touches the orchestrator/pipeline itself; a failure here never fails
-  // the analysis response (best-effort, same convention as L2.2's
-  // retrievalCount increment).
-  await requestLogService.record(sessionUser.profile.id, "market_analysis").catch(() => {});
   // Sprint R1.2 - Phase 2: real "market_analysis" beta-analytics event,
   // additive alongside the existing RequestLog write above - separate
   // tables for separate purposes (usage metering vs. beta funnel/journey).

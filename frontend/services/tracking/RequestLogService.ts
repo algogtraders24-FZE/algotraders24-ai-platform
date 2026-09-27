@@ -6,9 +6,16 @@
 // the market-intelligence analyze route and the knowledge search route -
 // this service itself has zero imports from either pipeline, and neither
 // route's core logic is touched beyond that one line.
+//
+// AT24 Security Hardening P1.1 - three new types added for
+// lib/security/aiRateLimit.ts's per-user burst limiter and global
+// emergency guard (same RequestLog table/infrastructure, no new schema).
+// "market_analysis" and "knowledge_search" keep their original,
+// unmodified metrics-only meaning; only routes with no prior RequestLog
+// history gain a new type.
 import { prisma } from "@/lib/prisma";
 
-export type RequestLogType = "market_analysis" | "knowledge_search";
+export type RequestLogType = "market_analysis" | "knowledge_search" | "quant_chat" | "trading_copilot" | "algo_test_compile";
 
 export class RequestLogService {
   async record(userId: string, type: RequestLogType): Promise<void> {

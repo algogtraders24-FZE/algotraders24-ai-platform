@@ -19,6 +19,7 @@ import { buildIntelligencePanelData } from "@/services/ai/intelligence-panel.ser
 import { isEnabledMarket, listEnabledMarkets } from "@/lib/market-data/market-registry";
 import { marketData } from "@/services/market-data/shared-instance";
 import { toMarketDataErrorDTO, statusCodeForReason, reasonForKind } from "@/lib/market-data/error-dto";
+import { checkAndRecordAiRateLimit, AI_RATE_LIMIT_MESSAGE } from "@/lib/security/aiRateLimit";
 
 // Sprint D2.3.S3 - explicitly inject the shared MarketDataService instance
 // (services/market-data/shared-instance.ts) instead of relying on
@@ -50,6 +51,14 @@ export const POST = withContext(async (req, ctx) => {
       400,
       ctx.startedAt,
     );
+  }
+
+  // AT24 Security Hardening P1.1 - this route had zero RequestLog history
+  // before this change. Per-user burst + global emergency guard only (no
+  // monthly plan quota exists for Trading Copilot - not introduced here).
+  const rateLimit = await checkAndRecordAiRateLimit(sessionUser.profile.id, "trading_copilot");
+  if (!rateLimit.allowed) {
+    return ApiResponse.error({ code: "RATE_LIMITED", message: AI_RATE_LIMIT_MESSAGE }, ctx.requestId, 429, ctx.startedAt);
   }
 
   const outcome = await copilot.analyze({ symbol: body.symbol });
