@@ -11,8 +11,13 @@ const nextConfig: NextConfig = {
   // production. This explicit include is the documented fix (see
   // node_modules/next/dist/docs/.../output.md's own "Next.js might fail
   // to include required files" section).
+  // AT24 Security Hardening P0 - app/api/private/licenses/[licenseId]/download/route.ts
+  // reads paid EA binaries via path.join(process.cwd(), "private-releases", `${release.id}.ex5`)
+  // - the exact same dynamically-computed-path problem as marketplace-evidence
+  // above. Without this, buyers' paid downloads 404/500 in production even
+  // though the .ex5 files are committed to the repo.
   outputFileTracingIncludes: {
-    "/*": ["data/marketplace-evidence/**/*"],
+    "/*": ["data/marketplace-evidence/**/*", "private-releases/**/*"],
   },
 };
 

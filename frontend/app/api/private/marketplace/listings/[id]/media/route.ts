@@ -10,19 +10,18 @@
 // that column is ever written. The caller uploads, gets a URL back, then
 // PATCHes `{ media: [...] }` with it included.
 //
-// No image-hosting service exists yet in this app (confirmed by reading
-// MarketplaceListingCard.tsx / [slug]/page.tsx before building this - see
-// M12 branding follow-on notes) - files are written under
-// public/marketplace/<listingId>/, served by Next's own static file
-// handling, same as every other file already in public/.
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+// AT24 Security Hardening P0 - was writeFile-ing to public/marketplace/,
+// which is a read-only filesystem on Vercel's deployed serverless functions
+// outside /tmp (and non-shared/ephemeral even where writable) - uploads
+// were silently broken in production. Now stored in Supabase Storage via
+// lib/marketplace/mediaStorage.ts (service-role write, public-read bucket).
 import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { prisma } from "@/lib/prisma";
 import { withTableFallback } from "@/services/marketplace/tableGuard";
 import { readImageDimensions } from "@/lib/marketplace/imageDimensions";
+import { uploadMarketplaceMedia } from "@/lib/marketplace/mediaStorage";
 
 const MAX_BYTES = 3 * 1024 * 1024; // 3MB - these are logos/banners, not galleries
 const ALLOWED: Record<string, string> = {
@@ -31,7 +30,6 @@ const ALLOWED: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/webp": "webp",
 };
-const MEDIA_ROOT = path.join(process.cwd(), "public", "marketplace");
 // Matches MQL5 Market's own product-icon convention (see M12 branding
 // follow-on discussion) - enforced only for kind="icon"; banner/screenshot
 // uploads have no fixed-dimension requirement.
@@ -122,11 +120,8 @@ export const POST = withContext(async (req, ctx) => {
     }
   }
 
-  const dir = path.join(MEDIA_ROOT, listingId);
-  await mkdir(dir, { recursive: true });
   const filename = `${sanitizeBaseName(file.name)}-${Date.now().toString(36)}.${ext}`;
-  await writeFile(path.join(dir, filename), buffer);
+  const url = await uploadMarketplaceMedia({ listingId, filename, buffer, contentType: file.type });
 
-  const url = `/marketplace/${listingId}/${filename}`;
   return ApiResponse.success({ url }, ctx.requestId, 201, ctx.startedAt);
 });
