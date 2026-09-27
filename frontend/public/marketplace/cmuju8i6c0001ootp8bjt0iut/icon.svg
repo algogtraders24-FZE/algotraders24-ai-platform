@@ -1,0 +1,61 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19"/>
+      <stop offset="100%" stop-color="#171008"/>
+    </linearGradient>
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e7c86b"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="34%" r="48%">
+      <stop offset="0%" stop-color="#d4af37" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#d4af37" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fff3d1"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="url(#bg)"/>
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="none" stroke="url(#borderGrad)" stroke-width="6"/>
+
+  <ellipse cx="256" cy="172" rx="150" ry="118" fill="url(#glow)"/>
+
+  <!-- ADX trend-strength gate: an arc gauge with a needle pinned past the
+       threshold, representing the ADX(14)>=22 gate that must agree before
+       any pending order is armed -->
+  <path d="M 168 118 A 90 90 0 0 1 344 118" fill="none" stroke="#3a4356" stroke-width="10" stroke-linecap="round" opacity="0.55"/>
+  <path d="M 168 118 A 90 90 0 0 1 300 68" fill="none" stroke="#3fb27f" stroke-width="10" stroke-linecap="round" filter="url(#softGlow)"/>
+  <line x1="256" y1="118" x2="308" y2="76" stroke="#e7c86b" stroke-width="5" stroke-linecap="round" filter="url(#softGlow)"/>
+  <circle cx="256" cy="118" r="7" fill="#e7c86b"/>
+
+  <!-- Heikin-Ashi candle run: smoothed bodies with short, trimmed wicks
+       (no long real-body wicks) and a run of same-colored bodies -
+       the run-confirmation this EA checks over a 3-bar lookback -->
+  <g filter="url(#softGlow)">
+    <line x1="138" y1="222" x2="138" y2="238" stroke="#5b7a9c" stroke-width="4"/>
+    <rect x="128" y="222" width="20" height="30" rx="5" fill="#5b7a9c"/>
+    <line x1="176" y1="204" x2="176" y2="216" stroke="#3fb27f" stroke-width="4"/>
+    <rect x="166" y="204" width="20" height="34" rx="5" fill="#3fb27f"/>
+    <line x1="214" y1="184" x2="214" y2="196" stroke="#3fb27f" stroke-width="4"/>
+    <rect x="204" y="184" width="20" height="36" rx="5" fill="#3fb27f"/>
+    <line x1="252" y1="160" x2="252" y2="172" stroke="#3fb27f" stroke-width="4"/>
+    <rect x="242" y="160" width="20" height="40" rx="5" fill="#3fb27f"/>
+  </g>
+
+  <!-- swing-high level (8-bar lookback) with a BuyStop pending order
+       arrow piercing it, offset beyond the level -->
+  <line x1="270" y1="150" x2="380" y2="150" stroke="#94a3b8" stroke-width="5" stroke-dasharray="9 7" opacity="0.7"/>
+  <path d="M 330 226 L 330 156 M 316 176 L 330 152 L 344 176" fill="none" stroke="url(#textGrad)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" filter="url(#softGlow)"/>
+
+  <!-- Wordmark -->
+  <text x="256" y="352" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="800" letter-spacing="1" fill="#ffffff">AT24</text>
+  <text x="256" y="392" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="27" font-weight="800" letter-spacing="0.5" fill="url(#textGrad)">GOLD OOB SCALPER</text>
+  <text x="256" y="424" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" letter-spacing="2" fill="#94a3b8">ADX TREND GATE · HEIKIN-ASHI · M1</text>
+</svg>
