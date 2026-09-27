@@ -67,6 +67,8 @@ import type { Message } from "@/types/message";
 import { EntityNotFoundError, RepositoryError } from "@/types/repository";
 import { analyticsEventService } from "@/services/analytics/AnalyticsEventService";
 import { IntelligencePresentationService } from "@/services/intelligence/chat/intelligence-presentation.service";
+import { checkAndRecordAiRateLimit, AI_RATE_LIMIT_MESSAGE } from "@/lib/security/aiRateLimit";
+import { checkQuantChatMonthlyEntitlement, QUANT_CHAT_MONTHLY_LIMIT_MESSAGE } from "@/lib/security/quantChatEntitlement";
 // Sprint K3-B-3 - AI Assistant Knowledge Loop: the knowledge-first gate.
 // Sits AFTER the market-intelligence gate below and runs for every
 // non-market turn. It REPLACES this route's former inline
@@ -170,6 +172,21 @@ export const POST = withContext(async (req, ctx) => {
     typeof body?.knowledgeId === "string" && body.knowledgeId.trim().length > 0
       ? body.knowledgeId
       : undefined;
+
+  // AT24 Security Hardening P1.1 - this route had zero RequestLog history
+  // before this change (unlike market-intelligence/analyze and
+  // knowledge/search, which already tracked usage). Two gates: the
+  // existing aiCredits/aiMessages plan configuration (already computed,
+  // never enforced until now - not a new credit system) and the same
+  // per-user burst / global emergency guard every other AI route gets.
+  const entitlement = await checkQuantChatMonthlyEntitlement(userId, sessionUser.profile.planId);
+  if (!entitlement.allowed) {
+    return ApiResponse.error({ code: "MONTHLY_LIMIT_REACHED", message: QUANT_CHAT_MONTHLY_LIMIT_MESSAGE }, ctx.requestId, 429, ctx.startedAt);
+  }
+  const rateLimit = await checkAndRecordAiRateLimit(userId, "quant_chat");
+  if (!rateLimit.allowed) {
+    return ApiResponse.error({ code: "RATE_LIMITED", message: AI_RATE_LIMIT_MESSAGE }, ctx.requestId, 429, ctx.startedAt);
+  }
 
   // --- Image attachments (Quant Chat "Ask AI Anything") ---
   // Validated fully here, the ONLY boundary untrusted client input crosses

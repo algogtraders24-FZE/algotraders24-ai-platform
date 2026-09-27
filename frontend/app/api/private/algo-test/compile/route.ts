@@ -20,6 +20,7 @@ import { Errors } from "@/services/backend/ErrorHandler";
 import { ClaudeProvider } from "@/lib/ai/providers/claude.provider";
 import { compileNaturalLanguageStrategy } from "@/services/algo-test/nl-strategy-compiler.service";
 import { summarizeCompiledStrategy } from "@/services/algo-test/nl-strategy-compiler-summary";
+import { checkAndRecordAiRateLimit, AI_RATE_LIMIT_MESSAGE } from "@/lib/security/aiRateLimit";
 
 function hasEnv(name: string): boolean {
   const value = process.env[name];
@@ -40,6 +41,15 @@ export const POST = withContext(async (req, ctx) => {
 
   if (!hasEnv("ANTHROPIC_API_KEY")) {
     return ApiResponse.error({ code: "AI_PROVIDER_UNAVAILABLE", message: "The natural-language strategy compiler is not configured (ANTHROPIC_API_KEY is not set)." }, ctx.requestId, 503, ctx.startedAt);
+  }
+
+  // AT24 Security Hardening P1.1 - this route had zero RequestLog history
+  // before this change and is open to any authenticated user (unlike
+  // algo-test/ai-runs, which is Quant-Pro-gated and deliberately left
+  // untouched this sprint). Per-user burst + global emergency guard only.
+  const rateLimit = await checkAndRecordAiRateLimit(sessionUser.profile.id, "algo_test_compile");
+  if (!rateLimit.allowed) {
+    return ApiResponse.error({ code: "RATE_LIMITED", message: AI_RATE_LIMIT_MESSAGE }, ctx.requestId, 429, ctx.startedAt);
   }
 
   const provider = new ClaudeProvider();
