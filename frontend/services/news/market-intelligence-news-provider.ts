@@ -18,7 +18,7 @@ import { MarketDataProviderError } from "@/lib/market-data/errors";
 import { loadAlphaVantageEnv } from "@/lib/market-data/env";
 import { ALPHA_VANTAGE_PROVIDER } from "./providers/alpha-vantage.provider";
 import { getLatestSuccessfulCallAt } from "./quota.service";
-import { getStoredArticlesByProvider } from "./store.service";
+import { getStoredArticlesBySymbol } from "./store.service";
 import { ingestAlphaVantage } from "./ingestion.service";
 import { staleThresholdMs } from "./config";
 
@@ -51,7 +51,7 @@ export class SharedNewsCacheProvider implements NewsProvider {
       await ingestAlphaVantage("on-demand-fallback");
     }
 
-    const articles = await getStoredArticlesByProvider(ALPHA_VANTAGE_PROVIDER, MAX_HEADLINES);
+    const articles = await getStoredArticlesBySymbol(ALPHA_VANTAGE_PROVIDER, request.symbol, MAX_HEADLINES);
     const retrievedAt = new Date().toISOString();
 
     return articles.map((article) => ({

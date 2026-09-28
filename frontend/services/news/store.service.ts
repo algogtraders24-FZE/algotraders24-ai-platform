@@ -76,10 +76,24 @@ export async function queryNewsArticles(filters: NewsQueryFilters, page: NewsQue
   return { items, total };
 }
 
-/** Real alpha-vantage articles currently in the store, for Market Intelligence's evidence mapping - freshness itself is decided by the CALLER via ProviderQuota/ProviderCallLog, not by this read. */
-export async function getStoredArticlesByProvider(provider: string, limit: number) {
+/**
+ * Real alpha-vantage articles currently in the store, tagged relevant to
+ * `symbol` (via relevance.service's assetTags, the same field
+ * queryNewsArticles already filters on for the AI News read API), for
+ * Market Intelligence's evidence mapping - freshness itself is decided by
+ * the CALLER via ProviderQuota/ProviderCallLog, not by this read.
+ *
+ * Previously unscoped (queried by provider only), so every analysis -
+ * EURUSD, Gold, Bitcoin, all of them - received the identical N
+ * most-recent articles regardless of relevance (confirmed live: a Gold
+ * analysis citing a Cardano price-prediction headline as "evidence").
+ * Returning fewer or zero articles when nothing is tagged relevant is the
+ * honest outcome, not a bug - matches the no-fabrication rule the rest of
+ * this pipeline already follows.
+ */
+export async function getStoredArticlesBySymbol(provider: string, symbol: MarketSymbol, limit: number) {
   return prisma.newsArticle.findMany({
-    where: { provider, deletedAt: null },
+    where: { provider, deletedAt: null, assetTags: { has: symbol } },
     orderBy: [{ publishedAt: "desc" }, { fetchedAt: "desc" }],
     take: limit,
   });
