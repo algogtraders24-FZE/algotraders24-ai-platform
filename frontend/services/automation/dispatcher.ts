@@ -104,6 +104,22 @@ export async function dispatchAutomationRun(automationRunId: string): Promise<vo
     }
 
     const stepRun = prior ?? (await automationRepository.appendStepRunIfAbsent({ automationRunId, stepId: step.id, index, kind: step.kind }));
+
+    // Atomic PENDING -> RUNNING claim so two near-simultaneous invocations
+    // of this same run (e.g. a client retry/double-click on "Run Now", or
+    // two overlapping POSTs to .../advance) can't both win the FIRST
+    // execution attempt of a brand-new step - only one claim succeeds, the
+    // other backs off here rather than both calling startAgentRun for the
+    // same step (a real double credit-charge, not just a duplicate row).
+    // A step that's already RUNNING (resuming one that yielded
+    // "incomplete" earlier, or a crash-recovery catch-up pass) is
+    // intentionally not re-gated here - see the agent_run case below for
+    // why re-entry there stays financially safe even under a genuine
+    // concurrent overlap.
+    if (stepRun.status === "PENDING") {
+      const claimed = await automationRepository.claimStepRunForExecution(stepRun.id);
+      if (!claimed) return;
+    }
     const stepStart = Date.now();
     await automationRepository.patchStepRun(stepRun.id, { status: "RUNNING", startedAt: new Date(stepStart) });
 
@@ -113,6 +129,7 @@ export async function dispatchAutomationRun(automationRunId: string): Promise<vo
         stepRunId: stepRun.id,
         userId: run.userId,
         ctx,
+        existingAgentRunId: stepRun.agentRunId ?? undefined,
       });
 
       if (result.kind === "condition_halt") {
@@ -175,6 +192,11 @@ interface StepExecCtx {
   stepRunId: string;
   userId: string;
   ctx: AutomationRunContext;
+  /** Set when this step already has a recorded child AgentRun (an earlier
+   *  pass hit the tick budget and yielded "incomplete", or a concurrent
+   *  invocation just started one) - the agent_run case resumes THIS run
+   *  instead of starting a second one. */
+  existingAgentRunId?: string;
 }
 
 type StepExecResult =
@@ -192,12 +214,29 @@ async function executeStep(step: AutomationStep, x: StepExecCtx): Promise<StepEx
     }
 
     case "agent_run": {
-      const { runId } = await startAgentRun({
-        userId: x.userId,
-        agentType: step.action.agentType,
-        goal: step.action.input,
-        trigger: "schedule",
-      });
+      let runId: string;
+      if (x.existingAgentRunId) {
+        // Resume the SAME child run rather than starting a new one.
+        // advanceAgentRun()/CreditLedger.charge() are idempotency-key
+        // protected per tool call, so re-entering here on a genuine
+        // concurrent overlap wastes at most a duplicate LLM/tool call -
+        // it never double-charges credits.
+        runId = x.existingAgentRunId;
+      } else {
+        const started = await startAgentRun({
+          userId: x.userId,
+          agentType: step.action.agentType,
+          goal: step.action.input,
+          trigger: "schedule",
+        });
+        runId = started.runId;
+        // Persist immediately (not only on the "incomplete" yield below)
+        // so a concurrent/resumed invocation that reaches this step next
+        // reuses THIS run instead of starting a second one - shrinks the
+        // remaining race window from this whole tick loop's duration down
+        // to a single DB round-trip.
+        await automationRepository.patchStepRun(x.stepRunId, { agentRunId: runId });
+      }
 
       let terminal = false;
       for (let i = 0; i < MAX_AGENT_ADVANCES && !terminal; i++) {

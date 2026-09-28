@@ -367,6 +367,22 @@ export const automationRepository = {
     }
   },
 
+  /** Atomic PENDING -> RUNNING claim for a step's FIRST execution attempt.
+   *  `count === 0` means a concurrent invocation of this same run (e.g. a
+   *  client retry/double-click on "Run Now", or two overlapping POSTs to
+   *  .../advance) already won this exact claim - the caller must back off
+   *  rather than executing the step a second time. A step that's already
+   *  RUNNING (resuming one that yielded "incomplete" earlier, or a
+   *  crash-recovery catch-up pass) is intentionally not covered by this -
+   *  see dispatcher.ts's own comment for why re-entry there stays safe. */
+  async claimStepRunForExecution(id: string): Promise<boolean> {
+    const res = await prisma.automationStepRun.updateMany({
+      where: { id, status: "PENDING" },
+      data: { status: "RUNNING", startedAt: new Date() },
+    });
+    return res.count === 1;
+  },
+
   async patchStepRun(id: string, patch: PatchStepRunInput) {
     return prisma.automationStepRun.update({
       where: { id },
