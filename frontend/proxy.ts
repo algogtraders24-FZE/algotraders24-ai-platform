@@ -1,4 +1,4 @@
-﻿// proxy.ts
+// proxy.ts
 // Sprint 14C auth logic - migrated from middleware.ts to Next 16 proxy convention.
 // Logic UNCHANGED: Supabase session refresh + route guards. Only the file/function
 // name changed per Next 16 (middleware -> proxy).
@@ -50,6 +50,39 @@ import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { isValidCronSecret } from "@/lib/intelligence/cron-auth";
 
+// AT24 Security Hardening P2.1 - CSRF Origin validation. Defense-in-depth
+// layered ON TOP OF SameSite=Lax cookies, which the P1 CSP research
+// already confirmed is the actual primary CSRF defense here (cross-site
+// POST/PUT/PATCH/DELETE requests don't carry the session cookie at all
+// under SameSite=Lax) - this check is a second, independent layer, not
+// the sole protection. Scoped to state-changing methods on
+// /api/private/* only: GET reads are unaffected (not a CSRF concern),
+// and this runs AFTER the cron-secret exemption below so Vercel Cron's
+// Bearer-secret requests (not cookie-authenticated, not CSRF-vulnerable
+// by definition) are untouched - same bypass point as the existing
+// exemption, no new bypass mechanism introduced. A request with NO
+// Origin header fails OPEN (allowed) - not because an absent header is
+// "safe by definition", but because SameSite=Lax already closes that gap
+// and rejecting on a merely-missing signal (some legitimate non-browser
+// client, an edge-case browser) would risk breaking real traffic for a
+// secondary defense layer. A PRESENT but mismatched Origin - the actual
+// attack signature - is rejected with 403.
+// Exported (only) for scripts/validate-csrf-origin.ts - real NextRequest
+// instances, same logic the live proxy() function below actually runs,
+// no separate reimplementation to drift out of sync.
+export const STATE_CHANGING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+export function hasDisallowedOrigin(request: NextRequest): boolean {
+  const origin = request.headers.get("origin");
+  if (!origin) return false;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://algotraders24.ai";
+  try {
+    return new URL(origin).origin !== new URL(siteUrl).origin;
+  } catch {
+    return true; // present but unparseable Origin - treat as mismatch, not absence
+  }
+}
+
 const PROTECTED_PAGE_PREFIXES = ["/dashboard", "/admin", "/account"];
 const PROTECTED_API_PREFIX = "/api/private";
 const CRON_SECRET_EXEMPT_PATHS = new Set([
@@ -66,6 +99,16 @@ const CRON_SECRET_EXEMPT_PATHS = new Set([
 export async function proxy(request: NextRequest) {
   if (CRON_SECRET_EXEMPT_PATHS.has(request.nextUrl.pathname) && isValidCronSecret(request)) {
     return NextResponse.next({ request });
+  }
+
+  const pathname = request.nextUrl.pathname;
+  const isProtectedApi = pathname.startsWith(PROTECTED_API_PREFIX);
+
+  if (isProtectedApi && STATE_CHANGING_METHODS.has(request.method) && hasDisallowedOrigin(request)) {
+    return NextResponse.json(
+      { success: false, error: "Origin not allowed" },
+      { status: 403 }
+    );
   }
 
   let response = NextResponse.next({ request });
@@ -93,11 +136,9 @@ export async function proxy(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const pathname = request.nextUrl.pathname;
   const isProtectedPage = PROTECTED_PAGE_PREFIXES.some((p) =>
     pathname.startsWith(p)
   );
-  const isProtectedApi = pathname.startsWith(PROTECTED_API_PREFIX);
   if (!user && isProtectedApi) {
     return NextResponse.json(
       { success: false, error: "Unauthorized" },

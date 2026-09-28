@@ -41,6 +41,7 @@
     "validate:marketplace-media-storage": "tsx --conditions=react-server --env-file=.env.local --env-file=.env scripts/validate-marketplace-media-storage.ts",
     "validate:ai-rate-limit": "tsx --conditions=react-server --env-file=.env.local --env-file=.env scripts/validate-ai-rate-limit.ts",
     "validate:login-rate-limit": "tsx --conditions=react-server --env-file=.env.local --env-file=.env scripts/validate-login-rate-limit.ts",
+    "validate:csrf-origin": "tsx --env-file=.env.local --env-file=.env scripts/validate-csrf-origin.ts",
     "validate:payment-failed": "tsx --conditions=react-server --env-file=.env.local --env-file=.env scripts/validate-payment-failed-notifications.ts",
     "validate:market-data-resilience": "tsx scripts/validate-market-data-resilience.ts",
     "validate:ai-response-compliance": "tsx scripts/validate-ai-response-compliance.ts",
