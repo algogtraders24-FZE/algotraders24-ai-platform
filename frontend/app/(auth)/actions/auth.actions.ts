@@ -10,6 +10,7 @@ import { analyticsEventService } from "@/services/analytics/AnalyticsEventServic
 import { sendWelcomeEmail, sendPasswordChangedEmail } from "@/services/notifications/EmailService";
 import { getClientIp } from "@/lib/security/getClientIp";
 import { checkSignupRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/security/signupRateLimit";
+import { checkLoginRateLimit, recordFailedLogin, LOGIN_RATE_LIMIT_MESSAGE } from "@/lib/security/loginRateLimit";
 import { verifyTurnstileToken } from "@/lib/security/turnstile";
 
 export interface ActionState {
@@ -99,8 +100,24 @@ export async function signInAction(
     return { error: "Email and password are required." };
   }
 
+  // AT24 Security Hardening P1.3 - brute-force protection. Keyed on IP +
+  // normalized (lowercased) email so case variation of the same address
+  // can't bypass the per-email limit. Checked BEFORE calling Supabase so
+  // a locked-out attacker never even gets a real auth attempt through.
+  const ip = await getClientIp();
+  const normalizedEmail = email.toLowerCase();
+  const rateLimit = await checkLoginRateLimit({ ip, email: normalizedEmail });
+  if (!rateLimit.allowed) {
+    return { error: LOGIN_RATE_LIMIT_MESSAGE };
+  }
+
   const result = await AuthService.signIn(email, password);
   if (!result.success) {
+    // Only a FAILED attempt counts against the limit - recorded here,
+    // never on the success path below, so a legitimate user's normal
+    // login activity can never lock them out. Best-effort: a logging
+    // failure must never block returning the real auth error to the user.
+    await recordFailedLogin({ ip, email: normalizedEmail }).catch(() => {});
     return { error: result.error ?? "Invalid credentials." };
   }
 
