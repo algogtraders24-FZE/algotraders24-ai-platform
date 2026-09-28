@@ -8,6 +8,12 @@ function now(): string {
   return new Date().toISOString();
 }
 
+// Scopes local conversation storage to the given user - see
+// conversation.repository.ts's own comment for why this exists. The caller
+// (assistant/page.tsx) must call this with the current user's id before its
+// first load/save.
+export const setNamespace = repo.setNamespace;
+
 export async function createConversation(title = "New Chat"): Promise<StoredConversation> {
   const conv: StoredConversation = {
     id: `conv-${Date.now()}`,
