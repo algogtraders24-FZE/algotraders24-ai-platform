@@ -1,10 +1,28 @@
 ﻿// proxy.ts
 // Sprint 14C auth logic - migrated from middleware.ts to Next 16 proxy convention.
 // Logic UNCHANGED: Supabase session refresh + route guards. Only the file/function
-// name changed per Next 16 (middleware -> proxy). config.matcher stays identical.
+// name changed per Next 16 (middleware -> proxy).
 // NOTE (backlog security item): Next 16 "thin proxy" pattern recommends only a
 // cookie-existence check here and full JWT verification in server components.
 // getUser() JWT-verify is retained as-is for now to avoid re-architecting auth.
+//
+// AT24 Security Hardening P1.2 - nonce-based CSP was tried here and
+// reverted. A per-request nonce (Next's own documented pattern, incl.
+// 'strict-dynamic') was implemented and tested three separate ways -
+// Turbopack on a static page, Turbopack on a genuinely dynamic page, and
+// a webpack-fallback build - all three failed identically: Next 16.3.6
+// does not attach the nonce to its own generated <script> tags (inline
+// bootstrap AND external chunks alike), confirmed by directly running
+// `next start` each time, not just `next build`. This matches a known,
+// upstream-confirmed bug the Next.js team closed "not planned":
+// https://github.com/vercel/next.js/issues/96063 - its own root-cause
+// note: "the nonce value from the CSP request header is never
+// propagated into the HTML output, despite proper middleware
+// implementation following Next.js documentation." Given nonce-based CSP
+// is not viable on this framework version, CSP moved back to
+// next.config.ts's static headers() with script-src 'unsafe-inline'
+// (see that file for the full directive list and reasoning) - this file
+// no longer touches CSP at all.
 //
 // Infrastructure fix discovered during AN1.7 E2E validation: this file's
 // Supabase-session gate (Sprint 14C/15A, predates D2.7.9/D2.7.10's cron-
