@@ -19,8 +19,10 @@ import ChatInput from "@/components/ai/ChatInput";
 import PromptSuggestions from "@/components/ai/PromptSuggestions";
 import Drawer from "@/components/ui/Drawer";
 import type { DisplayMessage } from "@/components/ai/MessageBubble";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 export default function AssistantPage() {
+  const { user } = useCurrentUser();
   const [list, setList] = useState<StoredConversation[]>([]);
   const [active, setActive] = useState<StoredConversation | null>(null);
   // Sprint UI-02.7 - the conversation list had no mobile presentation at all
@@ -46,6 +48,12 @@ export default function AssistantPage() {
   const refresh = async () => setList(await mgr.loadRecent());
 
   useEffect(() => {
+    // Local conversation storage is scoped per-user (see conversation.
+    // repository.ts) so a second account signing in on the same browser
+    // never sees the previous account's sidebar history - must run before
+    // any load/save below. Skipped (nothing loads) until the user is known.
+    if (!user) return;
+    mgr.setNamespace(user.id);
     (async () => {
       await refresh();
       const id = await mgr.selectedId.get();
@@ -70,7 +78,11 @@ export default function AssistantPage() {
         // Non-fatal - local conversations already loaded above are unaffected.
       }
     })();
-  }, []);
+    // Only user.id is actually used (to scope local storage) - depending on
+    // the whole user object would re-run this on every context re-render
+    // that produces a new object reference with the same id.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Sprint 15C.6 - restore history for a conversation that is linked to the
   // server (has a serverConversationId) but has no local messages of its
