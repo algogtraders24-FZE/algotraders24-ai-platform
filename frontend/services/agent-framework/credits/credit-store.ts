@@ -31,6 +31,19 @@ export interface CreditStore {
   entriesForRun(runId: string): Promise<StoredLedgerEntry[]>;
   /** test-only. */
   clearForUser(userId: string): Promise<number>;
+  /**
+   * Runs `fn` with exclusive access for this userId - a real impl must
+   * guarantee no two calls for the same userId can have their `fn`
+   * bodies interleave (e.g. a DB advisory lock held for fn's duration).
+   * Needed because the idempotency-key de-dupe in charge() only prevents
+   * the SAME charge applying twice; it does nothing for two DIFFERENT
+   * legitimate charges racing each other's balance check (both read the
+   * same consumed sum before either insert commits, both pass, both
+   * insert - overdrawing the allowance). Returns null if exclusive
+   * access could not be acquired - the caller is expected to retry
+   * rather than proceed without the guarantee.
+   */
+  withUserLock<T>(userId: string, fn: () => Promise<T>): Promise<T | null>;
 }
 
 /** Thrown by a store's insert() when the idempotencyKey already exists. */

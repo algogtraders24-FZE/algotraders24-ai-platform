@@ -76,4 +76,29 @@ export class PrismaCreditStore implements CreditStore {
     const res = await prisma.agentCreditLedgerEntry.deleteMany({ where: { userId } });
     return res.count;
   }
+
+  // Non-blocking pg_try_advisory_xact_lock, same proven design as
+  // lib/security/aiRateLimit.ts / checkoutRateLimit.ts (an earlier
+  // BLOCKING lock was found during P1.1 to risk exhausting the Prisma
+  // connection pool under a real concurrent burst). The lock is held on
+  // this $transaction's own connection for fn()'s full duration and
+  // auto-released on commit/rollback; a concurrent call for the same
+  // userId fails to acquire immediately (rather than blocking) and
+  // returns null so credit-ledger.ts's retry loop can back off and
+  // re-attempt instead of proceeding without the guarantee. A rejection
+  // thrown by fn() itself (e.g. InsufficientCreditsError) is NOT caught
+  // here - it rolls the transaction back and propagates to the caller
+  // exactly as it would without this wrapper.
+  async withUserLock<T>(userId: string, fn: () => Promise<T>): Promise<T | null> {
+    return prisma.$transaction(
+      async () => {
+        const [{ acquired }] = await prisma.$queryRaw<{ acquired: boolean }[]>`
+          SELECT pg_try_advisory_xact_lock(hashtext(${`agent-credit-ledger:${userId}`})) AS acquired
+        `;
+        if (!acquired) return null;
+        return fn();
+      },
+      { maxWait: 10_000, timeout: 5_000 },
+    );
+  }
 }

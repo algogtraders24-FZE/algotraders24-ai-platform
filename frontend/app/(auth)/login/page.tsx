@@ -34,15 +34,16 @@ function OAuthError({ error }: { error: string | null }) {
   );
 }
 
-// Reads ?redirect= (set by requireUser() when it sends an unauthenticated
-// visitor here, e.g. /login?redirect=/marketplace/sell) so a successful
-// sign-in sends them back to the page they actually wanted instead of
-// always landing on /dashboard. Wrapped in Suspense because useSearchParams
-// requires it.
+// Reads ?redirect= (set by requireUser()/pages that build their own login
+// link, e.g. /login?redirect=/marketplace/sell) or ?redirectTo= (set by
+// proxy.ts's auth gate, e.g. /login?redirectTo=/dashboard/settings) so a
+// successful sign-in sends them back to the page they actually wanted
+// instead of always landing on /dashboard. Wrapped in Suspense because
+// useSearchParams requires it.
 function LoginFormBody() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
-  const redirect = searchParams.get("redirect");
+  const redirect = searchParams.get("redirectTo") ?? searchParams.get("redirect");
   const [state, formAction, pending] = useActionState(signInAction, initialState);
 
   return (

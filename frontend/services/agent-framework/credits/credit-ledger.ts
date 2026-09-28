@@ -31,6 +31,16 @@ import { InMemoryCreditStore } from "./in-memory-credit-store";
 
 const log = logger.child("agent-credits");
 
+// Same retry shape as lib/security/checkoutRateLimit.ts's non-blocking
+// advisory-lock pattern.
+const LOCK_RETRY_ATTEMPTS = 40;
+const LOCK_RETRY_BASE_MS = 40;
+const LOCK_RETRY_MAX_DELAY_MS = 200;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export class InsufficientCreditsError extends Error {
   constructor(public readonly userId: string, public readonly needed: number, public readonly available: number) {
     super(`insufficient credits: need ${needed}, have ${available}`);
@@ -132,6 +142,32 @@ export class CreditLedger {
       return { charged: false, alreadyApplied: true, entry: existing, balance: await this.balance(req.userId) };
     }
 
+    // The balance check and the debit insert must be serialized per-user
+    // via the store's exclusive lock - the idempotency-key de-dupe above
+    // only catches the SAME charge applied twice, not two DIFFERENT
+    // legitimate charges (e.g. two parallel tool calls in one agent run)
+    // racing each other's sumForPeriod() before either insert commits,
+    // which would let both pass the balance check and jointly overdraw
+    // the allowance.
+    for (let attempt = 0; attempt < LOCK_RETRY_ATTEMPTS; attempt++) {
+      const result = await this.store.withUserLock(req.userId, () => this.chargeOnce(req));
+      if (result !== null) return result;
+      const backoff = Math.min(LOCK_RETRY_BASE_MS * (attempt + 1), LOCK_RETRY_MAX_DELAY_MS);
+      await sleep(backoff + Math.random() * 20);
+    }
+
+    // Every attempt lost the lock-acquisition race. Check once more for
+    // the idempotent case (a concurrent call may have completed this
+    // exact charge while we were retrying) before failing loudly -
+    // never silently admit an unserialized charge.
+    const applied = await this.store.findByIdempotencyKey(req.idempotencyKey);
+    if (applied) {
+      return { charged: false, alreadyApplied: true, entry: applied, balance: await this.balance(req.userId) };
+    }
+    throw new Error(`credit charge for user ${req.userId} could not acquire exclusive access after retrying - please retry`);
+  }
+
+  private async chargeOnce(req: ChargeRequest): Promise<ChargeResult> {
     const a = await this.allowances.resolve(req.userId);
     const consumed = await this.store.sumForPeriod(req.userId, a.periodStart);
     const available = a.allowance - consumed;

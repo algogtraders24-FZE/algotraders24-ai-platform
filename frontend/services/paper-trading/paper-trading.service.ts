@@ -43,6 +43,7 @@
 //   live provider calls to every single snapshot request this shared,
 //   hot route already serves for every viewer of every chart.
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/lib/generated/prisma/client";
 import { marketData as sharedMarketData } from "@/services/market-data/shared-instance";
 import { Errors } from "@/services/backend/ErrorHandler";
 import { logger } from "@/services/backend/Logger";
@@ -60,6 +61,16 @@ export const DEFAULT_LEVERAGE = 100;
 export const STOP_OUT_LEVEL_PCT = 50;
 
 const log = logger.child("paper-trading");
+
+// Same non-blocking pg_try_advisory_xact_lock + bounded retry design as
+// lib/security/checkoutRateLimit.ts / credit-ledger.ts's withUserLock.
+const LOCK_RETRY_ATTEMPTS = 40;
+const LOCK_RETRY_BASE_MS = 40;
+const LOCK_RETRY_MAX_DELAY_MS = 200;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 interface PaperPositionRow {
   id: string;
@@ -154,19 +165,21 @@ export class PaperTradingService {
       }
       const limitPrice = input.limitPrice as number;
       const marginUsed = (input.quantity * limitPrice) / account.leverage;
-      await this.assertFreeMargin(account.id, account.balance, marginUsed);
 
-      const row = await prisma.paperPosition.create({
-        data: {
-          accountId: account.id,
-          symbol: input.symbol,
-          side: input.side,
-          orderType: "limit",
-          quantity: input.quantity,
-          limitPrice,
-          marginUsed,
-          status: "pending",
-        },
+      const row = await this.withAccountLock(account.id, async (tx) => {
+        await this.assertFreeMargin(tx, account.id, account.balance, marginUsed);
+        return tx.paperPosition.create({
+          data: {
+            accountId: account.id,
+            symbol: input.symbol,
+            side: input.side,
+            orderType: "limit",
+            quantity: input.quantity,
+            limitPrice,
+            marginUsed,
+            status: "pending",
+          },
+        });
       });
       return toView(row);
     }
@@ -177,26 +190,56 @@ export class PaperTradingService {
     }
     const entryPrice = input.side === "buy" ? snapshot.ask : snapshot.bid;
     const marginUsed = (input.quantity * entryPrice) / account.leverage;
-    await this.assertFreeMargin(account.id, account.balance, marginUsed);
 
-    const row = await prisma.paperPosition.create({
-      data: {
-        accountId: account.id,
-        symbol: input.symbol,
-        side: input.side,
-        orderType: "market",
-        quantity: input.quantity,
-        entryPrice,
-        marginUsed,
-        status: "open",
-        filledAt: new Date(),
-      },
+    const row = await this.withAccountLock(account.id, async (tx) => {
+      await this.assertFreeMargin(tx, account.id, account.balance, marginUsed);
+      return tx.paperPosition.create({
+        data: {
+          accountId: account.id,
+          symbol: input.symbol,
+          side: input.side,
+          orderType: "market",
+          quantity: input.quantity,
+          entryPrice,
+          marginUsed,
+          status: "open",
+          filledAt: new Date(),
+        },
+      });
     });
     return toView(row);
   }
 
-  private async assertFreeMargin(accountId: string, balance: number, additionalMarginUsed: number): Promise<void> {
-    const existing = await prisma.paperPosition.findMany({
+  // Non-blocking pg_try_advisory_xact_lock, keyed per account, wrapping
+  // the free-margin check AND the position insert in one transaction -
+  // without this, two concurrent openPosition() calls for the same
+  // account (e.g. two tabs firing orders back-to-back) could both read
+  // the same "existing open/pending positions" snapshot before either
+  // insert commits, both pass the margin check, and jointly exceed the
+  // account's real free margin (no real money at risk since this is
+  // paper trading, but it defeats the documented margin-safety teaching
+  // purpose). Same proven design as lib/security/checkoutRateLimit.ts.
+  private async withAccountLock<T>(accountId: string, fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    for (let attempt = 0; attempt < LOCK_RETRY_ATTEMPTS; attempt++) {
+      const result = await prisma.$transaction(
+        async (tx) => {
+          const [{ acquired }] = await tx.$queryRaw<{ acquired: boolean }[]>`
+            SELECT pg_try_advisory_xact_lock(hashtext(${`paper-trading-margin:${accountId}`})) AS acquired
+          `;
+          if (!acquired) return { acquired: false as const };
+          return { acquired: true as const, value: await fn(tx) };
+        },
+        { maxWait: 10_000, timeout: 5_000 },
+      );
+      if (result.acquired) return result.value;
+      const backoff = Math.min(LOCK_RETRY_BASE_MS * (attempt + 1), LOCK_RETRY_MAX_DELAY_MS);
+      await sleep(backoff + Math.random() * 20);
+    }
+    throw Errors.serviceUnavailable("Could not place this order right now - please retry");
+  }
+
+  private async assertFreeMargin(tx: Prisma.TransactionClient, accountId: string, balance: number, additionalMarginUsed: number): Promise<void> {
+    const existing = await tx.paperPosition.findMany({
       where: { accountId, status: { in: ["open", "pending"] } },
     });
     const usedMargin = existing.reduce((sum, p) => sum + (p.marginUsed ?? 0), 0);
@@ -222,16 +265,26 @@ export class PaperTradingService {
     const exitPrice = position.side === "buy" ? snapshot.bid : snapshot.ask;
     const realizedPnl = (exitPrice - (position.entryPrice as number)) * position.quantity * (position.side === "buy" ? 1 : -1);
 
-    const [updated] = await prisma.$transaction([
-      prisma.paperPosition.update({
-        where: { id: position.id },
+    // Conditional updateMany (status: "open" in the WHERE) makes this
+    // atomic against a concurrent duplicate close request for the same
+    // position (double-click, client retry, two tabs) - only the first
+    // request to reach this row can ever flip it and credit the balance;
+    // the second finds 0 rows affected and fails loudly instead of
+    // crediting realizedPnl a second time for one trade.
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.paperPosition.updateMany({
+        where: { id: position.id, status: "open" },
         data: { status: "closed", exitPrice, realizedPnl, closeReason: "manual", closedAt: new Date() },
-      }),
-      prisma.paperTradingAccount.update({
+      });
+      if (result.count === 0) {
+        throw Errors.validation("Position is not open (already closed, cancelled, or still pending)");
+      }
+      await tx.paperTradingAccount.update({
         where: { id: account.id },
         data: { balance: { increment: realizedPnl } },
-      }),
-    ]);
+      });
+      return tx.paperPosition.findUniqueOrThrow({ where: { id: position.id } });
+    });
     return toView(updated);
   }
 
@@ -242,10 +295,17 @@ export class PaperTradingService {
     if (!position || position.accountId !== account.id) throw Errors.notFound("Position");
     if (position.status !== "pending") throw Errors.validation("Only a pending limit order can be cancelled");
 
-    const updated = await prisma.paperPosition.update({
-      where: { id: position.id },
+    // Conditional updateMany (status: "pending" in the WHERE) - same
+    // atomicity discipline as closePosition() above, so a duplicate
+    // concurrent cancel/fill can't both succeed on the same row.
+    const result = await prisma.paperPosition.updateMany({
+      where: { id: position.id, status: "pending" },
       data: { status: "cancelled" },
     });
+    if (result.count === 0) {
+      throw Errors.validation("Only a pending limit order can be cancelled");
+    }
+    const updated = await prisma.paperPosition.findUniqueOrThrow({ where: { id: position.id } });
     return toView(updated);
   }
 
@@ -343,20 +403,35 @@ export class PaperTradingService {
       const exitPrice = target.side === "buy" ? bid : ask;
       const realizedPnl = (exitPrice - (target.entryPrice as number)) * target.quantity * (target.side === "buy" ? 1 : -1);
 
-      const [, updatedAccount] = await prisma.$transaction([
-        prisma.paperPosition.updateMany({
+      // The balance credit only happens INSIDE the same transaction as
+      // the conditional updateMany, and only if it actually matched a
+      // row - onPriceObserved() (see below) is invoked on every snapshot
+      // poll, so two overlapping polls near a stop-out threshold could
+      // otherwise both pick the same largest-loser position as `target`
+      // before either commits; without this guard the second call's
+      // updateMany would match 0 rows yet still unconditionally credit
+      // realizedPnl a second time, silently corrupting the balance.
+      const updatedAccount = await prisma.$transaction(async (tx) => {
+        const result = await tx.paperPosition.updateMany({
           where: { id: target.id, status: "open" },
           data: { status: "closed", exitPrice, realizedPnl, closeReason: "stop_out", closedAt: new Date() },
-        }),
-        prisma.paperTradingAccount.update({
+        });
+        if (result.count === 0) return null;
+        return tx.paperTradingAccount.update({
           where: { id: accountId },
           data: { balance: { increment: realizedPnl } },
-        }),
-      ]);
-      log.warn("stop-out closed a position", { accountId, positionId: target.id, symbol, realizedPnl, marginLevel });
+        });
+      });
 
-      account = updatedAccount;
       openPositions = openPositions.filter((p) => p.id !== target.id);
+      if (updatedAccount === null) {
+        // Already closed by a concurrent stop-out pass - don't
+        // double-credit, just drop it from this pass's view and keep
+        // evaluating the rest of this account's open positions.
+        continue;
+      }
+      log.warn("stop-out closed a position", { accountId, positionId: target.id, symbol, realizedPnl, marginLevel });
+      account = updatedAccount;
     }
   }
 
