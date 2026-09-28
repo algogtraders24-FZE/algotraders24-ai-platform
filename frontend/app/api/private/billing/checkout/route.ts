@@ -8,6 +8,7 @@ import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { stripeProvider } from "@/services/billing/providers/StripeProvider";
 import { PaymentProviderError } from "@/lib/payments/errors";
 import { isPlanId } from "@/config/plan-limits";
+import { checkAndRecordCheckoutAttempt, CHECKOUT_RATE_LIMIT_MESSAGE } from "@/lib/security/checkoutRateLimit";
 
 // PAY-4C - see the same-named export in the marketplace checkout route for
 // why: pins this Stripe-calling function to a single region to remove a
@@ -19,6 +20,13 @@ export const POST = withContext(async (req, ctx) => {
   const sessionUser = await getUserOrNull();
   if (!sessionUser) {
     return ApiResponse.error({ code: "UNAUTHORIZED", message: "Authentication required" }, ctx.requestId, 401, ctx.startedAt);
+  }
+
+  // AT24 Security Hardening P2.2 - shared per-user checkout limiter (10
+  // attempts / 10 minutes, across all 5 checkout-initiating endpoints).
+  const rateLimit = await checkAndRecordCheckoutAttempt(sessionUser.profile.id);
+  if (!rateLimit.allowed) {
+    return ApiResponse.error({ code: "RATE_LIMITED", message: CHECKOUT_RATE_LIMIT_MESSAGE }, ctx.requestId, 429, ctx.startedAt);
   }
 
   if (!stripeProvider.isConfigured()) {

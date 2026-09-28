@@ -13,9 +13,17 @@
 // "market_analysis" and "knowledge_search" keep their original,
 // unmodified metrics-only meaning; only routes with no prior RequestLog
 // history gain a new type.
+//
+// AT24 Security Hardening P2.2 - "checkout" added for
+// lib/security/checkoutRateLimit.ts's shared per-user checkout limiter
+// (same table/type reuse pattern as P1.1). That file has its own
+// dedicated enforcement logic (count+insert under an advisory lock) - it
+// does not call this service's record()/countForUser() for enforcement;
+// this class stays what it always was, a logging/observability helper,
+// not a rate-limit engine.
 import { prisma } from "@/lib/prisma";
 
-export type RequestLogType = "market_analysis" | "knowledge_search" | "quant_chat" | "trading_copilot" | "algo_test_compile";
+export type RequestLogType = "market_analysis" | "knowledge_search" | "quant_chat" | "trading_copilot" | "algo_test_compile" | "checkout";
 
 export class RequestLogService {
   async record(userId: string, type: RequestLogType): Promise<void> {
