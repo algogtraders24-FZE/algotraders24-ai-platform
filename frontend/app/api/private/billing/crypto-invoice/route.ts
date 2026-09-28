@@ -13,11 +13,19 @@ import { MAX_REASONABLE_PAYMENT_AMOUNT_USD } from "@/lib/payments/env";
 import { isPlanId } from "@/config/plan-limits";
 import { prisma } from "@/lib/prisma";
 import { getPlanCyclePrice } from "@/services/billing/planPricing";
+import { checkAndRecordCheckoutAttempt, CHECKOUT_RATE_LIMIT_MESSAGE } from "@/lib/security/checkoutRateLimit";
 
 export const POST = withContext(async (req, ctx) => {
   const sessionUser = await getUserOrNull();
   if (!sessionUser) {
     return ApiResponse.error({ code: "UNAUTHORIZED", message: "Authentication required" }, ctx.requestId, 401, ctx.startedAt);
+  }
+
+  // AT24 Security Hardening P2.2 - shared per-user checkout limiter (10
+  // attempts / 10 minutes, across all 5 checkout-initiating endpoints).
+  const rateLimit = await checkAndRecordCheckoutAttempt(sessionUser.profile.id);
+  if (!rateLimit.allowed) {
+    return ApiResponse.error({ code: "RATE_LIMITED", message: CHECKOUT_RATE_LIMIT_MESSAGE }, ctx.requestId, 429, ctx.startedAt);
   }
 
   if (!nowPaymentsProvider.isConfigured()) {

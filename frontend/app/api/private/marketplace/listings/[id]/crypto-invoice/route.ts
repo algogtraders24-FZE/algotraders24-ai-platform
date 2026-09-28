@@ -14,6 +14,7 @@ import { nowPaymentsProvider } from "@/services/billing/providers/NowPaymentsPro
 import { PaymentProviderError } from "@/lib/payments/errors";
 import { MAX_REASONABLE_PAYMENT_AMOUNT_USD } from "@/lib/payments/env";
 import { PUBLICLY_VISIBLE_STATES } from "@/types/marketplace";
+import { checkAndRecordCheckoutAttempt, CHECKOUT_RATE_LIMIT_MESSAGE } from "@/lib/security/checkoutRateLimit";
 
 // PAY-4C - same region pin as ../checkout/route.ts (Stripe): production
 // smoke testing found the Edge Middleware -> Node function region handoff
@@ -33,6 +34,13 @@ export const POST = withContext(async (req, ctx) => {
     return ApiResponse.error({ code: "UNAUTHORIZED", message: "Authentication required" }, ctx.requestId, 401, ctx.startedAt);
   }
   const buyerId = sessionUser.profile.id;
+
+  // AT24 Security Hardening P2.2 - shared per-user checkout limiter (10
+  // attempts / 10 minutes, across all 5 checkout-initiating endpoints).
+  const rateLimit = await checkAndRecordCheckoutAttempt(buyerId);
+  if (!rateLimit.allowed) {
+    return ApiResponse.error({ code: "RATE_LIMITED", message: CHECKOUT_RATE_LIMIT_MESSAGE }, ctx.requestId, 429, ctx.startedAt);
+  }
 
   const listingId = listingIdFromPath(ctx.path);
   if (!listingId) {

@@ -19,6 +19,7 @@ import { stripeProvider } from "@/services/billing/providers/StripeProvider";
 import { nowPaymentsProvider } from "@/services/billing/providers/NowPaymentsProvider";
 import { PaymentProviderError } from "@/lib/payments/errors";
 import { resolvePaymentLink, recordPaymentLinkUse } from "@/services/marketplace/paymentLinkService";
+import { checkAndRecordCheckoutAttempt, CHECKOUT_RATE_LIMIT_MESSAGE } from "@/lib/security/checkoutRateLimit";
 
 // PAY-4C convention - same region pin as the direct marketplace checkout
 // routes, for the same Edge Middleware -> Node cross-region 502 reason.
@@ -36,6 +37,13 @@ export const POST = withContext(async (req, ctx) => {
     return ApiResponse.error({ code: "UNAUTHORIZED", message: "Please log in to continue." }, ctx.requestId, 401, ctx.startedAt);
   }
   const buyerId = sessionUser.profile.id;
+
+  // AT24 Security Hardening P2.2 - shared per-user checkout limiter (10
+  // attempts / 10 minutes, across all 5 checkout-initiating endpoints).
+  const rateLimit = await checkAndRecordCheckoutAttempt(buyerId);
+  if (!rateLimit.allowed) {
+    return ApiResponse.error({ code: "RATE_LIMITED", message: CHECKOUT_RATE_LIMIT_MESSAGE }, ctx.requestId, 429, ctx.startedAt);
+  }
 
   const token = tokenFromPath(ctx.path);
   if (!token) {

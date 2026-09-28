@@ -16,6 +16,7 @@ import { stripeProvider } from "@/services/billing/providers/StripeProvider";
 import { PaymentProviderError } from "@/lib/payments/errors";
 import { MAX_REASONABLE_PAYMENT_AMOUNT_USD } from "@/lib/payments/env";
 import { PUBLICLY_VISIBLE_STATES } from "@/types/marketplace";
+import { checkAndRecordCheckoutAttempt, CHECKOUT_RATE_LIMIT_MESSAGE } from "@/lib/security/checkoutRateLimit";
 
 // PAY-4C - pin this function to a single region. Production smoke testing
 // found the Edge Middleware (proxy.ts, region varies by request origin) ->
@@ -40,6 +41,15 @@ export const POST = withContext(async (req, ctx) => {
     return ApiResponse.error({ code: "UNAUTHORIZED", message: "Authentication required" }, ctx.requestId, 401, ctx.startedAt);
   }
   const buyerId = sessionUser.profile.id;
+
+  // AT24 Security Hardening P2.2 - shared per-user checkout limiter (10
+  // attempts / 10 minutes, across all 5 checkout-initiating endpoints).
+  // Counts this attempt regardless of what happens below - both
+  // successful and failed checkout attempts consume the bucket.
+  const rateLimit = await checkAndRecordCheckoutAttempt(buyerId);
+  if (!rateLimit.allowed) {
+    return ApiResponse.error({ code: "RATE_LIMITED", message: CHECKOUT_RATE_LIMIT_MESSAGE }, ctx.requestId, 429, ctx.startedAt);
+  }
 
   const listingId = listingIdFromPath(ctx.path);
   if (!listingId) {
