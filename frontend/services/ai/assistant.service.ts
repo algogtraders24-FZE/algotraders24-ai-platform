@@ -32,6 +32,8 @@ import type { AssistantRequest, AssistantResponse } from "@/types/assistant";
 import type { Message } from "@/types/message";
 import type { MarketAnalysisResult } from "@/types/market-analysis-orchestration";
 import type { VerifiedAnswerResponse } from "@/types/verified-answer-response";
+import type { Intent } from "@/types/intent";
+import { classifyIntent } from "@/services/ai/prompts/intent-classifier.service";
 
 export interface ChatSource {
   knowledgeId: string;
@@ -89,8 +91,25 @@ const SYMBOL_PATTERNS: ReadonlyArray<[RegExp, AnalysisSymbol]> = [
 const ANALYSIS_INTENT_PATTERN =
   /\b(analy[sz]e|analysis|outlook|forecast|trend|view on|think about|opinion|should i|buy|sell|price|bullish|bearish)\b/i;
 
+// Found during Beta User Testing (2026-09-29): "I want to build a simple
+// trend-following strategy for Gold using EMA crossovers. What should I
+// consider?" matched both a symbol (Gold) and ANALYSIS_INTENT_PATTERN
+// ("trend"), so it got force-routed to the live market-analysis pipeline -
+// a generic spot-price readout - instead of the real strategy-building
+// answer the RAG chat route's own intent-classifier/prompt-router
+// (classifyIntent -> "strategy-generation" -> the "strategy-architect"
+// persona) was already built to give it. classifyIntent runs first and, for
+// the two intents that are explicitly about BUILDING something rather than
+// reading current market state, this heuristic steps aside so the message
+// falls through to that proper routing instead of shadowing it. Every other
+// intent (market-analysis, news-analysis, risk-analysis, etc.) is
+// unaffected - this only narrows the two cases that were actually found
+// wrong, not a general rewrite of the heuristic.
+const BUILD_INTENTS: ReadonlySet<Intent> = new Set(["strategy-generation", "ea-generation"]);
+
 export function detectSupportedMarketSymbol(message: string): AnalysisSymbol | null {
   if (!ANALYSIS_INTENT_PATTERN.test(message)) return null;
+  if (BUILD_INTENTS.has(classifyIntent(message))) return null;
   for (const [pattern, symbol] of SYMBOL_PATTERNS) {
     if (pattern.test(message)) return symbol;
   }
@@ -202,11 +221,7 @@ export async function sendMessageStreaming(
   signal?: AbortSignal,
   onStage?: (stage: string) => void,
 ): Promise<SendStreamingResult> {
-  // An attached image forces the knowledge/chat -> ClaudeProvider path
-  // regardless of what the text alone would otherwise route to - the
-  // market-analysis pipeline is text-only and would silently ignore the
-  // image, which is worse than not offering the shortcut at all.
-  const symbol = req.images && req.images.length > 0 ? null : detectSupportedMarketSymbol(req.message);
+  const symbol = detectSupportedMarketSymbol(req.message);
 
   if (symbol) {
     const res = await fetch("/api/private/market-intelligence/analyze", {
@@ -235,7 +250,6 @@ export async function sendMessageStreaming(
       useSearch: needsLiveInfo(req.message),
       stream: true,
       ...(req.serverConversationId ? { conversationId: req.serverConversationId } : {}),
-      ...(req.images && req.images.length > 0 ? { images: req.images } : {}),
     }),
     signal,
   });

@@ -77,31 +77,30 @@ export function mapAlphaVantageTicker(ticker: string): MarketSymbol[] {
 // coarse a signal for "this is about gold specifically"; XAU/XAG relies on
 // the keyword step below instead.
 //
-// KNOWN ISSUE (found during AN1.7's real E2E smoke test, deliberately left
-// unfixed by explicit decision - do not "clean this up" without that
-// decision being revisited first): ingestAlphaVantage() queries by
-// `topics=financial_markets,economy_macro` (services/news/ingestion.service.
-// ts), and `financial_markets`/`economy_macro` are ALSO mapped to
-// FOREX_MAJORS below - so every article this ingestion path fetches (by
-// construction, since we queried FOR those topics) gets tagged with all
-// three forex majors, regardless of actual content. A real test run against
-// live data confirmed this empirically: 50/50 ingested articles (JPMorgan
-// valuation, a Marriott earnings report, a utility-stock dividend piece -
-// none genuinely forex-relevant) all received the identical assetTags:
-// ["EURUSD","GBPUSD","USDJPY"], 100% via topic_derived, 0% via
-// native_ticker or keyword_inferred. This is not "coarse but occasionally
-// useful" as designed - for THIS ingestion pattern it is currently
-// non-discriminative. Deliberately shipped as-is (AN1.7 scope freeze) - the
-// real fix needs `assetTags`' own semantic contract settled first (is it
-// "provenance of the fetch query" or "article relevance"?) before touching
-// this mapping, per that decision.
+// FIXED (2026-09-29, owner-authorized revisit of the AN1.7 deferral below -
+// see git history for the full prior comment): `economy_macro` and
+// `financial_markets` used to map to FOREX_MAJORS here, but
+// ingestAlphaVantage() queries Alpha Vantage BY `topics=financial_markets,
+// economy_macro` (services/news/ingestion.service.ts) - since those two
+// topics are guaranteed present on every article this ingestion path
+// fetches (by construction, we queried FOR them), mapping them to
+// FOREX_MAJORS was non-discriminative: a live test confirmed 50/50 ingested
+// articles (JPMorgan valuation, a Marriott earnings report, a utility-stock
+// dividend piece - none genuinely forex-relevant) all received the
+// identical assetTags ["EURUSD","GBPUSD","USDJPY"], 100% via topic_derived.
+// Confirmed still live on 2026-09-29 (a Nucor Steel earnings article showing
+// up under the EURUSD/GBPUSD/USDJPY filter on the AI News page). Removed
+// both from this table; `economy_monetary`/`finance` stay mapped since
+// unlike the two removed topics, Alpha Vantage assigns those selectively
+// per-article (not guaranteed by the query), so they remain a genuine,
+// discriminating signal. The honest, visible tradeoff: fewer articles will
+// show up tagged for EURUSD/GBPUSD/USDJPY than before - matches this
+// codebase's standing rule that an honest gap beats a wrong attribution.
 const FOREX_MAJORS: MarketSymbol[] = ["EURUSD", "GBPUSD", "USDJPY"];
 const CRYPTO_MAJORS: MarketSymbol[] = ["BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD"];
 
 const TOPIC_TO_SYMBOLS: Record<string, MarketSymbol[]> = {
-  economy_macro: FOREX_MAJORS,
   economy_monetary: FOREX_MAJORS,
-  financial_markets: FOREX_MAJORS,
   finance: FOREX_MAJORS,
   blockchain: CRYPTO_MAJORS,
 };

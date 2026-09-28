@@ -1,8 +1,14 @@
 // services/ai/prompts/intent-classifier.service.ts
 import type { Intent } from "@/types/intent";
 
+// Found during Beta User Testing (2026-09-29): the bare "ea" keyword below
+// matches as a substring inside ordinary words ("bEArish", "rEAlly",
+// "wEAther", ...), so any message using one of those wrongly classified as
+// ea-generation. Removed - "expert advisor"/"mql5"/"mt5 code"/"generate ea"
+// already cover the real intent without that false-positive risk; a bare
+// 2-letter acronym was never a reliable keyword.
 const rules: { intent: Intent; keywords: string[] }[] = [
-  { intent: "ea-generation", keywords: ["ea", "expert advisor", "mql5", "mt5 code", "generate ea"] },
+  { intent: "ea-generation", keywords: ["expert advisor", "mql5", "mt5 code", "generate ea"] },
   { intent: "strategy-generation", keywords: ["strategy", "build a", "scalping", "swing", "system"] },
   { intent: "news-analysis", keywords: ["news", "headline", "economic", "calendar", "cpi", "fed"] },
   { intent: "risk-analysis", keywords: ["risk", "position size", "drawdown", "stop loss", "lot size"] },
