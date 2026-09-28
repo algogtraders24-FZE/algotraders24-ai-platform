@@ -17,6 +17,9 @@ export interface ActionState {
   error?: string;
   success?: boolean;
   message?: string;
+  // Echoed back on a failed signup so the form doesn't lose what the user
+  // typed - never includes the password.
+  values?: { name?: string; email?: string };
 }
 
 // A `redirect`/`redirectTo` value always originates from a query param an
@@ -48,18 +51,20 @@ export async function signUpAction(
     return { success: true, message: SIGNUP_SUCCESS_MESSAGE };
   }
 
+  const values = { name, email };
+
   if (!email || !password || !name) {
-    return { error: "All fields are required." };
+    return { error: "All fields are required.", values };
   }
   if (password.length < 8) {
-    return { error: "Password must be at least 8 characters." };
+    return { error: "Password must be at least 8 characters.", values };
   }
 
   const ip = await getClientIp();
 
   const rateLimit = await checkSignupRateLimit({ action: "signup", ip, email });
   if (!rateLimit.allowed) {
-    return { error: RATE_LIMIT_MESSAGE };
+    return { error: RATE_LIMIT_MESSAGE, values };
   }
 
   const turnstileToken = formData.get("cf-turnstile-response");
@@ -68,12 +73,12 @@ export async function signUpAction(
     ip
   );
   if (!captchaOk) {
-    return { error: "We couldn't verify you're human. Please try again." };
+    return { error: "We couldn't verify you're human. Please try again.", values };
   }
 
   const result = await AuthService.signUp(email, password, name);
   if (!result.success) {
-    return { error: result.error ?? "Sign up failed." };
+    return { error: result.error ?? "Sign up failed.", values };
   }
 
   // Provision the Prisma profile immediately (also happens on first login).

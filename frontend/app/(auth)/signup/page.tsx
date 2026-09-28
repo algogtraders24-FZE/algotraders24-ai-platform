@@ -51,12 +51,26 @@ export default function SignupPage() {
 
             <div>
               <label className="block text-sm font-medium text-text-2">Name</label>
-              <Input type="text" name="name" required autoComplete="name" className="mt-1" />
+              <Input
+                type="text"
+                name="name"
+                required
+                autoComplete="name"
+                defaultValue={state.values?.name}
+                className="mt-1"
+              />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-text-2">Email</label>
-              <Input type="email" name="email" required autoComplete="email" className="mt-1" />
+              <Input
+                type="email"
+                name="email"
+                required
+                autoComplete="email"
+                defaultValue={state.values?.email}
+                className="mt-1"
+              />
             </div>
 
             <div>
