@@ -251,6 +251,29 @@ export const agentRunRepository = {
     return ids;
   },
 
+  /**
+   * Optimistic-concurrency claim for AgentRuntime.tick(): the WHERE clause
+   * requires `updatedAt` to still match what tick() just read. `updatedAt`
+   * is `@updatedAt` (Prisma auto-bumps it on every successful update, even
+   * one that writes back the same status), so this doubles as a natural
+   * version token with no schema change needed. Two near-simultaneous
+   * tick() calls for the SAME run (e.g. a client retry racing the
+   * original request, or advanceAgentRun() being polled twice at once)
+   * both read the same pre-claim updatedAt - only the first claim's
+   * UPDATE can match it; the second finds 0 rows (the value already
+   * moved) and backs off instead of both executing a slice concurrently.
+   * `count === 0` means lost the race - the caller should treat this
+   * tick as a no-op this time, not retry in a loop (the winner is
+   * already making progress on this run).
+   */
+  async claimForTick(runId: string, expectedUpdatedAt: Date, status: AgentRunStatus): Promise<boolean> {
+    const res = await prisma.agentRun.updateMany({
+      where: { id: runId, updatedAt: expectedUpdatedAt },
+      data: { status },
+    });
+    return res.count === 1;
+  },
+
   async patchRun(runId: string, patch: PatchRunInput) {
     return prisma.agentRun.update({
       where: { id: runId },

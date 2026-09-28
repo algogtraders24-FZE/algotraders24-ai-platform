@@ -207,6 +207,19 @@ export class AgentRuntime {
     if (!run) throw new Error(`AgentRun "${runId}" not found`);
     if (isTerminalRunStatus(run.status)) return run; // idempotent
 
+    // Optimistic-concurrency claim (see agent-run.repository.ts's
+    // claimForTick doc comment) - a concurrent second tick() call for the
+    // same run would otherwise both execute a slice concurrently:
+    // duplicate tool/LLM calls and duplicate AgentStep/AgentEvidence rows.
+    // CreditLedger.charge() is already idempotency-key protected per tool
+    // call, so this never double-charges credits either way - this claim
+    // narrows the window further, it isn't the only safety net. Lost the
+    // race -> return the (very slightly stale) row as-is; the winner is
+    // already making progress on this run, so there is nothing useful to
+    // do here.
+    const claimed = await agentRunRepository.claimForTick(runId, run.updatedAt, run.status);
+    if (!claimed) return run;
+
     const definition = (run.metadata as { definition?: AgentDefinition })?.definition;
     if (!definition) {
       return this.terminate(runId, run.status, "failed", "no_definition", "run.metadata.definition is missing");
