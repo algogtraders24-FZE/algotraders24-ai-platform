@@ -42,6 +42,7 @@
 // presence at all before this, matching Navbar.tsx's same gap/fix.
 import Link from "next/link";
 import BrandLogo from "@/components/brand/BrandLogo";
+import PoweredBy from "@/sections/PoweredBy";
 
 interface FooterItem {
   label: string;
@@ -148,9 +149,11 @@ function Column({ title, items }: { title: string; items: FooterItem[] }) {
 
 export default function Footer() {
   return (
-    <footer className="border-t border-border bg-ink pt-12 pb-8 text-text md:pt-16">
+    <footer className="border-t border-border bg-ink pb-8 text-text">
       <div className="mx-auto max-w-7xl px-6">
-        <div className="max-w-sm">
+        <PoweredBy />
+
+        <div className="mt-12 max-w-sm">
           <BrandLogo variant="full" size="sm" withDescriptor={false} />
           <p className="mt-4 text-sm leading-6 text-text-2">
             An AI Trading Intelligence Platform — deterministic, evidence-based market analysis, explained in plain
