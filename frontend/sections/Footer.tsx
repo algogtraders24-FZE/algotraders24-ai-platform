@@ -172,11 +172,49 @@ export default function Footer() {
           <Column title="Account" items={ACCOUNT} />
         </div>
 
-        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 md:flex-row">
-          <p className="text-sm text-text-3">© 2026 Algotraders24 AI. All rights reserved.</p>
-          <p className="max-w-2xl text-center text-xs text-text-3 md:text-right">
-            Trading involves risk. Past performance does not guarantee future results.
+        <div className="mt-10 space-y-3 border-t border-border pt-8 text-xs leading-6 text-text-3">
+          <p>
+            Trading and investing carry substantial risk, and many participants lose money. Nothing on this platform
+            is, or should be construed as, financial or investment advice. Decisions to buy, sell, hold, or trade any
+            instrument should be based on your own judgment and, where appropriate, a qualified financial
+            professional.
           </p>
+          <p>
+            Backtest, walk-forward optimization, and paper-trading results shown on this platform are hypothetical
+            and simulated — they do not represent actual trading. Simulated results have inherent limitations: they
+            do not reflect real-world factors such as liquidity, slippage, or execution, are prepared with the
+            benefit of hindsight, and no representation is made that any strategy, account, or user will achieve
+            profits or losses similar to those shown.
+          </p>
+          <p>
+            Algotraders24 AI&apos;s outputs — including the AI Assistant, Market Intelligence, and Explainable
+            Analysis pipeline — restate computed evidence, risk, and confidence in plain language. They never issue
+            a buy/sell directive, and are never a substitute for your own analysis or professional advice. Charts
+            and the charting engine on this platform are Algotraders24 AI&apos;s own — not a third-party or
+            white-labeled product.
+          </p>
+          <p>
+            Market data is sourced from MetaTrader 5 (Exness live feed), Twelve Data, and Alpha Vantage, and may be
+            delayed or unavailable for certain instruments. All data is provided &quot;as is,&quot; without warranty
+            from Algotraders24 AI or its data providers, and should be independently verified before making any
+            trading decision.
+          </p>
+          <p>
+            This is a summary and does not represent our full Disclaimer and Risk Disclosure. Please read the{" "}
+            <Link href="/company/disclaimer" className="text-text-2 underline transition-colors hover:text-gold">
+              full disclaimer
+            </Link>{" "}
+            before using this platform.
+          </p>
+        </div>
+
+        <div className="mt-8 space-y-1 border-t border-border pt-8 text-center md:text-left">
+          <p className="text-sm text-text-3">© 2026 Algotraders24 A.F.Z. All rights reserved.</p>
+          <p className="text-xs text-text-3">
+            Algotraders24 A.F.Z · FinTech &amp; Software Development · Registered in Ajman Free Zone, UAE ·
+            Registration No. 47223
+          </p>
+          <p className="text-xs text-text-3">C1-1F-SF13159, Ajman Free Zone, Ajman, UAE</p>
         </div>
       </div>
     </footer>
