@@ -24,32 +24,66 @@
 //   - Stripe, NOWPayments: the two real, live checkout providers
 //     (services/billing/providers/, services/marketplace/ payment routes).
 //
-// Text wordmarks only - no fetched/downloaded logo image files (most of
-// these companies' brand guidelines restrict logo usage without
-// approval; a plain, muted name avoids that risk entirely while still
-// being honest and legible).
-const PROVIDERS = [
-  "MetaTrader 5",
-  "Twelve Data",
-  "Alpha Vantage",
-  "Binance",
-  "Angel One",
-  "Anthropic Claude",
-  "Google Gemini",
-  "Supabase",
-  "Vercel",
-  "Cloudflare",
-  "Stripe",
-  "NOWPayments",
-] as const;
+// Real brand marks via `simple-icons` (npm, MIT-licensed SVG path data for
+// official brand logos) for the providers it actually covers - no raw
+// downloads of logo image files from arbitrary web sources. 5 of the 12
+// providers below (MetaTrader 5, Twelve Data, Alpha Vantage, Angel One,
+// NOWPayments) have no simple-icons entry - that library is scoped to
+// general tech/dev-tool brands, not niche broker/market-data vendors - so
+// those stay text-only wordmarks, mixed in with the logo'd ones.
+//
+// Vercel (#000000) and Anthropic (#191919) ship as near-black marks meant
+// for light backgrounds; simple-icons' own hex would be nearly invisible
+// on this site's dark ink background, so those two render in a neutral
+// light tone instead of their literal brand hex (Vercel's own brand kit
+// explicitly ships a white logotype variant for dark surfaces) - every
+// other icon below renders in its real, unmodified brand color.
+import { siStripe, siVercel, siSupabase, siCloudflare, siBinance, siAnthropic, siGooglegemini } from "simple-icons";
+
+type Provider = {
+  name: string;
+  icon?: { path: string; hex: string; invertOnDark?: boolean };
+};
+
+const PROVIDERS: Provider[] = [
+  { name: "MetaTrader 5" },
+  { name: "Twelve Data" },
+  { name: "Alpha Vantage" },
+  { name: "Binance", icon: { path: siBinance.path, hex: siBinance.hex } },
+  { name: "Angel One" },
+  { name: "Anthropic Claude", icon: { path: siAnthropic.path, hex: siAnthropic.hex, invertOnDark: true } },
+  { name: "Google Gemini", icon: { path: siGooglegemini.path, hex: siGooglegemini.hex } },
+  { name: "Supabase", icon: { path: siSupabase.path, hex: siSupabase.hex } },
+  { name: "Vercel", icon: { path: siVercel.path, hex: siVercel.hex, invertOnDark: true } },
+  { name: "Cloudflare", icon: { path: siCloudflare.path, hex: siCloudflare.hex } },
+  { name: "Stripe", icon: { path: siStripe.path, hex: siStripe.hex } },
+  { name: "NOWPayments" },
+];
+
+function ProviderBadge({ provider }: { provider: Provider }) {
+  return (
+    <div className="flex shrink-0 items-center gap-2.5">
+      {provider.icon ? (
+        <svg
+          viewBox="0 0 24 24"
+          className={provider.icon.invertOnDark ? "h-5 w-5 shrink-0 text-text-2" : "h-5 w-5 shrink-0"}
+          style={provider.icon.invertOnDark ? undefined : { fill: `#${provider.icon.hex}` }}
+          fill={provider.icon.invertOnDark ? "currentColor" : undefined}
+          aria-hidden="true"
+        >
+          <path d={provider.icon.path} />
+        </svg>
+      ) : null}
+      <span className="whitespace-nowrap text-sm font-semibold tracking-wide text-text-3">{provider.name}</span>
+    </div>
+  );
+}
 
 function ProviderRow({ ariaHidden }: { ariaHidden?: boolean }) {
   return (
     <div className="flex shrink-0 items-center gap-12 pr-12" aria-hidden={ariaHidden}>
-      {PROVIDERS.map((name) => (
-        <span key={name} className="whitespace-nowrap text-sm font-semibold tracking-wide text-text-3">
-          {name}
-        </span>
+      {PROVIDERS.map((provider) => (
+        <ProviderBadge key={provider.name} provider={provider} />
       ))}
     </div>
   );
