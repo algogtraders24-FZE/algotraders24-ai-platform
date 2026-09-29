@@ -23,22 +23,40 @@
 //     "hosting and security providers (Vercel and Cloudflare)").
 //   - Stripe, NOWPayments: the two real, live checkout providers
 //     (services/billing/providers/, services/marketplace/ payment routes).
+//   - TradingView, cTrader, NinjaTrader: real trading platforms the
+//     Marketplace publishes compatible products for today (Footer.tsx's
+//     own PRODUCTS list - "TradingView Indicators", "cTrader cBots",
+//     "NinjaTrader Bots" - each already a live, resolvable /products
+//     category). MetaTrader 5 above already covers the MT5/MQL5 ecosystem
+//     (MT5 Expert Advisors are MQL5 code) - a separate "MQL5" entry would
+//     just restate the same real fact as a second badge, not add one.
 //
 // Real brand marks via `simple-icons` (npm, MIT-licensed SVG path data for
 // official brand logos) for the providers it actually covers - no raw
-// downloads of logo image files from arbitrary web sources. 5 of the 12
+// downloads of logo image files from arbitrary web sources. 6 of the 15
 // providers below (MetaTrader 5, Twelve Data, Alpha Vantage, Angel One,
-// NOWPayments) have no simple-icons entry - that library is scoped to
-// general tech/dev-tool brands, not niche broker/market-data vendors - so
-// those stay text-only wordmarks, mixed in with the logo'd ones.
+// NOWPayments, cTrader, NinjaTrader) have no simple-icons entry - that
+// library is scoped to general tech/dev-tool brands, not niche broker/
+// trading-platform vendors - so those stay text-only wordmarks, mixed in
+// with the logo'd ones.
 //
-// Vercel (#000000) and Anthropic (#191919) ship as near-black marks meant
-// for light backgrounds; simple-icons' own hex would be nearly invisible
-// on this site's dark ink background, so those two render in a neutral
-// light tone instead of their literal brand hex (Vercel's own brand kit
-// explicitly ships a white logotype variant for dark surfaces) - every
-// other icon below renders in its real, unmodified brand color.
-import { siStripe, siVercel, siSupabase, siCloudflare, siBinance, siAnthropic, siGooglegemini } from "simple-icons";
+// Vercel (#000000), Anthropic (#191919), and TradingView (#131622) ship
+// as near-black/near-navy marks meant for light backgrounds;
+// simple-icons' own hex would be nearly invisible on this site's dark ink
+// background, so those three render in a neutral light tone instead of
+// their literal brand hex (Vercel's own brand kit explicitly ships a
+// white logotype variant for dark surfaces) - every other icon below
+// renders in its real, unmodified brand color.
+import {
+  siStripe,
+  siVercel,
+  siSupabase,
+  siCloudflare,
+  siBinance,
+  siAnthropic,
+  siGooglegemini,
+  siTradingview,
+} from "simple-icons";
 
 type Provider = {
   name: string;
@@ -58,6 +76,9 @@ const PROVIDERS: Provider[] = [
   { name: "Cloudflare", icon: { path: siCloudflare.path, hex: siCloudflare.hex } },
   { name: "Stripe", icon: { path: siStripe.path, hex: siStripe.hex } },
   { name: "NOWPayments" },
+  { name: "TradingView", icon: { path: siTradingview.path, hex: siTradingview.hex, invertOnDark: true } },
+  { name: "cTrader" },
+  { name: "NinjaTrader" },
 ];
 
 function ProviderBadge({ provider }: { provider: Provider }) {
