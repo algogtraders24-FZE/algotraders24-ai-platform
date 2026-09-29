@@ -261,6 +261,25 @@ h1, h2, h3, h4, h5, h6 {
   animation: float-drift 6.5s ease-in-out infinite;
 }
 
+/* Beta User Testing homepage-content pass - an honest "built on real
+   infrastructure" strip (Footer.tsx's PoweredBy section), styled as a
+   continuous scroll like the reference the owner asked to match.
+   Duplicated content + -50% translate = seamless loop (the component
+   renders the list twice; this animates exactly one copy's width).
+   Automatically frozen at frame 0 by the reduced-motion gate below - a
+   static row, never a jump-cut or broken layout. */
+@keyframes marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.animate-marquee {
+  animation: marquee-scroll 28s linear infinite;
+}
+
 /* Single global reduced-motion gate (H1.2B): disables all non-essential
    motion at once, rather than scattered per-component checks. */
 @media (prefers-reduced-motion: reduce) {
