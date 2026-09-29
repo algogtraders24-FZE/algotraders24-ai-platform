@@ -18,7 +18,13 @@ import FeaturedMarketplacePreview from "@/sections/FeaturedMarketplacePreview";
 export const revalidate = 60;
 
 export default async function FeaturedMarketplace() {
-  const result = await MarketplaceCatalogue.search({ page: 1, pageSize: 3, sort: "newest" });
+  // Found during Beta User Testing (2026-09-29): "newest" surfaced an
+  // UNVERIFIED listing on the public homepage - a first-time visitor's
+  // very first marketplace impression, next to VALIDATED ones elsewhere on
+  // the same page. "most_recent_evidence" (see MarketplaceCatalogue's own
+  // nulls-last fix) naturally ranks listings AT24 has actually reviewed
+  // above ones it hasn't - a truer "featured" set than pure recency.
+  const result = await MarketplaceCatalogue.search({ page: 1, pageSize: 3, sort: "most_recent_evidence" });
 
   if (result.items.length === 0) {
     return (
