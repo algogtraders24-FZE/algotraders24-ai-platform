@@ -187,7 +187,14 @@ function sortToOrderBy(sort: MarketplaceSearchParams["sort"]) {
       // once real pricing data exists to sort by.
       return [{ createdAt: "desc" as const }];
     case "most_recent_evidence":
-      return [{ lastEvidenceAt: "desc" as const }, { createdAt: "desc" as const }];
+      // Found during Beta User Testing (2026-09-29): without an explicit
+      // nulls position, PostgreSQL's own default for DESC is NULLS FIRST -
+      // meaning listings with NO evidence at all (lastEvidenceAt: null,
+      // e.g. a fresh UNVERIFIED submission) would rank ABOVE genuinely
+      // evidenced ones under this exact sort, the opposite of what
+      // "Most Recent Evidence" promises. Explicit nulls: "last" fixes this
+      // regardless of database default.
+      return [{ lastEvidenceAt: { sort: "desc" as const, nulls: "last" as const } }, { createdAt: "desc" as const }];
     case "most_evidence":
       // No evidence-count column exists (would require aggregating the
       // authoritative M2-M7 artifacts, out of scope this sprint - see
