@@ -1,0 +1,107 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19"/>
+      <stop offset="55%" stop-color="#141a2b"/>
+      <stop offset="100%" stop-color="#1c1206"/>
+    </linearGradient>
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff3d1"/>
+      <stop offset="45%" stop-color="#e7c86b"/>
+      <stop offset="100%" stop-color="#b8860b"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="38%" r="52%">
+      <stop offset="0%" stop-color="#d4af37" stop-opacity="0.30"/>
+      <stop offset="100%" stop-color="#d4af37" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fff3d1"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    <!-- gold bar face: warm metallic gradient, top-lit -->
+    <linearGradient id="barFace" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fff6dc"/>
+      <stop offset="22%" stop-color="#f3d888"/>
+      <stop offset="55%" stop-color="#d9ab3e"/>
+      <stop offset="100%" stop-color="#a9761c"/>
+    </linearGradient>
+    <!-- gold bar top (bevel), lighter/brighter -->
+    <linearGradient id="barTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fffaf0"/>
+      <stop offset="100%" stop-color="#f0cf7a"/>
+    </linearGradient>
+    <!-- gold bar side (bevel), darker -->
+    <linearGradient id="barSide" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#8a5f16"/>
+      <stop offset="100%" stop-color="#6b480f"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="dropShadow" x="-40%" y="-20%" width="180%" height="160%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+    <clipPath id="cardClip">
+      <rect x="6" y="6" width="500" height="500" rx="76"/>
+    </clipPath>
+  </defs>
+
+  <rect x="6" y="6" width="500" height="500" rx="76" fill="url(#bg)"/>
+  <rect x="6" y="6" width="500" height="500" rx="76" fill="none" stroke="url(#borderGrad)" stroke-width="7"/>
+  <!-- inner hairline for a premium double-border feel -->
+  <rect x="18" y="18" width="476" height="476" rx="66" fill="none" stroke="#d4af37" stroke-width="1" opacity="0.35"/>
+
+  <ellipse cx="256" cy="188" rx="168" ry="128" fill="url(#glow)"/>
+
+  <!-- ===== Gold bullion bar (trapezoid, isometric-lit) ===== -->
+  <g filter="url(#dropShadow)">
+    <!-- side bevels first (drawn under the face) -->
+    <polygon points="146,246 106,222 106,196 146,214" fill="url(#barSide)"/>
+    <polygon points="366,246 406,222 406,196 366,214" fill="url(#barSide)"/>
+    <!-- top bevel -->
+    <polygon points="146,214 366,214 406,196 186,196" fill="url(#barTop)"/>
+    <!-- main face -->
+    <polygon points="146,214 366,214 366,246 146,246" fill="url(#barFace)"/>
+    <!-- engraved AT24 mark -->
+    <text x="256" y="238" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="20" font-weight="700" fill="#5c3d0e" opacity="0.75" letter-spacing="2">AT24</text>
+    <!-- shine streak across the bar -->
+    <polygon points="170,214 196,214 158,246 132,246" fill="url(#shine)" opacity="0.5"/>
+  </g>
+
+  <!-- ===== Hedge balance scale, resting behind/above the bar ===== -->
+  <g filter="url(#softGlow)">
+    <line x1="256" y1="118" x2="256" y2="150" stroke="url(#textGrad)" stroke-width="6"/>
+    <path d="M 176 150 L 336 150" stroke="url(#textGrad)" stroke-width="6" stroke-linecap="round"/>
+    <line x1="188" y1="150" x2="188" y2="168" stroke="url(#textGrad)" stroke-width="4"/>
+    <line x1="324" y1="150" x2="324" y2="168" stroke="url(#textGrad)" stroke-width="4"/>
+    <circle cx="256" cy="112" r="6" fill="#fff3d1"/>
+  </g>
+  <!-- left pan: stacked long (up) arrows = the basket -->
+  <g fill="#3fb27f">
+    <path d="M 164 190 L 172 172 L 180 190 Z"/>
+    <path d="M 184 190 L 192 172 L 200 190 Z"/>
+  </g>
+  <line x1="162" y1="190" x2="202" y2="190" stroke="#3a4356" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+  <!-- right pan: 1 opposing short (down) arrow = the hedge -->
+  <g fill="#d1594a">
+    <path d="M 316 172 L 324 190 L 332 172 Z"/>
+  </g>
+  <line x1="312" y1="190" x2="336" y2="190" stroke="#3a4356" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+
+  <!-- Wordmark -->
+  <text x="256" y="358" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="800" letter-spacing="1" fill="#ffffff">AT24</text>
+  <text x="256" y="399" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="29" font-weight="800" letter-spacing="0.5" fill="url(#textGrad)">GOLD HEDGE</text>
+  <text x="256" y="430" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" letter-spacing="2" fill="#94a3b8">SMA/RSI SCALPER · SMART HEDGE · MT5</text>
+
+  <!-- PREMIUM ribbon, compact diagonal sash in the top-right corner -->
+  <g clip-path="url(#cardClip)">
+    <rect x="-100" y="-17" width="200" height="34" fill="url(#borderGrad)" transform="translate(413, 95) rotate(45)"/>
+    <rect x="-100" y="-17" width="200" height="34" fill="none" stroke="#1c1206" stroke-width="0.5" opacity="0.25" transform="translate(413, 95) rotate(45)"/>
+    <text x="0" y="5" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" fill="#1c1206" letter-spacing="2" transform="translate(413, 95) rotate(45)">PREMIUM</text>
+  </g>
+</svg>
