@@ -6,7 +6,9 @@
 // same-direction basket once floating loss on that basket crosses a
 // dynamic trigger. Same real ingestion + eligibility pipeline as every
 // other Marketplace listing. Premium tier ($499) with a full banner in
-// addition to the icon, per the seller's request.
+// addition to the icon, per the seller's request. Icon is the seller's
+// own supplied logo (a 200x200 PNG crop of their lion mark), not an
+// AT24-generated SVG, per an explicit follow-up request.
 import "dotenv/config";
 import { readFile, mkdir, copyFile, writeFile } from "fs/promises";
 import { createHash } from "crypto";
@@ -20,7 +22,7 @@ const SLUG = "gold-hedge";
 const TRADING_SYSTEM_ID = "GOLDHEDGE";
 const VERSION_ID = "GOLDHEDGE-v3.17-2026-BASELINE";
 const EX5_PATH = path.join(__dirname, "..", "..", "ea-research", "marketplace-research", "m15-new-products", "source", "Gold_Hedge_v3.17.ex5");
-const ICON_PATH = path.join(__dirname, "..", "..", "ea-research", "marketplace-research", "m15-new-products", "branding", "gold-hedge-icon.svg");
+const ICON_PATH = path.join(__dirname, "..", "..", "ea-research", "marketplace-research", "m15-new-products", "branding", "gold-hedge-icon-200.png");
 const BANNER_PATH = path.join(__dirname, "..", "..", "ea-research", "marketplace-research", "m15-new-products", "branding", "gold-hedge-banner.svg");
 const RELEASES_DIR = path.join(__dirname, "..", "private-releases");
 
@@ -64,9 +66,9 @@ async function main() {
 
   const mediaDir = path.join(__dirname, "..", "public", "marketplace", listing.id);
   await mkdir(mediaDir, { recursive: true });
-  await copyFile(ICON_PATH, path.join(mediaDir, "icon.svg"));
+  await copyFile(ICON_PATH, path.join(mediaDir, "icon.png"));
   await copyFile(BANNER_PATH, path.join(mediaDir, "banner.svg"));
-  const media = [`/marketplace/${listing.id}/icon.svg`, `/marketplace/${listing.id}/banner.svg`];
+  const media = [`/marketplace/${listing.id}/icon.png`, `/marketplace/${listing.id}/banner.svg`];
   await prisma.marketplaceListing.update({ where: { id: listing.id }, data: { media } });
 
   const ingestion = await runIngestionPipeline({
