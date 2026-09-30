@@ -1,0 +1,751 @@
+{
+  "_provenance": {
+    "generatedBy": "generate_goldhedge_poslog_chain.py (M15 real position-ID-verified re-run)",
+    "generatedAt": "2026-09-30T13:27:25.552212Z",
+    "note": "Real, deterministic M3/M4/M5/M7 result from the seller's own real MT5 Strategy Tester native .htm export, exactly paired via MT5's own real DEAL_POSITION_ID log - not fabricated, not inferred."
+  },
+  "tradingSystemId": "GOLDHEDGE",
+  "versionId": "GOLDHEDGE-v3.18-2026-POSITIONLOG",
+  "m3": {
+    "status": "VERIFIED",
+    "evidenceId": "1b27dbd030909d68",
+    "warnings": [
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'spreadModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'commissionModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'swapModel' is null",
+      "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'tickDataQuality' is null"
+    ]
+  },
+  "m4": {
+    "overallStatus": "INCONCLUSIVE",
+    "evidenceId": "1b27dbd030909d68",
+    "recordStatuses": {
+      "SAMPLE_SIZE": "PASS",
+      "OUT_OF_SAMPLE": "PASS",
+      "WALK_FORWARD": "INCONCLUSIVE",
+      "TEMPORAL_STABILITY": "PASS",
+      "REGIME_COVERAGE": "INCONCLUSIVE",
+      "PERFORMANCE_DISTRIBUTION": "PASS",
+      "PARAMETER_SENSITIVITY": "INCONCLUSIVE"
+    }
+  },
+  "m5": {
+    "status": "PARTIAL",
+    "riskAnalysisId": "795125b13a38cfd9",
+    "riskAnalysisHash": "795125b13a38cfd9",
+    "dataQuality": {
+      "drawdown": "LIMITED",
+      "lossDistribution": "AVAILABLE",
+      "winDistribution": "AVAILABLE",
+      "expectancy": "AVAILABLE",
+      "lossStreaks": "AVAILABLE",
+      "recovery": "LIMITED",
+      "tailRisk": "AVAILABLE",
+      "concentration": "AVAILABLE",
+      "temporalRisk": "AVAILABLE",
+      "regimeRisk": "UNAVAILABLE",
+      "exposureRisk": "AVAILABLE",
+      "costRisk": "AVAILABLE"
+    }
+  },
+  "m7": {
+    "status": "INCONCLUSIVE",
+    "reasonCode": "VALIDATION_INCONCLUSIVE",
+    "explanation": "Evidence integrity is verified, but the current Validation (M4) result is INCONCLUSIVE (overallStatus=INCONCLUSIVE) -- validation types not conclusively completed: WALK_FORWARD, REGIME_COVERAGE, PARAMETER_SENSITIVITY",
+    "id": "646a1db3569a78f0",
+    "generatedAt": "2026-09-30T13:27:25.591772Z"
+  },
+  "evidenceId": "1b27dbd030909d68",
+  "evidenceHash": "1b27dbd030909d68",
+  "validationId": "1b27dbd030909d68",
+  "validationHash": "1b27dbd030909d68",
+  "riskAnalysisId": "795125b13a38cfd9",
+  "riskAnalysisHash": "795125b13a38cfd9",
+  "trustStatusId": "646a1db3569a78f0",
+  "lastEvidenceAt": "2026-09-24T23:59:58",
+  "m4_full": {
+    "evidenceId": "1b27dbd030909d68",
+    "versionId": "GOLDHEDGE-v3.18-2026-POSITIONLOG",
+    "datasetHash": "944574dece4c1eaa",
+    "engineVersion": "AT24-M4-Validation-Engine-v1.0",
+    "methodologyVersion": "M4-methodology-v1",
+    "overallStatus": "INCONCLUSIVE",
+    "records": [
+      {
+        "validationId": "SAMPLE_SIZE:1b27dbd030909d68",
+        "versionId": "GOLDHEDGE-v3.18-2026-POSITIONLOG",
+        "evidenceId": "1b27dbd030909d68",
+        "validationType": "SAMPLE_SIZE",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "944574dece4c1eaa",
+        "inputEvidenceHash": "1b27dbd030909d68",
+        "startedAt": "2026-09-30T13:27:25.350947Z",
+        "completedAt": "2026-09-30T13:27:25.365318Z",
+        "methodology": "Direct count/duration measurement, no acceptance threshold applied.",
+        "parameters": {},
+        "metrics": {
+          "tradeCount": 317,
+          "profitTradeCount": 130,
+          "lossTradeCount": 187,
+          "breakEvenTradeCount": 0,
+          "durationDays": 262,
+          "tradesPerMonth": 36.83,
+          "observationsPerYear": {
+            "2026": 317
+          }
+        },
+        "findings": [
+          "317 trades over 262 days (0.7 years) across 1 distinct calendar years."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "OUT_OF_SAMPLE:1b27dbd030909d68",
+        "versionId": "GOLDHEDGE-v3.18-2026-POSITIONLOG",
+        "evidenceId": "1b27dbd030909d68",
+        "validationType": "OUT_OF_SAMPLE",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "944574dece4c1eaa",
+        "inputEvidenceHash": "1b27dbd030909d68",
+        "startedAt": "2026-09-30T13:27:25.365318Z",
+        "completedAt": "2026-09-30T13:27:25.416273Z",
+        "methodology": "Time-based split at 80% of [first trade, last trade] duration (M4-methodology-v1).",
+        "parameters": {
+          "splitRatio": 0.8,
+          "boundary": "2026-08-03T12:58:59.200000"
+        },
+        "metrics": {
+          "inSampleMetrics": {
+            "netProfit": 31976.6,
+            "profitFactor": 1.3937,
+            "winRate": 0.4196,
+            "avgTrade": 125.4,
+            "expectedPayoff": 125.4,
+            "maxDrawdown": {
+              "absolute": 10520.4,
+              "percent": 0.3013
+            },
+            "recoveryFactor": 3.0395,
+            "sharpe": 0.1169,
+            "sortino": 0.2754,
+            "largestWin": 6192.0,
+            "largestLoss": -2756.95,
+            "consecutiveWins": 8,
+            "consecutiveLosses": 19,
+            "tradeCount": 255,
+            "_annualized": false,
+            "_depositUsedForDrawdown": 10000.0,
+            "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+          },
+          "outOfSampleMetrics": {
+            "netProfit": 6024.9,
+            "profitFactor": 1.5202,
+            "winRate": 0.371,
+            "avgTrade": 97.18,
+            "expectedPayoff": 97.18,
+            "maxDrawdown": {
+              "absolute": 3647.35,
+              "percent": 0.2447
+            },
+            "recoveryFactor": 1.6519,
+            "sharpe": 0.1729,
+            "sortino": 0.7592,
+            "largestWin": 1480.5,
+            "largestLoss": -753.1,
+            "consecutiveWins": 7,
+            "consecutiveLosses": 12,
+            "tradeCount": 62,
+            "_annualized": false,
+            "_depositUsedForDrawdown": 10000.0,
+            "_note": "Sharpe/Sortino are per-trade, not annualized -- annualization needs a trading-frequency assumption not made here (see design doc 2.4). maxDrawdown.percent is relative to account equity (deposit + cumulative profit)."
+          },
+          "inSampleTradeCount": 255,
+          "outOfSampleTradeCount": 62
+        },
+        "findings": [
+          "Split boundary (time-based, 80% in-sample): 2026-08-03T12:58:59.200000",
+          "In-sample: 255 trades. Out-of-sample: 62 trades.",
+          "In-sample and out-of-sample metrics computed independently and are reported separately below -- never combined into one number."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "WALK_FORWARD:1b27dbd030909d68",
+        "versionId": "GOLDHEDGE-v3.18-2026-POSITIONLOG",
+        "evidenceId": "1b27dbd030909d68",
+        "validationType": "WALK_FORWARD",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "944574dece4c1eaa",
+        "inputEvidenceHash": "1b27dbd030909d68",
+        "startedAt": "2026-09-30T13:27:25.416273Z",
+        "completedAt": "2026-09-30T13:27:25.426239Z",
+        "methodology": "Expanding-window, one test window per calendar year (M4-methodology-v1).",
+        "parameters": {
+          "windowDefinition": "calendar-year",
+          "windowCount": 0
+        },
+        "metrics": {
+          "windows": []
+        },
+        "findings": [
+          "Only 1 calendar year of trade data (2026) - a walk-forward test needs at least 2 distinct calendar years (one to train on, one to test against). Not computable for this Evidence's real trade period."
+        ],
+        "warnings": [],
+        "status": "INCONCLUSIVE",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "TEMPORAL_STABILITY:1b27dbd030909d68",
+        "versionId": "GOLDHEDGE-v3.18-2026-POSITIONLOG",
+        "evidenceId": "1b27dbd030909d68",
+        "validationType": "TEMPORAL_STABILITY",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "944574dece4c1eaa",
+        "inputEvidenceHash": "1b27dbd030909d68",
+        "startedAt": "2026-09-30T13:27:25.426239Z",
+        "completedAt": "2026-09-30T13:27:25.439120Z",
+        "methodology": "Calendar-period aggregation (month/quarter/year) plus inter-trade gap and best-single-period concentration.",
+        "parameters": {},
+        "metrics": {
+          "monthly": {
+            "2026-01": {
+              "tradeCount": 42,
+              "netProfit": 15990.05
+            },
+            "2026-02": {
+              "tradeCount": 52,
+              "netProfit": -816.6
+            },
+            "2026-03": {
+              "tradeCount": 43,
+              "netProfit": 16402.5
+            },
+            "2026-04": {
+              "tradeCount": 19,
+              "netProfit": 2204.5
+            },
+            "2026-05": {
+              "tradeCount": 29,
+              "netProfit": -1706.3
+            },
+            "2026-06": {
+              "tradeCount": 39,
+              "netProfit": 8301.35
+            },
+            "2026-07": {
+              "tradeCount": 31,
+              "netProfit": -8398.9
+            },
+            "2026-08": {
+              "tradeCount": 36,
+              "netProfit": 5620.7
+            },
+            "2026-09": {
+              "tradeCount": 26,
+              "netProfit": 404.2
+            }
+          },
+          "quarterly": {
+            "2026-Q1": {
+              "tradeCount": 137,
+              "netProfit": 31575.95
+            },
+            "2026-Q2": {
+              "tradeCount": 87,
+              "netProfit": 8799.55
+            },
+            "2026-Q3": {
+              "tradeCount": 93,
+              "netProfit": -2374.0
+            }
+          },
+          "yearly": {
+            "2026": {
+              "tradeCount": 317,
+              "netProfit": 38001.5
+            }
+          },
+          "longestInactiveGapDays": 7,
+          "bestMonthShareOfPositiveMonths": 0.3353,
+          "winningMonths": 6,
+          "losingMonths": 3,
+          "flatMonths": 0
+        },
+        "findings": [
+          "9 distinct months, 1 distinct years represented.",
+          "Longest gap with zero trades: 7 days.",
+          "The single best month accounts for 33.5% of all positive monthly profit -- reported as a fact, no pass/fail threshold applied."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "REGIME_COVERAGE:1b27dbd030909d68",
+        "versionId": "GOLDHEDGE-v3.18-2026-POSITIONLOG",
+        "evidenceId": "1b27dbd030909d68",
+        "validationType": "REGIME_COVERAGE",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "944574dece4c1eaa",
+        "inputEvidenceHash": "1b27dbd030909d68",
+        "startedAt": "2026-09-30T13:27:25.440120Z",
+        "completedAt": "2026-09-30T13:27:25.440120Z",
+        "methodology": "Per-regime trade grouping using Trade.marketRegime, when present.",
+        "parameters": {},
+        "metrics": {
+          "regimesRepresented": [],
+          "tradeCountByRegime": {}
+        },
+        "findings": [
+          "No trades in this Evidence carry a marketRegime tag -- regime coverage cannot be computed for this Evidence. No regime classifier exists yet in this research program (see design doc section 11); this is reported honestly, not fabricated."
+        ],
+        "warnings": [],
+        "status": "INCONCLUSIVE",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "PERFORMANCE_DISTRIBUTION:1b27dbd030909d68",
+        "versionId": "GOLDHEDGE-v3.18-2026-POSITIONLOG",
+        "evidenceId": "1b27dbd030909d68",
+        "validationType": "PERFORMANCE_DISTRIBUTION",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "trades[]",
+        "datasetHash": "944574dece4c1eaa",
+        "inputEvidenceHash": "1b27dbd030909d68",
+        "startedAt": "2026-09-30T13:27:25.440120Z",
+        "completedAt": "2026-09-30T13:27:25.444117Z",
+        "methodology": "Distribution statistics beyond total return: median, expectancy, streaks, top-decile concentration.",
+        "parameters": {},
+        "metrics": {
+          "profitFactor": 1.4095,
+          "winRate": 0.4101,
+          "avgTrade": 119.88,
+          "medianTrade": -231.55,
+          "expectancy": 119.8785,
+          "maxDrawdown": {
+            "absolute": 10520.4,
+            "percent": 0.3013
+          },
+          "largestWin": 6192.0,
+          "largestLoss": -2756.95,
+          "consecutiveWins": 8,
+          "consecutiveLosses": 19,
+          "topDecileWinShareOfGrossProfit": 0.3182
+        },
+        "findings": [
+          "Median trade P&L: -231.55. Expectancy per trade: 119.8785.",
+          "Best 10% of winning trades account for 31.8% of total gross profit -- a concentration fact, not a pass/fail judgment."
+        ],
+        "warnings": [],
+        "status": "PASS",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      },
+      {
+        "validationId": "PARAMETER_SENSITIVITY:1b27dbd030909d68",
+        "versionId": "GOLDHEDGE-v3.18-2026-POSITIONLOG",
+        "evidenceId": "1b27dbd030909d68",
+        "validationType": "PARAMETER_SENSITIVITY",
+        "rulesetVersion": "none-defined",
+        "datasetIdentity": "n/a",
+        "datasetHash": "944574dece4c1eaa",
+        "inputEvidenceHash": "1b27dbd030909d68",
+        "startedAt": "2026-09-30T13:27:25.444117Z",
+        "completedAt": "2026-09-30T13:27:25.444117Z",
+        "methodology": "Baseline-vs-perturbed-configuration comparison (framework only -- see design doc section 12).",
+        "parameters": {},
+        "metrics": {},
+        "findings": [
+          "Not executed for this Evidence: real parameter-sensitivity analysis requires new backtests with perturbed EA inputs, which this sprint's guardrails explicitly forbid ('Do not optimize G01. Do not change G01 parameters.'). The framework itself is built and verified against synthetic configurations (see test_validation_engine.py Test H). Deferred to a future sprint that explicitly authorizes new runs."
+        ],
+        "warnings": [],
+        "status": "INCONCLUSIVE",
+        "createdBy": "AT24-M4-Validation-Engine-v1.0"
+      }
+    ]
+  },
+  "m5_full": {
+    "riskAnalysisId": "795125b13a38cfd9",
+    "versionId": "GOLDHEDGE-v3.18-2026-POSITIONLOG",
+    "evidenceId": "1b27dbd030909d68",
+    "validationId": "0bdeba2960fdc5f8",
+    "rulesetVersion": "none-defined",
+    "methodologyVersion": "M5-methodology-v1",
+    "inputEvidenceHash": "1b27dbd030909d68",
+    "inputValidationHash": "0bdeba2960fdc5f8",
+    "generatedAt": "2026-09-30T13:27:25.550358Z",
+    "drawdown": {
+      "curveType": "balance (trade-close), NOT intraday equity -- see design doc section 8",
+      "equityDrawdownAvailable": false,
+      "balanceDrawdownAvailable": true,
+      "maxDrawdown": 10520.4,
+      "maxDrawdownPercent": 0.3013,
+      "maxDrawdownDurationDays": 37,
+      "averageDrawdown": 3473.8,
+      "medianDrawdown": 3275.25,
+      "drawdownFrequency": 17,
+      "episodeCount": 17,
+      "unrecoveredEpisodes": 1,
+      "dataQuality": "LIMITED",
+      "note": "DRAWDOWN_ANALYSIS_LIMITED: no intraday/tick equity series exists in this Evidence (Evidence.curves is empty) -- figures above are BALANCE drawdown (closed trades only), not EQUITY drawdown."
+    },
+    "lossDistribution": {
+      "count": 187,
+      "largestLoss": -2756.95,
+      "averageLoss": -496.29,
+      "medianLoss": -357.65,
+      "stdevLoss": 421.92,
+      "percentiles": {
+        "P50": 357.65,
+        "P75": 523.75,
+        "P90": 860.25,
+        "P95": 1523.25,
+        "P99": 1915.9
+      },
+      "maxConsecutiveLosses": 19,
+      "averageConsecutiveLossLength": 4.45,
+      "lossStreakEpisodes": 42,
+      "clusteredLossShare": 0.9519,
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "winDistribution": {
+      "count": 130,
+      "largestWin": 6192.0,
+      "averageWin": 1006.22,
+      "medianWin": 791.77,
+      "stdevWin": 904.99,
+      "percentiles": {
+        "P50": 790.75,
+        "P75": 1049.3,
+        "P90": 1480.5,
+        "P95": 2742.85,
+        "P99": 5066.4
+      },
+      "maxConsecutiveWins": 8,
+      "averageConsecutiveWinLength": 3.02,
+      "winStreakEpisodes": 43,
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "expectancy": {
+      "expectancyPerTrade": 119.8785,
+      "averageWin": 1006.22,
+      "averageLoss": -496.29,
+      "winLossRatio": 2.0275,
+      "profitFactorNet": 1.4095,
+      "grossProfitNet": 130808.6,
+      "grossLossNet": -92807.1,
+      "netResult": 38001.5,
+      "grossProfitRaw": 130808.6,
+      "grossLossRaw": -92807.1,
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "lossStreaks": {
+      "maxConsecutiveLosses": 19,
+      "maxLossStreakDurationDays": 10,
+      "capitalImpactOfLongestLossStreak": -9831.7,
+      "capitalImpactPctOfDeposit": 0.9832,
+      "dataQuality": "AVAILABLE"
+    },
+    "recovery": {
+      "recoveryEpisodes": 16,
+      "unrecoveredEpisodesAtEndOfPeriod": 1,
+      "averageRecoveryDurationDays": 9.1,
+      "percentOfPeriodBelowPriorPeak": 0.9427,
+      "dataQuality": "LIMITED",
+      "note": "Recovery timing is reconstructed from the same balance-level (trade-close) equity curve as drawdown -- not intraday equity. See drawdown section."
+    },
+    "tailRisk": {
+      "worst1Trade": -2756.95,
+      "worst5Trades": -10909.15,
+      "worst10Trades": -19228.65,
+      "worst1SharePctOfGrossLoss": 0.0297,
+      "worst5SharePctOfGrossLoss": 0.1175,
+      "worst10SharePctOfGrossLoss": 0.2072,
+      "P95Loss": 1523.25,
+      "P99Loss": 1915.9,
+      "largestDrawdown": 10520.4,
+      "worstLossStreakCapitalImpact": -9831.7,
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "concentration": {
+      "top1PctWinnersShareOfGrossProfit": 0.0473,
+      "top5PctWinnersShareOfGrossProfit": 0.2046,
+      "dataQuality": "AVAILABLE",
+      "bestYear": {
+        "year": "2026",
+        "tradeCount": 317,
+        "netProfit": 38001.5
+      },
+      "worstYear": {
+        "year": "2026",
+        "tradeCount": 317,
+        "netProfit": 38001.5
+      },
+      "bestMonth": {
+        "month": "2026-03",
+        "tradeCount": 43,
+        "netProfit": 16402.5
+      },
+      "worstMonth": {
+        "month": "2026-07",
+        "tradeCount": 31,
+        "netProfit": -8398.9
+      },
+      "positivePeriodsCount": 6,
+      "negativePeriodsCount": 3,
+      "source": "reused from M4 TEMPORAL_STABILITY record (not recomputed)"
+    },
+    "temporalRisk": {
+      "perYear": {
+        "2026": {
+          "tradeCount": 317,
+          "maxDrawdownWithinYear": 10520.4,
+          "maxConsecutiveLossesWithinYear": 19
+        }
+      },
+      "worstDrawdownYear": "2026",
+      "dataQuality": "AVAILABLE",
+      "note": "Per-year drawdown/loss-streak computed fresh here (not in M4's TEMPORAL_STABILITY, which only tracked net profit/PF per period)."
+    },
+    "regimeRisk": {
+      "dataQuality": "UNAVAILABLE",
+      "note": "REGIME_DATA_UNAVAILABLE: no trades in this Evidence carry a marketRegime tag. No regime classifier exists yet in this research program -- not inferred.",
+      "riskByRegime": {}
+    },
+    "exposureRisk": {
+      "positionSize": {
+        "maxPositionSize": 0.2,
+        "averagePositionSize": 0.0563,
+        "positionSizeStdev": 0.0285,
+        "topDecilePositionShareOfTotalVolume": 0.2017
+      },
+      "directionalConcentration": {
+        "long": 174,
+        "short": 143,
+        "longSharePct": 0.5489
+      },
+      "simultaneousExposure": {
+        "maxSimultaneousPositions": 7,
+        "hadOverlappingPositions": true,
+        "totalOverlapDurationHours": 6331.64
+      },
+      "dataQuality": "AVAILABLE",
+      "note": null
+    },
+    "costRisk": {
+      "totalCommission": 0.0,
+      "totalSwap": 0.0,
+      "totalCost": 0.0,
+      "costPerTrade": 0.0,
+      "costAsPctOfGrossProfit": 0.0,
+      "costAsPctOfGrossLoss": 0.0,
+      "spreadModel": "UNKNOWN",
+      "dataQuality": "AVAILABLE",
+      "note": "spreadModel is UNKNOWN (not zero) -- the source report doesn't expose it; commission/swap above are real measured values, independent of this gap."
+    },
+    "dataQuality": {
+      "drawdown": "LIMITED",
+      "lossDistribution": "AVAILABLE",
+      "winDistribution": "AVAILABLE",
+      "expectancy": "AVAILABLE",
+      "lossStreaks": "AVAILABLE",
+      "recovery": "LIMITED",
+      "tailRisk": "AVAILABLE",
+      "concentration": "AVAILABLE",
+      "temporalRisk": "AVAILABLE",
+      "regimeRisk": "UNAVAILABLE",
+      "exposureRisk": "AVAILABLE",
+      "costRisk": "AVAILABLE"
+    },
+    "findings": [
+      "Max drawdown (balance): 10520.4 (0.3013), 17 drawdown episodes, 1 unrecovered at end of period.",
+      "Expectancy per trade: 119.8785. Max consecutive losses: 19."
+    ],
+    "warnings": [],
+    "limitations": [
+      "DRAWDOWN_ANALYSIS_LIMITED: no intraday/tick equity series exists in this Evidence (Evidence.curves is empty) -- figures above are BALANCE drawdown (closed trades only), not EQUITY drawdown.",
+      "Recovery timing is reconstructed from the same balance-level (trade-close) equity curve as drawdown -- not intraday equity. See drawdown section.",
+      "REGIME_DATA_UNAVAILABLE: no trades in this Evidence carry a marketRegime tag. No regime classifier exists yet in this research program -- not inferred.",
+      "spreadModel is UNKNOWN (not zero) -- the source report doesn't expose it; commission/swap above are real measured values, independent of this gap."
+    ],
+    "status": "PARTIAL",
+    "riskAnalysisHash": "795125b13a38cfd9",
+    "createdBy": "AT24-M5-Risk-Analysis-Engine-v1.0"
+  },
+  "m6_full": [
+    {
+      "tradingSystemId": "GOLDHEDGE",
+      "versionId": "GOLDHEDGE-v3.18-2026-POSITIONLOG",
+      "evidenceId": null,
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "SYSTEM_CREATED",
+      "observedAt": "2026-09-30T13:27:25.552212Z",
+      "recordedAt": "2026-09-30T13:27:25.552212Z",
+      "source": "AT24-M6-History-Engine-v1.0",
+      "sourceHash": null,
+      "payload": {
+        "tradingSystemId": "GOLDHEDGE"
+      },
+      "previousEventId": null,
+      "previousEventHash": null,
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "948ad9e97e026e11",
+      "contentHash": "948ad9e97e026e11"
+    },
+    {
+      "tradingSystemId": "GOLDHEDGE",
+      "versionId": "GOLDHEDGE-v3.18-2026-POSITIONLOG",
+      "evidenceId": null,
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "VERSION_CREATED",
+      "observedAt": "2026-09-30T13:27:25.552212Z",
+      "recordedAt": "2026-09-30T13:27:25.552212Z",
+      "source": "AT24-M6-History-Engine-v1.0",
+      "sourceHash": null,
+      "payload": {
+        "versionId": "GOLDHEDGE-v3.18-2026-POSITIONLOG"
+      },
+      "previousEventId": "948ad9e97e026e11",
+      "previousEventHash": "948ad9e97e026e11",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "2a3d50d1521a3b44",
+      "contentHash": "2a3d50d1521a3b44"
+    },
+    {
+      "tradingSystemId": "GOLDHEDGE",
+      "versionId": "GOLDHEDGE-v3.18-2026-POSITIONLOG",
+      "evidenceId": "1b27dbd030909d68",
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "EVIDENCE_ADDED",
+      "observedAt": "2026-09-24T23:59:58",
+      "recordedAt": "2026-09-30T13:27:25.552212Z",
+      "source": "AT24-M2-Evidence-Engine-v0.2",
+      "sourceHash": "1b27dbd030909d68",
+      "payload": {
+        "sourceAdapter": "mt5-position-id-log-v1",
+        "tradeCount": 317
+      },
+      "previousEventId": "2a3d50d1521a3b44",
+      "previousEventHash": "2a3d50d1521a3b44",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "45473812133bfa09",
+      "contentHash": "45473812133bfa09"
+    },
+    {
+      "tradingSystemId": "GOLDHEDGE",
+      "versionId": "GOLDHEDGE-v3.18-2026-POSITIONLOG",
+      "evidenceId": "1b27dbd030909d68",
+      "validationId": null,
+      "riskAnalysisId": null,
+      "eventType": "EVIDENCE_VERIFIED",
+      "observedAt": "2026-09-30T13:27:25.552212Z",
+      "recordedAt": "2026-09-30T13:27:25.552212Z",
+      "source": "AT24-M3-Evidence-Verifier-v1.0",
+      "sourceHash": "1b27dbd030909d68",
+      "payload": {
+        "m3Status": "VERIFIED",
+        "warnings": [
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'spreadModel' is null",
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'commissionModel' is null",
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'swapModel' is null",
+          "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'tickDataQuality' is null"
+        ]
+      },
+      "previousEventId": "45473812133bfa09",
+      "previousEventHash": "45473812133bfa09",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "7d5cb9cec4ca2783",
+      "contentHash": "7d5cb9cec4ca2783"
+    },
+    {
+      "tradingSystemId": "GOLDHEDGE",
+      "versionId": "GOLDHEDGE-v3.18-2026-POSITIONLOG",
+      "evidenceId": "1b27dbd030909d68",
+      "validationId": "1b27dbd030909d68",
+      "riskAnalysisId": null,
+      "eventType": "VALIDATION_COMPLETED",
+      "observedAt": "2026-09-30T13:27:25.552212Z",
+      "recordedAt": "2026-09-30T13:27:25.552212Z",
+      "source": "AT24-M4-Validation-Engine-v1.0",
+      "sourceHash": "1b27dbd030909d68",
+      "payload": {
+        "overallStatus": "INCONCLUSIVE",
+        "recordStatuses": {
+          "SAMPLE_SIZE": "PASS",
+          "OUT_OF_SAMPLE": "PASS",
+          "WALK_FORWARD": "INCONCLUSIVE",
+          "TEMPORAL_STABILITY": "PASS",
+          "REGIME_COVERAGE": "INCONCLUSIVE",
+          "PERFORMANCE_DISTRIBUTION": "PASS",
+          "PARAMETER_SENSITIVITY": "INCONCLUSIVE"
+        }
+      },
+      "previousEventId": "7d5cb9cec4ca2783",
+      "previousEventHash": "7d5cb9cec4ca2783",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "1ea3ad899db1cd53",
+      "contentHash": "1ea3ad899db1cd53"
+    },
+    {
+      "tradingSystemId": "GOLDHEDGE",
+      "versionId": "GOLDHEDGE-v3.18-2026-POSITIONLOG",
+      "evidenceId": "1b27dbd030909d68",
+      "validationId": "1b27dbd030909d68",
+      "riskAnalysisId": "795125b13a38cfd9",
+      "eventType": "RISK_ANALYSIS_COMPLETED",
+      "observedAt": "2026-09-30T13:27:25.552212Z",
+      "recordedAt": "2026-09-30T13:27:25.552212Z",
+      "source": "AT24-M5-Risk-Analysis-Engine-v1.0",
+      "sourceHash": "795125b13a38cfd9",
+      "payload": {
+        "status": "PARTIAL",
+        "dataQuality": {
+          "drawdown": "LIMITED",
+          "lossDistribution": "AVAILABLE",
+          "winDistribution": "AVAILABLE",
+          "expectancy": "AVAILABLE",
+          "lossStreaks": "AVAILABLE",
+          "recovery": "LIMITED",
+          "tailRisk": "AVAILABLE",
+          "concentration": "AVAILABLE",
+          "temporalRisk": "AVAILABLE",
+          "regimeRisk": "UNAVAILABLE",
+          "exposureRisk": "AVAILABLE",
+          "costRisk": "AVAILABLE"
+        }
+      },
+      "previousEventId": "1ea3ad899db1cd53",
+      "previousEventHash": "1ea3ad899db1cd53",
+      "rulesetVersion": "none-defined",
+      "methodologyVersion": "M6-methodology-v1",
+      "createdBy": "AT24-M6-History-Engine-v1.0",
+      "historyEventId": "d124652ad9154076",
+      "contentHash": "d124652ad9154076"
+    }
+  ]
+}
