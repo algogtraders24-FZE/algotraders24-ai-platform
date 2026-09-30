@@ -34,8 +34,9 @@ const HOW_IT_WORKS = [
   { step: 2, title: "Select Market & Data", description: "Choose a supported symbol, timeframe, and date range - real coverage is checked before you run." },
   { step: 3, title: "Backtest", description: "Runs on the canonical, deterministic execution engine against real historical data." },
   { step: 4, title: "Inspect Evidence", description: "Review metrics, equity curve, the full trade ledger, and the exact assumptions behind the result." },
-  { step: 5, title: "Generate Code", description: "Export the same strategy as MT4, MT5, or Pine Script - reviewed and tested before live use." },
+  { step: 5, title: "Download Code", description: "Download MT4, MT5, or Pine Script code from the 'Code Generation' section of the results page - test before live use." },
 ] as const;
+
 
 const FREE_FEATURES = [
   "Strategy Builder",
@@ -97,6 +98,22 @@ export default async function QuantLiteHomePage() {
             Explore Quant Pro
           </Link>
         </div>
+      </section>
+
+      <section id="download-code" className="mx-auto max-w-4xl px-6 pb-16">
+        <Card padding="lg">
+          <p className="text-xs font-semibold uppercase tracking-wider text-gold">Code Generation</p>
+          <h2 className="mt-2 text-xl font-semibold text-text">Download MT4, MT5 and Pine Script code</h2>
+          <p className="mt-1 text-sm text-text-3">
+            Find the download buttons in the &quot;Code Generation&quot; section of your strategy&apos;s results page.
+            Click MT4, MT5, or Pine Script and the file downloads instantly.
+          </p>
+          <div className="mt-5">
+            <ButtonLink href="/quant-lite/builder" variant="secondary">
+              Start with the Builder
+            </ButtonLink>
+          </div>
+        </Card>
       </section>
 
       <section id="how-it-works" className="mx-auto max-w-5xl px-6 pb-16">
