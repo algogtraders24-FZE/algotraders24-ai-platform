@@ -108,11 +108,16 @@ export default async function QuantLiteHomePage() {
             Find the download buttons in the &quot;Code Generation&quot; section of your strategy&apos;s results page.
             Click MT4, MT5, or Pine Script and the file downloads instantly.
           </p>
-          <div className="mt-5">
-            <ButtonLink href="/quant-lite/builder" variant="secondary">
-              Start with the Builder
-            </ButtonLink>
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            {["MT4", "MT5", "Pine Script"].map((label) => (
+              <ButtonLink key={label} href="/quant-lite/builder" variant="secondary">
+                {label}
+              </ButtonLink>
+            ))}
           </div>
+          <p className="mt-3 text-xs text-text-3">
+            These open the Builder - build and backtest a strategy, then download the code from its results page.
+          </p>
         </Card>
       </section>
 
