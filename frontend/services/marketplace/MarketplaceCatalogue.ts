@@ -173,6 +173,33 @@ async function resolveSellerNames(sellerIds: string[]): Promise<Map<string, stri
   return new Map(users.map((u) => [u.id, u.name]));
 }
 
+// Default marketplace order leads with the most-trusted real listings -
+// VALIDATED first, then LIMITED, then the rest of the real M7 vocabulary
+// in roughly descending trustworthiness, newest-first within each tier.
+// trustState is a plain string column (not a Postgres enum - see the
+// model comment), so Prisma's typed `orderBy` can't express this custom
+// priority directly; at the current catalog scale (dozens of listings,
+// not yet the 100-500+ this file's own header anticipates) sorting the
+// full result set in application code is simpler and cheaper than a raw
+// SQL CASE expression, and easy to switch to one if the catalog grows
+// enough for that to matter.
+const TRUST_STATE_PRIORITY: Record<string, number> = {
+  VALIDATED: 0,
+  LIMITED: 1,
+  UNDER_OBSERVATION: 2,
+  VALIDATION_PENDING: 3,
+  INCONCLUSIVE: 4,
+  UNVERIFIED: 5,
+  INVALIDATED: 6,
+  SUPERSEDED: 7,
+};
+const UNKNOWN_TRUST_STATE_PRIORITY = 8; // null/missing/unrecognized - sinks to the bottom, never guessed into a real tier
+
+function trustPriorityOf(trustState: string | null): number {
+  if (!trustState) return UNKNOWN_TRUST_STATE_PRIORITY;
+  return TRUST_STATE_PRIORITY[trustState] ?? UNKNOWN_TRUST_STATE_PRIORITY;
+}
+
 function sortToOrderBy(sort: MarketplaceSearchParams["sort"]) {
   switch (sort) {
     case "recently_updated":
@@ -231,9 +258,24 @@ export class MarketplaceCatalogue {
         : {}),
     };
 
+    // No explicit sort = the marketplace's own default order, which leads
+    // with VALIDATED products (see TRUST_STATE_PRIORITY above) - every
+    // other sort is a user-chosen override and keeps the plain DB-level
+    // ordering untouched.
+    const useTrustPriorityOrder = !params.sort || params.sort === "newest";
+
     const [rows, total] = await withTableFallback(
-      () =>
-        Promise.all([
+      async () => {
+        if (useTrustPriorityOrder) {
+          const all = await prisma.marketplaceListing.findMany({ where });
+          all.sort((a, b) => {
+            const byTrust = trustPriorityOf(a.trustState) - trustPriorityOf(b.trustState);
+            if (byTrust !== 0) return byTrust;
+            return b.createdAt.getTime() - a.createdAt.getTime();
+          });
+          return [all.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize), all.length] as [PrismaMarketplaceListing[], number];
+        }
+        return Promise.all([
           prisma.marketplaceListing.findMany({
             where,
             orderBy: sortToOrderBy(params.sort),
@@ -241,7 +283,8 @@ export class MarketplaceCatalogue {
             take: pageSize,
           }),
           prisma.marketplaceListing.count({ where }),
-        ]),
+        ]);
+      },
       [[], 0] as [PrismaMarketplaceListing[], number],
     );
 
