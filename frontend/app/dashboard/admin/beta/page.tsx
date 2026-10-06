@@ -125,7 +125,7 @@ export default function AdminBetaPage() {
         <Card padding="sm" className="space-y-3 p-5">
           {overview.dropOff.map((stage) => (
             <div key={stage.key} className="flex items-center gap-3 text-sm">
-              <span className="w-40 shrink-0 text-text-2">{stage.label}</span>
+              <span className="w-48 shrink-0 text-text-2">{stage.label}</span>
               <div className="h-2 flex-1 rounded-full bg-ink-3">
                 <div className="h-2 rounded-full bg-success" style={{ width: `${stage.percentOfTotal}%` }} />
               </div>
@@ -135,8 +135,9 @@ export default function AdminBetaPage() {
             </div>
           ))}
           <p className="pt-2 text-xs text-text-3">
-            &quot;First Login&quot; and &quot;First Analysis&quot; are tracked from this sprint forward only - users who
-            reached those milestones earlier won&apos;t be reflected yet.
+            &quot;First Login&quot;, &quot;First Analysis&quot; and &quot;First Backtest&quot; are tracked from this sprint
+            forward only - users who reached those milestones earlier won&apos;t be reflected yet. &quot;First Backtest&quot;
+            counts only Quant Lite backtests submitted while signed in (jobs themselves carry no user), so it is a floor, not the true total.
           </p>
         </Card>
       </section>

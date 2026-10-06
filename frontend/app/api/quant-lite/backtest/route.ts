@@ -12,6 +12,8 @@ import { checkDataCoverage } from "@/services/quant-lite/backend/dataCoverage";
 import { createJob, findActiveJobByRequestHash } from "@/services/quant-lite/backend/jobStore";
 import { submitJob } from "@/services/quant-lite/backend/executionAdapter";
 import { isRemoteExecutionConfigured, submitRemoteJob, RemoteExecutionError } from "@/services/quant-lite/backend/remoteExecutionClient";
+import { SessionService } from "@/services/auth/SessionService";
+import { analyticsEventService } from "@/services/analytics/AnalyticsEventService";
 import type { BacktestRequest } from "@/types/quant-lite";
 import type { BacktestJobRecord, CreateBacktestJobResponse } from "@/types/quant-lite-job";
 
@@ -39,6 +41,19 @@ export const POST = withContext(async (req, ctx) => {
   const coverage = checkDataCoverage(request.symbol, request.timeframe, request.dateRange.start, request.dateRange.end);
   if (!coverage.ok || !coverage.assessment) {
     return ApiResponse.error({ code: coverage.code ?? "DATA_UNAVAILABLE", message: coverage.message ?? "requested data is not available" }, ctx.requestId, 422, ctx.startedAt);
+  }
+
+  // Beta funnel - Quant Lite jobs carry no userId (see services/quant-lite/
+  // recentRuns.ts), so a backtest is only attributable when the submitter is
+  // signed in. Best-effort and recorded at submit time (request validated,
+  // coverage ok); never blocks or fails the backtest.
+  try {
+    const sessionUser = await SessionService.getSessionUser();
+    if (sessionUser) {
+      await analyticsEventService.record(sessionUser.profile.id, "quant_lite_backtest").catch(() => {});
+    }
+  } catch {
+    // anonymous / no session - nothing to attribute
   }
 
   const requestHash = computeRequestHash(request);
