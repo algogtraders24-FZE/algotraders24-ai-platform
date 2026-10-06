@@ -52,6 +52,7 @@ export type McpErrorCode =
   | "unknown_tool"
   | "tool_not_read_only"
   | "quota_exceeded"
+  | "plan_required"
   | "invalid_input"
   | "permission_denied"
   | "tool_timeout"
@@ -90,8 +91,19 @@ export interface McpQuotaGate {
   check(principal: McpPrincipal, tool: McpToolName): Promise<{ allowed: boolean }>;
 }
 
+/** Tools that wrap a plan-gated AT24 product (the underlying service does not
+ *  re-check the plan, so the MCP layer MUST). Fail closed: without an
+ *  entitlement gate these are refused. */
+export const MCP_PLAN_GATED_TOOLS: readonly McpToolName[] = ["quant_backtest"];
+
+export interface McpEntitlementGate {
+  has(principal: McpPrincipal, tool: McpToolName): Promise<boolean>;
+}
+
 export interface McpFacadeDeps {
   registry: ToolRegistry;
+  /** Required for any tool in MCP_PLAN_GATED_TOOLS. */
+  entitlement?: McpEntitlementGate;
   audit?: (record: McpAuditRecord) => void | Promise<void>;
   quota?: McpQuotaGate;
   /** Returns true when the whole MCP surface is switched off. */
@@ -114,6 +126,7 @@ const MESSAGES: Record<McpErrorCode, string> = {
   unknown_tool: "Unknown tool.",
   tool_not_read_only: "This tool is not available over MCP.",
   quota_exceeded: "Usage limit reached for this tool. Try again later.",
+  plan_required: "This tool requires a plan that includes it (Quant Pro). Upgrade at algotraders24.ai.",
   invalid_input: "The arguments were invalid for this tool.",
   permission_denied: "This token is not permitted to use this tool.",
   tool_timeout: "The tool timed out.",
@@ -202,6 +215,16 @@ export async function callMcpTool(
   const required = impl.definition.requiredPermissions;
   if (!required.every((p) => MCP_READ_PERMISSIONS.includes(p))) {
     return finish(deny("tool_not_read_only", name));
+  }
+
+  if (MCP_PLAN_GATED_TOOLS.includes(name)) {
+    let entitled = false;
+    try {
+      entitled = deps.entitlement ? await deps.entitlement.has(principal, name) : false;
+    } catch {
+      entitled = false; // fail closed
+    }
+    if (!entitled) return finish(deny("plan_required", name));
   }
 
   if (deps.quota) {
