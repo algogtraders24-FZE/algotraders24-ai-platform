@@ -2852,3 +2852,49 @@ model EmailLog {
   @@index([recipientUserId])
   @@index([type, sentAt])
 }
+
+// ============================================================================
+// AT24 MCP server (v1, read-only) - docs/MT5-MCP-V1-TOOL-SPEC.md.
+//
+// McpApiToken: the credential an EXTERNAL MCP client (Claude Desktop, Cursor,
+// MT5 AI Assistant) presents to POST /api/mcp. Hashed at rest (sha256, same
+// pattern as License.apiKeyHash) - the raw token is returned exactly once at
+// issuance and never stored. Read-only scope only in v1.
+//
+// McpCallLog: one metadata-only row per MCP tool call (no arguments, no
+// output). It is BOTH the audit trail and the source of the per-user daily
+// quota counts.
+// ============================================================================
+model McpApiToken {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String
+  /// sha256 hex of the raw token. Never the raw token.
+  tokenHash  String    @unique
+  /// First characters of the raw token, safe to display ("at24_mcp_ab12...").
+  prefix     String
+  scopes     String[]  @default(["read"])
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@map("mcp_api_tokens")
+}
+
+model McpCallLog {
+  id              String   @id @default(cuid())
+  tokenId         String
+  userId          String
+  tool            String
+  ok              Boolean
+  errorCode       String?
+  creditsConsumed Float    @default(0)
+  durationMs      Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  @@index([userId, tool, createdAt])
+  @@index([tokenId, createdAt])
+  @@map("mcp_call_logs")
+}
