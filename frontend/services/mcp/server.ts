@@ -13,7 +13,14 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import type { ToolRegistry } from "@/services/agent-framework/tools/tool-registry";
 import { authenticateBearer, type McpTokenStore } from "./auth";
-import { callMcpTool, listMcpTools, type McpAuditRecord, type McpPrincipal, type McpQuotaGate } from "./facade";
+import {
+  callMcpTool,
+  listMcpTools,
+  type McpAuditRecord,
+  type McpEntitlementGate,
+  type McpPrincipal,
+  type McpQuotaGate,
+} from "./facade";
 
 export const MCP_SERVER_INFO = { name: "at24-mcp", version: "1.0.0" } as const;
 export const MCP_MAX_BODY_BYTES = 100_000;
@@ -24,6 +31,8 @@ export interface McpHttpDeps {
   registry: ToolRegistry;
   tokenStore: McpTokenStore;
   quota?: McpQuotaGate;
+  /** Plan entitlement for plan-gated tools (see MCP_PLAN_GATED_TOOLS). */
+  entitlement?: McpEntitlementGate;
   audit?: (record: McpAuditRecord) => void | Promise<void>;
   /** Per-token burst limiter; returns false when the caller must slow down. */
   burst?: { allow(key: string): boolean };
@@ -62,7 +71,7 @@ function buildServer(deps: McpHttpDeps, principal: McpPrincipal): Server {
 
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const res = await callMcpTool(
-      { registry: deps.registry, quota: deps.quota, audit: deps.audit, now: deps.now },
+      { registry: deps.registry, quota: deps.quota, entitlement: deps.entitlement, audit: deps.audit, now: deps.now },
       principal,
       req.params.name,
       req.params.arguments ?? {},

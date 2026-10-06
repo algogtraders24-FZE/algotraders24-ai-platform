@@ -229,6 +229,29 @@ async function main() {
     const thrown = await callMcpTool({ ...baseDeps(realReg), quota: { check: async () => { throw new Error("db down"); } } }, principal, "risk_calculator", {});
     assert.ok(thrown.isError && thrown.errorCode === "quota_exceeded");
   });
+  await check("plan-gated quant_backtest: refused with no gate / gate false / gate throws; allowed only when entitled", async () => {
+    let ran = 0;
+    const reg = new ToolRegistry().register(fakeTool("backtest.run", ["CAN_RUN_BACKTEST"], async () => {
+      ran += 1;
+      return { output: { ok: true }, evidence: [] };
+    })).freeze();
+    const noGate = await callMcpTool(baseDeps(reg), principal, "quant_backtest", { symbol: "X" });
+    assert.ok(noGate.isError && noGate.errorCode === "plan_required");
+    const denied = await callMcpTool({ ...baseDeps(reg), entitlement: { has: async () => false } }, principal, "quant_backtest", { symbol: "X" });
+    assert.ok(denied.isError && denied.errorCode === "plan_required");
+    const thrown = await callMcpTool({ ...baseDeps(reg), entitlement: { has: async () => { throw new Error("db down"); } } }, principal, "quant_backtest", { symbol: "X" });
+    assert.ok(thrown.isError && thrown.errorCode === "plan_required");
+    assert.equal(ran, 0, "tool must not run when not entitled");
+    const ok = await callMcpTool({ ...baseDeps(reg), entitlement: { has: async (_p, t) => t === "quant_backtest" } }, principal, "quant_backtest", { symbol: "X" });
+    assert.equal(ok.isError, false);
+    assert.equal(ran, 1);
+  });
+  await check("non-gated tools do not need an entitlement gate", async () => {
+    const res = await callMcpTool(baseDeps(realReg), principal, "risk_calculator", {
+      accountBalance: 10000, riskPercent: 1, entry: 100, stopLoss: 99, valuePerPricePerLot: 1,
+    });
+    assert.equal(res.isError, false);
+  });
   await check("invalid args -> invalid_input with no raw detail", async () => {
     const res = await callMcpTool(baseDeps(realReg), principal, "risk_calculator", { accountBalance: -5 });
     assert.ok(res.isError && res.errorCode === "invalid_input");
