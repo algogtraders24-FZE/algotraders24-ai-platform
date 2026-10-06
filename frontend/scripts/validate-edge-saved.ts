@@ -166,6 +166,18 @@ async function main() {
     for (const secret of ["999999999", "Secret-Server"]) assert.equal(json.includes(secret), false);
   });
 
+  await check("best lists contain only profitable groups, worst lists only losing groups, worst-first", () => {
+    const row: SavedAnalysisFull = { id: "idY", createdAt: new Date("2026-10-07T12:00:00Z"), tradeCount: 80, level: REPORT.edge.level, report: REPORT };
+    const w = summarizeAnalysis(row).analysis.whereResultsComeFrom;
+    for (const g of [...w.strategyTagsBest, ...w.bestHours]) assert.ok(g.net > 0, `best must be profitable: ${g.name} ${g.net}`);
+    for (const g of [...w.strategyTagsWorst, ...w.worstHours]) assert.ok(g.net < 0, `worst must be losing: ${g.name} ${g.net}`);
+    for (const list of [w.strategyTagsWorst, w.worstHours]) for (let i = 1; i < list.length; i++) assert.ok(list[i - 1]!.net <= list[i]!.net, "worst-first order");
+    // a report where everything made money has an EMPTY worst list (never a profitable group labelled worst)
+    const allWin = { ...REPORT, patterns: { ...REPORT.patterns, byTag: REPORT.patterns.byTag.map((b) => ({ ...b, net: Math.abs(b.net) + 1 })), byHour: REPORT.patterns.byHour.map((b) => ({ ...b, net: Math.abs(b.net) + 1 })) } };
+    const w2 = summarizeAnalysis({ ...row, report: allWin }).analysis.whereResultsComeFrom;
+    assert.deepEqual([w2.strategyTagsWorst, w2.worstHours], [[], []]);
+  });
+
   console.log("MCP tool through the real facade + gateway");
   const gated = (store: EdgeSavedStore, allowed: boolean) => ({
     registry: buildMcpRegistry({ edgeStore: store }),

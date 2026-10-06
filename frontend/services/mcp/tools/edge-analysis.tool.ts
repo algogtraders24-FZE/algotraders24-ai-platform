@@ -76,8 +76,10 @@ const group = (b: BucketStat) => ({ name: cleanLabel(b.key.replace(/^\d\s/, ""))
 export function summarizeAnalysis(saved: SavedAnalysisFull) {
   const r = saved.report;
   const byNet = (rows: BucketStat[]) => [...rows].sort((a, b) => b.net - a.net);
-  const tags = byNet(r.patterns.byTag);
-  const hours = byNet(r.patterns.byHour);
+  // "Best" lists only contain groups that made money and "worst" only groups that
+  // lost money: calling a profitable group "worst" would mislead an AI client.
+  const winners = (rows: BucketStat[]) => byNet(rows).filter((x) => x.net > 0);
+  const losers = (rows: BucketStat[]) => byNet(rows).filter((x) => x.net < 0).reverse();
   const s = r.patterns.sizeAfterOutcome;
   return {
     status: "ok" as const,
@@ -120,12 +122,12 @@ export function summarizeAnalysis(saved: SavedAnalysisFull) {
           }))
         : null,
       whereResultsComeFrom: {
-        strategyTagsBest: tags.slice(0, 3).map(group),
-        strategyTagsWorst: tags.length > 3 ? tags.slice(-3).reverse().map(group) : [],
+        strategyTagsBest: winners(r.patterns.byTag).slice(0, 3).map(group),
+        strategyTagsWorst: losers(r.patterns.byTag).slice(0, 3).map(group),
         symbols: byNet(r.patterns.bySymbol).slice(0, 10).map(group),
         weekdays: r.patterns.byWeekday.map(group),
-        bestHours: hours.slice(0, 3).map(group),
-        worstHours: hours.length > 3 ? hours.slice(-3).reverse().map(group) : [],
+        bestHours: winners(r.patterns.byHour).slice(0, 3).map(group),
+        worstHours: losers(r.patterns.byHour).slice(0, 3).map(group),
         directions: r.patterns.byDirection.map(group),
       },
       habits: {
