@@ -10,6 +10,7 @@
 // summary only, and the locked sections are simply absent from the response.
 // Wording is descriptive, never advice or a promise.
 import { useRef, useState } from "react";
+import Link from "next/link";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -164,7 +165,7 @@ export default function EdgeAnalyzerPage() {
           <li>Upload it below. Use the English MT5 report.</li>
         </ol>
         <p className="text-xs text-text-3">
-          Your file is analyzed in memory and is <b>not saved</b>. Account number, name and broker details are never read. Results describe the past only and are not investment advice.
+          Your file is analyzed in memory and is <b>not saved</b>. Account number, name and broker details are never read. Results describe the past only and are not investment advice. <Link href="/dashboard/help/edge-analyzer" className="font-semibold text-gold hover:underline">How to read the report →</Link>
         </p>
         <input
           ref={inputRef}

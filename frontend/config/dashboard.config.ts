@@ -54,6 +54,7 @@ import {
   Shield,
   Plug,
   Gauge,
+  BookOpen,
   type LucideIcon,
 } from "lucide-react";
 
@@ -272,6 +273,9 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       // (app/dashboard/support/page.tsx), backed by the same framework
       // runs API with agentType SUPPORT.
       { label: "Support", href: "/dashboard/support", icon: LifeBuoy },
+      // In-app how-to guides (Edge Analyzer, AI Tools). Static pages under
+      // app/dashboard/help/, linked from the feature pages themselves too.
+      { label: "How-to guides", href: "/dashboard/help", icon: BookOpen },
       // AT24 MCP v1 - API tokens + connection guide for the read-only MCP
       // endpoint (app/dashboard/mcp/page.tsx, /api/mcp).
       { label: "AI Tools (MCP)", href: "/dashboard/mcp", icon: Plug },
