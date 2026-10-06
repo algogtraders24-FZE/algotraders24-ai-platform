@@ -4,6 +4,7 @@
 // Talks only to /api/private/mcp/tokens (session-authenticated). The raw token
 // is shown ONCE in this session's memory and never persisted client-side.
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -144,6 +145,7 @@ export default function McpPage() {
         eyebrow="ACCOUNT"
         title="AI Tools (MCP)"
         description="Connect AT24's read-only market intelligence and quant tools to any MCP-compatible AI client. AT24 never places orders and never asks for broker credentials."
+        action={<Link href="/dashboard/help/ai-tools" className="text-sm font-semibold text-gold hover:underline">How to use →</Link>}
       />
 
       {error && <Alert tone="danger">{error}</Alert>}
