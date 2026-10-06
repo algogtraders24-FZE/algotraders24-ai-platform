@@ -94,7 +94,7 @@ export interface McpQuotaGate {
 /** Tools that wrap a plan-gated AT24 product (the underlying service does not
  *  re-check the plan, so the MCP layer MUST). Fail closed: without an
  *  entitlement gate these are refused. */
-export const MCP_PLAN_GATED_TOOLS: readonly McpToolName[] = ["quant_backtest"];
+export const MCP_PLAN_GATED_TOOLS: readonly McpToolName[] = ["quant_backtest", "edge_analysis"];
 
 export interface McpEntitlementGate {
   has(principal: McpPrincipal, tool: McpToolName): Promise<boolean>;
@@ -143,6 +143,7 @@ const OPEN_WORLD: Record<McpToolName, boolean> = {
   economic_calendar: true,
   strategy_library_search: false,
   risk_calculator: false,
+  edge_analysis: false,
 };
 
 export function listMcpTools(registry: ToolRegistry): McpToolListing[] {

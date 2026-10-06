@@ -49,6 +49,14 @@ export type EdgeAccessResponse =
   | { access: "full"; report: EdgeReportE1 }
   | { access: "free"; report: FreeEdgeReport; locked: LockedSection[] };
 
+/** The analyze endpoint's full response: the access-gated report plus the outcome of an opt-in save. */
+export type EdgeAnalyzeResponse = EdgeAccessResponse & {
+  /** Present when the user asked to save and it succeeded. */
+  saved?: { id: string; createdAt: string };
+  /** Present when the user asked to save and it did not happen; says why in plain words. */
+  saveNote?: string;
+};
+
 /** Build the response for the caller's entitlement. Anything but `true` is free (fail closed). */
 export function toAccessResponse(report: EdgeReportE1, hasFullAccess: boolean): EdgeAccessResponse {
   if (hasFullAccess === true) return { access: "full", report };

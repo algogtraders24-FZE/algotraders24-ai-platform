@@ -2898,3 +2898,23 @@ model McpCallLog {
   @@index([tokenId, createdAt])
   @@map("mcp_call_logs")
 }
+
+// ============================================================================
+// Trader Edge Analyzer - saved analyses (E4 save + E5 MCP read).
+// OPT-IN, paid-plan only. Stores ONLY the computed analysis (EdgeReportE1:
+// aggregates, patterns, evidence, risk) - never the uploaded file and never
+// individual trades. The JSON contains no account number, name, company or
+// server (the parser never reads them). Per-user isolated; deletable by the user.
+// ============================================================================
+model EdgeAnalysis {
+  id         String   @id @default(cuid())
+  userId     String
+  tradeCount Int
+  /// Edge-evidence level at save time (insufficient|negative|none|weak|moderate|strong).
+  level      String
+  report     Json
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("edge_analyses")
+}

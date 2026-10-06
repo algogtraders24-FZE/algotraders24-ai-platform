@@ -14,7 +14,9 @@ import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { createBurstLimiter } from "@/services/mcp/quota";
 import { MAX_WIRE_BYTES, processUpload } from "@/services/edge-analyzer/upload";
-import { toAccessResponse } from "@/services/edge-analyzer/access";
+import { toAccessResponse, type EdgeAnalyzeResponse } from "@/services/edge-analyzer/access";
+import { saveAnalysis } from "@/services/edge-analyzer/saved";
+import { prismaEdgeSavedStore } from "@/services/edge-analyzer/prisma-saved-store";
 import { hasQuantProAccess } from "@/lib/access/quant-pro";
 
 export const runtime = "nodejs";
@@ -64,5 +66,13 @@ export const POST = withContext(async (req, ctx) => {
   } catch {
     full = false;
   }
-  return ApiResponse.success(toAccessResponse(outcome.report, full), ctx.requestId, 200, ctx.startedAt);
+  const response: EdgeAnalyzeResponse = toAccessResponse(outcome.report, full);
+
+  // Opt-in save (x-save-analysis: 1): paid only, capped per user, analysis only (never the file).
+  if (req.headers.get("x-save-analysis") === "1") {
+    const saved = await saveAnalysis(prismaEdgeSavedStore, user.profile.id, outcome.report, full);
+    if (saved.ok) response.saved = saved.saved;
+    else response.saveNote = saved.message;
+  }
+  return ApiResponse.success(response, ctx.requestId, 200, ctx.startedAt);
 });
