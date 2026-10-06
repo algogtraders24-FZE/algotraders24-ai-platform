@@ -41,7 +41,7 @@ unavailable. AT24 does not guess or fabricate data.
 
 ### Step 1 — Create a token
 1. Sign in to AT24.
-2. Open **Account → MCP access** in the dashboard.
+2. Open **Account → AI Tools (MCP)** in the dashboard.
 3. Enter a name (for example "Laptop Claude Code") and click **Create token**.
 4. **Copy the token now.** It is shown only once and cannot be recovered. If you lose it,
    revoke it and create a new one.
@@ -148,7 +148,7 @@ For `risk_calculator`, "value per price unit per lot" depends on your broker's c
 ## 9. Security
 
 - Treat your token like a password. Anyone with it can use your daily limits.
-- If it leaks, open **Account → MCP access** and click **Revoke**. It stops working immediately.
+- If it leaks, open **Account → AI Tools (MCP)** and click **Revoke**. It stops working immediately.
 - AT24 stores only a hash of your token and never your broker or MetaTrader credentials.
 - Each call is logged (tool name, time, success or error) for your usage limits and security. The
   content of your questions and answers is not stored in this log.
