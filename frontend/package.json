@@ -11,6 +11,7 @@
     "validate:context": "tsx scripts/validate-context-manager.ts",
     "validate:mcp-facade": "tsx scripts/validate-mcp-facade.ts",
     "validate:mcp-server": "tsx scripts/validate-mcp-server.ts",
+    "validate:mcp-usage": "tsx scripts/validate-mcp-usage.ts",
     "validate:messages": "tsx scripts/validate-conversation-messages.ts",
     "validate:orchestration": "tsx scripts/validate-chat-orchestration.ts",
     "validate:client-conversation": "tsx scripts/validate-client-conversation-identity.ts",

@@ -35,6 +35,13 @@ const TOOLS: { name: string; blurb: string }[] = [
   { name: "risk_calculator", blurb: "Position-size math from your own inputs." },
 ];
 
+interface UsageSummary {
+  serviceEnabled: boolean;
+  resetsAt: string;
+  tools: { name: string; used: number; limit: number; remaining: number }[];
+  recent: { tool: string; ok: boolean; errorCode: string | null; durationMs: number; at: string }[];
+}
+
 function fmt(d: string | null): string {
   return d ? new Date(d).toLocaleString() : "-";
 }
@@ -53,6 +60,18 @@ export default function McpPage() {
   const [fresh, setFresh] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const [usage, setUsage] = useState<UsageSummary | null>(null);
+
+  const loadUsage = useCallback(async () => {
+    try {
+      const res = await fetch("/api/private/mcp/usage", { cache: "no-store" });
+      const body = await res.json();
+      if (res.ok) setUsage(body.data as UsageSummary);
+    } catch {
+      // Usage is informational; the rest of the page works without it.
+    }
+  }, []);
+
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/private/mcp/tokens", { cache: "no-store" });
@@ -62,7 +81,8 @@ export default function McpPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load tokens");
     }
-  }, []);
+    await loadUsage();
+  }, [loadUsage]);
 
   useEffect(() => {
     void load();
@@ -122,11 +142,17 @@ export default function McpPage() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="ACCOUNT"
-        title="MCP access"
+        title="AI Tools (MCP)"
         description="Connect AT24's read-only market intelligence and quant tools to any MCP-compatible AI client. AT24 never places orders and never asks for broker credentials."
       />
 
       {error && <Alert tone="danger">{error}</Alert>}
+
+      {usage && !usage.serviceEnabled && (
+        <Alert tone="warning">
+          The AT24 AI Tools service is not switched on yet. You can create tokens now; connections will work once the service is enabled.
+        </Alert>
+      )}
 
       {fresh && (
         <Card className="space-y-3">
@@ -176,6 +202,48 @@ export default function McpPage() {
             })}
           </ul>
         )}
+      </Card>
+
+      <Card className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-semibold text-text">Today&apos;s usage</p>
+          <Button size="sm" variant="secondary" onClick={() => void loadUsage()}>Refresh</Button>
+        </div>
+        {!usage ? (
+          <p className="text-sm text-text-2">Loading…</p>
+        ) : (
+          <>
+            <ul className="divide-y divide-border">
+              {usage.tools.map((t) => (
+                <li key={t.name} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <span className="font-mono text-text">{t.name}</span>
+                  <span className="text-text-2">{t.used} / {t.limit} used</span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-text-3">Daily limits reset at {fmt(usage.resetsAt)} (00:00 UTC).</p>
+          </>
+        )}
+      </Card>
+
+      <Card className="space-y-3">
+        <p className="text-sm font-semibold text-text">Recent calls</p>
+        {!usage || usage.recent.length === 0 ? (
+          <p className="text-sm text-text-2">No calls yet. Once your AI app uses AT24, calls appear here.</p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {usage.recent.map((r, i) => (
+              <li key={`${r.at}-${i}`} className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+                <span>
+                  <span className="font-mono text-text">{r.tool}</span>{" "}
+                  <Badge tone={r.ok ? "success" : "danger"}>{r.ok ? "OK" : r.errorCode ?? "Error"}</Badge>
+                </span>
+                <span className="text-xs text-text-3">{fmt(r.at)} · {r.durationMs} ms</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="text-xs text-text-3">Only the tool name, time, result and duration are recorded, never your questions or the answers.</p>
       </Card>
 
       <Card className="space-y-3">
