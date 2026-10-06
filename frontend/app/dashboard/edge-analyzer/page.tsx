@@ -115,6 +115,31 @@ export default function EdgeAnalyzerPage() {
     }
   }
 
+  const [pdfBusy, setPdfBusy] = useState(false);
+
+  /** Builds the PDF in THIS browser from the report already on screen; nothing is uploaded or stored. */
+  async function downloadPdf() {
+    if (res?.access !== "full") return;
+    setPdfBusy(true);
+    try {
+      const { renderReportPdf } = await import("@/services/edge-analyzer/pdf/render");
+      const bytes = await renderReportPdf(res.report);
+      const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/pdf" }));
+      const a = document.createElement("a");
+      a.href = url;
+      // The uploaded file name is deliberately not used: it often contains the account number.
+      a.download = `AT24-edge-report-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch {
+      setError("The PDF could not be created. Please try again.");
+    } finally {
+      setPdfBusy(false);
+    }
+  }
+
   const report = res?.report ?? null;
   const full = res?.access === "full" ? res.report : null;
   const locked = res?.access === "free" ? res.locked : null;
@@ -177,6 +202,12 @@ export default function EdgeAnalyzerPage() {
             <ul className="list-disc space-y-1 pl-5 text-xs text-text-3">
               {e.caveats.map((t) => <li key={t}>{t}</li>)}
             </ul>
+            {full && (
+              <div className="flex flex-wrap items-center gap-3">
+                <Button size="sm" variant="secondary" onClick={() => void downloadPdf()} loading={pdfBusy}>Download PDF</Button>
+                <span className="text-xs text-text-3">Created in your browser. The report is not uploaded or stored.</span>
+              </div>
+            )}
           </Card>
 
           {report.warnings.map((w) => <Alert key={w} tone="warning">{w}</Alert>)}

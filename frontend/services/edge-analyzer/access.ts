@@ -17,7 +17,13 @@ import type { Patterns } from "./analysis/patterns";
 
 export type EdgeAccess = "free" | "full";
 
-export type LockedSection = "Skill-vs-luck details" | "Risk scenarios" | "Hour and hold-time breakdowns" | "Direction breakdown" | "Habits worth a closer look";
+export type LockedSection =
+  | "Skill-vs-luck details"
+  | "Risk scenarios"
+  | "Hour and hold-time breakdowns"
+  | "Direction breakdown"
+  | "Habits worth a closer look"
+  | "PDF download";
 
 export const FREE_LOCKED_SECTIONS: readonly LockedSection[] = [
   "Skill-vs-luck details",
@@ -25,6 +31,7 @@ export const FREE_LOCKED_SECTIONS: readonly LockedSection[] = [
   "Hour and hold-time breakdowns",
   "Direction breakdown",
   "Habits worth a closer look",
+  "PDF download",
 ];
 
 export interface FreeEdgeReport {
