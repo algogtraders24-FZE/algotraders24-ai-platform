@@ -18,6 +18,7 @@ export const prismaMcpTokenStore: McpTokenStore = {
       scopes: row.scopes,
       expiresAt: row.expiresAt,
       revokedAt: row.revokedAt,
+      lastUsedAt: row.lastUsedAt,
       userStatus: user?.status ?? "missing",
     };
   },

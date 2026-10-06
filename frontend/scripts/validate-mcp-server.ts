@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 
 import { generateMcpToken, hashMcpToken, parseBearerToken, MCP_TOKEN_PREFIX } from "../services/mcp/token";
-import { authenticateBearer, type McpTokenRecord, type McpTokenStore } from "../services/mcp/auth";
+import { authenticateBearer, TOUCH_INTERVAL_MS, TOUCH_TIMEOUT_MS, type McpTokenRecord, type McpTokenStore } from "../services/mcp/auth";
 import { createBurstLimiter, createDailyQuotaGate, MCP_DAILY_LIMITS, startOfUtcDay } from "../services/mcp/quota";
 import { handleMcpHttpRequest, MCP_MAX_BODY_BYTES, type McpHttpDeps } from "../services/mcp/server";
 import type { McpAuditRecord } from "../services/mcp/facade";
@@ -37,7 +37,7 @@ const registry = new ToolRegistry().register(riskCalculatorTool).register(strate
 const good = generateMcpToken();
 const NOW = new Date("2026-10-06T12:00:00Z");
 function record(over: Partial<McpTokenRecord> = {}): McpTokenRecord {
-  return { id: "tok-1", userId: "user-1", scopes: ["read"], expiresAt: null, revokedAt: null, userStatus: "active", ...over };
+  return { id: "tok-1", userId: "user-1", scopes: ["read"], expiresAt: null, revokedAt: null, lastUsedAt: null, userStatus: "active", ...over };
 }
 function storeFor(rec: McpTokenRecord | null, touched: string[] = []): McpTokenStore {
   return {
@@ -108,6 +108,39 @@ async function main() {
     assert.equal(await authenticateBearer(storeFor(record({ scopes: [] })), h, NOW), null);
     const boom: McpTokenStore = { findByHash: async () => { throw new Error("db down"); }, touchLastUsed: async () => undefined };
     assert.equal(await authenticateBearer(boom, h, NOW), null);
+  });
+  await check("last-used write is AWAITED (serverless freezes un-awaited work): it has completed when authentication returns", async () => {
+    let done = false;
+    const slow: McpTokenStore = {
+      findByHash: async () => record(),
+      touchLastUsed: async () => {
+        await new Promise((r) => setTimeout(r, 25));
+        done = true;
+      },
+    };
+    const p = await authenticateBearer(slow, `Bearer ${good.raw}`, NOW);
+    assert.ok(p);
+    assert.equal(done, true);
+  });
+  await check("throttled: no write if used within the interval; write once it is older", async () => {
+    const touched: string[] = [];
+    const h = `Bearer ${good.raw}`;
+    await authenticateBearer(storeFor(record({ lastUsedAt: new Date(NOW.getTime() - (TOUCH_INTERVAL_MS - 5_000)) }), touched), h, NOW);
+    assert.deepEqual(touched, []);
+    await authenticateBearer(storeFor(record({ lastUsedAt: new Date(NOW.getTime() - (TOUCH_INTERVAL_MS + 5_000)) }), touched), h, NOW);
+    assert.deepEqual(touched, ["tok-1"]);
+  });
+  await check("bookkeeping can never break or stall auth: a throwing store still authenticates; a hanging store waits at most the timeout", async () => {
+    const h = `Bearer ${good.raw}`;
+    const throwing: McpTokenStore = { findByHash: async () => record(), touchLastUsed: () => { throw new Error("sync boom"); } };
+    assert.ok(await authenticateBearer(throwing, h, NOW));
+    const rejecting: McpTokenStore = { findByHash: async () => record(), touchLastUsed: async () => { throw new Error("db down"); } };
+    assert.ok(await authenticateBearer(rejecting, h, NOW));
+    const hanging: McpTokenStore = { findByHash: async () => record(), touchLastUsed: () => new Promise(() => undefined) };
+    const t0 = Date.now();
+    assert.ok(await authenticateBearer(hanging, h, NOW));
+    const waited = Date.now() - t0;
+    assert.ok(waited >= TOUCH_TIMEOUT_MS - 100 && waited < TOUCH_TIMEOUT_MS + 1_500, `waited ${waited}ms`);
   });
   await check("a write/admin scope is never granted even alongside read", async () => {
     const p = await authenticateBearer(storeFor(record({ scopes: ["read", "write", "admin"] })), `Bearer ${good.raw}`, NOW);
