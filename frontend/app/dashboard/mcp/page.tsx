@@ -21,7 +21,9 @@ interface TokenRow {
   createdAt: string;
 }
 
-const ENDPOINT = "https://algotraders24.ai/api/mcp";
+// Must be the canonical www host: the apex 308-redirects to www, and clients
+// drop the Authorization header when following a cross-host redirect.
+const ENDPOINT = "https://www.algotraders24.ai/api/mcp";
 
 const TOOLS: { name: string; blurb: string }[] = [
   { name: "market_snapshot", blurb: "Latest verified quote with provider and freshness." },
