@@ -5,14 +5,17 @@
 // limit vs UTF-16 reports), signalled by `x-upload-encoding: gzip`; the file name
 // travels in `x-file-name` (URL-encoded). Heavy work is bounded (resample caps).
 //
-// Plan gating is intentionally NOT applied yet (owner decision pending); the
-// per-user rate limit below bounds CPU use meanwhile.
+// Plan gating: free users get the summary; an active paid plan gets the full
+// report (see services/edge-analyzer/access.ts). The per-user rate limit below
+// bounds CPU use for everyone.
 
 import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { createBurstLimiter } from "@/services/mcp/quota";
 import { MAX_WIRE_BYTES, processUpload } from "@/services/edge-analyzer/upload";
+import { toAccessResponse } from "@/services/edge-analyzer/access";
+import { hasQuantProAccess } from "@/lib/access/quant-pro";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,5 +56,13 @@ export const POST = withContext(async (req, ctx) => {
   if (!outcome.ok) {
     return ApiResponse.error({ code: outcome.code, message: outcome.message }, ctx.requestId, outcome.status, ctx.startedAt);
   }
-  return ApiResponse.success(outcome.report, ctx.requestId, 200, ctx.startedAt);
+  // Entitlement is decided here, server-side; locked sections are removed from
+  // the response. Any error resolving the plan => free (fail closed).
+  let full = false;
+  try {
+    full = await hasQuantProAccess(user.profile.id);
+  } catch {
+    full = false;
+  }
+  return ApiResponse.success(toAccessResponse(outcome.report, full), ctx.requestId, 200, ctx.startedAt);
 });

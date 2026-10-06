@@ -1,21 +1,24 @@
 "use client";
 // app/dashboard/edge-analyzer/page.tsx
-// AT24 Trader Edge Analyzer (E3). Upload a MetaTrader 5 Trade History Report
-// (HTML) and read where the results come from, whether the edge is distinguishable
-// from luck, and the spread of risk. ANALYZE-ONLY: nothing is saved. The browser
-// gzips the file (Vercel body limit vs UTF-16 reports) before sending.
+// AT24 Trader Edge Analyzer. Upload a MetaTrader 5 Trade History Report (HTML)
+// and read where the results come from, whether the edge is distinguishable from
+// luck, and the spread of risk. ANALYZE-ONLY: nothing is saved. The browser gzips
+// the file (Vercel body limit vs UTF-16 reports) before sending.
 //
 // Every number is computed server-side and deterministically; this page only
-// renders it. Wording is descriptive, never advice or a promise.
+// renders it. Plan gating is enforced on the server: a free account receives the
+// summary only, and the locked sections are simply absent from the response.
+// Wording is descriptive, never advice or a promise.
 import { useRef, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
+import ButtonLink from "@/components/ui/ButtonLink";
 import Alert from "@/components/ui/Alert";
 import Badge from "@/components/ui/Badge";
 import type { BadgeTone } from "@/components/ui/Badge";
 import StatCard from "@/components/ui/StatCard";
-import type { EdgeReportE1 } from "@/services/edge-analyzer";
+import type { EdgeAccessResponse } from "@/services/edge-analyzer/access";
 import type { BucketStat } from "@/services/edge-analyzer/analysis/patterns";
 import type { EdgeLevel } from "@/services/edge-analyzer/analysis/edge-evidence";
 
@@ -86,24 +89,24 @@ export default function EdgeAnalyzerPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [report, setReport] = useState<EdgeReportE1 | null>(null);
+  const [res, setRes] = useState<EdgeAccessResponse | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
 
   async function analyze(file: File) {
     setBusy(true);
     setError(null);
-    setReport(null);
+    setRes(null);
     setFileName(file.name);
     try {
       const { body, gzip } = await gzipFile(file);
-      const res = await fetch("/api/private/edge-analyzer/analyze", {
+      const r = await fetch("/api/private/edge-analyzer/analyze", {
         method: "POST",
         headers: { "x-file-name": encodeURIComponent(file.name), ...(gzip ? { "x-upload-encoding": "gzip" } : {}) },
         body,
       });
-      const json = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(json?.error?.message ?? "The report could not be analyzed.");
-      setReport(json.data as EdgeReportE1);
+      const json = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(json?.error?.message ?? "The report could not be analyzed.");
+      setRes(json.data as EdgeAccessResponse);
     } catch (e) {
       setError(e instanceof Error ? e.message : "The report could not be analyzed.");
     } finally {
@@ -112,6 +115,9 @@ export default function EdgeAnalyzerPage() {
     }
   }
 
+  const report = res?.report ?? null;
+  const full = res?.access === "full" ? res.report : null;
+  const locked = res?.access === "free" ? res.locked : null;
   const cur = report?.meta.currency ?? null;
   const c = report?.core;
   const e = report?.edge;
@@ -158,13 +164,14 @@ export default function EdgeAnalyzerPage() {
         <>
           <Card className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge tone={LEVEL_TONE[e.level]}>{LEVEL_LABEL[e.level]}</Badge>
+              <Badge tone={LEVEL_TONE[e.level]} className="normal-case">{LEVEL_LABEL[e.level]}</Badge>
               {report.reconciliation.length > 0 && (
-                <Badge tone={report.reconciled ? "success" : "warning"}>
+                <Badge tone={report.reconciled ? "success" : "warning"} className="normal-case">
                   {report.reconciled ? `Matches your terminal's own summary (${passed}/${report.reconciliation.length} checks)` : "Does not fully match the terminal summary"}
                 </Badge>
               )}
-              {report.meta.accountMode && <Badge tone="neutral">{report.meta.accountMode} account</Badge>}
+              {report.meta.accountMode && <Badge tone="neutral" className="normal-case">{report.meta.accountMode} account</Badge>}
+              {locked && <Badge tone="gold" className="normal-case">Free summary</Badge>}
             </div>
             <p className="text-base text-text">{e.headline}</p>
             <ul className="list-disc space-y-1 pl-5 text-xs text-text-3">
@@ -185,21 +192,34 @@ export default function EdgeAnalyzerPage() {
             <StatCard label="Longest losing streak" value={c.maxConsecutiveLosses} />
           </div>
 
-          <Card className="space-y-3">
-            <p className="text-sm font-semibold text-text">Is it skill or luck?</p>
-            <ul className="space-y-1 text-sm text-text-2">
-              <li>Average result per trade: <b className="text-text">{money(e.mean, cur)}</b>, 95% range <b className="text-text">{money(e.ci95[0], cur)} to {money(e.ci95[1], cur)}</b></li>
-              <li>Chance of seeing a result this far from zero by luck alone (p-value): <b className="text-text">{e.pValue}</b></li>
-              <li>Trades needed to tell this average from zero at the current variance: <b className="text-text">{e.tradesNeeded ?? "n/a"}</b> (you have {e.n})</li>
-              <li>Trades overlapping in time: <b className="text-text">{pct(e.overlapPct)}</b> · lag-1 autocorrelation: <b className="text-text">{e.lag1Autocorrelation ?? "-"}</b></li>
-              {e.perLot && <li>Result per lot (position-size sensitivity): <b className="text-text">{LEVEL_LABEL[e.perLot.level]}</b> (average {money(e.perLot.mean, cur)}, range {money(e.perLot.ci95[0], cur)} to {money(e.perLot.ci95[1], cur)})</li>}
-            </ul>
-            <p className="text-xs text-text-3">This is a level of evidence from your past trades, not proof and not a validation of any strategy.</p>
-          </Card>
+          {locked && (
+            <Card className="space-y-3 border-gold/40">
+              <p className="text-sm font-semibold text-text">Unlock the full report</p>
+              <p className="text-sm text-text-2">The free summary shows your headline verdict, key numbers and three breakdowns. An active paid plan also includes:</p>
+              <ul className="list-disc space-y-1 pl-5 text-sm text-text-2">
+                {locked.map((s) => <li key={s}>{s}</li>)}
+              </ul>
+              <ButtonLink href="/dashboard/billing" size="sm">See plans</ButtonLink>
+            </Card>
+          )}
 
-          {report.ruin && (
+          {full && (
             <Card className="space-y-3">
-              <p className="text-sm font-semibold text-text">What could the next {report.ruin.scenarios[0]?.horizonTrades} trades look like?</p>
+              <p className="text-sm font-semibold text-text">Is it skill or luck?</p>
+              <ul className="space-y-1 text-sm text-text-2">
+                <li>Average result per trade: <b className="text-text">{money(full.edge.mean, cur)}</b>, 95% range <b className="text-text">{money(full.edge.ci95[0], cur)} to {money(full.edge.ci95[1], cur)}</b></li>
+                <li>Chance of seeing a result this far from zero by luck alone (p-value): <b className="text-text">{full.edge.pValue}</b></li>
+                <li>Trades needed to tell this average from zero at the current variance: <b className="text-text">{full.edge.tradesNeeded ?? "n/a"}</b> (you have {full.edge.n})</li>
+                <li>Trades overlapping in time: <b className="text-text">{pct(full.edge.overlapPct)}</b> · lag-1 autocorrelation: <b className="text-text">{full.edge.lag1Autocorrelation ?? "-"}</b></li>
+                {full.edge.perLot && <li>Result per lot (position-size sensitivity): <b className="text-text">{LEVEL_LABEL[full.edge.perLot.level]}</b> (average {money(full.edge.perLot.mean, cur)}, range {money(full.edge.perLot.ci95[0], cur)} to {money(full.edge.perLot.ci95[1], cur)})</li>}
+              </ul>
+              <p className="text-xs text-text-3">This is a level of evidence from your past trades, not proof and not a validation of any strategy.</p>
+            </Card>
+          )}
+
+          {full?.ruin && (
+            <Card className="space-y-3">
+              <p className="text-sm font-semibold text-text">What could the next {full.ruin.scenarios[0]?.horizonTrades} trades look like?</p>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[34rem] text-left text-sm">
                   <thead className="text-xs text-text-3">
@@ -213,7 +233,7 @@ export default function EdgeAnalyzerPage() {
                     </tr>
                   </thead>
                   <tbody className="text-text-2">
-                    {report.ruin.scenarios.map((s) => (
+                    {full.ruin.scenarios.map((s) => (
                       <tr key={s.name} className="border-t border-border">
                         <td className="py-2 pr-3 text-text">{s.name === "independent" ? "Trades independent" : "Keeps winning/losing streaks"}</td>
                         {s.probDrawdownReaches.map((p) => <td key={p.thresholdPct} className="py-2 pr-3">{prob(p.probability)}</td>)}
@@ -226,7 +246,7 @@ export default function EdgeAnalyzerPage() {
               </div>
               <p className="text-xs text-text-3">Your own past trades were resampled thousands of times. The streak scenario is the more cautious reading. This illustrates risk; it is not a forecast.</p>
               <ul className="list-disc space-y-1 pl-5 text-xs text-text-3">
-                {report.ruin.assumptions.map((a) => <li key={a}>{a}</li>)}
+                {full.ruin.assumptions.map((a) => <li key={a}>{a}</li>)}
               </ul>
             </Card>
           )}
@@ -234,26 +254,28 @@ export default function EdgeAnalyzerPage() {
           <div className="grid gap-4 md:grid-cols-2">
             {report.patterns.byTag.length > 1 && <BarList title="By strategy / EA tag (trade comment)" rows={report.patterns.byTag} cur={cur} sort="net" />}
             <BarList title="By symbol" rows={report.patterns.bySymbol} cur={cur} sort="net" />
-            <BarList title="By direction" rows={report.patterns.byDirection} cur={cur} />
             <BarList title="By day of week (broker time)" rows={report.patterns.byWeekday} cur={cur} />
-            <BarList title="By hour of day (broker time)" rows={report.patterns.byHour} cur={cur} />
-            <BarList title="By how long trades were held" rows={report.patterns.byHoldTime} cur={cur} />
+            {full && <BarList title="By direction" rows={full.patterns.byDirection} cur={cur} />}
+            {full && <BarList title="By hour of day (broker time)" rows={full.patterns.byHour} cur={cur} />}
+            {full && <BarList title="By how long trades were held" rows={full.patterns.byHoldTime} cur={cur} />}
           </div>
 
-          <Card className="space-y-2">
-            <p className="text-sm font-semibold text-text">Habits worth a closer look</p>
-            <ul className="list-disc space-y-1 pl-5 text-sm text-text-2">
-              {report.patterns.sizeAfterOutcome.ratio !== null && (
-                <li>
-                  Average lot size after a loss: <b className="text-text">{report.patterns.sizeAfterOutcome.avgVolumeAfterLoss}</b> vs after a win: <b className="text-text">{report.patterns.sizeAfterOutcome.avgVolumeAfterWin}</b> (×{report.patterns.sizeAfterOutcome.ratio}).
-                  {report.patterns.sizeAfterOutcome.ratio >= 1.2 ? " You tend to size up after losses." : report.patterns.sizeAfterOutcome.ratio <= 0.83 ? " You tend to size down after losses." : " Sizing is similar after wins and losses."}
-                </li>
-              )}
-              <li>Average time held: winners <b className="text-text">{minutes(c.avgHoldMsWinners)}</b>, losers <b className="text-text">{minutes(c.avgHoldMsLosers)}</b>.</li>
-              <li>Longest run: <b className="text-text">{c.maxConsecutiveWins}</b> wins in a row, <b className="text-text">{c.maxConsecutiveLosses}</b> losses in a row.</li>
-            </ul>
-            <p className="text-xs text-text-3">These are observations to investigate, not instructions. Small groups ("few trades") should not be read into.</p>
-          </Card>
+          {full && (
+            <Card className="space-y-2">
+              <p className="text-sm font-semibold text-text">Habits worth a closer look</p>
+              <ul className="list-disc space-y-1 pl-5 text-sm text-text-2">
+                {full.patterns.sizeAfterOutcome.ratio !== null && (
+                  <li>
+                    Average lot size after a loss: <b className="text-text">{full.patterns.sizeAfterOutcome.avgVolumeAfterLoss}</b> vs after a win: <b className="text-text">{full.patterns.sizeAfterOutcome.avgVolumeAfterWin}</b> (×{full.patterns.sizeAfterOutcome.ratio}).
+                    {full.patterns.sizeAfterOutcome.ratio >= 1.2 ? " You tend to size up after losses." : full.patterns.sizeAfterOutcome.ratio <= 0.83 ? " You tend to size down after losses." : " Sizing is similar after wins and losses."}
+                  </li>
+                )}
+                <li>Average time held: winners <b className="text-text">{minutes(c.avgHoldMsWinners)}</b>, losers <b className="text-text">{minutes(c.avgHoldMsLosers)}</b>.</li>
+                <li>Longest run: <b className="text-text">{c.maxConsecutiveWins}</b> wins in a row, <b className="text-text">{c.maxConsecutiveLosses}</b> losses in a row.</li>
+              </ul>
+              <p className="text-xs text-text-3">These are observations to investigate, not instructions. Small groups ("few trades") should not be read into.</p>
+            </Card>
+          )}
 
           <Card className="space-y-2">
             <p className="text-sm font-semibold text-text">How to read this report</p>
