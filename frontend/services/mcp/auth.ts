@@ -13,6 +13,8 @@ export interface McpTokenRecord {
   scopes: string[];
   expiresAt: Date | null;
   revokedAt: Date | null;
+  /** When the token last authenticated (null = never). Used to throttle bookkeeping writes. */
+  lastUsedAt: Date | null;
   /** Account status of the owning user ("active" required). */
   userStatus: string;
 }
@@ -23,6 +25,34 @@ export interface McpTokenStore {
 }
 
 const VALID_SCOPES: readonly McpScope[] = ["read"];
+
+/** "Last used" is refreshed at most this often per token (keeps DB writes low). */
+export const TOUCH_INTERVAL_MS = 60_000;
+/** The request never waits longer than this for the bookkeeping write. */
+export const TOUCH_TIMEOUT_MS = 1_500;
+
+/**
+ * Runs the bookkeeping write and WAITS for it (bounded). A fire-and-forget write
+ * is not safe on serverless: the function is frozen as soon as the response is
+ * sent, so an un-awaited write often never completes (that is why "last used"
+ * stayed empty). Errors and slowness are swallowed - bookkeeping can never fail
+ * or stall an authenticated request.
+ */
+async function touchBounded(store: McpTokenStore, tokenId: string, at: Date): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      store.touchLastUsed(tokenId, at).catch(() => undefined),
+      new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, TOUCH_TIMEOUT_MS);
+      }),
+    ]);
+  } catch {
+    // a store that throws synchronously must not break authentication either
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 export async function authenticateBearer(
   store: McpTokenStore,
@@ -44,7 +74,8 @@ export async function authenticateBearer(
   const scopes = record.scopes.filter((s): s is McpScope => (VALID_SCOPES as readonly string[]).includes(s));
   if (!scopes.includes("read")) return null;
 
-  // Best-effort bookkeeping; never blocks or fails the request.
-  void store.touchLastUsed(record.id, now).catch(() => undefined);
+  if (!record.lastUsedAt || now.getTime() - record.lastUsedAt.getTime() >= TOUCH_INTERVAL_MS) {
+    await touchBounded(store, record.id, now);
+  }
   return { userId: record.userId, tokenId: record.id, scopes };
 }
