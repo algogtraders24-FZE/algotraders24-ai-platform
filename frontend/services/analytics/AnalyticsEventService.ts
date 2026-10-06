@@ -17,7 +17,8 @@ export type AnalyticsEventType =
   | "knowledge_upload"
   | "market_analysis"
   | "subscription_click"
-  | "product_view";
+  | "product_view"
+  | "quant_lite_backtest";
 
 // Event types a client may report about itself directly (no server-side
 // action to hang the call off of). Every other type is only ever recorded

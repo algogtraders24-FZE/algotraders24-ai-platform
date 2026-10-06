@@ -19,7 +19,7 @@ import { analyticsEventService, type AnalyticsEventType } from "@/services/analy
 const ACTIVE_WINDOW_DAYS = 7;
 
 export interface FunnelStage {
-  key: "account_created" | "email_verified" | "first_login" | "first_conversation" | "first_upload" | "first_analysis";
+  key: "account_created" | "email_verified" | "first_login" | "first_conversation" | "first_upload" | "first_analysis" | "first_backtest" | "first_feedback";
   label: string;
   count: number;
   percentOfTotal: number;
@@ -50,6 +50,7 @@ const FEATURE_LABELS: Record<AnalyticsEventType, string> = {
   market_analysis: "Market Analysis",
   subscription_click: "Subscription Click",
   product_view: "Product View",
+  quant_lite_backtest: "Quant Lite Backtest",
 };
 
 function pct(count: number, total: number): number {
@@ -65,6 +66,8 @@ export class AdminBetaService {
       firstConversationCount,
       firstUploadCount,
       firstAnalysisCount,
+      firstBacktestCount,
+      firstFeedbackCount,
       activeCount,
       eventCounts,
       feedbackSummary,
@@ -79,6 +82,10 @@ export class AdminBetaService {
         .findMany({ where: { deletedAt: null }, distinct: ["userId"], select: { userId: true } })
         .then((r) => r.length),
       analyticsEventService.distinctUserCount("market_analysis"),
+      analyticsEventService.distinctUserCount("quant_lite_backtest"),
+      prisma.feedback
+        .findMany({ where: { deletedAt: null }, distinct: ["userId"], select: { userId: true } })
+        .then((r) => r.length),
       analyticsEventService.distinctActiveUserCount(ACTIVE_WINDOW_DAYS),
       analyticsEventService.countsByType(),
       prisma.feedback.findMany({ where: { deletedAt: null }, select: { status: true } }),
@@ -112,6 +119,9 @@ export class AdminBetaService {
       { key: "first_conversation", label: "First Conversation", count: firstConversationCount, percentOfTotal: pct(firstConversationCount, totalUsers), trackedFrom: "all_time" },
       { key: "first_upload", label: "First Upload", count: firstUploadCount, percentOfTotal: pct(firstUploadCount, totalUsers), trackedFrom: "all_time" },
       { key: "first_analysis", label: "First Analysis", count: firstAnalysisCount, percentOfTotal: pct(firstAnalysisCount, totalUsers), trackedFrom: "this_sprint_forward" },
+      // Quant Lite jobs have no userId, so only backtests submitted while signed in are counted (a floor, not the true total).
+      { key: "first_backtest", label: "First Backtest (signed-in)", count: firstBacktestCount, percentOfTotal: pct(firstBacktestCount, totalUsers), trackedFrom: "this_sprint_forward" },
+      { key: "first_feedback", label: "First Feedback", count: firstFeedbackCount, percentOfTotal: pct(firstFeedbackCount, totalUsers), trackedFrom: "all_time" },
     ];
 
     return {
@@ -132,12 +142,14 @@ export class AdminBetaService {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { createdAt: true, emailVerified: true, deletedAt: true } });
     if (!user || user.deletedAt) return null;
 
-    const [emailVerifiedAt, firstLoginAt, firstConversation, firstUpload, firstAnalysisAt] = await Promise.all([
+    const [emailVerifiedAt, firstLoginAt, firstConversation, firstUpload, firstAnalysisAt, firstBacktestAt, firstFeedback] = await Promise.all([
       analyticsEventService.firstEventAt(userId, "email_verified"),
       analyticsEventService.firstEventAt(userId, "login"),
       prisma.conversation.findFirst({ where: { userId, deletedAt: null }, orderBy: { createdAt: "asc" }, select: { createdAt: true } }),
       prisma.knowledge.findFirst({ where: { userId, deletedAt: null }, orderBy: { createdAt: "asc" }, select: { createdAt: true } }),
       analyticsEventService.firstEventAt(userId, "market_analysis"),
+      analyticsEventService.firstEventAt(userId, "quant_lite_backtest"),
+      prisma.feedback.findFirst({ where: { userId, deletedAt: null }, orderBy: { createdAt: "asc" }, select: { createdAt: true } }),
     ]);
 
     return [
@@ -152,6 +164,8 @@ export class AdminBetaService {
       { key: "first_conversation", label: "First Conversation", occurredAt: firstConversation?.createdAt.toISOString() ?? null, note: !firstConversation ? "Not yet reached." : undefined },
       { key: "first_upload", label: "First Upload", occurredAt: firstUpload?.createdAt.toISOString() ?? null, note: !firstUpload ? "Not yet reached." : undefined },
       { key: "first_analysis", label: "First Analysis", occurredAt: firstAnalysisAt, note: !firstAnalysisAt ? "Not yet reached." : undefined },
+      { key: "first_backtest", label: "First Backtest (signed-in)", occurredAt: firstBacktestAt, note: !firstBacktestAt ? "Not yet recorded - backtests run while signed out are not attributable." : undefined },
+      { key: "first_feedback", label: "First Feedback", occurredAt: firstFeedback?.createdAt.toISOString() ?? null, note: !firstFeedback ? "Not yet reached." : undefined },
     ];
   }
 }
