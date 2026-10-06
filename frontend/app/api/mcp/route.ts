@@ -17,10 +17,11 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 // quant_backtest wraps Algo Testing (Quant Pro), whose service does not re-check
-// the plan - so the MCP layer enforces the SAME gate the Quant Pro routes use.
+// the plan, and edge_analysis returns a paid feature (saved analyses) - so the MCP
+// layer enforces the SAME paid-plan gate the Quant Pro routes use.
 const entitlement: McpEntitlementGate = {
   async has(principal, tool) {
-    if (tool === "quant_backtest") return hasQuantProAccess(principal.userId);
+    if (tool === "quant_backtest" || tool === "edge_analysis") return hasQuantProAccess(principal.userId);
     return false; // any other plan-gated tool is refused until it is wired here
   },
 };

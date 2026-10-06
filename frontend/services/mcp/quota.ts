@@ -21,6 +21,7 @@ export const MCP_DAILY_LIMITS: Record<McpToolName, number> = {
   economic_calendar: 100,
   strategy_library_search: 100,
   risk_calculator: 1000,
+  edge_analysis: 100,
 };
 
 export interface McpUsageStore {

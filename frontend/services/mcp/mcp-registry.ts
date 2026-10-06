@@ -16,10 +16,13 @@ import { newsSearchTool } from "@/services/agent-framework/tools/impl/news-searc
 import { economicCalendarTool } from "./tools/economic-calendar.tool";
 import { strategyLibrarySearchTool } from "./tools/strategy-library-search.tool";
 import { riskCalculatorTool } from "./tools/risk-calculator.tool";
+import { createEdgeAnalysisTool } from "./tools/edge-analysis.tool";
+import type { EdgeSavedStore } from "@/services/edge-analyzer/saved";
 
 export { MCP_TOOL_MAP, MCP_TOOL_NAMES, isMcpToolName, type McpToolName } from "./mcp-tool-map";
 
-export function buildMcpRegistry(): ToolRegistry {
+/** @param deps.edgeStore injected in tests; production uses the Prisma-backed store (loaded lazily). */
+export function buildMcpRegistry(deps: { edgeStore?: EdgeSavedStore } = {}): ToolRegistry {
   return new ToolRegistry()
     .register(marketSnapshotTool)
     .register(marketIntelligenceTool)
@@ -28,5 +31,6 @@ export function buildMcpRegistry(): ToolRegistry {
     .register(economicCalendarTool)
     .register(strategyLibrarySearchTool)
     .register(riskCalculatorTool)
+    .register(createEdgeAnalysisTool({ store: deps.edgeStore }))
     .freeze();
 }

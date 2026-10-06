@@ -102,6 +102,11 @@ export default function EdgeAnalyzerGuidePage() {
         <p className="text-xs text-text-3">The PDF is created in your browser from the report on screen. It does not contain the uploaded file name or any account identifier, and nothing is uploaded or stored.</p>
       </GuideSection>
 
+      <GuideSection title="Saving an analysis and using it with your AI tools">
+        <p>Paid plans can tick <b className="text-text">"Save this analysis to my account"</b> before uploading. Only the analysis is stored (numbers, breakdowns, verdict), never the report file and never individual trades, and it contains no account number or name. Keep up to 10 saved analyses and delete any of them anytime from the <b className="text-text">Saved analyses</b> list.</p>
+        <p>Your most recent saved analysis can be read by your own AI app through <b className="text-text">AI Tools (MCP)</b> (the <code>edge_analysis</code> tool), for example: <i>"Using my saved AT24 edge analysis, what are my biggest weaknesses?"</i> Combine it with MetaTrader 5's own MCP to ask about your open positions at the same time.</p>
+      </GuideSection>
+
       <GuideSection title="Limits and honest caveats">
         <ul className="list-disc space-y-1 pl-5">
           <li>Closed positions only. Open (floating) profit or loss is excluded.</li>

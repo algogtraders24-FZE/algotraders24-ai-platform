@@ -32,6 +32,7 @@ AT24 features are available in the AT24 dashboard.
 | `strategy_library_search` | Search 100 legacy backtest results by symbol, timeframe, trigger | All |
 | `risk_calculator` | Position size from your balance, risk % and stop distance | All |
 | `quant_backtest` | Run a backtest on an AT24 strategy and get metrics, trades and equity curve | Paid plan (Quant Pro) |
+| `edge_analysis` | Your most recent saved Edge Analyzer analysis: verdict, key numbers, risk scenarios, where results come from. Save one first in the dashboard Edge Analyzer | Paid plan (Quant Pro) |
 
 What it does **not** do: place or manage orders, read your MetaTrader account, give
 signals or guarantees, or predict prices. Anything unavailable is reported as
@@ -109,8 +110,9 @@ Daily limits per tool (reset at 00:00 UTC):
 | `economic_calendar`, `strategy_library_search` | 100 |
 | `market_intelligence`, `news_search` | 20 |
 | `quant_backtest` | 5 |
+| `edge_analysis` | 100 |
 
-`quant_backtest` requires an active paid plan. Without one you will see "plan required". Available
+`quant_backtest` and `edge_analysis` require an active paid plan. Without one you will see "plan required". Available
 backtest strategies are those in AT24's registry (currently `golden` and `ref-ema-crossover`).
 There is also a short-term rate limit; if you hit it, wait a moment and retry.
 
@@ -120,6 +122,7 @@ There is also a short-term rate limit; if you hit it, wait a moment and retry.
 - "Show this week's high-impact USD and EUR events."
 - "Search AT24's strategy library for XAUUSD 1h strategies with at least 30 trades."
 - "Backtest `ref-ema-crossover` on XAUUSD 1h from 2026-01-01 to 2026-06-01 and summarize drawdown and profit factor."
+- "Using my saved AT24 edge analysis, what are my biggest weaknesses, and what should I investigate next?"
 - "Calculate position size: balance 5,000, risk 0.5%, entry 1.0850, stop 1.0820, 100000 per price unit per lot."
 
 For `risk_calculator`, "value per price unit per lot" depends on your broker's contract size

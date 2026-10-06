@@ -18,6 +18,7 @@
     "validate:edge-access": "tsx scripts/validate-edge-access.ts",
     "validate:edge-pdf": "tsx scripts/validate-edge-pdf.ts",
     "validate:help-guides": "tsx scripts/validate-help-guides.ts",
+    "validate:edge-saved": "tsx scripts/validate-edge-saved.ts",
     "validate:messages": "tsx scripts/validate-conversation-messages.ts",
     "validate:orchestration": "tsx scripts/validate-chat-orchestration.ts",
     "validate:client-conversation": "tsx scripts/validate-client-conversation-identity.ts",

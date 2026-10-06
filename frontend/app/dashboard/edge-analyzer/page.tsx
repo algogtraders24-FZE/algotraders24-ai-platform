@@ -9,7 +9,7 @@
 // renders it. Plan gating is enforced on the server: a free account receives the
 // summary only, and the locked sections are simply absent from the response.
 // Wording is descriptive, never advice or a promise.
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
@@ -19,9 +19,16 @@ import Alert from "@/components/ui/Alert";
 import Badge from "@/components/ui/Badge";
 import type { BadgeTone } from "@/components/ui/Badge";
 import StatCard from "@/components/ui/StatCard";
-import type { EdgeAccessResponse } from "@/services/edge-analyzer/access";
+import type { EdgeAnalyzeResponse } from "@/services/edge-analyzer/access";
 import type { BucketStat } from "@/services/edge-analyzer/analysis/patterns";
 import type { EdgeLevel } from "@/services/edge-analyzer/analysis/edge-evidence";
+
+interface SavedRow {
+  id: string;
+  createdAt: string;
+  tradeCount: number;
+  level: string;
+}
 
 const LEVEL_TONE: Record<EdgeLevel, BadgeTone> = {
   insufficient: "neutral",
@@ -90,7 +97,31 @@ export default function EdgeAnalyzerPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [res, setRes] = useState<EdgeAccessResponse | null>(null);
+  const [res, setRes] = useState<EdgeAnalyzeResponse | null>(null);
+  const [saveIt, setSaveIt] = useState(false);
+  const [savedList, setSavedList] = useState<SavedRow[]>([]);
+
+  const loadSaved = useCallback(async () => {
+    try {
+      const r = await fetch("/api/private/edge-analyzer/saved", { cache: "no-store" });
+      const json = await r.json();
+      if (r.ok) setSavedList(json.data.analyses as SavedRow[]);
+    } catch {
+      // Saved analyses are optional; the analyzer works without them.
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadSaved();
+  }, [loadSaved]);
+
+  async function deleteSaved(id: string) {
+    try {
+      await fetch(`/api/private/edge-analyzer/saved?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    } finally {
+      await loadSaved();
+    }
+  }
   const [fileName, setFileName] = useState<string | null>(null);
 
   async function analyze(file: File) {
@@ -102,12 +133,13 @@ export default function EdgeAnalyzerPage() {
       const { body, gzip } = await gzipFile(file);
       const r = await fetch("/api/private/edge-analyzer/analyze", {
         method: "POST",
-        headers: { "x-file-name": encodeURIComponent(file.name), ...(gzip ? { "x-upload-encoding": "gzip" } : {}) },
+        headers: { "x-file-name": encodeURIComponent(file.name), ...(gzip ? { "x-upload-encoding": "gzip" } : {}), ...(saveIt ? { "x-save-analysis": "1" } : {}) },
         body,
       });
       const json = await r.json().catch(() => null);
       if (!r.ok) throw new Error(json?.error?.message ?? "The report could not be analyzed.");
-      setRes(json.data as EdgeAccessResponse);
+      setRes(json.data as EdgeAnalyzeResponse);
+      if ((json.data as EdgeAnalyzeResponse).saved) void loadSaved();
     } catch (e) {
       setError(e instanceof Error ? e.message : "The report could not be analyzed.");
     } finally {
@@ -177,6 +209,12 @@ export default function EdgeAnalyzerPage() {
             if (f) void analyze(f);
           }}
         />
+        <label className="flex items-start gap-2 text-sm text-text-2">
+          <input type="checkbox" checked={saveIt} onChange={(ev) => setSaveIt(ev.target.checked)} className="mt-1" />
+          <span>
+            Save this analysis to my account so my AI tools (MCP) can use it. <span className="text-xs text-text-3">Paid plans. Only the analysis is stored, never the report file or individual trades. You can delete it anytime.</span>
+          </span>
+        </label>
         <div className="flex flex-wrap items-center gap-3">
           <Button onClick={() => inputRef.current?.click()} loading={busy}>{report ? "Analyze another report" : "Choose report file"}</Button>
           {fileName && !busy && <span className="text-xs text-text-3">{fileName}</span>}
@@ -185,6 +223,26 @@ export default function EdgeAnalyzerPage() {
       </Card>
 
       {error && <Alert tone="danger">{error}</Alert>}
+      {res?.saved && <Alert tone="success">Saved to your account. Your AI tools can now read it.</Alert>}
+      {res?.saveNote && <Alert tone="info">{res.saveNote}</Alert>}
+
+      {savedList.length > 0 && (
+        <Card className="space-y-3">
+          <p className="text-sm font-semibold text-text">Saved analyses</p>
+          <ul className="divide-y divide-border">
+            {savedList.map((a) => (
+              <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                <span className="text-text-2">
+                  {new Date(a.createdAt).toLocaleString()} · {a.tradeCount} trades ·{" "}
+                  <Badge tone={LEVEL_TONE[a.level as EdgeLevel] ?? "neutral"} className="normal-case">{LEVEL_LABEL[a.level as EdgeLevel] ?? a.level}</Badge>
+                </span>
+                <Button size="sm" variant="secondary" onClick={() => void deleteSaved(a.id)}>Delete</Button>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-text-3">Your AI tools (MCP) read your most recent saved analysis. Deleting removes it permanently.</p>
+        </Card>
+      )}
 
       {report && c && e && (
         <>

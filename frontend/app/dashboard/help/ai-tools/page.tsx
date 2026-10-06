@@ -19,6 +19,7 @@ const TOOL_DOCS: Record<McpToolName, { what: string; plan: string }> = {
   strategy_library_search: { what: "Search AT24's library of 100 legacy backtest results. Evidence only, never validated.", plan: "All plans" },
   risk_calculator: { what: "Position size from your balance, risk % and stop distance.", plan: "All plans" },
   quant_backtest: { what: "Run a backtest on an AT24 strategy and get metrics, trades and equity curve.", plan: "Paid plan (Quant Pro)" },
+  edge_analysis: { what: "Your most recent saved Edge Analyzer analysis: verdict, key numbers, risk scenarios and where your results come from. Save one first in the Edge Analyzer.", plan: "Paid plan (Quant Pro)" },
 };
 
 const EXAMPLES = [
@@ -27,11 +28,12 @@ const EXAMPLES = [
   "Search AT24's strategy library for XAUUSD 1h strategies with at least 30 trades.",
   "Backtest ref-ema-crossover on XAUUSD 1h from 2026-01-01 to 2026-06-01 and summarize drawdown and profit factor.",
   "Calculate position size: balance 5,000, risk 0.5%, entry 1.0850, stop 1.0820, 100000 per price unit per lot.",
+  "Using my saved AT24 edge analysis, what are my biggest weaknesses, and what should I investigate next?",
 ];
 
 const TROUBLE: [string, string][] = [
   ["Unauthorized / 401", "Token missing, wrong, expired or revoked. Create a new token and check you used the www address exactly as shown."],
-  ["\"plan required\"", "quant_backtest needs an active paid plan."],
+  ["\"plan required\"", "quant_backtest and edge_analysis need an active paid plan."],
   ["\"usage limit reached\"", "The daily limit for that tool is used up. It resets at 00:00 UTC."],
   ["503 / \"temporarily unavailable\"", "The AI Tools service is switched off or in maintenance."],
   ["429 / \"too many requests\"", "Slow down and retry in about 30 seconds."],
