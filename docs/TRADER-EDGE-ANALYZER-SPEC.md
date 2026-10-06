@@ -33,7 +33,17 @@ Works for any trader who can export history; MT5 first, MT4 and generic CSV next
 sample. Owner to provide 2–3 real (anonymized or demo-account) reports before E1. Layouts differ by
 terminal version/language; guessing the format would produce silently wrong numbers.
 
-Limits: 5 MB, 20,000 trades, closed trades only (floating P/L is excluded and stated).
+Limits: 12 MB file (a real 892-trade report is 4.8 MB because MT5 writes UTF-16), 20,000 trades, closed trades only (floating P/L is excluded and stated).
+
+### 3a. E0/E1 findings from a REAL MT5 report (English, hedging account)
+
+- File is **UTF-16LE with BOM**; contains sections Positions, Orders, Deals, Open Positions, Working Orders, Results.
+- Positions header lists 13 columns but every data row has **14**: an unlabelled comment cell (EA/strategy tag) sits between Type and Volume. A guessed parser would have shifted every column.
+- Numbers use a space for thousands and "." for decimals; non-English or comma-decimal reports are rejected, not guessed.
+- The terminal's own **Results block** lets us reconcile: on the real file all 11 checks match exactly (net/gross profit and loss, trade counts, max balance drawdown 8 837.40 / 61.91%, absolute drawdown).
+- Drawdown only reproduces when trades are walked in **close-time** order (open-time order gave 46.41% vs the terminal's 61.91%).
+- MT5 counts a trade with profit >= 0 as a "profit trade"; our win rate counts only profit > 0 and reports breakeven separately.
+- The comment tag enables a per-strategy/EA breakdown, which many traders will find the most useful view.
 
 ## 4. Analysis (all deterministic, no LLM computes numbers)
 
