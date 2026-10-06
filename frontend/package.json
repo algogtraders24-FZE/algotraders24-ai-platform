@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "validate:context": "tsx scripts/validate-context-manager.ts",
+    "validate:mcp-facade": "tsx scripts/validate-mcp-facade.ts",
     "validate:messages": "tsx scripts/validate-conversation-messages.ts",
     "validate:orchestration": "tsx scripts/validate-chat-orchestration.ts",
     "validate:client-conversation": "tsx scripts/validate-client-conversation-identity.ts",
