@@ -52,6 +52,7 @@ import {
   KeyRound,
   Settings,
   Shield,
+  Plug,
   type LucideIcon,
 } from "lucide-react";
 
@@ -267,6 +268,9 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       // (app/dashboard/support/page.tsx), backed by the same framework
       // runs API with agentType SUPPORT.
       { label: "Support", href: "/dashboard/support", icon: LifeBuoy },
+      // AT24 MCP v1 - API tokens + connection guide for the read-only MCP
+      // endpoint (app/dashboard/mcp/page.tsx, /api/mcp).
+      { label: "MCP access", href: "/dashboard/mcp", icon: Plug },
       // No credit-metering system exists yet (product decision explicitly
       // deferred this sprint). This links to a real page that states that
       // status honestly rather than a fabricated balance/usage widget.
