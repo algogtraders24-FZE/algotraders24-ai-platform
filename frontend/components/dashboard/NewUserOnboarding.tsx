@@ -76,6 +76,20 @@ export default function NewUserOnboarding({
         }
       />
 
+      <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-gold">Beta</p>
+          <h3 className="mt-1 text-title text-text">Not sure where to start?</h3>
+          <p className="mt-1 text-sm text-text-2">
+            Follow the 15-minute guided path: ask a question, explore the research, test one idea of your own,
+            and tell us what you found.
+          </p>
+        </div>
+        <ButtonLink href="/beta" variant="secondary">
+          Your first 15 minutes
+        </ButtonLink>
+      </Card>
+
       <div className="grid gap-6 md:grid-cols-3">
         {MODULES.map((m) => (
           <Card key={m.href} className="flex flex-col">
