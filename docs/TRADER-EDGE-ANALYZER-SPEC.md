@@ -44,6 +44,7 @@ Limits: 12 MB file (a real 892-trade report is 4.8 MB because MT5 writes UTF-16)
 - Drawdown only reproduces when trades are walked in **close-time** order (open-time order gave 46.41% vs the terminal's 61.91%).
 - MT5 counts a trade with profit >= 0 as a "profit trade"; our win rate counts only profit > 0 and reports breakeven separately.
 - The comment tag enables a per-strategy/EA breakdown, which many traders will find the most useful view.
+- **E2 on the same report:** average +9.05 per trade, 95% bootstrap range 0.70 to 17.82, permutation p = 0.041, which alone would read as "moderate". But 92.6% of trades overlap in time and lag-1 autocorrelation is 0.82, so the independence assumption fails and the level is capped at **weak**. Result per lot shows no evidence at all (range -8.65 to 13.73): the positive net depends on position sizing. Risk view: an independent shuffle puts P(drawdown >= 50%) at 0, while the streak-preserving scenario gives 29.6% (and the account really did draw down 61.9%), which is why both scenarios are shown.
 
 ## 4. Analysis (all deterministic, no LLM computes numbers)
 
