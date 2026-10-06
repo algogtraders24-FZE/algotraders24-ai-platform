@@ -1,10 +1,12 @@
 // services/edge-analyzer/index.ts
 // AT24 Trader Edge Analyzer (E1) - the entry point: bytes in, typed report out.
-// No DB, no network, no LLM. Edge-evidence (significance) and risk-of-ruin are
-// E2 and intentionally NOT here yet.
+// No DB, no network, no LLM. Includes E2: edge-evidence (significance) and the
+// Monte-Carlo risk view, both seeded so the same file always gives the same report.
 
 import { computeCoreStats, type CoreStats } from "./analysis/core";
 import { computePatterns, type Patterns } from "./analysis/patterns";
+import { computeEdgeEvidence, type EdgeEvidence } from "./analysis/edge-evidence";
+import { computeRuinAnalysis, type RuinAnalysis } from "./analysis/ruin";
 import { reconcile } from "./analysis/reconcile";
 import { decodeReportBuffer, parseMt5HtmlReport } from "./parsers/mt5-html";
 import type { ParseErrorCode, ReconciliationCheck, ReportMeta } from "./types";
@@ -13,6 +15,10 @@ export interface EdgeReportE1 {
   meta: ReportMeta;
   core: CoreStats;
   patterns: Patterns;
+  /** Is the result distinguishable from luck? (evidence LEVEL, never "validated"). */
+  edge: EdgeEvidence;
+  /** Monte-Carlo risk view; null when there are too few trades. */
+  ruin: RuinAnalysis | null;
   /** Our numbers vs the terminal's own Results block (empty if the report has none). */
   reconciliation: ReconciliationCheck[];
   /** True only if there is at least one check and every check passed. */
@@ -29,6 +35,8 @@ export const REPORT_ASSUMPTIONS: readonly string[] = [
   "Times are the broker's server time, not UTC; hour/day breakdowns use that clock.",
   "Net per trade = profit + commission + swap. Win/loss classification follows the Profit column.",
   "Drawdown is measured on the closed-trade balance curve in close-time order, including deposits/withdrawals at their own time.",
+  "Edge evidence is a statistical reading of your past trades under an independence assumption; it is a level of evidence, not proof, and never a validation of a strategy.",
+  "Risk view resamples your own past results with fixed amounts (no compounding); it illustrates the spread of outcomes and is not a forecast.",
   "Descriptive only: past results do not predict future results and nothing here is investment advice.",
 ];
 
@@ -53,6 +61,8 @@ export function analyzeMt5ReportText(text: string): AnalyzeResult {
       meta: parsed.meta,
       core,
       patterns: computePatterns(parsed.trades),
+      edge: computeEdgeEvidence(parsed.trades, { currency: parsed.meta.currency }),
+      ruin: computeRuinAnalysis(parsed.trades, core.endBalance),
       reconciliation,
       reconciled,
       warnings,
