@@ -174,6 +174,30 @@ Design consequences for T1/T2: the stats card above is the T1 output contract; c
 Margin are all derivable from deals + snapshots (Margin needs only the snapshot margin we already store); deposit/withdrawal
 markers come from balance operations we already sync.
 
+## 11. Advanced statistics and activity tabs (second pair of screenshots) - coverage map
+
+Myfxbook "Advanced Statistics" tabs: Trades, Summary, Hourly, Daily, Risk of Ruin, Duration, MAE/MFE. "Trading Activity"
+tabs: Open Trades, Open Orders, History, Exposure. "Monthly Analytics": per-month bars with a toggle Change / Profit / Lots /
+Pips and a month drill-down.
+
+| Myfxbook item | AT24 today | T1/T2 plan |
+|---|---|---|
+| Trades tab: trades, profitability bar, avg win/loss, lots, commissions, longs/shorts won, best/worst trade (with dates), avg trade length, profit factor, std deviation, Sharpe, expectancy | Have all except dates on best/worst and Sharpe | **T1** (add dates, per-trade Sharpe-like ratio) |
+| Same tab, in pips: pips total, avg win/loss in pips, best/worst in pips | **Missing**: EA does not send digits/pip size | Later: EA v1.1 additive field (symbol digits/point) |
+| Z-Score (probability), AHPR, GHPR | Not computed (our edge-evidence is a different, stronger test) | **T1** can add the runs-test Z-score, AHPR, GHPR cheaply; label them as descriptive |
+| Summary tab | Have (core stats + patterns by symbol/tag) | **T1** |
+| Hourly, Daily | Have (byHour, byWeekday) | **T1** (reuse) |
+| Risk of Ruin | Have, better (seeded Monte-Carlo, two scenarios) | **T1** (reuse) |
+| Duration | Have (hold-time buckets) | **T1** (reuse) |
+| MAE/MFE (max adverse/favourable excursion per trade) | **Missing**: needs the intra-trade price path | Later: EA computes it from M1 bars between open and close; heavier MQL5 work, separate decision |
+| Open Trades, History, Exposure | Have (positions in snapshots, deals, exposure summary) | **T2** |
+| Open Orders (pending orders) | **Missing**: EA does not send pending orders | Later: additive EA field |
+| Monthly Analytics: Change, Profit, Lots | Have the data | **T1/T2** |
+| Monthly Analytics: Pips | Missing (see pips) | Later, with pips |
+
+Scope decision for T1: everything marked "Have" or "T1" (no EA change, no schema change). EA v1.1 (pips, pending orders,
+MAE/MFE, SL-risk fields) is one separate additive step so existing users are not forced to reinstall for the first release.
+
 ## Sources
 
 - Myfxbook account page shared by the owner (read in the owner's browser, 2026-10-08): https://www.myfxbook.com/portfolio/account-22/1549989
