@@ -22,9 +22,11 @@ const TOPICS = {
   'ea-execution': { high: true, re: /\b(OrderCheck|OrderSend|retcode|fill(ing)? mode|slippage|margin|trailing|position sizing|risk manage|stop[- ]?loss|drawdown|lot size)\b/i },
   'tester-validation': { high: true, re: /\b(strategy tester|backtest|optimi[sz]|walk[- ]forward|OnTester|frames?|overfit|monte carlo|robust|real ticks?|genetic)\b/i },
   'mcp-ai-platform': { high: true, re: /\b(MCP|Model Context Protocol|AI Assistant|build 6\d{3}|MetaTrader 5 build|LLM|ONNX|machine learning|neural|transformer)\b/i },
+  'cost-spread': { high: true, re: /(spread|slippage|commission|swap|tick history|execution cost|trading cost|latency|rollover|liquidity)/i },
+  'ea-architecture': { high: true, re: /\b(EA state|state persistence|persist|restart|multi[- ]symbol|basket|recovery|grid|global variable|contract (spec|report)|specification panel|template|framework|reusable|\.mqh)\b/i },
   'data-diagnostics': { high: false, re: /\b(SQLite|database|WebRequest|socket|Python|CSV export|dashboard|heatmap|journal)\b/i },
   'news-calendar': { high: false, re: /\b(economic calendar|news filter|CalendarValue|high[- ]impact)\b/i },
-  'signal-logic': { high: false, re: /\b(indicator|EMA|RSI|MACD|divergence|regime|Markov|volatility|multi[- ]timeframe|swing|breakout|smart money|order block)\b/i },
+  'signal-logic': { high: false, re: /\b(indicator|EMA|RSI|MACD|divergence|regime|Markov|volatility|multi[- ]timeframe|swing|breakout|smart money|order block|fair value gap|FVG)\b/i },
   'gold-fx': { high: false, re: /\b(XAUUSD|gold|forex|EURUSD)\b/i },
 };
 
@@ -62,6 +64,13 @@ function tag(post) {
   const tags = Object.entries(TOPICS).filter(([, t]) => t.re.test(hay)).map(([k]) => k);
   const score = tags.reduce((n, k) => n + (TOPICS[k].high ? 2 : 1), 0);
   return { tags, score };
+}
+
+if (process.argv.includes('--retag')) {
+  const rows = readFileSync(STORE, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  writeFileSync(STORE, rows.map((p) => JSON.stringify({ ...p, ...tag(p) })).join('\n') + '\n');
+  console.log(`Retagged ${rows.length} posts.`);
+  process.exit(0);
 }
 
 const backfillArg = process.argv.indexOf('--backfill');
