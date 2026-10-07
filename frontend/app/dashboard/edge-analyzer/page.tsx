@@ -123,11 +123,13 @@ export default function EdgeAnalyzerPage() {
     }
   }
   const [fileName, setFileName] = useState<string | null>(null);
+  const [fromSync, setFromSync] = useState(false);
 
   // Deep link from Live Sync: /dashboard/edge-analyzer?syncedAccount=<id> analyzes a synced account.
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("syncedAccount");
     if (!id) return;
+    setFromSync(true);
     setBusy(true);
     setFileName("Live Sync account");
     fetch(`/api/private/live-sync/analyze?accountId=${encodeURIComponent(id)}`, { cache: "no-store" })
@@ -145,6 +147,7 @@ export default function EdgeAnalyzerPage() {
     setError(null);
     setRes(null);
     setFileName(file.name);
+    setFromSync(false);
     try {
       const { body, gzip } = await gzipFile(file);
       const r = await fetch("/api/private/edge-analyzer/analyze", {
@@ -206,6 +209,13 @@ export default function EdgeAnalyzerPage() {
       />
 
       <Card className="space-y-3">
+        {fromSync ? (
+          <p className="text-sm text-text-2">
+            This is the analysis of your <b>synced Live Sync account</b> (closed trades only). Nothing was uploaded.{" "}
+            <Link href="/dashboard/live-sync" className="font-semibold text-gold hover:underline">Back to Live Sync</Link>. You can also analyze a report file below.
+          </p>
+        ) : (
+          <>
         <p className="text-sm font-semibold text-text">1. Export your report from MetaTrader 5</p>
         <ol className="list-decimal space-y-1 pl-5 text-sm text-text-2">
           <li>Open the <b>History</b> tab in the terminal (Toolbox) and choose the period you want.</li>
@@ -215,6 +225,8 @@ export default function EdgeAnalyzerPage() {
         <p className="text-xs text-text-3">
           Your file is analyzed in memory and is <b>not saved</b>. Account number, name and broker details are never read. Results describe the past only and are not investment advice. <Link href="/dashboard/help/edge-analyzer" className="font-semibold text-gold hover:underline">How to read the report →</Link>
         </p>
+          </>
+        )}
         <input
           ref={inputRef}
           type="file"
@@ -225,12 +237,14 @@ export default function EdgeAnalyzerPage() {
             if (f) void analyze(f);
           }}
         />
+        {!fromSync && (
         <label className="flex items-start gap-2 text-sm text-text-2">
           <input type="checkbox" checked={saveIt} onChange={(ev) => setSaveIt(ev.target.checked)} className="mt-1" />
           <span>
             Save this analysis to my account so my AI tools (MCP) can use it. <span className="text-xs text-text-3">Paid plans. Only the analysis is stored, never the report file or individual trades. You can delete it anytime.</span>
           </span>
         </label>
+        )}
         <div className="flex flex-wrap items-center gap-3">
           <Button onClick={() => inputRef.current?.click()} loading={busy}>{report ? "Analyze another report" : "Choose report file"}</Button>
           {fileName && !busy && <span className="text-xs text-text-3">{fileName}</span>}
