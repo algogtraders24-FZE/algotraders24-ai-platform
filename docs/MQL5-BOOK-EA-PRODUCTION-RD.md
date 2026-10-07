@@ -116,3 +116,6 @@ Reading:
 - Windows are independent, so cross-window drawdown is not captured; listed full-period max DD was 34.4% (121 days). Expect it.
 - Real ticks include the broker's real spread, which partly fills the evidence's "spreadModel UNKNOWN" gap. Commission/swap are not modelled by this demo account.
 - Behaviour is lumpy: strong quarters (Q2/Q3 2025, Apr-May 2026) and flat/negative ones. Customer-facing copy should say so.
+
+### 13b. Correction to section 13 (same day)
+The listed evidence reports 1,511 trades for 2025-01..2026-08; the real-ticks cross-check above produced 577 with the EA's default inputs on M15. The listed run's timeframe and inputs are not recorded in the repo, so the two runs are probably not the same configuration. Read section 13 as "same direction, settings unreconciled", not as "43% of listed profit". Next step to make it a true check: find the settings that reproduce 1,511 trades, then re-run on real ticks. See `docs/M12-LISTING-COPY-DRAFT.md`.
