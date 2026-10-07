@@ -151,3 +151,16 @@ this spec: zero-install EA; demo-only default; no identity fields; do not depend
 3. Distribution of the EA: direct download from the dashboard vs. as a free Marketplace product.
 4. Who tests: the owner compiles and attaches the EA on a demo terminal (expect a couple of compile-fix iterations).
 5. Retention defaults (§7) and the consent wording.
+
+## 13. Decisions taken (2026-10-08, by owner delegation: "do what is best for the project")
+
+1. P1 scope (section 9) approved as written; EA is demo-only by default.
+2. Free vs paid: Live Sync connection, device tokens and the status page are free. Live dashboard, risk monitor and
+   auto-analysis (P2/P3) will be paid-plan features.
+3. EA distribution: direct download of the readable `.mq5` source from the dashboard (the user compiles it in
+   MetaEditor, which also lets them read exactly what it does); a compiled `.ex5` can be added later.
+4. Retention as in section 7; users can delete an account's synced data and revoke devices at any time.
+5. Ingestion is dormant until `LIVE_SYNC_ENABLED=true` (kill switch), and the new tables need the owner-applied
+   additive migration, same pattern as the MCP and Edge Analyzer tables.
+6. Build order: server side first (tested without MT5), then the EA source (compiled here with MetaEditor and
+   statically scanned for trade functions), then the owner's real DEMO-terminal run (P1 acceptance, section 9).
