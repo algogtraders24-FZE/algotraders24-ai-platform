@@ -149,6 +149,31 @@ exists; it also forces us to get the integrity wording and privacy controls righ
 3. Default privacy for public viewers: **percent-only** with delayed open positions? (recommended)
 4. Get the lawyer question answered before T2 goes public (combine with the copier question).
 
+## 10. Screenshot findings (owner's Myfxbook view, 2026-10-08) - layout and formulas to copy
+
+Layout (left to right):
+- **Badge row:** Track record, Trading privileges, Live update, Cashback, Share. Unverified items show a grey "!" icon, so
+  the page states its own verification status openly. We copy the idea: every integrity item is a visible badge with an
+  honest state (e.g. "Terminal-reported", "Chain intact", "Live: updated 30 s ago", "Gap: none").
+- **Left card, 3 tabs (Info / Stats / General):** Gain, Abs. Gain, Daily, Monthly, Drawdown, Balance, Equity (with
+  "% of balance"), Highest (with its date), Profit, Interest (swap), Deposits, Withdrawals, Updated, Tracking (count of
+  followers).
+- **Right card, chart tabs:** Growth, Balance, Profit, Drawdown, Margin. The growth chart overlays an equity-growth line, a
+  balance-growth line, daily/monthly green-red bars, and **green dots for deposits / red dots for withdrawals** on the axis.
+- Ads (sponsor bar, price ticker) are Myfxbook's revenue; we do not copy them.
+
+Formulas confirmed from the numbers on that page (deposits 2,250; withdrawals 1,200; profit 852.10; balance 1,902.07):
+- **Absolute gain = profit / total deposits** (852.10 / 2,250 = 37.87%, matches "Abs. Gain +37.87%").
+- **Balance = deposits - withdrawals + profit** (2,250 - 1,200 + 852.10 = 1,902.10, within 0.03 of the page, rounding/interest).
+  This is exactly the reconciliation check we can run on every synced account and show as a badge.
+- **Gain** (37.35%) is a separate compounded/time-weighted figure, not profit/deposits. We will show both: Absolute gain
+  (simple, easy to audit) and Time-weighted gain (immune to the tiny-first-deposit trick).
+- "Highest" carries a date, "Equity" carries % of balance, "Daily"/"Monthly" are the current day/month gain.
+
+Design consequences for T1/T2: the stats card above is the T1 output contract; chart tabs Growth/Balance/Profit/Drawdown/
+Margin are all derivable from deals + snapshots (Margin needs only the snapshot margin we already store); deposit/withdrawal
+markers come from balance operations we already sync.
+
 ## Sources
 
 - Myfxbook account page shared by the owner (read in the owner's browser, 2026-10-08): https://www.myfxbook.com/portfolio/account-22/1549989
