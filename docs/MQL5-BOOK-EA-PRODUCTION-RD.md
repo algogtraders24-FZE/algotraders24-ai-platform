@@ -71,3 +71,17 @@ Code: `ea-research/AT24_EA_Core/` (Include/AT24_EA_Core.mqh, self-test script + 
 - Compile: 0 errors, 0 warnings (MetaEditor, builds 6230 / current).
 - Run: Strategy Tester (1-min OHLC model, XAUUSD M15, ICMarketsSC-Demo, 2026-08-03) -> `[SELFTEST] DONE pass=15 fail=0`. Fill mode picked IOC (symbol flags=2), lot-for-risk 0.20 lots = exactly 1% risk, OrderCheck pre-flight passed, spread guard and zero-volume guard blocked correctly.
 - NOT covered: real `Open/Close/ModifySLTP` sends, retry path against a live broker, INVALID_FILL fallback. Only pre-flight + pure helpers are tested. Needs a demo-account forward run before replacing M12's hardcoded `ORDER_FILLING_FOK` (v2.10 line 288).
+
+## 12. M12 v2.11 (AT24_EA_Core) parity backtest (2026-10-07)
+`ea-research/marketplace-research/m12-gold-product-01/source/AT24_GOLD_PDHPDL_RangeBreaker_v2.11.mq5` = v2.10 with only the order layer changed (fill mode from symbol flags instead of hardcoded FOK; initial + pyramid entries via `CAT24Exec::Open`). v2.10 file untouched.
+Same inputs, Strategy Tester, XAUUSD M15, 1-minute OHLC model, 2026-06-01..2026-08-14, EquitiBrokerageSC-Demo data, $10k, 1:500, history quality 100%:
+
+| | v2.10 | v2.11 |
+|---|---|---|
+| Total trades | 64 | 64 |
+| Net profit | -1,700.23 | -1,700.23 |
+| Profit factor | 0.45 | 0.45 |
+| Max equity DD | 17.74% | 17.74% |
+
+Result: identical -> the execution layer does not change trading behaviour in the tester.
+Caveats: (1) tester only; the retry / INVALID_FILL / unknown-outcome paths are not exercised by it. (2) This window is NOT the listed evidence period and shows the strategy losing (PF 0.45, DD 17.7%) on this data/model; it says nothing about v2.10's listed VALIDATED evidence but should be looked at before any new marketing claim. (3) v2.11 is a new binary: do not replace the v2.10 listing until the owner decides on re-validation.
