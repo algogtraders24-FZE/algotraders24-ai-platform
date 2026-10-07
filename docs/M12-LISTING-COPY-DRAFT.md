@@ -1,5 +1,7 @@
 # AT24 Gold Range Breaker - listing copy draft (for owner review)
 
+> **WARNING before use:** the draft states Trust Status INCONCLUSIVE (taken from the old seed script). The live listing's Trust State may already be VALIDATED. Verify the live listing and fix that line before this copy goes anywhere.
+
 Status: DRAFT. Not applied to the live listing or DB. Replaces the description string in
 `frontend/scripts/create-pdhpdl-gold-listing.ts` only if the owner approves.
 Every number below is either from the listed M2-M5 evidence (cited) or marked as unverified.

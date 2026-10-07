@@ -12,7 +12,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const STORE = join(HERE, 'data', 'posts.jsonl');
 const OUT = join(HERE, 'content');
 const INDEX = join(OUT, 'index.jsonl');
-const DELAY_MS = 900;
+const DELAY_MS = 3500;
 const MAX_BYTES = 400_000;
 const UA = 'Mozilla/5.0 (compatible; AT24-research-feed; personal R&D archive)';
 
@@ -74,7 +74,7 @@ for (const j of todo) {
     } else {
       appendFileSync(INDEX, JSON.stringify({ key: j.key, url: j.url, post: j.post, status }) + '\n');
       fails++;
-      if (res.status === 429 || res.status === 403) await new Promise((r) => setTimeout(r, 30_000));
+      if ([429, 403, 503].includes(res.status)) await new Promise((r) => setTimeout(r, 120_000));
     }
   } catch (e) {
     fails++;

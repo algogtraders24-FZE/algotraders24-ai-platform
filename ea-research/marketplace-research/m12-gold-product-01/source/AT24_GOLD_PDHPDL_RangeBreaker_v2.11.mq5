@@ -46,6 +46,7 @@
 
 #include <Trade\Trade.mqh>
 #include "../../../AT24_EA_Core/Include/AT24_EA_Core.mqh"
+#include "../../../AT24_EA_Core/Include/AT24_EA_Validation.mqh"   // OnTester score + frames report (no trading impact)
 CTrade trade;
 CAT24Exec g_exec;
 
