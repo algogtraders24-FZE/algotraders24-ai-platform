@@ -2918,3 +2918,102 @@ model EdgeAnalysis {
   @@index([userId, createdAt])
   @@map("edge_analyses")
 }
+
+// ============================================================================
+// AT24 Live Sync (P1) - docs/LIVE-SYNC-SPEC.md. A read-only MT5 Expert Advisor
+// pushes closed deals + snapshots with a device token. NO identity is stored:
+// there is no login / name / server / company column anywhere; accounts are
+// identified only by accountKey = SHA-256(login|server|per-user salt) computed
+// by the EA. Everything is per-user isolated and deletable by the user.
+// ============================================================================
+model LiveSyncDevice {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String
+  /// sha256 hex of the raw device token (never the token itself).
+  tokenHash  String    @unique
+  prefix     String
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+  lastSeenAt DateTime?
+
+  @@index([userId, createdAt])
+  @@map("live_sync_devices")
+}
+
+model LiveSyncAccount {
+  id                 String    @id @default(cuid())
+  userId             String
+  accountKey         String
+  currency           String
+  mode               String
+  marginMode         String
+  leverage           Int
+  serverUtcOffsetSec Int
+  terminalBuild      Int
+  firstSyncAt        DateTime  @default(now())
+  lastSyncAt         DateTime  @default(now())
+  chainSeq           Int       @default(0)
+  chainHead          String
+  lastSnapshotAt     DateTime?
+  lastBalance        Float?
+  lastEquity         Float?
+  /// Newest deal time (broker server ms) held for this account: lets a reinstalled EA resume.
+  lastDealTimeMsc    BigInt?
+
+  @@unique([userId, accountKey])
+  @@index([userId])
+  @@map("live_sync_accounts")
+}
+
+model LiveSyncDeal {
+  id            String   @id @default(cuid())
+  accountId     String
+  dealTicket    BigInt
+  positionId    BigInt
+  timeMsc       BigInt
+  timeUtc       DateTime
+  symbol        String
+  type          String
+  entry         String
+  volume        Float
+  price         Float
+  commission    Float
+  swap          Float
+  profit        Float
+  fee           Float
+  magic         BigInt
+  comment       String
+  batchSeq      Int
+
+  @@unique([accountId, dealTicket])
+  @@index([accountId, timeUtc])
+  @@map("live_sync_deals")
+}
+
+model LiveSyncBatch {
+  id         String   @id @default(cuid())
+  accountId  String
+  seq        Int
+  prevHash   String
+  hash       String
+  dealCount  Int
+  receivedAt DateTime @default(now())
+
+  @@unique([accountId, seq])
+  @@map("live_sync_batches")
+}
+
+model LiveSyncSnapshot {
+  id         String   @id @default(cuid())
+  accountId  String
+  timeUtc    DateTime
+  balance    Float
+  equity     Float
+  margin     Float
+  freeMargin Float
+  positions  Json
+
+  @@index([accountId, timeUtc])
+  @@map("live_sync_snapshots")
+}

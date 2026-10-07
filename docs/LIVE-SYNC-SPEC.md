@@ -164,3 +164,20 @@ this spec: zero-install EA; demo-only default; no identity fields; do not depend
    additive migration, same pattern as the MCP and Edge Analyzer tables.
 6. Build order: server side first (tested without MT5), then the EA source (compiled here with MetaEditor and
    statically scanned for trade functions), then the owner's real DEMO-terminal run (P1 acceptance, section 9).
+
+## 14. As built in P1 (differences and additions to the plan above)
+
+- Wire contract and strict closed schema: `frontend/services/live-sync/contract.ts` + `validate.ts` (any unknown field,
+  including every identity field, is rejected at every level).
+- Chain hash covers integers only (`ticket:timeMsc:profitCents:commissionCents:swapCents:feeCents`), because MQL5 and
+  TypeScript format decimals differently; values are stored exactly as received.
+- The server returns `lastDealTimeMsc` (acks and chain errors) so a reinstalled EA resumes where the server left off
+  instead of resending everything; batches are idempotent either way.
+- Device tokens: `at24_sync_...`, hashed at rest, shown once, scope = write own sync data only.
+- Dashboard page `/dashboard/live-sync` (device tokens, synced accounts, delete synced data). Ingestion is dormant
+  until `LIVE_SYNC_ENABLED=true`; five new tables via the owner-applied additive migration `20261008120000_add_live_sync`.
+- EA: `frontend/public/downloads/AT24LiveSync.mq5` (readable source; the user compiles it). Compiled here with
+  MetaEditor: 0 errors, 0 warnings. `npm run validate:live-sync-ea` re-checks the read-only/no-identity claims against the
+  source and recompiles it on every run (when MetaEditor is installed).
+- NOT yet verified: the EA actually running inside a terminal against the real server (P1 acceptance, section 9). The
+  strategy tester cannot do this (no WebRequest), so it needs a real DEMO terminal.
