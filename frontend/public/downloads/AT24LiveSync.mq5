@@ -60,6 +60,17 @@ string   g_status       = "starting";
 int      g_failures     = 0;
 datetime g_backoffUntil = 0;
 bool     g_fatal        = false;   // unauthorized: stop hammering the server
+bool     g_firstRun     = true;    // the first sync runs from the timer, not from OnInit
+
+// Every status change is shown on the chart AND written to the Experts log, so a
+// problem can be diagnosed from the journal without screenshots.
+void SetStatus(const string s)
+  {
+   if(s == g_status)
+      return;
+   g_status = s;
+   Print("AT24 Live Sync: ", s);
+  }
 
 //+------------------------------------------------------------------+
 //| helpers: numbers, strings, hashing                               |
@@ -303,9 +314,9 @@ int PostJson(const string path, const string body, string &response)
      {
       const int err = GetLastError();
       if(err == 4060)
-         g_status = "ACTION NEEDED: add " + AT24_BaseUrl + " in Tools > Options > Expert Advisors > Allow WebRequest for listed URL";
+         SetStatus("ACTION NEEDED: add " + AT24_BaseUrl + " in Tools > Options > Expert Advisors > Allow WebRequest for listed URL");
       else
-         g_status = "network error " + IntegerToString(err) + " (will retry)";
+         SetStatus("network error " + IntegerToString(err) + " (will retry)");
       response = "";
       return -1;
      }
@@ -333,21 +344,22 @@ void NoteSuccess()
 // Common reaction to non-200 answers. Returns true if the caller should stop this cycle.
 bool HandleHttpError(const int code, const string response)
   {
+   Print("AT24 Live Sync: server answered HTTP ", code);
    if(code == 401)
      {
-      g_status = "UNAUTHORIZED: check the device token (it may have been revoked)";
+      SetStatus("UNAUTHORIZED: check the device token (it may have been revoked)");
       g_fatal = true;
       return true;
      }
    if(code == 503)
      {
-      g_status = "AT24 Live Sync is not switched on yet (will retry)";
+      SetStatus("AT24 Live Sync is not switched on yet (will retry)");
       NoteFailure();
       return true;
      }
    if(code == 429)
      {
-      g_status = "rate limited (will retry)";
+      SetStatus("rate limited (will retry)");
       NoteFailure();
       return true;
      }
@@ -364,11 +376,11 @@ bool HandleHttpError(const int code, const string response)
          if(lastMsc > g_fromMsc)
             g_fromMsc = lastMsc;
          SaveState();
-         g_status = "resynchronised with AT24";
+         SetStatus("resynchronised with AT24");
          return false;
         }
      }
-   g_status = "server answered " + IntegerToString(code) + " (will retry)";
+   SetStatus("server answered " + IntegerToString(code) + " (will retry)");
    NoteFailure();
    return true;
   }
@@ -390,7 +402,7 @@ bool Handshake()
    g_salt = JsonString(resp, "accountSalt");
    if(StringLen(g_salt) != 64)
      {
-      g_status = "unexpected handshake answer";
+      SetStatus("unexpected handshake answer");
       NoteFailure();
       return false;
      }
@@ -399,7 +411,7 @@ bool Handshake()
    LoadState();
    g_ready = true;
    NoteSuccess();
-   g_status = "connected";
+   SetStatus("connected");
    return true;
   }
 
@@ -556,7 +568,7 @@ int SendNewDeals(bool &stop)
       acknowledged += take;
       g_lastSync = TimeCurrent();
       NoteSuccess();
-      g_status = "connected";
+      SetStatus("connected");
      }
    return acknowledged;
   }
@@ -578,7 +590,7 @@ void SendHeartbeat()
      }
    g_lastSync = TimeCurrent();
    NoteSuccess();
-   g_status = "connected";
+   SetStatus("connected");
   }
 
 //+------------------------------------------------------------------+
@@ -601,10 +613,9 @@ int OnInit()
       Alert("AT24 Live Sync: this is not a demo account. Set AllowLiveAccount=true only if you want this EA to read a REAL account.");
       return INIT_FAILED;
      }
-   EventSetTimer((SyncIntervalSec < 30) ? 30 : SyncIntervalSec);
-   g_status = "starting";
+   EventSetTimer(1);   // first sync after 1 s, from the timer (network calls are not made inside OnInit)
+   SetStatus("starting");
    ShowStatus();
-   OnTimer();   // first sync right away
    return INIT_SUCCEEDED;
   }
 
@@ -616,6 +627,12 @@ void OnDeinit(const int reason)
 
 void OnTimer()
   {
+   if(g_firstRun)
+     {
+      g_firstRun = false;
+      EventKillTimer();
+      EventSetTimer((SyncIntervalSec < 30) ? 30 : SyncIntervalSec);
+     }
    if(g_fatal)
      {
       ShowStatus();

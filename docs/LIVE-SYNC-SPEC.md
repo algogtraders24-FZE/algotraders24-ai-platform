@@ -181,3 +181,33 @@ this spec: zero-install EA; demo-only default; no identity fields; do not depend
   source and recompiles it on every run (when MetaEditor is installed).
 - NOT yet verified: the EA actually running inside a terminal against the real server (P1 acceptance, section 9). The
   strategy tester cannot do this (no WebRequest), so it needs a real DEMO terminal.
+
+## 15. P1 acceptance run on a real DEMO terminal (2026-10-08)
+
+Terminal: MetaTrader 5, Exness demo, hedging. EA compiled in MetaEditor (0 errors/0 warnings), attached to a chart.
+
+| Acceptance item | Result |
+|---|---|
+| EA compiles, attaches, shows "connected" | Pass |
+| EA output reaches the server; chain accepted | Pass: the first batch's SHA-256 chain hash computed by the MQL5 EA equals the server's recomputation (a mismatch would have been refused as `HASH_MISMATCH`) |
+| Large history syncs without loss/duplicates | Pass so far: 7+ chained batches, 2,100+ deals = n x 300 exactly, each batch's prevHash equals the previous batch's hash |
+| Snapshots (balance/equity/open positions) | Pass |
+| No identity leaves the terminal | Pass by construction (strict closed schema; account shown only as a salted fingerprint) |
+| No trade functions in the EA | Pass (static scan of the source) |
+| Server tests | Pass (23 + 11 checks) |
+| New trade appears ~60 s after closing | NOT yet run (the first sync is still catching up on old history) |
+| Network loss: nothing lost or duplicated | NOT yet run |
+| Token revocation stops ingestion immediately | NOT yet run |
+| Missing allow-list shows the clear fix message | NOT yet run |
+
+### Findings from the run
+1. **User error found by the EA's own message:** an EA input left empty, then a wrongly pasted token, were both reported
+   clearly on the chart ("paste your device token" / "UNAUTHORIZED: check the device token").
+2. MT5 remembers the previous inputs of an EA, so after recompiling with a new default the chart keeps the old
+   values until the EA is removed and re-attached (or Inputs > Reset).
+3. The EA now writes every status change to the Experts log (`SetStatus`) and runs its first sync from the timer
+   instead of from `OnInit`, so problems can be diagnosed from the journal without screenshots.
+4. Catch-up order is oldest-first (it must be, for the chain): a user with a very long history waits for the
+   catch-up before brand-new trades appear. Acceptable for P1; a future improvement is a "recent first" fast path
+   with a clearly labelled separate segment.
+5. The server's timestamp conversion used `serverUtcOffsetSec = 0` for this broker (Exness servers run on UTC).
