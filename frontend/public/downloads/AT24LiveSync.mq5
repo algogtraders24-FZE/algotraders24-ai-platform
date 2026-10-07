@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright   "AT24"
 #property link        "https://www.algotraders24.ai"
-#property version     "1.00"
+#property version     "1.01"
 #property description "Reads your closed deals, balance/equity and open positions and sends them to"
 #property description "your AT24 account over HTTPS. It NEVER trades: this file contains no order,"
 #property description "position-modify or close functions. It never sends your account number, name,"
@@ -313,7 +313,7 @@ int PostJson(const string path, const string body, string &response)
    if(code == -1)
      {
       const int err = GetLastError();
-      if(err == 4060)
+      if(err == 4060 || err == 4014) // 4014 is what MT5 returns when the URL is not in the allowed list
          SetStatus("ACTION NEEDED: add " + AT24_BaseUrl + " in Tools > Options > Expert Advisors > Allow WebRequest for listed URL");
       else
          SetStatus("network error " + IntegerToString(err) + " (will retry)");
