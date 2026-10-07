@@ -22,7 +22,7 @@ const TOPICS = {
   'ea-execution': { high: true, re: /\b(OrderCheck|OrderSend|retcode|fill(ing)? mode|slippage|margin|trailing|position sizing|risk manage|stop[- ]?loss|drawdown|lot size)\b/i },
   'tester-validation': { high: true, re: /\b(strategy tester|backtest|optimi[sz]|walk[- ]forward|OnTester|frames?|overfit|monte carlo|robust|real ticks?|genetic)\b/i },
   'mcp-ai-platform': { high: true, re: /\b(MCP|Model Context Protocol|AI Assistant|build 6\d{3}|MetaTrader 5 build|LLM|ONNX|machine learning|neural|transformer)\b/i },
-  'cost-spread': { high: true, re: /b(spread|slippage|commission|swap|tick history|execution cost|trading cost|latency|rollover|liquidity)b/i },
+  'cost-spread': { high: true, re: /\b(spread|slippage|commission|swap|tick history|execution cost|trading cost|latency|rollover|liquidity)\b/i },
   'ea-architecture': { high: true, re: /\b(EA state|state persistence|persist|restart|multi[- ]symbol|basket|recovery|grid|global variable|contract (spec|report)|specification panel|template|framework|reusable|\.mqh)\b/i },
   'data-diagnostics': { high: false, re: /\b(SQLite|database|WebRequest|socket|Python|CSV export|dashboard|heatmap|journal)\b/i },
   'news-calendar': { high: false, re: /\b(economic calendar|news filter|CalendarValue|high[- ]impact)\b/i },
