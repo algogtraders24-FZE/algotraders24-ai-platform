@@ -47,9 +47,10 @@ function parsePosts(html) {
     const links = [...(text || '').matchAll(/href="([^"]+)"/g)]
       .map((x) => x[1].replace(/&amp;/g, '&').replace(/&amp;/g, '&').replace(/[?&]utm_[^&]*/g, '').replace(/&$/, ''))
       .filter((u) => /^https?:\/\//.test(u));
-    posts.push({ id, datetime: datetime || null, text: text ? decode(text) : '', links: [...new Set(links)] });
+    const media = [...new Set([...body.matchAll(/tgme_widget_message_(photo|video|document|voice|roundvideo)/g)].map((x) => x[1]))];
+    posts.push({ id, datetime: datetime || null, text: text ? decode(text) : '', links: [...new Set(links)], media });
   }
-  return posts.filter((p) => p.text || p.links.length);
+  return posts; // keep everything, including media-only posts
 }
 
 async function fetchPage(before) {
@@ -75,19 +76,23 @@ if (process.argv.includes('--retag')) {
 
 const backfillArg = process.argv.indexOf('--backfill');
 const backfill = backfillArg > -1 ? Number(process.argv[backfillArg + 1]) || 100 : 0;
+const all = process.argv.includes('--all'); // walk the whole channel history, no filtering
 const state = existsSync(STATE) ? JSON.parse(readFileSync(STATE, 'utf8')) : { lastId: 0 };
+const known = new Set(existsSync(STORE) ? readFileSync(STORE, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l).id) : []);
 
 let fresh = [];
 let before;
-for (let page = 0; page < 30; page++) {
+for (let page = 0; page < (all ? 2000 : 30); page++) {
   const posts = await fetchPage(before);
   if (!posts.length) break;
-  const newer = posts.filter((p) => p.id > state.lastId);
+  const newer = posts.filter((p) => (all ? !known.has(p.id) : p.id > state.lastId));
   fresh.push(...newer);
   const oldest = Math.min(...posts.map((p) => p.id));
-  const stop = state.lastId > 0 ? newer.length < posts.length : fresh.length >= (backfill || 20);
+  const stop = all ? false : state.lastId > 0 ? newer.length < posts.length : fresh.length >= (backfill || 20);
+  if (all && page % 25 === 0) console.log(`page ${page}, oldest id ${oldest}, collected ${fresh.length}`);
   if (stop || oldest <= 1) break;
   before = oldest;
+  if (all) await new Promise((r) => setTimeout(r, 350));
 }
 
 fresh = [...new Map(fresh.map((p) => [p.id, p])).values()].sort((a, b) => a.id - b.id);
@@ -102,16 +107,17 @@ const enriched = fresh.map((p) => ({ ...p, ...tag(p), url: `https://t.me/${CHANN
 appendFileSync(STORE, enriched.map((p) => JSON.stringify(p)).join('\n') + '\n');
 
 const day = new Date().toISOString().slice(0, 10);
-const digestPath = join(DIGESTS, `${day}.md`);
+const digestPath = join(DIGESTS, all ? `${day}-full-history.md` : `${day}.md`);
 const sorted = [...enriched].sort((a, b) => b.score - a.score || b.id - a.id);
 const lines = [`# mql5dev digest ${day}`, '', `${enriched.length} new posts (ids ${enriched[0].id}-${enriched.at(-1).id}).`, ''];
 for (const p of sorted) {
   const first = p.text.split('\n').find(Boolean) || '(link only)';
-  lines.push(`- **[${p.tags.join(', ') || 'untagged'}]** ${first.slice(0, 220)}  \n  ${p.url}${p.links[0] ? ` -> ${p.links[0]}` : ''}`);
+  lines.push(`- **[${p.tags.join(', ') || 'untagged'}]** ${p.datetime ? p.datetime.slice(0, 10) + ' ' : ''}${first.slice(0, 220)}${p.media.length ? ` (${p.media.join('+')})` : ''}  \n  ${p.url}${p.links[0] ? ` -> ${p.links[0]}` : ''}`);
 }
 appendFileSync(digestPath, (existsSync(digestPath) ? '\n' : '') + lines.join('\n') + '\n');
 
 state.lastId = Math.max(state.lastId, ...enriched.map((p) => p.id));
+if (all) state.fullHistoryAt = new Date().toISOString();
 state.lastRun = new Date().toISOString();
 writeFileSync(STATE, JSON.stringify(state, null, 2));
 console.log(`Stored ${enriched.length} posts, lastId=${state.lastId}, digest: ${digestPath}`);
