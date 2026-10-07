@@ -1,0 +1,9 @@
+5494078|INFO|account=69794322 server=Exness-Trial8 demo=1 algoTrading=1 platform=MT4
+5494078|START|otherPositions=0 copierState=
+5538390|CHANGE|copierState=[EURUSD BUY vol=0.05 sl=1.11127 tp=1.13127 c=AT24C:176113100]
+5545375|CHANGE|copierState=[EURUSD BUY vol=0.05 sl=1.11427 tp=1.13527 c=AT24C:176113100]
+5553093|CHANGE|copierState=[EURUSD BUY vol=0.03 sl=1.11427 tp=1.13527 c=from #1282434205]
+5560015|CHANGE|copierState=[EURUSD BUY vol=0.03 sl=1.11427 tp=1.13527 c=from #1282434205][EURUSD SELL vol=0.01 sl=0.00000 tp=0.00000 c=AT24C:176113264]
+5567265|CHANGE|copierState=[EURUSD BUY vol=0.03 sl=1.11427 tp=1.13527 c=from #1282434205]
+5576984|CHANGE|copierState=(none)
+5694109|END|otherPositions start=0 end=0 untouched=1

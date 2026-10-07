@@ -1,0 +1,9 @@
+6121015|INFO|account=69794322 server=Exness-Trial8 symbol=EURUSD platform=MT4
+6128156|MASTER_ALIVE|master publishing fresh file
+6136406|OPEN_BUY|ok=1 vol=0.10 sl=1.11091 tp=1.13091
+6143578|MODIFY|ok=1 sl=1.11391 tp=1.13491
+6150750|PARTIAL_CLOSE|ok=1 closed=0.04 remaining=0.06
+6157953|OPEN_SELL|ok=1 vol=0.02
+6165140|CLOSE_SELL|ok=1
+6172312|CLOSE_BUY|ok=1
+6184359|DONE|master orders left with magic: 0

@@ -112,6 +112,7 @@ int AT24C_RunSelfTest(string &report)
    ST_Check("map prefix not present = unchanged core", AT24C_MapSymbol("EURUSD", "m.", "", "", "", "") == "EURUSD");
    ST_Check("explicit map wins", AT24C_MapSymbol("XAUUSD", "", "", "", "+", "US30=DJ30; xauusd = GOLD") == "GOLD");
    ST_Check("explicit map miss falls back to prefix/suffix rule", AT24C_MapSymbol("EURUSD", "", "", "", "c", "XAUUSD=GOLD") == "EURUSDc");
+   ST_Check("trim removes spaces/tabs both ends", AT24C_Trim("  a b	 ") == "a b" && AT24C_Trim("   ") == "" && AT24C_Trim("x") == "x");
    ST_Check("allowed: empty list = all", AT24C_SymbolAllowed("ANY", "", "", ""));
    ST_Check("allowed: prefix+suffix aware", AT24C_SymbolAllowed("m.XAUUSD.x", "m.", ".x", "xauusd") && !AT24C_SymbolAllowed("m.GBPUSD.x", "m.", ".x", "xauusd"));
    ST_Check("allowed: exact + suffix-insensitive", AT24C_SymbolAllowed("XAUUSD.m", "", ".m", "eurusd, XAUUSD") && !AT24C_SymbolAllowed("GBPUSD.m", "", ".m", "eurusd, XAUUSD"));

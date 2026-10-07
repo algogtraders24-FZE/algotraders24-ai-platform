@@ -1,0 +1,14 @@
+AT24 Copier CROSS-TERMINAL test - MT4 master -> MT4 receiver, LOOPBACK (both EAs in one MT4 terminal on the Exness demo account 69794322; only one MT4 demo terminal was available)
+master  : account=69794322 server=Exness-Trial8 symbol=EURUSD platform=MT4
+receiver: account=69794322 server=Exness-Trial8 demo=1 algoTrading=1 platform=MT4 (loopback: master and receiver on this account)
+settings: Receiver LotMultiplier=0.5, default ReceiverMagic 8240124; master lot 0.1
+clock: system uptime ms (identical in both terminals); latency = master action -> receiver account shows the expected state (polled every 50 ms)
+
+PASS  OPEN_BUY       latency 344 ms
+PASS  MODIFY         latency 1343 ms
+PASS  PARTIAL_CLOSE  latency 1547 ms
+PASS  OPEN_SELL      latency 1547 ms
+PASS  CLOSE_SELL     latency 2672 ms
+PASS  CLOSE_BUY      latency 4328 ms  (includes the 3 s empty-book confirmation hold)
+PASS  foreign orders on the receiver account untouched  [otherPositions start=0 end=0 untouched=1]
+SUMMARY  all steps passed

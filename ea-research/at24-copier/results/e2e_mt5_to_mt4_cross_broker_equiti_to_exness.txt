@@ -1,0 +1,15 @@
+AT24 Copier CROSS-TERMINAL test - MT5 master (Equiti demo, EURUSD.sd) -> MT4 receiver (Exness demo, EURUSD; suffix .sd stripped)
+master  : account=1088892 server=EquitiBrokerageSC-Demo symbol=EURUSD.sd
+receiver: account=69794322 server=Exness-Trial8 demo=1 algoTrading=1 platform=MT4
+settings: Receiver LotMultiplier=0.5, default ReceiverMagic 8240124; master lot 0.1
+note: during this run the Receiver EA was deliberately attached to 3 charts of the same terminal; the single-Receiver lock let only one act (an earlier run without the lock opened a duplicate copy - that is why the lock exists).
+clock: system uptime ms (identical in both terminals); latency = master action -> receiver account shows the expected state (polled every 50 ms)
+
+PASS  OPEN_BUY       latency 390 ms
+PASS  MODIFY         latency 250 ms
+PASS  PARTIAL_CLOSE  latency 828 ms
+PASS  OPEN_SELL      latency 609 ms
+PASS  CLOSE_SELL     latency 734 ms
+PASS  CLOSE_BUY      latency 3313 ms  (includes the 3 s empty-book confirmation hold)
+PASS  foreign orders on the receiver account untouched  [otherPositions start=0 end=0 untouched=1]
+SUMMARY  all steps passed

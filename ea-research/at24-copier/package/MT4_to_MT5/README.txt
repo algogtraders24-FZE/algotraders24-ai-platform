@@ -1,6 +1,6 @@
-AT24 LOCAL TRADE COPIER  -  MT5 to MT5  -  v1.0.0
+AT24 LOCAL TRADE COPIER  -  MT4 to MT5  -  v1.0.0
 =================================================================
-Copies the open positions of one MetaTrader 5 account to another
+Copies the open positions of one MetaTrader 4 account to another
 MetaTrader 5 account on the SAME computer (or the same VPS).
 No server, no DLL, no internet connection and no account password is
 used: the two terminals exchange a small text file in the shared
@@ -8,14 +8,14 @@ used: the two terminals exchange a small text file in the shared
 under the same Windows user).
 
 WHAT YOU GET
-  AT24_Copier_Master_MT5.ex5      - attach in the MT5 terminal you want to COPY FROM
+  AT24_Copier_Master_MT4.ex4      - attach in the MT4 terminal you want to COPY FROM
   AT24_Copier_Receiver_MT5.ex5    - attach in the MT5 terminal you want to COPY TO
 
 SET UP (about 3 minutes)
- 1. Copy AT24_Copier_Master_MT5.ex5 into the MQL5\Experts folder of the SOURCE terminal and
+ 1. Copy AT24_Copier_Master_MT4.ex4 into the MQL4\Experts folder of the SOURCE terminal and
     AT24_Copier_Receiver_MT5.ex5 into the MQL5\Experts folder of the DESTINATION terminal
-    (File > Open Data Folder > MQL5/MQL5 > Experts), restart or refresh.
- 2. SOURCE terminal: drag "AT24_Copier_Master_MT5" onto any chart.
+    (File > Open Data Folder > MQL4/MQL5 > Experts), restart or refresh.
+ 2. SOURCE terminal: drag "AT24_Copier_Master_MT4" onto any chart.
     Set ChannelId (e.g. "gold1"). The Master only READS positions - it never
     sends an order.
  3. DESTINATION terminal: drag "AT24_Copier_Receiver_MT5" onto any chart.
@@ -30,8 +30,7 @@ SET UP (about 3 minutes)
  first and does nothing (otherwise every trade would be copied twice).
 
 THE DESTINATION ACCOUNT MUST BE A HEDGING ACCOUNT. On a netting account the
-Receiver refuses to trade (DryRun still works). The Master only reads the source
-account; a netting SOURCE account has not been tested.
+Receiver refuses to trade (DryRun still works).
 
 WHAT IS COPIED
   - new market positions (buy/sell, symbol, volume scaled to your settings)
@@ -47,6 +46,12 @@ NOT COPIED (v1.0.0)
   - pending orders (limit/stop) - only filled positions are copied
   - trailing stops are followed only through the SL values the master reports
   - the master's comments and magic numbers
+
+MT4 DETAILS
+  - The Master only publishes market orders (buy/sell), never pending orders.
+  - MT4 gives the remaining volume of a partially closed order a NEW ticket. The
+    Master keeps publishing the ORIGINAL id for the remainder, so the MT5 Receiver
+    follows a partial close with a partial close - not a close and re-open.
 
 MAIN SETTINGS (Receiver)
   LotMode          Multiplier / Fixed lot / Equity ratio (my equity / master equity)
@@ -84,20 +89,16 @@ BUILT-IN SAFETY
   - Not usable in the Strategy Tester (it would be meaningless there).
 
 WHAT WAS TESTED (honest scope)
-  - Compiles with 0 errors / 0 warnings (MetaEditor).
-  - Protocol self-test inside a real MT5 terminal: 47 / 47 checks passed in a real terminal (CRC-32, tamper and
-    partial-write detection, symbol prefix/suffix mapping, lot maths...).
-  - End-to-end test on a real MT5 HEDGING DEMO account (loopback: Master and
-    Receiver on one terminal): open, SL/TP change, partial close, second
-    position, close, nothing left behind - 17 / 17 checks passed, in normal AND
-    in ReverseCopy mode.
-  - Cross-broker test with TWO SEPARATE MT5 terminals: Master on an Equiti demo
-    (symbol EURUSD.sd), Receiver on an Exness demo (EURUSD; ".sd" stripped).
-    Every step passed: open at half volume, SL/TP change, partial close, second
-    position, its close, final close. A position that already existed on the
-    receiving account was left untouched. Measured: 0.2 - 0.3 s per action.
-  - NOT tested: netting source accounts, live-money accounts, brokers that
-    forbid hedging or copying. Test on demo first.
+  - Both EAs compile with 0 errors / 0 warnings (MetaEditor).
+  - Protocol self-test inside a real MT4 terminal AND a real MT5 terminal: 47 / 47 checks passed in a real terminal
+    each.
+  - Cross-platform, cross-broker test: Master = MT4 on an Exness demo (EURUSD),
+    Receiver = MT5 hedging account on an Equiti demo (EURUSD.sd; ".sd" added).
+    Every step passed: open at half volume, SL/TP change, partial close (the MT4
+    remainder kept its id), second position, its close, final close. Measured: 0.2 - 1.5 s
+    per action.
+  - NOT tested: netting destination accounts, live-money accounts, brokers
+    that forbid copying. Test on demo first.
 
 IMPORTANT
   - Trading leveraged products is risky; this tool contains no trading

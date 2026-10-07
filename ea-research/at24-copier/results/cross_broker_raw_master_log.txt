@@ -1,9 +1,9 @@
-3219500|INFO|account=1088892 server=EquitiBrokerageSC-Demo symbol=EURUSD.sd
-3224515|MASTER_ALIVE|master publishing fresh file
-3232671|OPEN_BUY|ok=1 vol=0.10 sl=1.11087 tp=1.13087
-3239796|MODIFY|ok=1 sl=1.11387 tp=1.13487
-3246937|PARTIAL_CLOSE|ok=1 closed=0.04 remaining=0.06
-3254078|OPEN_SELL|ok=1 vol=0.02
-3261328|CLOSE_SELL|ok=1
-3268468|CLOSE_BUY|ok=1
-3280468|DONE|master positions left with magic: 0
+6393390|INFO|account=1088892 server=EquitiBrokerageSC-Demo symbol=EURUSD.sd
+6398406|MASTER_ALIVE|master publishing fresh file
+6406546|OPEN_BUY|ok=1 vol=0.10 sl=1.11075 tp=1.13075
+6413687|MODIFY|ok=1 sl=1.11375 tp=1.13475
+6420828|PARTIAL_CLOSE|ok=1 closed=0.04 remaining=0.06
+6427968|OPEN_SELL|ok=1 vol=0.02
+6435109|CLOSE_SELL|ok=1
+6442250|CLOSE_BUY|ok=1
+6454250|DONE|master positions left with magic: 0

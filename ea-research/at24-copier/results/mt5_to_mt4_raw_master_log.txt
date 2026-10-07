@@ -1,0 +1,9 @@
+5525859|INFO|account=1088892 server=EquitiBrokerageSC-Demo symbol=EURUSD.sd
+5529859|MASTER_ALIVE|master publishing fresh file
+5538000|OPEN_BUY|ok=1 vol=0.10 sl=1.11127 tp=1.13127
+5545125|MODIFY|ok=1 sl=1.11427 tp=1.13527
+5552265|PARTIAL_CLOSE|ok=1 closed=0.04 remaining=0.06
+5559406|OPEN_SELL|ok=1 vol=0.02
+5566531|CLOSE_SELL|ok=1
+5573671|CLOSE_BUY|ok=1
+5585687|DONE|master positions left with magic: 0

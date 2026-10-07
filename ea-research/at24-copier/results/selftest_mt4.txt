@@ -1,4 +1,4 @@
-AT24 Copier protocol self-test (MT5) v1.0.0
+AT24 Copier protocol self-test (MT4) v1.0.0
 PASS  crc32('123456789') == CBF43926
 PASS  crc32('') == 00000000
 PASS  round-trip parses ()

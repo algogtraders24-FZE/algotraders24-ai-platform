@@ -1,40 +1,42 @@
 //+------------------------------------------------------------------+
-//| AT24_Copier_Receiver_MT5.mq5                                     |
-//| AT24 Local Trade Copier - RECEIVER (MetaTrader 5, hedging acct). |
+//| AT24_Copier_Receiver_MT4.mq4                                     |
+//| AT24 Local Trade Copier - RECEIVER (MetaTrader 4).               |
 //|                                                                  |
 //| Mirrors the positions a Master (MT4 or MT5, same PC) publishes: |
 //| open, SL/TP changes, partial close, close. Never uses a network, |
 //| a DLL or a server. Every copy is tagged "AT24C:<masterId>" with  |
-//| its own magic number; positions you open by hand or with other   |
-//| EAs are never touched.                                           |
+//| its own magic number; orders you open by hand or with other EAs  |
+//| are never touched.                                               |
 //|                                                                  |
 //| Safety defaults: existing master positions at start are NOT      |
 //| copied, a stale/offline master file never triggers any action,   |
 //| an empty book must persist a few seconds before copies are       |
 //| closed, open attempts per trade are capped, volume is capped.    |
+//|                                                                  |
+//| MT4 note: a partial close gives the remaining volume a NEW       |
+//| ticket (and often a new comment) - the Receiver re-links it.     |
 //+------------------------------------------------------------------+
 #property copyright "AT24 - Algotraders24"
 #property link      "https://www.algotraders24.ai"
 #property version   "1.00"
-#property description "AT24 Local Trade Copier - Receiver (mirrors a local Master; no server, no DLL)."
+#property strict
+#property description "AT24 Local Trade Copier - Receiver for MT4 (mirrors a local Master; no server, no DLL)."
 
-#include <Trade\Trade.mqh>
 #include "..\Include\AT24_Copier_Proto.mqh"
-#include "..\Include\AT24_Copier_Mt5Exec.mqh"
 #include "..\Include\AT24_Copier_RxLock.mqh"
 
-input group "=== Channel ==="
+//--- Channel
 input string ChannelId            = "default";            // Must match the Master's ChannelId
 input long   ExpectedMasterLogin  = 0;                    // 0 = accept any master on this channel
 input int    StaleSeconds         = 10;                   // Master silent longer than this = offline (nothing is done)
 
-input group "=== Lot sizing ==="
+//--- Lot sizing
 input ENUM_AT24C_LOT_MODE LotMode = AT24C_LOT_MULTIPLIER; // Multiplier / Fixed lot / Equity ratio
 input double LotMultiplier        = 1.0;                  // Multiplier (also scales Equity ratio)
 input double FixedLot             = 0.01;                 // Used when LotMode = Fixed lot
 input double MaxLotPerTrade       = 10.0;                 // Hard cap per copied trade (0 = no cap)
 
-input group "=== What to copy ==="
+//--- What to copy
 input long   MasterMagicFilter    = -1;                   // -1 = all master positions, else only this master magic
 input string AllowedSymbols       = "";                   // Master symbols to copy, comma separated (empty = all)
 input bool   ReverseCopy          = false;                // Copy buys as sells and vice versa (SL and TP are swapped)
@@ -42,15 +44,15 @@ input bool   CopySLTP             = true;                 // Copy and follow sto
 input bool   CopyExistingOnStart  = false;                // false = ignore positions already open when this EA starts
 input int    MaxEntryDelaySec     = 20;                   // Do not copy a trade the master opened longer ago than this
 
-input group "=== Symbols ==="
+//--- Symbols
 input string MasterSymbolPrefix   = "";                   // Prefix to strip from master symbols (e.g. "m.")
 input string MasterSymbolSuffix   = "";                   // Suffix to strip from master symbols (e.g. ".m")
 input string ReceiverSymbolPrefix = "";                   // Prefix to add on this account (e.g. "#")
 input string ReceiverSymbolSuffix = "";                   // Suffix to add on this account (e.g. "+")
 input string SymbolMap            = "";                   // Explicit map, e.g. XAUUSD=GOLD;US30=DJ30
 
-input group "=== Execution ==="
-input long   ReceiverMagic        = 8240124;              // Magic number of every copied position (change it if another EA already uses this number)
+//--- Execution
+input int    ReceiverMagic        = 8240124;              // Magic number of every copied order (change it if another EA already uses this number)
 input int    MaxSlippagePoints    = 30;                   // Deviation allowed on entry/exit
 input double MaxSpreadPoints      = 0.0;                  // Do not open while spread is wider (0 = off)
 input ENUM_AT24C_STOPS_POLICY StopsPolicy = AT24C_STOPS_SKIP; // Master SL/TP closer than my broker allows
@@ -59,15 +61,13 @@ input int    PollMilliseconds     = 200;
 input bool   DryRun               = false;                // Log what would happen, send no orders
 
 //--- state
-CTrade     g_trade;
 string     g_file      = "";
 string     g_chan      = "";
 SCopyHeader g_hdr;
 SCopyPos   g_pos[];
 int        g_n         = 0;
 bool       g_synced    = false;
-bool       g_modeOk    = false;   // account verified hedging (checked after connect)
-long       g_login     = 0;       // account the current state belongs to
+long       g_login     = 0;
 long       g_lastPrune = 0;
 long       g_emptySince = 0;
 int        g_badReads  = 0;
@@ -79,9 +79,9 @@ long       g_legacy[];            // master ids ignored because they were open b
 long       g_ignored[];           // master ids we decided never to copy (too old, too small, bad symbol...)
 long       g_attId[];             // open attempts per master id
 int        g_attCount[];
-ulong      g_attLastMs[];
+uint       g_attLastMs[];
 string     g_logKey[];
-ulong      g_logMs[];
+uint       g_logMs[];
 
 //+------------------------------------------------------------------+
 //| small utilities                                                  |
@@ -101,9 +101,14 @@ void AddArr(long &a[], const long v)
    a[n] = v;
   }
 
-bool InSnapshot(const long id);
+bool InSnapshot(const long id)
+  {
+   for(int i = 0; i < g_n; i++)
+      if(g_pos[i].id == id)
+         return true;
+   return false;
+  }
 
-//--- keep only ids that are still present in the master snapshot
 void PruneArr(long &a[])
   {
    long keep[];
@@ -121,11 +126,11 @@ void PruneArr(long &a[])
 
 void LogOnce(const string key, const string msg)
   {
-   ulong now = GetTickCount64();
+   uint now = GetTickCount();     // MT4 has no 64-bit tick count; unsigned subtraction survives the 49-day wrap
    for(int i = 0; i < ArraySize(g_logKey); i++)
       if(g_logKey[i] == key)
         {
-         if(now - g_logMs[i] < 30000)
+         if((uint)(now - g_logMs[i]) < 30000)
             return;
          g_logMs[i] = now;
          PrintFormat("[AT24-COPIER] %s", msg);
@@ -147,7 +152,6 @@ int AttIdx(const long id)
    return -1;
   }
 
-//--- true when another open attempt for this master id is allowed right now
 bool AttemptAllowed(const long id)
   {
    int i = AttIdx(id);
@@ -155,7 +159,7 @@ bool AttemptAllowed(const long id)
       return true;
    if(g_attCount[i] >= 3)
       return false;
-   return GetTickCount64() - g_attLastMs[i] >= 3000;   // never hammer; also lets an unconfirmed order show up
+   return (uint)(GetTickCount() - g_attLastMs[i]) >= 3000;
   }
 
 void AttemptNoted(const long id)
@@ -171,7 +175,7 @@ void AttemptNoted(const long id)
       g_attCount[i] = 0;
      }
    g_attCount[i]++;
-   g_attLastMs[i] = GetTickCount64();
+   g_attLastMs[i] = GetTickCount();
   }
 
 void AttemptsReset(const long id)
@@ -181,40 +185,36 @@ void AttemptsReset(const long id)
       g_attCount[i] = 0;
   }
 
-bool InSnapshot(const long id)
+//--- Registry of my copies keyed by MY order ticket -> master id (terminal global variables). Comments
+//--- can be rewritten by the broker and a partial close creates a new ticket; the registry keeps every
+//--- copy mappable without relying on either.
+string GvTicketName(const int ticket)
   {
-   for(int i = 0; i < g_n; i++)
-      if(g_pos[i].id == id)
-         return true;
-   return false;
+   return "AT24C_" + g_chan + "_T" + IntegerToString(ticket);
   }
 
-//--- Registry of my copies keyed by MY position ticket -> master id. A broker may rewrite the comment of a
-//--- position (e.g. after a partial close); the registry keeps every copy mappable without relying on it
-//--- and without needing the master to still list the position.
-string GvTicketName(const ulong ticket)
+void RegistrySet(const int ticket, const long masterId)
   {
-   return "AT24C_" + g_chan + "_T" + IntegerToString((long)ticket);
-  }
-
-void RegistrySet(const ulong ticket, const long masterId)
-  {
-   if(masterId > 0 && masterId < 4503599627370496)        // must be exactly representable in a double
+   if(masterId > 0 && masterId < 4503599627370496)
       GlobalVariableSet(GvTicketName(ticket), (double)masterId);
   }
 
-long RegistryGet(const ulong ticket)
+long RegistryGet(const int ticket)
   {
    string n = GvTicketName(ticket);
    return GlobalVariableCheck(n) ? (long)GlobalVariableGet(n) : 0;
   }
 
-void RegistryDel(const ulong ticket)
+void RegistryDel(const int ticket)
   {
    GlobalVariableDel(GvTicketName(ticket));
   }
 
-//--- drop registry entries whose position no longer exists (closed by SL/TP, by hand, ...)
+bool OrderIsOpen(const int ticket)
+  {
+   return OrderSelect(ticket, SELECT_BY_TICKET, MODE_TRADES) && OrderCloseTime() == 0;
+  }
+
 void RegistryPrune()
   {
    string prefix = "AT24C_" + g_chan + "_T";
@@ -223,8 +223,8 @@ void RegistryPrune()
       string nm = GlobalVariableName(i);
       if(StringFind(nm, prefix) != 0)
          continue;
-      ulong t = (ulong)StringToInteger(StringSubstr(nm, StringLen(prefix)));
-      if(t == 0 || !PositionSelectByTicket(t))
+      int t = (int)StringToInteger(StringSubstr(nm, StringLen(prefix)));
+      if(t <= 0 || !OrderIsOpen(t))
          GlobalVariableDel(nm);
      }
   }
@@ -233,24 +233,24 @@ double NormPrice(const string sym, const double price)
   {
    if(price <= 0.0)
       return 0.0;
-   int    digits = (int)SymbolInfoInteger(sym, SYMBOL_DIGITS);
-   double ts     = SymbolInfoDouble(sym, SYMBOL_TRADE_TICK_SIZE);
+   int    digits = (int)MarketInfo(sym, MODE_DIGITS);
+   double ts     = MarketInfo(sym, MODE_TICKSIZE);
    if(ts <= 0.0)
       return NormalizeDouble(price, digits);
    return NormalizeDouble(MathRound(price / ts) * ts, digits);
   }
 
-//--- Stops that the broker would accept for a NEW position; may clamp when the policy says so.
-bool PrepareStops(const string sym, const ENUM_ORDER_TYPE type, double &sl, double &tp, string &why)
+//--- Stops that the broker would accept for a NEW order; may clamp when the policy says so.
+bool PrepareStops(const string sym, const int cmd, double &sl, double &tp, string &why)
   {
    why = "";
    if(sl <= 0.0 && tp <= 0.0)
       return true;
-   double point = SymbolInfoDouble(sym, SYMBOL_POINT);
-   double minD  = (double)SymbolInfoInteger(sym, SYMBOL_TRADE_STOPS_LEVEL) * point;
-   double bid   = SymbolInfoDouble(sym, SYMBOL_BID);
-   double ask   = SymbolInfoDouble(sym, SYMBOL_ASK);
-   bool   buy   = (type == ORDER_TYPE_BUY);
+   double point = MarketInfo(sym, MODE_POINT);
+   double minD  = MarketInfo(sym, MODE_STOPLEVEL) * point;
+   double bid   = MarketInfo(sym, MODE_BID);
+   double ask   = MarketInfo(sym, MODE_ASK);
+   bool   buy   = (cmd == OP_BUY);
    double ref   = buy ? bid : ask;
    if(ref <= 0.0)
      { why = "no price"; return false; }
@@ -282,14 +282,36 @@ bool PrepareStops(const string sym, const ENUM_ORDER_TYPE type, double &sl, doub
    return true;
   }
 
-bool RetcodeOK(const uint rc)
+string ErrText(const int e)
   {
-   return rc == TRADE_RETCODE_DONE || rc == TRADE_RETCODE_DONE_PARTIAL || rc == TRADE_RETCODE_PLACED;
+   switch(e)
+     {
+      case 128: return "trade timeout (outcome unknown)";
+      case 130: return "invalid stops";
+      case 131: return "invalid volume";
+      case 132: return "market closed";
+      case 133: return "trading disabled for this symbol";
+      case 134: return "not enough money";
+      case 135: return "price changed";
+      case 136: return "off quotes";
+      case 138: return "requote";
+      case 139: return "order locked";
+      case 141: return "too many requests";
+      case 145: return "modification denied (too close to market)";
+      case 146: return "trade context busy";
+      case 147: return "expiration denied";
+      case 148: return "too many orders";
+      case 149: return "hedging prohibited by this broker/account";
+      case 150: return "FIFO rule - closing must follow the oldest order first";
+      case 4108: return "invalid ticket";
+      case 4109: return "trading not allowed (enable AutoTrading + Allow live trading)";
+     }
+   return "error " + IntegerToString(e);
   }
 
-bool RetcodeUnknown(const uint rc)
+bool ErrUnknownOutcome(const int e)
   {
-   return rc == TRADE_RETCODE_TIMEOUT || rc == TRADE_RETCODE_CONNECTION || rc == TRADE_RETCODE_ERROR;
+   return e == 128 || e == 142 || e == 143;
   }
 
 //+------------------------------------------------------------------+
@@ -297,35 +319,55 @@ bool RetcodeUnknown(const uint rc)
 //+------------------------------------------------------------------+
 struct SRecv
   {
-   ulong  ticket;
-   long   mid;      // master id this copy belongs to (0 = unknown)
-   double volume;
-   string symbol;
-   double sl;
-   double tp;
+   int      ticket;
+   long     mid;      // master id this copy belongs to (0 = unknown)
+   double   volume;
+   string   symbol;
+   double   sl;
+   double   tp;
+   int      cmd;
   };
+
+//--- After a partial close MT4 may rename the remaining order ("from #12345"): follow the old ticket's link.
+long LinkFromComment(const int ticket, const string comment)
+  {
+   if(StringFind(comment, "from #") != 0)
+      return 0;
+   int old = (int)StringToInteger(StringSubstr(comment, 6));
+   if(old <= 0)
+      return 0;
+   long mid = RegistryGet(old);
+   if(mid > 0)
+      RegistrySet(ticket, mid);
+   return mid;
+  }
 
 int GatherReceiver(SRecv &r[])
   {
-   int total = PositionsTotal();
+   int total = OrdersTotal();
    int n = 0;
    ArrayResize(r, 0);
    for(int i = 0; i < total; i++)
      {
-      ulong t = PositionGetTicket(i);
-      if(t == 0)
+      if(!OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
          continue;
-      if(PositionGetInteger(POSITION_MAGIC) != ReceiverMagic)
+      if(OrderType() > OP_SELL || OrderMagicNumber() != ReceiverMagic)
          continue;
       ArrayResize(r, n + 1);
-      r[n].ticket = t;
-      r[n].volume = PositionGetDouble(POSITION_VOLUME);
-      r[n].symbol = PositionGetString(POSITION_SYMBOL);
-      r[n].sl     = PositionGetDouble(POSITION_SL);
-      r[n].tp     = PositionGetDouble(POSITION_TP);
+      r[n].ticket = OrderTicket();
+      r[n].volume = OrderLots();
+      r[n].symbol = OrderSymbol();
+      r[n].sl     = OrderStopLoss();
+      r[n].tp     = OrderTakeProfit();
+      r[n].cmd    = OrderType();
       long mid = 0;
-      if(!AT24C_ParseComment(PositionGetString(POSITION_COMMENT), mid))
-         mid = RegistryGet(t);              // broker rewrote the comment: use what we recorded at open time
+      string cm = OrderComment();
+      if(!AT24C_ParseComment(cm, mid))
+        {
+         mid = RegistryGet(r[n].ticket);
+         if(mid <= 0)
+            mid = LinkFromComment(r[n].ticket, cm);
+        }
       r[n].mid = mid;
       n++;
      }
@@ -335,58 +377,87 @@ int GatherReceiver(SRecv &r[])
 //+------------------------------------------------------------------+
 //| trade operations                                                 |
 //+------------------------------------------------------------------+
-bool CloseCopy(const ulong ticket, const long mid, const string why)
+double ClosePrice(const string sym, const int cmd)
+  {
+   RefreshRates();
+   return (cmd == OP_BUY) ? MarketInfo(sym, MODE_BID) : MarketInfo(sym, MODE_ASK);
+  }
+
+bool CloseCopy(const int ticket, const long mid, const string why)
   {
    if(DryRun)
      {
-      LogOnce("dryclose" + (string)ticket, StringFormat("[DRY] would close #%I64u (%s)", ticket, why));
+      LogOnce("dryclose" + IntegerToString(ticket), StringFormat("[DRY] would close #%d (%s)", ticket, why));
       return true;
      }
-   g_trade.SetDeviationInPoints(MaxSlippagePoints);
-   if(g_trade.PositionClose(ticket, MaxSlippagePoints) && RetcodeOK(g_trade.ResultRetcode()))
+   if(!OrderSelect(ticket, SELECT_BY_TICKET, MODE_TRADES) || OrderCloseTime() != 0)
+      return false;
+   double lots = OrderLots();
+   ResetLastError();
+   if(OrderClose(ticket, lots, ClosePrice(OrderSymbol(), OrderType()), MaxSlippagePoints, clrNONE))
      {
       g_closed++;
       RegistryDel(ticket);
-      PrintFormat("[AT24-COPIER] closed #%I64u (%s)", ticket, why);
+      PrintFormat("[AT24-COPIER] closed #%d (%s)", ticket, why);
       return true;
      }
+   int e = GetLastError();
    g_errors++;
-   LogOnce("closefail" + (string)ticket, StringFormat("close #%I64u failed: retcode %u %s", ticket, g_trade.ResultRetcode(), g_trade.ResultRetcodeDescription()));
+   LogOnce("closefail" + IntegerToString(ticket), StringFormat("close #%d failed: %s", ticket, ErrText(e)));
    return false;
   }
 
-bool ClosePartialCopy(const ulong ticket, const double vol, const string why)
+//--- Remaining volume of a partially closed order gets a new ticket: find it and link it to the master id.
+void AdoptRemainder(const int oldTicket, const long mid, const string sym, const int cmd, const datetime openTime, const double openPrice)
+  {
+   int total = OrdersTotal();
+   for(int i = 0; i < total; i++)
+     {
+      if(!OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
+         continue;
+      if(OrderType() != cmd || OrderMagicNumber() != ReceiverMagic || OrderSymbol() != sym || OrderTicket() == oldTicket)
+         continue;
+      if(OrderOpenTime() != openTime || MathAbs(OrderOpenPrice() - openPrice) > 1e-9)
+         continue;
+      RegistrySet(OrderTicket(), mid);
+     }
+  }
+
+bool ClosePartialCopy(const int ticket, const long mid, const double vol, const string why)
   {
    if(DryRun)
      {
-      LogOnce("drypart" + (string)ticket, StringFormat("[DRY] would partially close #%I64u by %.2f (%s)", ticket, vol, why));
+      LogOnce("drypart" + IntegerToString(ticket), StringFormat("[DRY] would partially close #%d by %.2f (%s)", ticket, vol, why));
       return true;
      }
-   uint rc;
-   string rcText;
-   if(AT24C_Mt5PartialClose(ticket, vol, MaxSlippagePoints, rc, rcText))
+   if(!OrderSelect(ticket, SELECT_BY_TICKET, MODE_TRADES) || OrderCloseTime() != 0)
+      return false;
+   string   sym = OrderSymbol();
+   int      cmd = OrderType();
+   datetime ot  = OrderOpenTime();
+   double   op  = OrderOpenPrice();
+   ResetLastError();
+   if(OrderClose(ticket, vol, ClosePrice(sym, cmd), MaxSlippagePoints, clrNONE))
      {
       g_closed++;
-      PrintFormat("[AT24-COPIER] partial close #%I64u by %.2f (%s)", ticket, vol, why);
+      AdoptRemainder(ticket, mid, sym, cmd, ot, op);
+      RegistryDel(ticket);
+      PrintFormat("[AT24-COPIER] partial close #%d by %.2f (%s)", ticket, vol, why);
       return true;
      }
+   int e = GetLastError();
    g_errors++;
-   LogOnce("partfail" + (string)ticket, StringFormat("partial close #%I64u failed: retcode %u %s", ticket, rc, rcText));
+   LogOnce("partfail" + IntegerToString(ticket), StringFormat("partial close #%d failed: %s", ticket, ErrText(e)));
    return false;
   }
 
-bool OpenCopy(const SCopyPos &p, const string sym, const ENUM_ORDER_TYPE type, const double vol,
+bool OpenCopy(const SCopyPos &p, const string sym, const int cmd, const double vol,
               double sl, double tp, const string why)
   {
-   if(MaxSpreadPoints > 0.0)
-     {
-      double point = SymbolInfoDouble(sym, SYMBOL_POINT);
-      double spread = (point > 0.0) ? (SymbolInfoDouble(sym, SYMBOL_ASK) - SymbolInfoDouble(sym, SYMBOL_BID)) / point : 0.0;
-      if(spread > MaxSpreadPoints)
-        { LogOnce("spread" + (string)p.id, StringFormat("spread %.0f > max %.0f on %s - waiting", spread, MaxSpreadPoints, sym)); return false; }
-     }
+   if(MaxSpreadPoints > 0.0 && MarketInfo(sym, MODE_SPREAD) > MaxSpreadPoints)
+     { LogOnce("spread" + (string)p.id, StringFormat("spread %.0f > max %.0f on %s - waiting", MarketInfo(sym, MODE_SPREAD), MaxSpreadPoints, sym)); return false; }
    string stopsWhy;
-   if(!PrepareStops(sym, type, sl, tp, stopsWhy))
+   if(!PrepareStops(sym, cmd, sl, tp, stopsWhy))
      {
       PrintFormat("[AT24-COPIER] master #%I64d on %s NOT copied: %s (policy=SKIP; set StopsPolicy=CLAMP to accept)", p.id, sym, stopsWhy);
       AddArr(g_ignored, p.id);
@@ -395,32 +466,49 @@ bool OpenCopy(const SCopyPos &p, const string sym, const ENUM_ORDER_TYPE type, c
      }
    if(DryRun)
      {
-      LogOnce("dryopen" + (string)p.id, StringFormat("[DRY] would %s %.2f %s sl=%.5f tp=%.5f (%s)", (type == ORDER_TYPE_BUY ? "BUY" : "SELL"), vol, sym, sl, tp, why));
+      LogOnce("dryopen" + (string)p.id, StringFormat("[DRY] would %s %.2f %s sl=%.5f tp=%.5f (%s)", (cmd == OP_BUY ? "BUY" : "SELL"), vol, sym, sl, tp, why));
       return true;
      }
    AttemptNoted(p.id);
-   g_trade.SetTypeFillingBySymbol(sym);
-   g_trade.SetDeviationInPoints(MaxSlippagePoints);
-   bool ok = g_trade.PositionOpen(sym, type, vol, 0.0, sl, tp, AT24C_MakeComment(p.id));
-   uint rc = g_trade.ResultRetcode();
-   if(ok && RetcodeOK(rc))
+   RefreshRates();
+   double price = (cmd == OP_BUY) ? MarketInfo(sym, MODE_ASK) : MarketInfo(sym, MODE_BID);
+   string comment = AT24C_MakeComment(p.id);
+   ResetLastError();
+   int ticket = OrderSend(sym, cmd, vol, price, MaxSlippagePoints, sl, tp, comment, ReceiverMagic, 0, clrNONE);
+   int e = GetLastError();
+   bool stopsAfter = false;
+   if(ticket < 0 && e == 130 && (sl > 0.0 || tp > 0.0))
+     {
+      //--- some market-execution servers refuse stops on entry: open plain, then attach SL/TP
+      ResetLastError();
+      RefreshRates();
+      price  = (cmd == OP_BUY) ? MarketInfo(sym, MODE_ASK) : MarketInfo(sym, MODE_BID);
+      ticket = OrderSend(sym, cmd, vol, price, MaxSlippagePoints, 0.0, 0.0, comment, ReceiverMagic, 0, clrNONE);
+      e = GetLastError();
+      stopsAfter = (ticket >= 0);
+     }
+   if(ticket >= 0)
      {
       g_opened++;
-      ulong ord = g_trade.ResultOrder();
-      RegistrySet(ord, p.id);
-      PrintFormat("[AT24-COPIER] copied master #%I64d -> %s %.2f %s (%s) ticket %I64u", p.id, (type == ORDER_TYPE_BUY ? "BUY" : "SELL"), vol, sym, why, ord);
+      RegistrySet(ticket, p.id);
+      PrintFormat("[AT24-COPIER] copied master #%I64d -> %s %.2f %s (%s) ticket %d", p.id, (cmd == OP_BUY ? "BUY" : "SELL"), vol, sym, why, ticket);
+      if(stopsAfter && OrderSelect(ticket, SELECT_BY_TICKET))
+        {
+         if(!OrderModify(ticket, OrderOpenPrice(), sl, tp, 0, clrNONE))
+            LogOnce("stopsafter" + IntegerToString(ticket), StringFormat("copy #%d opened but SL/TP could not be attached: %s - the next sync will retry.", ticket, ErrText(GetLastError())));
+        }
       return true;
      }
    g_errors++;
-   if(RetcodeUnknown(rc))
-      LogOnce("unk" + (string)p.id, StringFormat("open for master #%I64d: outcome UNKNOWN (retcode %u) - waiting to see whether the position appears before any retry", p.id, rc));
+   if(ErrUnknownOutcome(e))
+      LogOnce("unk" + (string)p.id, StringFormat("open for master #%I64d: outcome UNKNOWN (%s) - waiting to see whether the order appears before any retry", p.id, ErrText(e)));
    else
-      LogOnce("openfail" + (string)p.id, StringFormat("open for master #%I64d failed: retcode %u %s", p.id, rc, g_trade.ResultRetcodeDescription()));
+      LogOnce("openfail" + (string)p.id, StringFormat("open for master #%I64d failed: %s", p.id, ErrText(e)));
    return false;
   }
 
 //+------------------------------------------------------------------+
-//| reconcile one snapshot against my positions                      |
+//| reconcile one snapshot against my orders                         |
 //+------------------------------------------------------------------+
 void Reconcile(const long now)
   {
@@ -447,11 +535,10 @@ void Reconcile(const long now)
       if(hold)
         { g_status = "master book empty - confirming before closing copies"; continue; }
       if(CloseCopy(r[i].ticket, r[i].mid, "master closed"))
-         r[i].mid = -1;                      // handled this pass
+         r[i].mid = -1;
       ops--;
      }
 
-   //--- forget bookkeeping for master positions that no longer exist
    PruneArr(g_legacy);
    PruneArr(g_ignored);
 
@@ -469,31 +556,31 @@ void Reconcile(const long now)
       string sym = AT24C_MapSymbol(p.symbol, MasterSymbolPrefix, MasterSymbolSuffix, ReceiverSymbolPrefix, ReceiverSymbolSuffix, SymbolMap);
       if(!SymbolSelect(sym, true))
         {
-         LogOnce("nosym" + sym, StringFormat("symbol '%s' (master '%s') does not exist on this account - set SymbolMap/suffixes. Trade #%I64d not copied.", sym, p.symbol, p.id));
+         LogOnce("nosym" + sym, StringFormat("symbol '%s' (master '%s') does not exist on this account - set SymbolMap/prefix/suffix. Trade #%I64d not copied.", sym, p.symbol, p.id));
          AddArr(g_ignored, p.id);
          g_skipped++;
          continue;
         }
 
-      ENUM_ORDER_TYPE type;
+      int cmd;
       double sl = p.sl, tp = p.tp;
       if(ReverseCopy)
         {
-         type = (p.side == 0) ? ORDER_TYPE_SELL : ORDER_TYPE_BUY;
+         cmd = (p.side == 0) ? OP_SELL : OP_BUY;
          sl = p.tp;
          tp = p.sl;
         }
       else
-         type = (p.side == 0) ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;
+         cmd = (p.side == 0) ? OP_BUY : OP_SELL;
       if(!CopySLTP)
         { sl = 0.0; tp = 0.0; }
       sl = NormPrice(sym, sl);
       tp = NormPrice(sym, tp);
 
-      double step = SymbolInfoDouble(sym, SYMBOL_VOLUME_STEP);
-      double vmin = SymbolInfoDouble(sym, SYMBOL_VOLUME_MIN);
-      double vmax = SymbolInfoDouble(sym, SYMBOL_VOLUME_MAX);
-      double raw  = AT24C_ScaleVolume((int)LotMode, p.volume, LotMultiplier, FixedLot, g_hdr.equity, AccountInfoDouble(ACCOUNT_EQUITY));
+      double step = MarketInfo(sym, MODE_LOTSTEP);
+      double vmin = MarketInfo(sym, MODE_MINLOT);
+      double vmax = MarketInfo(sym, MODE_MAXLOT);
+      double raw  = AT24C_ScaleVolume((int)LotMode, p.volume, LotMultiplier, FixedLot, g_hdr.equity, AccountEquity());
       if(MaxLotPerTrade > 0.0 && raw > MaxLotPerTrade)
         {
          LogOnce("cap" + (string)p.id, StringFormat("master #%I64d: scaled lot %.2f capped to MaxLotPerTrade %.2f", p.id, raw, MaxLotPerTrade));
@@ -526,7 +613,7 @@ void Reconcile(const long now)
            }
          if(!AttemptAllowed(p.id))
             continue;
-         OpenCopy(p, sym, type, expected, sl, tp, "new master position");
+         OpenCopy(p, sym, cmd, expected, sl, tp, "new master position");
          ops--;
          continue;
         }
@@ -552,7 +639,7 @@ void Reconcile(const long now)
             if(part >= r[i].volume - 1e-9)
                CloseCopy(r[i].ticket, p.id, "master reduced position");
             else
-               ClosePartialCopy(r[i].ticket, NormalizeDouble(part, AT24C_StepDigits(step)), "master reduced position");
+               ClosePartialCopy(r[i].ticket, p.id, NormalizeDouble(part, AT24C_StepDigits(step)), "master reduced position");
             left -= part;
             ops--;
            }
@@ -563,7 +650,7 @@ void Reconcile(const long now)
          double add = AT24C_FloorToStep(-diff, step, vmin, vmax);
          if(add > 0.0)
            {
-            OpenCopy(p, sym, type, add, sl, tp, "master added volume");
+            OpenCopy(p, sym, cmd, add, sl, tp, "master added volume");
             ops--;
            }
          continue;
@@ -574,17 +661,24 @@ void Reconcile(const long now)
            {
             if(r[i].mid != p.id || r[i].symbol != sym)
                continue;
-            double eps = SymbolInfoDouble(sym, SYMBOL_POINT) / 2.0;
+            double eps = MarketInfo(sym, MODE_POINT) / 2.0;
             if(MathAbs(r[i].sl - sl) < eps && MathAbs(r[i].tp - tp) < eps)
                continue;
             double nsl = sl, ntp = tp;
             string why;
-            if(!PrepareStops(sym, type, nsl, ntp, why))
-              { LogOnce("modskip" + (string)r[i].ticket, StringFormat("SL/TP update for #%I64u not applied: %s", r[i].ticket, why)); continue; }
-            if(g_trade.PositionModify(r[i].ticket, nsl, ntp) && RetcodeOK(g_trade.ResultRetcode()))
-              { g_modified++; PrintFormat("[AT24-COPIER] updated #%I64u sl=%.5f tp=%.5f", r[i].ticket, nsl, ntp); }
+            if(!PrepareStops(sym, cmd, nsl, ntp, why))
+              { LogOnce("modskip" + IntegerToString(r[i].ticket), StringFormat("SL/TP update for #%d not applied: %s", r[i].ticket, why)); continue; }
+            if(!OrderSelect(r[i].ticket, SELECT_BY_TICKET, MODE_TRADES))
+               continue;
+            ResetLastError();
+            if(OrderModify(r[i].ticket, OrderOpenPrice(), nsl, ntp, 0, clrNONE))
+              { g_modified++; PrintFormat("[AT24-COPIER] updated #%d sl=%.5f tp=%.5f", r[i].ticket, nsl, ntp); }
             else
-              { g_errors++; LogOnce("modfail" + (string)r[i].ticket, StringFormat("modify #%I64u failed: retcode %u %s", r[i].ticket, g_trade.ResultRetcode(), g_trade.ResultRetcodeDescription())); }
+              {
+               int e = GetLastError();
+               if(e != 1)   // 1 = nothing changed
+                 { g_errors++; LogOnce("modfail" + IntegerToString(r[i].ticket), StringFormat("modify #%d failed: %s", r[i].ticket, ErrText(e))); }
+              }
             ops--;
            }
         }
@@ -594,7 +688,7 @@ void Reconcile(const long now)
 //+------------------------------------------------------------------+
 void ShowStatus()
   {
-   Comment("AT24 Copier RECEIVER v" + AT24C_VERSION + (DryRun ? "  [DRY RUN]" : "") + (ReverseCopy ? "  [REVERSE]" : "") + "\n",
+   Comment("AT24 Copier RECEIVER (MT4) v" + AT24C_VERSION + (DryRun ? "  [DRY RUN]" : "") + (ReverseCopy ? "  [REVERSE]" : "") + "\n",
            "Channel : ", g_chan, "\n",
            "Master  : ", g_masterInfo, "\n",
            "Status  : ", g_status, "\n",
@@ -603,7 +697,7 @@ void ShowStatus()
 
 int OnInit()
   {
-   if(MQLInfoInteger(MQL_TESTER))
+   if(IsTesting())
      {
       Print("[AT24-COPIER] The copier cannot run in the Strategy Tester - attach it to a live or demo chart.");
       return INIT_FAILED;
@@ -615,12 +709,9 @@ int OnInit()
      }
    g_chan = AT24C_SanitizeChannel(ChannelId);
    g_file = AT24C_FileName(ChannelId);
-   g_trade.SetExpertMagicNumber((ulong)ReceiverMagic);
-   g_trade.SetDeviationInPoints(MaxSlippagePoints);
-   g_trade.SetAsyncMode(false);
    EventSetMillisecondTimer(MathMax(50, PollMilliseconds));
    ShowStatus();
-   PrintFormat("[AT24-COPIER] Receiver v%s started - channel '%s' (Common\\Files\\%s)%s. Existing master positions are %s.",
+   PrintFormat("[AT24-COPIER] Receiver (MT4) v%s started - channel '%s' (Common/Files/%s)%s. Existing master positions are %s.",
                AT24C_VERSION, g_chan, g_file, DryRun ? " DRY RUN" : "", CopyExistingOnStart ? "COPIED" : "ignored");
    return INIT_SUCCEEDED;
   }
@@ -634,44 +725,30 @@ void OnDeinit(const int reason)
 
 void OnTimer()
   {
-   if(!DryRun && (!TerminalInfoInteger(TERMINAL_TRADE_ALLOWED) || !MQLInfoInteger(MQL_TRADE_ALLOWED)))
+   if(!DryRun && !IsTradeAllowed())
      {
-      g_status = "algo trading is disabled (enable the Algo Trading button / EA permission)";
+      g_status = "trading is disabled (enable the AutoTrading button and 'Allow live trading' in the EA properties)";
       ShowStatus();
       return;
      }
-   if(!TerminalInfoInteger(TERMINAL_CONNECTED) || AccountInfoInteger(ACCOUNT_LOGIN) == 0)
+   if(!IsConnected() || AccountNumber() == 0)
      {
       g_status = "no broker connection - waiting";
       ShowStatus();
       return;
      }
 
-   //--- Account facts are only reliable once connected (an EA that loads at terminal start
-   //--- can run before the broker session exists), so the account check lives here, not in OnInit.
-   long login = (long)AccountInfoInteger(ACCOUNT_LOGIN);
+   long login = (long)AccountNumber();
    if(login != g_login)
      {
-      g_login    = login;
-      g_modeOk   = false;
-      g_synced   = false;                 // new account: forget everything learned about the old one
+      g_login  = login;
+      g_synced = false;                   // new account: forget everything learned about the old one
       ArrayResize(g_legacy, 0);
       ArrayResize(g_ignored, 0);
       ArrayResize(g_attId, 0);
       ArrayResize(g_attCount, 0);
       ArrayResize(g_attLastMs, 0);
       g_emptySince = 0;
-     }
-   if(!g_modeOk)
-     {
-      if(AccountInfoInteger(ACCOUNT_MARGIN_MODE) != ACCOUNT_MARGIN_MODE_RETAIL_HEDGING && !DryRun)
-        {
-         g_status = "BLOCKED: this is a NETTING account - the MT5 Receiver needs HEDGING (or use DryRun)";
-         LogOnce("netting", "This account is NETTING. The MT5 Receiver needs a HEDGING account to mirror positions one-to-one (use DryRun to only watch). No orders will be sent.");
-         ShowStatus();
-         return;
-        }
-      g_modeOk = true;
      }
 
    string text, err;

@@ -1,0 +1,14 @@
+AT24 Copier CROSS-TERMINAL test - MT4 master (Exness demo, EURUSD) -> MT5 receiver (Equiti demo, EURUSD.sd; suffix .sd added)
+master  : account=69794322 server=Exness-Trial8 symbol=EURUSD platform=MT4
+receiver: account=1088892 server=EquitiBrokerageSC-Demo demo=1 hedging=1 algoTrading=1
+settings: Receiver LotMultiplier=0.5, default ReceiverMagic 8240124; master lot 0.1
+clock: system uptime ms (identical in both terminals); latency = master action -> receiver account shows the expected state (polled every 50 ms)
+
+PASS  OPEN_BUY       latency 203 ms
+PASS  MODIFY         latency 656 ms
+PASS  PARTIAL_CLOSE  latency 500 ms
+PASS  OPEN_SELL      latency 515 ms
+PASS  CLOSE_SELL     latency 1485 ms
+PASS  CLOSE_BUY      latency 3734 ms  (includes the 3 s empty-book confirmation hold)
+PASS  foreign orders on the receiver account untouched  [otherPositions start=0 end=0 untouched=1]
+SUMMARY  all steps passed

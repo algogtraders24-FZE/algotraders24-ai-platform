@@ -1,5 +1,6 @@
 """Builds a throw-away MT5 profile for the CROSS-terminal test (test tool).
-Usage: python build_x_profile.py <terminal data folder> <profile name> master|receiver [master symbol suffix]"""
+Usage: python build_x_profile.py <terminal data folder> <profile name> master|receiver|receiver-rsuffix [suffix]
+  receiver         suffix = MasterSymbolSuffix (strip)    receiver-rsuffix  suffix = ReceiverSymbolSuffix (add)"""
 import sys, os, re
 data, prof, role = sys.argv[1], sys.argv[2], sys.argv[3]
 suffix = sys.argv[4] if len(sys.argv) > 4 else ''
@@ -15,7 +16,7 @@ else:
     expert, path = 'AT24_Copier_Receiver_MT5', r'Experts\AT24Copier\AT24_Copier_Receiver_MT5.ex5'
     inputs = ['ChannelId=xtest', 'LotMultiplier=0.5', 'MasterMagicFilter=777']
     if suffix:
-        inputs.append('MasterSymbolSuffix=' + suffix)
+        inputs.append(('ReceiverSymbolSuffix=' if role == 'receiver-rsuffix' else 'MasterSymbolSuffix=') + suffix)
 t = re.sub(r'id=\d+', 'id=131000000000009', base, count=1)
 t = re.sub(r'period_size=\d+', 'period_size=1', t, count=1)
 block = '<expert>\nname=%s\npath=%s\nexpertmode=33\n<inputs>\n%s\n</inputs>\n</expert>\n\n' % (expert, path, '\n'.join(inputs))

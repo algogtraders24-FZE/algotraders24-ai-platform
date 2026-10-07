@@ -1,15 +1,14 @@
-AT24 Copier CROSS-TERMINAL, CROSS-BROKER test (MT5 -> MT5), final v1.0.0 binaries
-master : account=1088892 server=EquitiBrokerageSC-Demo symbol=EURUSD.sd
+AT24 Copier CROSS-TERMINAL test - MT5 master (Equiti demo, EURUSD.sd) -> MT5 receiver (Exness demo, EURUSD; suffix .sd stripped), final v1.0.0 binaries
+master  : account=1088892 server=EquitiBrokerageSC-Demo symbol=EURUSD.sd
 receiver: account=279321674 server=Exness-MT5Trial8 demo=1 hedging=1 algoTrading=1
-settings: Receiver LotMultiplier=0.5, MasterSymbolSuffix='.sd' (Equiti EURUSD.sd -> Exness EURUSD), default ReceiverMagic 8240124
-clock: GetTickCount64 (system uptime, identical in both terminals); latency = master action -> receiver account shows the result, polled every 50 ms
-runs: executed 3 times on 2026-10-07, all passed (run 1 with the old magic default 240124, runs 2-3 with 8240124; run 3 = final binaries incl. the prefix option). This file = run 3.
+settings: Receiver LotMultiplier=0.5, default ReceiverMagic 8240124; master lot 0.1
+clock: system uptime ms (identical in both terminals); latency = master action -> receiver account shows the expected state (polled every 50 ms)
 
-PASS  OPEN_BUY       latency 1032 ms
-PASS  MODIFY         latency 344 ms
-PASS  PARTIAL_CLOSE  latency 781 ms
-PASS  OPEN_SELL      latency 797 ms
-PASS  CLOSE_SELL     latency 797 ms
-PASS  CLOSE_BUY      latency 3282 ms  (includes the 3 s empty-book confirmation hold)
-PASS  a pre-existing foreign position on the receiver account stayed untouched  [otherPositions start=1 end=1 untouched=1]
+PASS  OPEN_BUY       latency 313 ms
+PASS  MODIFY         latency 234 ms
+PASS  PARTIAL_CLOSE  latency 281 ms
+PASS  OPEN_SELL      latency 297 ms
+PASS  CLOSE_SELL     latency 203 ms
+PASS  CLOSE_BUY      latency 2640 ms  (includes the 3 s empty-book confirmation hold)
+PASS  foreign orders on the receiver account untouched  [otherPositions start=1 end=1 untouched=1]
 SUMMARY  all steps passed

@@ -113,6 +113,18 @@ uint AT24C_Crc32(const string s)
    return ~crc;
   }
 
+//--- Trim spaces/tabs both ends. (MT4's StringTrimLeft/Right do not modify their argument in place,
+//--- so the shared code uses its own helper - found by running the self-test inside a real MT4 terminal.)
+string AT24C_Trim(const string s)
+  {
+   int a = 0, b = StringLen(s) - 1;
+   while(a <= b && (AT24C_CharAt(s, a) == ' ' || AT24C_CharAt(s, a) == '	'))
+      a++;
+   while(b >= a && (AT24C_CharAt(s, b) == ' ' || AT24C_CharAt(s, b) == '	'))
+      b--;
+   return (b < a) ? "" : StringSubstr(s, a, b - a + 1);
+  }
+
 //--- Keep only [A-Za-z0-9_-], max 32 chars, never empty.
 string AT24C_SanitizeChannel(const string channel)
   {
@@ -327,13 +339,9 @@ string AT24C_MapSymbol(const string masterSymbol, const string masterPrefix, con
          string kv[];
          if(StringSplit(pairs[i], '=', kv) != 2)
             continue;
-         string k = kv[0];
-         StringTrimLeft(k);
-         StringTrimRight(k);
+         string k = AT24C_Trim(kv[0]);
          StringToUpper(k);
-         string v = kv[1];
-         StringTrimLeft(v);
-         StringTrimRight(v);
+         string v = AT24C_Trim(kv[1]);
          if(StringLen(k) > 0 && StringLen(v) > 0 && k == up)
             return v;
         }
@@ -356,9 +364,7 @@ bool AT24C_SymbolAllowed(const string masterSymbol, const string masterPrefix, c
    int ni = StringSplit(allowedList, ',', items);
    for(int i = 0; i < ni; i++)
      {
-      string it = items[i];
-      StringTrimLeft(it);
-      StringTrimRight(it);
+      string it = AT24C_Trim(items[i]);
       StringToUpper(it);
       if(StringLen(it) > 0 && (it == raw || it == core))
          return true;

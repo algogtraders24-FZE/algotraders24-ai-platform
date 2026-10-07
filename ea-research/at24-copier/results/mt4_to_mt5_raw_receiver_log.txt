@@ -1,0 +1,9 @@
+6090406|INFO|account=1088892 server=EquitiBrokerageSC-Demo demo=1 hedging=1 algoTrading=1
+6090406|START|otherPositions=0 copierState=
+6136609|CHANGE|copierState=[EURUSD.sd BUY vol=0.05 sl=1.11091 tp=1.13091 c=AT24C:1282439497]
+6144234|CHANGE|copierState=[EURUSD.sd BUY vol=0.05 sl=1.11391 tp=1.13491 c=AT24C:1282439497]
+6151250|CHANGE|copierState=[EURUSD.sd BUY vol=0.03 sl=1.11391 tp=1.13491 c=]
+6158468|CHANGE|copierState=[EURUSD.sd BUY vol=0.03 sl=1.11391 tp=1.13491 c=][EURUSD.sd SELL vol=0.01 sl=0.00000 tp=0.00000 c=AT24C:1282439592]
+6166625|CHANGE|copierState=[EURUSD.sd BUY vol=0.03 sl=1.11391 tp=1.13491 c=]
+6176046|CHANGE|copierState=(none)
+6290437|END|otherPositions start=0 end=0 untouched=1

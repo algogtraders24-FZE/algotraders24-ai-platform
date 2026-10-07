@@ -2,9 +2,9 @@
   "bundle": "MT5_to_MT5",
   "version": "1.0.0",
   "files": {
-    "AT24_Copier_Master_MT5.ex5": "0dc34ae9df333b53a665b60a022e59520cf1966377888c4dff8f7342ce2a515e",
-    "AT24_Copier_Receiver_MT5.ex5": "479bc87dea68e5a2c8554fdde8712171e362f4e862ab415cd5033428f13bd6c4",
-    "README.txt": "fdc92682ac854b6d6d89a95aa56b966c8c6c5cb6f800bffc0644de294d7bec46"
+    "AT24_Copier_Master_MT5.ex5": "592ec8e3875d58cbe8239a31b9640fac207a26ed12f4c7bf4b092418602edaea",
+    "AT24_Copier_Receiver_MT5.ex5": "64d6db21b1008226534b84d6c8d82befc8015915688256e2b13ff277f67e9288",
+    "README.txt": "88e1291d31241c77440973cb85ed95fe6da130c19c5103b53a6e7adc49b17fd4"
   },
-  "zipSha256": "726e5451e45074d7aeb92a1e3310b91d817fb4d12be002cd37f62608284ba7cf"
+  "zipSha256": "e47fc1f37d193d91aba9d3a9955506cc42469701b06ed297bf6daa5887740e72"
 }

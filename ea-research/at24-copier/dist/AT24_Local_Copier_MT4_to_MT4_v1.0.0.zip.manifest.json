@@ -1,0 +1,10 @@
+{
+  "bundle": "MT4_to_MT4",
+  "version": "1.0.0",
+  "files": {
+    "AT24_Copier_Master_MT4.ex4": "6591f295f71dd8ee659cf7c9d55950156e12b56f00d27497341d0a265235c551",
+    "AT24_Copier_Receiver_MT4.ex4": "7fab2bb07a6e2a2d5066419a91cf0cc57de6de4b6519fb1e2f4d7655cbaa73b7",
+    "README.txt": "282c118f3a4becc1a87b32249413a8d1489323962dbd6a0ce28c223f6f8a20f2"
+  },
+  "zipSha256": "3c89d439b49338f6c247ff1e9c2412f06d1eaa1bc789ccfd2e19a4e8ab4a9504"
+}
