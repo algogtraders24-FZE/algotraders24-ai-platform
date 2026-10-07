@@ -55,6 +55,7 @@ import {
   Plug,
   Gauge,
   BookOpen,
+  Radio,
   type LucideIcon,
 } from "lucide-react";
 
@@ -214,6 +215,8 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       // Trader Edge Analyzer (E3): upload an MT5 history report -> where the
       // results come from, edge vs luck, risk spread. Analyze-only, nothing saved.
       { label: "Edge Analyzer", href: "/dashboard/edge-analyzer", icon: Gauge },
+      // Live Sync (P1): read-only MT5 EA -> your trades live. Dormant until enabled.
+      { label: "Live Sync", href: "/dashboard/live-sync", icon: Radio },
       // No standalone Research page exists (Sprint D2.4.A1 deliberately
       // redirected the marketing /platform/research page into Assistant,
       // since Research wasn't distinct content there). Inside the
