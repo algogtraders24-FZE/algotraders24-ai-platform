@@ -152,6 +152,12 @@ function periodRow(trades: readonly ClosedTrade[], ev: readonly LedgerEvent[], f
   };
 }
 
+/** Stats for the window [from, to) (broker time): used for "since live tracking started". */
+export function windowStats(trades: readonly ClosedTrade[], balanceOps: readonly BalanceOp[], from: number, to = Number.POSITIVE_INFINITY): PeriodRow {
+  const ops = [...balanceOps].sort((a, b) => a.time - b.time);
+  return periodRow(trades, events(trades, ops), from, to);
+}
+
 function monthKey(ms: number): string {
   const d = new Date(ms);
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;

@@ -8,7 +8,7 @@
 
 import type { WirePosition } from "../live-sync/contract";
 import { dealsToHistory, type SyncedDeal } from "../live-sync/to-trades";
-import { computeLiveResults, type LiveResultsStats } from "./stats";
+import { computeLiveResults, windowStats, type LiveResultsStats } from "./stats";
 import { computeEdgeEvidence } from "../edge-analyzer/analysis/edge-evidence";
 import { normalizeTag } from "../edge-analyzer/analysis/patterns";
 import type { ClosedTrade } from "../edge-analyzer/types";
@@ -24,6 +24,8 @@ export interface BuildInput {
     currency: string;
     marginMode: string;
     leverage: number;
+    /** Seconds the broker clock is ahead of UTC (to place the first sync on the broker clock). */
+    serverUtcOffsetSec: number;
     firstSyncAt: number; // UTC ms
     lastSyncAt: number; // UTC ms
     batches: number;
@@ -73,6 +75,8 @@ export interface PublicResults {
     filteredByMagic: string | null;
     accountMagicCount: number;
     gainsDiverge: boolean;
+    /** The real forward record: only trades closed AFTER the first sync. */
+    liveTracked: { trades: number; gainPct: number | null; winRatePct: number | null };
   };
   stats: {
     absoluteGainPct: number | null;
@@ -252,6 +256,10 @@ export function buildPublicResults(input: BuildInput): PublicResults {
       filteredByMagic: page.magicFilter,
       accountMagicCount,
       gainsDiverge: stats.gainsDiverge,
+      liveTracked: (() => {
+        const w = windowStats(hist.trades, hist.balanceOps, account.firstSyncAt + account.serverUtcOffsetSec * 1000);
+        return { trades: w.trades, gainPct: w.gainPct, winRatePct: w.winRatePct };
+      })(),
     },
     stats: {
       absoluteGainPct: stats.absoluteGainPct,

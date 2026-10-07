@@ -34,7 +34,7 @@ const deals: DealWithMagic[] = [
 const NOW = at("2026-10-07T15:00:00");
 const base: BuildInput = {
   page: { title: "XXXUS30 - Live Forward Test (Demo)", description: "test", showAmounts: false, positionDelayMin: 15, magicFilter: "33302" },
-  account: { mode: "demo", currency: "USD", marginMode: "hedging", leverage: 2000, firstSyncAt: at("2026-10-07T09:35:00"), lastSyncAt: at("2026-10-07T14:59:00"), batches: 7, chainHead: "4fc398d9087b0000000000000000000000000000000000000000000000000000" },
+  account: { mode: "demo", currency: "USD", marginMode: "hedging", leverage: 2000, serverUtcOffsetSec: 0, firstSyncAt: at("2026-10-07T09:35:00"), lastSyncAt: at("2026-10-07T14:59:00"), batches: 7, chainHead: "4fc398d9087b0000000000000000000000000000000000000000000000000000" },
   deals,
   snapshots: [
     { time: NOW - 60 * 60_000, positions: [
@@ -94,6 +94,11 @@ const all = buildPublicResults({ ...base, page: { ...base.page, magicFilter: nul
 eq(all.stats.trades, 9, "no filter -> all 9 trades");
 eq(all.amounts?.profit, -110, "whole-account profit includes the losing XAUUSD EA (590 - 700)");
 eq(all.integrity.filteredByMagic, null, "no filter stated");
+
+// ---- forward record: only trades closed after the first sync count as "live tracked"
+ok(r.integrity.liveTracked.trades === 0, "all synthetic trades predate the first sync -> 0 live-tracked trades");
+const early = buildPublicResults({ ...base, account: { ...base.account, firstSyncAt: at("2026-09-14T06:03:30") } });
+ok(early.integrity.liveTracked.trades > 0 && early.integrity.liveTracked.trades < early.stats.trades, "first sync in the middle of the history splits live-tracked from reported history");
 
 // ---- stale + disclosure
 const stale = buildPublicResults({ ...base, account: { ...base.account, lastSyncAt: NOW - 30 * 60_000 } });
