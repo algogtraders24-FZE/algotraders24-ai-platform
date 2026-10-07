@@ -85,3 +85,13 @@ Same inputs, Strategy Tester, XAUUSD M15, 1-minute OHLC model, 2026-06-01..2026-
 
 Result: identical -> the execution layer does not change trading behaviour in the tester.
 Caveats: (1) tester only; the retry / INVALID_FILL / unknown-outcome paths are not exercised by it. (2) This window is NOT the listed evidence period and shows the strategy losing (PF 0.45, DD 17.7%) on this data/model; it says nothing about v2.10's listed VALIDATED evidence but should be looked at before any new marketing claim. (3) v2.11 is a new binary: do not replace the v2.10 listing until the owner decides on re-validation.
+
+### 12b. Real-ticks parity (same window/inputs, "Every tick based on real ticks", 100% real ticks, 40.95M ticks)
+| | v2.10 | v2.11 |
+|---|---|---|
+| Total trades | 70 | 70 |
+| Net profit | -374.78 | -374.78 |
+| Profit factor | 0.89 | 0.89 |
+| Max equity DD | 12.39% | 12.39% |
+
+Parity holds on real ticks too. Note the model sensitivity on the SAME window: 1-minute OHLC gave 64 trades / -1,700 / PF 0.45 / DD 17.7%, real ticks gave 70 / -375 / PF 0.89 / DD 12.4%. This is the book's warning in practice: OHLC results must not be quoted as evidence. Even on real ticks this 10-week window is net negative, so the strategy needs a regime review (single window, single broker feed; not conclusive either way).
