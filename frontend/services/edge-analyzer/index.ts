@@ -9,7 +9,7 @@ import { computeEdgeEvidence, type EdgeEvidence } from "./analysis/edge-evidence
 import { computeRuinAnalysis, type RuinAnalysis } from "./analysis/ruin";
 import { reconcile } from "./analysis/reconcile";
 import { decodeReportBuffer, parseMt5HtmlReport } from "./parsers/mt5-html";
-import type { ParseErrorCode, ReconciliationCheck, ReportMeta } from "./types";
+import type { BalanceOp, ClosedTrade, ParseErrorCode, ReconciliationCheck, ReportedResults, ReportMeta } from "./types";
 
 export interface EdgeReportE1 {
   meta: ReportMeta;
@@ -40,34 +40,49 @@ export const REPORT_ASSUMPTIONS: readonly string[] = [
   "Descriptive only: past results do not predict future results and nothing here is investment advice.",
 ];
 
-export function analyzeMt5ReportText(text: string): AnalyzeResult {
-  const parsed = parseMt5HtmlReport(text);
-  if (!parsed.ok) return { ok: false, error: parsed.error, message: parsed.message };
-  const warnings = [...parsed.warnings];
-  let startBalance = parsed.meta.initialDeposit;
+/** Everything the analysis needs, independent of where the trades came from (a report file or Live Sync). */
+export interface TradesInput {
+  meta: ReportMeta;
+  trades: ClosedTrade[];
+  balanceOps: BalanceOp[];
+  /** The terminal's own printed summary, when there is one (report files); null for synced data. */
+  reported: ReportedResults | null;
+  warnings: string[];
+}
+
+/** The shared analysis pipeline: closed trades in, typed report out. Pure and deterministic. */
+export function analyzeTrades(input: TradesInput): EdgeReportE1 {
+  const warnings = [...input.warnings];
+  let startBalance = input.meta.initialDeposit;
   if (startBalance === null) {
     startBalance = 0;
-    warnings.push("No initial deposit was found in the report, so drawdown percentages may be unreliable.");
+    warnings.push("No initial deposit was found, so drawdown percentages may be unreliable.");
   }
-  const core = computeCoreStats(parsed.trades, startBalance, parsed.balanceOps);
-  const reconciliation = reconcile(parsed.trades, core, parsed.reported);
+  const core = computeCoreStats(input.trades, startBalance, input.balanceOps);
+  const reconciliation = reconcile(input.trades, core, input.reported);
   const reconciled = reconciliation.length > 0 && reconciliation.every((c) => c.ok);
   if (reconciliation.length > 0 && !reconciled) {
     warnings.push("Some numbers do not match the terminal's own summary in the report. Treat results with caution.");
   }
   return {
+    meta: input.meta,
+    core,
+    patterns: computePatterns(input.trades),
+    edge: computeEdgeEvidence(input.trades, { currency: input.meta.currency }),
+    ruin: computeRuinAnalysis(input.trades, core.endBalance),
+    reconciliation,
+    reconciled,
+    warnings,
+    assumptions: [...REPORT_ASSUMPTIONS],
+  };
+}
+
+export function analyzeMt5ReportText(text: string): AnalyzeResult {
+  const parsed = parseMt5HtmlReport(text);
+  if (!parsed.ok) return { ok: false, error: parsed.error, message: parsed.message };
+  return {
     ok: true,
-    report: {
-      meta: parsed.meta,
-      core,
-      patterns: computePatterns(parsed.trades),
-      edge: computeEdgeEvidence(parsed.trades, { currency: parsed.meta.currency }),
-      ruin: computeRuinAnalysis(parsed.trades, core.endBalance),
-      reconciliation,
-      reconciled,
-      warnings,
-      assumptions: [...REPORT_ASSUMPTIONS],
-    },
+    report: analyzeTrades({ meta: parsed.meta, trades: parsed.trades, balanceOps: parsed.balanceOps, reported: parsed.reported, warnings: parsed.warnings }),
   };
 }
 
