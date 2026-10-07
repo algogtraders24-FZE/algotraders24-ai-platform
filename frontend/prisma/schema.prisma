@@ -2958,6 +2958,8 @@ model LiveSyncAccount {
   lastSnapshotAt     DateTime?
   lastBalance        Float?
   lastEquity         Float?
+  /// Newest deal time (broker server ms) held for this account: lets a reinstalled EA resume.
+  lastDealTimeMsc    BigInt?
 
   @@unique([userId, accountKey])
   @@index([userId])

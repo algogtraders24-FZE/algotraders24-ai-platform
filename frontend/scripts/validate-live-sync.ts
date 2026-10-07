@@ -50,7 +50,7 @@ function memStore() {
       return [...accounts.values()].filter((a) => a.userId === userId).length;
     },
     async createAccount(userId, key, facts, _now) {
-      const row = { id: `acc${++n}`, userId, key, chainSeq: 0, chainHead: ZERO_HASH, lastSnapshotAt: null, deals: [], snapshots: 0, facts };
+      const row = { id: `acc${++n}`, userId, key, chainSeq: 0, chainHead: ZERO_HASH, lastSnapshotAt: null, lastDealTimeMsc: null as number | null, deals: [], snapshots: 0, facts };
       accounts.set(`${userId}|${key}`, row);
       return row;
     },
@@ -61,6 +61,7 @@ function memStore() {
         for (const d of args.chain.deals) if (!row.deals.some((x) => x.ticket === d.ticket)) { row.deals.push(d); inserted += 1; }
         row.chainSeq = args.chain.seq;
         row.chainHead = args.chain.hash;
+        row.lastDealTimeMsc = Math.max(row.lastDealTimeMsc ?? 0, ...args.chain.deals.map((d) => d.timeMsc));
       }
       if (args.snapshot) { row.snapshots += 1; row.lastSnapshotAt = args.now; }
       row.facts = args.facts;
@@ -219,6 +220,19 @@ async function main() {
     assert.ok(!fork.ok && fork.body.code === "CHAIN_FORK");
     const rewrite = await processIngest(store, "user-A", batch(2, h1, [deal(2, { profit: 999 })]), NOW);
     assert.ok(!rewrite.ok, "a different history at an existing position must not be accepted");
+  });
+  await check("the ack and the gap error carry lastDealTimeMsc so a reinstalled EA can resume where the server left off", async () => {
+    const { store } = memStore();
+    const b1 = batch(1, ZERO_HASH, [deal(1), deal(2)]);
+    const ack = await processIngest(store, "user-A", b1, NOW);
+    assert.ok(ack.ok && ack.body.lastDealTimeMsc === deal(2).timeMsc);
+    // a freshly reinstalled EA starts again at seq 1 and learns where to resume from the refusal
+    const restart = await processIngest(store, "user-A", batch(1, ZERO_HASH, [deal(9)]), NOW);
+    assert.ok(!restart.ok && restart.body.code === "SEQ_GAP" && restart.body.expectedSeq === 2);
+    assert.equal(restart.body.chainHead, b1.hash);
+    assert.equal(restart.body.lastDealTimeMsc, deal(2).timeMsc);
+    const heartbeat = await processIngest(store, "user-A", { v: 1, accountKey: KEY, account: FACTS, deals: [] }, NOW);
+    assert.ok(heartbeat.ok && heartbeat.body.lastDealTimeMsc === deal(2).timeMsc && heartbeat.body.ackSeq === 1);
   });
   await check("a tampered batch (hash does not match contents) is rejected", async () => {
     const { store, accounts } = memStore();

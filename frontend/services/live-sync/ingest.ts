@@ -17,6 +17,8 @@ export interface AccountRow {
   chainSeq: number;
   chainHead: string;
   lastSnapshotAt: Date | null;
+  /** Newest deal time (broker server ms) stored for this account, or null. */
+  lastDealTimeMsc: number | null;
 }
 
 export interface CommitArgs {
@@ -41,11 +43,11 @@ export type IngestOutcome =
   | {
       ok: true;
       status: 200;
-      body: { ok: true; ackSeq: number; nextSeq: number; chainHead: string; duplicate: boolean; insertedDeals: number; snapshotStored: boolean };
+      body: { ok: true; ackSeq: number; nextSeq: number; chainHead: string; duplicate: boolean; insertedDeals: number; snapshotStored: boolean; lastDealTimeMsc: number | null };
     }
-  | { ok: false; status: 400 | 409 | 422; body: { ok: false; code: IngestErrorCode; message: string; expectedSeq?: number; chainHead?: string } };
+  | { ok: false; status: 400 | 409 | 422; body: { ok: false; code: IngestErrorCode; message: string; expectedSeq?: number; chainHead?: string; lastDealTimeMsc?: number | null } };
 
-const err = (status: 400 | 409 | 422, code: IngestErrorCode, message: string, extra: { expectedSeq?: number; chainHead?: string } = {}): IngestOutcome => ({
+const err = (status: 400 | 409 | 422, code: IngestErrorCode, message: string, extra: { expectedSeq?: number; chainHead?: string; lastDealTimeMsc?: number | null } = {}): IngestOutcome => ({
   ok: false,
   status,
   body: { ok: false, code, message, ...extra },
@@ -78,9 +80,9 @@ export async function processIngest(store: LiveSyncStore, userId: string, rawBod
     if (seq === account.chainSeq && hash === account.chainHead) {
       duplicate = true; // the exact batch we already hold: acknowledge, write nothing
     } else if (seq !== account.chainSeq + 1) {
-      return err(409, "SEQ_GAP", "Batch out of order.", { expectedSeq: account.chainSeq + 1, chainHead: account.chainHead });
+      return err(409, "SEQ_GAP", "Batch out of order.", { expectedSeq: account.chainSeq + 1, chainHead: account.chainHead, lastDealTimeMsc: account.lastDealTimeMsc });
     } else if (prevHash !== account.chainHead) {
-      return err(409, "CHAIN_FORK", "The batch does not continue the stored history.", { expectedSeq: account.chainSeq + 1, chainHead: account.chainHead });
+      return err(409, "CHAIN_FORK", "The batch does not continue the stored history.", { expectedSeq: account.chainSeq + 1, chainHead: account.chainHead, lastDealTimeMsc: account.lastDealTimeMsc });
     } else {
       chain = { seq, prevHash, hash, deals: body.deals.map((d) => ({ ...d, timeUtc: new Date(d.timeMsc - offsetMs) })) };
     }
@@ -95,9 +97,10 @@ export async function processIngest(store: LiveSyncStore, userId: string, rawBod
   const { insertedDeals } = await store.commit({ accountId: account.id, now, facts: body.account, chain, snapshot });
   const seqNow = chain ? chain.seq : account.chainSeq;
   const headNow = chain ? chain.hash : account.chainHead;
+  const lastDealNow = chain ? Math.max(account.lastDealTimeMsc ?? 0, ...chain.deals.map((d) => d.timeMsc)) : account.lastDealTimeMsc;
   return {
     ok: true,
     status: 200,
-    body: { ok: true, ackSeq: seqNow, nextSeq: seqNow + 1, chainHead: headNow || ZERO_HASH, duplicate, insertedDeals, snapshotStored: snapshot !== undefined },
+    body: { ok: true, ackSeq: seqNow, nextSeq: seqNow + 1, chainHead: headNow || ZERO_HASH, duplicate, insertedDeals, snapshotStored: snapshot !== undefined, lastDealTimeMsc: lastDealNow },
   };
 }

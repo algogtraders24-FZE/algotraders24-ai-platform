@@ -33,6 +33,7 @@ CREATE TABLE "live_sync_accounts" (
     "lastSnapshotAt" TIMESTAMP(3),
     "lastBalance" DOUBLE PRECISION,
     "lastEquity" DOUBLE PRECISION,
+    "lastDealTimeMsc" BIGINT,
 
     CONSTRAINT "live_sync_accounts_pkey" PRIMARY KEY ("id")
 );

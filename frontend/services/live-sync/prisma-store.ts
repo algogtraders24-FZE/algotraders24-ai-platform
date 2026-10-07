@@ -6,11 +6,12 @@ import { prisma } from "@/lib/prisma";
 import type { DeviceRecord, DeviceStore } from "./auth";
 import type { AccountRow, CommitArgs, LiveSyncStore } from "./ingest";
 
-const accountRow = (a: { id: string; chainSeq: number; chainHead: string; lastSnapshotAt: Date | null }): AccountRow => ({
+const accountRow = (a: { id: string; chainSeq: number; chainHead: string; lastSnapshotAt: Date | null; lastDealTimeMsc: bigint | null }): AccountRow => ({
   id: a.id,
   chainSeq: a.chainSeq,
   chainHead: a.chainHead,
   lastSnapshotAt: a.lastSnapshotAt,
+  lastDealTimeMsc: a.lastDealTimeMsc === null ? null : Number(a.lastDealTimeMsc),
 });
 
 export const prismaDeviceStore: DeviceStore = {
@@ -95,7 +96,7 @@ export const prismaLiveSyncStore: LiveSyncStore = {
           leverage: facts.leverage,
           serverUtcOffsetSec: facts.serverUtcOffsetSec,
           terminalBuild: facts.terminalBuild,
-          ...(chain ? { chainSeq: chain.seq, chainHead: chain.hash } : {}),
+          ...(chain ? { chainSeq: chain.seq, chainHead: chain.hash, lastDealTimeMsc: BigInt(Math.max(...chain.deals.map((d) => d.timeMsc))) } : {}),
           ...(snapshot ? { lastSnapshotAt: now, lastBalance: snapshot.data.balance, lastEquity: snapshot.data.equity } : {}),
         },
       });
