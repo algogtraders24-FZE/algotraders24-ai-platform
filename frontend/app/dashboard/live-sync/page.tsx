@@ -61,6 +61,7 @@ export default function LiveSyncPage() {
   const [fresh, setFresh] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [consent, setConsent] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -93,7 +94,7 @@ export default function LiveSyncPage() {
     setError(null);
     setCopied(false);
     try {
-      const res = await fetch("/api/private/live-sync/devices", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name }) });
+      const res = await fetch("/api/private/live-sync/devices", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, consent }) });
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error?.message ?? "Could not create the token");
       setFresh(body.data.token as string);
@@ -172,8 +173,14 @@ export default function LiveSyncPage() {
         <p className="text-sm font-semibold text-text">Device tokens</p>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} placeholder="Name (e.g. Home PC - demo)" aria-label="Device name" />
-          <Button onClick={createDevice} loading={busy} disabled={unavailable}>Create token</Button>
+          <Button onClick={createDevice} loading={busy} disabled={unavailable || !consent}>Create token</Button>
         </div>
+        <label className="flex items-start gap-2 text-sm text-text-2">
+          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1" />
+          <span>
+            I understand that the Live Sync EA is read-only and will send my closed trades, balance, equity and open positions to AT24 (if I switch on a <b className="text-text">real account</b>, that is real account data). It never sends my account number, name, broker or password, and I can revoke the token or delete the synced data at any time.
+          </span>
+        </label>
         {devices.length === 0 ? (
           <p className="text-sm text-text-2">{loaded ? "No devices yet." : "Loading…"}</p>
         ) : (
@@ -211,6 +218,7 @@ export default function LiveSyncPage() {
                     <p className="text-xs text-text-3">
                       {a.trades} trades · {a.batches} batches · last sync {ago(a.lastSyncAt)} · balance {num(a.lastBalance, a.currency)} · equity {num(a.lastEquity, a.currency)}
                     </p>
+                    {a.mode === "real" && <p className="text-xs text-text-3">Real account: this is your real trading data. Delete it anytime with &quot;Delete synced data&quot;.</p>}
                   </div>
                   <div className="flex gap-2">
                     <ButtonLink size="sm" href={`/dashboard/edge-analyzer?syncedAccount=${encodeURIComponent(a.id)}`}>Analyze edge</ButtonLink>

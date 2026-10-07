@@ -40,6 +40,10 @@ export const POST = withContext(async (req, ctx) => {
   } catch {
     body = {};
   }
+  // Explicit consent is required before any token exists: the EA will send trades and balances (real accounts too, if the user enables them) to AT24.
+  if ((body as { consent?: unknown })?.consent !== true) {
+    return ApiResponse.error({ code: "CONSENT_REQUIRED", message: "Please confirm what Live Sync sends before creating a token." }, ctx.requestId, 400, ctx.startedAt);
+  }
   const rawName = typeof (body as { name?: unknown })?.name === "string" ? (body as { name: string }).name.trim() : "";
   const name = rawName.length > 0 ? rawName.slice(0, MAX_NAME_LEN) : "My MT5 terminal";
   try {
