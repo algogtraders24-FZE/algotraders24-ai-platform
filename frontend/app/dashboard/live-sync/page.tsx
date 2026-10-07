@@ -11,9 +11,11 @@ import Link from "next/link";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
+import ButtonLink from "@/components/ui/ButtonLink";
 import Alert from "@/components/ui/Alert";
 import Badge from "@/components/ui/Badge";
 import Input from "@/components/ui/Input";
+import LivePanel from "@/components/live-sync/LivePanel";
 
 interface DeviceRow {
   id: string;
@@ -196,17 +198,23 @@ export default function LiveSyncPage() {
         ) : (
           <ul className="divide-y divide-border">
             {accounts.map((a) => (
-              <li key={a.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-1 text-sm">
-                  <p className="text-text">
-                    {a.label} <Badge tone={a.mode === "demo" ? "neutral" : "warning"} className="normal-case">{a.mode}</Badge>{" "}
-                    <span className="text-xs text-text-3">{a.marginMode} · {a.currency}</span>
-                  </p>
-                  <p className="text-xs text-text-3">
-                    {a.trades} trades · {a.batches} batches · last sync {ago(a.lastSyncAt)} · balance {num(a.lastBalance, a.currency)} · equity {num(a.lastEquity, a.currency)}
-                  </p>
+              <li key={a.id} className="space-y-3 py-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-1 text-sm">
+                    <p className="text-text">
+                      {a.label} <Badge tone={a.mode === "demo" ? "neutral" : "warning"} className="normal-case">{a.mode}</Badge>{" "}
+                      <span className="text-xs text-text-3">{a.marginMode} · {a.currency}</span>
+                    </p>
+                    <p className="text-xs text-text-3">
+                      {a.trades} trades · {a.batches} batches · last sync {ago(a.lastSyncAt)} · balance {num(a.lastBalance, a.currency)} · equity {num(a.lastEquity, a.currency)}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <ButtonLink size="sm" href={`/dashboard/edge-analyzer?syncedAccount=${encodeURIComponent(a.id)}`}>Analyze edge</ButtonLink>
+                    <Button size="sm" variant="secondary" disabled={busy} onClick={() => void call(`/api/private/live-sync/accounts?id=${encodeURIComponent(a.id)}`, "Could not delete the data")}>Delete synced data</Button>
+                  </div>
                 </div>
-                <Button size="sm" variant="secondary" disabled={busy} onClick={() => void call(`/api/private/live-sync/accounts?id=${encodeURIComponent(a.id)}`, "Could not delete the data")}>Delete synced data</Button>
+                <LivePanel accountId={a.id} />
               </li>
             ))}
           </ul>

@@ -124,6 +124,22 @@ export default function EdgeAnalyzerPage() {
   }
   const [fileName, setFileName] = useState<string | null>(null);
 
+  // Deep link from Live Sync: /dashboard/edge-analyzer?syncedAccount=<id> analyzes a synced account.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("syncedAccount");
+    if (!id) return;
+    setBusy(true);
+    setFileName("Live Sync account");
+    fetch(`/api/private/live-sync/analyze?accountId=${encodeURIComponent(id)}`, { cache: "no-store" })
+      .then(async (r) => {
+        const json = await r.json().catch(() => null);
+        if (!r.ok) throw new Error(json?.error?.message ?? "The synced account could not be analyzed.");
+        setRes(json.data as EdgeAnalyzeResponse);
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : "The synced account could not be analyzed."))
+      .finally(() => setBusy(false));
+  }, []);
+
   async function analyze(file: File) {
     setBusy(true);
     setError(null);
