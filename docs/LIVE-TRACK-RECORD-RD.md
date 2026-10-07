@@ -1,4 +1,4 @@
-# AT24 Live Track Record - Myfxbook R&D and build options
+# AT24 Live Results (working name was "Live Track Record") - Myfxbook R&D and build options
 
 Date: 2026-10-08 · Status: R&D only, no code · Owner decision needed (section 9)
 
