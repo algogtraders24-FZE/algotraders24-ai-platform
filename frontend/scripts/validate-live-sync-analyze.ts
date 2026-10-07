@@ -86,4 +86,21 @@ const empty = summarizeLive([], now);
 ok(!empty.hasData && empty.stale && empty.latest === null, "no snapshots => no data");
 eq(summarizeLive(snaps, now, 2).series.length <= 3, true, "series is downsampled but keeps the last point");
 
+// 6) tag grouping: broker auto comments fold together, long tail is capped
+import { computePatterns, normalizeTag, BROKER_COMMENT_KEY, OTHER_TAGS_KEY, MAX_TAG_ROWS } from "../services/edge-analyzer/analysis/patterns";
+eq(["[sl 4213.47]", "[tp 4870.58400]", "[p=1590140023]", "{1018195875}", " [SL 1] "].map(normalizeTag), Array(5).fill(BROKER_COMMENT_KEY), "broker comments normalize to one key");
+eq([normalizeTag(""), normalizeTag("QuantumAI_BUY_XAUUSD"), normalizeTag("News C8 I7")], ["(none)", "QuantumAI_BUY_XAUUSD", "News C8 I7"], "real strategy tags are untouched");
+const tagged: SyncedDeal[] = [];
+for (let i = 1; i <= 60; i++) {
+  const comment = i <= 30 ? `[sl ${4000 + i}]` : `Strat${i}`;
+  tagged.push(deal({ positionId: `t${i}`, type: "buy", entry: "in", comment }));
+  tagged.push(deal({ positionId: `t${i}`, type: "sell", entry: "out", profit: 5, comment }));
+}
+const tp = computePatterns(dealsToHistory(tagged).trades);
+const keys = tp.byTag.map((b) => b.key);
+ok(keys.length <= MAX_TAG_ROWS + 1, "tag rows are capped");
+ok(keys.includes(BROKER_COMMENT_KEY) && keys.includes(OTHER_TAGS_KEY), "broker group and other-tags row exist");
+eq(tp.byTag.reduce((n, b) => n + b.count, 0), 60, "no trade is lost by grouping");
+eq(tp.byTag.find((b) => b.key === BROKER_COMMENT_KEY)?.count, 30, "all 30 broker-commented trades are in one row");
+
 console.log(`validate-live-sync-analyze: ${checks} checks passed`);

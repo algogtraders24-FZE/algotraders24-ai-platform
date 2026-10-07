@@ -43,6 +43,33 @@ export function bucketBy(trades: readonly ClosedTrade[], keyOf: (t: ClosedTrade)
     .sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true }));
 }
 
+/** Max distinct tag rows before the rest are folded into one "other" row. */
+export const MAX_TAG_ROWS = 20;
+export const BROKER_COMMENT_KEY = "(broker auto comment)";
+export const OTHER_TAGS_KEY = "(other tags)";
+
+/** Broker-generated comments ("[sl 4213.4]", "[tp 4870.5]", "[p=159014]", "{1018195875}") are unique per trade, not a strategy. */
+const BROKER_COMMENT = /^(\[(sl|tp|p=)[^\]]*\]|\{\d+\})$/i;
+
+export function normalizeTag(tag: string): string {
+  const t = tag.trim();
+  if (!t) return "(none)";
+  return BROKER_COMMENT.test(t) ? BROKER_COMMENT_KEY : t;
+}
+
+/** Tag buckets with broker comments grouped and the long tail folded into "(other tags)" (top rows by trade count). */
+export function tagKeyer(trades: readonly ClosedTrade[], maxRows = MAX_TAG_ROWS): (t: ClosedTrade) => string {
+  const counts = new Map<string, number>();
+  for (const t of trades) counts.set(normalizeTag(t.tag), (counts.get(normalizeTag(t.tag)) ?? 0) + 1);
+  const keep = new Set(
+    [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, maxRows).map(([k]) => k),
+  );
+  return (t) => {
+    const k = normalizeTag(t.tag);
+    return keep.has(k) ? k : OTHER_TAGS_KEY;
+  };
+}
+
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export interface SizeAfterOutcome {
@@ -113,7 +140,7 @@ export function computePatterns(trades: readonly ClosedTrade[]): Patterns {
     byWeekday: bucketBy(trades, dayKey),
     bySymbol: bucketBy(trades, (t) => t.symbol),
     byDirection: bucketBy(trades, (t) => t.direction),
-    byTag: bucketBy(trades, (t) => (t.tag ? t.tag : "(none)")),
+    byTag: bucketBy(trades, tagKeyer(trades)),
     byHoldTime: bucketBy(trades, holdKey),
     sizeAfterOutcome: sizeAfterOutcome(trades),
   };

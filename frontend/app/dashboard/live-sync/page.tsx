@@ -60,6 +60,7 @@ export default function LiveSyncPage() {
   const [error, setError] = useState<string | null>(null);
   const [fresh, setFresh] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -76,6 +77,8 @@ export default function LiveSyncPage() {
       if (a.ok) setAccounts(((await a.json()).data.accounts as AccountRow[]) ?? []);
     } catch {
       setError("Could not load Live Sync status.");
+    } finally {
+      setLoaded(true);
     }
   }, []);
 
@@ -172,7 +175,7 @@ export default function LiveSyncPage() {
           <Button onClick={createDevice} loading={busy} disabled={unavailable}>Create token</Button>
         </div>
         {devices.length === 0 ? (
-          <p className="text-sm text-text-2">No devices yet.</p>
+          <p className="text-sm text-text-2">{loaded ? "No devices yet." : "Loading…"}</p>
         ) : (
           <ul className="divide-y divide-border">
             {devices.map((d) => (
@@ -194,7 +197,7 @@ export default function LiveSyncPage() {
       <Card className="space-y-3">
         <p className="text-sm font-semibold text-text">Synced accounts</p>
         {accounts.length === 0 ? (
-          <p className="text-sm text-text-2">Nothing synced yet. Once the EA connects, your account appears here within a minute.</p>
+          <p className="text-sm text-text-2">{loaded ? "Nothing synced yet. Once the EA connects, your account appears here within a minute." : "Loading…"}</p>
         ) : (
           <ul className="divide-y divide-border">
             {accounts.map((a) => (
