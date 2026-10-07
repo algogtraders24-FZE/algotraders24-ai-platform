@@ -103,13 +103,18 @@ int AT24C_RunSelfTest(string &report)
    ST_Check("invalid side value -> refused", !AT24C_ParseSnapshot(badSide, oh, op, on, err));
 
    //--- 4. symbol mapping + filters
-   ST_Check("map strips master suffix, adds mine", AT24C_MapSymbol("XAUUSD.m", ".m", "+", "") == "XAUUSD+");
-   ST_Check("map no suffixes", AT24C_MapSymbol("EURUSD", "", "", "") == "EURUSD");
-   ST_Check("map suffix is case-insensitive", AT24C_MapSymbol("EURUSD.M", ".m", "", "") == "EURUSD");
-   ST_Check("explicit map wins", AT24C_MapSymbol("XAUUSD", "", "+", "US30=DJ30; xauusd = GOLD") == "GOLD");
-   ST_Check("explicit map miss falls back to suffix rule", AT24C_MapSymbol("EURUSD", "", "c", "XAUUSD=GOLD") == "EURUSDc");
-   ST_Check("allowed: empty list = all", AT24C_SymbolAllowed("ANY", "", ""));
-   ST_Check("allowed: exact + suffix-insensitive", AT24C_SymbolAllowed("XAUUSD.m", ".m", "eurusd, XAUUSD") && !AT24C_SymbolAllowed("GBPUSD.m", ".m", "eurusd, XAUUSD"));
+   ST_Check("map strips master suffix, adds mine", AT24C_MapSymbol("XAUUSD.m", "", ".m", "", "+", "") == "XAUUSD+");
+   ST_Check("map no prefix/suffix", AT24C_MapSymbol("EURUSD", "", "", "", "", "") == "EURUSD");
+   ST_Check("map suffix is case-insensitive", AT24C_MapSymbol("EURUSD.M", "", ".m", "", "", "") == "EURUSD");
+   ST_Check("map strips master prefix, adds mine", AT24C_MapSymbol("m.XAUUSD", "m.", "", "#", "", "") == "#XAUUSD");
+   ST_Check("map prefix + suffix both ways", AT24C_MapSymbol("pro.EURUSD.sd", "pro.", ".sd", "FX_", "c", "") == "FX_EURUSDc");
+   ST_Check("map prefix is case-insensitive", AT24C_MapSymbol("M.EURUSD", "m.", "", "", "", "") == "EURUSD");
+   ST_Check("map prefix not present = unchanged core", AT24C_MapSymbol("EURUSD", "m.", "", "", "", "") == "EURUSD");
+   ST_Check("explicit map wins", AT24C_MapSymbol("XAUUSD", "", "", "", "+", "US30=DJ30; xauusd = GOLD") == "GOLD");
+   ST_Check("explicit map miss falls back to prefix/suffix rule", AT24C_MapSymbol("EURUSD", "", "", "", "c", "XAUUSD=GOLD") == "EURUSDc");
+   ST_Check("allowed: empty list = all", AT24C_SymbolAllowed("ANY", "", "", ""));
+   ST_Check("allowed: prefix+suffix aware", AT24C_SymbolAllowed("m.XAUUSD.x", "m.", ".x", "xauusd") && !AT24C_SymbolAllowed("m.GBPUSD.x", "m.", ".x", "xauusd"));
+   ST_Check("allowed: exact + suffix-insensitive", AT24C_SymbolAllowed("XAUUSD.m", "", ".m", "eurusd, XAUUSD") && !AT24C_SymbolAllowed("GBPUSD.m", "", ".m", "eurusd, XAUUSD"));
 
    //--- 5. lot maths
    ST_Check("multiplier", ST_Near(AT24C_ScaleVolume(AT24C_LOT_MULTIPLIER, 0.10, 0.5, 0.0, 0, 0), 0.05));

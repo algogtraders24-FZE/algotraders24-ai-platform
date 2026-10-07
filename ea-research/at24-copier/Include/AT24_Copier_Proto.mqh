@@ -290,7 +290,30 @@ bool AT24C_ReadTextFile(const string name, string &text)
 //| Mapping / sizing (pure - unit-testable)                          |
 //+------------------------------------------------------------------+
 //--- "A=B;C=D" explicit map first (case-insensitive), else strip master suffix + add receiver suffix.
-string AT24C_MapSymbol(const string masterSymbol, const string masterSuffix, const string recvSuffix, const string symbolMap)
+//--- case-insensitive "starts with"
+bool AT24C_StartsWithNoCase(const string s, const string prefix)
+  {
+   if(StringLen(prefix) == 0 || StringLen(s) < StringLen(prefix))
+      return false;
+   string a = StringSubstr(s, 0, StringLen(prefix)), b = prefix;
+   StringToUpper(a);
+   StringToUpper(b);
+   return a == b;
+  }
+
+//--- master symbol minus its broker prefix/suffix = the "core" instrument name
+string AT24C_CoreSymbol(const string masterSymbol, const string masterPrefix, const string masterSuffix)
+  {
+   string core = masterSymbol;
+   if(AT24C_StartsWithNoCase(core, masterPrefix))
+      core = StringSubstr(core, StringLen(masterPrefix));
+   if(AT24C_EndsWithNoCase(core, masterSuffix))
+      core = StringSubstr(core, 0, StringLen(core) - StringLen(masterSuffix));
+   return core;
+  }
+
+string AT24C_MapSymbol(const string masterSymbol, const string masterPrefix, const string masterSuffix,
+                       const string recvPrefix, const string recvSuffix, const string symbolMap)
   {
    string up = masterSymbol;
    StringToUpper(up);
@@ -316,22 +339,17 @@ string AT24C_MapSymbol(const string masterSymbol, const string masterSuffix, con
         }
      }
 
-   string core = masterSymbol;
-   if(AT24C_EndsWithNoCase(core, masterSuffix))
-      core = StringSubstr(core, 0, StringLen(core) - StringLen(masterSuffix));
-   return core + recvSuffix;
+   return recvPrefix + AT24C_CoreSymbol(masterSymbol, masterPrefix, masterSuffix) + recvSuffix;
   }
 
 //--- Empty list = everything allowed. List holds MASTER symbols, comma separated, with or without suffix.
-bool AT24C_SymbolAllowed(const string masterSymbol, const string masterSuffix, const string allowedList)
+bool AT24C_SymbolAllowed(const string masterSymbol, const string masterPrefix, const string masterSuffix, const string allowedList)
   {
    if(StringLen(allowedList) == 0)
       return true;
    string raw = masterSymbol;
    StringToUpper(raw);
-   string core = masterSymbol;
-   if(AT24C_EndsWithNoCase(core, masterSuffix))
-      core = StringSubstr(core, 0, StringLen(core) - StringLen(masterSuffix));
+   string core = AT24C_CoreSymbol(masterSymbol, masterPrefix, masterSuffix);
    StringToUpper(core);
 
    string items[];

@@ -17,7 +17,7 @@
 input string Channel       = "e2e";      // must match Master/Receiver ChannelId
 input string TestSymbol    = "";         // symbol to trade ("" = first fully tradable of EURUSD/GBPUSD/USDJPY/XAUUSD)
 input long   MasterMagic   = 777;        // magic of the trades this script places (Master MagicFilter)
-input long   ReceiverMagic = 240124;     // magic the Receiver uses for copies
+input long   ReceiverMagic = 8240124;     // magic the Receiver uses for copies
 input double MasterLot     = 0.10;       // first master trade
 input double Multiplier    = 0.5;        // must equal the Receiver LotMultiplier
 input bool   ReverseMode   = false;      // true when the Receiver runs with ReverseCopy=true

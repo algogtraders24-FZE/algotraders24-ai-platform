@@ -33,7 +33,8 @@ WHAT IS COPIED
   - stop loss / take profit, and every later change of them
   - partial closes and added volume
   - closes
-Each copy carries its own magic number (ReceiverMagic) and the comment
+Each copy carries its own magic number (ReceiverMagic, default 8240124 - change it
+if another EA of yours already uses that number) and the comment
 "AT24C:<master position id>"; positions you open by hand or with other EAs are
 never touched.
 
@@ -51,8 +52,13 @@ MAIN SETTINGS (Receiver)
   CopyExistingOnStart  default OFF: positions already open when the Receiver
                    starts are NOT copied
   MaxEntryDelaySec a trade the master opened longer ago than this is not copied
-  MasterSymbolSuffix / ReceiverSymbolSuffix / SymbolMap
-                   e.g. strip ".m" and add "+", or XAUUSD=GOLD;US30=DJ30
+  MasterSymbolPrefix / MasterSymbolSuffix   what the MASTER broker adds to symbol names
+                   (stripped before mapping), e.g. prefix "m." or suffix ".m"
+  ReceiverSymbolPrefix / ReceiverSymbolSuffix   what YOUR broker adds, e.g. "#" or "+"
+  SymbolMap        explicit pairs that win over the rules above,
+                   e.g. XAUUSD=GOLD;US30=DJ30
+                   Example: master "m.EURUSD.sd" -> prefix "m." + suffix ".sd" are
+                   stripped, then your own prefix/suffix are added.
   AllowedSymbols, MasterMagicFilter   copy only what you want
   StopsPolicy      what to do when your broker's minimum stop distance rejects
                    the master's SL/TP: SKIP the trade (default) or CLAMP
@@ -73,17 +79,25 @@ BUILT-IN SAFETY
 
 WHAT WAS TESTED (honest scope)
   - Compiles with 0 errors / 0 warnings (MetaEditor, build 6182).
-  - Protocol self-test inside a real MT5 terminal: 41 / 41 checks passed
-    (CRC-32, tamper and partial-write detection, symbol mapping, lot maths...).
+  - Protocol self-test inside a real MT5 terminal: 46 / 46 checks passed
+    (CRC-32, tamper and partial-write detection, symbol prefix/suffix mapping,
+    lot maths...).
   - End-to-end test on a real MT5 HEDGING DEMO account (loopback: Master and
     Receiver on one terminal): open, SL/TP change, partial close, second
     position, close, nothing left behind - 17 / 17 checks passed, in normal AND
-    in ReverseCopy mode. Measured on that demo: new position copied in about
-    0.3 - 0.5 s, SL/TP/partial-close changes in about 0.2 - 0.6 s. Your speed
-    depends on your PC and broker; these are not guarantees.
-  - NOT tested: separate terminals from different brokers on this build,
-    netting source accounts, live-money accounts, brokers that forbid hedging
-    or copying. Test on demo first.
+    in ReverseCopy mode.
+  - Cross-broker test with TWO SEPARATE terminals: Master on an Equiti demo
+    (symbol EURUSD.sd), Receiver on an Exness demo (EURUSD; ".sd" stripped).
+    All steps passed in 3 runs: open at half volume, SL/TP change, partial
+    close, second position, its close, final close. A position that already
+    existed on the receiving account was left untouched.
+    Measured on those demos: new position about 0.8 - 1.0 s, SL/TP and partial
+    close about 0.3 - 1.0 s. Your speed depends on your PC and broker; these
+    are not guarantees.
+  - The prefix options are covered by the in-terminal self-test only; no live
+    broker symbol with a prefix was available to trade.
+  - NOT tested: netting source accounts, live-money accounts, brokers that
+    forbid hedging or copying. Test on demo first.
 
 IMPORTANT
   - Trading leveraged products is risky; this tool contains no trading

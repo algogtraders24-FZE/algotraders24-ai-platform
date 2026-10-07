@@ -50,10 +50,11 @@ const DIRECTIONS: Record<string, Direction> = {
     to: "MT5",
     icon: path.join(ROOT, "marketplace-research", "m16-copier", "branding", "copier-mt5-to-mt5-icon.svg"),
     tested:
-      `${COMMON_TESTED} A protocol self-test running INSIDE a real MT5 terminal passed 41 of 41 checks (CRC-32, tamper and partial-write detection, symbol mapping, lot maths). ` +
-      "An end-to-end test on a real MT5 hedging DEMO account (Master and Receiver in one terminal, loopback) passed 17 of 17 checks in normal mode and 17 of 17 in ReverseCopy mode: new position, SL/TP change, partial close, a second position, close - nothing left behind. On that demo a new position was copied in roughly 0.3-0.5 s and later changes in roughly 0.2-0.6 s (your PC and broker will differ; not a guarantee).",
+      `${COMMON_TESTED} A protocol self-test running INSIDE a real MT5 terminal passed 46 of 46 checks (CRC-32, tamper and partial-write detection, symbol prefix/suffix mapping, lot maths). ` +
+      "An end-to-end test on a real MT5 hedging DEMO account (Master and Receiver in one terminal, loopback) passed 17 of 17 checks in normal mode and 17 of 17 in ReverseCopy mode. " +
+      "A cross-broker test with two separate terminals - Master on an Equiti demo account (symbol EURUSD.sd), Receiver on an Exness demo account (EURUSD, suffix .sd stripped) - passed every step three times: new position copied at half volume, SL/TP change, partial close, a second position, its close, and the final close; a position that already existed on the receiving account stayed untouched. Measured on those demos: new position copied in roughly 0.8-1.0 s, SL/TP and partial-close changes in roughly 0.3-1.0 s (your PC and broker will differ; not a guarantee). The prefix option is covered by the in-terminal self-test; no live broker symbol with a prefix was available to trade it.",
     notTested:
-      "Separate terminals from different brokers on this build, a netting SOURCE account, live-money accounts, and brokers that forbid hedging or copying.",
+      "A netting SOURCE account, live-money accounts, brokers that forbid hedging or copying, and a live trade on a prefixed broker symbol.",
   },
 };
 
@@ -65,7 +66,7 @@ What you get: the Master (${d.from}) and the Receiver (${d.to}) as compiled EAs 
 Features
 - Lot sizing: multiplier, fixed lot, or equity ratio; hard cap per trade
 - Reverse copy (buys become sells; SL and TP are swapped)
-- Symbol suffix handling and an explicit symbol map (e.g. XAUUSD=GOLD)
+- Symbol prefix and suffix handling (strip the master's, add yours) and an explicit symbol map (e.g. XAUUSD=GOLD)
 - Allowed-symbol and master-magic filters, spread and slippage limits, DryRun mode
 - Safe by default: positions already open when the Receiver starts are NOT copied; a silent/offline Master never causes any action; a half-written file is detected by checksum and ignored; the copies are closed on an empty master book only after a confirmation delay; open attempts per trade are capped
 - Every copy has its own magic number and a tag, so your manual trades and other EAs are never touched; copies stay mappable even when a broker rewrites the position comment

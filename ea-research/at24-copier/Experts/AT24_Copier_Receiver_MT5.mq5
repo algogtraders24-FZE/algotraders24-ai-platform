@@ -42,12 +42,14 @@ input bool   CopyExistingOnStart  = false;                // false = ignore posi
 input int    MaxEntryDelaySec     = 20;                   // Do not copy a trade the master opened longer ago than this
 
 input group "=== Symbols ==="
+input string MasterSymbolPrefix   = "";                   // Prefix to strip from master symbols (e.g. "m.")
 input string MasterSymbolSuffix   = "";                   // Suffix to strip from master symbols (e.g. ".m")
+input string ReceiverSymbolPrefix = "";                   // Prefix to add on this account (e.g. "#")
 input string ReceiverSymbolSuffix = "";                   // Suffix to add on this account (e.g. "+")
 input string SymbolMap            = "";                   // Explicit map, e.g. XAUUSD=GOLD;US30=DJ30
 
 input group "=== Execution ==="
-input long   ReceiverMagic        = 240124;               // Magic number of every copied position
+input long   ReceiverMagic        = 8240124;              // Magic number of every copied position (change it if another EA already uses this number)
 input int    MaxSlippagePoints    = 30;                   // Deviation allowed on entry/exit
 input double MaxSpreadPoints      = 0.0;                  // Do not open while spread is wider (0 = off)
 input ENUM_AT24C_STOPS_POLICY StopsPolicy = AT24C_STOPS_SKIP; // Master SL/TP closer than my broker allows
@@ -460,10 +462,10 @@ void Reconcile(const long now)
          continue;
       if(MasterMagicFilter >= 0 && p.magic != MasterMagicFilter)
          continue;
-      if(!AT24C_SymbolAllowed(p.symbol, MasterSymbolSuffix, AllowedSymbols))
+      if(!AT24C_SymbolAllowed(p.symbol, MasterSymbolPrefix, MasterSymbolSuffix, AllowedSymbols))
          continue;
 
-      string sym = AT24C_MapSymbol(p.symbol, MasterSymbolSuffix, ReceiverSymbolSuffix, SymbolMap);
+      string sym = AT24C_MapSymbol(p.symbol, MasterSymbolPrefix, MasterSymbolSuffix, ReceiverSymbolPrefix, ReceiverSymbolSuffix, SymbolMap);
       if(!SymbolSelect(sym, true))
         {
          LogOnce("nosym" + sym, StringFormat("symbol '%s' (master '%s') does not exist on this account - set SymbolMap/suffixes. Trade #%I64d not copied.", sym, p.symbol, p.id));

@@ -1,0 +1,9 @@
+3193828|INFO|account=279321674 server=Exness-MT5Trial8 demo=1 hedging=1 algoTrading=1
+3193828|START|otherPositions=1 copierState=
+3233703|CHANGE|copierState=[EURUSD BUY vol=0.05 sl=1.11087 tp=1.13087 c=AT24C:176099516]
+3240140|CHANGE|copierState=[EURUSD BUY vol=0.05 sl=1.11387 tp=1.13487 c=AT24C:176099516]
+3247718|CHANGE|copierState=[EURUSD BUY vol=0.03 sl=1.11387 tp=1.13487 c=]
+3254875|CHANGE|copierState=[EURUSD BUY vol=0.03 sl=1.11387 tp=1.13487 c=][EURUSD SELL vol=0.01 sl=0.00000 tp=0.00000 c=AT24C:176099669]
+3262125|CHANGE|copierState=[EURUSD BUY vol=0.03 sl=1.11387 tp=1.13487 c=]
+3271750|CHANGE|copierState=(none)
+3393859|END|otherPositions start=1 end=1 untouched=1

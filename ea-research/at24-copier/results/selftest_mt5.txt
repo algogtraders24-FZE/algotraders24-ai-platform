@@ -17,11 +17,16 @@ PASS  unknown protocol version -> refused
 PASS  valid EMPTY book parses (count 0)
 PASS  invalid side value -> refused
 PASS  map strips master suffix, adds mine
-PASS  map no suffixes
+PASS  map no prefix/suffix
 PASS  map suffix is case-insensitive
+PASS  map strips master prefix, adds mine
+PASS  map prefix + suffix both ways
+PASS  map prefix is case-insensitive
+PASS  map prefix not present = unchanged core
 PASS  explicit map wins
-PASS  explicit map miss falls back to suffix rule
+PASS  explicit map miss falls back to prefix/suffix rule
 PASS  allowed: empty list = all
+PASS  allowed: prefix+suffix aware
 PASS  allowed: exact + suffix-insensitive
 PASS  multiplier
 PASS  fixed lot ignores master volume
@@ -40,4 +45,4 @@ PASS  file name
 PASS  file write+read
 PASS  file content parses identically
 PASS  missing file -> read returns false
-SUMMARY  pass=41 fail=0
+SUMMARY  pass=46 fail=0
