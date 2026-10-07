@@ -47,17 +47,28 @@ export const GET = withContext(async (req, ctx) => {
     return ApiResponse.error({ code: "RELEASE_NOT_AVAILABLE", message: "This release is not currently available for download (revoked/deprecated)." }, ctx.requestId, 409, ctx.startedAt);
   }
 
-  let bytes: Buffer;
+  let bytes: Buffer | null = null;
+  let storedExt = ".ex5";
   let filename = `${release.tradingSystemId}_${release.artifactVersion}.ex5`;
-  try {
-    bytes = await readFile(path.join(RELEASES_DIR, `${release.id}.ex5`));
+  // Stored name is private-releases/<releaseId><ext>. .ex5 is the original convention; .ex4 (MT4
+  // binaries) and .zip (multi-file bundles, e.g. the Trade Copier) are looked up after it.
+  for (const ext of [".ex5", ".ex4", ".zip"]) {
     try {
-      filename = (await readFile(path.join(RELEASES_DIR, `${release.id}.filename.txt`), "utf-8")).trim() || filename;
+      bytes = await readFile(path.join(RELEASES_DIR, `${release.id}${ext}`));
+      storedExt = ext;
+      break;
     } catch {
-      // filename mapping missing - fall back to the derived name above, not fatal.
+      // try the next extension
     }
-  } catch {
+  }
+  if (!bytes) {
     return ApiResponse.error({ code: "FILE_MISSING", message: "The release binary is registered but its file is missing on this server." }, ctx.requestId, 500, ctx.startedAt);
+  }
+  try {
+    filename = (await readFile(path.join(RELEASES_DIR, `${release.id}.filename.txt`), "utf-8")).trim() || filename;
+  } catch {
+    // filename mapping missing - fall back to the derived name above, not fatal.
+    filename = filename.replace(/\.ex5$/, storedExt);
   }
 
   await recordReleaseDownload({ actorUserId: sessionUser.profile.id, releaseId: release.id, licenseId: license.id });
@@ -65,7 +76,7 @@ export const GET = withContext(async (req, ctx) => {
   return new NextResponse(new Uint8Array(bytes), {
     status: 200,
     headers: {
-      "Content-Type": "application/octet-stream",
+      "Content-Type": storedExt === ".zip" ? "application/zip" : "application/octet-stream",
       "Content-Disposition": `attachment; filename="${filename}"`,
       "Content-Length": String(bytes.length),
       "Cache-Control": "private, no-store",

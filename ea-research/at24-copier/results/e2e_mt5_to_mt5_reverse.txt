@@ -1,0 +1,24 @@
+AT24 Copier END-TO-END test (MT5 -> MT5, loopback on one DEMO account)
+account=1088892 server=EquitiBrokerageSC-Demo
+symbol scan: total=2262 fullTrade=2131 first=EURUSD.sd | sample modes: EURUSD=0 GBPUSD=0 USDCHF=0 USDJPY=0 USDCAD=0 AUDUSD=0 AUDNZD=0 AUDCAD=0 AUDCHF=0 AUDJPY=0 CHFJPY=0 EURGBP=0 
+test symbol: EURUSD.sd
+flags: terminalTrade=1 mqlTrade=1 acctTrade=1 acctExpert=1 symTradeMode=4 connected=1
+PASS  master is publishing a fresh file
+PASS  master BUY opened (retcode 10009)
+PASS  1 copy opened with scaled volume 0.05  [latency 453 ms, got vol 0.05]
+PASS  copy tagged with master id  [comment='AT24C:176082201']
+PASS  copy direction reversed (SELL)
+PASS  copy carries master SL/TP (swapped)  [sl 1.13 tp 1.11]
+PASS  master SL/TP modified
+PASS  copy follows SL/TP change  [latency 547 ms]
+PASS  master partially closed 0.04  [retcode 10009 Request executed]
+PASS  copy partially closed to 0.03  [latency 438 ms, got vol 0.03]
+note: comment of the copy after the partial close = '' (broker may rewrite comments; the receiver must not depend on it)
+PASS  master SELL 0.02 opened
+PASS  2 copies, total volume 0.04  [latency 328 ms]
+PASS  master SELL closed
+PASS  only the SELL copy closed  [latency 438 ms]
+PASS  master BUY closed
+PASS  last copy closed once master book is empty  [latency 2875 ms (includes the EmptySnapshotConfirmSec hold)]
+PASS  no test positions left on the account
+SUMMARY  pass=17 fail=0

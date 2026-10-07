@@ -1,0 +1,43 @@
+AT24 Copier protocol self-test (MT5) v1.0.0
+PASS  crc32('123456789') == CBF43926
+PASS  crc32('') == 00000000
+PASS  round-trip parses ()
+PASS  header channel sanitised
+PASS  header fields
+PASS  row 0 fields
+PASS  row 1 sell, no stops
+PASS  row 2 big id + separator stripped from symbol
+PASS  changed symbol -> CRC mismatch
+PASS  truncated file -> refused
+PASS  missing END line -> refused
+PASS  empty text -> refused
+PASS  garbage -> refused
+PASS  header count != rows -> refused
+PASS  unknown protocol version -> refused
+PASS  valid EMPTY book parses (count 0)
+PASS  invalid side value -> refused
+PASS  map strips master suffix, adds mine
+PASS  map no suffixes
+PASS  map suffix is case-insensitive
+PASS  explicit map wins
+PASS  explicit map miss falls back to suffix rule
+PASS  allowed: empty list = all
+PASS  allowed: exact + suffix-insensitive
+PASS  multiplier
+PASS  fixed lot ignores master volume
+PASS  equity ratio
+PASS  equity ratio with 0 master equity -> 0
+PASS  floor to step rounds DOWN
+PASS  below min lot -> 0
+PASS  clamped to max lot
+PASS  step 0.1 / min 0.1
+PASS  step digits
+PASS  comment make/parse
+PASS  foreign comment rejected
+PASS  max-size id fits MT4's 31-char comment
+PASS  channel sanitised
+PASS  file name
+PASS  file write+read
+PASS  file content parses identically
+PASS  missing file -> read returns false
+SUMMARY  pass=41 fail=0
