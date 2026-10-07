@@ -95,3 +95,24 @@ Caveats: (1) tester only; the retry / INVALID_FILL / unknown-outcome paths are n
 | Max equity DD | 12.39% | 12.39% |
 
 Parity holds on real ticks too. Note the model sensitivity on the SAME window: 1-minute OHLC gave 64 trades / -1,700 / PF 0.45 / DD 17.7%, real ticks gave 70 / -375 / PF 0.89 / DD 12.4%. This is the book's warning in practice: OHLC results must not be quoted as evidence. Even on real ticks this 10-week window is net negative, so the strategy needs a regime review (single window, single broker feed; not conclusive either way).
+
+## 13. M12 v2.10 real-ticks check across the listed evidence period (2026-10-07)
+Independent MT5 check of the listed PDHPDL-GOLD evidence (2025-01 .. 2026-08). XAUUSD M15, "Every tick based on real ticks" (100% real ticks), default inputs, $10k deposit restarted per window, Equiti demo data, 1:500. v2.11 was shown identical to v2.10 on the last window, so v2.10 was used.
+
+| Window | Trades | Net | PF | Max equity DD |
+|---|---|---|---|---|
+| 2025 Q1 | 89 | +133.65 | 1.04 | 12.54% |
+| 2025 Q2 | 88 | +3,796.88 | 2.25 | 7.20% |
+| 2025 Q3 | 100 | +2,621.71 | 1.78 | 10.10% |
+| 2025 Q4 | 96 | +804.87 | 1.23 | 11.39% |
+| 2026 Q1 | 84 | -230.35 | 0.93 | 13.84% |
+| 2026 Apr-May | 50 | +2,622.87 | 2.73 | 6.73% |
+| 2026 Jun-Aug14 | 70 | -374.78 | 0.89 | 12.39% |
+| **Sum** | **577** | **+9,374.85** | | worst window 13.84% |
+
+Reading:
+- 5 of 7 windows positive; sign matches the listed evidence (PF 1.16, net about +21.6k, 7 of 20 months negative).
+- Absolute profit here is about 43% of the listed evidence's net: same direction, weaker magnitude. Different data source (Python/XLSX deals table vs MT5 real ticks), restarted deposits and possibly different inputs, so this is a sanity check, not a re-validation.
+- Windows are independent, so cross-window drawdown is not captured; listed full-period max DD was 34.4% (121 days). Expect it.
+- Real ticks include the broker's real spread, which partly fills the evidence's "spreadModel UNKNOWN" gap. Commission/swap are not modelled by this demo account.
+- Behaviour is lumpy: strong quarters (Q2/Q3 2025, Apr-May 2026) and flat/negative ones. Customer-facing copy should say so.
