@@ -120,6 +120,13 @@ Features
 - Safe by default: positions already open when the Receiver starts are NOT copied; a silent/offline Master never causes any action; a half-written file is detected by checksum and ignored; the copies are closed on an empty master book only after a confirmation delay; open attempts per trade are capped
 - Every copy has its own magic number and a tag, so your manual trades and other EAs are never touched; copies stay mappable even when a broker rewrites the position comment
 
+Test report (real demo accounts, 7 Oct 2026)
+- Every master action was checked on the receiving account, not just "no error": a new position opens at the scaled volume with the master's SL/TP, an SL/TP change is followed, a partial close reduces the copy, a second position is copied, closing one position closes only its copy, the final close empties the book - and a position that already existed on the receiving account is left untouched.
+- Testing found and fixed real bugs before release: MT4 text trimming differed from MT5 (symbol map / allowed list failed), two Receivers on one channel opened every trade twice (now blocked by a built-in lock), and MT4 gives the remainder of a partially closed order a new ticket (the copy is now followed instead of being closed and re-opened).
+- Test logs with timings are kept; ask support if you want to see them.
+
+Check it yourself in 5 minutes (demo only): attach the Master to a demo account, the Receiver to a second demo account with the same ChannelId; set the Receiver's DryRun to true and watch the log say what it WOULD do; then switch DryRun off, open a 0.01 trade on the master, change its stop loss, close half, close the rest - the copy should follow each step within about a second.
+
 Limits (v${VERSION}): pending orders are not copied (only filled positions); same computer only; ${d.destNote}; it cannot run in the Strategy Tester.
 
 What was verified: ${d.tested}
