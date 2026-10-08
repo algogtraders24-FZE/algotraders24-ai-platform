@@ -35,7 +35,7 @@ AT24-computed evidence (real MT5 Strategy Tester .xlsx export, Exness US30, M15,
 - Position profile: up to 11 positions open at the same time, 70% long / 30% short.
 
 Read before buying
-- Fixed 1.0 lot: the backtest used 1.0 lot on a 10,000 deposit (the EA's own default is 0.01). Profit and drawdown scale with lot size. The figures above are in the tester's own units (the report's currency is "profit in pips"); with Exness' US30 contract size of 1 they correspond to roughly 1 USD per point at 1.0 lot, but your broker's contract size decides the real money value.
+- Fixed 1.0 lot: the backtest used 1.0 lot on a 10,000 deposit (the EA's own default is 0.01). Profit and drawdown scale with lot size. All figures above are exactly as printed in the seller's Strategy Tester report; that report prints its currency as "profit in pips", so check the money value of a trade on your own broker/account before relying on any figure.
 - Broker points: stop loss, take profit and the other distances are in the symbol's POINTS. Exness US30 has 1 decimal (point 0.1), so 120 points = 12 index points; a 0-decimal broker needs inputs 10x larger. Re-scale before trading.
 - The backtest report is dated 13 Sep 2026 while the delivered EA files were last compiled on 5 Oct 2026. The seller states that the trading logic is unchanged between the two; this is the seller's statement and cannot be verified from the files.
 - The ONNX filter was trained by the seller on US30 M15 data (seller-stated F1 0.61); its training window is not disclosed, so overlap between the training data and the backtest period cannot be ruled out. If the model file is missing the EA falls back to trading without the filter.

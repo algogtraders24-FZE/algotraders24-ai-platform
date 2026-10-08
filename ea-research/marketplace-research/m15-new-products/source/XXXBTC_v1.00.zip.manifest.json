@@ -1,0 +1,11 @@
+{
+  "version": "1.00",
+  "files": {
+    "XXXBTC.ex5": "3ef726128be0314d51eb949fdcf9957f4d53b60e661bbb89f84786b0768b46fc",
+    "xxxbtc_filter.onnx": "08f1203bb05478858fa8387b45344dd8370b7ad83084576806afa9cc1e9b8d4a",
+    "xxxbtc_filter.onnx.data": "fde1736db6e502ad988230e9ae511c2cf5990b552fb9052d8fae3c0e0a281228",
+    "XXXBTC_tested_settings.set": "24b60e0bd70ce62cd0d09fbdfac0642e8bac08cf25918c656656d4f7f8b65e81",
+    "README.txt": "bcd1a574c119a34789dbbe4639070879c6d2998f4ee3beec439c017c5972409f"
+  },
+  "zipSha256": "9d91caa733a581cd239a01992fa53e74f9feaaa1225026e4bffb697c09570338"
+}
