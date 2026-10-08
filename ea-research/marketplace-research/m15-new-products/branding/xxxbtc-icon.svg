@@ -82,5 +82,5 @@
   <g transform="translate(256 392)"><line x1="-130" y1="0" x2="-14" y2="0" stroke="#d4af37" stroke-opacity="0.6"/><line x1="14" y1="0" x2="130" y2="0" stroke="#d4af37" stroke-opacity="0.6"/><rect x="-5" y="-5" width="10" height="10" transform="rotate(45)" fill="url(#gold)"/></g>
   <text x="256" y="424" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" letter-spacing="3" fill="#ffe9cf">24/7 BREAKOUT</text>
   <rect x="150" y="438" width="212" height="30" rx="15" fill="#1a1208" stroke="url(#blue)" stroke-width="1.6"/>
-  <text x="256" y="458" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="800" letter-spacing="2.5" fill="#ffd29a">ONNX AI FILTER</text>
+  <text x="256" y="458" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="800" letter-spacing="2.5" fill="#ffd29a">OPTIONAL AI FILTER</text>
 </svg>

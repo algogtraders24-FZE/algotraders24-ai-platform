@@ -1,0 +1,5 @@
+terminal build 6230
+US30 from FILE    : loaded, shapes set true | scores: 0.022042 0.664636 0.900790 0.003252
+US30 from RESOURCE: loaded, shapes set true | scores: 0.022042 0.664636 0.900790 0.003252
+BTC  from FILE    : loaded, shapes set true | scores: 0.000002 0.690459 0.901913 0.000000
+BTC  from RESOURCE: loaded, shapes set true | scores: 0.000002 0.690459 0.901913 0.000000

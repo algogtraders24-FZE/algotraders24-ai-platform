@@ -22,7 +22,10 @@ for l in lines:
         if m:
             inputs.append((m.group(1), m.group(2)))
 assert len(inputs) >= 40, len(inputs)
-set_txt = "; XXX US30 v%s - EXACT inputs of the Strategy Tester run the marketplace evidence is based on\r\n; (Exness US30, M15, 2025.07.01-2026.08.08). Load via the EA's Inputs tab > Load.\r\n" % VERSION
+# The report lists InpUseONNX=true, but the Strategy Tester could not load the model file, so the AI filter did NOT run
+# in the evidence run: the tested-settings file must say false to reproduce it.
+inputs = [(k, 'false' if k == 'InpUseONNX' else v) for k, v in inputs]
+set_txt = "; XXX US30 v%s - EXACT inputs of the Strategy Tester run the marketplace evidence is based on\r\n; (Exness US30, M15, 2025.07.01-2026.08.08). Load via the EA's Inputs tab > Load.\r\n; InpUseONNX is false on purpose: the report lists true, but the Strategy Tester could not find the model file, so the AI filter did not run.\r\n" % VERSION
 set_txt += "".join("%s=%s\r\n" % kv for kv in inputs)
 
 README = """XXX US30 v1.01  -  Multi-module breakout EA for the Dow Jones (US30), M15
@@ -30,36 +33,32 @@ README = """XXX US30 v1.01  -  Multi-module breakout EA for the Dow Jones (US30)
 Algotraders24 AI  |  https://www.algotraders24.ai
 
 FILES IN THIS DOWNLOAD
-  XXXUS30.ex5                    the Expert Advisor
-  xxxus30_filter.onnx            AI entry filter model (loaded by the EA)
-  xxxus30_filter.onnx.data       the model's weights file - must sit next to the .onnx
+  XXXUS30.ex5                    the Expert Advisor (the optional AI model is built in - no model files to copy)
   XXXUS30_tested_settings.set    the EXACT inputs of the backtest the marketplace evidence is based on
+                                 (AI filter OFF - see below)
 
-INSTALL (5 minutes)
- 1. MetaTrader 5: File > Open Data Folder.
- 2. Copy XXXUS30.ex5 into MQL5\Experts   (refresh the Navigator or restart the terminal).
- 3. Copy BOTH xxxus30_filter.onnx and xxxus30_filter.onnx.data into MQL5\Files.
-    If the EA cannot find them it prints "AI DISABLED (fail-safe mode)" and trades WITHOUT the AI filter -
-    check the Experts log and the dashboard ("AI: READY").
- 4. Open a US30 chart on M15 and drag XXXUS30 onto it. Allow Algo Trading.
- 5. Inputs tab > Load > XXXUS30_tested_settings.set to reproduce the tested configuration, then lower
-    InpFixedLot to a size that is right for your account (see below).
+INSTALL (3 minutes)
+ 1. MetaTrader 5: File > Open Data Folder > MQL5 > Experts: copy XXXUS30.ex5 there (refresh the Navigator).
+ 2. Open a US30 chart on M15 and drag XXXUS30 onto it. Allow Algo Trading.
+ 3. Inputs tab > Load > XXXUS30_tested_settings.set to reproduce the tested configuration, then set InpFixedLot
+    to a size that is right for your account (see below).
 
 IMPORTANT - READ BEFORE USING
- * LOT SIZE: the backtest used a FIXED 1.0 lot (InpFixedLot=1) on a 10,000 deposit. The EA's built-in
-   default is 0.01. Results scale with lot size and so does the risk. Do not copy the tested lot size
-   unless your account can carry it.
+ * THE AI FILTER: the EA can score every setup with a small neural network (InpUseONNX). The model is built into
+   the EA. The backtest the marketplace evidence is based on was run WITHOUT the AI filter (the tester could not
+   load the model file), so the tested-settings file has InpUseONNX=false. The EA's built-in default is true.
+   With it on the EA trades far less; that mode has not been backtested. Use the .set file to get the tested
+   behaviour. The model was trained by the seller on the most recent 30,000 M15 bars at training time
+   (5 Jun 2025 - 11 Sep 2026), so it has seen the period the backtest covers.
+ * LOT SIZE: the backtest used a FIXED 1.0 lot on a 10,000 deposit. The EA's default is 0.01. Results scale with
+   lot size and so does the risk. Note: US30 on Exness has a 0.05 minimum lot - adjust to your broker.
  * POINTS ARE BROKER POINTS: stop loss, take profit, breakeven, trailing and spread limits are in the symbol's
    POINTS. On Exness US30 (digits 1, point 0.1) 120 points = 12.0 index points. On a broker whose US30 has
-   0 digits (point 1.0) the same numbers mean 120 index points - 10x wider. Re-scale the point inputs
-   to your broker before trading.
- * SYMBOL: tested on Exness "US30". Other brokers name it DJ30 / WS30 / US30.cash etc. Attach to your broker's
-   Dow Jones symbol and check the contract size - USD per point differs between brokers.
- * PENDING-ORDER BREAKOUT EA: it places BUY STOP / SELL STOP orders. Broker minimum stop distance, spread and
-   slippage at news time can change results materially.
- * Up to 5 modules (Nova, Apex, Zenith, Pulse, Eclipse) can have orders open at the same time - the tested
-   run reached 11 simultaneous positions.
- * The AI filter is a model trained by the seller on US30 M15 data. Its training window is not disclosed.
+   0 digits (point 1.0) the same numbers mean 120 index points - 10x wider. Re-scale before trading.
+ * SYMBOL: tested on Exness "US30". Other brokers name it DJ30 / WS30 / US30.cash etc.
+ * PENDING-ORDER BREAKOUT EA: BUY STOP / SELL STOP orders for up to 5 modules (Nova, Apex, Zenith, Pulse,
+   Eclipse) at the same time; the tested run reached 11 simultaneous positions. Broker minimum stop distance,
+   spread and slippage can change results materially.
  * Start on a DEMO account. Past performance is not a guarantee of future results. Trading leveraged
    products is risky; this is not financial advice.
 
@@ -67,9 +66,7 @@ SUPPORT: https://www.algotraders24.ai  (dashboard > Support)
 """
 
 files = [
-    ("XXXUS30.ex5", open(os.path.join(SRC, "XXXUS30.ex5"), "rb").read()),
-    ("xxxus30_filter.onnx", open(os.path.join(SRC, "xxxus30_filter.onnx"), "rb").read()),
-    ("xxxus30_filter.onnx.data", open(os.path.join(SRC, "xxxus30_filter.onnx.data"), "rb").read()),
+    ("XXXUS30.ex5", open(os.path.join(SRC, "XXXUS30_embedded.ex5"), "rb").read()),
     ("XXXUS30_tested_settings.set", set_txt.encode("ascii", "replace")),
     ("README.txt", README.replace("\n", "\r\n").encode("utf-8")),
 ]

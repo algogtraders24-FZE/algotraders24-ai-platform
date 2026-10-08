@@ -1,11 +1,9 @@
 {
   "version": "1.01",
   "files": {
-    "XXXUS30.ex5": "ee3cd2dd14eb8130701808ce0e6d3990bde41cbefb3717294ad39318cd8b614e",
-    "xxxus30_filter.onnx": "bec3911663edbe988182b62b1ec24192e518b599d3c26384019673bb628848e1",
-    "xxxus30_filter.onnx.data": "990edc24aa34e4dbcfb6b7b61ef57a2e965aafad1cba2cd5e4eff5d8904fec20",
-    "XXXUS30_tested_settings.set": "f6418814a7136ef7d1e3244dffae2e129fbbf825f152bfcca8cfadb6c5d2d0d0",
-    "README.txt": "5ea3cfd83bb839838ff7ab233ecbbab5dbd5f0cc71843cce983cba5f7351f04e"
+    "XXXUS30.ex5": "c5ad253c11c3b7278a5876f975bc02d262b033b39bd979de5ca3b4a78d3d991e",
+    "XXXUS30_tested_settings.set": "8ad435fc57206eaa137ef2eab94f464716482950fa5a79b7630122aa67972beb",
+    "README.txt": "58269adc713752936ca5525d3270cb8550191c388af8dffa3a37e5ab606fc1ca"
   },
-  "zipSha256": "e4efbab4dc873a4a62c4a14f4bde14466ef00d853585cbcbb5ee1bb7d958efdc"
+  "zipSha256": "16f0c8d207d619fddc5da521974cd107f6ff5be5ba75e34a8bf21fa8c95cf002"
 }

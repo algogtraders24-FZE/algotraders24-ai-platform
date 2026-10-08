@@ -19,14 +19,14 @@ const SELLER_EMAIL = "algogtraders24@gmail.com";
 const SLUG = "xxx-btc-multi-module-breakout";
 const TRADING_SYSTEM_ID = "XXXBTC";
 const VERSION_ID = "XXXBTC-v1.00-2025-2026-BASELINE";
-const PRICE_USD = 299;
+const PRICE_USD = 499;
 const M15 = path.join(__dirname, "..", "..", "ea-research", "marketplace-research", "m15-new-products");
 const ZIP_PATH = path.join(M15, "source", "XXXBTC_v1.00.zip");
 const ICON_PATH = path.join(M15, "branding", "xxxbtc-icon.svg");
 const BANNER_PATH = path.join(M15, "branding", "xxxbtc-banner.svg");
 const RELEASES_DIR = path.join(__dirname, "..", "private-releases");
 
-const description = `XXX BTC is a seller-provided multi-module breakout EA for Bitcoin (BTCUSD) on the M15 chart, built for 24/7 crypto trading. Instead of one entry rule it runs 5 independent breakout modules at once - Nova (prior daily high/low), Apex (12-bar high/low), Zenith (20-bar high/low), Pulse (an ATR-scaled offset from the last close) and Eclipse (fractal high/low) - each placing its own pending stop order. Two optional gates can be switched on: an H1 EMA 50/200 trend filter and an ONNX AI filter that scores each setup (default threshold 0.80). Every position shares one exit framework: a 60-minute time-stop on losers, automatic breakeven, smart trailing and a "moon-lock" exit that protects a percentage of a position's own running peak profit. Spread, prop-firm-mode and daily-loss shields are built in (the weekend shield is off by default because crypto trades all week), and an on-chart dashboard shows balance/equity/drawdown, per-module state, AI status and the last 5 trades. The download contains the compiled EA, the ONNX model files, the exact input set used in the backtest and an install guide.
+const description = `XXX BTC is a seller-provided multi-module breakout EA for Bitcoin (BTCUSD) on the M15 chart, built for 24/7 crypto trading. Instead of one entry rule it runs 5 independent breakout modules at once - Nova (prior daily high/low), Apex (12-bar high/low), Zenith (20-bar high/low), Pulse (an ATR-scaled offset from the last close) and Eclipse (fractal high/low) - each placing its own pending stop order. Two optional gates can be switched on: an H1 EMA 50/200 trend filter and an ONNX AI filter (a small neural network trained by the seller and built into the EA) that scores each setup (default threshold 0.80). The backtest below was run with BOTH gates off - see "Read before buying". Every position shares one exit framework: a 60-minute time-stop on losers, automatic breakeven, smart trailing and a "moon-lock" exit that protects a percentage of a position's own running peak profit. Spread, prop-firm-mode and daily-loss shields are built in (the weekend shield is off by default because crypto trades all week), and an on-chart dashboard shows balance/equity/drawdown, per-module state, AI status and the last 5 trades. The download contains the compiled EA (the AI model is built in - there are no extra model files to copy), the exact input set used in the backtest and an install guide.
 
 AT24-computed evidence (real MT5 Strategy Tester .xlsx export, Exness BTCUSD, M15, 2025-01-01 to 2026-08-07, 110,545 trades; net profit, profit factor and trade count reconcile to the report's own stated values with zero delta; drawdown and recovery use a real M15 bar-level equity curve built from real BTCUSD M15 candles). All amounts below are exactly as printed in the seller's report, which states its currency as "profit in pips" - check the money value of a trade on your own broker/account before relying on any figure:
 - Net profit 12,767,123.2, profit factor 6.03, win rate 79.4%, average trade +115.49, largest win +1,740.7, largest loss -1,852.5, longest losing streak 24 trades.
@@ -35,9 +35,9 @@ AT24-computed evidence (real MT5 Strategy Tester .xlsx export, Exness BTCUSD, M1
 - Position profile: up to 9 positions open at the same time, 50% long / 50% short.
 
 Read before buying
-- The tested settings are NOT the EA defaults: the run used the H1 trend filter OFF and the ONNX AI filter ON, with a fixed 0.10 lot on a 10,000 deposit. The EA's own defaults are trend filter ON, ONNX OFF, 0.01 lot. The download includes the tested input set as a .set file. Profit and drawdown scale with lot size.
+- The tested settings are NOT the EA defaults: the run used a fixed 0.10 lot on a 10,000 deposit with the H1 trend filter OFF (the EA default is ON; default lot 0.01). The download includes the tested input set as a .set file. Profit and drawdown scale with lot size.
 - Broker points: stop loss, take profit and the other distances are in the symbol's POINTS. On Exness BTCUSD (point 0.01) the default 1000-point stop is a 10.00 price move and the 3000-point take profit a 30.00 move. Re-scale before trading on a different broker.
-- The ONNX model file is supplied by the seller; its training data and training window are not disclosed, so overlap with the backtest period cannot be ruled out. If the model file is missing the EA falls back to trading without the filter.
+- The backtest ran WITHOUT the AI filter. The report lists InpUseONNX=true, but the Strategy Tester could not find the model file, so the EA ran in its fail-safe mode (no AI filter) - the same behaviour was confirmed on 8 Oct 2026 by re-running the sister EA (XXX US30) in the tester. The AI filter is therefore an optional extra that is NOT covered by the evidence above. The model was trained by the seller on the most recent 30,000 M15 bars at training time (4 Nov 2025 to 13 Sep 2026), which overlaps most of the backtest period, so a backtest with it on would be partly in-sample for the model. This build embeds the model, so it loads reliably in live trading and in the tester; the included tested-settings file has the AI filter OFF to reproduce the evidence.
 - The backtest report was generated on 13 Sep 2026; the EA source was last saved earlier the same day (before the report) and the delivered compiled file is dated 14 Sep 2026. The seller states the logic is unchanged.
 - History quality of the run was only 37% real ticks. Several statistics (Sharpe ratio 59.8, recovery factor 1,061, maximum drawdown 0.10% in the report) are far outside what live trading produces, which points to idealised tester fills; expect live results to differ materially. Commission, swap and spread model are not disclosed by the report. Regime coverage and parameter sensitivity are INCONCLUSIVE - only one parameter set and one instrument were tested.
 - Pending-order breakout trading on Bitcoin is sensitive to broker stop levels, spread and slippage during fast moves. Past backtest performance is not a guarantee of future results; trading leveraged crypto CFDs is risky. Test on a demo account first.`;
@@ -79,7 +79,7 @@ async function main() {
       tradingSystemId: TRADING_SYSTEM_ID, versionId: VERSION_ID,
       publicationState: "DRAFT",
     },
-    update: { description, versionId: VERSION_ID, tradingSystemId: TRADING_SYSTEM_ID },
+    update: { description, pricing: { model: "one_time", amount: PRICE_USD, currency: "USD" }, versionId: VERSION_ID, tradingSystemId: TRADING_SYSTEM_ID },
   });
 
   const mediaDir = path.join(__dirname, "..", "public", "marketplace", listing.id);

@@ -1,0 +1,28 @@
+Core 1	  === ONNX AI FILTER (US30 TRAINED) ====
+Core 1	  InpUseONNX=true
+Core 1	  InpONNXFile=xxxus30_filter.onnx
+Core 1	2026.07.01 00:00:00   WARNING: ONNX file not found or invalid: xxxus30_filter.onnx
+Core 1	2026.07.01 00:00:00   AI DISABLED (fail-safe mode) - EA will work without AI filter
+Core 1	2026.07.01 00:00:00   === XXX US30 v1.01 Initialized ===
+Core 1	final balance 10000.00 USD
+Core 1	  === ONNX AI FILTER (US30 TRAINED) ====
+Core 1	  InpUseONNX=true
+Core 1	  InpONNXFile=xxxus30_filter.onnx
+Core 1	2026.07.01 00:00:00   ONNX: CPU selected
+Core 1	2026.07.01 00:00:00   ONNX AI Model Loaded Successfully (embedded model) | Threshold: 0.8 | Features: 5 | Output: Score [0-1]
+Core 1	2026.07.01 00:00:00   === XXX US30 v1.01 Initialized ===
+Core 1	final balance 10162.63 USD
+Core 1	2026.07.05 23:59:59   ✅ ONNX model released successfully
+Core 1	  === ONNX AI FILTER (US30 TRAINED) ====
+Core 1	  InpUseONNX=false
+Core 1	  InpONNXFile=xxxus30_filter.onnx
+Core 1	2026.07.01 00:00:00   ONNX AI Filter DISABLED (InpUseONNX=false)
+Core 1	2026.07.01 00:00:00   === XXX US30 v1.01 Initialized ===
+Core 1	final balance 10967.38 USD
+Core 1	  === ONNX AI FILTER (BTC model baad mein train karein) ====
+Core 1	  InpUseONNX=true
+Core 1	  InpONNXFile=xxxbtc_filter.onnx
+Core 1	2026.07.01 00:00:00   ONNX: CPU selected
+Core 1	2026.07.01 00:00:00   ONNX AI Model Loaded Successfully (embedded model) | Threshold: 0.8 | Features: 5 | Output: Score [0-1]
+Core 1	2026.07.01 00:00:00   === XXX BTC v1.00 Initialized ===
+Core 1	final balance 10533.09 USD
