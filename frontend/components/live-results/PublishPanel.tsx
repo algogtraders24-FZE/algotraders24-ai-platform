@@ -33,6 +33,38 @@ function linkOf(p: PageRow): string {
   return `${base}/results/${p.slug}${p.visibility === "unlisted" ? `?k=${p.unlistedKey}` : ""}`;
 }
 
+/** Copy-paste snippets for a PUBLIC page: a badge image (PNG, works on forums and Telegram) that links back to the page. */
+function ShareBox({ page }: { page: PageRow }) {
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const base = typeof window === "undefined" ? "" : window.location.origin;
+  const url = `${base}/results/${page.slug}`;
+  const img = `${url}/badge`;
+  const alt = `${page.title} - Live Results`.replace(/[&<>"]/g, " ");
+  const rows: [string, string, string][] = [
+    ["link", "Page link", url],
+    ["html", "HTML (website, blog)", `<a href="${url}"><img src="${img}" alt="${alt}" width="360"></a>`],
+    ["bbcode", "BBCode (forums such as MQL5)", `[url=${url}][img]${img}[/img][/url]`],
+    ["md", "Markdown (GitHub, Telegram channels with Markdown)", `[![${alt}](${img})](${url})`],
+    ["img", "Badge image only", img],
+  ];
+  return (
+    <div className="space-y-2 rounded-md border border-border p-2.5">
+      <p className="text-xs text-text-2">Share a badge that always shows the current live forward record and links to the page. It updates by itself (about every 5 minutes).</p>
+      {/* eslint-disable-next-line @next/next/no-img-element -- a plain PNG preview of the shareable badge */}
+      <img src={img} alt={alt} width={360} className="max-w-full rounded-lg border border-border" />
+      {rows.map(([key, label, text]) => (
+        <div key={key} className="space-y-1">
+          <p className="text-[11px] uppercase tracking-wide text-text-3">{label}</p>
+          <div className="flex gap-2">
+            <input readOnly value={text} onFocus={(e) => e.currentTarget.select()} className="min-w-0 flex-1 rounded-md border border-border bg-ink-2 px-2 py-1 text-xs text-text" aria-label={label} />
+            <button className="shrink-0 text-xs font-semibold text-gold hover:underline" onClick={() => { void navigator.clipboard.writeText(text); setCopiedKey(key); }}>{copiedKey === key ? "Copied" : "Copy"}</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function PublishPanel({ accountId }: { accountId: string }) {
   const [pages, setPages] = useState<PageRow[]>([]);
   const [account, setAccount] = useState<AccountInfo | null>(null);
@@ -50,6 +82,7 @@ export default function PublishPanel({ accountId }: { accountId: string }) {
   const [listing, setListing] = useState("");
   const [listings, setListings] = useState<{ slug: string; title: string }[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
+  const [shareFor, setShareFor] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -145,6 +178,7 @@ export default function PublishPanel({ accountId }: { accountId: string }) {
               {p.visibility !== "private" && (
                 <button className="text-xs font-semibold text-gold hover:underline" onClick={() => { void navigator.clipboard.writeText(linkOf(p)); setCopied(p.id); }}>{copied === p.id ? "Copied" : "Copy link"}</button>
               )}
+              {p.visibility === "public" && (<button className="text-xs font-semibold text-gold hover:underline" onClick={() => setShareFor(shareFor === p.id ? null : p.id)}>{shareFor === p.id ? "Hide badge" : "Share badge"}</button>)}
               <button className="text-xs font-semibold text-text-2 hover:underline" onClick={() => startEdit(p)}>Edit</button>
               {p.visibility === "unlisted" && (
                 <button className="text-xs font-semibold text-text-2 hover:underline" disabled={busy} onClick={async () => { if (await call(`/api/private/live-results/pages?id=${encodeURIComponent(p.id)}&rotate=1`, { method: "PATCH" }, "Could not change the link")) await load(); }}>New link</button>
@@ -152,6 +186,7 @@ export default function PublishPanel({ accountId }: { accountId: string }) {
               <button className="text-xs font-semibold text-red-400 hover:underline" disabled={busy} onClick={async () => { if (window.confirm("Delete this results page? The link stops working.") && (await call(`/api/private/live-results/pages?id=${encodeURIComponent(p.id)}`, { method: "DELETE" }, "Could not delete"))) await load(); }}>Delete</button>
             </div>
           </div>
+          {shareFor === p.id && p.visibility === "public" && <ShareBox page={p} />}
         </div>
       ))}
 
