@@ -4,6 +4,7 @@
 import type { ReactNode } from "react";
 import type { PublicResults } from "@/services/live-results/build";
 import AdvancedStatsPanel from "./AdvancedStats";
+import PropGauges from "./PropGauges";
 import { CalendarTab, ChartPanel, ForecastTab, HistoryTable, MonthlyAnalytics, TabCard } from "./AccountPanels";
 
 const pct = (n: number | null | undefined, signed = true) => (n === null || n === undefined ? "-" : `${signed && n > 0 ? "+" : ""}${n.toFixed(2)}%`);
@@ -98,6 +99,8 @@ export default function ResultsView({ r, ownerNote, actions, visibility }: { r: 
         {i.gainsDiverge && " Absolute and time-weighted gain differ a lot because the capital changed: read both."}
       </div>
 
+      {r.prop && <PropGauges check={r.prop} />}
+
       <div className="grid gap-4 lg:grid-cols-[330px_1fr]">
         <TabCard
           tabs={[
@@ -114,6 +117,7 @@ export default function ResultsView({ r, ownerNote, actions, visibility }: { r: 
                   {r.amounts && (
                     <>
                       <KV k="Balance" v={money(r.amounts.balance, cur)} />
+                      {r.amounts.equity !== null && <KV k="Equity" v={`${r.amounts.balance > 0 ? `(${((r.amounts.equity / r.amounts.balance) * 100).toFixed(2)}%) ` : ""}${money(r.amounts.equity, cur)}`} />}
                       <KV k="Highest balance" v={money(r.amounts.highestBalance, cur)} />
                       <KV k="Profit" v={money(r.amounts.profit, cur)} cls={tone(r.amounts.profit)} />
                       <KV k="Deposits" v={money(r.amounts.deposits, cur)} />

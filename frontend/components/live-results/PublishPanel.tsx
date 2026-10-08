@@ -19,6 +19,7 @@ interface PageRow {
   magicFilter: string | null;
   showAmounts: boolean;
   showBroker: boolean;
+  propMode: { profitTargetPct: number; dailyLossPct: number; maxLossPct: number; minTradingDays: number; showPublic: boolean } | null;
   positionDelayMin: number;
   listingSlug: string | null;
 }
@@ -81,6 +82,12 @@ export default function PublishPanel({ accountId }: { accountId: string }) {
   const [visibility, setVisibility] = useState<PageRow["visibility"]>("private");
   const [showAmounts, setShowAmounts] = useState(false);
   const [showBroker, setShowBroker] = useState(false);
+  const [propOn, setPropOn] = useState(false);
+  const [propPublic, setPropPublic] = useState(false);
+  const [propTarget, setPropTarget] = useState("10");
+  const [propDaily, setPropDaily] = useState("5");
+  const [propMax, setPropMax] = useState("10");
+  const [propDays, setPropDays] = useState("4");
   const [delay, setDelay] = useState(15);
   const [listing, setListing] = useState("");
   const [listings, setListings] = useState<{ slug: string; title: string }[]>([]);
@@ -117,6 +124,12 @@ export default function PublishPanel({ accountId }: { accountId: string }) {
     setVisibility("private");
     setShowAmounts(false);
     setShowBroker(false);
+    setPropOn(false);
+    setPropPublic(false);
+    setPropTarget("10");
+    setPropDaily("5");
+    setPropMax("10");
+    setPropDays("4");
     setDelay(15);
     setListing("");
     setErr(null);
@@ -130,6 +143,12 @@ export default function PublishPanel({ accountId }: { accountId: string }) {
     setVisibility(p.visibility);
     setShowAmounts(p.showAmounts);
     setShowBroker(p.showBroker);
+    setPropOn(p.propMode !== null);
+    setPropPublic(p.propMode?.showPublic ?? false);
+    setPropTarget(String(p.propMode?.profitTargetPct ?? 10));
+    setPropDaily(String(p.propMode?.dailyLossPct ?? 5));
+    setPropMax(String(p.propMode?.maxLossPct ?? 10));
+    setPropDays(String(p.propMode?.minTradingDays ?? 4));
     setDelay(p.positionDelayMin);
     setListing(p.listingSlug ?? "");
     setErr(null);
@@ -153,7 +172,7 @@ export default function PublishPanel({ accountId }: { accountId: string }) {
   }
 
   async function save() {
-    const body = JSON.stringify({ accountId, title, description, visibility, magicFilter: magic === "" ? null : magic, showAmounts, showBroker, positionDelayMin: delay, listingSlug: listing === "" ? null : listing });
+    const body = JSON.stringify({ accountId, title, description, visibility, magicFilter: magic === "" ? null : magic, showAmounts, showBroker, propMode: propOn ? { profitTargetPct: Number(propTarget), dailyLossPct: Number(propDaily), maxLossPct: Number(propMax), minTradingDays: Number(propDays), showPublic: propPublic } : null, positionDelayMin: delay, listingSlug: listing === "" ? null : listing });
     const url = editing ? `/api/private/live-results/pages?id=${encodeURIComponent(editing)}` : "/api/private/live-results/pages";
     if (await call(url, { method: editing ? "PATCH" : "POST", headers: { "content-type": "application/json" }, body }, "Could not save the page")) {
       setOpen(false);
@@ -240,6 +259,26 @@ export default function PublishPanel({ accountId }: { accountId: string }) {
               Show my broker name{account?.broker ? <> (<b className="text-text">{account.broker}</b>, as reported by your terminal, not verified)</> : ": your EA is not sending it. In the EA inputs set ShareBrokerName = true (needs the v1.1 EA) and wait for the next sync."}
             </span>
           </label>
+          <div className="space-y-2 rounded-md border border-border p-3">
+            <label className="flex items-start gap-2 text-xs text-text-2">
+              <input type="checkbox" className="mt-0.5" checked={propOn} onChange={(e) => setPropOn(e.target.checked)} />
+              <span><b className="text-text">Prop Mode</b>: check this account against prop-firm challenge rules (percent of the initial deposit). You always see it; visitors see it only if you allow it below.</span>
+            </label>
+            {propOn && (
+              <>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <label className="space-y-1 text-xs text-text-2">Profit target %<input className="w-full rounded-md border border-border bg-ink-2 px-2 py-1.5 text-sm text-text" inputMode="decimal" value={propTarget} onChange={(e) => setPropTarget(e.target.value)} /></label>
+                  <label className="space-y-1 text-xs text-text-2">Daily loss %<input className="w-full rounded-md border border-border bg-ink-2 px-2 py-1.5 text-sm text-text" inputMode="decimal" value={propDaily} onChange={(e) => setPropDaily(e.target.value)} /></label>
+                  <label className="space-y-1 text-xs text-text-2">Max loss %<input className="w-full rounded-md border border-border bg-ink-2 px-2 py-1.5 text-sm text-text" inputMode="decimal" value={propMax} onChange={(e) => setPropMax(e.target.value)} /></label>
+                  <label className="space-y-1 text-xs text-text-2">Min trading days<input className="w-full rounded-md border border-border bg-ink-2 px-2 py-1.5 text-sm text-text" inputMode="numeric" value={propDays} onChange={(e) => setPropDays(e.target.value)} /></label>
+                </div>
+                <label className="flex items-start gap-2 text-xs text-text-2">
+                  <input type="checkbox" className="mt-0.5" checked={propPublic} onChange={(e) => setPropPublic(e.target.checked)} />
+                  <span>Also show the rule check on the public page. It is your own rule check on terminal-reported trades, not an official result of any prop firm.</span>
+                </label>
+              </>
+            )}
+          </div>
           {visibility === "public" && <Alert tone="warning">Public means anyone who has the page address can see these results. The page always says the data is terminal-reported and not independently verified.</Alert>}
           {err && <Alert tone="danger">{err}</Alert>}
           <div className="flex gap-2">

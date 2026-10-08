@@ -69,4 +69,13 @@ ok(withB(undefined, "Exness Technologies Ltd").account.broker === undefined, "de
 ok(withB(true, null).account.broker === undefined && withB(true, undefined).account.broker === undefined, "EA did not send it -> nothing to show");
 ok(!JSON.stringify(withB(false, "Exness Technologies Ltd")).includes("Exness"), "hidden broker name appears nowhere in the view model");
 
+// ---- equity: balance + floating profit of the open positions shown (same delay), amounts only
+const snap = (profit: number) => [{ time: at("2026-10-08T11:00:00"), positions: [{ ticket: 5, symbol: "US30", side: "buy" as const, volume: 1, priceOpen: 1, sl: 0, tp: 0, profit, timeMsc: 1 }] }];
+const eqOn = buildPublicResults({ ...base, page: { ...base.page, showAmounts: true }, snapshots: snap(-20.5) });
+eq(eqOn.amounts!.equity, Math.round((eqOn.amounts!.balance - 20.5) * 100) / 100, "equity = balance + floating profit of the delayed open positions");
+eq(buildPublicResults({ ...base, page: { ...base.page, showAmounts: true } }).amounts!.equity, null, "no snapshot -> equity is null, not a guess");
+ok(!JSON.stringify(buildPublicResults({ ...base, snapshots: snap(-20.5) })).includes("equity"), "percent-only: no equity anywhere in the view model");
+const tooNew = buildPublicResults({ ...base, page: { ...base.page, showAmounts: true }, snapshots: [{ time: at("2026-10-08T11:55:00"), positions: snap(-99)[0]!.positions }] });
+eq(tooNew.amounts!.equity, null, "a snapshot newer than the position delay is not used (equity would leak the current floating loss)");
+
 console.log(`validate-live-results-account: ${checks} checks passed`);

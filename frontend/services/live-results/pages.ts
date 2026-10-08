@@ -46,6 +46,8 @@ export function slugWithSuffix(base: string): string {
   return `${slugify(base)}-${randomBytes(3).toString("hex")}`;
 }
 
+import { parsePropSettings, type PropSettings } from "./prop";
+
 export interface PageInput {
   accountId: string;
   title: string;
@@ -56,6 +58,8 @@ export interface PageInput {
   showAmounts: boolean;
   /** Show the broker company name (only if the EA sent it). */
   showBroker: boolean;
+  /** Prop Mode rule check settings, or null = off. */
+  propMode: PropSettings | null;
   positionDelayMin: number;
   /** Marketplace listing this page is shown on (the server checks the owner sells it), or null. */
   listingSlug: string | null;
@@ -85,6 +89,12 @@ export function validatePageInput(body: unknown): PageValidation {
   }
   if (typeof b.showAmounts !== "boolean") return { ok: false, message: "showAmounts must be true or false" };
   if (b.showBroker !== undefined && typeof b.showBroker !== "boolean") return { ok: false, message: "showBroker must be true or false" };
+  let propMode: PropSettings | null = null;
+  if (b.propMode !== null && b.propMode !== undefined) {
+    const p = parsePropSettings(b.propMode);
+    if (typeof p === "string") return { ok: false, message: p };
+    propMode = p;
+  }
   const delay = Number(b.positionDelayMin);
   if (!Number.isInteger(delay) || !DELAY_CHOICES.includes(delay)) return { ok: false, message: "Choose a position delay from the list." };
   let listingSlug: string | null = null;
@@ -92,5 +102,5 @@ export function validatePageInput(body: unknown): PageValidation {
     if (typeof b.listingSlug !== "string" || !LISTING_SLUG_RE.test(b.listingSlug)) return { ok: false, message: "Invalid marketplace listing" };
     listingSlug = b.listingSlug;
   }
-  return { ok: true, value: { accountId: b.accountId, title, description, visibility: visibility as Visibility, magicFilter, showAmounts: b.showAmounts, showBroker: b.showBroker === true, positionDelayMin: delay, listingSlug } };
+  return { ok: true, value: { accountId: b.accountId, title, description, visibility: visibility as Visibility, magicFilter, showAmounts: b.showAmounts, showBroker: b.showBroker === true, propMode, positionDelayMin: delay, listingSlug } };
 }

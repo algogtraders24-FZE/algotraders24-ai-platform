@@ -51,6 +51,15 @@ export function resultsCsv(r: PublicResults, generatedOn: string): string {
     ["live_forward_trades", i.liveTracked.trades], ["live_forward_gain_pct", i.liveTracked.gainPct], ["live_forward_win_rate_pct", i.liveTracked.winRatePct],
     ["edge_evidence_level", r.edge ? r.edge.level : ""],
   ]);
+  if (r.prop) {
+    const p = r.prop;
+    sec("Prop rule check (percent of the initial deposit; not an official prop-firm result)", ["rule", "limit", "value", "status"], [
+      ["profit_target_pct", p.rules.profitTargetPct, p.profitPct, p.state === "target_reached" ? "reached" : "not yet"],
+      ["daily_loss_pct", p.rules.dailyLossPct, p.worstDailyLossPct, p.brokenRule === "daily_loss" ? `broken ${p.brokenOn}` : "ok"],
+      ["max_loss_pct", p.rules.maxLossPct, p.maxLossUsedPct, p.brokenRule === "max_loss" ? `broken ${p.brokenOn}` : "ok"],
+      ["min_trading_days", p.rules.minTradingDays, p.tradingDays, p.tradingDays >= p.rules.minTradingDays ? "met" : "not yet"],
+    ]);
+  }
   const withProfit = s.daily.profit !== undefined;
   sec("Periods", ["period", "gain_pct", "trades", "win_rate_pct", ...(withProfit ? ["profit"] : [])], (
     [["today", s.daily], ["this_week", s.weekly], ["this_month", s.monthly], ["this_year", s.yearly]] as const
@@ -113,6 +122,20 @@ export function resultsPdfBlocks(r: PublicResults, generatedOn: string): Block[]
       ["Skill or luck", r.edge ? `${r.edge.level} evidence of edge` : "not enough trades"],
     ],
   });
+  if (r.prop) {
+    const p = r.prop;
+    b.push({ t: "h2", text: "Prop rule check" });
+    b.push({ t: "p", muted: true, text: "Percent of the initial deposit, on terminal-reported closed trades, against the page owner's own limits. Not an official result of any prop firm." });
+    b.push({
+      t: "table", head: ["Rule", "Limit", "Value", "Status"], align: ["l", "r", "r", "l"], widths: [0.34, 0.2, 0.2, 0.26],
+      rows: [
+        ["Profit target", `${p.rules.profitTargetPct}%`, `${p.profitPct}%`, p.state === "target_reached" ? "reached" : "not yet"],
+        ["Daily loss (worst day)", `${p.rules.dailyLossPct}%`, `${p.worstDailyLossPct}%`, p.brokenRule === "daily_loss" ? `broken ${p.brokenOn}` : "ok"],
+        ["Max loss (deepest)", `${p.rules.maxLossPct}%`, `${p.maxLossUsedPct}%`, p.brokenRule === "max_loss" ? `broken ${p.brokenOn}` : "ok"],
+        ["Trading days", String(p.rules.minTradingDays), String(p.tradingDays), p.tradingDays >= p.rules.minTradingDays ? "met" : "not yet"],
+      ],
+    });
+  }
   b.push({ t: "h2", text: "Periods" });
   b.push({ t: "table", head: ["Period", "Gain", "Trades", "Win %"], align: ["l", "r", "r", "r"], widths: [0.34, 0.22, 0.2, 0.24], signColumns: [1], rows: ([["Today", s.daily], ["This week", s.weekly], ["This month", s.monthly], ["This year", s.yearly]] as const).map(([n, p]) => [n, pct(p.gainPct), String(p.trades), p.winRatePct === null ? "-" : `${num(p.winRatePct)}%`]) });
   if (s.monthlyHistory.length > 0) {

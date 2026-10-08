@@ -3,6 +3,8 @@
 // which applies the viewing rule and then the privacy redaction in build.ts.
 
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/lib/generated/prisma/client";
+import { readStoredProp, type PropSettings } from "./prop";
 import type { WirePosition } from "../live-sync/contract";
 import { buildPublicResults, type DealWithMagic, type PublicResults } from "./build";
 import { dealsToHistory } from "../live-sync/to-trades";
@@ -85,7 +87,7 @@ export async function loadResults(slug: string, viewer: { userId: string | null;
     });
 
     const results = buildPublicResults({
-      page: { title: page.title, description: page.description, showAmounts: page.showAmounts, showBroker: page.showBroker, positionDelayMin: page.positionDelayMin, magicFilter: page.magicFilter === null ? null : page.magicFilter.toString() },
+      page: { title: page.title, description: page.description, showAmounts: page.showAmounts, showBroker: page.showBroker, prop: (() => { const p = readStoredProp(page.propMode); return p !== null && (p.showPublic || isOwner || isAdmin) ? { profitTargetPct: p.profitTargetPct, dailyLossPct: p.dailyLossPct, maxLossPct: p.maxLossPct, minTradingDays: p.minTradingDays } : undefined; })(), positionDelayMin: page.positionDelayMin, magicFilter: page.magicFilter === null ? null : page.magicFilter.toString() },
       account: {
         mode: account.mode,
         currency: account.currency,
@@ -123,12 +125,13 @@ export interface OwnerPage {
   magicFilter: string | null;
   showAmounts: boolean;
   showBroker: boolean;
+  propMode: PropSettings | null;
   positionDelayMin: number;
   listingSlug: string | null;
   updatedAt: Date;
 }
 
-const toOwnerPage = (p: { id: string; accountId: string; slug: string; title: string; description: string; visibility: string; unlistedKey: string; magicFilter: bigint | null; showAmounts: boolean; showBroker: boolean; positionDelayMin: number; listingSlug: string | null; updatedAt: Date }): OwnerPage => ({
+const toOwnerPage = (p: { id: string; accountId: string; slug: string; title: string; description: string; visibility: string; unlistedKey: string; magicFilter: bigint | null; showAmounts: boolean; showBroker: boolean; propMode: unknown; positionDelayMin: number; listingSlug: string | null; updatedAt: Date }): OwnerPage => ({
   id: p.id,
   accountId: p.accountId,
   slug: p.slug,
@@ -139,6 +142,7 @@ const toOwnerPage = (p: { id: string; accountId: string; slug: string; title: st
   magicFilter: p.magicFilter === null ? null : p.magicFilter.toString(),
   showAmounts: p.showAmounts,
   showBroker: p.showBroker,
+  propMode: readStoredProp(p.propMode),
   positionDelayMin: p.positionDelayMin,
   listingSlug: p.listingSlug,
   updatedAt: p.updatedAt,
@@ -194,6 +198,7 @@ export async function createPage(userId: string, input: PageInput): Promise<Save
       magicFilter: input.magicFilter === null ? null : BigInt(input.magicFilter),
       showAmounts: input.showAmounts,
       showBroker: input.showBroker,
+      propMode: input.propMode === null ? Prisma.DbNull : (input.propMode as unknown as Prisma.InputJsonValue),
       positionDelayMin: input.positionDelayMin,
       listingSlug: input.listingSlug,
       publishedAt: input.visibility === "private" ? null : new Date(),
@@ -215,6 +220,7 @@ export async function updatePage(userId: string, id: string, input: PageInput): 
       magicFilter: input.magicFilter === null ? null : BigInt(input.magicFilter),
       showAmounts: input.showAmounts,
       showBroker: input.showBroker,
+      propMode: input.propMode === null ? Prisma.DbNull : (input.propMode as unknown as Prisma.InputJsonValue),
       positionDelayMin: input.positionDelayMin,
       listingSlug: input.listingSlug,
       publishedAt: input.visibility === "private" ? null : existing.publishedAt ?? new Date(),

@@ -3043,6 +3043,8 @@ model LiveResultsPage {
   showAmounts      Boolean   @default(false)
   /// Show the broker name (if the EA sent it) on this page.
   showBroker       Boolean   @default(false)
+  /// Prop Mode rule check settings {profitTargetPct, dailyLossPct, maxLossPct, minTradingDays, showPublic}; null = off.
+  propMode         Json?
   /// Open positions are shown to visitors only after they have been open this many minutes.
   positionDelayMin Int       @default(15)
   publishedAt      DateTime?
