@@ -8,7 +8,7 @@
 
 import type { WirePosition } from "../live-sync/contract";
 import { dealsToHistory, type SyncedDeal } from "../live-sync/to-trades";
-import { computeLiveResults, windowStats, type LiveResultsStats } from "./stats";
+import { computeLiveResults, perTradeGainPct, windowStats, type LiveResultsStats } from "./stats";
 import { computeEdgeEvidence } from "../edge-analyzer/analysis/edge-evidence";
 import { normalizeTag } from "../edge-analyzer/analysis/patterns";
 import { computeAdvanced, type AdvancedStats } from "./advanced";
@@ -50,6 +50,28 @@ export interface StrategyRow {
   net?: number;
 }
 
+/** One closed trade in the history table. Money-bearing fields exist ONLY when the owner shows amounts. */
+export interface HistoryRow {
+  closeTime: number;
+  openTime: number;
+  symbol: string;
+  side: "buy" | "sell";
+  durationMs: number;
+  /** Net result as a percent of the balance just before the trade closed. */
+  gainPct: number | null;
+  strategy: string;
+  volume?: number;
+  openPrice?: number;
+  closePrice?: number;
+  stopLoss?: number | null;
+  takeProfit?: number | null;
+  net?: number;
+  commission?: number;
+  swap?: number;
+}
+
+export const HISTORY_ROWS_MAX = 300;
+
 export interface PublicPosition {
   symbol: string;
   side: "buy" | "sell";
@@ -65,6 +87,10 @@ export interface PublicResults {
   mode: string;
   currency: string;
   marginMode: string;
+  /** The header line of the page: facts about the account itself (never the broker, account number or server). */
+  account: { platform: string; leverage: number; utcOffsetHours: number; automated: boolean; startedAt: number | null };
+  /** Newest first, capped at HISTORY_ROWS_MAX; `total` is the real count. */
+  history: { total: number; rows: HistoryRow[] };
   /** Integrity facts shown as badges. */
   integrity: {
     source: "terminal-reported";
@@ -95,6 +121,8 @@ export interface PublicResults {
     avgTradeLengthMs: number | null;
     longsWonPct: number | null;
     shortsWonPct: number | null;
+    bestTrade: { time: number; gainPct: number | null } | null;
+    worstTrade: { time: number; gainPct: number | null } | null;
     sharpePerTrade: number | null;
     zScore: number | null;
     zConfidencePct: number | null;
@@ -131,6 +159,8 @@ export interface PublicResults {
     swap: number;
     lots: number;
     growthBalance: number[];
+    /** Cumulative trading profit (balance minus net deposits) aligned with `growth`. */
+    cumProfit: number[];
     /** The first deposit, and every deposit/withdrawal (oldest first, max 100): context for any percent figure. */
     initialDeposit: number | null;
     cashflows: { time: number; amount: number }[];
@@ -253,6 +283,40 @@ export function buildPublicResults(input: BuildInput): PublicResults {
     }
   }
 
+  const gains = perTradeGainPct(hist.trades, hist.balanceOps);
+  const byClose = [...hist.trades].sort((a, b) => a.closeTime - b.closeTime);
+  const extreme = (t: { net: number; time: number } | null) => {
+    if (!t) return null;
+    const m = byClose.find((x) => x.closeTime === t.time && r2(x.net) === t.net);
+    return { time: t.time, gainPct: m ? (gains.get(m.positionId) ?? null) : null };
+  };
+  const historyRows: HistoryRow[] = byClose
+    .slice(-HISTORY_ROWS_MAX)
+    .reverse()
+    .map((t) => {
+      const row: HistoryRow = {
+        closeTime: t.closeTime,
+        openTime: t.openTime,
+        symbol: t.symbol,
+        side: t.direction,
+        durationMs: Math.max(0, t.closeTime - t.openTime),
+        gainPct: gains.get(t.positionId) ?? null,
+        strategy: strategyName(t.tag),
+      };
+      if (withAmounts) {
+        row.volume = t.volume;
+        row.openPrice = t.openPrice;
+        row.closePrice = t.closePrice;
+        row.stopLoss = t.stopLoss;
+        row.takeProfit = t.takeProfit;
+        row.net = r2(t.net);
+        row.commission = r2(t.commission);
+        row.swap = r2(t.swap);
+      }
+      return row;
+    });
+  const automated = [...magicOf.values()].some((m) => m !== "0" && m !== "");
+
   const growth = stats.growth.map((g) => {
     const o: PublicResults["stats"]["growth"][number] = { t: g.t, growthPct: g.growthPct };
     if (g.flow !== undefined) o.flow = g.flow > 0 ? "deposit" : "withdrawal";
@@ -265,6 +329,8 @@ export function buildPublicResults(input: BuildInput): PublicResults {
     mode: account.mode,
     currency: account.currency,
     marginMode: account.marginMode,
+    account: { platform: "MetaTrader 5", leverage: account.leverage, utcOffsetHours: Math.round((account.serverUtcOffsetSec / 3600) * 100) / 100, automated, startedAt: stats.firstEventTime },
+    history: { total: hist.trades.length, rows: historyRows },
     integrity: {
       source: "terminal-reported",
       firstSyncAt: account.firstSyncAt,
@@ -298,6 +364,8 @@ export function buildPublicResults(input: BuildInput): PublicResults {
       avgTradeLengthMs: stats.trade.avgTradeLengthMs,
       longsWonPct: stats.trade.longs.pct,
       shortsWonPct: stats.trade.shorts.pct,
+      bestTrade: extreme(stats.trade.bestTrade),
+      worstTrade: extreme(stats.trade.worstTrade),
       sharpePerTrade: stats.trade.sharpePerTrade,
       zScore: stats.trade.zScore,
       zConfidencePct: stats.trade.zConfidencePct,
@@ -348,6 +416,13 @@ export function buildPublicResults(input: BuildInput): PublicResults {
       swap: stats.trade.swap,
       lots: stats.trade.lots,
       growthBalance: stats.growth.map((g) => g.balance),
+      cumProfit: (() => {
+        let flows = 0;
+        return stats.growth.map((g) => {
+          if (g.flow !== undefined) flows += g.flow;
+          return r2(g.balance - flows);
+        });
+      })(),
       initialDeposit: hist.balanceOps[0] && hist.balanceOps[0].amount > 0 ? hist.balanceOps[0].amount : null,
       cashflows: hist.balanceOps.slice(0, 100).map((o) => ({ time: o.time, amount: o.amount })),
     };

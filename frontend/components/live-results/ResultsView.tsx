@@ -4,6 +4,7 @@
 import type { ReactNode } from "react";
 import type { PublicResults } from "@/services/live-results/build";
 import AdvancedStatsPanel from "./AdvancedStats";
+import { CalendarTab, ChartPanel, ForecastTab, HistoryTable, MonthlyAnalytics, TabCard } from "./AccountPanels";
 
 const pct = (n: number | null | undefined, signed = true) => (n === null || n === undefined ? "-" : `${signed && n > 0 ? "+" : ""}${n.toFixed(2)}%`);
 const num = (n: number | null | undefined, d = 2) => (n === null || n === undefined ? "-" : n.toFixed(d));
@@ -29,10 +30,24 @@ function Panel({ title, note, children, className = "" }: { title?: string; note
   );
 }
 
+const TIPS: Record<string, string> = {
+  "Absolute gain": "Profit divided by total deposits. A small first deposit followed by a big one cannot inflate it.",
+  "Time-weighted gain": "Return per unit of capital with deposits and withdrawals removed. Compare it with the absolute gain.",
+  "Max drawdown": "The largest fall from a previous balance peak, in percent.",
+  "Profit factor": "Gross profit divided by gross loss. Above 1 means winners outweighed losers.",
+  "Payoff ratio": "Average winning trade divided by the average losing trade.",
+  "Sharpe (per trade)": "Mean result per trade divided by its standard deviation. Per trade, not annualized.",
+  "Z-score (runs)": "Runs test on the win/loss sequence. A large negative number means wins and losses come in streaks.",
+  "AHPR": "Average holding-period return: the mean percent gained per trade.",
+  "GHPR": "Geometric holding-period return: the per-trade growth rate that compounds to the real result.",
+  "Standard deviation": "How much the result of a single trade usually varies around the average.",
+};
+
 function KV({ k, v, cls = "" }: { k: string; v: ReactNode; cls?: string }) {
+  const tip = TIPS[k];
   return (
     <div className="flex items-center justify-between border-b border-dashed border-border py-1.5 last:border-0">
-      <span className="text-sm text-text-2">{k}</span>
+      <span className={`text-sm text-text-2 ${tip ? "cursor-help underline decoration-dotted underline-offset-4" : ""}`} title={tip}>{k}</span>
       <b className={`text-sm tabular-nums ${cls}`}>{v}</b>
     </div>
   );
@@ -43,61 +58,11 @@ function Pill({ children, kind = "plain" }: { children: ReactNode; kind?: "plain
   return <span className={`rounded-full border px-2.5 py-1 text-xs ${c}`}>{children}</span>;
 }
 
-function LineChart({ points, label, color = "text-gold", fill = false, syncAt }: { points: { t: number; v: number }[]; label: string; color?: string; fill?: boolean; syncAt?: number }) {
-  if (points.length < 2) return <p className="text-sm text-text-3">Not enough data for a chart yet.</p>;
-  const W = 640, H = 230, P = 36;
-  const t0 = points[0].t, t1 = points[points.length - 1].t || t0 + 1;
-  const vs = points.map((p) => p.v);
-  const lo = Math.min(0, ...vs), hi = Math.max(0.0001, ...vs) * 1.05;
-  const X = (t: number) => P + ((t - t0) / (t1 - t0 || 1)) * (W - P - 10);
-  const Y = (v: number) => H - P - ((v - lo) / (hi - lo || 1)) * (H - 2 * P);
-  const path = points.map((p, i) => `${i ? "L" : "M"}${X(p.t).toFixed(1)},${Y(p.v).toFixed(1)}`).join(" ");
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map((k) => lo + (hi - lo) * k);
-  const sx = syncAt !== undefined && syncAt > t0 && syncAt <= t1 ? X(syncAt) : null;
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={label}>
-      {ticks.map((v) => (
-        <g key={v}>
-          <line x1={P} x2={W - 10} y1={Y(v)} y2={Y(v)} className="stroke-border" strokeWidth="1" />
-          <text x={P - 6} y={Y(v) + 3} textAnchor="end" className="fill-text-3" fontSize="10">{Math.round(v)}%</text>
-        </g>
-      ))}
-      {sx !== null && (
-        <>
-          <rect x={P} y={P - 12} width={Math.max(0, sx - P)} height={H - 2 * P + 12} className="fill-white/[0.03]" />
-          <line x1={sx} x2={sx} y1={P - 14} y2={H - P} className="stroke-amber-400" strokeDasharray="4 3" strokeWidth="1.3" />
-          <text x={sx > W * 0.6 ? sx - 6 : sx + 6} y={P - 2} textAnchor={sx > W * 0.6 ? "end" : "start"} className="fill-amber-400" fontSize="10" fontWeight="600">
-            Live tracking starts here ({day(syncAt as number)}) →
-          </text>
-          <text x={P + 6} y={P + 8} className="fill-text-3" fontSize="10">Reported by the terminal at first connect</text>
-        </>
-      )}
-      {fill && <path d={`${path} L${X(t1)},${Y(0)} L${X(t0)},${Y(0)} Z`} className="fill-red-400/15" />}
-      <path d={path} fill="none" strokeWidth="2" className={`stroke-current ${color}`} />
-      <text x={P} y={H - 8} className="fill-text-3" fontSize="10">{day(t0)}</text>
-      <text x={W - 10} y={H - 8} textAnchor="end" className="fill-text-3" fontSize="10">{day(t1)}</text>
-    </svg>
-  );
-}
-
-function drawdownSeries(growth: { t: number; growthPct: number | null }[]): { t: number; v: number }[] {
-  let peak = 0;
-  const out: { t: number; v: number }[] = [];
-  for (const g of growth) {
-    if (g.growthPct === null) continue;
-    const level = 1 + g.growthPct / 100;
-    if (level > peak) peak = level;
-    out.push({ t: g.t, v: peak > 0 ? -((peak - level) / peak) * 100 : 0 });
-  }
-  return out;
-}
-
-export default function ResultsView({ r, ownerNote, actions }: { r: PublicResults; ownerNote?: string | null; actions?: ReactNode }) {
+export default function ResultsView({ r, ownerNote, actions, visibility }: { r: PublicResults; ownerNote?: string | null; actions?: ReactNode; visibility?: string }) {
   const s = r.stats, i = r.integrity;
   const cur = r.currency;
-  const growth = s.growth.filter((g) => g.growthPct !== null).map((g) => ({ t: g.t, v: g.growthPct as number }));
-  const dd = drawdownSeries(s.growth).map((p) => ({ t: p.t, v: p.v }));
-  const maxMonth = Math.max(1, ...s.monthlyHistory.map((m) => Math.abs(m.gainPct ?? 0)));
+  const monthlyGains = s.monthlyHistory.map((m) => m.gainPct).filter((g): g is number => g !== null);
+  const tradeDate = (t: { time: number; gainPct: number | null } | null) => (t ? `${pct(t.gainPct)} (${new Date(t.time).toISOString().slice(0, 10)})` : "-");
   const preDays = i.historyStart !== null ? Math.round((i.firstSyncAt - i.historyStart) / 86_400_000) : 0;
   const lt = i.liveTracked;
 
@@ -109,6 +74,9 @@ export default function ResultsView({ r, ownerNote, actions }: { r: PublicResult
         <h1 className="text-3xl font-extrabold tracking-tight text-text">
           {r.title} <span className="ml-2 text-xs font-medium text-text-3">Live Results</span>
         </h1>
+        <p className="text-sm font-medium text-text-2">
+          {r.mode === "real" ? "Real" : r.mode === "contest" ? "Contest" : "Demo"} ({cur}) · {r.marginMode} · 1:{r.account.leverage} · {r.account.platform} · {r.account.automated ? "Automated" : "Manual"}
+        </p>
         {r.description && <p className="text-sm text-text-2">{r.description}</p>}
         {actions && <div>{actions}</div>}
         <div className="flex flex-wrap gap-2">
@@ -131,53 +99,103 @@ export default function ResultsView({ r, ownerNote, actions }: { r: PublicResult
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[330px_1fr]">
-        <Panel title="Stats">
-          <KV k="Absolute gain" v={pct(s.absoluteGainPct)} cls={`text-lg ${tone(s.absoluteGainPct)}`} />
-          <KV k="Time-weighted gain" v={pct(s.timeWeightedGainPct)} cls={tone(s.timeWeightedGainPct)} />
-          <KV k="Daily" v={pct(s.daily.gainPct)} cls={tone(s.daily.gainPct)} />
-          <KV k="Monthly" v={pct(s.monthly.gainPct)} cls={tone(s.monthly.gainPct)} />
-          <KV k="Max drawdown" v={`${num(s.maxDrawdownPct)}%`} cls="text-red-400" />
-          <KV k="Trades" v={s.trades} />
-          <KV k="Win rate" v={`${num(s.winRatePct)}%`} />
-          <KV k="Profit factor" v={num(s.profitFactor)} />
-          <KV k="Payoff ratio" v={num(s.payoffRatio)} />
-          <KV k="Max consecutive losses" v={s.maxConsecutiveLosses} />
-          <KV k="Avg trade length" v={dur(s.avgTradeLengthMs)} />
-          <KV k="Longs won" v={`${num(s.longsWonPct)}%`} />
-          <KV k="Shorts won" v={`${num(s.shortsWonPct)}%`} />
-          <KV k="Last update" v={`${new Date(i.lastSyncAt).toISOString().slice(0, 16).replace("T", " ")} UTC`} />
-        </Panel>
-        <Panel title="Growth" note="percent since the first event">
-          <LineChart points={growth} label="Growth in percent since the first event" syncAt={i.firstSyncAt} />
-          <h3 className="mb-1 mt-4 text-xs font-semibold text-text-2">Drawdown <span className="font-normal text-text-3">from the previous peak</span></h3>
-          <LineChart points={dd} label="Drawdown in percent from the previous peak" color="text-red-400" fill />
-        </Panel>
+        <TabCard
+          tabs={[
+            {
+              id: "info",
+              label: "Info",
+              content: (
+                <>
+                  <KV k="Absolute gain" v={pct(s.absoluteGainPct)} cls={`text-lg ${tone(s.absoluteGainPct)}`} />
+                  <KV k="Time-weighted gain" v={pct(s.timeWeightedGainPct)} cls={tone(s.timeWeightedGainPct)} />
+                  <KV k="Daily" v={pct(s.daily.gainPct)} cls={tone(s.daily.gainPct)} />
+                  <KV k="Monthly" v={pct(s.monthly.gainPct)} cls={tone(s.monthly.gainPct)} />
+                  <KV k="Max drawdown" v={`${num(s.maxDrawdownPct)}%`} cls="text-red-400" />
+                  {r.amounts && (
+                    <>
+                      <KV k="Balance" v={money(r.amounts.balance, cur)} />
+                      <KV k="Highest balance" v={money(r.amounts.highestBalance, cur)} />
+                      <KV k="Profit" v={money(r.amounts.profit, cur)} cls={tone(r.amounts.profit)} />
+                      <KV k="Deposits" v={money(r.amounts.deposits, cur)} />
+                      <KV k="Withdrawals" v={money(r.amounts.withdrawals, cur)} />
+                    </>
+                  )}
+                  <KV k="Updated" v={`${new Date(i.lastSyncAt).toISOString().slice(0, 16).replace("T", " ")} UTC`} />
+                </>
+              ),
+            },
+            {
+              id: "stats",
+              label: "Stats",
+              content: (
+                <>
+                  <KV k="Trades" v={s.trades} />
+                  <KV k="Win rate" v={`${num(s.winRatePct)}%`} />
+                  <KV k="Profit factor" v={num(s.profitFactor)} />
+                  <KV k="Payoff ratio" v={num(s.payoffRatio)} />
+                  <KV k="Longs won" v={`${num(s.longsWonPct)}%`} />
+                  <KV k="Shorts won" v={`${num(s.shortsWonPct)}%`} />
+                  <KV k="Best trade" v={tradeDate(s.bestTrade)} cls="text-emerald-400" />
+                  <KV k="Worst trade" v={tradeDate(s.worstTrade)} cls="text-red-400" />
+                  <KV k="Max consecutive losses" v={s.maxConsecutiveLosses} />
+                  <KV k="Avg trade length" v={dur(s.avgTradeLengthMs)} />
+                  <KV k="Sharpe (per trade)" v={num(s.sharpePerTrade)} />
+                  <KV k="Z-score (runs)" v={`${num(s.zScore)}${s.zConfidencePct !== null ? ` (${num(s.zConfidencePct, 0)}%)` : ""}`} />
+                  <KV k="AHPR" v={`${num(s.ahprPct)}%`} />
+                  <KV k="GHPR" v={`${num(s.ghprPct)}%`} />
+                  {r.amounts && r.amounts.stdDev !== null && <KV k="Standard deviation" v={money(r.amounts.stdDev, cur)} />}
+                </>
+              ),
+            },
+            {
+              id: "general",
+              label: "General",
+              content: (
+                <>
+                  <KV k="Type" v={r.mode === "real" ? "Real" : r.mode === "contest" ? "Contest" : "Demo"} />
+                  <KV k="Currency" v={cur} />
+                  <KV k="Leverage" v={`1:${r.account.leverage}`} />
+                  <KV k="Margin mode" v={r.marginMode} />
+                  <KV k="Platform" v={r.account.platform} />
+                  <KV k="Trading" v={r.account.automated ? "Automated (Expert Advisor)" : "Manual"} />
+                  <KV k="Started" v={r.account.startedAt !== null ? day(r.account.startedAt) : "-"} />
+                  <KV k="Live tracking since" v={day(i.firstSyncAt)} />
+                  {visibility && <KV k="Status" v={visibility === "public" ? "Public" : visibility === "unlisted" ? "Unlisted (link only)" : "Private"} />}
+                  <KV k="Timezone" v={`GMT${r.account.utcOffsetHours >= 0 ? "+" : ""}${r.account.utcOffsetHours}`} />
+                  <KV k="Data source" v="Terminal-reported" />
+                  <p className="mt-2 text-[11px] text-text-3">The broker, account number and server are never sent or shown.</p>
+                </>
+              ),
+            },
+          ]}
+        />
+        <ChartPanel growth={s.growth} daily={s.dailyHistory} syncAt={i.firstSyncAt} balance={r.amounts?.growthBalance} cumProfit={r.amounts?.cumProfit} currency={cur} />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Panel title="Periods">
-          <table className="w-full text-sm">
-            <thead><tr className="text-xs text-text-3"><th className="py-1.5 text-left font-medium"></th><th className="text-right font-medium">Gain</th><th className="text-right font-medium">Trades</th><th className="text-right font-medium">Win%</th></tr></thead>
-            <tbody>
-              {([["Today", s.daily], ["This week", s.weekly], ["This month", s.monthly], ["This year", s.yearly]] as const).map(([n, p]) => (
-                <tr key={n} className="border-t border-border"><td className="py-1.5 text-text-2">{n}</td><td className={`text-right tabular-nums ${tone(p.gainPct)}`}>{pct(p.gainPct)}</td><td className="text-right tabular-nums">{p.trades}</td><td className="text-right tabular-nums">{p.winRatePct === null ? "-" : `${num(p.winRatePct)}%`}</td></tr>
-              ))}
-            </tbody>
-          </table>
-        </Panel>
-        <Panel title="Monthly gain">
-          <div className="flex h-48 items-end gap-6 px-2">
-            {s.monthlyHistory.map((m) => (
-              <div key={m.month} className="flex flex-col items-center justify-end">
-                <span className={`mb-1 text-xs ${tone(m.gainPct)}`}>{pct(m.gainPct)}</span>
-                <div className="w-12 rounded-t-md bg-gradient-to-b from-amber-300 to-amber-700" style={{ height: `${Math.max(6, (Math.abs(m.gainPct ?? 0) / maxMonth) * 120)}px` }} />
-                <span className="mt-1 text-xs text-text-2">{m.month}</span>
-                <span className="text-[11px] text-text-3">{m.trades} trades</span>
-              </div>
-            ))}
-          </div>
-        </Panel>
-      </div>
+      <TabCard
+        tabs={[
+          {
+            id: "periods",
+            label: "Periods",
+            content: (
+              <table className="w-full text-sm">
+                <thead><tr className="text-xs text-text-3"><th className="py-1.5 text-left font-medium"></th><th className="text-right font-medium">Gain</th>{r.amounts && <th className="text-right font-medium">Profit</th>}<th className="text-right font-medium">Trades</th><th className="text-right font-medium">Win%</th></tr></thead>
+                <tbody>
+                  {([["Today", s.daily], ["This week", s.weekly], ["This month", s.monthly], ["This year", s.yearly]] as const).map(([n, p]) => (
+                    <tr key={n} className="border-t border-border"><td className="py-1.5 text-text-2">{n}</td><td className={`text-right tabular-nums ${tone(p.gainPct)}`}>{pct(p.gainPct)}</td>{r.amounts && <td className={`text-right tabular-nums ${tone(p.profit)}`}>{money(p.profit, cur)}</td>}<td className="text-right tabular-nums">{p.trades}</td><td className="text-right tabular-nums">{p.winRatePct === null ? "-" : `${num(p.winRatePct)}%`}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            ),
+          },
+          { id: "calendar", label: "Calendar", content: <CalendarTab daily={s.dailyHistory} currency={cur} /> },
+          { id: "forecast", label: "Forecast", content: <ForecastTab monthlyGains={monthlyGains} balance={r.amounts?.balance ?? null} currency={cur} /> },
+        ]}
+      />
+
+      <Panel title="Monthly analytics" note="select a month">
+        <MonthlyAnalytics months={s.monthlyHistory} daily={s.dailyHistory} currency={cur} />
+      </Panel>
 
       {r.strategies.length > 0 && (
         <Panel title={`Strategies inside ${r.title}`}>
@@ -241,6 +259,10 @@ export default function ResultsView({ r, ownerNote, actions }: { r: PublicResult
           </table>
         </Panel>
       </div>
+
+      <Panel title="Trade history">
+        <HistoryTable rows={r.history.rows} total={r.history.total} amounts={r.amounts !== undefined} currency={cur} />
+      </Panel>
 
       <AdvancedStatsPanel adv={r.advanced} showAmounts={r.amounts !== undefined} currency={cur} />
 

@@ -41,7 +41,7 @@ export default async function LiveResultsPage({ params, searchParams }: { params
   return (
     <main className="min-h-screen bg-ink text-text">
       <Navbar />
-      <ResultsView r={res.results} ownerNote={note} actions={actions} />
+      <ResultsView r={res.results} ownerNote={note} actions={actions} visibility={res.visibility} />
       <Footer />
     </main>
   );

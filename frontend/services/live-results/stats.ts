@@ -348,3 +348,20 @@ export function computeLiveResults(trades: readonly ClosedTrade[], balanceOps: r
     assumptions: [...RESULTS_ASSUMPTIONS],
   };
 }
+
+/** Per-trade gain in percent of the closed-trade balance just before that trade closed (null when the balance was not positive). */
+export function perTradeGainPct(trades: readonly ClosedTrade[], balanceOps: readonly BalanceOp[]): Map<string, number | null> {
+  const ev = events(trades, [...balanceOps].sort((a, b) => a.time - b.time));
+  const out = new Map<string, number | null>();
+  let run = 0;
+  let ti = 0;
+  const ordered = [...trades].sort((a, b) => a.closeTime - b.closeTime);
+  for (const e of ev) {
+    if (!e.flow) {
+      const t = ordered[ti++];
+      out.set(t.positionId, run > 0 ? r2((e.delta / run) * 100) : null);
+    }
+    run += e.delta;
+  }
+  return out;
+}
