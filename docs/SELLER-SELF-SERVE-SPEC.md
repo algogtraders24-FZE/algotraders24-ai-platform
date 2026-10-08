@@ -26,13 +26,32 @@ A listing climbs levels on its own; each level is shown on the listing and none 
 | Level | How it is earned | Automatic gate |
 |---|---|---|
 | L0 Listed | seller creates the listing | schema checks |
-| L1 Build checked | seller uploads the zip; worker loads the EA in the MT5 **Strategy Tester with DLL imports disabled** and runs a short smoke run | EA must initialise, place/skip orders without errors, not need DLLs; result -> release `PUBLISHED` (buyable) or `REJECTED` with the exact reason |
+| L1 Build checked | seller uploads the zip; worker runs 4 checks (section 3a): zip contents, then **attach to a chart of a throw-away MT5 instance whose global DLL permission is OFF**, then a short tester smoke run | EA must initialise with DLLs off, then run without errors; result -> release `PUBLISHED` (buyable) or `REJECTED` with the exact reason |
 | L2 AT24 backtest | seller picks symbol / period / deposit / set file; **our worker runs the tester itself**, produces the report, then M2-M7 | Trust State computed exactly as today (VALIDATED only if every rule passes) |
 | L3 Live forward record | seller installs the free AT24LiveSync EA and attaches the Live Results page to the listing (wizard step) | existing hash-chain + "terminal-reported, not broker-verified" disclosure; DEMO/REAL/CONTEST label |
 | L4 Cross-check | system compares live vs backtest | automatic flags (below) |
 
 Seller-uploaded tester reports are **not** the primary path: a report file can be edited, so a listing built only on it is
 capped (never VALIDATED, labelled "seller-submitted report"). Independence comes from running the backtest ourselves.
+
+## 3a. How the L1 build check really works (tested on 2026-10-08, not assumed)
+
+Findings from real MT5 runs (build 6230) that change the first draft of this spec:
+1. **The Strategy Tester does NOT block DLL imports.** An EA importing kernel32.dll ran and called it in the tester even with
+   `AllowDllImport=0` in `common.ini`. So "tester with DLLs disabled" is not a security gate.
+2. **A compiled .ex5 does not expose its imports** (compressed; no `dll`/`kernel32` strings), so a file scan cannot find them.
+3. **Attaching the EA to a live chart with DLL imports OFF does block it**: the DLL-importing EA never initialised, while with
+   DLLs ON it ran. The permission is also stored per chart, so every check must use a fresh chart/profile and a fresh
+   instance (a chart saved with DLLs allowed keeps allowing them).
+4. Tester agents cannot see files in the terminal's `MQL5\Files` (XXX US30 backtest silently ran without its model file) -> model/data
+   files must be copied into the agent's own file area for the run.
+
+So the check order is: (a) zip hygiene - only .ex5 / .set / .onnx(.data) / small data files, no .dll/.exe/.bat/.ps1/.js/.lnk,
+size limits, ex5 header sane; (b) **DLL-off attach check** on a fresh portable instance (must initialise; the exact "blocked"
+signal in the journal is pinned down at build time, and absence of init = reject); (c) only then a short tester smoke run
+(DLLs are allowed there, which is why (b) must come first); (d) release `PUBLISHED`.
+Residual risk (no automatic check catches everything): an EA that behaves well in the smoke run and misbehaves later. Controls:
+worker account with no secrets, auto-revoke, buyer report button, seller identity + terms, disclaimer on every listing.
 
 ## 3. Admin load = exceptions only
 
@@ -74,7 +93,7 @@ Seller UI:
 
 | Risk | Mitigation |
 |---|---|
-| Malicious .ex5 sold to buyers | DLL imports blocked at build check; worker has no secrets; instant auto-revoke; buyer report button; seller identity + terms; disclaimer on every listing |
+| Malicious .ex5 sold to buyers | DLL-off attach check before any tester run (section 3a); worker has no secrets; instant auto-revoke; buyer report button; seller identity + terms; disclaimer on every listing |
 | Fake performance | AT24-run backtest is the default; seller reports capped; live record is hash-chained and labelled terminal-reported |
 | Cherry-picked live account | magic-number filter always shows "account has N magics"; listing shows live-vs-backtest side by side |
 | Seller's IP | terms: builds are stored encrypted-at-rest, never shown, delivered only to licensed buyers; no source accepted |
