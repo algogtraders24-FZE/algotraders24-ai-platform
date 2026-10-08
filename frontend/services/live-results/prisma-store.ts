@@ -5,6 +5,8 @@
 import { prisma } from "@/lib/prisma";
 import type { WirePosition } from "../live-sync/contract";
 import { buildPublicResults, type DealWithMagic, type PublicResults } from "./build";
+import { dealsToHistory } from "../live-sync/to-trades";
+import type { ClosedTrade } from "../edge-analyzer/types";
 import { canView, slugWithSuffix, newUnlistedKey, MAX_PAGES_PER_USER, type PageInput } from "./pages";
 
 const MAX_DEALS = 60_000;
@@ -18,6 +20,45 @@ export function liveResultsEnabled(): boolean {
 export type ResultsLoad =
   | { state: "ok"; results: PublicResults; slug: string; visibility: string; isOwner: boolean; isAdmin: boolean }
   | { state: "not_found" };
+
+/** All synced deals of an account (oldest first), shaped for the view builder. */
+async function fetchDeals(accountId: string): Promise<DealWithMagic[]> {
+  const rows = await prisma.liveSyncDeal.findMany({
+    where: { accountId },
+    orderBy: { timeMsc: "asc" },
+    take: MAX_DEALS,
+    select: { positionId: true, timeMsc: true, symbol: true, type: true, entry: true, volume: true, price: true, commission: true, swap: true, profit: true, fee: true, comment: true, magic: true },
+  });
+  return rows.map((r) => ({
+    positionId: r.positionId.toString(),
+    timeMsc: Number(r.timeMsc),
+    symbol: r.symbol,
+    type: r.type,
+    entry: r.entry,
+    volume: r.volume,
+    price: r.price,
+    commission: r.commission,
+    swap: r.swap,
+    profit: r.profit,
+    fee: r.fee,
+    comment: r.comment,
+    magic: r.magic.toString(),
+  }));
+}
+
+/** The OWNER's own closed trades for a page (magic filter applied), with amounts. Null if the page is not theirs. */
+export async function loadOwnerTrades(userId: string, pageId: string): Promise<{ slug: string; trades: ClosedTrade[] } | null> {
+  const page = await prisma.liveResultsPage.findFirst({ where: { id: pageId, userId } });
+  if (!page) return null;
+  const account = await prisma.liveSyncAccount.findFirst({ where: { id: page.accountId, userId }, select: { id: true } });
+  if (!account) return null;
+  const deals = await fetchDeals(account.id);
+  const magic = page.magicFilter === null ? null : page.magicFilter.toString();
+  const opens = new Map<string, string>();
+  for (const d of deals) if (d.entry === "in" && !opens.has(d.positionId)) opens.set(d.positionId, d.magic);
+  const kept = magic === null ? deals : deals.filter((d) => d.type === "balance" || opens.get(d.positionId) === magic);
+  return { slug: page.slug, trades: dealsToHistory(kept).trades };
+}
 
 export async function loadResults(slug: string, viewer: { userId: string | null; key: string | null; isAdmin?: boolean }, opts: { sinceUtc?: number } = {}): Promise<ResultsLoad> {
   if (!liveResultsEnabled()) return { state: "not_found" };
@@ -35,27 +76,7 @@ export async function loadResults(slug: string, viewer: { userId: string | null;
     const account = await prisma.liveSyncAccount.findFirst({ where: { id: page.accountId, userId: page.userId } });
     if (!account) return { state: "not_found" };
 
-    const rows = await prisma.liveSyncDeal.findMany({
-      where: { accountId: account.id },
-      orderBy: { timeMsc: "asc" },
-      take: MAX_DEALS,
-      select: { positionId: true, timeMsc: true, symbol: true, type: true, entry: true, volume: true, price: true, commission: true, swap: true, profit: true, fee: true, comment: true, magic: true },
-    });
-    const deals: DealWithMagic[] = rows.map((r) => ({
-      positionId: r.positionId.toString(),
-      timeMsc: Number(r.timeMsc),
-      symbol: r.symbol,
-      type: r.type,
-      entry: r.entry,
-      volume: r.volume,
-      price: r.price,
-      commission: r.commission,
-      swap: r.swap,
-      profit: r.profit,
-      fee: r.fee,
-      comment: r.comment,
-      magic: r.magic.toString(),
-    }));
+    const deals = await fetchDeals(account.id);
     const snaps = await prisma.liveSyncSnapshot.findMany({
       where: { accountId: account.id, timeUtc: { gte: new Date(Date.now() - 2 * 86_400_000) } },
       orderBy: { timeUtc: "desc" },

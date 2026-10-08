@@ -105,6 +105,7 @@ export interface PublicResults {
     monthly: PeriodPublic;
     yearly: PeriodPublic;
     monthlyHistory: (PeriodPublic & { month: string })[];
+    dailyHistory: (PeriodPublic & { date: string })[];
     growth: { t: number; growthPct: number | null; flow?: "deposit" | "withdrawal" }[];
     bySymbol: { symbol: string; trades: number; wonPct: number; longs: number; shorts: number; net?: number }[];
   };
@@ -130,6 +131,9 @@ export interface PublicResults {
     swap: number;
     lots: number;
     growthBalance: number[];
+    /** The first deposit, and every deposit/withdrawal (oldest first, max 100): context for any percent figure. */
+    initialDeposit: number | null;
+    cashflows: { time: number; amount: number }[];
   };
   disclosure: string[];
 }
@@ -304,6 +308,7 @@ export function buildPublicResults(input: BuildInput): PublicResults {
       monthly: period(stats.monthly),
       yearly: period(stats.yearly),
       monthlyHistory: stats.monthlyHistory.map((m) => ({ month: m.month, ...period(m) })),
+      dailyHistory: stats.dailyHistory.map((d) => ({ date: d.date, ...period(d) })),
       growth,
       bySymbol: stats.bySymbol.map((s) => {
         const o: PublicResults["stats"]["bySymbol"][number] = { symbol: s.symbol, trades: s.total.trades, wonPct: s.total.wonPct, longs: s.longs.trades, shorts: s.shorts.trades };
@@ -343,6 +348,8 @@ export function buildPublicResults(input: BuildInput): PublicResults {
       swap: stats.trade.swap,
       lots: stats.trade.lots,
       growthBalance: stats.growth.map((g) => g.balance),
+      initialDeposit: hist.balanceOps[0] && hist.balanceOps[0].amount > 0 ? hist.balanceOps[0].amount : null,
+      cashflows: hist.balanceOps.slice(0, 100).map((o) => ({ time: o.time, amount: o.amount })),
     };
   }
   return out;

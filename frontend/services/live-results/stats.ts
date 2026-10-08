@@ -123,6 +123,8 @@ export interface LiveResultsStats {
   yearly: PeriodRow;
   highestBalance: { balance: number; time: number } | null;
   monthlyHistory: MonthRow[];
+  /** One row per broker day for the last 120 days (zero-activity days included, so a chart is continuous). */
+  dailyHistory: (PeriodRow & { date: string })[];
   bySymbol: SymbolRow[];
   trade: TradeStats;
   growth: GrowthPoint[];
@@ -220,6 +222,14 @@ export function computeLiveResults(trades: readonly ClosedTrade[], balanceOps: r
   if (first !== null && last !== null) {
     for (let m = monthStart(first); m <= last; m = nextMonth(m)) {
       monthlyHistory.push({ month: monthKey(m), ...periodRow(trades, ev, m, nextMonth(m)) });
+    }
+  }
+
+  const dailyHistory: LiveResultsStats["dailyHistory"] = [];
+  if (first !== null && last !== null) {
+    const lastDay = Math.floor(last / DAY) * DAY;
+    for (let d = Math.max(Math.floor(first / DAY) * DAY, lastDay - 119 * DAY); d <= lastDay; d += DAY) {
+      dailyHistory.push({ date: new Date(d).toISOString().slice(0, 10), ...periodRow(trades, ev, d, d + DAY) });
     }
   }
 
@@ -329,6 +339,7 @@ export function computeLiveResults(trades: readonly ClosedTrade[], balanceOps: r
     yearly: periodRow(trades, ev, yStart, END),
     highestBalance: hi,
     monthlyHistory,
+    dailyHistory,
     bySymbol,
     trade,
     growth: series,

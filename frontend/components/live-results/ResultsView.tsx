@@ -248,10 +248,11 @@ export default function ResultsView({ r, ownerNote, actions }: { r: PublicResult
         <Panel title="Money" note="shown because the page owner chose to show amounts">
           <div className="grid gap-x-8 sm:grid-cols-2">
             <div>
+              <KV k="Initial deposit" v={money(r.amounts.initialDeposit, cur)} cls="text-lg" />
+              <KV k="Profit" v={money(r.amounts.profit, cur)} cls={`text-lg ${tone(r.amounts.profit)}`} />
               <KV k="Balance (deposits - withdrawals + this page's profit)" v={money(r.amounts.balance, cur)} />
               <KV k="Deposits" v={money(r.amounts.deposits, cur)} />
               <KV k="Withdrawals" v={money(r.amounts.withdrawals, cur)} />
-              <KV k="Profit" v={money(r.amounts.profit, cur)} cls={tone(r.amounts.profit)} />
               <KV k="Highest balance" v={money(r.amounts.highestBalance, cur)} />
             </div>
             <div>
@@ -263,6 +264,19 @@ export default function ResultsView({ r, ownerNote, actions }: { r: PublicResult
               <KV k="Lots traded" v={num(r.amounts.lots)} />
             </div>
           </div>
+          {r.amounts.cashflows.length > 0 && (
+            <div className="mt-4">
+              <h3 className="mb-1 text-xs font-semibold text-text-2">Deposits and withdrawals <span className="font-normal text-text-3">(broker time)</span></h3>
+              <table className="w-full text-sm">
+                <thead><tr className="text-xs text-text-3"><th className="py-1 text-left font-medium">Date</th><th className="text-left font-medium">Type</th><th className="text-right font-medium">Amount</th></tr></thead>
+                <tbody>
+                  {r.amounts.cashflows.map((c, idx) => (
+                    <tr key={idx} className="border-t border-border"><td className="py-1.5 text-text-2">{day(c.time)}</td><td>{c.amount >= 0 ? (idx === 0 ? "Initial deposit" : "Deposit") : "Withdrawal"}</td><td className={`text-right tabular-nums ${c.amount >= 0 ? "text-emerald-400" : "text-red-400"}`}>{money(c.amount, cur)}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Panel>
       )}
 

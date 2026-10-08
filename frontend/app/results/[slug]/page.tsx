@@ -29,7 +29,14 @@ export default async function LiveResultsPage({ params, searchParams }: { params
 
   // Only public pages can be watched (the API enforces it too).
   const following = user && res.visibility === "public" ? await isFollowing(user.profile.id, res.slug).catch(() => false) : false;
-  const actions = res.visibility === "public" ? <FollowButton slug={res.slug} signedIn={user !== null} initialFollowing={following} /> : null;
+  const exportHref = (format: "csv" | "pdf") => `/results/${res.slug}/export?format=${format}${typeof k === "string" && res.visibility === "unlisted" ? `&k=${encodeURIComponent(k)}` : ""}`;
+  const actions = (
+    <div className="flex flex-wrap items-start gap-3">
+      {res.visibility === "public" && <FollowButton slug={res.slug} signedIn={user !== null} initialFollowing={following} />}
+      <a href={exportHref("pdf")} className="inline-flex items-center rounded-control border border-border px-3 py-1.5 text-sm font-medium text-text-2 hover:border-gold/40 hover:text-text">Download PDF</a>
+      <a href={exportHref("csv")} className="inline-flex items-center rounded-control border border-border px-3 py-1.5 text-sm font-medium text-text-2 hover:border-gold/40 hover:text-text">Download CSV</a>
+    </div>
+  );
 
   return (
     <main className="min-h-screen bg-ink text-text">
