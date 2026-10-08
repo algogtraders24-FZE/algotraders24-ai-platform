@@ -70,9 +70,13 @@ const STEPS = [
     title: "Optional: an AT24 check from a backtest report",
     body: (
       <>
-        If your product has a MetaTrader 5 Strategy Tester report, AT24 can run its own evidence checks on it. Products
-        without a readable report simply stay <strong className="text-text">Not checked</strong>. (Report checking is being
-        added next; until then the owner-run evidence pipeline is used for selected products.)
+        Attach the MetaTrader 5 Strategy Tester report (Save as Report: Excel .xlsx or HTML, with the Deals section, up to
+        50 MB) in the same form. After you publish, AT24 reads it automatically, re-adds every trade in its deals list and
+        compares the result with the summary printed in the report. If the numbers agree, your page gets a box{" "}
+        <strong className="text-text">Checked from the seller&apos;s report</strong> with the key figures. This confirms the
+        report is internally consistent; it does not prove the test ran on real market data, so it is never shown as the
+        independent <em>Validated</em> badge. No report, or one we cannot read? The listing simply stays{" "}
+        <strong className="text-text">Not checked</strong> and you can sell it right away.
       </>
     ),
   },
