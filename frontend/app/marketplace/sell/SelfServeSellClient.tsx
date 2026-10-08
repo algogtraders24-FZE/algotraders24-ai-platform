@@ -4,6 +4,7 @@
 // Behind the SELLER_SELF_SERVE_MODE flag (see lib/marketplace/selfServe.ts); the evidence-based form (SellClient) stays
 // for everyone else. The page runs a small resumable sequence so a failure on step N can be retried without redoing 1..N-1.
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
@@ -249,6 +250,16 @@ export default function SelfServeSellClient() {
             <Input id="ss-price" type="number" min="1" step="1" value={price} disabled={busy} onChange={(e) => setPrice(e.target.value)} placeholder="99" />
           </div>
         </div>
+      </section>
+
+      <section className="space-y-2 rounded-control border border-border p-4 text-sm text-text-2">
+        <h2 className="text-lg font-semibold text-text">Real-time proof (optional, after publishing)</h2>
+        <p>
+          Buyers trust live numbers most. Run your product on a demo or live account, connect that MetaTrader 5 terminal with the free AT24 Live Sync EA,
+          publish the results page as Public and pick this listing in the &quot;Show on a marketplace listing&quot; box. Your page then shows the real,
+          ongoing record next to your report. Set it up any time at{" "}
+          <Link href="/dashboard/live-sync" className="font-semibold text-gold hover:underline">Dashboard → Live Sync</Link>.
+        </p>
       </section>
 
       <section className="space-y-2 rounded-control border border-border p-4 text-sm text-text-2">

@@ -53,7 +53,7 @@ export default async function MarketplaceListingPage({
     <main className="min-h-screen bg-ink text-text">
       <Navbar />
       <ListingDetailView listing={listing} justPurchased={checkout === "success"} liveResults={liveResults.length > 0 ? { stale: liveResults[0].stale } : undefined} />
-      <ReportCheckCard check={reportCheck} />
+      <ReportCheckCard check={reportCheck} live={liveResults[0] ? { mode: liveResults[0].mode, maxDrawdownPct: liveResults[0].maxDrawdownPct, trades: liveResults[0].liveTracked.trades, daysTracked: liveResults[0].daysSinceFirstSync } : null} />
       <ListingResultsCard items={liveResults} />
       <Footer />
     </main>

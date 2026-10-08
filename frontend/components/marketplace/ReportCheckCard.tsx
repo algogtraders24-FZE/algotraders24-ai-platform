@@ -9,7 +9,14 @@ const money = (n: number | null) => (n === null ? "-" : n.toLocaleString("en-US"
 const pct = (n: number | null) => (n === null ? "-" : `${(n * 100).toFixed(1)}%`);
 const day = (s: string | null) => (s ? s.slice(0, 10) : "-");
 
-export default function ReportCheckCard({ check }: { check: PublicReportCheck | null }) {
+export interface LiveCompare {
+  mode: string;
+  maxDrawdownPct: number | null; // percent, e.g. 12.3
+  trades: number;
+  daysTracked: number;
+}
+
+export default function ReportCheckCard({ check, live }: { check: PublicReportCheck | null; live?: LiveCompare | null }) {
   if (!check) return null;
   const r = check.result;
   return (
@@ -35,6 +42,13 @@ export default function ReportCheckCard({ check }: { check: PublicReportCheck | 
           <Stat label="Symbol" value={r.symbol ?? "-"} />
           <Stat label="Period" value={`${day(r.periodStart)} to ${day(r.periodEnd)}`} />
         </div>
+        {live && live.maxDrawdownPct !== null && r.metrics.maxDrawdownPercent !== null && (
+          <p className="rounded-lg border border-border p-3 text-sm text-text-2">
+            <b className="text-text">Report vs live:</b> max drawdown {(r.metrics.maxDrawdownPercent * 100).toFixed(1)}% in the report; {live.maxDrawdownPct.toFixed(1)}% on the attached{" "}
+            {live.mode === "real" ? "real" : "demo"} account ({live.trades} live trades tracked over {live.daysTracked} days). Different periods and measuring methods,
+            so read it as a rough sanity check, not a like-for-like match. See the live results below.
+          </p>
+        )}
         {r.flags.length > 0 && (
           <ul className="list-disc space-y-1 pl-5 text-sm text-amber-300">
             {r.flags.map((f) => (

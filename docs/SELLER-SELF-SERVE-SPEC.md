@@ -48,7 +48,14 @@ refund disputes, and (later) payout approvals.
 1. **Upload + publish**: private bucket, `ListingBuild` row, upload API + wizard block 1 & 3, download route reads from
    Storage (repo path kept as fallback for existing products). Seller can list and sell with no admin step.
 2. **Report check**: `ReportCheckJob` table + VPS worker + wizard block 2 + "Not checked / Checked from report" label.
+   **BUILT 2026-10-09**: `ReportCheckJob` (additive migration), seller endpoint `.../listings/:id/report`, worker endpoints
+   `/api/report-check/v1/claim|complete` (bearer `REPORT_CHECK_WORKER_SECRET`, outbound polling - no inbound port),
+   `quant-engine/service/report_check_worker.py` (+ `setup-report-check-worker.ps1`) around the unmodified M2 evidence engine,
+   public `ReportCheckCard`. Scope decision: only M2 runs (parse + recompute from the Deals table + compare with the report's own
+   summary). M3-M7 are NOT run: they need a version registry and the real market bars, and their Trust State must stay
+   reserved for AT24-run backtests. Limits: report <= 50 MB (Supabase per-file cap), 3 reports/listing/day, 3 attempts/job.
 3. **Real-time proof in the wizard**: block 4 (attach Live Results page) + live-vs-report comparison line.
+   **BUILT 2026-10-09**: wizard explainer (attach itself already existed: Live Results page -> listing picker) + "Report vs live" drawdown line on the report card when a live page is attached.
 4. **Money**: seller account, earnings ledger, 10% commission (owner-platform products 0%), payouts. Owner decisions pending:
    payout method, hold days, who bears gateway fees, seller KYC level. No buyer top-up wallet (custodial risk).
 5. **Hardening (later, optional)**: DLL-off attach check (see appendix), buyer report button, auto-suspend.
