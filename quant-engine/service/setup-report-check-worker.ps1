@@ -22,7 +22,11 @@ if ($Secret.Length -lt 16) { Write-Error "The secret must be at least 16 charact
 $worker = Join-Path $PSScriptRoot "report_check_worker.py"
 if (-not (Test-Path $worker)) { Write-Error "report_check_worker.py not found next to this script."; exit 1 }
 
-if ($M2Dir -eq "") { $M2Dir = (Join-Path $PSScriptRoot "..\..\ea-research\marketplace-research\m2-evidence-engine") }
+if ($M2Dir -eq "") {
+    # Repo layout first; standalone bundle layout (evidence_engine.py sitting next to this script) second.
+    $M2Dir = (Join-Path $PSScriptRoot "..\..\ea-research\marketplace-research\m2-evidence-engine")
+    if (-not (Test-Path (Join-Path $M2Dir "evidence_engine.py")) -and (Test-Path (Join-Path $PSScriptRoot "evidence_engine.py"))) { $M2Dir = $PSScriptRoot }
+}
 $M2Dir = [System.IO.Path]::GetFullPath($M2Dir)
 if (-not (Test-Path (Join-Path $M2Dir "evidence_engine.py"))) {
     Write-Error "evidence_engine.py not found in $M2Dir - pass -M2Dir with the folder that contains it."
