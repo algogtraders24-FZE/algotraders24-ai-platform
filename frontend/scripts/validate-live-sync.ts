@@ -134,7 +134,7 @@ async function main() {
   });
   await check("IDENTITY CAN NEVER ENTER: any unknown field is rejected at every level (login, name, server, company, ...)", () => {
     const base = () => batch(1, ZERO_HASH, [deal(1)], { snapshot: SNAP });
-    for (const k of ["login", "name", "server", "company", "email", "password", "accountNumber", "broker", "holder"]) {
+    for (const k of ["login", "name", "server", "company", "email", "password", "accountNumber", "holder"]) {
       const top = { ...base(), [k]: "x" };
       assert.equal(validateIngestBody(top).ok, false, `top-level ${k}`);
       const acct = { ...base(), account: { ...FACTS, [k]: "x" } };
@@ -146,6 +146,18 @@ async function main() {
       const ps = { ...base(), snapshot: { ...SNAP, positions: [{ ...SNAP.positions[0]!, [k]: "x" }] } };
       assert.equal(validateIngestBody(ps).ok, false, `position.${k}`);
     }
+  });
+  await check("BROKER NAME: allowed ONLY as account.broker (opt-in), one plain string <= 60 chars; everywhere else it is rejected", () => {
+    const base = () => batch(1, ZERO_HASH, [deal(1)], { snapshot: SNAP });
+    const withBroker = (v: unknown) => ({ ...base(), account: { ...FACTS, broker: v } });
+    for (const good of ["Exness Technologies Ltd", "Equiti Brokerage (Seychelles) Ltd", "IC Markets (SC) Pty.", "FTMO S.R.O.", "Moneta Markets & Co", "XM Global-Ltd"]) assert.equal(validateIngestBody(withBroker(good)).ok, true, `accepts ${good}`);
+    assert.equal(validateIngestBody(base()).ok, true, "a body without broker (the default, and every v1.0 EA) is accepted");
+    for (const bad of ["", " ", "x".repeat(61), "<script>", 'a"b', "a\nb", "a\\b", "-leading", 12, null, {}, ["x"]]) assert.equal(validateIngestBody(withBroker(bad)).ok, false, `rejects ${JSON.stringify(bad)}`);
+    assert.equal(validateIngestBody({ ...base(), broker: "Exness" }).ok, false, "top-level broker rejected");
+    assert.equal(validateIngestBody({ ...base(), deals: [{ ...deal(1), broker: "Exness" }] }).ok, false, "deal.broker rejected");
+    assert.equal(validateIngestBody({ ...base(), snapshot: { ...SNAP, broker: "Exness" } }).ok, false, "snapshot.broker rejected");
+    const ok = validateIngestBody(withBroker("  Exness Ltd  "));
+    assert.equal(ok.ok && ok.body.account.broker, "Exness Ltd", "stored value is trimmed");
   });
   await check("type/range/format violations rejected", () => {
     const bad: unknown[] = [

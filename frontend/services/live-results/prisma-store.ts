@@ -85,7 +85,7 @@ export async function loadResults(slug: string, viewer: { userId: string | null;
     });
 
     const results = buildPublicResults({
-      page: { title: page.title, description: page.description, showAmounts: page.showAmounts, positionDelayMin: page.positionDelayMin, magicFilter: page.magicFilter === null ? null : page.magicFilter.toString() },
+      page: { title: page.title, description: page.description, showAmounts: page.showAmounts, showBroker: page.showBroker, positionDelayMin: page.positionDelayMin, magicFilter: page.magicFilter === null ? null : page.magicFilter.toString() },
       account: {
         mode: account.mode,
         currency: account.currency,
@@ -96,6 +96,7 @@ export async function loadResults(slug: string, viewer: { userId: string | null;
         lastSyncAt: account.lastSyncAt.getTime(),
         batches: account.chainSeq,
         chainHead: account.chainHead,
+        broker: account.broker,
       },
       deals,
       snapshots: snaps.map((s) => ({ time: s.timeUtc.getTime(), positions: Array.isArray(s.positions) ? (s.positions as unknown as WirePosition[]) : [] })),
@@ -121,12 +122,13 @@ export interface OwnerPage {
   unlistedKey: string;
   magicFilter: string | null;
   showAmounts: boolean;
+  showBroker: boolean;
   positionDelayMin: number;
   listingSlug: string | null;
   updatedAt: Date;
 }
 
-const toOwnerPage = (p: { id: string; accountId: string; slug: string; title: string; description: string; visibility: string; unlistedKey: string; magicFilter: bigint | null; showAmounts: boolean; positionDelayMin: number; listingSlug: string | null; updatedAt: Date }): OwnerPage => ({
+const toOwnerPage = (p: { id: string; accountId: string; slug: string; title: string; description: string; visibility: string; unlistedKey: string; magicFilter: bigint | null; showAmounts: boolean; showBroker: boolean; positionDelayMin: number; listingSlug: string | null; updatedAt: Date }): OwnerPage => ({
   id: p.id,
   accountId: p.accountId,
   slug: p.slug,
@@ -136,6 +138,7 @@ const toOwnerPage = (p: { id: string; accountId: string; slug: string; title: st
   unlistedKey: p.unlistedKey,
   magicFilter: p.magicFilter === null ? null : p.magicFilter.toString(),
   showAmounts: p.showAmounts,
+  showBroker: p.showBroker,
   positionDelayMin: p.positionDelayMin,
   listingSlug: p.listingSlug,
   updatedAt: p.updatedAt,
@@ -190,6 +193,7 @@ export async function createPage(userId: string, input: PageInput): Promise<Save
       unlistedKey: newUnlistedKey(),
       magicFilter: input.magicFilter === null ? null : BigInt(input.magicFilter),
       showAmounts: input.showAmounts,
+      showBroker: input.showBroker,
       positionDelayMin: input.positionDelayMin,
       listingSlug: input.listingSlug,
       publishedAt: input.visibility === "private" ? null : new Date(),
@@ -210,6 +214,7 @@ export async function updatePage(userId: string, id: string, input: PageInput): 
       visibility: input.visibility,
       magicFilter: input.magicFilter === null ? null : BigInt(input.magicFilter),
       showAmounts: input.showAmounts,
+      showBroker: input.showBroker,
       positionDelayMin: input.positionDelayMin,
       listingSlug: input.listingSlug,
       publishedAt: input.visibility === "private" ? null : existing.publishedAt ?? new Date(),

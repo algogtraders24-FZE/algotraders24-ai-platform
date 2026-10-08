@@ -19,7 +19,7 @@ export interface DealWithMagic extends SyncedDeal {
 }
 
 export interface BuildInput {
-  page: { title: string; description: string; showAmounts: boolean; positionDelayMin: number; magicFilter: string | null };
+  page: { title: string; description: string; showAmounts: boolean; /** Show the broker name when the account has one. */ showBroker?: boolean; positionDelayMin: number; magicFilter: string | null };
   account: {
     mode: string;
     currency: string;
@@ -31,6 +31,8 @@ export interface BuildInput {
     lastSyncAt: number; // UTC ms
     batches: number;
     chainHead: string;
+    /** Broker company name as reported by the terminal (opt-in in the EA), if any. */
+    broker?: string | null;
   };
   deals: readonly DealWithMagic[];
   /** Recent snapshots (UTC ms), any order. Only open positions are used from them. */
@@ -88,7 +90,7 @@ export interface PublicResults {
   currency: string;
   marginMode: string;
   /** The header line of the page: facts about the account itself (never the broker, account number or server). */
-  account: { platform: string; leverage: number; utcOffsetHours: number; automated: boolean; startedAt: number | null };
+  account: { platform: string; leverage: number; utcOffsetHours: number; automated: boolean; startedAt: number | null; /** Only when the owner chose to show it AND the EA sent it. Self-reported. */ broker?: string };
   /** Newest first, capped at HISTORY_ROWS_MAX; `total` is the real count. */
   history: { total: number; rows: HistoryRow[] };
   /** Integrity facts shown as badges. */
@@ -329,7 +331,7 @@ export function buildPublicResults(input: BuildInput): PublicResults {
     mode: account.mode,
     currency: account.currency,
     marginMode: account.marginMode,
-    account: { platform: "MetaTrader 5", leverage: account.leverage, utcOffsetHours: Math.round((account.serverUtcOffsetSec / 3600) * 100) / 100, automated, startedAt: stats.firstEventTime },
+    account: { platform: "MetaTrader 5", leverage: account.leverage, utcOffsetHours: Math.round((account.serverUtcOffsetSec / 3600) * 100) / 100, automated, startedAt: stats.firstEventTime, ...(page.showBroker === true && account.broker ? { broker: account.broker } : {}) },
     history: { total: hist.trades.length, rows: historyRows },
     integrity: {
       source: "terminal-reported",

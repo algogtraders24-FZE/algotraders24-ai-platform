@@ -61,4 +61,12 @@ ok(r.stats.bestTrade !== null && r.stats.worstTrade !== null, "best and worst tr
 ok(r.stats.bestTrade!.gainPct! > 0 && r.stats.worstTrade!.gainPct! < 0, "best is a gain, worst is a loss");
 ok(!("net" in (r.stats.bestTrade as object)), "percent-only best trade has no amount");
 
+// ---- broker name: shown only when the owner switches it on AND the EA sent it
+const withB = (showBroker: boolean | undefined, broker: string | null | undefined) => buildPublicResults({ ...base, page: { ...base.page, showBroker }, account: { ...base.account, broker } });
+eq(withB(true, "Exness Technologies Ltd").account.broker, "Exness Technologies Ltd", "owner opted in + EA sent it -> shown");
+ok(withB(false, "Exness Technologies Ltd").account.broker === undefined, "owner did not opt in -> never in the view model");
+ok(withB(undefined, "Exness Technologies Ltd").account.broker === undefined, "default (unset) -> not shown");
+ok(withB(true, null).account.broker === undefined && withB(true, undefined).account.broker === undefined, "EA did not send it -> nothing to show");
+ok(!JSON.stringify(withB(false, "Exness Technologies Ltd")).includes("Exness"), "hidden broker name appears nowhere in the view model");
+
 console.log(`validate-live-results-account: ${checks} checks passed`);

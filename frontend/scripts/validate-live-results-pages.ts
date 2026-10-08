@@ -55,4 +55,9 @@ for (const bad of ["Has Space", "UPPER", "-lead", "a".repeat(120), "x/../y", 123
 ok(LISTING_SLUG_RE.test("xxxus30-30684e"), "page slugs have the same safe shape (used to validate the follow API input)");
 eq(MAX_FOLLOWS_PER_USER, 50, "a member can watch up to 50 pages");
 
+const sb = (x: unknown) => validatePageInput({ ...good, showBroker: x });
+eq([sb(true).ok && (sb(true) as { value: { showBroker: boolean } }).value.showBroker, sb(false).ok && (sb(false) as { value: { showBroker: boolean } }).value.showBroker], [true, false], "showBroker true/false is accepted");
+eq(validatePageInput(good).ok && (validatePageInput(good) as { value: { showBroker: boolean } }).value.showBroker, false, "showBroker defaults to false (older clients, hidden unless chosen)");
+for (const bad of ["yes", 1, null, "true"]) ok(!sb(bad).ok, `rejects showBroker ${JSON.stringify(bad)}`);
+
 console.log(`validate-live-results-pages: ${checks} checks passed`);

@@ -88,18 +88,24 @@ function parseSnapshot(raw: unknown): WireSnapshot | string {
   return { timeMsc, balance, equity, margin, freeMargin, positions: out };
 }
 
+/** A company name: letters, digits, spaces and a few punctuation marks. No angle brackets, quotes or control characters. */
+const BROKER_RE = /^[\p{L}\p{N}][\p{L}\p{N} .,&()'+/_-]*$/u;
+
 function parseAccount(raw: unknown): WireAccountFacts | string {
   if (!isRec(raw)) return "account must be an object";
   const extra = onlyKeys(raw, ACCOUNT_KEYS, "account");
   if (extra) return extra;
-  const { currency, mode, marginMode, leverage, serverUtcOffsetSec, terminalBuild } = raw;
+  const { currency, mode, marginMode, leverage, serverUtcOffsetSec, terminalBuild, broker } = raw;
   if (typeof currency !== "string" || !/^[A-Z]{3,5}$/.test(currency)) return "account.currency invalid";
   if (!oneOf(mode, MODES)) return "account.mode invalid";
   if (!oneOf(marginMode, MARGIN_MODES)) return "account.marginMode invalid";
   if (!int(leverage, 0, 100_000)) return "account.leverage invalid";
   if (!int(serverUtcOffsetSec, -50_400, 50_400)) return "account.serverUtcOffsetSec invalid";
   if (!int(terminalBuild, 0, 1_000_000)) return "account.terminalBuild invalid";
-  return { currency, mode, marginMode, leverage, serverUtcOffsetSec, terminalBuild };
+  if (broker === undefined) return { currency, mode, marginMode, leverage, serverUtcOffsetSec, terminalBuild };
+  const name = typeof broker === "string" ? broker.trim() : "";
+  if (name.length < 1 || name.length > 60 || !BROKER_RE.test(name)) return "account.broker invalid";
+  return { currency, mode, marginMode, leverage, serverUtcOffsetSec, terminalBuild, broker: name };
 }
 
 export function validateIngestBody(raw: unknown): ValidationResult {

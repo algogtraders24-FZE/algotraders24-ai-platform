@@ -26,7 +26,7 @@ export const GET = withContext(async (_req, ctx) => {
   try {
     const [pages, accounts] = await Promise.all([
       listOwnerPages(user.profile.id),
-      prisma.liveSyncAccount.findMany({ where: { userId: user.profile.id }, orderBy: { lastSyncAt: "desc" }, take: 20, select: { id: true, accountKey: true, mode: true } }),
+      prisma.liveSyncAccount.findMany({ where: { userId: user.profile.id }, orderBy: { lastSyncAt: "desc" }, take: 20, select: { id: true, accountKey: true, mode: true, broker: true } }),
     ]);
     const magics = await listAccountMagics(user.profile.id, accounts.map((a) => a.id));
     const listings = await listSellerListings(user.profile.id).catch(() => []);
@@ -34,7 +34,7 @@ export const GET = withContext(async (_req, ctx) => {
       {
         pages,
         listings,
-        accounts: accounts.map((a) => ({ id: a.id, label: `Account ${a.accountKey.slice(0, 6)}`, mode: a.mode, magics: magics[a.id] ?? [] })),
+        accounts: accounts.map((a) => ({ id: a.id, label: `Account ${a.accountKey.slice(0, 6)}`, mode: a.mode, broker: a.broker ?? null, magics: magics[a.id] ?? [] })),
       },
       ctx.requestId,
       200,

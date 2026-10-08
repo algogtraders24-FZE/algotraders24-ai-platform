@@ -51,7 +51,8 @@ the EA compiles and runs on the owner's terminal (needs the prototype).
 - A per-account **`accountKey`** = SHA-256(login | server | `accountSalt`), where `accountSalt` is issued by AT24 at
   handshake. AT24 stores only this hash.
 
-**Never sends:** account number, holder name, company, server name, broker credentials, anything from other charts.
+**Never sends:** account number, holder name, server name, broker credentials, anything from other charts.
+**Opt-in (EA v1.1, `ShareBrokerName`, off by default):** the broker COMPANY name (`ACCOUNT_COMPANY`) as `account.broker`, one plain string up to 60 characters. It is stored on the account, and a results page shows it only when the owner also switches on "Show my broker name". It is typed by the user's terminal, so it is self-reported, not verified. Turning the EA input off clears it on the next sync.
 The server **rejects** any payload containing forbidden field names (`login`, `name`, `server`, `company`, ...).
 
 ## 5. API (stateless, bearer-authenticated; outside `/api/private`, like `/api/mcp`)
