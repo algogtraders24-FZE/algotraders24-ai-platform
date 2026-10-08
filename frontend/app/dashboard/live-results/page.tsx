@@ -22,8 +22,17 @@ interface Item {
   oneEa: boolean;
 }
 
+interface Mine {
+  slug: string;
+  title: string;
+  visibility: string;
+  magicFilter: string | null;
+  showAmounts: boolean;
+}
+
 export default function LiveResultsDirectoryPage() {
   const [items, setItems] = useState<Item[] | null>(null);
+  const [mine, setMine] = useState<Mine[]>([]);
   const [off, setOff] = useState(false);
 
   useEffect(() => {
@@ -31,8 +40,10 @@ export default function LiveResultsDirectoryPage() {
       .then(async (r) => {
         if (r.status === 503) return setOff(true);
         const j = await r.json();
-        if (r.ok) setItems(j.data.pages as Item[]);
-        else setOff(true);
+        if (r.ok) {
+          setItems(j.data.pages as Item[]);
+          setMine((j.data.mine as Mine[]) ?? []);
+        } else setOff(true);
       })
       .catch(() => setOff(true));
   }, []);
@@ -51,6 +62,29 @@ export default function LiveResultsDirectoryPage() {
 
       {off && <Alert tone="warning">Live Results is not available yet.</Alert>}
       {!off && items === null && <p className="text-sm text-text-3">Loading…</p>}
+
+      {mine.length > 0 && (
+        <Card className="space-y-3">
+          <p className="text-sm font-semibold text-text">Your pages</p>
+          <ul className="divide-y divide-border">
+            {mine.map((p) => (
+              <li key={p.slug} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                <span className="text-text">
+                  {p.title}{" "}
+                  <Badge tone={p.visibility === "public" ? "warning" : "neutral"} className="normal-case">{p.visibility}</Badge>{" "}
+                  <span className="text-xs text-text-3">{p.magicFilter ? `EA magic ${p.magicFilter}` : "whole account"} · {p.showAmounts ? "amounts shown" : "percent only"}</span>
+                </span>
+                <span className="flex gap-3">
+                  <ButtonLink size="sm" href={`/results/${p.slug}`}>Open</ButtonLink>
+                  <Link href="/dashboard/live-sync" className="self-center text-xs font-semibold text-gold hover:underline">Edit on Live Sync</Link>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-text-3">Only pages set to <b>Public</b> appear in the list below for other members. Private pages and secret-link pages are visible to you only (and to anyone you share the secret link with).</p>
+        </Card>
+      )}
+
       {items && items.length === 0 && (
         <Card className="space-y-2">
           <p className="text-sm font-semibold text-text">No public pages yet</p>
