@@ -1,0 +1,189 @@
+// services/live-results/prisma-store.ts
+// DB layer for Live Results. Every read of another person's data goes through `loadResults`,
+// which applies the viewing rule and then the privacy redaction in build.ts.
+
+import { prisma } from "@/lib/prisma";
+import type { WirePosition } from "../live-sync/contract";
+import { buildPublicResults, type DealWithMagic, type PublicResults } from "./build";
+import { canView, slugWithSuffix, newUnlistedKey, MAX_PAGES_PER_USER, type PageInput } from "./pages";
+
+const MAX_DEALS = 60_000;
+const CACHE_MS = 30_000;
+const cache = new Map<string, { at: number; value: ResultsLoad }>();
+
+export function liveResultsEnabled(): boolean {
+  return process.env.LIVE_RESULTS_ENABLED === "true";
+}
+
+export type ResultsLoad =
+  | { state: "ok"; results: PublicResults; slug: string; visibility: string; isOwner: boolean }
+  | { state: "not_found" };
+
+export async function loadResults(slug: string, viewer: { userId: string | null; key: string | null }): Promise<ResultsLoad> {
+  if (!liveResultsEnabled()) return { state: "not_found" };
+  try {
+    const page = await prisma.liveResultsPage.findUnique({ where: { slug } });
+    if (!page) return { state: "not_found" };
+    const isOwner = viewer.userId !== null && viewer.userId === page.userId;
+    if (!canView(page, { isOwner, key: viewer.key })) return { state: "not_found" };
+
+    const ck = `${slug}|${page.updatedAt.getTime()}|${isOwner ? "o" : "v"}`;
+    const hit = cache.get(ck);
+    if (hit && Date.now() - hit.at < CACHE_MS) return hit.value;
+
+    const account = await prisma.liveSyncAccount.findFirst({ where: { id: page.accountId, userId: page.userId } });
+    if (!account) return { state: "not_found" };
+
+    const rows = await prisma.liveSyncDeal.findMany({
+      where: { accountId: account.id },
+      orderBy: { timeMsc: "asc" },
+      take: MAX_DEALS,
+      select: { positionId: true, timeMsc: true, symbol: true, type: true, entry: true, volume: true, price: true, commission: true, swap: true, profit: true, fee: true, comment: true, magic: true },
+    });
+    const deals: DealWithMagic[] = rows.map((r) => ({
+      positionId: r.positionId.toString(),
+      timeMsc: Number(r.timeMsc),
+      symbol: r.symbol,
+      type: r.type,
+      entry: r.entry,
+      volume: r.volume,
+      price: r.price,
+      commission: r.commission,
+      swap: r.swap,
+      profit: r.profit,
+      fee: r.fee,
+      comment: r.comment,
+      magic: r.magic.toString(),
+    }));
+    const snaps = await prisma.liveSyncSnapshot.findMany({
+      where: { accountId: account.id, timeUtc: { gte: new Date(Date.now() - 2 * 86_400_000) } },
+      orderBy: { timeUtc: "desc" },
+      take: 300,
+      select: { timeUtc: true, positions: true },
+    });
+
+    const results = buildPublicResults({
+      page: { title: page.title, description: page.description, showAmounts: page.showAmounts, positionDelayMin: page.positionDelayMin, magicFilter: page.magicFilter === null ? null : page.magicFilter.toString() },
+      account: {
+        mode: account.mode,
+        currency: account.currency,
+        marginMode: account.marginMode,
+        leverage: account.leverage,
+        serverUtcOffsetSec: account.serverUtcOffsetSec,
+        firstSyncAt: account.firstSyncAt.getTime(),
+        lastSyncAt: account.lastSyncAt.getTime(),
+        batches: account.chainSeq,
+        chainHead: account.chainHead,
+      },
+      deals,
+      snapshots: snaps.map((s) => ({ time: s.timeUtc.getTime(), positions: Array.isArray(s.positions) ? (s.positions as unknown as WirePosition[]) : [] })),
+      nowUtc: Date.now(),
+    });
+    const value: ResultsLoad = { state: "ok", results, slug: page.slug, visibility: page.visibility, isOwner };
+    cache.set(ck, { at: Date.now(), value });
+    if (cache.size > 200) cache.clear();
+    return value;
+  } catch {
+    return { state: "not_found" };
+  }
+}
+
+export interface OwnerPage {
+  id: string;
+  accountId: string;
+  slug: string;
+  title: string;
+  description: string;
+  visibility: string;
+  unlistedKey: string;
+  magicFilter: string | null;
+  showAmounts: boolean;
+  positionDelayMin: number;
+  updatedAt: Date;
+}
+
+const toOwnerPage = (p: { id: string; accountId: string; slug: string; title: string; description: string; visibility: string; unlistedKey: string; magicFilter: bigint | null; showAmounts: boolean; positionDelayMin: number; updatedAt: Date }): OwnerPage => ({
+  id: p.id,
+  accountId: p.accountId,
+  slug: p.slug,
+  title: p.title,
+  description: p.description,
+  visibility: p.visibility,
+  unlistedKey: p.unlistedKey,
+  magicFilter: p.magicFilter === null ? null : p.magicFilter.toString(),
+  showAmounts: p.showAmounts,
+  positionDelayMin: p.positionDelayMin,
+  updatedAt: p.updatedAt,
+});
+
+export async function listOwnerPages(userId: string): Promise<OwnerPage[]> {
+  const rows = await prisma.liveResultsPage.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 50 });
+  return rows.map(toOwnerPage);
+}
+
+/** Magic numbers present on an account (from opening deals), so the owner can pick one EA. */
+export async function listAccountMagics(userId: string, accountIds: string[]): Promise<Record<string, { magic: string; trades: number }[]>> {
+  if (accountIds.length === 0) return {};
+  const owned = await prisma.liveSyncAccount.findMany({ where: { userId, id: { in: accountIds } }, select: { id: true } });
+  const ids = owned.map((a) => a.id);
+  const g = await prisma.liveSyncDeal.groupBy({ by: ["accountId", "magic"], where: { accountId: { in: ids }, entry: "in", type: { in: ["buy", "sell"] } }, _count: { _all: true } });
+  const out: Record<string, { magic: string; trades: number }[]> = {};
+  for (const r of g) (out[r.accountId] ??= []).push({ magic: r.magic.toString(), trades: r._count._all });
+  for (const k of Object.keys(out)) out[k].sort((a, b) => b.trades - a.trades);
+  return out;
+}
+
+export type SaveResult = { ok: true; page: OwnerPage } | { ok: false; code: "ACCOUNT_NOT_FOUND" | "PAGE_LIMIT" | "NOT_FOUND"; message: string };
+
+export async function createPage(userId: string, input: PageInput): Promise<SaveResult> {
+  const account = await prisma.liveSyncAccount.findFirst({ where: { id: input.accountId, userId }, select: { id: true } });
+  if (!account) return { ok: false, code: "ACCOUNT_NOT_FOUND", message: "Account not found" };
+  const count = await prisma.liveResultsPage.count({ where: { userId } });
+  if (count >= MAX_PAGES_PER_USER) return { ok: false, code: "PAGE_LIMIT", message: `You can have at most ${MAX_PAGES_PER_USER} results pages.` };
+  const row = await prisma.liveResultsPage.create({
+    data: {
+      userId,
+      accountId: account.id,
+      slug: slugWithSuffix(input.title),
+      title: input.title,
+      description: input.description,
+      visibility: input.visibility,
+      unlistedKey: newUnlistedKey(),
+      magicFilter: input.magicFilter === null ? null : BigInt(input.magicFilter),
+      showAmounts: input.showAmounts,
+      positionDelayMin: input.positionDelayMin,
+      publishedAt: input.visibility === "private" ? null : new Date(),
+    },
+  });
+  return { ok: true, page: toOwnerPage(row) };
+}
+
+export async function updatePage(userId: string, id: string, input: PageInput): Promise<SaveResult> {
+  const existing = await prisma.liveResultsPage.findFirst({ where: { id, userId } });
+  if (!existing) return { ok: false, code: "NOT_FOUND", message: "Page not found" };
+  const row = await prisma.liveResultsPage.update({
+    where: { id },
+    data: {
+      title: input.title,
+      description: input.description,
+      visibility: input.visibility,
+      magicFilter: input.magicFilter === null ? null : BigInt(input.magicFilter),
+      showAmounts: input.showAmounts,
+      positionDelayMin: input.positionDelayMin,
+      publishedAt: input.visibility === "private" ? null : existing.publishedAt ?? new Date(),
+    },
+  });
+  return { ok: true, page: toOwnerPage(row) };
+}
+
+/** New secret link: the old unlisted link stops working immediately. */
+export async function rotateKey(userId: string, id: string): Promise<OwnerPage | null> {
+  const existing = await prisma.liveResultsPage.findFirst({ where: { id, userId } });
+  if (!existing) return null;
+  return toOwnerPage(await prisma.liveResultsPage.update({ where: { id }, data: { unlistedKey: newUnlistedKey() } }));
+}
+
+export async function deletePage(userId: string, id: string): Promise<boolean> {
+  const r = await prisma.liveResultsPage.deleteMany({ where: { id, userId } });
+  return r.count > 0;
+}

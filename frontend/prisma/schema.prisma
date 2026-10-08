@@ -3017,3 +3017,30 @@ model LiveSyncSnapshot {
   @@index([accountId, timeUtc])
   @@map("live_sync_snapshots")
 }
+
+/// AT24 Live Results: a shareable results page over one synced account (optionally one EA via magic number).
+/// Additive; no existing table is touched. visibility: private | unlisted (needs the key) | public.
+model LiveResultsPage {
+  id               String    @id @default(cuid())
+  userId           String
+  accountId        String
+  slug             String    @unique
+  title            String
+  description      String    @default("")
+  visibility       String    @default("private")
+  unlistedKey      String
+  /// null = whole account; otherwise only positions opened with this magic number.
+  magicFilter      BigInt?
+  /// false = percent-only for visitors (no money amounts, no lot sizes).
+  showAmounts      Boolean   @default(false)
+  /// Open positions are shown to visitors only after they have been open this many minutes.
+  positionDelayMin Int       @default(15)
+  publishedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([accountId])
+  @@index([visibility])
+  @@map("live_results_pages")
+}
