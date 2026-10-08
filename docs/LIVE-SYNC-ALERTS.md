@@ -30,3 +30,10 @@ Behaviour: edge-triggered. A breach is announced once, repeated only after the c
 
 ## Honest limits
 Email delivery depends on Resend being configured (see the email status memory); the bell works regardless. Alerts are best-effort, not a guarantee, and are not a substitute for a stop loss or broker-side risk limits. Not built yet: Telegram, quiet hours, per-symbol rules.
+
+## Watchers (Live Results "Watch")
+The same 5-minute sweep (`POST /api/live-sync/v1/sweep`) also tells members who WATCH a public Live Results page when it stopped reporting and when it is back (bell only, no email). Rules in `services/live-results/watch-rules.ts` (16 checks), DB pass in `watch-notify.ts`:
+- "stopped reporting" after 10 minutes without data, once per outage; never when the page was already quiet before the member started watching;
+- "is reporting again" right away after a "stopped" notice;
+- a new "stopped" within 60 minutes of a "resumed" waits (no flapping spam);
+- state is read from the member's own notification log (kinds `live_results_stale` / `live_results_resumed`), so no extra table or migration.
