@@ -25,11 +25,14 @@ export default function ListingDetailView({
   backHref = "/marketplace",
   backLabel = "← Back to Marketplace",
   justPurchased = false,
+  liveResults,
 }: {
   listing: MarketplaceListingDetail;
   backHref?: string;
   backLabel?: string;
   justPurchased?: boolean;
+  /** Set when a public Live Results page is attached: shows a small link to the card further down the page. */
+  liveResults?: { stale: boolean };
 }) {
   const icon = listing.media[0];
   const banner = listing.media[1];
@@ -72,6 +75,11 @@ export default function ListingDetailView({
               <DemoTestedBadge large />
             ) : (
               <Badge tone={trustStateTone(listing.trustState)}>{trustStateLabel(listing.trustState)}</Badge>
+            )}
+            {liveResults && (
+              <a href="#live-results" className={`rounded-full border px-3 py-1 text-xs font-semibold hover:brightness-125 ${liveResults.stale ? "border-amber-600 text-amber-300" : "border-emerald-600 text-emerald-400"}`}>
+                {liveResults.stale ? "Live results" : "● Live results"} ↓
+              </a>
             )}
           </div>
           {isDemoTestedUtility(listing) && <p className="text-xs text-text-3 mt-2 max-w-3xl">{DEMO_TESTED_HINT}</p>}

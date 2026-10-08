@@ -48,7 +48,7 @@ export default async function MarketplaceListingPage({
   return (
     <main className="min-h-screen bg-ink text-text">
       <Navbar />
-      <ListingDetailView listing={listing} justPurchased={checkout === "success"} />
+      <ListingDetailView listing={listing} justPurchased={checkout === "success"} liveResults={liveResults.length > 0 ? { stale: liveResults[0].stale } : undefined} />
       <ListingResultsCard items={liveResults} />
       <Footer />
     </main>
