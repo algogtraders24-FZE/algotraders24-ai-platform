@@ -11,7 +11,7 @@ const utc = (t: number) => new Date(t).toISOString().slice(0, 16).replace("T", "
 export default function ListingResultsCard({ items }: { items: ListingResultsSummary[] }) {
   if (items.length === 0) return null;
   return (
-    <section className="mx-auto max-w-6xl px-6 pb-12">
+    <section id="live-results" className="mx-auto max-w-6xl scroll-mt-28 px-6 pb-12">
       <div className="space-y-4 rounded-xl border border-border bg-ink-2 p-5">
         <div>
           <h2 className="text-lg font-bold text-text">Live results of this EA</h2>
