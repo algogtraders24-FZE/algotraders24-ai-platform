@@ -4,7 +4,9 @@
 // and is not touched by proxy.ts. Dormant unless LIVE_SYNC_ENABLED=true.
 // See docs/LIVE-SYNC-SPEC.md.
 
+import { after } from "next/server";
 import { handleLiveSyncRequest } from "@/services/live-sync/handler";
+import { runAlertsForAccount } from "@/services/live-sync/alert-runner";
 import { prismaDeviceStore, prismaLiveSyncStore } from "@/services/live-sync/prisma-store";
 import { createBurstLimiter } from "@/services/mcp/quota";
 import { LIMITS } from "@/services/live-sync/contract";
@@ -21,6 +23,8 @@ function handle(request: Request): Promise<Response> {
     deviceStore: prismaDeviceStore,
     store: prismaLiveSyncStore,
     burst,
+    // Alerts run after the response is sent; they never slow down or fail the EA.
+    onSnapshotStored: (info) => after(() => runAlertsForAccount(info.accountId)),
   });
 }
 

@@ -17,6 +17,7 @@ import Badge from "@/components/ui/Badge";
 import Input from "@/components/ui/Input";
 import LivePanel from "@/components/live-sync/LivePanel";
 import PublishPanel from "@/components/live-results/PublishPanel";
+import AlertsPanel from "@/components/live-sync/AlertsPanel";
 
 interface DeviceRow {
   id: string;
@@ -228,6 +229,7 @@ export default function LiveSyncPage() {
                   </div>
                 </div>
                 <LivePanel accountId={a.id} />
+                <AlertsPanel accountId={a.id} />
                 <PublishPanel accountId={a.id} />
               </li>
             ))}

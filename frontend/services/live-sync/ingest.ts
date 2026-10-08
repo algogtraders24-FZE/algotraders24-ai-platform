@@ -43,6 +43,8 @@ export type IngestOutcome =
   | {
       ok: true;
       status: 200;
+      /** Internal (not part of the HTTP body): lets the HTTP layer run post-ingest hooks such as alerts. */
+      accountId: string;
       body: { ok: true; ackSeq: number; nextSeq: number; chainHead: string; duplicate: boolean; insertedDeals: number; snapshotStored: boolean; lastDealTimeMsc: number | null };
     }
   | { ok: false; status: 400 | 409 | 422; body: { ok: false; code: IngestErrorCode; message: string; expectedSeq?: number; chainHead?: string; lastDealTimeMsc?: number | null } };
@@ -101,6 +103,7 @@ export async function processIngest(store: LiveSyncStore, userId: string, rawBod
   return {
     ok: true,
     status: 200,
+    accountId: account.id,
     body: { ok: true, ackSeq: seqNow, nextSeq: seqNow + 1, chainHead: headNow || ZERO_HASH, duplicate, insertedDeals, snapshotStored: snapshot !== undefined, lastDealTimeMsc: lastDealNow },
   };
 }

@@ -16,6 +16,8 @@ export interface LiveSyncHttpDeps {
   store: LiveSyncStore;
   burst?: { allow(key: string): boolean };
   now?: () => Date;
+  /** Called (and never awaited for the response) after a snapshot was stored, e.g. to evaluate alerts. Must not throw. */
+  onSnapshotStored?: (info: { accountId: string; userId: string }) => void;
 }
 
 function json(status: number, body: unknown, headers: Record<string, string> = {}): Response {
@@ -65,6 +67,13 @@ export async function handleLiveSyncRequest(request: Request, route: "handshake"
 
   try {
     const outcome = await processIngest(deps.store, principal.userId, body.value, now);
+    if (outcome.ok && outcome.body.snapshotStored) {
+      try {
+        deps.onSnapshotStored?.({ accountId: outcome.accountId, userId: principal.userId });
+      } catch {
+        // A hook failure must never fail ingestion.
+      }
+    }
     return json(outcome.status, outcome.body);
   } catch {
     return error(500, "INTERNAL", "Could not process the request.");

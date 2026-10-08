@@ -296,6 +296,24 @@ export async function sendSubscriptionCancelledEmail(params: {
 // note: a success email on every run would need an opt-in preference this
 // system doesn't have yet - failure alerting doesn't have that problem,
 // since silence-by-default already means "nothing to report").
+/** Live Sync alert (margin level, daily loss, drawdown, EA offline, no stop loss). Informational only. */
+export async function sendLiveSyncAlertEmail(params: {
+  to: string;
+  recipientUserId?: string;
+  title: string;
+  body: string;
+  severity: "warning" | "critical";
+  dedupeKey: string;
+}): Promise<void> {
+  const html = renderLayout({
+    title: escapeHtml(params.title),
+    titleColor: params.severity === "critical" ? "#b42318" : "#1a1a1a",
+    bodyHtml: `<p>${escapeHtml(params.body)}</p><p style="color: #666; font-size: 13px;">You get this because you switched this alert on in Live Sync. You can change or turn it off any time.</p>`,
+    cta: { text: "Open Live Sync", url: `${getSiteUrl()}/dashboard/live-sync` },
+  });
+  await dispatch({ type: "live_sync_alert", to: params.to, subject: `[AT24 alert] ${params.title}`, html, recipientUserId: params.recipientUserId, dedupeKey: params.dedupeKey });
+}
+
 export async function sendAutomationRunFailedEmail(params: {
   to: string;
   buyerName: string;
