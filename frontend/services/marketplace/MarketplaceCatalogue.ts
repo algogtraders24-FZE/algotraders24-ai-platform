@@ -163,14 +163,19 @@ async function rowToDetail(row: PrismaMarketplaceListing, sellerNames: Map<strin
   };
 }
 
+const PLATFORM_SELLER_DISPLAY_NAME = "Algotraders24.ai";
+const PLATFORM_SELLER_EMAILS = new Set(["algogtraders24@gmail.com"]);
+
 async function resolveSellerNames(sellerIds: string[]): Promise<Map<string, string>> {
   if (sellerIds.length === 0) return new Map();
   const unique = Array.from(new Set(sellerIds));
   const users = await prisma.user.findMany({
     where: { id: { in: unique } },
-    select: { id: true, name: true },
+    select: { id: true, name: true, email: true },
   });
-  return new Map(users.map((u) => [u.id, u.name]));
+  // Listings published from the platform owner's own account are shown under the platform brand, not the
+  // owner's personal name (the account's real name is unchanged everywhere else in the product).
+  return new Map(users.map((u) => [u.id, PLATFORM_SELLER_EMAILS.has((u.email ?? "").toLowerCase()) ? PLATFORM_SELLER_DISPLAY_NAME : u.name]));
 }
 
 // Default marketplace order leads with the most-trusted real listings -
