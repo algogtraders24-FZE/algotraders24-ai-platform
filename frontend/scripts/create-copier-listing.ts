@@ -49,7 +49,7 @@ const DIRECTIONS: Record<string, Direction> = {
   MT5_to_MT5: {
     key: "MT5_to_MT5",
     slug: "at24-local-trade-copier-mt5-to-mt5",
-    title: "AT24 Local Trade Copier - MT5 to MT5",
+    title: "AT24 Trade Copier MT5 to MT5",
     platformTag: "MT5",
     from: "MT5",
     to: "MT5",
@@ -64,7 +64,7 @@ const DIRECTIONS: Record<string, Direction> = {
   MT5_to_MT4: {
     key: "MT5_to_MT4",
     slug: "at24-local-trade-copier-mt5-to-mt4",
-    title: "AT24 Local Trade Copier - MT5 to MT4",
+    title: "AT24 Trade Copier MT5 to MT4",
     platformTag: "MT5",
     from: "MT5",
     to: "MT4",
@@ -79,7 +79,7 @@ const DIRECTIONS: Record<string, Direction> = {
   MT4_to_MT4: {
     key: "MT4_to_MT4",
     slug: "at24-local-trade-copier-mt4-to-mt4",
-    title: "AT24 Local Trade Copier - MT4 to MT4",
+    title: "AT24 Trade Copier MT4 to MT4",
     platformTag: "MT4",
     from: "MT4",
     to: "MT4",
@@ -94,7 +94,7 @@ const DIRECTIONS: Record<string, Direction> = {
   MT4_to_MT5: {
     key: "MT4_to_MT5",
     slug: "at24-local-trade-copier-mt4-to-mt5",
-    title: "AT24 Local Trade Copier - MT4 to MT5",
+    title: "AT24 Trade Copier MT4 to MT5",
     platformTag: "MT4",
     from: "MT4",
     to: "MT5",
@@ -164,7 +164,7 @@ async function main() {
   await writeFile(path.join(RELEASES_DIR, `${release.id}.filename.txt`), zipName, "utf-8");
 
   const description = describe(d);
-  const tags = ["trade-copier", "copier", "utility", "local", d.from.toLowerCase(), d.to.toLowerCase()];
+  const tags = ["trade-copier", "copier", "utility", "demo-tested", "local", d.from.toLowerCase(), d.to.toLowerCase()];
   const listing = await prisma.marketplaceListing.upsert({
     where: { slug: d.slug },
     create: {
@@ -174,7 +174,7 @@ async function main() {
       tradingSystemId: TRADING_SYSTEM_ID, versionId,
       publicationState: "DRAFT",
     },
-    update: { description, tags, versionId, tradingSystemId: TRADING_SYSTEM_ID },
+    update: { title: d.title, description, tags, versionId, tradingSystemId: TRADING_SYSTEM_ID },
   });
 
   const mediaDir = path.join(__dirname, "..", "public", "marketplace", listing.id);

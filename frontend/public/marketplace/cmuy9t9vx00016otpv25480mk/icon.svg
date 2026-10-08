@@ -1,11 +1,11 @@
 <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#060a14"/><stop offset="55%" stop-color="#0d1220"/><stop offset="100%" stop-color="#1a1209"/></linearGradient>
-    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fff3d1"/><stop offset="42%" stop-color="#e9c96d"/><stop offset="100%" stop-color="#b8860b"/></linearGradient>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#060a14"/><stop offset="55%" stop-color="#0d1220"/><stop offset="100%" stop-color="#150b26"/></linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f1e8ff"/><stop offset="42%" stop-color="#b18cff"/><stop offset="100%" stop-color="#6a3fd6"/></linearGradient>
     <linearGradient id="pMT4" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ffb454"/><stop offset="100%" stop-color="#ff8a1f"/></linearGradient>
     <linearGradient id="pMT5" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#5ec8ff"/><stop offset="100%" stop-color="#2b8cff"/></linearGradient>
-    <linearGradient id="link" gradientUnits="userSpaceOnUse" x1="219" y1="0" x2="290" y2="0"><stop offset="0%" stop-color="#ffb454"/><stop offset="50%" stop-color="#f3d27a"/><stop offset="100%" stop-color="#5ec8ff"/></linearGradient>
-    <radialGradient id="halo" cx="50%" cy="30%" r="60%"><stop offset="0%" stop-color="#d4af37" stop-opacity="0.28"/><stop offset="100%" stop-color="#d4af37" stop-opacity="0"/></radialGradient>
+    <linearGradient id="link" gradientUnits="userSpaceOnUse" x1="219" y1="0" x2="290" y2="0"><stop offset="0%" stop-color="#ffb454"/><stop offset="50%" stop-color="#cdb3ff"/><stop offset="100%" stop-color="#5ec8ff"/></linearGradient>
+    <radialGradient id="halo" cx="50%" cy="30%" r="60%"><stop offset="0%" stop-color="#b18cff" stop-opacity="0.28"/><stop offset="100%" stop-color="#b18cff" stop-opacity="0"/></radialGradient>
     <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity="0.035" stroke-width="1"/></pattern>
     <filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
     <clipPath id="clip"><rect x="6" y="6" width="500" height="500" rx="80"/></clipPath>
@@ -13,7 +13,7 @@
   <rect x="6" y="6" width="500" height="500" rx="80" fill="url(#bg)"/>
   <g clip-path="url(#clip)"><rect width="512" height="512" fill="url(#grid)"/><ellipse cx="256" cy="150" rx="260" ry="170" fill="url(#halo)"/></g>
   <rect x="6" y="6" width="500" height="500" rx="80" fill="none" stroke="url(#gold)" stroke-width="7"/>
-  <rect x="19" y="19" width="474" height="474" rx="68" fill="none" stroke="#d4af37" stroke-opacity="0.35" stroke-width="1.2"/>
+  <rect x="19" y="19" width="474" height="474" rx="68" fill="none" stroke="#b18cff" stroke-opacity="0.35" stroke-width="1.2"/>
 
   <g>
     <rect x="40" y="70" width="176" height="140" rx="16" fill="#0c1322" stroke="#4a607e" stroke-width="3"/>
@@ -57,9 +57,9 @@
   <rect x="393" y="148" width="9" height="16" rx="1.5" fill="#ff5d5d"/>
   <line x1="418" y1="124" x2="418" y2="164" stroke="#3fd29a" stroke-width="2"/>
   <rect x="413" y="130" width="9" height="28" rx="1.5" fill="#3fd29a"/>
-  <polyline points="314,176 348,158 378,166 408,140 436,120" fill="none" stroke="#f3d27a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+  <polyline points="314,176 348,158 378,166 408,140 436,120" fill="none" stroke="#cdb3ff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
   </g>
-  <text x="384" y="236" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" letter-spacing="3" fill="#f3d27a">RECEIVER</text>
+  <text x="384" y="236" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" letter-spacing="3" fill="#cdb3ff">RECEIVER</text>
   <!-- copy link -->
   <g filter="url(#glow)">
     <line x1="226" y1="140" x2="286" y2="140" stroke="url(#link)" stroke-width="6" stroke-linecap="round" stroke-dasharray="1 11"/>
@@ -67,11 +67,11 @@
     <path d="M276 122 L300 140 L276 158 Z" fill="url(#gold)"/>
   </g>
   <!-- title block -->
-  <text x="256" y="298" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" letter-spacing="14" fill="#f3d27a">AT24</text>
+  <text x="256" y="298" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" letter-spacing="14" fill="#cdb3ff">AT24</text>
   <text x="256" y="352" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="50" font-weight="900" fill="url(#gold)" letter-spacing="1">TRADE COPIER</text>
-  <g transform="translate(256 372)"><line x1="-120" y1="0" x2="-14" y2="0" stroke="#d4af37" stroke-opacity="0.6"/><line x1="14" y1="0" x2="120" y2="0" stroke="#d4af37" stroke-opacity="0.6"/><rect x="-5" y="-5" width="10" height="10" transform="rotate(45)" fill="url(#gold)"/></g>
+  <g transform="translate(256 372)"><line x1="-120" y1="0" x2="-14" y2="0" stroke="#b18cff" stroke-opacity="0.6"/><line x1="14" y1="0" x2="120" y2="0" stroke="#b18cff" stroke-opacity="0.6"/><rect x="-5" y="-5" width="10" height="10" transform="rotate(45)" fill="url(#gold)"/></g>
   <!-- direction pill -->
-  <rect x="146" y="392" width="220" height="40" rx="20" fill="#0c1322" stroke="#d4af37" stroke-opacity="0.55" stroke-width="1.5"/>
+  <rect x="146" y="392" width="220" height="40" rx="20" fill="#0c1322" stroke="#b18cff" stroke-opacity="0.55" stroke-width="1.5"/>
   <rect x="156" y="399" width="62" height="26" rx="13" fill="url(#pMT4)"/><text x="187" y="418" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" fill="#06101d">MT4</text>
   <path d="M232 412 H272 M262 404 L274 412 L262 420" fill="none" stroke="url(#gold)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
   <rect x="294" y="399" width="62" height="26" rx="13" fill="url(#pMT5)"/><text x="325" y="418" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" fill="#06101d">MT5</text>

@@ -37,7 +37,28 @@ def terminal(x, y, plat, role, active):
   <text x="{x+88}" y="{y+166}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" letter-spacing="3" fill="{'#f3d27a' if active else '#8da2bd'}">{role}</text>'''
 
 
+# one accent theme per direction so the four cards are told apart at a glance
+THEMES = {
+    ("MT5", "MT5"): dict(name="blue",   light="#e3f6ff", mid="#5ec8ff", dark="#1d6fd8", accent="#8fdcff", bg="#071526"),
+    ("MT5", "MT4"): dict(name="green",  light="#e4fff3", mid="#3fd29a", dark="#0f8a5f", accent="#7ff0c1", bg="#06180f"),
+    ("MT4", "MT4"): dict(name="orange", light="#fff0dd", mid="#ffa24a", dark="#c4570a", accent="#ffc27d", bg="#1c0f05"),
+    ("MT4", "MT5"): dict(name="violet", light="#f1e8ff", mid="#b18cff", dark="#6a3fd6", accent="#cdb3ff", bg="#150b26"),
+}
+
+
+def themed(svg, t):
+    # the template is drawn in gold; swap every gold tone for the direction's accent
+    for old, new in (("#fff3d1", t["light"]), ("#e9c96d", t["mid"]), ("#b8860b", t["dark"]), ("#d4af37", t["mid"]),
+                     ("#f3d27a", t["accent"]), ("#1a1209", t["bg"]), ("#f3c13a", "#f3c13a")):
+        svg = svg.replace(old, new)
+    return svg
+
+
 def icon(frm, to):
+    return themed(_icon(frm, to), THEMES[(frm, to)])
+
+
+def _icon(frm, to):
     return f'''<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#060a14"/><stop offset="55%" stop-color="#0d1220"/><stop offset="100%" stop-color="#1a1209"/></linearGradient>
