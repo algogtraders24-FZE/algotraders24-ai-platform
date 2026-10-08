@@ -175,6 +175,7 @@ export default function PublishPanel({ accountId }: { accountId: string }) {
             </p>
             <div className="flex gap-2">
               <a className="text-xs font-semibold text-gold hover:underline" href={linkOf(p)} target="_blank" rel="noreferrer">Open</a>
+              <a className="text-xs font-semibold text-gold hover:underline" href={`/api/private/live-results/export?pageId=${encodeURIComponent(p.id)}`}>My trades CSV</a>
               {p.visibility !== "private" && (
                 <button className="text-xs font-semibold text-gold hover:underline" onClick={() => { void navigator.clipboard.writeText(linkOf(p)); setCopied(p.id); }}>{copied === p.id ? "Copied" : "Copy link"}</button>
               )}

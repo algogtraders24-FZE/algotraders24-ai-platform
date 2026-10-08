@@ -185,21 +185,22 @@ function drawBlock(cur: Cursor, block: Block): void {
   }
 }
 
-/** Renders the full report to PDF bytes. */
-export async function renderReportPdf(report: EdgeReportE1, opts: { generatedAt?: Date } = {}): Promise<Uint8Array> {
+/** Draws any list of blocks into an A4 PDF (shared by the Edge Analyzer report and the Live Results report). */
+export async function renderBlocksPdf(
+  blocks: Block[],
+  opts: { title: string; producer: string; footerLabel: string; generatedAt?: Date },
+): Promise<Uint8Array> {
   const generatedAt = opts.generatedAt ?? new Date();
   const doc = await PDFDocument.create();
-  doc.setTitle("AT24 Edge Analyzer Report");
+  doc.setTitle(opts.title);
   doc.setCreator("AT24");
-  doc.setProducer("AT24 Edge Analyzer");
+  doc.setProducer(opts.producer);
   doc.setCreationDate(generatedAt);
-  doc.setModificationDate(generatedAt); // fixed dates => the same report renders to identical bytes
+  doc.setModificationDate(generatedAt); // fixed dates => the same content renders to identical bytes
   const regular = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const cur: Cursor = { doc, page: doc.addPage([PAGE_W, PAGE_H]), y: TOP, regular, bold };
 
-  const generatedOn = generatedAt.toISOString().slice(0, 10);
-  const blocks = buildReportBlocks(report, { generatedOn });
   blocks.forEach((block, i) => {
     // Keep a heading with its table: small tables stay whole, long ones keep at
     // least a header and a few rows together with the heading (no orphan rows).
@@ -215,9 +216,16 @@ export async function renderReportPdf(report: EdgeReportE1, opts: { generatedAt?
   const pages = doc.getPages();
   pages.forEach((page, i) => {
     page.drawLine({ start: { x: MARGIN_X, y: 46 }, end: { x: PAGE_W - MARGIN_X, y: 46 }, thickness: 0.5, color: RULE });
-    page.drawText(toPdfText(`AT24 Edge Analyzer  |  ${PDF_DISCLAIMER}`), { x: MARGIN_X, y: 34, size: 7, font: regular, color: MUTED });
+    page.drawText(toPdfText(opts.footerLabel), { x: MARGIN_X, y: 34, size: 7, font: regular, color: MUTED });
     const num = `Page ${i + 1} of ${pages.length}`;
     page.drawText(num, { x: PAGE_W - MARGIN_X - regular.widthOfTextAtSize(num, 7.5), y: 34, size: 7.5, font: regular, color: MUTED });
   });
   return doc.save();
+}
+
+/** Renders the full Edge Analyzer report to PDF bytes. */
+export async function renderReportPdf(report: EdgeReportE1, opts: { generatedAt?: Date } = {}): Promise<Uint8Array> {
+  const generatedAt = opts.generatedAt ?? new Date();
+  const blocks = buildReportBlocks(report, { generatedOn: generatedAt.toISOString().slice(0, 10) });
+  return renderBlocksPdf(blocks, { title: "AT24 Edge Analyzer Report", producer: "AT24 Edge Analyzer", footerLabel: `AT24 Edge Analyzer  |  ${PDF_DISCLAIMER}`, generatedAt });
 }
