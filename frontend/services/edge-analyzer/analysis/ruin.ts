@@ -59,12 +59,13 @@ function simulate(
   blockLength: number,
   seed: number,
   name: RuinScenario["name"],
+  thresholds: readonly number[] = DRAWDOWN_THRESHOLDS_PCT,
 ): RuinScenario {
   const n = pnl.length;
   const rand = mulberry32(seed);
   const finals = new Float64Array(paths);
   const maxDds = new Float64Array(paths);
-  const reach = DRAWDOWN_THRESHOLDS_PCT.map(() => 0);
+  const reach = thresholds.map(() => 0);
   let below = 0;
   let half = 0;
   for (let p = 0; p < paths; p++) {
@@ -87,7 +88,7 @@ function simulate(
     maxDds[p] = maxDd;
     if (bal < start) below += 1;
     if (hitHalf) half += 1;
-    for (let i = 0; i < DRAWDOWN_THRESHOLDS_PCT.length; i++) if (maxDd >= DRAWDOWN_THRESHOLDS_PCT[i]!) reach[i] = reach[i]! + 1;
+    for (let i = 0; i < thresholds.length; i++) if (maxDd >= thresholds[i]!) reach[i] = reach[i]! + 1;
   }
   finals.sort();
   maxDds.sort();
@@ -96,7 +97,7 @@ function simulate(
     blockLength,
     paths,
     horizonTrades: horizon,
-    probDrawdownReaches: DRAWDOWN_THRESHOLDS_PCT.map((th, i) => ({ thresholdPct: th, probability: r3(reach[i]! / paths) })),
+    probDrawdownReaches: thresholds.map((th, i) => ({ thresholdPct: th, probability: r3(reach[i]! / paths) })),
     probFinishBelowStart: r3(below / paths),
     probLoseHalfOfStart: start > 0 ? r3(half / paths) : null,
     finalBalancePercentiles: {
@@ -114,7 +115,7 @@ function simulate(
 export function computeRuinAnalysis(
   trades: readonly ClosedTrade[],
   startBalance: number,
-  opts: { seed?: number; horizonTrades?: number } = {},
+  opts: { seed?: number; horizonTrades?: number; thresholdsPct?: readonly number[] } = {},
 ): RuinAnalysis | null {
   if (trades.length < MIN_TRADES_FOR_RUIN) return null;
   const seed = opts.seed ?? DEFAULT_SEED;
@@ -125,8 +126,8 @@ export function computeRuinAnalysis(
   return {
     startBalance: r2(startBalance),
     scenarios: [
-      simulate(pnl, startBalance, horizon, paths, 1, seed, "independent"),
-      simulate(pnl, startBalance, horizon, paths, RUIN_BLOCK_LENGTH, seed + 7, "streak-preserving"),
+      simulate(pnl, startBalance, horizon, paths, 1, seed, "independent", opts.thresholdsPct ?? DRAWDOWN_THRESHOLDS_PCT),
+      simulate(pnl, startBalance, horizon, paths, RUIN_BLOCK_LENGTH, seed + 7, "streak-preserving", opts.thresholdsPct ?? DRAWDOWN_THRESHOLDS_PCT),
     ],
     assumptions: [
       "Resamples your own past trade results; future trades are assumed to look like past ones (same strategies, sizing and market conditions).",

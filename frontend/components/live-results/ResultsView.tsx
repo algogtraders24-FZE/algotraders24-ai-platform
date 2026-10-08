@@ -3,6 +3,7 @@
 // contains: all privacy redaction already happened in services/live-results/build.ts.
 import type { ReactNode } from "react";
 import type { PublicResults } from "@/services/live-results/build";
+import AdvancedStatsPanel from "./AdvancedStats";
 
 const pct = (n: number | null | undefined, signed = true) => (n === null || n === undefined ? "-" : `${signed && n > 0 ? "+" : ""}${n.toFixed(2)}%`);
 const num = (n: number | null | undefined, d = 2) => (n === null || n === undefined ? "-" : n.toFixed(d));
@@ -239,6 +240,8 @@ export default function ResultsView({ r, ownerNote }: { r: PublicResults; ownerN
           </table>
         </Panel>
       </div>
+
+      <AdvancedStatsPanel adv={r.advanced} showAmounts={r.amounts !== undefined} currency={cur} />
 
       {r.amounts && (
         <Panel title="Money" note="shown because the page owner chose to show amounts">
