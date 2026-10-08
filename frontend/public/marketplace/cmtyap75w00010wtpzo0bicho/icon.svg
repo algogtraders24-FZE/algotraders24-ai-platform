@@ -1,56 +1,27 @@
 <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0b0f19"/>
-      <stop offset="100%" stop-color="#171008"/>
-    </linearGradient>
-    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#e7c86b"/>
-      <stop offset="100%" stop-color="#d4af37"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="50%" cy="34%" r="46%">
-      <stop offset="0%" stop-color="#d4af37" stop-opacity="0.22"/>
-      <stop offset="100%" stop-color="#d4af37" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#fff3d1"/>
-      <stop offset="100%" stop-color="#d4af37"/>
-    </linearGradient>
-    <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
-      <feGaussianBlur stdDeviation="6" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#080604"/><stop offset="55%" stop-color="#17110a"/><stop offset="100%" stop-color="#241a0b"/></linearGradient>
+    <linearGradient id="brand" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fff3d1"/><stop offset="45%" stop-color="#e9c96d"/><stop offset="100%" stop-color="#b8860b"/></linearGradient>
+    <linearGradient id="face" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#fff3d1"/><stop offset="55%" stop-color="#e9c96d"/><stop offset="100%" stop-color="#b8860b"/></linearGradient>
+    <linearGradient id="side" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#b8860b"/><stop offset="100%" stop-color="#e9c96d" stop-opacity="0.6"/></linearGradient>
+    <radialGradient id="halo" cx="50%" cy="38%" r="55%"><stop offset="0%" stop-color="#d4af37" stop-opacity="0.38"/><stop offset="100%" stop-color="#d4af37" stop-opacity="0"/></radialGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity="0.04" stroke-width="1"/></pattern>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
   </defs>
-
-  <rect x="8" y="8" width="496" height="496" rx="72" fill="url(#bg)"/>
-  <rect x="8" y="8" width="496" height="496" rx="72" fill="none" stroke="url(#borderGrad)" stroke-width="6"/>
-
-  <ellipse cx="256" cy="172" rx="150" ry="118" fill="url(#glow)"/>
-
-  <!-- 5 converging breakout arrows - one per module (Nova/Apex/Zenith/Pulse/Eclipse) -->
-  <g filter="url(#softGlow)">
-    <line x1="256" y1="200" x2="256" y2="90" stroke="url(#goldGrad)" stroke-width="7"/>
-    <path d="M 236 112 L 256 82 L 276 112 Z" fill="url(#goldGrad)"/>
-
-    <line x1="180" y1="210" x2="150" y2="118" stroke="url(#goldGrad)" stroke-width="6" opacity="0.9"/>
-    <path d="M 133 138 L 150 108 L 166 140 Z" fill="url(#goldGrad)" opacity="0.9"/>
-
-    <line x1="332" y1="210" x2="362" y2="118" stroke="url(#goldGrad)" stroke-width="6" opacity="0.9"/>
-    <path d="M 346 140 L 362 108 L 379 138 Z" fill="url(#goldGrad)" opacity="0.9"/>
-
-    <line x1="120" y1="240" x2="70" y2="180" stroke="#94a3b8" stroke-width="5" opacity="0.75"/>
-    <path d="M 58 195 L 70 165 L 84 193 Z" fill="#94a3b8" opacity="0.75"/>
-
-    <line x1="392" y1="240" x2="442" y2="180" stroke="#94a3b8" stroke-width="5" opacity="0.75"/>
-    <path d="M 428 193 L 442 165 L 454 195 Z" fill="#94a3b8" opacity="0.75"/>
-
-    <!-- central price node -->
-    <circle cx="256" cy="230" r="30" fill="url(#goldGrad)"/>
-    <text x="256" y="239" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="800" fill="#2c1a02">Au</text>
-  </g>
-
-  <!-- Wordmark -->
-  <text x="256" y="352" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="800" letter-spacing="1" fill="#ffffff">XXX GOLD</text>
-  <text x="256" y="386" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="800" letter-spacing="0.5" fill="url(#borderGrad)">5-MODULE BREAKOUT SYSTEM</text>
-  <text x="256" y="418" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" letter-spacing="2" fill="#94a3b8">MULTI-STRATEGY · DASHBOARD · MT5</text>
+  <clipPath id="clip"><rect x="6" y="6" width="500" height="500" rx="80"/></clipPath>
+  <rect x="6" y="6" width="500" height="500" rx="80" fill="url(#bg)"/>
+  <g clip-path="url(#clip)"><rect width="512" height="512" fill="url(#grid)"/><ellipse cx="256" cy="170" rx="270" ry="210" fill="url(#halo)"/></g>
+  <rect x="6" y="6" width="500" height="500" rx="80" fill="none" stroke="url(#brand)" stroke-width="7"/>
+  <rect x="19" y="19" width="474" height="474" rx="68" fill="none" stroke="#e9c96d" stroke-opacity="0.35" stroke-width="1.2"/>
+  <text x="256" y="62" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="800" letter-spacing="14" fill="#fff3d1">XXX</text>
+  <g transform="translate(256 192) scale(0.92)">
+    <path d="M-112 50 L-12 50 L13 96 L-137 96 Z" fill="url(#face)"/><path d="M-137 96 L13 96 L13 110 L-137 110 Z" fill="url(#side)"/><path d="M-102 57 L-24 57" stroke="#fff3d1" stroke-width="4" stroke-linecap="round" opacity="0.8"/><path d="M16 50 L116 50 L141 96 L-9 96 Z" fill="url(#face)"/><path d="M-9 96 L141 96 L141 110 L-9 110 Z" fill="url(#side)"/><path d="M26 57 L104 57" stroke="#fff3d1" stroke-width="4" stroke-linecap="round" opacity="0.8"/>
+    <path d="M-50 -10 L50 -10 L75 36 L-75 36 Z" fill="url(#face)"/><path d="M-75 36 L75 36 L75 50 L-75 50 Z" fill="url(#side)"/><path d="M-40 -3 L38 -3" stroke="#fff3d1" stroke-width="4" stroke-linecap="round" opacity="0.8"/>
+    <path d="M-50 -68 L50 -68 L75 -22 L-75 -22 Z" fill="url(#face)"/><path d="M-75 -22 L75 -22 L75 -8 L-75 -8 Z" fill="url(#side)"/><path d="M-40 -61 L38 -61" stroke="#fff3d1" stroke-width="4" stroke-linecap="round" opacity="0.8"/>
+    <path d="M0 -150 L9 -118 L40 -110 L9 -102 L0 -70 L-9 -102 L-40 -110 L-9 -118 Z" fill="#fff3d1" filter="url(#glow)"/>
+    <circle cx="86" cy="-40" r="4" fill="#fff3d1" filter="url(#glow)"/><circle cx="-94" cy="-66" r="3" fill="#fff3d1" filter="url(#glow)"/></g>
+  <text x="256" y="388" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="108" font-weight="900" fill="url(#brand)" letter-spacing="2">GOLD</text>
+  <g transform="translate(256 406)"><line x1="-130" y1="0" x2="-14" y2="0" stroke="#e9c96d" stroke-opacity="0.6"/><line x1="14" y1="0" x2="130" y2="0" stroke="#e9c96d" stroke-opacity="0.6"/><rect x="-5" y="-5" width="10" height="10" transform="rotate(45)" fill="url(#brand)"/></g>
+  <text x="256" y="440" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" letter-spacing="3" fill="#fff3d1">5-MODULE BREAKOUT</text>
+  <text x="256" y="466" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" letter-spacing="3" fill="#b9a77d">XAUUSD  ·  M15</text>
 </svg>

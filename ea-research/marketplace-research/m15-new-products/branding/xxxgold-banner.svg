@@ -1,4 +1,4 @@
-<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="0 0 1600 500" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#080604"/><stop offset="55%" stop-color="#17110a"/><stop offset="100%" stop-color="#241a0b"/></linearGradient>
     <linearGradient id="brand" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fff3d1"/><stop offset="45%" stop-color="#e9c96d"/><stop offset="100%" stop-color="#b8860b"/></linearGradient>
@@ -8,20 +8,23 @@
     <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity="0.04" stroke-width="1"/></pattern>
     <filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
   </defs>
-  <clipPath id="clip"><rect x="6" y="6" width="500" height="500" rx="80"/></clipPath>
-  <rect x="6" y="6" width="500" height="500" rx="80" fill="url(#bg)"/>
-  <g clip-path="url(#clip)"><rect width="512" height="512" fill="url(#grid)"/><ellipse cx="256" cy="170" rx="270" ry="210" fill="url(#halo)"/></g>
-  <rect x="6" y="6" width="500" height="500" rx="80" fill="none" stroke="url(#brand)" stroke-width="7"/>
-  <rect x="19" y="19" width="474" height="474" rx="68" fill="none" stroke="#e9c96d" stroke-opacity="0.35" stroke-width="1.2"/>
-  <text x="256" y="62" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="800" letter-spacing="14" fill="#fff3d1">XXX</text>
-  <g transform="translate(256 192) scale(0.92)">
+  <rect width="1600" height="500" fill="url(#bg)"/>
+  <rect width="1600" height="500" fill="url(#grid)"/>
+  <ellipse cx="1230" cy="230" rx="560" ry="360" fill="url(#halo)"/>
+  <rect x="3" y="3" width="1594" height="494" fill="none" stroke="url(#brand)" stroke-width="5"/>
+  <g transform="translate(1270 232) scale(1.18)">
     <path d="M-112 50 L-12 50 L13 96 L-137 96 Z" fill="url(#face)"/><path d="M-137 96 L13 96 L13 110 L-137 110 Z" fill="url(#side)"/><path d="M-102 57 L-24 57" stroke="#fff3d1" stroke-width="4" stroke-linecap="round" opacity="0.8"/><path d="M16 50 L116 50 L141 96 L-9 96 Z" fill="url(#face)"/><path d="M-9 96 L141 96 L141 110 L-9 110 Z" fill="url(#side)"/><path d="M26 57 L104 57" stroke="#fff3d1" stroke-width="4" stroke-linecap="round" opacity="0.8"/>
     <path d="M-50 -10 L50 -10 L75 36 L-75 36 Z" fill="url(#face)"/><path d="M-75 36 L75 36 L75 50 L-75 50 Z" fill="url(#side)"/><path d="M-40 -3 L38 -3" stroke="#fff3d1" stroke-width="4" stroke-linecap="round" opacity="0.8"/>
     <path d="M-50 -68 L50 -68 L75 -22 L-75 -22 Z" fill="url(#face)"/><path d="M-75 -22 L75 -22 L75 -8 L-75 -8 Z" fill="url(#side)"/><path d="M-40 -61 L38 -61" stroke="#fff3d1" stroke-width="4" stroke-linecap="round" opacity="0.8"/>
     <path d="M0 -150 L9 -118 L40 -110 L9 -102 L0 -70 L-9 -102 L-40 -110 L-9 -118 Z" fill="#fff3d1" filter="url(#glow)"/>
     <circle cx="86" cy="-40" r="4" fill="#fff3d1" filter="url(#glow)"/><circle cx="-94" cy="-66" r="3" fill="#fff3d1" filter="url(#glow)"/></g>
-  <text x="256" y="388" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="108" font-weight="900" fill="url(#brand)" letter-spacing="2">GOLD</text>
-  <g transform="translate(256 406)"><line x1="-130" y1="0" x2="-14" y2="0" stroke="#e9c96d" stroke-opacity="0.6"/><line x1="14" y1="0" x2="130" y2="0" stroke="#e9c96d" stroke-opacity="0.6"/><rect x="-5" y="-5" width="10" height="10" transform="rotate(45)" fill="url(#brand)"/></g>
-  <text x="256" y="440" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" letter-spacing="3" fill="#fff3d1">5-MODULE BREAKOUT</text>
-  <text x="256" y="466" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" letter-spacing="3" fill="#b9a77d">XAUUSD  ·  M15</text>
+  <text x="80" y="104" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" letter-spacing="18" fill="#fff3d1">ALGOTRADERS24</text>
+  <text x="76" y="250" font-family="Arial, Helvetica, sans-serif" font-size="150" font-weight="900" fill="url(#brand)" letter-spacing="2">XXX GOLD</text>
+  <text x="80" y="312" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="700" fill="#fff3d1">Multi-module breakout EA for Gold (XAUUSD), M15</text>
+  <text x="80" y="348" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="600" letter-spacing="1" fill="#b9a77d">MT5  ·  pending-order breakouts  ·  H1 trend filter  ·  on-chart dashboard</text>
+  <rect x="80" y="372" width="271" height="40" rx="20" fill="#17110a" stroke="#e9c96d" stroke-width="1.8"/><text x="215" y="398" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" letter-spacing="2" fill="#fff3d1">5 BREAKOUT MODULES</text>
+  <rect x="367" y="372" width="308" height="40" rx="20" fill="#17110a" stroke="#e9c96d" stroke-width="1.8"/><text x="521" y="398" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" letter-spacing="2" fill="#fff3d1">TIME-STOP + BREAKEVEN</text>
+  <rect x="691" y="372" width="221" height="40" rx="20" fill="#17110a" stroke="#e9c96d" stroke-width="1.8"/><text x="801" y="398" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" letter-spacing="2" fill="#fff3d1">MOON-LOCK EXIT</text>
+  <rect x="928" y="372" width="258" height="40" rx="20" fill="#17110a" stroke="#e9c96d" stroke-width="1.8"/><text x="1057" y="398" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" letter-spacing="2" fill="#fff3d1">PROP-FIRM SHIELDS</text>
+  <text x="80" y="452" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="600" letter-spacing="2" fill="#8d7d58">PAST PERFORMANCE IS NOT A GUARANTEE OF FUTURE RESULTS  ·  EVIDENCE SHOWN BY THE MARKETPLACE, NOT BY THIS IMAGE</text>
 </svg>

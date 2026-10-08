@@ -1,91 +1,35 @@
 <svg viewBox="0 0 1600 500" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#050b18"/><stop offset="55%" stop-color="#0a1730"/><stop offset="100%" stop-color="#101a2c"/></linearGradient>
-    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fff3d1"/><stop offset="45%" stop-color="#e9c96d"/><stop offset="100%" stop-color="#b8860b"/></linearGradient>
-    <linearGradient id="blue" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#9fd0ff"/><stop offset="100%" stop-color="#2f7bff"/></linearGradient>
-    <linearGradient id="sky" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#1d3a6b" stop-opacity="0.9"/><stop offset="100%" stop-color="#0a1730" stop-opacity="0.95"/></linearGradient>
-    <radialGradient id="halo" cx="50%" cy="35%" r="60%"><stop offset="0%" stop-color="#3b82f6" stop-opacity="0.35"/><stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/></radialGradient>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#040a18"/><stop offset="55%" stop-color="#0a1a3a"/><stop offset="100%" stop-color="#12233f"/></linearGradient>
+    <linearGradient id="brand" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e8f2ff"/><stop offset="45%" stop-color="#7db8ff"/><stop offset="100%" stop-color="#2b6fe0"/></linearGradient>
+    <linearGradient id="face" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#e8f2ff"/><stop offset="55%" stop-color="#7db8ff"/><stop offset="100%" stop-color="#2b6fe0"/></linearGradient>
+    <linearGradient id="side" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#2b6fe0"/><stop offset="100%" stop-color="#7db8ff" stop-opacity="0.6"/></linearGradient>
+    <radialGradient id="halo" cx="50%" cy="38%" r="55%"><stop offset="0%" stop-color="#3b82f6" stop-opacity="0.38"/><stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/></radialGradient>
     <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity="0.04" stroke-width="1"/></pattern>
-    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
   </defs>
-  <clipPath id="clipb"><rect x="0" y="0" width="1600" height="500"/></clipPath>
   <rect width="1600" height="500" fill="url(#bg)"/>
-  <g clip-path="url(#clipb)">
-    <rect width="1600" height="500" fill="url(#grid)"/>
-    <ellipse cx="1220" cy="190" rx="560" ry="330" fill="url(#halo)"/>
-    <rect x="700.0" y="430.0" width="62.3" height="70.0" fill="url(#sky)"/>
-  <rect x="705.0" y="436.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="741.0" y="492.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="764.3" y="410.0" width="62.3" height="90.0" fill="url(#sky)"/>
-  <rect x="778.3" y="430.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="814.3" y="486.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="828.6" y="398.0" width="62.3" height="102.0" fill="url(#sky)"/>
-  <rect x="851.6" y="432.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="835.6" y="488.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="892.9" y="394.0" width="62.3" height="106.0" fill="url(#sky)"/>
-  <rect x="924.9" y="442.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="957.1" y="350.0" width="62.3" height="150.0" fill="url(#sky)"/>
-  <rect x="962.1" y="356.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="998.1" y="412.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="982.1" y="468.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="1021.4" y="350.0" width="62.3" height="150.0" fill="url(#sky)"/>
-  <rect x="1035.4" y="370.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="1071.4" y="426.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="1055.4" y="482.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="1085.7" y="358.0" width="62.3" height="142.0" fill="url(#sky)"/>
-  <rect x="1108.7" y="392.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="1092.7" y="448.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="1150.0" y="310.0" width="62.3" height="190.0" fill="url(#sky)"/>
-  <rect x="1182.0" y="358.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="1166.0" y="414.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="1202.0" y="470.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="1214.3" y="350.0" width="62.3" height="150.0" fill="url(#sky)"/>
-  <rect x="1219.3" y="356.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="1255.3" y="412.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="1239.3" y="468.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="1278.6" y="382.0" width="62.3" height="118.0" fill="url(#sky)"/>
-  <rect x="1292.6" y="402.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="1328.6" y="458.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="1342.9" y="370.0" width="62.3" height="130.0" fill="url(#sky)"/>
-  <rect x="1365.9" y="404.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="1349.9" y="460.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="1407.1" y="398.0" width="62.3" height="102.0" fill="url(#sky)"/>
-  <rect x="1439.1" y="446.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="1471.4" y="418.0" width="62.3" height="82.0" fill="url(#sky)"/>
-  <rect x="1476.4" y="424.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="1512.4" y="480.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  <rect x="1535.7" y="430.0" width="62.3" height="70.0" fill="url(#sky)"/>
-  <rect x="1549.7" y="450.0" width="3" height="4" fill="#9fd0ff" fill-opacity="0.55"/>
-  </g>
-  <rect x="3" y="3" width="1594" height="494" fill="none" stroke="url(#gold)" stroke-width="5"/>
-  <g filter="url(#glow)">
-  <line x1="980.0" y1="250.0" x2="980.0" y2="334.0" stroke="#ff5d5d" stroke-width="4.8"/>
-  <rect x="964.0" y="270.0" width="32.0" height="44.0" rx="2" fill="#ff5d5d"/>
-  <line x1="1048.0" y1="234.0" x2="1048.0" y2="326.0" stroke="#3fd29a" stroke-width="4.8"/>
-  <rect x="1032.0" y="254.0" width="32.0" height="52.0" rx="2" fill="#3fd29a"/>
-  <line x1="1116.0" y1="246.0" x2="1116.0" y2="326.0" stroke="#ff5d5d" stroke-width="4.8"/>
-  <rect x="1100.0" y="266.0" width="32.0" height="40.0" rx="2" fill="#ff5d5d"/>
-  <line x1="1184.0" y1="222.0" x2="1184.0" y2="318.0" stroke="#3fd29a" stroke-width="4.8"/>
-  <rect x="1168.0" y="242.0" width="32.0" height="56.0" rx="2" fill="#3fd29a"/>
-  <line x1="1252.0" y1="230.0" x2="1252.0" y2="306.0" stroke="#ff5d5d" stroke-width="4.8"/>
-  <rect x="1236.0" y="250.0" width="32.0" height="36.0" rx="2" fill="#ff5d5d"/>
-  <line x1="1320.0" y1="210.0" x2="1320.0" y2="310.0" stroke="#3fd29a" stroke-width="4.8"/>
-  <rect x="1304.0" y="230.0" width="32.0" height="60.0" rx="2" fill="#3fd29a"/>
-  <line x1="1388.0" y1="174.0" x2="1388.0" y2="282.0" stroke="#3fd29a" stroke-width="4.8"/>
-  <rect x="1372.0" y="194.0" width="32.0" height="68.0" rx="2" fill="#3fd29a"/>
-  <line x1="1456.0" y1="142.0" x2="1456.0" y2="254.0" stroke="#3fd29a" stroke-width="4.8"/>
-  <rect x="1440.0" y="162.0" width="32.0" height="72.0" rx="2" fill="#3fd29a"/>
-  <line x1="1524.0" y1="102.0" x2="1524.0" y2="222.0" stroke="#3fd29a" stroke-width="4.8"/>
-  <rect x="1508.0" y="122.0" width="32.0" height="80.0" rx="2" fill="#3fd29a"/>
-  <line x1="948.0" y1="226.0" x2="1568.0" y2="226.0" stroke="#e9c96d" stroke-width="5.2" stroke-dasharray="20 8" stroke-linecap="round"/>
-  </g>
-  <text x="80" y="104" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" letter-spacing="18" fill="#f3d27a">ALGOTRADERS24</text>
-  <text x="76" y="250" font-family="Arial, Helvetica, sans-serif" font-size="150" font-weight="900" fill="url(#gold)" letter-spacing="2">XXX US30</text>
+  <rect width="1600" height="500" fill="url(#grid)"/>
+  <ellipse cx="1230" cy="230" rx="560" ry="360" fill="url(#halo)"/>
+  <rect x="3" y="3" width="1594" height="494" fill="none" stroke="url(#brand)" stroke-width="5"/>
+  <g transform="translate(1270 232) scale(1.18)">
+    <path d="M-44 -118 l4 10 11 1 -8 7 3 11 -10 -6 -10 6 3 -11 -8 -7 11 -1z" fill="#e8f2ff"/><path d="M0 -118 l4 10 11 1 -8 7 3 11 -10 -6 -10 6 3 -11 -8 -7 11 -1z" fill="#e8f2ff"/><path d="M44 -118 l4 10 11 1 -8 7 3 11 -10 -6 -10 6 3 -11 -8 -7 11 -1z" fill="#e8f2ff"/>
+    <path d="M-124 -34 L0 -92 L124 -34 Z" fill="url(#face)"/>
+    <path d="M-100 -40 L0 -84 L100 -40" fill="none" stroke="#0a1a3a" stroke-width="3" opacity="0.55"/>
+    <circle cx="0" cy="-58" r="9" fill="#0a1a3a" stroke="#e8f2ff" stroke-width="2.5"/>
+    <rect x="-96" y="-26" width="16" height="92" rx="3" fill="url(#face)"/><rect x="-99" y="-30" width="22" height="8" rx="2" fill="#7db8ff"/><rect x="-99" y="62" width="22" height="8" rx="2" fill="#7db8ff"/><rect x="-62" y="-26" width="16" height="92" rx="3" fill="url(#face)"/><rect x="-65" y="-30" width="22" height="8" rx="2" fill="#7db8ff"/><rect x="-65" y="62" width="22" height="8" rx="2" fill="#7db8ff"/><rect x="-28" y="-26" width="16" height="92" rx="3" fill="url(#face)"/><rect x="-31" y="-30" width="22" height="8" rx="2" fill="#7db8ff"/><rect x="-31" y="62" width="22" height="8" rx="2" fill="#7db8ff"/><rect x="12" y="-26" width="16" height="92" rx="3" fill="url(#face)"/><rect x="9" y="-30" width="22" height="8" rx="2" fill="#7db8ff"/><rect x="9" y="62" width="22" height="8" rx="2" fill="#7db8ff"/><rect x="46" y="-26" width="16" height="92" rx="3" fill="url(#face)"/><rect x="43" y="-30" width="22" height="8" rx="2" fill="#7db8ff"/><rect x="43" y="62" width="22" height="8" rx="2" fill="#7db8ff"/><rect x="80" y="-26" width="16" height="92" rx="3" fill="url(#face)"/><rect x="77" y="-30" width="22" height="8" rx="2" fill="#7db8ff"/><rect x="77" y="62" width="22" height="8" rx="2" fill="#7db8ff"/>
+    <rect x="-118" y="70" width="236" height="12" rx="3" fill="url(#face)"/>
+    <rect x="-132" y="82" width="264" height="12" rx="3" fill="#7db8ff"/>
+    <rect x="-146" y="94" width="292" height="12" rx="3" fill="#2b6fe0"/>
+    <polyline points="-150,40 -92,10 -50,26 10,-30 70,-6 150,-86" fill="none" stroke="#e8f2ff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+    <path d="M132 -98 L158 -92 L150 -68 Z" fill="#e8f2ff" filter="url(#glow)"/></g>
+  <text x="80" y="104" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" letter-spacing="18" fill="#e8f2ff">ALGOTRADERS24</text>
+  <text x="76" y="250" font-family="Arial, Helvetica, sans-serif" font-size="150" font-weight="900" fill="url(#brand)" letter-spacing="2">XXX US30</text>
   <text x="80" y="312" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="700" fill="#cfe3ff">Multi-module breakout EA for the Dow Jones (US30), M15</text>
-  <text x="80" y="348" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="600" letter-spacing="1" fill="#8da2bd">MT5  ·  pending-order breakouts  ·  H1 trend filter  ·  on-chart dashboard</text>
-  <rect x="80" y="372" width="271" height="40" rx="20" fill="#0a1730" stroke="url(#blue)" stroke-width="1.8"/><text x="215" y="398" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" letter-spacing="2" fill="#9fd0ff">5 BREAKOUT MODULES</text>
-  <rect x="367" y="372" width="271" height="40" rx="20" fill="#0a1730" stroke="url(#blue)" stroke-width="1.8"/><text x="502" y="398" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" letter-spacing="2" fill="#9fd0ff">OPTIONAL AI FILTER</text>
-  <rect x="654" y="372" width="221" height="40" rx="20" fill="#0a1730" stroke="url(#blue)" stroke-width="1.8"/><text x="764" y="398" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" letter-spacing="2" fill="#9fd0ff">MOON-LOCK EXIT</text>
-  <rect x="891" y="372" width="258" height="40" rx="20" fill="#0a1730" stroke="url(#blue)" stroke-width="1.8"/><text x="1020" y="398" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" letter-spacing="2" fill="#9fd0ff">PROP-FIRM SHIELDS</text>
+  <text x="80" y="348" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="600" letter-spacing="1" fill="#8da2bd">MT5  ·  pending-order breakouts  ·  optional AI filter  ·  on-chart dashboard</text>
+  <rect x="80" y="372" width="271" height="40" rx="20" fill="#0a1a3a" stroke="#7db8ff" stroke-width="1.8"/><text x="215" y="398" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" letter-spacing="2" fill="#e8f2ff">5 BREAKOUT MODULES</text>
+  <rect x="367" y="372" width="234" height="40" rx="20" fill="#0a1a3a" stroke="#7db8ff" stroke-width="1.8"/><text x="484" y="398" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" letter-spacing="2" fill="#e8f2ff">H1 TREND FILTER</text>
+  <rect x="617" y="372" width="221" height="40" rx="20" fill="#0a1a3a" stroke="#7db8ff" stroke-width="1.8"/><text x="727" y="398" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" letter-spacing="2" fill="#e8f2ff">MOON-LOCK EXIT</text>
+  <rect x="854" y="372" width="258" height="40" rx="20" fill="#0a1a3a" stroke="#7db8ff" stroke-width="1.8"/><text x="983" y="398" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" letter-spacing="2" fill="#e8f2ff">PROP-FIRM SHIELDS</text>
   <text x="80" y="452" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="600" letter-spacing="2" fill="#6f84a3">PAST PERFORMANCE IS NOT A GUARANTEE OF FUTURE RESULTS  ·  EVIDENCE SHOWN BY THE MARKETPLACE, NOT BY THIS IMAGE</text>
 </svg>

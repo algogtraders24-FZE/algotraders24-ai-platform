@@ -1,86 +1,31 @@
 <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#0d0905"/><stop offset="55%" stop-color="#1a1208"/><stop offset="100%" stop-color="#241709"/></linearGradient>
-    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fff3d1"/><stop offset="45%" stop-color="#e9c96d"/><stop offset="100%" stop-color="#b8860b"/></linearGradient>
-    <linearGradient id="blue" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ffd29a"/><stop offset="100%" stop-color="#f7931a"/></linearGradient>
-    <linearGradient id="sky" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#6b3d0f" stop-opacity="0.9"/><stop offset="100%" stop-color="#1a1208" stop-opacity="0.95"/></linearGradient>
-    <radialGradient id="halo" cx="50%" cy="35%" r="60%"><stop offset="0%" stop-color="#f7931a" stop-opacity="0.35"/><stop offset="100%" stop-color="#f7931a" stop-opacity="0"/></radialGradient>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#0d0702"/><stop offset="55%" stop-color="#241204"/><stop offset="100%" stop-color="#33190a"/></linearGradient>
+    <linearGradient id="brand" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ffe9cf"/><stop offset="45%" stop-color="#ffb257"/><stop offset="100%" stop-color="#e8780a"/></linearGradient>
+    <linearGradient id="face" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#ffe9cf"/><stop offset="55%" stop-color="#ffb257"/><stop offset="100%" stop-color="#e8780a"/></linearGradient>
+    <linearGradient id="side" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#e8780a"/><stop offset="100%" stop-color="#ffb257" stop-opacity="0.6"/></linearGradient>
+    <radialGradient id="halo" cx="50%" cy="38%" r="55%"><stop offset="0%" stop-color="#f7931a" stop-opacity="0.38"/><stop offset="100%" stop-color="#f7931a" stop-opacity="0"/></radialGradient>
     <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity="0.04" stroke-width="1"/></pattern>
-    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
   </defs>
   <clipPath id="clip"><rect x="6" y="6" width="500" height="500" rx="80"/></clipPath>
   <rect x="6" y="6" width="500" height="500" rx="80" fill="url(#bg)"/>
-  <g clip-path="url(#clip)">
-    <rect width="512" height="512" fill="url(#grid)"/>
-    <ellipse cx="256" cy="150" rx="260" ry="190" fill="url(#halo)"/>
-    <rect x="6.0" y="367.2" width="9.5" height="32.8" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="18.5" y="350.6" width="9.5" height="49.4" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="31.0" y="331.8" width="9.5" height="68.2" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="43.5" y="331.9" width="9.5" height="68.1" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="56.0" y="351.9" width="9.5" height="48.1" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="68.5" y="363.0" width="9.5" height="37.0" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="81.0" y="335.4" width="9.5" height="64.6" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="93.5" y="324.6" width="9.5" height="75.4" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="106.0" y="336.6" width="9.5" height="63.4" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="118.5" y="366.7" width="9.5" height="33.3" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="131.0" y="344.9" width="9.5" height="55.1" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="143.5" y="322.7" width="9.5" height="77.3" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="156.0" y="323.7" width="9.5" height="76.3" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="168.5" y="348.4" width="9.5" height="51.6" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="181.0" y="360.1" width="9.5" height="39.9" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="193.5" y="327.4" width="9.5" height="72.6" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="206.0" y="315.4" width="9.5" height="84.6" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="218.5" y="330.5" width="9.5" height="69.5" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="231.0" y="366.6" width="9.5" height="33.4" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="243.5" y="339.0" width="9.5" height="61.0" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="256.0" y="313.5" width="9.5" height="86.5" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="268.5" y="315.6" width="9.5" height="84.4" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="281.0" y="345.2" width="9.5" height="54.8" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="293.5" y="356.9" width="9.5" height="43.1" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="306.0" y="319.3" width="9.5" height="80.7" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="318.5" y="306.2" width="9.5" height="93.8" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="331.0" y="324.6" width="9.5" height="75.4" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="343.5" y="366.7" width="9.5" height="33.3" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="356.0" y="332.9" width="9.5" height="67.1" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="368.5" y="304.3" width="9.5" height="95.7" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="381.0" y="307.6" width="9.5" height="92.4" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="393.5" y="342.3" width="9.5" height="57.7" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="406.0" y="353.4" width="9.5" height="46.6" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="418.5" y="311.0" width="9.5" height="89.0" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="431.0" y="297.0" width="9.5" height="103.0" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="443.5" y="318.9" width="9.5" height="81.1" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="456.0" y="367.2" width="9.5" height="32.8" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="468.5" y="326.5" width="9.5" height="73.5" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="481.0" y="295.0" width="9.5" height="105.0" fill="url(#sky)" fill-opacity="0.8"/>
-  <rect x="493.5" y="299.8" width="9.5" height="100.2" fill="url(#sky)" fill-opacity="0.8"/>
-  </g>
-  <rect x="6" y="6" width="500" height="500" rx="80" fill="none" stroke="url(#gold)" stroke-width="7"/>
-  <rect x="19" y="19" width="474" height="474" rx="68" fill="none" stroke="#d4af37" stroke-opacity="0.35" stroke-width="1.2"/>
-  <g filter="url(#glow)">
-  <line x1="88.0" y1="175.5" x2="88.0" y2="223.8" stroke="#ff5d5d" stroke-width="2.8"/>
-  <rect x="78.8" y="187.0" width="18.4" height="25.3" rx="2" fill="#ff5d5d"/>
-  <line x1="127.1" y1="166.3" x2="127.1" y2="219.2" stroke="#3fd29a" stroke-width="2.8"/>
-  <rect x="117.9" y="177.8" width="18.4" height="29.9" rx="2" fill="#3fd29a"/>
-  <line x1="166.2" y1="173.2" x2="166.2" y2="219.2" stroke="#ff5d5d" stroke-width="2.8"/>
-  <rect x="157.0" y="184.7" width="18.4" height="23.0" rx="2" fill="#ff5d5d"/>
-  <line x1="205.3" y1="159.4" x2="205.3" y2="214.6" stroke="#3fd29a" stroke-width="2.8"/>
-  <rect x="196.1" y="170.9" width="18.4" height="32.2" rx="2" fill="#3fd29a"/>
-  <line x1="244.4" y1="164.0" x2="244.4" y2="207.7" stroke="#ff5d5d" stroke-width="2.8"/>
-  <rect x="235.2" y="175.5" width="18.4" height="20.7" rx="2" fill="#ff5d5d"/>
-  <line x1="283.5" y1="152.5" x2="283.5" y2="210.0" stroke="#3fd29a" stroke-width="2.8"/>
-  <rect x="274.3" y="164.0" width="18.4" height="34.5" rx="2" fill="#3fd29a"/>
-  <line x1="322.6" y1="131.8" x2="322.6" y2="193.9" stroke="#3fd29a" stroke-width="2.8"/>
-  <rect x="313.4" y="143.3" width="18.4" height="39.1" rx="2" fill="#3fd29a"/>
-  <line x1="361.7" y1="113.4" x2="361.7" y2="177.8" stroke="#3fd29a" stroke-width="2.8"/>
-  <rect x="352.5" y="124.9" width="18.4" height="41.4" rx="2" fill="#3fd29a"/>
-  <line x1="400.8" y1="90.4" x2="400.8" y2="159.4" stroke="#3fd29a" stroke-width="2.8"/>
-  <rect x="391.6" y="101.9" width="18.4" height="46.0" rx="2" fill="#3fd29a"/>
-  <line x1="69.6" y1="161.7" x2="426.1" y2="161.7" stroke="#e9c96d" stroke-width="3.0" stroke-dasharray="12 8" stroke-linecap="round"/>
-  </g>
-  <text x="256" y="68" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="800" letter-spacing="14" fill="#f3d27a">XXX</text>
-  <text x="256" y="372" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="108" font-weight="900" fill="url(#gold)" letter-spacing="2">BTC</text>
-  <g transform="translate(256 392)"><line x1="-130" y1="0" x2="-14" y2="0" stroke="#d4af37" stroke-opacity="0.6"/><line x1="14" y1="0" x2="130" y2="0" stroke="#d4af37" stroke-opacity="0.6"/><rect x="-5" y="-5" width="10" height="10" transform="rotate(45)" fill="url(#gold)"/></g>
-  <text x="256" y="424" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" letter-spacing="3" fill="#ffe9cf">24/7 BREAKOUT</text>
-  <rect x="150" y="438" width="212" height="30" rx="15" fill="#1a1208" stroke="url(#blue)" stroke-width="1.6"/>
-  <text x="256" y="458" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="800" letter-spacing="2.5" fill="#ffd29a">OPTIONAL AI FILTER</text>
+  <g clip-path="url(#clip)"><rect width="512" height="512" fill="url(#grid)"/><ellipse cx="256" cy="170" rx="270" ry="210" fill="url(#halo)"/></g>
+  <rect x="6" y="6" width="500" height="500" rx="80" fill="none" stroke="url(#brand)" stroke-width="7"/>
+  <rect x="19" y="19" width="474" height="474" rx="68" fill="none" stroke="#ffb257" stroke-opacity="0.35" stroke-width="1.2"/>
+  <text x="256" y="62" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="800" letter-spacing="14" fill="#ffe9cf">XXX</text>
+  <g transform="translate(256 192) scale(0.92)">
+    <circle cx="103.5" cy="42.9" r="9" fill="#241204" stroke="#ffb257" stroke-width="3"/><line x1="103.5" y1="42.9" x2="42.9" y2="103.5" stroke="#ffb257" stroke-width="2.5" stroke-opacity="0.55"/><circle cx="42.9" cy="103.5" r="9" fill="#241204" stroke="#ffb257" stroke-width="3"/><line x1="42.9" y1="103.5" x2="-42.9" y2="103.5" stroke="#ffb257" stroke-width="2.5" stroke-opacity="0.55"/><circle cx="-42.9" cy="103.5" r="9" fill="#241204" stroke="#ffb257" stroke-width="3"/><line x1="-42.9" y1="103.5" x2="-103.5" y2="42.9" stroke="#ffb257" stroke-width="2.5" stroke-opacity="0.55"/><circle cx="-103.5" cy="42.9" r="9" fill="#241204" stroke="#ffb257" stroke-width="3"/><line x1="-103.5" y1="42.9" x2="-103.5" y2="-42.9" stroke="#ffb257" stroke-width="2.5" stroke-opacity="0.55"/><circle cx="-103.5" cy="-42.9" r="9" fill="#241204" stroke="#ffb257" stroke-width="3"/><line x1="-103.5" y1="-42.9" x2="-42.9" y2="-103.5" stroke="#ffb257" stroke-width="2.5" stroke-opacity="0.55"/><circle cx="-42.9" cy="-103.5" r="9" fill="#241204" stroke="#ffb257" stroke-width="3"/><line x1="-42.9" y1="-103.5" x2="42.9" y2="-103.5" stroke="#ffb257" stroke-width="2.5" stroke-opacity="0.55"/><circle cx="42.9" cy="-103.5" r="9" fill="#241204" stroke="#ffb257" stroke-width="3"/><line x1="42.9" y1="-103.5" x2="103.5" y2="-42.9" stroke="#ffb257" stroke-width="2.5" stroke-opacity="0.55"/><circle cx="103.5" cy="-42.9" r="9" fill="#241204" stroke="#ffb257" stroke-width="3"/><line x1="103.5" y1="-42.9" x2="103.5" y2="42.9" stroke="#ffb257" stroke-width="2.5" stroke-opacity="0.55"/>
+    <circle cx="0" cy="0" r="92" fill="url(#face)" filter="url(#glow)"/>
+    <circle cx="0" cy="0" r="80" fill="none" stroke="#241204" stroke-width="5" opacity="0.5"/>
+    <circle cx="0" cy="0" r="86" fill="none" stroke="#ffe9cf" stroke-width="2" opacity="0.7"/>
+    <g fill="#241204">
+      <rect x="-14" y="-62" width="10" height="20" rx="2"/><rect x="8" y="-62" width="10" height="20" rx="2"/>
+      <rect x="-14" y="42" width="10" height="20" rx="2"/><rect x="8" y="42" width="10" height="20" rx="2"/>
+    </g>
+    <text x="-3" y="38" text-anchor="middle" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="118" font-weight="900" fill="#241204">B</text></g>
+  <text x="256" y="388" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="116" font-weight="900" fill="url(#brand)" letter-spacing="2">BTC</text>
+  <g transform="translate(256 406)"><line x1="-130" y1="0" x2="-14" y2="0" stroke="#ffb257" stroke-opacity="0.6"/><line x1="14" y1="0" x2="130" y2="0" stroke="#ffb257" stroke-opacity="0.6"/><rect x="-5" y="-5" width="10" height="10" transform="rotate(45)" fill="url(#brand)"/></g>
+  <text x="256" y="440" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" letter-spacing="3" fill="#ffe9cf">5-MODULE BREAKOUT</text>
+  <text x="256" y="466" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" letter-spacing="3" fill="#c4a27a">24/7  ·  BITCOIN  ·  M15</text>
 </svg>
