@@ -32,6 +32,16 @@ export function trustStateLabel(state: TrustState | null | undefined): string {
   return state.replace(/_/g, " ");
 }
 
+// Utilities (e.g. the Local Trade Copier) have no trading performance, so the M2-M7 evidence chain - and
+// therefore a Trust State - does not apply to them. A utility whose seller tagged it "demo-tested" (its
+// description states exactly what was and was not tested) gets this separate green label instead. It is
+// NOT a Trust State and is never shown for a listing that has one.
+export function isDemoTestedUtility(listing: { trustState?: string | null; category?: string | null; tags?: string[] | null }): boolean {
+  return !listing.trustState && listing.category === "Utility" && (listing.tags ?? []).includes("demo-tested");
+}
+
+export const DEMO_TESTED_HINT = "Tested on demo accounts by the seller. A utility has no trading performance, so no Trust State applies - see the description for exactly what was tested.";
+
 const PUBLICATION_STATE_TONE: Record<PublicationState, BadgeTone> = {
   DRAFT: "neutral",
   SUBMITTED: "info",

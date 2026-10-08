@@ -8,7 +8,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import Badge from "@/components/ui/Badge";
-import { trustStateLabel, trustStateTone } from "@/lib/marketplace";
+import { DEMO_TESTED_HINT, isDemoTestedUtility, trustStateLabel, trustStateTone } from "@/lib/marketplace";
 import TrustStateSection from "@/components/marketplace/sections/TrustStateSection";
 import EvidenceSection from "@/components/marketplace/sections/EvidenceSection";
 import ValidationSection from "@/components/marketplace/sections/ValidationSection";
@@ -67,8 +67,13 @@ export default function ListingDetailView({
             )}
             {listing.platformTag && <span className="text-xs font-semibold bg-gold/20 text-gold px-3 py-1 rounded-full">{listing.platformTag}</span>}
             {listing.assetTag && <span className="rounded-control border border-border px-2 py-0.5 text-[10px] font-medium text-text-3">{listing.assetTag}</span>}
-            <Badge tone={trustStateTone(listing.trustState)}>{trustStateLabel(listing.trustState)}</Badge>
+            {isDemoTestedUtility(listing) ? (
+              <span title={DEMO_TESTED_HINT}><Badge tone="success">Demo-tested</Badge></span>
+            ) : (
+              <Badge tone={trustStateTone(listing.trustState)}>{trustStateLabel(listing.trustState)}</Badge>
+            )}
           </div>
+          {isDemoTestedUtility(listing) && <p className="text-xs text-text-3 mt-2 max-w-3xl">{DEMO_TESTED_HINT}</p>}
           <h1 className="text-3xl md:text-5xl font-bold mt-4">{listing.title}</h1>
           <p className="text-text-2 mt-3 max-w-3xl whitespace-pre-line">{listing.description}</p>
           <p className="text-xs text-text-3 mt-2">

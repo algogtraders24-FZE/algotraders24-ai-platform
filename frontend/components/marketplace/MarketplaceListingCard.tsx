@@ -25,7 +25,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import Badge from "@/components/ui/Badge";
-import { formatListingPrice, trustStateLabel, trustStateTone } from "@/lib/marketplace";
+import { DEMO_TESTED_HINT, formatListingPrice, isDemoTestedUtility, trustStateLabel, trustStateTone } from "@/lib/marketplace";
 import type { MarketplaceListingSummary } from "@/types/marketplace";
 
 export default function MarketplaceListingCard({ listing }: { listing: MarketplaceListingSummary }) {
@@ -60,7 +60,11 @@ export default function MarketplaceListingCard({ listing }: { listing: Marketpla
         {/* AT24-computed fact, overlaid but never blended into the seller's
             own image content - a real chip, not a drawn-in badge. */}
         <span className="absolute right-3 top-3">
-          <Badge tone={trustStateTone(listing.trustState)}>{trustStateLabel(listing.trustState)}</Badge>
+          {isDemoTestedUtility(listing) ? (
+            <span title={DEMO_TESTED_HINT}><Badge tone="success">Demo-tested</Badge></span>
+          ) : (
+            <Badge tone={trustStateTone(listing.trustState)}>{trustStateLabel(listing.trustState)}</Badge>
+          )}
         </span>
       </div>
 
