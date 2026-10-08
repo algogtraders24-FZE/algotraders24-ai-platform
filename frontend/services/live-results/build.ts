@@ -11,6 +11,7 @@ import { dealsToHistory, type SyncedDeal } from "../live-sync/to-trades";
 import { computeLiveResults, windowStats, type LiveResultsStats } from "./stats";
 import { computeEdgeEvidence } from "../edge-analyzer/analysis/edge-evidence";
 import { normalizeTag } from "../edge-analyzer/analysis/patterns";
+import { computeAdvanced, type AdvancedStats } from "./advanced";
 import type { ClosedTrade } from "../edge-analyzer/types";
 
 export interface DealWithMagic extends SyncedDeal {
@@ -104,6 +105,8 @@ export interface PublicResults {
     bySymbol: { symbol: string; trades: number; wonPct: number; longs: number; shorts: number; net?: number }[];
   };
   strategies: StrategyRow[];
+  /** Hourly / weekday / risk-of-ruin / duration tabs (counts, percentages and probabilities only). */
+  advanced: AdvancedStats;
   edge: { level: string; headline: string; caveats: string[] } | null;
   openPositions: PublicPosition[];
   /** Present only when the owner chose to show amounts. */
@@ -301,6 +304,7 @@ export function buildPublicResults(input: BuildInput): PublicResults {
       }),
     },
     strategies: strategiesOf(hist.trades, withAmounts),
+    advanced: computeAdvanced(hist.trades, hist.balanceOps, stats.balance, stats.core.maxConsecutiveLosses, withAmounts),
     edge: edge
       ? withAmounts
         ? { level: edge.level, headline: edge.headline, caveats: edge.caveats }
