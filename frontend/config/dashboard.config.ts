@@ -56,6 +56,7 @@ import {
   Gauge,
   BookOpen,
   Radio,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 
@@ -219,6 +220,8 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       { label: "Live Sync", href: "/dashboard/live-sync", icon: Radio },
       // Live Results: public results pages of trading accounts (list for every signed-in user).
       { label: "Live Results", href: "/dashboard/live-results", icon: LineChart },
+      // Seller self-serve Phase 4: what the seller earned from marketplace sales + USDT payout requests.
+      { label: "Earnings", href: "/dashboard/earnings", icon: Wallet },
       // No standalone Research page exists (Sprint D2.4.A1 deliberately
       // redirected the marketing /platform/research page into Assistant,
       // since Research wasn't distinct content there). Inside the

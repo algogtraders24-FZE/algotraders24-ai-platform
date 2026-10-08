@@ -274,8 +274,8 @@ export default function SelfServeSellClient() {
           <input type="checkbox" checked={accept} disabled={busy} onChange={(e) => setAccept(e.target.checked)} className="mt-1" />
           <span>
             I own this product or have the right to sell it, it contains no malware or hidden code, and my description is truthful. I understand AT24 does
-            not check it, may remove it at any time, and that seller payouts are not live yet: sales are recorded and will be paid out after payouts launch,
-            minus the platform commission (currently planned at 10%).
+            not check it, may remove it at any time, and that AT24 keeps a 10% commission plus the payment-gateway fee on each sale; each sale is held for 7 days, then paid out in USDT
+            on request (minimum 50 USD, see Dashboard → Earnings).
           </span>
         </label>
       </section>

@@ -3141,3 +3141,49 @@ model ReportCheckJob {
   @@index([listingId, createdAt])
   @@map("report_check_jobs")
 }
+
+// ── Seller self-serve Phase 4: earnings ledger + payouts ────────────────
+// One SellerEarning per completed sale of a NON-owner seller's listing (written in the same transaction that creates the
+// Purchase, so a sale can never exist without its ledger row). Commission rate and the estimated gateway fee are fixed at
+// sale time. Money becomes "available" after the hold period; payouts are requested by the seller and paid by an admin.
+model SellerEarning {
+  id               String   @id @default(cuid())
+  sellerId         String
+  purchaseId       String   @unique
+  listingId        String
+  currency         String   @default("USD")
+  grossAmount      Float
+  commissionRate   Float
+  commissionAmount Float
+  gatewayFee       Float
+  netAmount        Float
+  availableAt      DateTime
+  status           String   @default("PENDING") // PENDING (hold, or available by time) | REVERSED (refund) | PAID (inside a paid payout)
+  payoutId         String? // set while the earning is reserved by a REQUESTED payout, and after it is PAID
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([sellerId, status])
+  @@index([payoutId])
+  @@map("seller_earnings")
+}
+
+model SellerPayout {
+  id        String    @id @default(cuid())
+  sellerId  String
+  amount    Float
+  currency  String    @default("USD")
+  method    String    @default("USDT")
+  network   String // TRC20 | ERC20 | BEP20
+  address   String
+  status    String    @default("REQUESTED") // REQUESTED | PAID | REJECTED
+  txRef     String?
+  note      String?
+  decidedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([sellerId, createdAt])
+  @@index([status])
+  @@map("seller_payouts")
+}

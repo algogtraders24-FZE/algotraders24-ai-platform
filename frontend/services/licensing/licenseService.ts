@@ -15,6 +15,7 @@ import type { ActivationPolicy, LicensePayload, LicenseStatus, RevocationReason,
 import { DEFAULT_ACTIVATION_POLICY } from "@/types/marketplace-license";
 import type { PlatformName } from "@/types/marketplace-factory";
 import { Prisma } from "@/lib/generated/prisma/client";
+import { recordSaleEarning } from "@/services/marketplace/earningsStore";
 import { parseLicenseKey, type LicenseCheckReason } from "./licenseKey";
 
 function isPlatformName(value: string): value is PlatformName {
@@ -104,6 +105,9 @@ export async function issueLicenseForPurchase(input: IssueForPurchaseInput) {
           purchasedAt: now,
         },
       });
+
+      // Seller self-serve Phase 4: the seller's ledger row is written in THIS transaction (none for the platform owner's own products).
+      await recordSaleEarning(tx, { purchaseId: purchase.id, marketplaceListingId: input.marketplaceListingId, amount: input.amount, currency: input.currency, purchasedAt: now });
 
       const entitlement = await tx.entitlement.create({
         data: {

@@ -102,9 +102,12 @@ const STEPS = [
     title: "Payments",
     body: (
       <>
-        Buyers pay through the marketplace checkout and receive a signed licence automatically. Seller payouts are not live
-        yet: sales are recorded, and will be paid out after payouts launch, minus the platform commission (currently planned
-        at 10%). Listings can be removed at any time if they break the rules or buyers report a problem.
+        Buyers pay through the marketplace checkout and receive a signed licence automatically. AT24 keeps a 10% commission
+        on each sale plus the payment-gateway fee (about 0.5%); the rest is yours. Each sale is held for 7 days (refund
+        window) and then becomes available. Open <strong className="text-text">Dashboard → Earnings</strong> to see your sales
+        and request a payout: paid in USDT (TRC20, ERC20 or BEP20), minimum 50 USD, checked and sent by hand, usually within a
+        few days. Always double-check the address; a transfer to a wrong address cannot be recovered. Listings can be removed
+        at any time if they break the rules or buyers report a problem.
       </>
     ),
   },
