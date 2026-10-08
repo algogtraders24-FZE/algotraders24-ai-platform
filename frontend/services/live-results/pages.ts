@@ -7,6 +7,9 @@ export type Visibility = "private" | "unlisted" | "public";
 export const VISIBILITIES: readonly Visibility[] = ["private", "unlisted", "public"];
 export const MAX_PAGES_PER_USER = 10;
 export const DELAY_CHOICES: readonly number[] = [0, 15, 60, 240, 1440];
+export const MAX_FOLLOWS_PER_USER = 50;
+/** Marketplace listing slugs look like "xxx-us30-multi-module-breakout". */
+export const LISTING_SLUG_RE = /^[a-z0-9][a-z0-9-]{0,78}$/;
 
 export interface PageAccessFields {
   visibility: string;
@@ -52,6 +55,8 @@ export interface PageInput {
   magicFilter: string | null;
   showAmounts: boolean;
   positionDelayMin: number;
+  /** Marketplace listing this page is shown on (the server checks the owner sells it), or null. */
+  listingSlug: string | null;
 }
 
 export type PageValidation = { ok: true; value: PageInput } | { ok: false; message: string };
@@ -79,5 +84,10 @@ export function validatePageInput(body: unknown): PageValidation {
   if (typeof b.showAmounts !== "boolean") return { ok: false, message: "showAmounts must be true or false" };
   const delay = Number(b.positionDelayMin);
   if (!Number.isInteger(delay) || !DELAY_CHOICES.includes(delay)) return { ok: false, message: "Choose a position delay from the list." };
-  return { ok: true, value: { accountId: b.accountId, title, description, visibility: visibility as Visibility, magicFilter, showAmounts: b.showAmounts, positionDelayMin: delay } };
+  let listingSlug: string | null = null;
+  if (b.listingSlug !== null && b.listingSlug !== undefined && b.listingSlug !== "") {
+    if (typeof b.listingSlug !== "string" || !LISTING_SLUG_RE.test(b.listingSlug)) return { ok: false, message: "Invalid marketplace listing" };
+    listingSlug = b.listingSlug;
+  }
+  return { ok: true, value: { accountId: b.accountId, title, description, visibility: visibility as Visibility, magicFilter, showAmounts: b.showAmounts, positionDelayMin: delay, listingSlug } };
 }

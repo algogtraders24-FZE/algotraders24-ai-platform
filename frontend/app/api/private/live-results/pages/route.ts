@@ -12,7 +12,7 @@ import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { prisma } from "@/lib/prisma";
 import { validatePageInput } from "@/services/live-results/pages";
-import { createPage, deletePage, listAccountMagics, listOwnerPages, rotateKey, updatePage, liveResultsEnabled } from "@/services/live-results/prisma-store";
+import { createPage, deletePage, listAccountMagics, listOwnerPages, listSellerListings, rotateKey, updatePage, liveResultsEnabled } from "@/services/live-results/prisma-store";
 
 export const dynamic = "force-dynamic";
 
@@ -29,9 +29,11 @@ export const GET = withContext(async (_req, ctx) => {
       prisma.liveSyncAccount.findMany({ where: { userId: user.profile.id }, orderBy: { lastSyncAt: "desc" }, take: 20, select: { id: true, accountKey: true, mode: true } }),
     ]);
     const magics = await listAccountMagics(user.profile.id, accounts.map((a) => a.id));
+    const listings = await listSellerListings(user.profile.id).catch(() => []);
     return ApiResponse.success(
       {
         pages,
+        listings,
         accounts: accounts.map((a) => ({ id: a.id, label: `Account ${a.accountKey.slice(0, 6)}`, mode: a.mode, magics: magics[a.id] ?? [] })),
       },
       ctx.requestId,
@@ -52,7 +54,7 @@ export const POST = withContext(async (req, ctx) => {
   if (!v.ok) return ApiResponse.error({ code: "BAD_REQUEST", message: v.message }, ctx.requestId, 400, ctx.startedAt);
   try {
     const r = await createPage(user.profile.id, v.value);
-    if (!r.ok) return ApiResponse.error({ code: r.code, message: r.message }, ctx.requestId, r.code === "PAGE_LIMIT" ? 409 : 404, ctx.startedAt);
+    if (!r.ok) return ApiResponse.error({ code: r.code, message: r.message }, ctx.requestId, r.code === "PAGE_LIMIT" ? 409 : r.code === "LISTING_NOT_FOUND" ? 400 : 404, ctx.startedAt);
     return ApiResponse.success({ page: r.page }, ctx.requestId, 200, ctx.startedAt);
   } catch {
     return unavailable(ctx);

@@ -9,6 +9,8 @@ import Footer from "@/sections/Footer";
 import ResultsView from "@/components/live-results/ResultsView";
 import { loadResults } from "@/services/live-results/prisma-store";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
+import FollowButton from "@/components/live-results/FollowButton";
+import { isFollowing } from "@/services/live-results/follow-store";
 
 export const dynamic = "force-dynamic";
 
@@ -25,10 +27,14 @@ export default async function LiveResultsPage({ params, searchParams }: { params
   if (res.state !== "ok") notFound();
   const note = res.isOwner && res.visibility !== "public" ? `You are viewing your own ${res.visibility} page. Visitors without access see a "not found" page.` : res.isAdmin && !res.isOwner && res.visibility !== "public" ? `Admin view of a ${res.visibility} page. Visitors without access see a "not found" page.` : null;
 
+  // Only public pages can be watched (the API enforces it too).
+  const following = user && res.visibility === "public" ? await isFollowing(user.profile.id, res.slug).catch(() => false) : false;
+  const actions = res.visibility === "public" ? <FollowButton slug={res.slug} signedIn={user !== null} initialFollowing={following} /> : null;
+
   return (
     <main className="min-h-screen bg-ink text-text">
       <Navbar />
-      <ResultsView r={res.results} ownerNote={note} />
+      <ResultsView r={res.results} ownerNote={note} actions={actions} />
       <Footer />
     </main>
   );

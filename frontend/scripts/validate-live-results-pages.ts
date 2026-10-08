@@ -1,6 +1,6 @@
 // Validates Live Results page rules: viewing access, input validation, slugs.
 import assert from "node:assert/strict";
-import { canView, newUnlistedKey, slugify, slugWithSuffix, validatePageInput, plainText, DELAY_CHOICES } from "../services/live-results/pages";
+import { canView, newUnlistedKey, slugify, slugWithSuffix, validatePageInput, plainText, DELAY_CHOICES, LISTING_SLUG_RE, MAX_FOLLOWS_PER_USER } from "../services/live-results/pages";
 
 let checks = 0;
 const ok = (c: unknown, m: string) => { assert.ok(c, m); checks++; };
@@ -45,5 +45,14 @@ const t = validatePageInput({ ...good, title: "<script>alert(1)</script> Zeni\u0
 ok(t.ok && !/[<>\u0000]/.test(t.value.title + t.value.description), "angle brackets and control characters are stripped");
 eq(plainText("  a   b \n c  ", 10), "a b c", "whitespace collapsed");
 ok(plainText("x".repeat(500), 80).length === 80, "length capped");
+
+// ---- marketplace listing link and follow cap
+const withListing = (l: unknown) => validatePageInput({ ...good, listingSlug: l });
+const okL = withListing("xxx-us30-multi-module-breakout");
+ok(okL.ok && okL.value.listingSlug === "xxx-us30-multi-module-breakout", "a listing slug is accepted");
+ok((withListing("") as { ok: true; value: { listingSlug: string | null } }).value.listingSlug === null && (withListing(null) as { ok: true; value: { listingSlug: string | null } }).value.listingSlug === null && (validatePageInput(good) as { ok: true; value: { listingSlug: string | null } }).value.listingSlug === null, "empty / null / missing listing = not attached");
+for (const bad of ["Has Space", "UPPER", "-lead", "a".repeat(120), "x/../y", 123, "<b>"]) ok(!withListing(bad).ok, `rejects listing value ${JSON.stringify(bad)}`);
+ok(LISTING_SLUG_RE.test("xxxus30-30684e"), "page slugs have the same safe shape (used to validate the follow API input)");
+eq(MAX_FOLLOWS_PER_USER, 50, "a member can watch up to 50 pages");
 
 console.log(`validate-live-results-pages: ${checks} checks passed`);

@@ -4,6 +4,7 @@ import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { listOwnerPages, listPublicDirectory, liveResultsEnabled } from "@/services/live-results/prisma-store";
+import { followedSlugs } from "@/services/live-results/follow-store";
 
 export const dynamic = "force-dynamic";
 
@@ -12,10 +13,10 @@ export const GET = withContext(async (_req, ctx) => {
   if (!user) return ApiResponse.error({ code: "UNAUTHORIZED", message: "Authentication required" }, ctx.requestId, 401, ctx.startedAt);
   if (!liveResultsEnabled()) return ApiResponse.error({ code: "UNAVAILABLE", message: "Live Results is not available yet." }, ctx.requestId, 503, ctx.startedAt);
   try {
-    const [pages, mine] = await Promise.all([listPublicDirectory(), listOwnerPages(user.profile.id)]);
+    const [pages, mine, following] = await Promise.all([listPublicDirectory(), listOwnerPages(user.profile.id), followedSlugs(user.profile.id).catch(() => [] as string[])]);
     // "mine" are the signed-in user's own pages (any visibility) so they can find them here; nothing about other users' private pages.
     return ApiResponse.success(
-      { pages, mine: mine.map((p) => ({ slug: p.slug, title: p.title, visibility: p.visibility, magicFilter: p.magicFilter, showAmounts: p.showAmounts })) },
+      { pages, following, mine: mine.map((p) => ({ slug: p.slug, title: p.title, visibility: p.visibility, magicFilter: p.magicFilter, showAmounts: p.showAmounts })) },
       ctx.requestId,
       200,
       ctx.startedAt,
