@@ -11,7 +11,7 @@ export function DemoTestedBadge({ large = false }: { large?: boolean }) {
       className={`inline-flex items-center gap-1 rounded-full bg-emerald-500 font-bold text-black shadow-[0_0_14px_rgba(16,185,129,0.55)] ${large ? "px-3 py-1 text-sm" : "px-2.5 py-0.5 text-xs"}`}
     >
       <svg viewBox="0 0 16 16" width={large ? 14 : 12} height={large ? 14 : 12} aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
-      Demo-Tested
+      Tested
     </span>
   );
 }
