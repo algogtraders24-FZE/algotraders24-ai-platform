@@ -36,6 +36,8 @@ export interface BuildInput {
   /** Recent snapshots (UTC ms), any order. Only open positions are used from them. */
   snapshots: readonly { time: number; positions: readonly WirePosition[] }[];
   nowUtc: number;
+  /** When the viewer started watching (UTC ms): adds integrity.sinceWatch. */
+  sinceUtc?: number;
 }
 
 export interface StrategyRow {
@@ -78,6 +80,8 @@ export interface PublicResults {
     gainsDiverge: boolean;
     /** The real forward record: only trades closed AFTER the first sync. */
     liveTracked: { trades: number; gainPct: number | null; winRatePct: number | null };
+    /** Only the trades closed since the viewer started watching (percent / counts only). */
+    sinceWatch?: { since: number; trades: number; gainPct: number | null; winRatePct: number | null };
   };
   stats: {
     absoluteGainPct: number | null;
@@ -272,6 +276,10 @@ export function buildPublicResults(input: BuildInput): PublicResults {
       liveTracked: (() => {
         const w = windowStats(hist.trades, hist.balanceOps, account.firstSyncAt + account.serverUtcOffsetSec * 1000);
         return { trades: w.trades, gainPct: w.gainPct, winRatePct: w.winRatePct };
+      })(),
+      sinceWatch: input.sinceUtc === undefined ? undefined : (() => {
+        const w = windowStats(hist.trades, hist.balanceOps, input.sinceUtc + account.serverUtcOffsetSec * 1000);
+        return { since: input.sinceUtc, trades: w.trades, gainPct: w.gainPct, winRatePct: w.winRatePct };
       })(),
     },
     stats: {

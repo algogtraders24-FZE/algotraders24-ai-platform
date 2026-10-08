@@ -114,6 +114,13 @@ ok(pctOnly.edge !== null && !/USD|\d+\.\d{2}\s/.test(JSON.stringify(pctOnly.edge
 ok(pctOnly.edge !== null && pctOnly.edge.headline.length > 10, "percent-only edge keeps a readable headline");
 eq(withoutMoneyText("Average is 14.74 USD (range 4.55 USD to 24.77 USD). Evidence is weak.", "USD"), "Evidence is weak.", "sentence naming money is dropped, the rest kept");
 
+// ---- "since you started watching" window
+const mid = buildPublicResults({ ...base, sinceUtc: at("2026-09-14T06:03:30") });
+ok(mid.integrity.sinceWatch !== undefined && mid.integrity.sinceWatch.trades > 0 && mid.integrity.sinceWatch.trades < mid.stats.trades, "sinceWatch counts only trades closed after the watch started");
+eq(buildPublicResults({ ...base }).integrity.sinceWatch, undefined, "no sinceWatch unless a watch time is given");
+eq(buildPublicResults({ ...base, sinceUtc: NOW + 1000 }).integrity.sinceWatch?.trades, 0, "watching since the future: zero trades");
+ok(!JSON.stringify(mid.integrity.sinceWatch).match(/USD|"net"|"profit"/), "sinceWatch carries percentages and counts only");
+
 // ---- stale + disclosure
 const stale = buildPublicResults({ ...base, account: { ...base.account, lastSyncAt: NOW - 30 * 60_000 } });
 eq(stale.integrity.stale, true, "old last sync -> stale (EA not reporting)");

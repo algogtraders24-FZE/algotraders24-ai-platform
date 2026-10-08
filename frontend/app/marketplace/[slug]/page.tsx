@@ -10,6 +10,8 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
 import { MarketplaceCatalogue } from "@/services/marketplace/MarketplaceCatalogue";
 import ListingDetailView from "@/components/marketplace/ListingDetailView";
+import ListingResultsCard from "@/components/live-results/ListingResultsCard";
+import { listingResults } from "@/services/live-results/follow-store";
 
 export const revalidate = 60;
 
@@ -40,11 +42,14 @@ export default async function MarketplaceListingPage({
   const { checkout } = await searchParams;
   const listing = await MarketplaceCatalogue.getBySlug(slug);
   if (!listing) notFound();
+  // Public Live Results pages the seller attached to this listing (empty when none or when the feature is off).
+  const liveResults = await listingResults(slug);
 
   return (
     <main className="min-h-screen bg-ink text-text">
       <Navbar />
       <ListingDetailView listing={listing} justPurchased={checkout === "success"} />
+      <ListingResultsCard items={liveResults} />
       <Footer />
     </main>
   );

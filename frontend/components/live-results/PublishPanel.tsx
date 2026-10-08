@@ -19,6 +19,7 @@ interface PageRow {
   magicFilter: string | null;
   showAmounts: boolean;
   positionDelayMin: number;
+  listingSlug: string | null;
 }
 interface AccountInfo {
   id: string;
@@ -46,6 +47,8 @@ export default function PublishPanel({ accountId }: { accountId: string }) {
   const [visibility, setVisibility] = useState<PageRow["visibility"]>("private");
   const [showAmounts, setShowAmounts] = useState(false);
   const [delay, setDelay] = useState(15);
+  const [listing, setListing] = useState("");
+  const [listings, setListings] = useState<{ slug: string; title: string }[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -60,6 +63,7 @@ export default function PublishPanel({ accountId }: { accountId: string }) {
       setOff(false);
       setPages((j.data.pages as PageRow[]).filter((p) => p.accountId === accountId));
       setAccount((j.data.accounts as AccountInfo[]).find((a) => a.id === accountId) ?? null);
+      setListings((j.data.listings as { slug: string; title: string }[]) ?? []);
     } catch {
       setOff(true);
     }
@@ -77,6 +81,7 @@ export default function PublishPanel({ accountId }: { accountId: string }) {
     setVisibility("private");
     setShowAmounts(false);
     setDelay(15);
+    setListing("");
     setErr(null);
     setOpen(true);
   }
@@ -88,6 +93,7 @@ export default function PublishPanel({ accountId }: { accountId: string }) {
     setVisibility(p.visibility);
     setShowAmounts(p.showAmounts);
     setDelay(p.positionDelayMin);
+    setListing(p.listingSlug ?? "");
     setErr(null);
     setOpen(true);
   }
@@ -109,7 +115,7 @@ export default function PublishPanel({ accountId }: { accountId: string }) {
   }
 
   async function save() {
-    const body = JSON.stringify({ accountId, title, description, visibility, magicFilter: magic === "" ? null : magic, showAmounts, positionDelayMin: delay });
+    const body = JSON.stringify({ accountId, title, description, visibility, magicFilter: magic === "" ? null : magic, showAmounts, positionDelayMin: delay, listingSlug: listing === "" ? null : listing });
     const url = editing ? `/api/private/live-results/pages?id=${encodeURIComponent(editing)}` : "/api/private/live-results/pages";
     if (await call(url, { method: editing ? "PATCH" : "POST", headers: { "content-type": "application/json" }, body }, "Could not save the page")) {
       setOpen(false);
@@ -132,7 +138,7 @@ export default function PublishPanel({ accountId }: { accountId: string }) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-text">
               {p.title} <Badge tone={p.visibility === "public" ? "warning" : "neutral"} className="normal-case">{p.visibility}</Badge>{" "}
-              <span className="text-xs text-text-3">{p.magicFilter ? `EA magic ${p.magicFilter}` : "whole account"} · {p.showAmounts ? "amounts shown" : "percent only"} · positions delayed {p.positionDelayMin} min</span>
+              <span className="text-xs text-text-3">{p.listingSlug ? `on listing ${p.listingSlug} · ` : ""}{p.magicFilter ? `EA magic ${p.magicFilter}` : "whole account"} · {p.showAmounts ? "amounts shown" : "percent only"} · positions delayed {p.positionDelayMin} min</span>
             </p>
             <div className="flex gap-2">
               <a className="text-xs font-semibold text-gold hover:underline" href={linkOf(p)} target="_blank" rel="noreferrer">Open</a>
@@ -175,6 +181,14 @@ export default function PublishPanel({ accountId }: { accountId: string }) {
               {DELAYS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
           </label>
+          {listings.length > 0 && (
+            <label className="block space-y-1 text-xs text-text-2">Show on a marketplace listing (only works when the page is Public)
+              <select className="w-full rounded-md border border-border bg-ink-2 px-3 py-2 text-sm text-text" value={listing} onChange={(e) => setListing(e.target.value)}>
+                <option value="">Not on any listing</option>
+                {listings.map((l) => <option key={l.slug} value={l.slug}>{l.title}</option>)}
+              </select>
+            </label>
+          )}
           <label className="flex items-start gap-2 text-xs text-text-2">
             <input type="checkbox" className="mt-0.5" checked={showAmounts} onChange={(e) => setShowAmounts(e.target.checked)} />
             <span>Show money amounts and lot sizes. Leave this off to show percentages only (recommended).</span>

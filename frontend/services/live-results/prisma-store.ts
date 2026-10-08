@@ -19,7 +19,7 @@ export type ResultsLoad =
   | { state: "ok"; results: PublicResults; slug: string; visibility: string; isOwner: boolean; isAdmin: boolean }
   | { state: "not_found" };
 
-export async function loadResults(slug: string, viewer: { userId: string | null; key: string | null; isAdmin?: boolean }): Promise<ResultsLoad> {
+export async function loadResults(slug: string, viewer: { userId: string | null; key: string | null; isAdmin?: boolean }, opts: { sinceUtc?: number } = {}): Promise<ResultsLoad> {
   if (!liveResultsEnabled()) return { state: "not_found" };
   try {
     const page = await prisma.liveResultsPage.findUnique({ where: { slug } });
@@ -28,7 +28,7 @@ export async function loadResults(slug: string, viewer: { userId: string | null;
     const isAdmin = viewer.isAdmin === true;
     if (!canView(page, { isOwner: isOwner || isAdmin, key: viewer.key })) return { state: "not_found" };
 
-    const ck = `${slug}|${page.updatedAt.getTime()}|${isOwner || isAdmin ? "o" : "v"}`;
+    const ck = `${slug}|${page.updatedAt.getTime()}|${isOwner || isAdmin ? "o" : "v"}|${opts.sinceUtc ?? ""}`;
     const hit = cache.get(ck);
     if (hit && Date.now() - hit.at < CACHE_MS) return hit.value;
 
@@ -79,6 +79,7 @@ export async function loadResults(slug: string, viewer: { userId: string | null;
       deals,
       snapshots: snaps.map((s) => ({ time: s.timeUtc.getTime(), positions: Array.isArray(s.positions) ? (s.positions as unknown as WirePosition[]) : [] })),
       nowUtc: Date.now(),
+      sinceUtc: opts.sinceUtc,
     });
     const value: ResultsLoad = { state: "ok", results, slug: page.slug, visibility: page.visibility, isOwner, isAdmin };
     cache.set(ck, { at: Date.now(), value });
@@ -100,10 +101,11 @@ export interface OwnerPage {
   magicFilter: string | null;
   showAmounts: boolean;
   positionDelayMin: number;
+  listingSlug: string | null;
   updatedAt: Date;
 }
 
-const toOwnerPage = (p: { id: string; accountId: string; slug: string; title: string; description: string; visibility: string; unlistedKey: string; magicFilter: bigint | null; showAmounts: boolean; positionDelayMin: number; updatedAt: Date }): OwnerPage => ({
+const toOwnerPage = (p: { id: string; accountId: string; slug: string; title: string; description: string; visibility: string; unlistedKey: string; magicFilter: bigint | null; showAmounts: boolean; positionDelayMin: number; listingSlug: string | null; updatedAt: Date }): OwnerPage => ({
   id: p.id,
   accountId: p.accountId,
   slug: p.slug,
@@ -114,6 +116,7 @@ const toOwnerPage = (p: { id: string; accountId: string; slug: string; title: st
   magicFilter: p.magicFilter === null ? null : p.magicFilter.toString(),
   showAmounts: p.showAmounts,
   positionDelayMin: p.positionDelayMin,
+  listingSlug: p.listingSlug,
   updatedAt: p.updatedAt,
 });
 
@@ -134,13 +137,27 @@ export async function listAccountMagics(userId: string, accountIds: string[]): P
   return out;
 }
 
-export type SaveResult = { ok: true; page: OwnerPage } | { ok: false; code: "ACCOUNT_NOT_FOUND" | "PAGE_LIMIT" | "NOT_FOUND"; message: string };
+/** A page may be shown on a marketplace listing only by the seller of that listing. */
+async function ownsListing(userId: string, slug: string | null): Promise<boolean> {
+  if (slug === null) return true;
+  const l = await prisma.marketplaceListing.findFirst({ where: { slug, sellerId: userId, deletedAt: null }, select: { id: true } });
+  return l !== null;
+}
+
+/** The seller's own listings that a results page can be attached to. */
+export async function listSellerListings(userId: string): Promise<{ slug: string; title: string }[]> {
+  const rows = await prisma.marketplaceListing.findMany({ where: { sellerId: userId, deletedAt: null, publicationState: { in: ["PUBLISHED", "READY"] } }, select: { slug: true, title: true }, orderBy: { createdAt: "desc" }, take: 50 });
+  return rows;
+}
+
+export type SaveResult = { ok: true; page: OwnerPage } | { ok: false; code: "ACCOUNT_NOT_FOUND" | "PAGE_LIMIT" | "NOT_FOUND" | "LISTING_NOT_FOUND"; message: string };
 
 export async function createPage(userId: string, input: PageInput): Promise<SaveResult> {
   const account = await prisma.liveSyncAccount.findFirst({ where: { id: input.accountId, userId }, select: { id: true } });
   if (!account) return { ok: false, code: "ACCOUNT_NOT_FOUND", message: "Account not found" };
   const count = await prisma.liveResultsPage.count({ where: { userId } });
   if (count >= MAX_PAGES_PER_USER) return { ok: false, code: "PAGE_LIMIT", message: `You can have at most ${MAX_PAGES_PER_USER} results pages.` };
+  if (!(await ownsListing(userId, input.listingSlug))) return { ok: false, code: "LISTING_NOT_FOUND", message: "You can only attach a page to a marketplace listing you sell." };
   const row = await prisma.liveResultsPage.create({
     data: {
       userId,
@@ -153,6 +170,7 @@ export async function createPage(userId: string, input: PageInput): Promise<Save
       magicFilter: input.magicFilter === null ? null : BigInt(input.magicFilter),
       showAmounts: input.showAmounts,
       positionDelayMin: input.positionDelayMin,
+      listingSlug: input.listingSlug,
       publishedAt: input.visibility === "private" ? null : new Date(),
     },
   });
@@ -162,6 +180,7 @@ export async function createPage(userId: string, input: PageInput): Promise<Save
 export async function updatePage(userId: string, id: string, input: PageInput): Promise<SaveResult> {
   const existing = await prisma.liveResultsPage.findFirst({ where: { id, userId } });
   if (!existing) return { ok: false, code: "NOT_FOUND", message: "Page not found" };
+  if (!(await ownsListing(userId, input.listingSlug))) return { ok: false, code: "LISTING_NOT_FOUND", message: "You can only attach a page to a marketplace listing you sell." };
   const row = await prisma.liveResultsPage.update({
     where: { id },
     data: {
@@ -171,6 +190,7 @@ export async function updatePage(userId: string, id: string, input: PageInput): 
       magicFilter: input.magicFilter === null ? null : BigInt(input.magicFilter),
       showAmounts: input.showAmounts,
       positionDelayMin: input.positionDelayMin,
+      listingSlug: input.listingSlug,
       publishedAt: input.visibility === "private" ? null : existing.publishedAt ?? new Date(),
     },
   });

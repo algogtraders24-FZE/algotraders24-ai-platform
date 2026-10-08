@@ -3036,12 +3036,15 @@ model LiveResultsPage {
   /// Open positions are shown to visitors only after they have been open this many minutes.
   positionDelayMin Int       @default(15)
   publishedAt      DateTime?
+  /// Marketplace listing slug this page is shown on (owner must be the seller of that listing).
+  listingSlug      String?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
   @@index([userId])
   @@index([accountId])
   @@index([visibility])
+  @@index([listingSlug])
   @@map("live_results_pages")
 }
 
@@ -3086,4 +3089,18 @@ model UserNotification {
   @@index([userId, createdAt])
   @@index([userId, readAt])
   @@map("user_notifications")
+}
+
+/// A member "watching" a PUBLIC Live Results page: it appears in their dashboard and updates by itself.
+/// createdAt is the baseline for "since you started watching".
+model LiveResultsFollow {
+  id        String   @id @default(cuid())
+  userId    String
+  pageId    String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, pageId])
+  @@index([userId])
+  @@index([pageId])
+  @@map("live_results_follows")
 }

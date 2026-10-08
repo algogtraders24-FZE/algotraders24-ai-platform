@@ -92,7 +92,7 @@ function drawdownSeries(growth: { t: number; growthPct: number | null }[]): { t:
   return out;
 }
 
-export default function ResultsView({ r, ownerNote }: { r: PublicResults; ownerNote?: string | null }) {
+export default function ResultsView({ r, ownerNote, actions }: { r: PublicResults; ownerNote?: string | null; actions?: ReactNode }) {
   const s = r.stats, i = r.integrity;
   const cur = r.currency;
   const growth = s.growth.filter((g) => g.growthPct !== null).map((g) => ({ t: g.t, v: g.growthPct as number }));
@@ -110,6 +110,7 @@ export default function ResultsView({ r, ownerNote }: { r: PublicResults; ownerN
           {r.title} <span className="ml-2 text-xs font-medium text-text-3">Live Results</span>
         </h1>
         {r.description && <p className="text-sm text-text-2">{r.description}</p>}
+        {actions && <div>{actions}</div>}
         <div className="flex flex-wrap gap-2">
           <Pill kind={r.mode === "real" ? "warn" : "demo"}>{r.mode === "real" ? "REAL account" : r.mode === "contest" ? "CONTEST account" : "DEMO account"}</Pill>
           <Pill kind={i.stale ? "warn" : "ok"}>{i.stale ? `Not reporting · last update ${new Date(i.lastSyncAt).toISOString().slice(0, 16).replace("T", " ")} UTC` : "● Live · updating"}</Pill>
