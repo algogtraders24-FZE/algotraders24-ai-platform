@@ -1,6 +1,7 @@
 // Validates Live Sync alert rules: evaluation, edge-triggered state machine, severity, input validation. Pure.
 import assert from "node:assert/strict";
 import { alertSeverity, alertText, evaluateRule, KIND_INFO, nextTransition, validateRuleInput, ALERT_KINDS, type AlertContext } from "../services/live-sync/alerts";
+import { sweepAuthorized } from "../services/live-sync/sweep-auth";
 
 let checks = 0;
 const ok = (c: unknown, m: string) => { assert.ok(c, m); checks++; };
@@ -82,5 +83,12 @@ for (const [bad, why] of [
   [null, "null body"],
 ] as const) ok(!validateRuleInput(bad).ok, `rejects ${why}`);
 ok(ALERT_KINDS.every((k) => { const i = KIND_INFO[k]; return i.defaultThreshold >= i.min && i.defaultThreshold <= i.max; }), "every default threshold is inside its own allowed range");
+
+// ---- offline-sweep bearer check
+const DED = "dedicated-secret-0123456789", CRON = "platform-cron-secret-abcdef";
+eq([sweepAuthorized(`Bearer ${DED}`, [DED, CRON]), sweepAuthorized(`Bearer ${CRON}`, [DED, CRON]), sweepAuthorized(`bearer ${DED}`, [DED, undefined])], [true, true, true], "either configured secret authorizes (scheme is case-insensitive)");
+eq([sweepAuthorized(null, [DED, CRON]), sweepAuthorized("", [DED]), sweepAuthorized("Bearer wrong-secret-0123456789", [DED, CRON]), sweepAuthorized(`Bearer ${DED}x`, [DED])], [false, false, false, false], "missing, empty, wrong and longer secrets are refused");
+eq([sweepAuthorized("Bearer short", ["short"]), sweepAuthorized("Bearer ", [""]), sweepAuthorized("Bearer undefined", [undefined]), sweepAuthorized("Bearer anything-at-all-123456", [])], [false, false, false, false], "a missing or too-short (<16) secret never authorizes anything");
+eq(sweepAuthorized(`Bearer ${DED}`, [CRON]), false, "the dedicated secret does not work when only CRON_SECRET is configured");
 
 console.log(`validate-live-sync-alerts: ${checks} checks passed`);

@@ -1,10 +1,11 @@
 # AT24 Live Sync - alert timer (for the VPS).
 # Calls the sweep endpoint so the "Live Sync stopped reporting" alert can fire even when no data arrives.
-# The endpoint returns only two counters and needs the shared CRON_SECRET (the same value that is set in Vercel).
+# The endpoint returns only two counters and needs a bearer secret: the value of LIVE_SYNC_SWEEP_SECRET in Vercel (preferred)
+# or the platform CRON_SECRET. Use the same value in AT24_CRON_SECRET on this machine.
 #
 # One-time setup on the VPS (PowerShell as Administrator):
 #   1) Store the secret on the machine (not in the task, so it is not visible in the task list):
-#        [Environment]::SetEnvironmentVariable("AT24_CRON_SECRET", "<the CRON_SECRET value>", "Machine")
+#        [Environment]::SetEnvironmentVariable("AT24_CRON_SECRET", "<the LIVE_SYNC_SWEEP_SECRET value>", "Machine")
 #   2) Register the task (runs every 5 minutes, even when nobody is logged in):
 #        .\live-sync-alert-pinger.ps1 -Install
 #   3) Test once:
