@@ -12,6 +12,8 @@ import { MarketplaceCatalogue } from "@/services/marketplace/MarketplaceCatalogu
 import ListingDetailView from "@/components/marketplace/ListingDetailView";
 import ListingResultsCard from "@/components/live-results/ListingResultsCard";
 import { listingResults } from "@/services/live-results/follow-store";
+import ReportCheckCard from "@/components/marketplace/ReportCheckCard";
+import { latestReportCheck } from "@/services/marketplace/reportCheckStore";
 
 export const revalidate = 60;
 
@@ -44,11 +46,14 @@ export default async function MarketplaceListingPage({
   if (!listing) notFound();
   // Public Live Results pages the seller attached to this listing (empty when none or when the feature is off).
   const liveResults = await listingResults(slug);
+  // The seller's own backtest report, if one was attached and AT24 finished reading it (otherwise nothing is shown).
+  const reportCheck = await latestReportCheck(listing.id);
 
   return (
     <main className="min-h-screen bg-ink text-text">
       <Navbar />
       <ListingDetailView listing={listing} justPurchased={checkout === "success"} liveResults={liveResults.length > 0 ? { stale: liveResults[0].stale } : undefined} />
+      <ReportCheckCard check={reportCheck} />
       <ListingResultsCard items={liveResults} />
       <Footer />
     </main>

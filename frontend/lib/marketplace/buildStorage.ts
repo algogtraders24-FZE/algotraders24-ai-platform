@@ -38,3 +38,10 @@ export async function downloadBuild(objectPath: string): Promise<Buffer> {
 export async function removeBuild(objectPath: string): Promise<void> {
   await getSupabaseAdmin().storage.from(MARKETPLACE_BUILDS_BUCKET).remove([objectPath]);
 }
+
+/** Short-lived signed read URL, used only for the AT24 VPS report worker (the worker never holds storage credentials). */
+export async function createBuildDownloadUrl(objectPath: string, expiresInSeconds = 900): Promise<string> {
+  const { data, error } = await getSupabaseAdmin().storage.from(MARKETPLACE_BUILDS_BUCKET).createSignedUrl(objectPath, expiresInSeconds);
+  if (error || !data) throw new Error(`Could not create a download URL: ${error?.message ?? "unknown error"}`);
+  return data.signedUrl;
+}

@@ -3110,3 +3110,28 @@ model LiveResultsFollow {
   @@index([pageId])
   @@map("live_results_follows")
 }
+
+// ── Seller self-serve Phase 2: report check ─────────────────────────────
+// One row per backtest report a seller attaches to a listing. The VPS worker claims QUEUED rows (outbound polling, no
+// inbound port), recomputes the numbers from the report's own Deals table with the M2 evidence engine and posts back a
+// compact `result`. The listing shows "Checked from the seller's report" - never the independent VALIDATED badge.
+model ReportCheckJob {
+  id          String    @id @default(cuid())
+  listingId   String
+  sellerId    String
+  storageKey  String
+  fileName    String
+  sizeBytes   Int
+  status      String    @default("QUEUED") // QUEUED | RUNNING | DONE | FAILED
+  attempts    Int       @default(0)
+  lockedUntil DateTime? // RUNNING jobs whose lock expired are re-claimable (worker crashed)
+  reason      String? // short, seller-safe failure reason when status = FAILED
+  result      Json? // compact summary (metrics, period, cross-check) - never the trade list
+  finishedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([listingId, createdAt])
+  @@map("report_check_jobs")
+}

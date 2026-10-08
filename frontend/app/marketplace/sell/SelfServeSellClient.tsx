@@ -12,15 +12,17 @@ import Select from "@/components/ui/Select";
 import Textarea from "@/components/ui/Textarea";
 import { PLATFORM_FILTERS, ASSET_FILTERS, STRATEGY_FILTERS } from "@/types/marketplace";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { ALLOWED_REPORT_EXTENSIONS, MAX_REPORT_BYTES, isAllowedReportFile } from "@/lib/marketplace/reportCheck";
 import { ALLOWED_PRODUCT_EXTENSIONS, BLOCKED_EXTENSIONS, BUILDS_BUCKET, MAX_BUILD_BYTES, MIN_DESCRIPTION_CHARS, extensionOf } from "@/lib/marketplace/selfServe";
 
-type StepKey = "draft" | "icon" | "banner" | "details" | "file" | "publish";
+type StepKey = "draft" | "icon" | "banner" | "details" | "file" | "report" | "publish";
 const STEP_LABEL: Record<StepKey, string> = {
   draft: "Creating your listing",
   icon: "Uploading the logo",
   banner: "Uploading the banner",
   details: "Saving details and price",
   file: "Uploading your product file",
+  report: "Attaching your backtest report",
   publish: "Publishing",
 };
 
@@ -42,6 +44,7 @@ export default function SelfServeSellClient() {
   const [icon, setIcon] = useState<File | null>(null);
   const [banner, setBanner] = useState<File | null>(null);
   const [product, setProduct] = useState<File | null>(null);
+  const [report, setReport] = useState<File | null>(null);
   const [accept, setAccept] = useState(false);
   const [busy, setBusy] = useState(false);
   const [current, setCurrent] = useState<StepKey | null>(null);
@@ -64,6 +67,10 @@ export default function SelfServeSellClient() {
     if (BLOCKED_EXTENSIONS.includes(ext)) return `Files of type ${ext} cannot be sold here.`;
     if (!ALLOWED_PRODUCT_EXTENSIONS.includes(ext)) return `Unsupported product file type "${ext}". Allowed: ${ALLOWED_PRODUCT_EXTENSIONS.join(" ")}`;
     if (product.size > MAX_BUILD_BYTES) return `The product file is larger than ${MAX_BUILD_BYTES / (1024 * 1024)} MB.`;
+    if (report) {
+      if (!isAllowedReportFile(report.name)) return `The backtest report must be the MT5 Strategy Tester export (${ALLOWED_REPORT_EXTENSIONS.join(" ")}).`;
+      if (report.size > MAX_REPORT_BYTES) return `The report is larger than ${MAX_REPORT_BYTES / (1024 * 1024)} MB - test a shorter period.`;
+    }
     if (!accept) return "Please accept the seller terms.";
     return null;
   }
@@ -139,6 +146,26 @@ export default function SelfServeSellClient() {
         });
         done.current.add("file");
       }
+      step = "report";
+      if (!done.current.has("report")) {
+        setCurrent("report");
+        if (report) {
+          const signed = await api<{ path: string; token: string }>(`/api/private/marketplace/listings/${listingId.current}/report`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "upload-url", fileName: report.name, size: report.size }),
+          });
+          const supabase = createSupabaseBrowserClient();
+          const up = await supabase.storage.from(BUILDS_BUCKET).uploadToSignedUrl(signed.path, signed.token, report, { contentType: report.type || "application/octet-stream" });
+          if (up.error) throw new Error(`Upload failed: ${up.error.message}`);
+          await api(`/api/private/marketplace/listings/${listingId.current}/report`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "finalize", path: signed.path, size: report.size }),
+          });
+        }
+        done.current.add("report");
+      }
       step = "publish";
       setCurrent("publish");
       await api(`/api/private/marketplace/listings/${listingId.current}/publish-self-serve`, {
@@ -191,6 +218,11 @@ export default function SelfServeSellClient() {
             </Select>
           </div>
         </div>
+        <div>
+          <label htmlFor="ss-report" className="mb-1.5 block text-sm font-medium text-text">Backtest report (optional)</label>
+          <input id="ss-report" type="file" accept=".xlsx,.html,.htm" disabled={busy} onChange={(e) => setReport(e.target.files?.[0] ?? null)} className="block w-full text-sm text-text-2" />
+          <p className="mt-1 text-xs text-text-3">The MT5 Strategy Tester report (Save as Report: Excel .xlsx or HTML), up to {MAX_REPORT_BYTES / (1024 * 1024)} MB, with the Deals section. AT24 reads it automatically after you publish and shows its figures on your listing as &quot;Checked from the seller&apos;s report&quot;. No report? The listing simply stays &quot;Not checked&quot;.</p>
+        </div>
       </section>
 
       <section className="space-y-4">
@@ -223,7 +255,8 @@ export default function SelfServeSellClient() {
         <h2 className="text-lg font-semibold text-text">3. What buyers will see</h2>
         <p>
           Your listing goes live right away with the label <strong className="text-text">Not checked</strong>: AT24 has not tested it, and your
-          description is shown as your own claim. Want a stronger listing? Attach your demo or live account later (free Live Sync EA) to show real,
+          description is shown as your own claim. If you attached a backtest report, AT24 reads it within minutes and adds a &quot;Checked from the
+          seller&apos;s report&quot; box to your page (it confirms the report&apos;s numbers agree with each other; it is not the independent Validated badge). Want a stronger listing? Attach your demo or live account later (free Live Sync EA) to show real,
           ongoing results on your listing page.
         </p>
         <label className="mt-2 flex items-start gap-2 text-text">

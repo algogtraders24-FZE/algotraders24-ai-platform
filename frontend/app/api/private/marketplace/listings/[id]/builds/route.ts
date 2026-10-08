@@ -67,7 +67,7 @@ export const POST = withContext(async (req, ctx) => {
 
   if (action === "finalize") {
     const path = typeof body?.path === "string" ? body.path : "";
-    if (!path.startsWith(`${listingId}/`)) {
+    if (!path.startsWith(`${listingId}/`) || path.startsWith(`${listingId}/report-`)) {
       return ApiResponse.error({ code: "VALIDATION", message: "That file does not belong to this listing." }, ctx.requestId, 400, ctx.startedAt);
     }
     let buf: Buffer;
