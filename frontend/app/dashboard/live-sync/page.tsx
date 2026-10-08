@@ -175,6 +175,7 @@ export default function LiveSyncPage() {
           <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} placeholder="Name (e.g. Home PC - demo)" aria-label="Device name" />
           <Button onClick={createDevice} loading={busy} disabled={unavailable || !consent}>Create token</Button>
         </div>
+        {!consent && <p className="text-xs text-text-3">Tick the box below to enable &quot;Create token&quot;.</p>}
         <label className="flex items-start gap-2 text-sm text-text-2">
           <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1" />
           <span>
