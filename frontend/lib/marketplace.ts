@@ -28,7 +28,7 @@ export function trustStateTone(state: TrustState | null | undefined): BadgeTone 
 // example (section 8); every other state keeps its literal underscore form
 // converted to spaces, nothing more.
 export function trustStateLabel(state: TrustState | null | undefined): string {
-  if (!state) return "Not yet verified";
+  if (!state) return "Not checked";
   return state.replace(/_/g, " ");
 }
 

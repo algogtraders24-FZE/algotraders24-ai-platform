@@ -179,7 +179,7 @@ async function main() {
       assert.ok(label.length > 0);
       assert.notEqual(trustStateTone(state), undefined);
     }
-    assert.equal(trustStateLabel(null), "Not yet verified");
+    assert.equal(trustStateLabel(null), "Not checked");
   });
 
   console.log("\n=== T/U/V/W/X/Y - seller/AT24 permission boundary (REAL evaluateListingMutation logic, not a reimplementation) ===");

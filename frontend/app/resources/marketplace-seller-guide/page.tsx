@@ -13,97 +13,77 @@ import PageHero from "@/components/marketing/PageHero";
 
 export const metadata: Metadata = {
   title: "How to List a Product",
-  description: "A real, accurate walkthrough of listing a trading system on the AT24 Marketplace - what each step does, and what AT24 verifies before anyone can buy.",
+  description: "Sell your trading product on the AT24 Marketplace: upload a file, add a logo and a price, publish - and optionally show real results from a demo or live account.",
   alternates: { canonical: "/resources/marketplace-seller-guide" },
 };
 
 const STEPS = [
   {
     n: 1,
-    title: "Create a draft listing",
+    title: "Upload your product",
     body: (
       <>
-        Go to <Link href="/marketplace/sell" className="text-gold hover:underline">Sell on AT24</Link> and fill in
-        title, description, platform (MT5/MT4/cTrader/NinjaTrader/Crypto/AI Engine), asset class, and category. This
-        creates a <code className="text-text">DRAFT</code> listing - nothing is public yet, and nothing here is ever
-        treated as a verified fact. If AT24 has already independently generated Evidence for a specific version of
-        your system, you can link it under &quot;Advanced&quot; - otherwise leave it blank.
+        Go to <Link href="/marketplace/sell" className="text-gold hover:underline">Sell your product</Link> and choose your
+        file: <code className="text-text">.ex5</code>, <code className="text-text">.ex4</code>, or a <code className="text-text">.zip</code> with
+        several files (also .mq5 .mq4 .pine .cs .py .set .tpl .pdf), up to 50 MB. Programs and scripts (.dll, .exe, .bat,
+        .ps1, .js ...) are not accepted, not even inside a zip. Your file is stored privately and is only ever given to
+        people who bought it.
       </>
     ),
   },
   {
     n: 2,
-    title: "Add branding in My Products",
+    title: "Add logo, banner, description and price",
     body: (
       <>
-        Open <Link href="/marketplace/my-products" className="text-gold hover:underline">My Products</Link> (also in
-        your dashboard sidebar once logged in). Upload:
-        <ul className="mt-2 list-disc space-y-1 pl-5 text-text-2">
-          <li><strong className="text-text">Icon / logo</strong> — exactly 200×200px (SVG, PNG, JPEG, or WebP). Enforced server-side; a different size is rejected with the exact dimensions it received.</li>
-          <li><strong className="text-text">Banner / hero</strong> — a wide image for your listing&apos;s detail page.</li>
-          <li><strong className="text-text">Screenshots</strong> — as many as you like: strategy tester results, chart setups, anything that helps a buyer understand the system.</li>
-        </ul>
+        A logo (exactly 200x200 px), an optional wide banner, a description (at least 40 characters) and a one-time price in
+        USD. Your description is shown as your own claim - AT24 never presents it as verified.
       </>
     ),
   },
   {
     n: 3,
-    title: "Set a price",
+    title: "Publish - it goes live immediately",
     body: (
       <>
-        Also in My Products: enter an amount and currency for a one-time purchase. This is the only place price is
-        set — AT24 never sets or adjusts your price. A price alone doesn&apos;t make a listing purchasable (see step
-        6).
+        Press Publish. There is no waiting for an admin. The listing appears in the marketplace with the label{" "}
+        <strong className="text-text">Not checked</strong>, and the Buy button works as soon as your file is stored.
+        &quot;Not checked&quot; is not a negative signal: it only means AT24 has not run its own verification on the product.
       </>
     ),
   },
   {
     n: 4,
-    title: "Preview before you submit",
+    title: "Optional: show real results",
     body: (
       <>
-        Click &quot;Preview this listing&quot; from My Products to see exactly how buyers will see it — same page,
-        same layout — before it&apos;s public. Only you can see this preview.
+        Sellers who want buyers to see real, ongoing performance attach their <strong className="text-text">demo or live
+        account</strong>: install the free AT24 Live Sync EA, open{" "}
+        <Link href="/dashboard/live-results" className="text-gold hover:underline">Live Results</Link>, make a results page public and link
+        it to your listing. A &quot;Live results of this EA&quot; card then appears on your listing, clearly marked DEMO or
+        REAL and as reported by your own terminal.
       </>
     ),
   },
   {
     n: 5,
-    title: "Submit for review",
+    title: "Optional: an AT24 check from a backtest report",
     body: (
       <>
-        Click &quot;Submit for review.&quot; This runs a real ingestion pipeline (schema check, platform check,
-        TradingSystem/Version binding, Evidence discovery) and then an eligibility check against AT24&apos;s own
-        independently-computed Evidence, Validation, Risk Analysis, and Trust State for your system. You&apos;ll see
-        the exact stage results and, if not yet eligible, the exact reasons — never a vague rejection.
+        If your product has a MetaTrader 5 Strategy Tester report, AT24 can run its own evidence checks on it. Products
+        without a readable report simply stay <strong className="text-text">Not checked</strong>. (Report checking is being
+        added next; until then the owner-run evidence pipeline is used for selected products.)
       </>
     ),
   },
   {
     n: 6,
-    title: "What AT24 actually verifies",
+    title: "Payments",
     body: (
       <>
-        AT24-computed fields — Evidence, Validation, Risk Analysis, Trust State — are <strong className="text-text">never
-        seller-writable</strong>, through any part of this flow. They come only from AT24 independently running your
-        system&apos;s real backtest data through its own Evidence → Validation → Risk Analysis → Trust Status
-        pipeline. A listing can reach <code className="text-text">READY</code>/<code className="text-text">PUBLISHED</code> with
-        a Trust State that is honestly <code className="text-text">INCONCLUSIVE</code> — that&apos;s not a rejection,
-        it means specific checks (e.g. market-regime coverage, parameter sensitivity) are still open. The real Trust
-        State is always shown on your listing page exactly as computed, never softened.
-      </>
-    ),
-  },
-  {
-    n: 7,
-    title: "Purchasing turns on automatically",
-    body: (
-      <>
-        A &quot;Buy Now&quot; button only ever appears once BOTH a valid price is set AND AT24 has registered a real,
-        downloadable release build for your system&apos;s exact version and platform. Until then, buyers see an
-        honest &quot;coming soon&quot; state — nobody can be charged for a listing with nothing real to deliver. Once
-        both are true, checkout, payment, and a signed license (one active device per purchase, by default) all
-        happen automatically.
+        Buyers pay through the marketplace checkout and receive a signed licence automatically. Seller payouts are not live
+        yet: sales are recorded, and will be paid out after payouts launch, minus the platform commission (currently planned
+        at 10%). Listings can be removed at any time if they break the rules or buyers report a problem.
       </>
     ),
   },
@@ -116,7 +96,7 @@ export default function MarketplaceSellerGuidePage() {
       <PageHero
         eyebrow="Resources / Seller Guide"
         title="How to List a Product"
-        subtitle="What each step actually does, and exactly what AT24 verifies before anyone can buy."
+        subtitle="Upload, add a logo and a price, publish. Real results from a demo or live account are optional."
       />
 
       <section className="px-6 py-12">

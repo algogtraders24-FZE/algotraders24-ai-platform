@@ -1197,6 +1197,12 @@ model ReleaseArtifact {
   // DRAFT|PUBLISHED|DEPRECATED|REVOKED - a compromised release (Section 15/17)
   // is marked REVOKED here, never deleted; RuntimeValidation must reject it.
   releaseStatus        String    @default("DRAFT")
+  // Seller self-serve (docs/SELLER-SELF-SERVE-SPEC.md): the product file lives in the private Supabase Storage bucket
+  // "marketplace-builds" at storageKey. NULL for every release created before self-serve (those are repo files in
+  // private-releases/<id>.<ext>).
+  storageKey           String?
+  fileName             String?
+  sizeBytes            Int?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
   deletedAt            DateTime?

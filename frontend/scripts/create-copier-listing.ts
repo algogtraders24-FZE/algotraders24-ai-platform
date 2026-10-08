@@ -5,7 +5,7 @@
 //
 // A copier is a UTILITY, not a trading strategy: there is no backtest/risk
 // evidence to run through M2-M7, so the listing deliberately carries NO Trust
-// State (it shows the honest "Not yet verified" label) and its description
+// State (it shows the honest "Not checked" label) and its description
 // states exactly what WAS verified (compile, in-terminal protocol self-test,
 // end-to-end demo test) and what was not. Visibility follows the documented,
 // user-directed pre-evidence pattern of publish-catalog-import-override.ts:

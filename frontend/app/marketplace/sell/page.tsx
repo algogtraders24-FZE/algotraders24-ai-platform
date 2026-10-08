@@ -9,19 +9,34 @@ import { requireUser } from "@/lib/auth/protectedRoute";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
 import SellClient from "./SellClient";
+import SelfServeSellClient from "./SelfServeSellClient";
+import { selfServeAllowedFor } from "@/lib/marketplace/selfServe";
 
 export const metadata = {
   title: "Submit a Trading System | AT24 Marketplace",
 };
 
 export default async function SellPage() {
-  await requireUser("/login?redirect=/marketplace/sell");
+  const user = await requireUser("/login?redirect=/marketplace/sell");
+  const selfServe = selfServeAllowedFor(user.profile.email);
 
   return (
     <main className="min-h-screen bg-ink pt-20 text-text">
       <Navbar />
       <div className="mx-auto max-w-2xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
-        <header>
+        {selfServe ? (
+          <header>
+            <h1 className="text-2xl font-bold text-text sm:text-3xl">Sell your product</h1>
+            <p className="mt-2 text-sm text-text-2">
+              Upload your file, add a logo, a description and a price - then publish. Your listing goes live straight away, labelled
+              &quot;Not checked&quot; unless AT24 has evidence for it. Add your demo or live account later to show real results.
+            </p>
+            <Link href="/resources/marketplace-seller-guide" className="mt-2 inline-block text-sm text-gold hover:underline">
+              How listing works →
+            </Link>
+          </header>
+        ) : (
+          <header>
           <h1 className="text-2xl font-bold text-text sm:text-3xl">Submit a Trading System</h1>
           <p className="mt-2 text-sm text-text-2">
             This creates a draft listing only. Nothing is published, and no performance claim you write here is ever treated
@@ -32,7 +47,8 @@ export default async function SellPage() {
             Read the full seller guide →
           </Link>
         </header>
-        <SellClient />
+        )}
+        {selfServe ? <SelfServeSellClient /> : <SellClient />}
       </div>
       <Footer />
     </main>

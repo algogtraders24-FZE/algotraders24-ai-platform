@@ -45,8 +45,9 @@ export default function TrustStateSection({ trustInfo, validation }: { trustInfo
         </div>
       ) : (
         <p className="text-sm text-text-3">
-          No AT24 Trust State has been computed for this listing yet. This is not a negative signal by itself — it means the
-          evidence verification/validation pipeline has not run for this Version.
+          <strong className="text-text-2">Not checked.</strong> AT24 has not checked this listing, so the description and any performance
+          figures are the seller&apos;s own claims. &quot;Not checked&quot; is not a negative signal by itself - it means no verification has been run for it yet.
+          If the seller attached a demo or live account, its real results are shown separately on this page.
         </p>
       )}
     </section>

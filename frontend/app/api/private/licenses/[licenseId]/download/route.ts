@@ -14,6 +14,8 @@ import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { prisma } from "@/lib/prisma";
 import { recordReleaseDownload } from "@/services/licensing/auditTrail";
+import { downloadBuild } from "@/lib/marketplace/buildStorage";
+import { extensionOf } from "@/lib/marketplace/selfServe";
 
 const RELEASES_DIR = path.join(process.cwd(), "private-releases");
 
@@ -50,25 +52,36 @@ export const GET = withContext(async (req, ctx) => {
   let bytes: Buffer | null = null;
   let storedExt = ".ex5";
   let filename = `${release.tradingSystemId}_${release.artifactVersion}.ex5`;
-  // Stored name is private-releases/<releaseId><ext>. .ex5 is the original convention; .ex4 (MT4
-  // binaries) and .zip (multi-file bundles, e.g. the Trade Copier) are looked up after it.
-  for (const ext of [".ex5", ".ex4", ".zip"]) {
+  if (release.storageKey) {
+    // Seller self-serve release: the file is in the private Supabase Storage bucket, never in the repo.
     try {
-      bytes = await readFile(path.join(RELEASES_DIR, `${release.id}${ext}`));
-      storedExt = ext;
-      break;
+      bytes = await downloadBuild(release.storageKey);
     } catch {
-      // try the next extension
+      return ApiResponse.error({ code: "FILE_MISSING", message: "The release file could not be read from storage." }, ctx.requestId, 500, ctx.startedAt);
     }
-  }
-  if (!bytes) {
-    return ApiResponse.error({ code: "FILE_MISSING", message: "The release binary is registered but its file is missing on this server." }, ctx.requestId, 500, ctx.startedAt);
-  }
-  try {
-    filename = (await readFile(path.join(RELEASES_DIR, `${release.id}.filename.txt`), "utf-8")).trim() || filename;
-  } catch {
-    // filename mapping missing - fall back to the derived name above, not fatal.
-    filename = filename.replace(/\.ex5$/, storedExt);
+    filename = release.fileName || filename;
+    storedExt = extensionOf(filename);
+  } else {
+    // Stored name is private-releases/<releaseId><ext>. .ex5 is the original convention; .ex4 (MT4
+    // binaries) and .zip (multi-file bundles, e.g. the Trade Copier) are looked up after it.
+    for (const ext of [".ex5", ".ex4", ".zip"]) {
+      try {
+        bytes = await readFile(path.join(RELEASES_DIR, `${release.id}${ext}`));
+        storedExt = ext;
+        break;
+      } catch {
+        // try the next extension
+      }
+    }
+    if (!bytes) {
+      return ApiResponse.error({ code: "FILE_MISSING", message: "The release binary is registered but its file is missing on this server." }, ctx.requestId, 500, ctx.startedAt);
+    }
+    try {
+      filename = (await readFile(path.join(RELEASES_DIR, `${release.id}.filename.txt`), "utf-8")).trim() || filename;
+    } catch {
+      // filename mapping missing - fall back to the derived name above, not fatal.
+      filename = filename.replace(/\.ex5$/, storedExt);
+    }
   }
 
   await recordReleaseDownload({ actorUserId: sessionUser.profile.id, releaseId: release.id, licenseId: license.id });
@@ -77,7 +90,7 @@ export const GET = withContext(async (req, ctx) => {
     status: 200,
     headers: {
       "Content-Type": storedExt === ".zip" ? "application/zip" : "application/octet-stream",
-      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Disposition": `attachment; filename="${filename.replace(/["\r\n]/g, "_")}"`,
       "Content-Length": String(bytes.length),
       "Cache-Control": "private, no-store",
     },
