@@ -1,0 +1,10 @@
+{
+  "name": "AT24LiveSync",
+  "version": "1.01",
+  "source": "AT24LiveSync.mq5",
+  "sourceSha256": "009ffd27b4c75777e9c6efafdc11e211d903af5864325e164b531de7c95d812a",
+  "ex5": "AT24LiveSync.ex5",
+  "ex5Sha256": "a98742ee2cde94787962926952fb60acac62db9bb38d69b62371fac896b19c4f",
+  "ex5Bytes": 44410,
+  "metaEditorBuild": null
+}
