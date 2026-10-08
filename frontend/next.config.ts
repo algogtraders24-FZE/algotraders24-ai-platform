@@ -67,7 +67,7 @@ const nextConfig: NextConfig = {
           {
             key: "Content-Security-Policy",
             value:
-              "default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://s3.tradingview.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://gyiwxsxgnnigoqpedzfw.supabase.co; connect-src 'self'; frame-src https://challenges.cloudflare.com; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
+              "default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://s3.tradingview.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://gyiwxsxgnnigoqpedzfw.supabase.co; connect-src 'self' https://gyiwxsxgnnigoqpedzfw.supabase.co; frame-src https://challenges.cloudflare.com; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
           },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
