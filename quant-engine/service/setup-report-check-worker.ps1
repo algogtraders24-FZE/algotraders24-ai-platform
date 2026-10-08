@@ -18,6 +18,9 @@ param(
     [string]$M2Dir = ""
 )
 
+$ErrorActionPreference = "Stop"
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdmin) { Write-Error "Run this from an elevated PowerShell (right-click PowerShell, Run as administrator)."; exit 1 }
 if ($Secret.Length -lt 16) { Write-Error "The secret must be at least 16 characters."; exit 1 }
 $worker = Join-Path $PSScriptRoot "report_check_worker.py"
 if (-not (Test-Path $worker)) { Write-Error "report_check_worker.py not found next to this script."; exit 1 }
