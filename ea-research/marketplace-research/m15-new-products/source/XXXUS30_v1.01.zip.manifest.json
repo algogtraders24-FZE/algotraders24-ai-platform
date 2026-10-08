@@ -1,0 +1,11 @@
+{
+  "version": "1.01",
+  "files": {
+    "XXXUS30.ex5": "ee3cd2dd14eb8130701808ce0e6d3990bde41cbefb3717294ad39318cd8b614e",
+    "xxxus30_filter.onnx": "bec3911663edbe988182b62b1ec24192e518b599d3c26384019673bb628848e1",
+    "xxxus30_filter.onnx.data": "990edc24aa34e4dbcfb6b7b61ef57a2e965aafad1cba2cd5e4eff5d8904fec20",
+    "XXXUS30_tested_settings.set": "f6418814a7136ef7d1e3244dffae2e129fbbf825f152bfcca8cfadb6c5d2d0d0",
+    "README.txt": "5ea3cfd83bb839838ff7ab233ecbbab5dbd5f0cc71843cce983cba5f7351f04e"
+  },
+  "zipSha256": "e4efbab4dc873a4a62c4a14f4bde14466ef00d853585cbcbb5ee1bb7d958efdc"
+}
