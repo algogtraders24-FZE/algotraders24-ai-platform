@@ -12,6 +12,7 @@ const ADMIN_NAV = [
   { label: "Users", href: "/dashboard/admin/users" },
   { label: "Subscriptions", href: "/dashboard/admin/subscriptions" },
   { label: "Payment Links", href: "/dashboard/admin/payment-links" },
+  { label: "Live Results", href: "/dashboard/admin/live-results" },
   { label: "Knowledge", href: "/dashboard/admin/knowledge" },
   { label: "AI Usage Analytics", href: "/dashboard/admin/analytics" },
   { label: "System Health", href: "/dashboard/admin/health" },

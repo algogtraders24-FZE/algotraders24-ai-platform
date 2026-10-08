@@ -16,18 +16,19 @@ export function liveResultsEnabled(): boolean {
 }
 
 export type ResultsLoad =
-  | { state: "ok"; results: PublicResults; slug: string; visibility: string; isOwner: boolean }
+  | { state: "ok"; results: PublicResults; slug: string; visibility: string; isOwner: boolean; isAdmin: boolean }
   | { state: "not_found" };
 
-export async function loadResults(slug: string, viewer: { userId: string | null; key: string | null }): Promise<ResultsLoad> {
+export async function loadResults(slug: string, viewer: { userId: string | null; key: string | null; isAdmin?: boolean }): Promise<ResultsLoad> {
   if (!liveResultsEnabled()) return { state: "not_found" };
   try {
     const page = await prisma.liveResultsPage.findUnique({ where: { slug } });
     if (!page) return { state: "not_found" };
     const isOwner = viewer.userId !== null && viewer.userId === page.userId;
-    if (!canView(page, { isOwner, key: viewer.key })) return { state: "not_found" };
+    const isAdmin = viewer.isAdmin === true;
+    if (!canView(page, { isOwner: isOwner || isAdmin, key: viewer.key })) return { state: "not_found" };
 
-    const ck = `${slug}|${page.updatedAt.getTime()}|${isOwner ? "o" : "v"}`;
+    const ck = `${slug}|${page.updatedAt.getTime()}|${isOwner || isAdmin ? "o" : "v"}`;
     const hit = cache.get(ck);
     if (hit && Date.now() - hit.at < CACHE_MS) return hit.value;
 
@@ -79,7 +80,7 @@ export async function loadResults(slug: string, viewer: { userId: string | null;
       snapshots: snaps.map((s) => ({ time: s.timeUtc.getTime(), positions: Array.isArray(s.positions) ? (s.positions as unknown as WirePosition[]) : [] })),
       nowUtc: Date.now(),
     });
-    const value: ResultsLoad = { state: "ok", results, slug: page.slug, visibility: page.visibility, isOwner };
+    const value: ResultsLoad = { state: "ok", results, slug: page.slug, visibility: page.visibility, isOwner, isAdmin };
     cache.set(ck, { at: Date.now(), value });
     if (cache.size > 200) cache.clear();
     return value;
@@ -185,5 +186,100 @@ export async function rotateKey(userId: string, id: string): Promise<OwnerPage |
 
 export async function deletePage(userId: string, id: string): Promise<boolean> {
   const r = await prisma.liveResultsPage.deleteMany({ where: { id, userId } });
+  return r.count > 0;
+}
+
+// ---------------------------------------------------------------------------
+// Directory (every signed-in user) and admin moderation.
+// The directory lists PUBLIC pages only and deliberately shows no performance number: it is a
+// "find a page" list, not a ranking (ranking by gain rewards risk-taking and gaming).
+// ---------------------------------------------------------------------------
+
+export interface DirectoryItem {
+  slug: string;
+  title: string;
+  description: string;
+  mode: string;
+  daysSinceFirstSync: number;
+  lastSyncAt: number;
+  stale: boolean;
+  oneEa: boolean;
+}
+
+export async function listPublicDirectory(): Promise<DirectoryItem[]> {
+  const pages = await prisma.liveResultsPage.findMany({ where: { visibility: "public" }, orderBy: { publishedAt: "desc" }, take: 100 });
+  if (pages.length === 0) return [];
+  const accounts = await prisma.liveSyncAccount.findMany({ where: { id: { in: pages.map((p) => p.accountId) } }, select: { id: true, userId: true, mode: true, firstSyncAt: true, lastSyncAt: true } });
+  const byId = new Map(accounts.map((a) => [a.id, a]));
+  const now = Date.now();
+  const out: DirectoryItem[] = [];
+  for (const p of pages) {
+    const a = byId.get(p.accountId);
+    if (!a || a.userId !== p.userId) continue;
+    out.push({
+      slug: p.slug,
+      title: p.title,
+      description: p.description,
+      mode: a.mode,
+      daysSinceFirstSync: Math.max(0, Math.floor((now - a.firstSyncAt.getTime()) / 86_400_000)),
+      lastSyncAt: a.lastSyncAt.getTime(),
+      stale: now - a.lastSyncAt.getTime() > 10 * 60_000,
+      oneEa: p.magicFilter !== null,
+    });
+  }
+  return out;
+}
+
+export interface AdminPageRow {
+  id: string;
+  slug: string;
+  title: string;
+  visibility: string;
+  ownerEmail: string;
+  accountLabel: string;
+  mode: string;
+  magicFilter: string | null;
+  showAmounts: boolean;
+  createdAt: number;
+  lastSyncAt: number | null;
+}
+
+export async function adminListAll(): Promise<AdminPageRow[]> {
+  const pages = await prisma.liveResultsPage.findMany({ orderBy: { createdAt: "desc" }, take: 300 });
+  if (pages.length === 0) return [];
+  const [accounts, users] = await Promise.all([
+    prisma.liveSyncAccount.findMany({ where: { id: { in: pages.map((p) => p.accountId) } }, select: { id: true, accountKey: true, mode: true, lastSyncAt: true } }),
+    prisma.user.findMany({ where: { id: { in: [...new Set(pages.map((p) => p.userId))] } }, select: { id: true, email: true } }),
+  ]);
+  const acc = new Map(accounts.map((a) => [a.id, a]));
+  const usr = new Map(users.map((u) => [u.id, u.email]));
+  return pages.map((p) => {
+    const a = acc.get(p.accountId);
+    return {
+      id: p.id,
+      slug: p.slug,
+      title: p.title,
+      visibility: p.visibility,
+      ownerEmail: usr.get(p.userId) ?? "(unknown)",
+      accountLabel: a ? `Account ${a.accountKey.slice(0, 6)}` : "(missing)",
+      mode: a?.mode ?? "-",
+      magicFilter: p.magicFilter === null ? null : p.magicFilter.toString(),
+      showAmounts: p.showAmounts,
+      createdAt: p.createdAt.getTime(),
+      lastSyncAt: a ? a.lastSyncAt.getTime() : null,
+    };
+  });
+}
+
+/** Moderation: take a page down without deleting the owner's settings. Returns the previous visibility, or null if not found. */
+export async function adminMakePrivate(id: string): Promise<string | null> {
+  const p = await prisma.liveResultsPage.findUnique({ where: { id }, select: { visibility: true } });
+  if (!p) return null;
+  await prisma.liveResultsPage.update({ where: { id }, data: { visibility: "private", publishedAt: null } });
+  return p.visibility;
+}
+
+export async function adminDelete(id: string): Promise<boolean> {
+  const r = await prisma.liveResultsPage.deleteMany({ where: { id } });
   return r.count > 0;
 }

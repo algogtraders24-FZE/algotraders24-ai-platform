@@ -15,6 +15,9 @@ export type AuditAction =
   | "subscription.canceled"
   | "subscription.reactivated"
   | "knowledge.deleted"
+  // AT24 Live Results moderation (take a page down / delete it).
+  | "live_results.page_made_private"
+  | "live_results.page_deleted"
   // Sprint M9 - Marketplace Product Factory audit trail. Reuses this
   // existing, already-append-only AuditLog model rather than a new table
   // (see ea-research/marketplace-research/m9-product-factory/
