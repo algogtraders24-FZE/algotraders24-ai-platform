@@ -11,6 +11,7 @@ import { existsSync, mkdtempSync, readFileSync, copyFileSync, writeFileSync } fr
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 
 import { computeBatchHash, cents } from "../services/live-sync/crypto";
 import { ZERO_HASH, type WireDeal } from "../services/live-sync/contract";
@@ -138,6 +139,22 @@ check("auth/failure behaviour: 401 stops retrying, 4060 explains the allow-list,
   assert.match(code, /code == 401[\s\S]{0,200}g_fatal = true/);
   assert.match(code, /err == 4060/);
   assert.match(code, /wait < 300/);
+});
+
+console.log("downloadable build (.ex5) matches the public source");
+check("the .ex5 and the manifest are present and tied to THIS source (rebuild with scripts/build-live-sync-ex5.ts after any change)", () => {
+  const dl = join(__dirname, "..", "public", "downloads");
+  const sha = (b: Buffer) => createHash("sha256").update(b).digest("hex");
+  const shaText = (b: Buffer) => sha(Buffer.from(b.toString("utf8").split("\r\n").join("\n"))); // LF-normalised, same as the build script
+  const manifest = JSON.parse(readFileSync(join(dl, "AT24LiveSync.manifest.json"), "utf8")) as { version: string; sourceSha256: string; ex5Sha256: string; ex5Bytes: number; ex5: string; source: string };
+  assert.equal(manifest.source, "AT24LiveSync.mq5");
+  assert.equal(manifest.ex5, "AT24LiveSync.ex5");
+  assert.equal(manifest.sourceSha256, shaText(readFileSync(EA_PATH)), "the .mq5 changed since the .ex5 was built: run `npx tsx scripts/build-live-sync-ex5.ts`");
+  const ex5 = readFileSync(join(dl, "AT24LiveSync.ex5"));
+  assert.equal(manifest.ex5Sha256, sha(ex5), "the .ex5 does not match the manifest");
+  assert.equal(manifest.ex5Bytes, ex5.length);
+  assert.ok(ex5.length > 10_000, "compiled build looks truncated");
+  assert.equal(manifest.version, /#property\s+version\s+"([^"]+)"/.exec(src)?.[1], "manifest version matches the source version");
 });
 
 console.log("real MetaEditor compile (Windows + MetaTrader 5 only)");

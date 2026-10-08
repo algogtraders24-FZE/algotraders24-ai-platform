@@ -138,7 +138,10 @@ export default function LiveSyncPage() {
         <p className="text-sm font-semibold text-text">How to connect (about 3 minutes)</p>
         <ol className="list-decimal space-y-2 pl-5 text-sm text-text-2">
           <li>Create a device token below and copy it (shown only once).</li>
-          <li>Download the EA <a className="font-semibold text-gold hover:underline" href="/downloads/AT24LiveSync.mq5" download>AT24LiveSync.mq5</a>, copy it into your terminal&apos;s <code>MQL5\Experts</code> folder and compile it in MetaEditor (F7). You can read exactly what it does.</li>
+          <li>
+            Download the ready-to-use EA <a className="font-semibold text-gold hover:underline" href="/downloads/AT24LiveSync.ex5" download>AT24LiveSync.ex5</a> and copy it into your terminal&apos;s <code>MQL5\Experts</code> folder (MetaTrader: <b>File → Open Data Folder → MQL5 → Experts</b>), then right-click <b>Expert Advisors</b> in the Navigator and choose <b>Refresh</b>.
+            <span className="block text-xs text-text-3">Prefer to read and compile it yourself? Use the source <a className="font-semibold text-gold hover:underline" href="/downloads/AT24LiveSync.mq5" download>AT24LiveSync.mq5</a> and compile it in MetaEditor (F7). The .ex5 is built from exactly that source; <a className="hover:underline" href="/downloads/AT24LiveSync.manifest.json" target="_blank" rel="noreferrer">checksums</a>. If your terminal is much older and refuses the .ex5, compile the source instead.</span>
+          </li>
           <li>In MetaTrader 5: <b>Tools → Options → Expert Advisors → Allow WebRequest for listed URL</b>, then add <code>https://www.algotraders24.ai</code>.</li>
           <li>Attach <b>AT24LiveSync</b> to ONE chart, paste your token into its inputs, and allow algo trading. The chart will show &quot;connected&quot;.</li>
         </ol>
