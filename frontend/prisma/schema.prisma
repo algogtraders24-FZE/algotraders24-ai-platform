@@ -3044,3 +3044,46 @@ model LiveResultsPage {
   @@index([visibility])
   @@map("live_results_pages")
 }
+
+/// AT24 Live Sync alerts: one rule per kind per synced account. Edge-triggered with a cooldown.
+/// kind: margin_level (alert below %) | daily_loss (% of the day-start balance) | drawdown (% below the 30-day equity peak)
+///       | ea_offline (minutes without data) | no_stop_loss (grace minutes)
+model LiveSyncAlertRule {
+  id           String    @id @default(cuid())
+  userId       String
+  accountId    String
+  kind         String
+  threshold    Float
+  enabled      Boolean   @default(true)
+  notifyEmail  Boolean   @default(true)
+  notifyBell   Boolean   @default(true)
+  cooldownMin  Int       @default(60)
+  /// ok | firing (so one breach is announced once, then reminded after the cooldown)
+  state        String    @default("ok")
+  lastFiredAt  DateTime?
+  lastValue    Float?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([accountId, kind])
+  @@index([userId])
+  @@map("live_sync_alert_rules")
+}
+
+/// Generic in-app notification feed (the header bell). First user: Live Sync alerts.
+model UserNotification {
+  id        String    @id @default(cuid())
+  userId    String
+  kind      String
+  /// info | warning | critical
+  severity  String    @default("info")
+  title     String
+  body      String    @default("")
+  href      String?
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+  @@map("user_notifications")
+}

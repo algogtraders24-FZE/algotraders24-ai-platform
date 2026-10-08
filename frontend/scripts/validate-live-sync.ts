@@ -304,6 +304,24 @@ async function main() {
     assert.match(none.headers.get("www-authenticate") ?? "", /Bearer/);
     assert.equal((await handleLiveSyncRequest(req(batch(1, ZERO_HASH, [deal(1)]), { authorization: `Bearer ${SYNC_TOKEN_PREFIX}nope` }), "ingest", deps)).status, 401);
   });
+  await check("post-snapshot hook: called once with the account when a snapshot is stored; not without one; a throwing hook never fails ingestion", async () => {
+    const calls: { accountId: string; userId: string }[] = [];
+    const a = mkDeps({ onSnapshotStored: (i: { accountId: string; userId: string }) => calls.push(i) });
+    const auth = { authorization: `Bearer ${a.d.tok.raw}` };
+    const r1 = await handleLiveSyncRequest(req(batch(1, ZERO_HASH, [deal(1)], { snapshot: SNAP }), auth), "ingest", a.deps);
+    assert.equal(r1.status, 200);
+    assert.equal(calls.length, 1);
+    assert.match(calls[0]!.accountId, /^acc/);
+    const body1 = (await r1.json()) as Record<string, unknown>;
+    assert.equal("accountId" in body1, false, "the internal account id is never returned to the EA");
+    const b = mkDeps({ onSnapshotStored: (i: { accountId: string; userId: string }) => calls.push(i) });
+    const authB = { authorization: `Bearer ${b.d.tok.raw}` };
+    assert.equal((await handleLiveSyncRequest(req(batch(1, ZERO_HASH, [deal(1)]), authB), "ingest", b.deps)).status, 200);
+    assert.equal(calls.length, 1, "no snapshot in the batch -> no hook");
+    const c = mkDeps({ onSnapshotStored: () => { throw new Error("boom"); } });
+    const authC = { authorization: `Bearer ${c.d.tok.raw}` };
+    assert.equal((await handleLiveSyncRequest(req(batch(1, ZERO_HASH, [deal(1)], { snapshot: SNAP }), authC), "ingest", c.deps)).status, 200);
+  });
   await check("rate limit -> 429 with Retry-After", async () => {
     const { d, deps } = mkDeps({ burst: createBurstLimiter(2) });
     const auth = { authorization: `Bearer ${d.tok.raw}` };
