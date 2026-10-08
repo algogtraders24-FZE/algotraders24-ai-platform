@@ -164,7 +164,7 @@ async function rowToDetail(row: PrismaMarketplaceListing, sellerNames: Map<strin
 }
 
 const PLATFORM_SELLER_DISPLAY_NAME = "Algotraders24.ai";
-const PLATFORM_SELLER_EMAILS = new Set(["algogtraders24@gmail.com"]);
+const PLATFORM_SELLER_EMAILS = new Set(["algogtraders24@gmail.com", "pravinawari@outlook.com"]);
 
 async function resolveSellerNames(sellerIds: string[]): Promise<Map<string, string>> {
   if (sellerIds.length === 0) return new Map();
