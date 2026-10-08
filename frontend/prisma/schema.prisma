@@ -2966,6 +2966,8 @@ model LiveSyncAccount {
   lastEquity         Float?
   /// Newest deal time (broker server ms) held for this account: lets a reinstalled EA resume.
   lastDealTimeMsc    BigInt?
+  /// Broker company name, sent ONLY when the user switches on ShareBrokerName in the EA (self-reported by the terminal).
+  broker             String?
 
   @@unique([userId, accountKey])
   @@index([userId])
@@ -3039,6 +3041,8 @@ model LiveResultsPage {
   magicFilter      BigInt?
   /// false = percent-only for visitors (no money amounts, no lot sizes).
   showAmounts      Boolean   @default(false)
+  /// Show the broker name (if the EA sent it) on this page.
+  showBroker       Boolean   @default(false)
   /// Open positions are shown to visitors only after they have been open this many minutes.
   positionDelayMin Int       @default(15)
   publishedAt      DateTime?

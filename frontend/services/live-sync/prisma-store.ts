@@ -96,6 +96,8 @@ export const prismaLiveSyncStore: LiveSyncStore = {
           leverage: facts.leverage,
           serverUtcOffsetSec: facts.serverUtcOffsetSec,
           terminalBuild: facts.terminalBuild,
+          // Opt-in: when the user turns ShareBrokerName off, the stored name is cleared on the next sync.
+          broker: facts.broker ?? null,
           ...(chain ? { chainSeq: chain.seq, chainHead: chain.hash, lastDealTimeMsc: BigInt(Math.max(...chain.deals.map((d) => d.timeMsc))) } : {}),
           ...(snapshot ? { lastSnapshotAt: now, lastBalance: snapshot.data.balance, lastEquity: snapshot.data.equity } : {}),
         },

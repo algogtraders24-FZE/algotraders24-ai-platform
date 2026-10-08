@@ -1,24 +1,26 @@
 //+------------------------------------------------------------------+
 //|                                              AT24LiveSync.mq5    |
-//|  AT24 Live Sync - READ-ONLY Expert Advisor (v1.0, prototype)     |
+//|  AT24 Live Sync - READ-ONLY Expert Advisor (v1.1)     |
 //|  https://www.algotraders24.ai                                    |
 //+------------------------------------------------------------------+
 #property copyright   "AT24"
 #property link        "https://www.algotraders24.ai"
-#property version     "1.01"
+#property version     "1.10"
 #property description "Reads your closed deals, balance/equity and open positions and sends them to"
 #property description "your AT24 account over HTTPS. It NEVER trades: this file contains no order,"
 #property description "position-modify or close functions. It never sends your account number, name,"
-#property description "server or any password. Demo accounts only unless you enable AllowLiveAccount."
+#property description "server or any password. Your broker company name is sent ONLY if you switch on"
+#property description "ShareBrokerName. Demo accounts only unless you enable AllowLiveAccount."
 
 //--- inputs ---------------------------------------------------------
 input string AT24_Token        = "";                           // Device token (AT24 dashboard > Live Sync)
 input string AT24_BaseUrl      = "https://www.algotraders24.ai"; // Must be on MT5's allowed-URL list
 input int    SyncIntervalSec   = 30;                           // Seconds between syncs (minimum 30)
 input bool   AllowLiveAccount  = false;                        // Demo only by default. Enable only if you understand this reads a REAL account
+input bool   ShareBrokerName    = false;                        // Off by default. On = send your broker COMPANY name (e.g. "Exness Technologies Ltd") so your results page can show it. Never the account number or server
 
 //--- constants ------------------------------------------------------
-#define AT24_VERSION          "1.0 prototype"
+#define AT24_VERSION          "1.1"
 #define ZERO_HASH             "0000000000000000000000000000000000000000000000000000000000000000"
 #define MAX_DEALS_PER_BATCH   300
 #define MAX_BATCHES_PER_CYCLE 5
@@ -206,6 +208,29 @@ string MarginModeText()
    return (m == ACCOUNT_MARGIN_MODE_RETAIL_HEDGING) ? "hedging" : "netting";
   }
 
+//--- Opt-in only. The ONLY place the broker company name is read. Plain characters only; empty = not sent.
+string BrokerFactJson()
+  {
+   if(!ShareBrokerName)
+      return "";
+   string raw = AccountInfoString(ACCOUNT_COMPANY);
+   string clean = "";
+   for(int i = 0; i < StringLen(raw) && StringLen(clean) < 60; i++)
+     {
+      const ushort c = StringGetCharacter(raw, i);
+      const bool alnum = (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+      if(alnum)
+         clean += ShortToString(c);
+      else
+         if(StringLen(clean) > 0 && (c == ' ' || c == '.' || c == ',' || c == '&' || c == '(' || c == ')' || c == '+' || c == '-' || c == '_' || c == '/'))
+            clean += ShortToString(c);
+     }
+   StringTrimRight(clean);
+   if(StringLen(clean) < 1)
+      return "";
+   return ",\"broker\":\"" + clean + "\"";
+  }
+
 string AccountFactsJson()
   {
    long off = (long)(TimeTradeServer() - TimeGMT());
@@ -216,8 +241,12 @@ string AccountFactsJson()
       off = -50400;
    string cur = AccountInfoString(ACCOUNT_CURRENCY);
    StringToUpper(cur);
-   return StringFormat("{\"currency\":\"%s\",\"mode\":\"%s\",\"marginMode\":\"%s\",\"leverage\":%I64d,\"serverUtcOffsetSec\":%I64d,\"terminalBuild\":%I64d}",
-                       JsonEsc(cur, 5), ModeText(), MarginModeText(), AccountInfoInteger(ACCOUNT_LEVERAGE), off, TerminalInfoInteger(TERMINAL_BUILD));
+   string json = StringFormat("{\"currency\":\"%s\",\"mode\":\"%s\",\"marginMode\":\"%s\",\"leverage\":%I64d,\"serverUtcOffsetSec\":%I64d,\"terminalBuild\":%I64d}",
+                              JsonEsc(cur, 5), ModeText(), MarginModeText(), AccountInfoInteger(ACCOUNT_LEVERAGE), off, TerminalInfoInteger(TERMINAL_BUILD));
+   const string broker = BrokerFactJson();
+   if(broker != "")
+      json = StringSubstr(json, 0, StringLen(json) - 1) + broker + "}";
+   return json;
   }
 
 string SnapshotJson()

@@ -3,7 +3,8 @@
 // Advisor and the AT24 ingest endpoint. docs/LIVE-SYNC-SPEC.md.
 //
 // The schema is a CLOSED allow-list: any field not listed here is rejected, so
-// identity fields (login, name, server, company, ...) cannot be smuggled in.
+// identity fields (login, name, server, ...) cannot be smuggled in. The ONE exception is `account.broker` (the
+// broker company name), sent only when the user switches on ShareBrokerName in the EA, one plain string <= 60 chars.
 
 export const LIVE_SYNC_VERSION = 1;
 
@@ -79,6 +80,8 @@ export interface WireAccountFacts {
   /** Seconds the broker server clock is ahead of UTC (negative if behind). */
   serverUtcOffsetSec: number;
   terminalBuild: number;
+  /** Broker company name. Opt-in (EA input ShareBrokerName); absent otherwise. */
+  broker?: string;
 }
 
 export interface IngestBody {
@@ -97,5 +100,5 @@ export interface IngestBody {
 export const DEAL_KEYS = ["ticket", "positionId", "timeMsc", "symbol", "type", "entry", "volume", "price", "commission", "swap", "profit", "fee", "magic", "comment"] as const;
 export const POSITION_KEYS = ["ticket", "symbol", "side", "volume", "priceOpen", "sl", "tp", "profit", "timeMsc"] as const;
 export const SNAPSHOT_KEYS = ["timeMsc", "balance", "equity", "margin", "freeMargin", "positions"] as const;
-export const ACCOUNT_KEYS = ["currency", "mode", "marginMode", "leverage", "serverUtcOffsetSec", "terminalBuild"] as const;
+export const ACCOUNT_KEYS = ["currency", "mode", "marginMode", "leverage", "serverUtcOffsetSec", "terminalBuild", "broker"] as const;
 export const BODY_KEYS = ["v", "accountKey", "account", "seq", "prevHash", "hash", "deals", "snapshot"] as const;

@@ -18,11 +18,13 @@ interface PageRow {
   unlistedKey: string;
   magicFilter: string | null;
   showAmounts: boolean;
+  showBroker: boolean;
   positionDelayMin: number;
   listingSlug: string | null;
 }
 interface AccountInfo {
   id: string;
+  broker: string | null;
   magics: { magic: string; trades: number }[];
 }
 
@@ -78,6 +80,7 @@ export default function PublishPanel({ accountId }: { accountId: string }) {
   const [magic, setMagic] = useState("");
   const [visibility, setVisibility] = useState<PageRow["visibility"]>("private");
   const [showAmounts, setShowAmounts] = useState(false);
+  const [showBroker, setShowBroker] = useState(false);
   const [delay, setDelay] = useState(15);
   const [listing, setListing] = useState("");
   const [listings, setListings] = useState<{ slug: string; title: string }[]>([]);
@@ -113,6 +116,7 @@ export default function PublishPanel({ accountId }: { accountId: string }) {
     setMagic(account && account.magics.length === 1 ? account.magics[0].magic : "");
     setVisibility("private");
     setShowAmounts(false);
+    setShowBroker(false);
     setDelay(15);
     setListing("");
     setErr(null);
@@ -125,6 +129,7 @@ export default function PublishPanel({ accountId }: { accountId: string }) {
     setMagic(p.magicFilter ?? "");
     setVisibility(p.visibility);
     setShowAmounts(p.showAmounts);
+    setShowBroker(p.showBroker);
     setDelay(p.positionDelayMin);
     setListing(p.listingSlug ?? "");
     setErr(null);
@@ -148,7 +153,7 @@ export default function PublishPanel({ accountId }: { accountId: string }) {
   }
 
   async function save() {
-    const body = JSON.stringify({ accountId, title, description, visibility, magicFilter: magic === "" ? null : magic, showAmounts, positionDelayMin: delay, listingSlug: listing === "" ? null : listing });
+    const body = JSON.stringify({ accountId, title, description, visibility, magicFilter: magic === "" ? null : magic, showAmounts, showBroker, positionDelayMin: delay, listingSlug: listing === "" ? null : listing });
     const url = editing ? `/api/private/live-results/pages?id=${encodeURIComponent(editing)}` : "/api/private/live-results/pages";
     if (await call(url, { method: editing ? "PATCH" : "POST", headers: { "content-type": "application/json" }, body }, "Could not save the page")) {
       setOpen(false);
@@ -228,6 +233,12 @@ export default function PublishPanel({ accountId }: { accountId: string }) {
           <label className="flex items-start gap-2 text-xs text-text-2">
             <input type="checkbox" className="mt-0.5" checked={showAmounts} onChange={(e) => setShowAmounts(e.target.checked)} />
             <span>Show money amounts and lot sizes. Leave this off to show percentages only (recommended).</span>
+          </label>
+          <label className="flex items-start gap-2 text-xs text-text-2">
+            <input type="checkbox" className="mt-0.5" checked={showBroker} disabled={!account?.broker} onChange={(e) => setShowBroker(e.target.checked)} />
+            <span>
+              Show my broker name{account?.broker ? <> (<b className="text-text">{account.broker}</b>, as reported by your terminal, not verified)</> : ": your EA is not sending it. In the EA inputs set ShareBrokerName = true (needs the v1.1 EA) and wait for the next sync."}
+            </span>
           </label>
           {visibility === "public" && <Alert tone="warning">Public means anyone who has the page address can see these results. The page always says the data is terminal-reported and not independently verified.</Alert>}
           {err && <Alert tone="danger">{err}</Alert>}

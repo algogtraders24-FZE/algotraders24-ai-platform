@@ -184,7 +184,7 @@ export default function LiveSyncPage() {
         <label className="flex items-start gap-2 text-sm text-text-2">
           <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1" />
           <span>
-            I understand that the Live Sync EA is read-only and will send my closed trades, balance, equity and open positions to AT24 (if I switch on a <b className="text-text">real account</b>, that is real account data). It never sends my account number, name, broker or password, and I can revoke the token or delete the synced data at any time.
+            I understand that the Live Sync EA is read-only and will send my closed trades, balance, equity and open positions to AT24 (if I switch on a <b className="text-text">real account</b>, that is real account data). It never sends my account number, name, server or password (my broker company name is sent only if I switch on ShareBrokerName in the EA), and I can revoke the token or delete the synced data at any time.
           </span>
         </label>
         {devices.length === 0 ? (
@@ -245,7 +245,7 @@ export default function LiveSyncPage() {
         <p className="text-sm font-semibold text-text">What is sent, and what never is</p>
         <ul className="list-disc space-y-1 pl-5 text-sm text-text-2">
           <li><b className="text-text">Sent:</b> your closed trades (symbol, direction, size, prices, profit, commission, swap), balance and equity, open positions, and basic account facts (currency, demo/real, hedging/netting).</li>
-          <li><b className="text-text">Never sent:</b> account number, your name, broker/server name, any password, or anything from other charts.</li>
+          <li><b className="text-text">Never sent:</b> account number, your name, server name, any password, or anything from other charts. The broker company name is sent <b className="text-text">only if you switch on ShareBrokerName</b> in the EA (off by default).</li>
           <li>Your account is identified only by a salted fingerprint that cannot be turned back into your account number by us.</li>
           <li>This is informational analysis, not investment advice. <Link href="/dashboard/help" className="font-semibold text-gold hover:underline">Guides</Link></li>
         </ul>

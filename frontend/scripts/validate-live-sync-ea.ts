@@ -86,8 +86,13 @@ check("only read APIs touch the account: history, positions, account info", () =
 });
 
 console.log("no identity leaves the terminal");
-check("name and company are never read; login/server are read ONLY inside ComputeAccountKey", () => {
-  for (const word of ["ACCOUNT_NAME", "ACCOUNT_COMPANY"]) assert.equal(code.includes(word), false, word);
+check("name is never read; the broker company only inside the opt-in BrokerFactJson; login/server ONLY inside ComputeAccountKey", () => {
+  assert.equal(code.includes("ACCOUNT_NAME"), false, "ACCOUNT_NAME");
+  const brokerFn = functionBody("BrokerFactJson");
+  assert.ok(brokerFn.includes("ACCOUNT_COMPANY"), "ACCOUNT_COMPANY is read by BrokerFactJson");
+  assert.match(brokerFn, /if\(!ShareBrokerName\)\s*return "";/, "the broker name is gated by the opt-in input");
+  assert.equal(code.replace(brokerFn, "").includes("ACCOUNT_COMPANY"), false, "ACCOUNT_COMPANY used outside BrokerFactJson");
+  assert.match(code, /input bool\s+ShareBrokerName\s*=\s*false;/, "ShareBrokerName is off by default");
   const keyFn = functionBody("ComputeAccountKey");
   const withoutKeyFn = code.replace(keyFn, "");
   for (const word of ["ACCOUNT_LOGIN", "ACCOUNT_SERVER"]) {

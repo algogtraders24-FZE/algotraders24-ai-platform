@@ -75,7 +75,7 @@ export default function ResultsView({ r, ownerNote, actions, visibility }: { r: 
           {r.title} <span className="ml-2 text-xs font-medium text-text-3">Live Results</span>
         </h1>
         <p className="text-sm font-medium text-text-2">
-          {r.mode === "real" ? "Real" : r.mode === "contest" ? "Contest" : "Demo"} ({cur}) · {r.marginMode} · 1:{r.account.leverage} · {r.account.platform} · {r.account.automated ? "Automated" : "Manual"}
+          {r.mode === "real" ? "Real" : r.mode === "contest" ? "Contest" : "Demo"} ({cur}) · {r.account.broker ? `${r.account.broker} · ` : ""}{r.marginMode} · 1:{r.account.leverage} · {r.account.platform} · {r.account.automated ? "Automated" : "Manual"}
         </p>
         {r.description && <p className="text-sm text-text-2">{r.description}</p>}
         {actions && <div>{actions}</div>}
@@ -156,6 +156,7 @@ export default function ResultsView({ r, ownerNote, actions, visibility }: { r: 
                   <KV k="Currency" v={cur} />
                   <KV k="Leverage" v={`1:${r.account.leverage}`} />
                   <KV k="Margin mode" v={r.marginMode} />
+                  {r.account.broker && <KV k="Broker" v={`${r.account.broker} (self-reported)`} />}
                   <KV k="Platform" v={r.account.platform} />
                   <KV k="Trading" v={r.account.automated ? "Automated (Expert Advisor)" : "Manual"} />
                   <KV k="Started" v={r.account.startedAt !== null ? day(r.account.startedAt) : "-"} />
@@ -163,7 +164,7 @@ export default function ResultsView({ r, ownerNote, actions, visibility }: { r: 
                   {visibility && <KV k="Status" v={visibility === "public" ? "Public" : visibility === "unlisted" ? "Unlisted (link only)" : "Private"} />}
                   <KV k="Timezone" v={`GMT${r.account.utcOffsetHours >= 0 ? "+" : ""}${r.account.utcOffsetHours}`} />
                   <KV k="Data source" v="Terminal-reported" />
-                  <p className="mt-2 text-[11px] text-text-3">The broker, account number and server are never sent or shown.</p>
+                  <p className="mt-2 text-[11px] text-text-3">{r.account.broker ? "The broker name is typed by the owner's terminal and is not verified. The account number and server are never sent or shown." : "The account number and server are never sent or shown."}</p>
                 </>
               ),
             },
