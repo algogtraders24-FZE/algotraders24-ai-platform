@@ -8,6 +8,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import Badge from "@/components/ui/Badge";
+import { DemoTestedBadge } from "@/components/marketplace/DemoTestedBadge";
 import { DEMO_TESTED_HINT, isDemoTestedUtility, trustStateLabel, trustStateTone } from "@/lib/marketplace";
 import TrustStateSection from "@/components/marketplace/sections/TrustStateSection";
 import EvidenceSection from "@/components/marketplace/sections/EvidenceSection";
@@ -68,7 +69,7 @@ export default function ListingDetailView({
             {listing.platformTag && <span className="text-xs font-semibold bg-gold/20 text-gold px-3 py-1 rounded-full">{listing.platformTag}</span>}
             {listing.assetTag && <span className="rounded-control border border-border px-2 py-0.5 text-[10px] font-medium text-text-3">{listing.assetTag}</span>}
             {isDemoTestedUtility(listing) ? (
-              <span title={DEMO_TESTED_HINT}><Badge tone="success">Demo-tested</Badge></span>
+              <DemoTestedBadge large />
             ) : (
               <Badge tone={trustStateTone(listing.trustState)}>{trustStateLabel(listing.trustState)}</Badge>
             )}
