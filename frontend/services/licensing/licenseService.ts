@@ -15,6 +15,7 @@ import type { ActivationPolicy, LicensePayload, LicenseStatus, RevocationReason,
 import { DEFAULT_ACTIVATION_POLICY } from "@/types/marketplace-license";
 import type { PlatformName } from "@/types/marketplace-factory";
 import { Prisma } from "@/lib/generated/prisma/client";
+import { parseLicenseKey, type LicenseCheckReason } from "./licenseKey";
 
 function isPlatformName(value: string): value is PlatformName {
   return getLicenseAdapter(value) !== null;
@@ -338,6 +339,89 @@ export async function validateLicenseRuntime(params: {
   await recordLicenseAudit({ actorUserId: license.buyerId, action: "license.validated", licenseId: license.id, metadata: result.ok ? { result: "OK" } : { result: "FAIL", reason: result.reason } });
 
   return result;
+}
+
+// --- POST /api/license/check - the SIMPLE runtime check: one key string (+ optional trading account number) in, one
+// answer out. Same facts as validate (signature, status, expiry, release, activation limit) without the 8 fields. With an
+// `account` the key is bound to "account number + broker server": the first accounts use up the activation slots
+// (default 1), the same account always re-validates, a different account beyond the limit gets ACCOUNT_LIMIT_REACHED.
+// Without an `account` nothing is bound (a seller who does not want account locking simply omits it). ---
+
+export interface LicenseCheckResult {
+  valid: boolean;
+  reason?: LicenseCheckReason;
+  detail?: string;
+  licenseId?: string;
+  buyerId?: string;
+  product?: { tradingSystemId: string; versionId: string; platform: string; releaseId: string };
+  expiresAt?: string | null;
+  activations?: { used: number; allowed: number };
+  accountBound?: boolean;
+}
+
+export async function checkLicenseByKey(params: { key: unknown; account?: string; server?: string; requireAccount?: boolean }): Promise<LicenseCheckResult> {
+  const parsed = parseLicenseKey(params.key);
+  if (!parsed) return { valid: false, reason: "INVALID_KEY", detail: "The licence key is not in the form AT24-<id>.<secret>." };
+
+  const auth = await authenticateLicense(parsed.licenseId, parsed.rawApiKey);
+  if (!auth.ok) return { valid: false, reason: "INVALID_KEY", detail: "Unknown or wrong licence key." };
+  const license = auth.license;
+  const base = {
+    licenseId: license.id,
+    buyerId: license.buyerId,
+    product: { tradingSystemId: license.tradingSystemId, versionId: license.versionId, platform: license.platform, releaseId: license.releaseId },
+    expiresAt: license.expiresAt ? license.expiresAt.toISOString() : null,
+  };
+  const policy = license.activationPolicy as unknown as ActivationPolicy;
+  const fail = async (reason: LicenseCheckReason, detail: string, extra: Partial<LicenseCheckResult> = {}): Promise<LicenseCheckResult> => {
+    await recordLicenseAudit({ actorUserId: license.buyerId, action: "license.validated", licenseId: license.id, metadata: { result: "FAIL", reason, via: "check" } });
+    return { valid: false, reason, detail, ...base, ...extra };
+  };
+
+  if (!verifyLicenseSignature(toPayload(license), license.signature)) return fail("LICENSE_NOT_USABLE", "The licence record failed its integrity check.");
+  if (license.licenseStatus === "REVOKED") return fail("LICENSE_REVOKED", license.revokedReason ?? "This licence was revoked.");
+  if (license.licenseStatus === "SUSPENDED") return fail("LICENSE_SUSPENDED", "This licence is suspended.");
+  if (license.licenseStatus !== "ISSUED" && license.licenseStatus !== "ACTIVE") return fail("LICENSE_NOT_USABLE", `Licence status is ${license.licenseStatus}.`);
+  if (license.expiresAt && license.expiresAt.getTime() <= Date.now()) return fail("LICENSE_EXPIRED", "This licence has expired.");
+
+  // A superseded (DEPRECATED) build keeps working for the buyers who own it; only a REVOKED/removed build stops.
+  const release = await prisma.releaseArtifact.findUnique({ where: { id: license.releaseId }, select: { releaseStatus: true, deletedAt: true } });
+  if (!release || release.releaseStatus === "REVOKED" || release.deletedAt) return fail("RELEASE_REVOKED", "The product build behind this licence was withdrawn.");
+
+  const account = params.account ?? "";
+  const rows = await prisma.activation.findMany({ where: { licenseId: license.id } });
+  const used = rows.filter((r) => r.status === "ACTIVE").length;
+  const activations = { used, allowed: policy.maxActivations };
+
+  if (!account) {
+    if (params.requireAccount) return fail("ACCOUNT_REQUIRED", "This product requires the trading account number.", { activations });
+    await recordLicenseAudit({ actorUserId: license.buyerId, action: "license.validated", licenseId: license.id, metadata: { result: "OK", via: "check", bound: false } });
+    return { valid: true, ...base, activations, accountBound: false };
+  }
+
+  const adapter = getLicenseAdapter(license.platform);
+  const deviceBindingId = adapter ? adapter.deriveDeviceBindingId({ accountLogin: account, brokerServer: params.server ?? "" }) : `acct:${account}@${params.server ?? ""}`;
+  const decision = decideActivation(license.licenseStatus as LicenseStatus, policy, rows.map((r) => ({ deviceBindingId: r.deviceBindingId, status: r.status as "ACTIVE" | "DEACTIVATED" })), deviceBindingId);
+
+  if (decision.action === "REJECT") return fail("ACCOUNT_LIMIT_REACHED", `${decision.detail} Free a slot from your purchase page or buy another licence.`, { activations });
+
+  if (decision.action === "REACTIVATE_EXISTING") {
+    await prisma.activation.update({ where: { licenseId_deviceBindingId: { licenseId: license.id, deviceBindingId } }, data: { status: "ACTIVE", deactivatedAt: null, lastValidatedAt: new Date() } });
+  } else {
+    try {
+      await prisma.activation.create({ data: { licenseId: license.id, deviceBindingId, deviceLabel: `${license.platform} account ${account}${params.server ? ` @ ${params.server}` : ""}`, status: "ACTIVE", lastValidatedAt: new Date() } });
+    } catch (err) {
+      // Two simultaneous first checks from the same account: the unique (licenseId, deviceBindingId) row already exists - fine.
+      if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002")) throw err;
+    }
+    if (license.licenseStatus === "ISSUED") {
+      const t = transition("ISSUED", "ACTIVATE");
+      if (t.ok) await prisma.license.update({ where: { id: license.id }, data: { licenseStatus: t.next } });
+    }
+  }
+  const nowUsed = await prisma.activation.count({ where: { licenseId: license.id, status: "ACTIVE" } });
+  await recordLicenseAudit({ actorUserId: license.buyerId, action: "license.validated", licenseId: license.id, metadata: { result: "OK", via: "check", bound: true } });
+  return { valid: true, ...base, activations: { used: nowUsed, allowed: policy.maxActivations }, accountBound: true };
 }
 
 // --- POST /api/license/deactivate (idempotent - deactivating an already-

@@ -10,6 +10,7 @@ import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { regenerateApiKey } from "@/services/licensing/licenseService";
+import { composeLicenseKey } from "@/services/licensing/licenseKey";
 
 function licenseIdFromPath(reqPath: string): string | undefined {
   const segments = reqPath.split("/").filter(Boolean);
@@ -34,5 +35,6 @@ export const POST = withContext(async (req, ctx) => {
     return ApiResponse.error({ code: result.code, message: result.code === "NOT_FOUND" ? "License not found" : "This license does not belong to you" }, ctx.requestId, status, ctx.startedAt);
   }
 
-  return ApiResponse.success({ rawApiKey: result.rawApiKey }, ctx.requestId, 200, ctx.startedAt);
+  // licenseKey = the ONE string a buyer pastes into the EA (AT24-<licenseId>.<apiKey>); rawApiKey stays for the old 8-field flow.
+  return ApiResponse.success({ rawApiKey: result.rawApiKey, licenseKey: composeLicenseKey(licenseId, result.rawApiKey) }, ctx.requestId, 200, ctx.startedAt);
 });

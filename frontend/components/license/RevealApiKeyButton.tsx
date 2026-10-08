@@ -9,6 +9,7 @@ import Alert from "@/components/ui/Alert";
 
 export default function RevealApiKeyButton({ licenseId }: { licenseId: string }) {
   const [rawKey, setRawKey] = useState<string | null>(null);
+  const [licenseKey, setLicenseKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -24,6 +25,7 @@ export default function RevealApiKeyButton({ licenseId }: { licenseId: string })
         throw new Error(body?.error?.message ?? "Could not generate an API key");
       }
       setRawKey(body.data.rawApiKey as string);
+      setLicenseKey((body.data.licenseKey as string | undefined) ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not generate an API key");
     } finally {
@@ -32,9 +34,10 @@ export default function RevealApiKeyButton({ licenseId }: { licenseId: string })
   };
 
   const handleCopy = async () => {
-    if (!rawKey) return;
+    const value = licenseKey ?? rawKey;
+    if (!value) return;
     try {
-      await navigator.clipboard.writeText(rawKey);
+      await navigator.clipboard.writeText(value);
       setCopied(true);
     } catch {
       // Clipboard access can fail (permissions/insecure context) - the key
@@ -45,14 +48,20 @@ export default function RevealApiKeyButton({ licenseId }: { licenseId: string })
   if (rawKey) {
     return (
       <div className="rounded-xl border border-gold/30 bg-gold/5 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gold">Your AT24 API Key</p>
-        <p className="mt-1 text-xs text-text-3">Save this now - paste it into the EA&apos;s InpApiKey input. It will not be shown again; regenerating replaces it.</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-gold">Your AT24 licence key</p>
+        <p className="mt-1 text-xs text-text-3">Save this now - paste it into the EA&apos;s <code>InpLicenseKey</code> input (one value is enough). It will not be shown again; generating a new one replaces it.</p>
         <div className="mt-3 flex items-center gap-2">
-          <code className="flex-1 overflow-x-auto rounded-lg border border-border bg-ink px-3 py-2 text-xs text-text">{rawKey}</code>
+          <code className="flex-1 overflow-x-auto rounded-lg border border-border bg-ink px-3 py-2 text-xs text-text">{licenseKey ?? rawKey}</code>
           <button onClick={handleCopy} className="shrink-0 rounded-control border border-border px-3 py-2 text-xs font-semibold text-text-2 transition hover:border-gold hover:text-gold">
             {copied ? "Copied" : "Copy"}
           </button>
         </div>
+        {licenseKey && (
+          <details className="mt-3 text-xs text-text-3">
+            <summary className="cursor-pointer">Older EAs that ask for InpApiKey separately</summary>
+            <code className="mt-2 block overflow-x-auto rounded-lg border border-border bg-ink px-3 py-2 text-xs text-text">{rawKey}</code>
+          </details>
+        )}
       </div>
     );
   }
@@ -65,7 +74,7 @@ export default function RevealApiKeyButton({ licenseId }: { licenseId: string })
         disabled={loading}
         className="rounded-control bg-gold px-4 py-2 text-sm font-semibold text-ink transition hover:brightness-110 disabled:opacity-60"
       >
-        {loading ? "Generating..." : "Reveal / Regenerate API Key"}
+        {loading ? "Generating..." : "Show / generate my licence key"}
       </button>
     </div>
   );

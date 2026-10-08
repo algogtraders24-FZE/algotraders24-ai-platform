@@ -57,26 +57,27 @@ export default async function LicenseDetailPage({ params }: { params: Promise<{ 
       </Card>
 
       <Card>
-        <h2 className="text-sm font-semibold text-text">2. EA Setup Values</h2>
+        <h2 className="text-sm font-semibold text-text">2. Your licence key</h2>
         <p className="mt-1 text-xs text-text-2">
-          Paste these into the EA&apos;s inputs after attaching it to your chart. You also need one one-time MT5 setting:
-          Tools → Options → Expert Advisors → check &quot;Allow WebRequest for listed URL&quot; → add{" "}
+          One key is all the EA needs: paste it into the EA&apos;s <code className="rounded bg-ink px-1.5 py-0.5 text-[11px]">InpLicenseKey</code> input.
+          You also need one one-time MT5/MT4 setting: Tools → Options → Expert Advisors → check &quot;Allow WebRequest for listed URL&quot; → add{" "}
           <code className="rounded bg-ink px-1.5 py-0.5 text-[11px]">https://www.algotraders24.ai</code>.
         </p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <CopyField label="InpLicenseId" value={license.licenseId} />
-          <CopyField label="InpBuyerId" value={license.buyerId} />
-          <CopyField label="InpReleaseId" value={license.releaseId} />
-          <CopyField label="Platform" value={license.platform} />
-        </div>
         <div className="mt-4">
-          <p className="text-[10px] uppercase tracking-wide text-text-3">InpApiKey</p>
-          <div className="mt-1">
-            <RevealApiKeyButton licenseId={license.licenseId} />
-          </div>
+          <RevealApiKeyButton licenseId={license.licenseId} />
         </div>
+        <details className="mt-4 text-xs text-text-3">
+          <summary className="cursor-pointer">Older EAs that ask for separate values (InpLicenseId, InpBuyerId, InpReleaseId, InpApiKey)</summary>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <CopyField label="InpLicenseId" value={license.licenseId} />
+            <CopyField label="InpBuyerId" value={license.buyerId} />
+            <CopyField label="InpReleaseId" value={license.releaseId} />
+            <CopyField label="Platform" value={license.platform} />
+          </div>
+          <p className="mt-2">InpApiKey: use the &quot;Older EAs&quot; line shown under your key after you generate it.</p>
+        </details>
         <p className="mt-4 text-xs text-text-3">
-          Activation limit: {license.activationPolicy.maxActivations} device{license.activationPolicy.maxActivations === 1 ? "" : "s"} at a time.
+          Activation limit: {license.activationPolicy.maxActivations} trading account{license.activationPolicy.maxActivations === 1 ? "" : "s"} at a time - the first account that runs the EA uses the slot; the same account keeps working.
         </p>
       </Card>
 

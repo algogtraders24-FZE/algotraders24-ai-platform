@@ -78,6 +78,23 @@ const STEPS = [
   },
   {
     n: 6,
+    title: "Optional: protect your product with the AT24 licence key",
+    body: (
+      <>
+        Every purchase gets <strong className="text-text">one licence key</strong> (shown on the buyer&apos;s purchase page). To make your EA
+        require it, download{" "}
+        <a href="/downloads/AT24_License.mqh" className="text-gold hover:underline">AT24_License.mqh</a>, put it next to your source and add an{" "}
+        <code className="text-text">input string InpLicenseKey</code>. In <code className="text-text">OnInit</code> call{" "}
+        <code className="text-text">AT24_CheckLicense(InpLicenseKey, result)</code>: it sends only the key and the trading account number to AT24
+        and tells you <code className="text-text">valid</code>, the <code className="text-text">buyerId</code> and the expiry. By default the key is tied to the
+        first trading account that uses it (the same account keeps working). Your buyers allow
+        <code className="text-text"> https://www.algotraders24.ai</code> once under Tools → Options → Expert Advisors → WebRequest. Works for MT4 and MT5.
+        Other platforms can call <code className="text-text">POST /api/license/check</code> with <code className="text-text">{`{"key":"..."}`}</code> directly.
+      </>
+    ),
+  },
+  {
+    n: 7,
     title: "Payments",
     body: (
       <>
