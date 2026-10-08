@@ -78,4 +78,9 @@ ok(!JSON.stringify(buildPublicResults({ ...base, snapshots: snap(-20.5) })).incl
 const tooNew = buildPublicResults({ ...base, page: { ...base.page, showAmounts: true }, snapshots: [{ time: at("2026-10-08T11:55:00"), positions: snap(-99)[0]!.positions }] });
 eq(tooNew.amounts!.equity, null, "a snapshot newer than the position delay is not used (equity would leak the current floating loss)");
 
+// ---- platform label
+eq(buildPublicResults(base).account.platform, "MetaTrader 5", "default platform label is MetaTrader 5");
+eq(buildPublicResults({ ...base, account: { ...base.account, platform: "mt4" } }).account.platform, "MetaTrader 4", "an MT4 account is labelled MetaTrader 4");
+eq(buildPublicResults({ ...base, account: { ...base.account, platform: "mt5" } }).account.platform, "MetaTrader 5", "an MT5 account is labelled MetaTrader 5");
+
 console.log(`validate-live-results-account: ${checks} checks passed`);

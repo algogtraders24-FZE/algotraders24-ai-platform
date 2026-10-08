@@ -212,3 +212,16 @@ Terminal: MetaTrader 5, Exness demo, hedging. EA compiled in MetaEditor (0 error
    catch-up before brand-new trades appear. Acceptable for P1; a future improvement is a "recent first" fast path
    with a clearly labelled separate segment.
 5. The server's timestamp conversion used `serverUtcOffsetSec = 0` for this broker (Exness servers run on UTC).
+
+## MetaTrader 4 (EA `AT24LiveSync-MT4.mq4`, v1.0)
+
+Same wire contract, same hash chain, same privacy rules as the MT5 EA, with `account.platform = "mt4"` (optional field; absent = MT5; stored in `live_sync_accounts.platform`, default `mt5`).
+
+- **Orders become deals.** MT4 keeps one record per closed order, so every closed order is sent as an `in` deal (at the open time) and an `out` deal (at the close time). Deal tickets are derived from the order ticket (`2n` = open, `2n+1` = close), so a resend is always recognised; `positionId` is the order ticket, which is also the ticket in the open-positions snapshot.
+- **Balance operations** (MT4 order type 6) become `balance` deals; credits (type 7) and cancelled pending orders are skipped.
+- **Cursor** is `(close second, ticket)` because MT4 times have 1-second resolution. After a server resync (409) the EA re-sends the whole boundary second; duplicates are ignored by ticket.
+- **History held by the terminal:** MT4 only knows the history shown in its Account History tab. The user must choose "All History" first; the chart note says where the held history starts.
+- **Partial closes:** MT4 closes part of an order by creating a new order for the rest, so each part is its own trade.
+- **Comments:** MT4 appends `[sl]` / `[tp]` to the comment of an order closed by a stop; the EA removes it so strategy names stay clean.
+- **Server clock:** MT4 has no always-current server time (`TimeCurrent()` is the last tick). The UTC offset is only updated while ticks flow in real time; a value taken on a closed market can be off until it opens.
+- Always `hedging`; the mode is `demo` or `real` (MT4 has no "contest" flag). Build with `scripts/build-live-sync-ex4.ts`, check with `scripts/validate-live-sync-ea-mt4.ts`.

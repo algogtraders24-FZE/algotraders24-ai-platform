@@ -2968,6 +2968,8 @@ model LiveSyncAccount {
   lastDealTimeMsc    BigInt?
   /// Broker company name, sent ONLY when the user switches on ShareBrokerName in the EA (self-reported by the terminal).
   broker             String?
+  /// "mt5" (default) or "mt4": which terminal sends the data.
+  platform           String    @default("mt5")
 
   @@unique([userId, accountKey])
   @@index([userId])

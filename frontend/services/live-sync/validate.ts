@@ -6,7 +6,7 @@
 
 import {
   ACCOUNT_KEYS, BODY_KEYS, DEAL_KEYS, LIMITS, LIVE_SYNC_VERSION, POSITION_KEYS, SNAPSHOT_KEYS,
-  type AccountMode, type DealEntry, type DealType, type IngestBody, type MarginMode, type WireAccountFacts, type WireDeal, type WirePosition, type WireSnapshot,
+  type AccountMode, type DealEntry, type DealType, type IngestBody, type MarginMode, type Platform, type WireAccountFacts, type WireDeal, type WirePosition, type WireSnapshot,
 } from "./contract";
 
 export type ValidationResult = { ok: true; body: IngestBody } | { ok: false; message: string };
@@ -19,6 +19,7 @@ const DEAL_TYPES: readonly DealType[] = ["buy", "sell", "balance", "other"];
 const DEAL_ENTRIES: readonly DealEntry[] = ["in", "out", "inout", "none"];
 const MODES: readonly AccountMode[] = ["demo", "real", "contest"];
 const MARGIN_MODES: readonly MarginMode[] = ["hedging", "netting"];
+const PLATFORMS: readonly Platform[] = ["mt4", "mt5"];
 
 type Rec = Record<string, unknown>;
 const isRec = (v: unknown): v is Rec => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -95,17 +96,21 @@ function parseAccount(raw: unknown): WireAccountFacts | string {
   if (!isRec(raw)) return "account must be an object";
   const extra = onlyKeys(raw, ACCOUNT_KEYS, "account");
   if (extra) return extra;
-  const { currency, mode, marginMode, leverage, serverUtcOffsetSec, terminalBuild, broker } = raw;
+  const { currency, mode, marginMode, leverage, serverUtcOffsetSec, terminalBuild, broker, platform } = raw;
   if (typeof currency !== "string" || !/^[A-Z]{3,5}$/.test(currency)) return "account.currency invalid";
   if (!oneOf(mode, MODES)) return "account.mode invalid";
   if (!oneOf(marginMode, MARGIN_MODES)) return "account.marginMode invalid";
   if (!int(leverage, 0, 100_000)) return "account.leverage invalid";
   if (!int(serverUtcOffsetSec, -50_400, 50_400)) return "account.serverUtcOffsetSec invalid";
   if (!int(terminalBuild, 0, 1_000_000)) return "account.terminalBuild invalid";
-  if (broker === undefined) return { currency, mode, marginMode, leverage, serverUtcOffsetSec, terminalBuild };
+  if (platform !== undefined && !oneOf(platform, PLATFORMS)) return "account.platform invalid";
+  const facts: WireAccountFacts = { currency, mode, marginMode, leverage, serverUtcOffsetSec, terminalBuild };
+  if (platform !== undefined) facts.platform = platform;
+  if (broker === undefined) return facts;
   const name = typeof broker === "string" ? broker.trim() : "";
   if (name.length < 1 || name.length > 60 || !BROKER_RE.test(name)) return "account.broker invalid";
-  return { currency, mode, marginMode, leverage, serverUtcOffsetSec, terminalBuild, broker: name };
+  facts.broker = name;
+  return facts;
 }
 
 export function validateIngestBody(raw: unknown): ValidationResult {

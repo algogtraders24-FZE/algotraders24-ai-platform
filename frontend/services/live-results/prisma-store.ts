@@ -99,6 +99,7 @@ export async function loadResults(slug: string, viewer: { userId: string | null;
         batches: account.chainSeq,
         chainHead: account.chainHead,
         broker: account.broker,
+        platform: account.platform,
       },
       deals,
       snapshots: snaps.map((s) => ({ time: s.timeUtc.getTime(), positions: Array.isArray(s.positions) ? (s.positions as unknown as WirePosition[]) : [] })),

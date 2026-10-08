@@ -32,6 +32,8 @@ export type DealType = "buy" | "sell" | "balance" | "other";
 export type DealEntry = "in" | "out" | "inout" | "none";
 export type AccountMode = "demo" | "real" | "contest";
 export type MarginMode = "hedging" | "netting";
+/** Which terminal sends the data. Absent = MT5 (every v1.x MT5 EA). */
+export type Platform = "mt4" | "mt5";
 
 export interface WireDeal {
   ticket: number;
@@ -82,6 +84,8 @@ export interface WireAccountFacts {
   terminalBuild: number;
   /** Broker company name. Opt-in (EA input ShareBrokerName); absent otherwise. */
   broker?: string;
+  /** "mt4" for the MetaTrader 4 EA; absent = "mt5". */
+  platform?: Platform;
 }
 
 export interface IngestBody {
@@ -100,5 +104,5 @@ export interface IngestBody {
 export const DEAL_KEYS = ["ticket", "positionId", "timeMsc", "symbol", "type", "entry", "volume", "price", "commission", "swap", "profit", "fee", "magic", "comment"] as const;
 export const POSITION_KEYS = ["ticket", "symbol", "side", "volume", "priceOpen", "sl", "tp", "profit", "timeMsc"] as const;
 export const SNAPSHOT_KEYS = ["timeMsc", "balance", "equity", "margin", "freeMargin", "positions"] as const;
-export const ACCOUNT_KEYS = ["currency", "mode", "marginMode", "leverage", "serverUtcOffsetSec", "terminalBuild", "broker"] as const;
+export const ACCOUNT_KEYS = ["currency", "mode", "marginMode", "leverage", "serverUtcOffsetSec", "terminalBuild", "broker", "platform"] as const;
 export const BODY_KEYS = ["v", "accountKey", "account", "seq", "prevHash", "hash", "deals", "snapshot"] as const;

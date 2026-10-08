@@ -1,2 +1,4 @@
 frontend/public/downloads/*.ex5 binary
 frontend/public/downloads/*.mq5 text eol=lf
+frontend/public/downloads/*.ex4 binary
+frontend/public/downloads/*.mq4 text eol=lf

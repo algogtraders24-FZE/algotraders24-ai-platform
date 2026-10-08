@@ -33,6 +33,7 @@ export const GET = withContext(async (_req, ctx) => {
           mode: a.mode,
           currency: a.currency,
           marginMode: a.marginMode,
+          platform: a.platform,
           firstSyncAt: a.firstSyncAt,
           lastSyncAt: a.lastSyncAt,
           trades: dealCount.get(a.id) ?? 0,

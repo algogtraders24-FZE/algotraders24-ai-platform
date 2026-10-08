@@ -34,6 +34,8 @@ export interface BuildInput {
     chainHead: string;
     /** Broker company name as reported by the terminal (opt-in in the EA), if any. */
     broker?: string | null;
+    /** "mt4" or "mt5" (default). */
+    platform?: string | null;
   };
   deals: readonly DealWithMagic[];
   /** Recent snapshots (UTC ms), any order. Only open positions are used from them. */
@@ -338,7 +340,7 @@ export function buildPublicResults(input: BuildInput): PublicResults {
     mode: account.mode,
     currency: account.currency,
     marginMode: account.marginMode,
-    account: { platform: "MetaTrader 5", leverage: account.leverage, utcOffsetHours: Math.round((account.serverUtcOffsetSec / 3600) * 100) / 100, automated, startedAt: stats.firstEventTime, ...(page.showBroker === true && account.broker ? { broker: account.broker } : {}) },
+    account: { platform: account.platform === "mt4" ? "MetaTrader 4" : "MetaTrader 5", leverage: account.leverage, utcOffsetHours: Math.round((account.serverUtcOffsetSec / 3600) * 100) / 100, automated, startedAt: stats.firstEventTime, ...(page.showBroker === true && account.broker ? { broker: account.broker } : {}) },
     history: { total: hist.trades.length, rows: historyRows },
     integrity: {
       source: "terminal-reported",
