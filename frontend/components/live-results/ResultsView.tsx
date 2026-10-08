@@ -101,7 +101,7 @@ export default function ResultsView({ r, ownerNote }: { r: PublicResults; ownerN
   const lt = i.liveTracked;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 px-4 py-6">
+    <div className="mx-auto max-w-6xl space-y-4 px-4 pb-8 pt-28">
       {ownerNote && <div className="rounded-lg border border-border bg-ink-2 px-3 py-2 text-xs text-text-2">{ownerNote}</div>}
 
       <header className="space-y-2">

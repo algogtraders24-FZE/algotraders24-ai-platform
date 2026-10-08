@@ -1,6 +1,6 @@
 // Validates the public Live Results view: privacy redaction, magic filter, delayed positions, strategy grouping.
 import assert from "node:assert/strict";
-import { buildPublicResults, strategyName, DISCLOSURE, type BuildInput, type DealWithMagic } from "../services/live-results/build";
+import { buildPublicResults, strategyName, withoutMoneyText, DISCLOSURE, type BuildInput, type DealWithMagic } from "../services/live-results/build";
 
 let checks = 0;
 const ok = (c: unknown, m: string) => { assert.ok(c, m); checks++; };
@@ -31,6 +31,12 @@ const deals: DealWithMagic[] = [
   // a different EA on the same account (magic 4831) with a loss
   ...pair("4831", "XAUUSD", "gold1", -660), ...pair("4831", "XAUUSD", "gold1", -40),
 ];
+function bigDeals(): DealWithMagic[] {
+  const out: DealWithMagic[] = [deals[0]];
+  for (let i = 0; i < 80; i++) out.push(...pair("33302", "US30", `Zenith_${i % 2 ? "Buy" : "Sell"}`, i % 3 === 0 ? -20 : 25, i % 2 === 1));
+  return out;
+}
+
 const NOW = at("2026-10-07T15:00:00");
 const base: BuildInput = {
   page: { title: "XXXUS30 - Live Forward Test (Demo)", description: "test", showAmounts: false, positionDelayMin: 15, magicFilter: "33302" },
@@ -99,6 +105,14 @@ eq(all.integrity.filteredByMagic, null, "no filter stated");
 ok(r.integrity.liveTracked.trades === 0, "all synthetic trades predate the first sync -> 0 live-tracked trades");
 const early = buildPublicResults({ ...base, account: { ...base.account, firstSyncAt: at("2026-09-14T06:03:30") } });
 ok(early.integrity.liveTracked.trades > 0 && early.integrity.liveTracked.trades < early.stats.trades, "first sync in the middle of the history splits live-tracked from reported history");
+
+// ---- percent-only free text must not carry money (the edge headline names USD amounts when amounts are shown)
+const pctOnly = buildPublicResults({ ...base, deals: bigDeals(), page: { ...base.page, showAmounts: false } });
+const withMoney = buildPublicResults({ ...base, deals: bigDeals(), page: { ...base.page, showAmounts: true } });
+ok(withMoney.edge !== null && /USD/.test(withMoney.edge.headline), "with amounts shown the edge headline may name amounts");
+ok(pctOnly.edge !== null && !/USD|\d+\.\d{2}\s/.test(JSON.stringify(pctOnly.edge)), "percent-only edge text carries no currency or 2-decimal amounts");
+ok(pctOnly.edge !== null && pctOnly.edge.headline.length > 10, "percent-only edge keeps a readable headline");
+eq(withoutMoneyText("Average is 14.74 USD (range 4.55 USD to 24.77 USD). Evidence is weak.", "USD"), "Evidence is weak.", "sentence naming money is dropped, the rest kept");
 
 // ---- stale + disclosure
 const stale = buildPublicResults({ ...base, account: { ...base.account, lastSyncAt: NOW - 30 * 60_000 } });

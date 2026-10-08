@@ -154,6 +154,16 @@ export function strategyName(tag: string): string {
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
+/** Percent-only pages must not leak money through free text: drop any sentence that names the account currency or a 2-decimal amount. */
+export function withoutMoneyText(text: string, currency: string): string {
+  const money = new RegExp(String.raw`\b${currency.replace(/[^A-Za-z]/g, "")}\b|\d[\d,]*\.\d{2}\b`, "i");
+  return text
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => !money.test(sentence))
+    .join(" ")
+    .trim();
+}
+
 function strategiesOf(trades: readonly ClosedTrade[], showAmounts: boolean, max = 12): StrategyRow[] {
   const m = new Map<string, { n: number; wins: number; net: number; gp: number; gl: number }>();
   for (const t of trades) {
@@ -291,7 +301,15 @@ export function buildPublicResults(input: BuildInput): PublicResults {
       }),
     },
     strategies: strategiesOf(hist.trades, withAmounts),
-    edge: edge ? { level: edge.level, headline: edge.headline, caveats: edge.caveats } : null,
+    edge: edge
+      ? withAmounts
+        ? { level: edge.level, headline: edge.headline, caveats: edge.caveats }
+        : {
+            level: edge.level,
+            headline: withoutMoneyText(edge.headline, account.currency) || `${edge.level.charAt(0).toUpperCase()}${edge.level.slice(1)} evidence of an edge (see the caveats).`,
+            caveats: edge.caveats.map((c) => withoutMoneyText(c, account.currency)).filter((c) => c.length > 0),
+          }
+      : null,
     openPositions,
     disclosure: [...DISCLOSURE],
   };
