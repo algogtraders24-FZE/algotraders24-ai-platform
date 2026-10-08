@@ -32,6 +32,15 @@
 //| are UNCHANGED. This is a NEW binary: it needs its own parity        |
 //| backtest vs v2.10 before replacing the listed v2.10 evidence.       |
 //|                                                                     |
+//| v2.11 DEFAULTS = LISTED EVIDENCE SETTINGS: the listed M2-M5 evidence   |
+//| (Vantage report, 1,511 trades) was produced with max 2 trades/day,   |
+//| SL 2.5xATR, TP 5xATR, pyramid at 0.5R, break-even OFF, time filter   |
+//| OFF. v2.10 shipped different defaults (1 trade/day, 1.5x/3x, 1.0R,   |
+//| BE ON, time filter ON). Defaults now match the evidence. Lot sizing  |
+//| stays risk-percent (1%); the evidence run used fixed 0.10 lot on a   |
+//| 10,000 account (about 1% risk at these SL distances), so account     |
+//| equity compounds differently. Not re-backtested with these defaults. |
+//|                                                                      |
 //| IMPORTANT: this branding (name/copyright/link) does not itself     |
 //| mean the product is listed or approved. Real M7 Trust Status for   |
 //| this product is currently INCONCLUSIVE (see                       |
@@ -73,7 +82,7 @@ enum ENUM_LOT_MODE {
 //+------------------------------------------------------------------+
 input group "=== STRATEGY SETTINGS ==="
 input int            InpMagicNumber     = 100002;        // Unique ID
-input int            InpMaxTradesPerDay = 1;             // Max initial trades per day
+input int            InpMaxTradesPerDay = 2;             // Max initial trades per day
 
 input group "=== LOT SIZE MODE ==="
 input ENUM_LOT_MODE  InpLotMode         = LOT_RISK_PERCENT; // Lot size calculation mode
@@ -84,7 +93,7 @@ input group "=== POSITIVE PYRAMID SETTINGS ==="
 input bool           InpUsePyramid      = true;          // Pyramid system ON/OFF
 input int            InpMaxPyramidLevels= 3;             // Max pyramid positions (e.g., 3 = original + 2 additions)
 input double         InpPyramidLotMultiplier = 0.5;      // Pyramid lot = Initial Lot × Multiplier (0.5 = half size)
-input double         InpPyramid_Trigger_R = 1.0;         // Kitne R profit par pyramid add karein (1.0 = 1R)
+input double         InpPyramid_Trigger_R = 0.5;         // Kitne R profit par pyramid add karein (1.0 = 1R)
 
 input group "=== FILTERS (Fakeout Protection) ==="
 input bool           InpUseEMAFilter    = true;          // EMA Trend Filter
@@ -95,15 +104,15 @@ input double         InpADX_MinLevel    = 20.0;          // Minimum ADX level
 input int            InpMaxSpreadPoints = 40;            // Max allowed spread
 
 input group "=== TIME FILTER ==="
-input bool           InpUseTimeFilter   = true;          // Sirf London/NY session mein trade
+input bool           InpUseTimeFilter   = false;          // Evidence run had this OFF
 input int            InpStartHour       = 8;             // Start hour (GMT)
 input int            InpEndHour         = 17;            // End hour (GMT)
 
 input group "=== RISK MANAGEMENT ==="
 input int            InpATR_Period      = 14;            // ATR Period
-input double         InpSL_ATR_Mult     = 1.5;           // SL = ATR × 1.5
-input double         InpTP_ATR_Mult     = 3.0;           // TP = ATR × 3.0
-input bool           InpUseBreakEven    = true;          // Break-Even On/Off
+input double         InpSL_ATR_Mult     = 2.5;           // SL = ATR × 2.5 (evidence setting)
+input double         InpTP_ATR_Mult     = 5.0;           // TP = ATR × 5.0 (evidence setting)
+input bool           InpUseBreakEven    = false;          // Evidence run had this OFF
 input double         InpBE_Trigger_R    = 1.0;           // 1R profit ke baad SL entry par shift
 
 input group "=== AT24 LICENSE ==="
