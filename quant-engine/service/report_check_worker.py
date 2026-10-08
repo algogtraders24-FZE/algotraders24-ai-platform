@@ -40,7 +40,10 @@ from typing import Any, Optional
 
 SERVICE_DIR = Path(__file__).resolve().parent
 DEFAULT_M2_DIR = SERVICE_DIR.parent.parent / "ea-research" / "marketplace-research" / "m2-evidence-engine"
-M2_DIR = Path(os.environ.get("REPORT_CHECK_M2_DIR", str(DEFAULT_M2_DIR)))
+M2_DIR = Path(os.environ.get("REPORT_CHECK_M2_DIR", ""))
+if not (M2_DIR / "evidence_engine.py").exists():
+    # Repo layout first, then a standalone copy sitting next to this script.
+    M2_DIR = DEFAULT_M2_DIR if (DEFAULT_M2_DIR / "evidence_engine.py").exists() else SERVICE_DIR
 BASE_URL = os.environ.get("REPORT_CHECK_BASE_URL", "https://www.algotraders24.ai").rstrip("/")
 POLL_SECONDS = int(os.environ.get("REPORT_CHECK_POLL_SECONDS", "20"))
 TIMEOUT_SECONDS = int(os.environ.get("REPORT_CHECK_TIMEOUT_SECONDS", "900"))
