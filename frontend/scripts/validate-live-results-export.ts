@@ -60,6 +60,15 @@ ok(csvMoney.includes("initial_deposit,10000") && csvMoney.includes("# Deposits a
 ok(!("initialDeposit" in (r as unknown as Record<string, unknown>)) && r.amounts === undefined && !JSON.stringify(r).includes("cashflows"), "percent-only: no initial deposit, no deposits history anywhere in the view model");
 ok(resultsPdfBlocks(withAmounts, "2026-10-08").some((b) => b.t === "table" && JSON.stringify(b).includes("Initial deposit")), "with amounts: the PDF shows the initial deposit");
 
+// ---- prop rule check in the downloads (percent-only, no currency)
+const propR = buildPublicResults({ ...base, page: { ...base.page, prop: { profitTargetPct: 10, dailyLossPct: 5, maxLossPct: 10, minTradingDays: 4 } } });
+const propCsv = resultsCsv(propR, "2026-10-08");
+ok(propCsv.includes("# Prop rule check") && propCsv.includes("daily_loss_pct"), "CSV has the prop rule check section");
+ok(!/\bUSD\b/.test(propCsv.split("# Prop rule check")[1]!.split("\r\n\r\n")[0]!), "the prop section is percent-only (no currency)");
+ok(!resultsCsv(r, "2026-10-08").includes("# Prop rule check"), "no prop section when Prop Mode is off or hidden");
+ok(resultsPdfBlocks(propR, "2026-10-08").some((b) => b.t === "h2" && b.text === "Prop rule check"), "PDF has the prop rule check");
+ok(!resultsPdfBlocks(r, "2026-10-08").some((b) => b.t === "h2" && b.text === "Prop rule check"), "PDF has no prop section when off");
+
 // ---- the owner's own trades
 const trades: ClosedTrade[] = [
   { positionId: "2", symbol: "US30", direction: "sell", volume: 1.5, openTime: at("2026-10-03T10:00:00"), closeTime: at("2026-10-03T11:00:00"), openPrice: 40000.5, closePrice: 39990.25, stopLoss: null, takeProfit: null, commission: -3, swap: -0.5, profit: 15.375, net: 11.875, tag: "=boom, \"x\"" },

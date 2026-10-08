@@ -13,13 +13,14 @@ import { computeEdgeEvidence } from "../edge-analyzer/analysis/edge-evidence";
 import { normalizeTag } from "../edge-analyzer/analysis/patterns";
 import { computeAdvanced, type AdvancedStats } from "./advanced";
 import type { ClosedTrade } from "../edge-analyzer/types";
+import { computePropCheck, type PropCheck, type PropRules } from "./prop";
 
 export interface DealWithMagic extends SyncedDeal {
   magic: string;
 }
 
 export interface BuildInput {
-  page: { title: string; description: string; showAmounts: boolean; /** Show the broker name when the account has one. */ showBroker?: boolean; positionDelayMin: number; magicFilter: string | null };
+  page: { title: string; description: string; showAmounts: boolean; /** Show the broker name when the account has one. */ showBroker?: boolean; /** Prop Mode rules to check, only when this viewer may see the check. */ prop?: PropRules; positionDelayMin: number; magicFilter: string | null };
   account: {
     mode: string;
     currency: string;
@@ -140,6 +141,8 @@ export interface PublicResults {
     bySymbol: { symbol: string; trades: number; wonPct: number; longs: number; shorts: number; net?: number }[];
   };
   strategies: StrategyRow[];
+  /** Prop Mode rule check (percent of the initial deposit only), present when enabled and visible to this viewer. */
+  prop?: PropCheck;
   /** Hourly / weekday / risk-of-ruin / duration tabs (counts, percentages and probabilities only). */
   advanced: AdvancedStats;
   edge: { level: string; headline: string; caveats: string[] } | null;
@@ -147,6 +150,8 @@ export interface PublicResults {
   /** Present only when the owner chose to show amounts. */
   amounts?: {
     balance: number;
+    /** Balance + floating profit of the open positions shown (same delay as the positions), or null without a snapshot. */
+    equity: number | null;
     deposits: number;
     withdrawals: number;
     profit: number;
@@ -273,9 +278,11 @@ export function buildPublicResults(input: BuildInput): PublicResults {
   const cutoff = nowUtc - page.positionDelayMin * 60_000;
   const old = [...input.snapshots].filter((s) => s.time <= cutoff).sort((a, b) => b.time - a.time)[0];
   const openPositions: PublicPosition[] = [];
+  let floating = 0;
   if (old) {
     for (const p of old.positions) {
       if (page.magicFilter !== null && magicOf.get(String(p.ticket)) !== page.magicFilter) continue;
+      floating += p.profit;
       const pos: PublicPosition = { symbol: p.symbol, side: p.side, hasStopLoss: p.sl > 0, hasTakeProfit: p.tp > 0 };
       if (withAmounts) {
         pos.volume = p.volume;
@@ -388,6 +395,7 @@ export function buildPublicResults(input: BuildInput): PublicResults {
     },
     strategies: strategiesOf(hist.trades, withAmounts),
     advanced: computeAdvanced(hist.trades, hist.balanceOps, stats.balance, stats.core.maxConsecutiveLosses, withAmounts),
+    ...(page.prop ? { prop: computePropCheck(hist.trades, hist.balanceOps, page.prop) } : {}),
     edge: edge
       ? withAmounts
         ? { level: edge.level, headline: edge.headline, caveats: edge.caveats }
@@ -404,6 +412,7 @@ export function buildPublicResults(input: BuildInput): PublicResults {
   if (withAmounts) {
     out.amounts = {
       balance: stats.balance,
+      equity: old ? r2(stats.balance + floating) : null,
       deposits: stats.deposits,
       withdrawals: stats.withdrawals,
       profit: stats.core.netProfit,
