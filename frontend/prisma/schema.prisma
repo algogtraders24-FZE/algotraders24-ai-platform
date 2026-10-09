@@ -3228,3 +3228,44 @@ model ListingReport {
   @@index([status, createdAt])
   @@map("listing_reports")
 }
+
+/// Telegram: one linked private chat per AT24 user (personal alerts). Linked through a one-time code, never by typing a chat id.
+model TelegramLink {
+  id         String    @id @default(cuid())
+  userId     String    @unique
+  /// Telegram chat id (digits). A private chat only; unique so one chat cannot receive two users' alerts.
+  chatId     String    @unique
+  username   String?
+  /// Live Sync alerts (margin, daily loss, drawdown, EA offline, no stop loss) and the test message.
+  alertsOn   Boolean   @default(true)
+  /// "A watched page stopped reporting / is back" notices.
+  watchOn    Boolean   @default(true)
+  linkedAt   DateTime  @default(now())
+  lastSentAt DateTime?
+
+  @@map("telegram_links")
+}
+
+/// One-time link codes (only the SHA-256 is stored; 15 minutes; consumed on first use).
+model TelegramLinkCode {
+  id        String   @id @default(cuid())
+  userId    String
+  codeHash  String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("telegram_link_codes")
+}
+
+/// What AT24's own channel has already announced, so nothing is posted twice.
+model TelegramChannelPost {
+  id        String   @id @default(cuid())
+  kind      String
+  refId     String
+  messageId String?
+  postedAt  DateTime @default(now())
+
+  @@unique([kind, refId])
+  @@map("telegram_channel_posts")
+}

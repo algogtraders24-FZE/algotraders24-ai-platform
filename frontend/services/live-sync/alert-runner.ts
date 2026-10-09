@@ -6,6 +6,9 @@
 import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/services/notifications/NotificationService";
 import { sendLiveSyncAlertEmail } from "@/services/notifications/EmailService";
+import { sendTelegramToUser } from "@/services/telegram/deliver";
+import { alertMessage } from "@/services/telegram/messages";
+import { telegramConfig } from "@/services/telegram/config";
 import type { WirePosition } from "./contract";
 import { alertSeverity, alertText, evaluateRule, nextTransition, type AlertContext, type AlertKind } from "./alerts";
 
@@ -61,6 +64,8 @@ export async function runAlertsForAccount(accountId: string, nowDate: Date = new
         user ??= await prisma.user.findUnique({ where: { id: account.userId }, select: { email: true } });
         if (user) await sendLiveSyncAlertEmail({ to: user.email, recipientUserId: account.userId, title: text.title, body: text.body, severity, dedupeKey: `${rule.id}:${Math.floor(now / (rule.cooldownMin * 60_000))}` }).catch(() => undefined);
       }
+      // Telegram: only when the user linked it (a no-op otherwise); best effort, never blocks the alert.
+      await sendTelegramToUser(account.userId, "alerts", alertMessage({ title: text.title, body: text.body, siteUrl: telegramConfig().siteUrl })).catch(() => false);
     }
     return fired;
   } catch {

@@ -18,6 +18,9 @@ export type AuditAction =
   // AT24 Live Results moderation (take a page down / delete it).
   | "live_results.page_made_private"
   | "live_results.page_deleted"
+  | "telegram.channel_announce"
+  | "telegram.channel_digest"
+  | "telegram.channel_post"
   // Sprint M9 - Marketplace Product Factory audit trail. Reuses this
   // existing, already-append-only AuditLog model rather than a new table
   // (see ea-research/marketplace-research/m9-product-factory/
