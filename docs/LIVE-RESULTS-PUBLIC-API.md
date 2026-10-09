@@ -28,3 +28,12 @@ The summary is built from the already-redacted view model, so it carries no amou
 - At most 60 public pages are summarised; computing them reads each page's deals, so the list is cached for 5 minutes per server instance.
 - No rate limiting beyond the CDN cache headers; if abuse appears, add a per-IP limiter.
 - Nothing here is investment advice; past results do not predict future results.
+
+## MCP tool `live_results`
+
+The AT24 MCP server (read-only, token auth, 200 calls per user per day) now has a ninth tool, `live_results`, over the same public data:
+
+- no arguments (optional `limit`, max 50): a list of public pages with the percent-only summaries above;
+- `slug`: one public page in compact form: summary, periods, months, strategies, integrity facts, a downsampled growth series (<= 60 points), the edge level (money sentences removed), and the page's disclosure lines.
+
+Unknown fields (including any user id or an unlisted-page key) are rejected, private and unlisted pages are not reachable, there is no amounts block, no history rows and no open positions, and every output repeats that the data is terminal-reported and not independently verified. Not plan gated (public data). Note: the owner's earlier decision was "no further MCP investment"; this tool is a thin adapter (no new logic) kept because it makes the public pages usable from AI apps for free.

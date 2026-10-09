@@ -19,6 +19,7 @@ const TOOL_DOCS: Record<McpToolName, { what: string; plan: string }> = {
   strategy_library_search: { what: "Search AT24's library of 100 legacy backtest results. Evidence only, never validated.", plan: "All plans" },
   risk_calculator: { what: "Position size from your balance, risk % and stop distance.", plan: "All plans" },
   quant_backtest: { what: "Run a backtest on an AT24 strategy and get metrics, trades and equity curve.", plan: "Paid plan (Quant Pro)" },
+  live_results: { what: "Public Live Results pages: a list of percent-only summaries, or one public page in compact form. Terminal-reported, not independently verified, no ranking by gain.", plan: "All plans" },
   edge_analysis: { what: "Your most recent saved Edge Analyzer analysis: verdict, key numbers, risk scenarios and where your results come from. Save one first in the Edge Analyzer.", plan: "Paid plan (Quant Pro)" },
 };
 
@@ -28,6 +29,7 @@ const EXAMPLES = [
   "Search AT24's strategy library for XAUUSD 1h strategies with at least 30 trades.",
   "Backtest ref-ema-crossover on XAUUSD 1h from 2026-01-01 to 2026-06-01 and summarize drawdown and profit factor.",
   "Calculate position size: balance 5,000, risk 0.5%, entry 1.0850, stop 1.0820, 100000 per price unit per lot.",
+  "List the public AT24 Live Results pages and compare their drawdown and number of trades. Say which ones have too few trades to judge.",
   "Using my saved AT24 edge analysis, what are my biggest weaknesses, and what should I investigate next?",
 ];
 

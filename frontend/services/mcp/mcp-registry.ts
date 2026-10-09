@@ -17,6 +17,7 @@ import { economicCalendarTool } from "./tools/economic-calendar.tool";
 import { strategyLibrarySearchTool } from "./tools/strategy-library-search.tool";
 import { riskCalculatorTool } from "./tools/risk-calculator.tool";
 import { createEdgeAnalysisTool } from "./tools/edge-analysis.tool";
+import { liveResultsTool } from "./tools/live-results.tool";
 import type { EdgeSavedStore } from "@/services/edge-analyzer/saved";
 
 export { MCP_TOOL_MAP, MCP_TOOL_NAMES, isMcpToolName, type McpToolName } from "./mcp-tool-map";
@@ -32,5 +33,6 @@ export function buildMcpRegistry(deps: { edgeStore?: EdgeSavedStore } = {}): Too
     .register(strategyLibrarySearchTool)
     .register(riskCalculatorTool)
     .register(createEdgeAnalysisTool({ store: deps.edgeStore }))
+    .register(liveResultsTool)
     .freeze();
 }

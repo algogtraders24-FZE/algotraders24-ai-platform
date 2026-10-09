@@ -22,6 +22,7 @@
     "validate:live-sync": "tsx scripts/validate-live-sync.ts",
     "validate:live-sync-ea": "tsx scripts/validate-live-sync-ea.ts",
     "validate:live-results-directory": "tsx scripts/validate-live-results-directory.ts",
+    "validate:live-results-mcp": "tsx scripts/validate-live-results-mcp.ts",
     "validate:live-sync-netting": "tsx scripts/validate-live-sync-netting.ts",
     "validate:live-sync-ea-mt4": "tsx scripts/validate-live-sync-ea-mt4.ts",
     "validate:messages": "tsx scripts/validate-conversation-messages.ts",

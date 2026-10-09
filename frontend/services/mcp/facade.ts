@@ -144,6 +144,7 @@ const OPEN_WORLD: Record<McpToolName, boolean> = {
   strategy_library_search: false,
   risk_calculator: false,
   edge_analysis: false,
+  live_results: false,
 };
 
 export function listMcpTools(registry: ToolRegistry): McpToolListing[] {
