@@ -225,3 +225,13 @@ Same wire contract, same hash chain, same privacy rules as the MT5 EA, with `acc
 - **Comments:** MT4 appends `[sl]` / `[tp]` to the comment of an order closed by a stop; the EA removes it so strategy names stay clean.
 - **Server clock:** MT4 has no always-current server time (`TimeCurrent()` is the last tick). The UTC offset is only updated while ticks flow in real time; a value taken on a closed market can be off until it opens.
 - Always `hedging`; the mode is `demo` or `real` (MT4 has no "contest" flag). Build with `scripts/build-live-sync-ex4.ts`, check with `scripts/validate-live-sync-ea-mt4.ts`.
+
+## Netting accounts
+
+A netting account has ONE position per symbol that is added to, reduced and reversed. The server builds its trades from a **per-symbol ledger** (`netDealsToHistory` in `services/live-sync/to-trades.ts`), selected by the account's `marginMode` (hedging keeps pairing by position id, unchanged):
+
+- A trade starts when the net volume of a symbol leaves zero and ends when it returns to zero; scaling in/out in between is part of the same trade (volume-weighted open price, the close price of the last closing deal).
+- A deal that overshoots zero (a reversal, `inout`) closes one trade and its remainder opens the next, in the other direction. The deal's profit is realised on the part that closes; its commission and swap are split by volume. Position ids are NOT used, so this does not depend on how a broker numbers a reversal.
+- A reduce with no opening deal in the synced history is counted as "skipped"; positions still net-open are not trades yet.
+- Pages of a netting account carry a disclosure line: trades are built per symbol and an Expert Advisor (magic) filter is approximate, because the positions of different EAs on the same symbol merge.
+- Verified with hand-computed cases (scale-in, reversal with split commission, partial reductions, history cut, independent symbols) in `scripts/validate-live-sync-netting.ts`. Not yet seen on a real netting account: the first one should be checked against its terminal history.

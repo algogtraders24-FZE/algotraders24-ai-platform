@@ -43,6 +43,7 @@ export const GET = withContext(async (req, ctx) => {
     });
     const history = dealsToHistory(
       rows.map((r) => ({ ...r, positionId: r.positionId.toString(), timeMsc: Number(r.timeMsc) })),
+      account.marginMode,
     );
     if (history.trades.length === 0) {
       return ApiResponse.error({ code: "NO_TRADES", message: "No closed trades have been synced yet." }, ctx.requestId, 400, ctx.startedAt);
