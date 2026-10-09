@@ -5,7 +5,7 @@
 // Proves (no DB, no network):
 //   - risk calculator math (long/short, rounding DOWN, bounds, TP side)
 //   - strategy library tool: filters, cap, neutral order, LEGACY label always present
-//   - MCP catalog: 8 tools, all read-only, names map 1:1 to the frozen MCP registry
+//   - MCP catalog: 9 tools, all read-only, names map 1:1 to the frozen MCP registry
 //   - facade: unauthenticated / wrong-scope / unknown tool / kill switch / quota fail-closed
 //   - facade REFUSES a tool needing a non-read permission (write-capable tool cannot be exposed)
 //   - identity comes from the principal, never from tool args
@@ -161,12 +161,12 @@ async function main() {
 
   console.log("catalog");
   const { buildMcpRegistry } = await import("../services/mcp/mcp-registry");
-  await check("real MCP registry builds, is frozen, lists exactly the 8 read-only tools", () => {
+  await check("real MCP registry builds, is frozen, lists exactly the 9 read-only tools", () => {
     const reg = buildMcpRegistry();
     assert.ok(reg.isFrozen());
     const listing = listMcpTools(reg);
     assert.deepEqual(listing.map((t) => t.name).sort(), [...MCP_TOOL_NAMES].sort());
-    assert.equal(listing.length, 8);
+    assert.equal(listing.length, 9);
     for (const t of listing) {
       assert.equal(t.annotations.readOnlyHint, true);
       assert.equal(t.annotations.destructiveHint, false);

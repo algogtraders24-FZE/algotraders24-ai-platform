@@ -12,6 +12,7 @@ export const MCP_TOOL_MAP = {
   strategy_library_search: "strategy.library_search",
   risk_calculator: "risk.calculator",
   edge_analysis: "edge.analysis",
+  live_results: "live_results.read",
 } as const;
 
 export type McpToolName = keyof typeof MCP_TOOL_MAP;
