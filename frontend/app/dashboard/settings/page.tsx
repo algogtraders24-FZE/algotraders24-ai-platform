@@ -177,26 +177,46 @@ function EmailSection({ currentEmail, emailVerified }: { currentEmail: string; e
 
 function PasswordSection() {
   const [state, formAction, pending] = useActionState(changePasswordAction, initialState);
+  const [open, setOpen] = useState(false);
+
+  // After a successful change the form closes and only the confirmation stays visible.
+  useEffect(() => {
+    if (state.success) setOpen(false);
+  }, [state.success]);
 
   return (
     <SectionCard title="Password" description="Choose a strong password you don't use anywhere else.">
-      <form action={formAction} className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label className="block text-sm font-medium text-text-2">New password</label>
-          <Input type="password" name="password" required autoComplete="new-password" className="mt-1" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-text-2">Confirm new password</label>
-          <Input type="password" name="confirmPassword" required autoComplete="new-password" className="mt-1" />
-        </div>
-        <div className="sm:col-span-2">
-          {state.error && <Alert tone="danger" className="mb-3">{state.error}</Alert>}
-          {state.success && <Alert tone="success" className="mb-3">{state.message}</Alert>}
-          <Button type="submit" loading={pending} variant="secondary">
+      {!open ? (
+        <div className="space-y-3">
+          {state.success && <Alert tone="success">{state.message}</Alert>}
+          <Button type="button" variant="secondary" onClick={() => setOpen(true)}>
             Change password
           </Button>
         </div>
-      </form>
+      ) : (
+        <form action={formAction} className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label htmlFor="new-password" className="block text-sm font-medium text-text-2">New password</label>
+            <Input id="new-password" type="password" name="password" required minLength={8} autoComplete="new-password" autoFocus className="mt-1" />
+            <p className="mt-1 text-xs text-text-3">At least 8 characters.</p>
+          </div>
+          <div>
+            <label htmlFor="confirm-password" className="block text-sm font-medium text-text-2">Confirm new password</label>
+            <Input id="confirm-password" type="password" name="confirmPassword" required minLength={8} autoComplete="new-password" className="mt-1" />
+          </div>
+          <div className="sm:col-span-2">
+            {state.error && <Alert tone="danger" className="mb-3">{state.error}</Alert>}
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" loading={pending}>
+                Update password
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={pending}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </form>
+      )}
     </SectionCard>
   );
 }
