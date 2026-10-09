@@ -13,7 +13,8 @@ import Badge from "@/components/ui/Badge";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
 import ButtonLink from "@/components/ui/ButtonLink";
-import FollowButton from "@/components/live-results/FollowButton";
+import DirectoryExplorer from "@/components/live-results/DirectoryExplorer";
+import type { ResultsSummary } from "@/services/live-results/summary";
 
 interface Item {
   slug: string;
@@ -68,6 +69,7 @@ function Stat({ label, value, cls = "" }: { label: string; value: string; cls?: 
 
 export default function LiveResultsDirectoryPage() {
   const [items, setItems] = useState<Item[] | null>(null);
+  const [summaries, setSummaries] = useState<ResultsSummary[] | null>(null);
   const [mine, setMine] = useState<Mine[]>([]);
   const [following, setFollowing] = useState<string[]>([]);
   const [watched, setWatched] = useState<Watched[] | null>(null);
@@ -92,6 +94,7 @@ export default function LiveResultsDirectoryPage() {
         const j = await r.json();
         if (r.ok) {
           setItems(j.data.pages as Item[]);
+          setSummaries((j.data.summaries as ResultsSummary[]) ?? []);
           setMine((j.data.mine as Mine[]) ?? []);
           setFollowing((j.data.following as string[]) ?? []);
         } else setOff(true);
@@ -203,30 +206,13 @@ export default function LiveResultsDirectoryPage() {
       )}
 
       <h2 className="text-sm font-semibold text-text">Public pages</h2>
-      {items && items.length === 0 && (
+      {summaries !== null && summaries.length === 0 && (
         <Card className="space-y-2">
           <p className="text-sm font-semibold text-text">No public pages yet</p>
           <p className="text-sm text-text-2">When an account owner makes a results page public it appears here. You can create yours from the Live Sync page.</p>
         </Card>
       )}
-      <div className="grid gap-4 md:grid-cols-2">
-        {(items ?? []).map((p) => (
-          <Card key={p.slug} className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-lg font-bold text-text">{p.title}</p>
-              <Badge tone={p.mode === "real" ? "warning" : "neutral"} className="normal-case">{p.mode === "real" ? "REAL" : p.mode === "contest" ? "CONTEST" : "DEMO"}</Badge>
-              {p.oneEa && <Badge tone="neutral" className="normal-case">one EA</Badge>}
-              <Badge tone={p.stale ? "warning" : "success"} className="normal-case">{p.stale ? "not reporting" : "live"}</Badge>
-            </div>
-            {p.description && <p className="text-sm text-text-2">{p.description}</p>}
-            <p className="text-xs text-text-3">Tracked for {p.daysSinceFirstSync} day{p.daysSinceFirstSync === 1 ? "" : "s"} · last update {utc(p.lastSyncAt)}</p>
-            <div className="flex flex-wrap items-start gap-3">
-              <ButtonLink size="sm" href={`/results/${p.slug}`}>Open results</ButtonLink>
-              <FollowButton slug={p.slug} signedIn initialFollowing={following.includes(p.slug)} size="sm" onChange={() => void loadWatching()} />
-            </div>
-          </Card>
-        ))}
-      </div>
+      {summaries !== null && summaries.length > 0 && <DirectoryExplorer items={summaries} following={following} onFollowChange={() => void loadWatching()} />}
     </div>
   );
 }

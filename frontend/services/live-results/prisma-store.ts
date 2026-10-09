@@ -5,6 +5,7 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/lib/generated/prisma/client";
 import { readStoredProp, type PropSettings } from "./prop";
+import { summarizeResults, type ResultsSummary } from "./summary";
 import type { WirePosition } from "../live-sync/contract";
 import { buildPublicResults, type DealWithMagic, type PublicResults } from "./build";
 import { dealsToHistory } from "../live-sync/to-trades";
@@ -281,6 +282,37 @@ export async function listPublicDirectory(): Promise<DirectoryItem[]> {
     });
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Public summaries (directory, Compare, public JSON API, MCP). PUBLIC pages only, built through the same
+// redacting builder as the page itself, percent-only, cached for a few minutes.
+// ---------------------------------------------------------------------------
+
+const SUMMARY_CACHE_MS = 5 * 60_000;
+const SUMMARY_MAX_PAGES = 60;
+const SUMMARY_CONCURRENCY = 4;
+let summaryCache: { at: number; value: ResultsSummary[] } | null = null;
+
+export async function listPublicSummaries(): Promise<ResultsSummary[]> {
+  if (!liveResultsEnabled()) return [];
+  if (summaryCache && Date.now() - summaryCache.at < SUMMARY_CACHE_MS) return summaryCache.value;
+  const pages = await prisma.liveResultsPage.findMany({ where: { visibility: "public" }, orderBy: { publishedAt: "desc" }, take: SUMMARY_MAX_PAGES, select: { slug: true } });
+  const out: ResultsSummary[] = [];
+  for (let i = 0; i < pages.length; i += SUMMARY_CONCURRENCY) {
+    const chunk = pages.slice(i, i + SUMMARY_CONCURRENCY);
+    const loaded = await Promise.all(chunk.map((p) => loadResults(p.slug, { userId: null, key: null })));
+    for (const res of loaded) if (res.state === "ok" && res.visibility === "public") out.push(summarizeResults(res.slug, res.results));
+  }
+  summaryCache = { at: Date.now(), value: out };
+  return out;
+}
+
+/** One PUBLIC page's full (redacted) view model for the public JSON API; null unless the page is public. */
+export async function loadPublicResults(slug: string): Promise<{ slug: string; results: PublicResults } | null> {
+  const res = await loadResults(slug, { userId: null, key: null });
+  if (res.state !== "ok" || res.visibility !== "public") return null;
+  return { slug: res.slug, results: res.results };
 }
 
 export interface AdminPageRow {
