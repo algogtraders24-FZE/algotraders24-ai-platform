@@ -1,0 +1,9 @@
+{
+  "name": "AT24LiveSync-MT4",
+  "version": "1.00",
+  "source": "AT24LiveSync-MT4.mq4",
+  "sourceSha256": "2ae69ccb287e6b330332708473ab05ff9d63927823168e59d0956500fde39953",
+  "ex4": "AT24LiveSync-MT4.ex4",
+  "ex4Sha256": "7a174e47ffcff16c300c4efee0af7ad301b99df98a0ddddaef57aa84feb868d7",
+  "ex4Bytes": 51852
+}

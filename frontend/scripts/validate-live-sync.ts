@@ -159,6 +159,18 @@ async function main() {
     const ok = validateIngestBody(withBroker("  Exness Ltd  "));
     assert.equal(ok.ok && ok.body.account.broker, "Exness Ltd", "stored value is trimmed");
   });
+  await check("PLATFORM: optional account.platform is mt4 or mt5; anything else is rejected; absent = MT5", () => {
+    const base = () => batch(1, ZERO_HASH, [deal(1)], { snapshot: SNAP });
+    const withPlatform = (v: unknown) => ({ ...base(), account: { ...FACTS, platform: v } });
+    for (const good of ["mt4", "mt5"]) assert.equal(validateIngestBody(withPlatform(good)).ok, true, `accepts ${good}`);
+    for (const bad of ["MT4", "mt6", "", 4, null, {}, ["mt4"], "mt4 "]) assert.equal(validateIngestBody(withPlatform(bad)).ok, false, `rejects ${JSON.stringify(bad)}`);
+    assert.equal(validateIngestBody(base()).ok, true, "no platform (every MT5 EA) is accepted");
+    const ok = validateIngestBody(withPlatform("mt4"));
+    assert.equal(ok.ok && ok.body.account.platform, "mt4", "the platform survives validation");
+    const none = validateIngestBody(base());
+    assert.equal(none.ok && none.body.account.platform, undefined, "an absent platform stays absent (the store defaults it to mt5)");
+    assert.equal(validateIngestBody({ ...base(), platform: "mt4" }).ok, false, "top-level platform rejected");
+  });
   await check("type/range/format violations rejected", () => {
     const bad: unknown[] = [
       null, [], "x", { ...batch(1, ZERO_HASH, [deal(1)]), v: 2 },

@@ -33,6 +33,7 @@ interface AccountRow {
   mode: string;
   currency: string;
   marginMode: string;
+  platform?: string;
   firstSyncAt: string;
   lastSyncAt: string;
   trades: number;
@@ -128,7 +129,7 @@ export default function LiveSyncPage() {
       <PageHeader
         eyebrow="INTELLIGENCE"
         title="Live Sync"
-        description="Connect your MetaTrader 5 terminal with a small read-only Expert Advisor so AT24 can show your trades live. It only reads: it never trades, never sees your broker password, and never sends your account number or name."
+        description="Connect your MetaTrader 4 or 5 terminal with a small read-only Expert Advisor so AT24 can show your trades live. It only reads: it never trades, never sees your broker password, and never sends your account number or name."
       />
 
       {error && <Alert tone="danger">{error}</Alert>}
@@ -142,9 +143,18 @@ export default function LiveSyncPage() {
             Download the ready-to-use EA <a className="font-semibold text-gold hover:underline" href="/downloads/AT24LiveSync.ex5" download>AT24LiveSync.ex5</a> and copy it into your terminal&apos;s <code>MQL5\Experts</code> folder (MetaTrader: <b>File → Open Data Folder → MQL5 → Experts</b>), then right-click <b>Expert Advisors</b> in the Navigator and choose <b>Refresh</b>.
             <span className="block text-xs text-text-3">Prefer to read and compile it yourself? Use the source <a className="font-semibold text-gold hover:underline" href="/downloads/AT24LiveSync.mq5" download>AT24LiveSync.mq5</a> and compile it in MetaEditor (F7). The .ex5 is built from exactly that source; <a className="hover:underline" href="/downloads/AT24LiveSync.manifest.json" target="_blank" rel="noreferrer">checksums</a>. If your terminal is much older and refuses the .ex5, compile the source instead.</span>
           </li>
-          <li>In MetaTrader 5: <b>Tools → Options → Expert Advisors → Allow WebRequest for listed URL</b>, then add <code>https://www.algotraders24.ai</code>.</li>
+          <li>In MetaTrader: <b>Tools → Options → Expert Advisors → Allow WebRequest for listed URL</b>, then add <code>https://www.algotraders24.ai</code>.</li>
           <li>Attach <b>AT24LiveSync</b> to ONE chart, paste your token into its inputs, and allow algo trading. The chart will show &quot;connected&quot;.</li>
         </ol>
+        <div className="rounded-lg border border-border bg-ink-2 p-3 text-sm text-text-2">
+          <p className="font-semibold text-text">Using MetaTrader 4 instead?</p>
+          <p className="mt-1">
+            Download <a className="font-semibold text-gold hover:underline" href="/downloads/AT24LiveSync-MT4.ex4" download>AT24LiveSync-MT4.ex4</a> and copy it into <code>MQL4\Experts</code> (MetaTrader 4: <b>File → Open Data Folder → MQL4 → Experts</b>), refresh the Navigator, then follow steps 3 and 4 above. Source: <a className="font-semibold text-gold hover:underline" href="/downloads/AT24LiveSync-MT4.mq4" download>AT24LiveSync-MT4.mq4</a> (<a className="hover:underline" href="/downloads/AT24LiveSync-MT4.manifest.json" target="_blank" rel="noreferrer">checksums</a>).
+          </p>
+          <p className="mt-1 text-xs text-text-3">
+            MT4 only holds the history shown in its <b>Account History</b> tab: right-click it and choose <b>All History</b> before you start, or older trades will not be sent. MT4 shows a partial close as separate closed orders, so each part counts as its own trade.
+          </p>
+        </div>
         <p className="text-xs text-text-3">
           The EA runs on <b>demo accounts only</b> by default. Reading a live account needs you to switch that input on yourself. Start with a demo account.
         </p>
@@ -219,7 +229,7 @@ export default function LiveSyncPage() {
                   <div className="space-y-1 text-sm">
                     <p className="text-text">
                       {a.label} <Badge tone={a.mode === "demo" ? "neutral" : "warning"} className="normal-case">{a.mode}</Badge>{" "}
-                      <span className="text-xs text-text-3">{a.marginMode} · {a.currency}</span>
+                      <span className="text-xs text-text-3">{a.platform === "mt4" ? "MT4 · " : ""}{a.marginMode} · {a.currency}</span>
                     </p>
                     <p className="text-xs text-text-3">
                       {a.trades} trades · {a.batches} batches · last sync {ago(a.lastSyncAt)} · balance {num(a.lastBalance, a.currency)} · equity {num(a.lastEquity, a.currency)}

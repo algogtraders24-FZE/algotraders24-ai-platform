@@ -98,6 +98,7 @@ export const prismaLiveSyncStore: LiveSyncStore = {
           terminalBuild: facts.terminalBuild,
           // Opt-in: when the user turns ShareBrokerName off, the stored name is cleared on the next sync.
           broker: facts.broker ?? null,
+          platform: facts.platform ?? "mt5",
           ...(chain ? { chainSeq: chain.seq, chainHead: chain.hash, lastDealTimeMsc: BigInt(Math.max(...chain.deals.map((d) => d.timeMsc))) } : {}),
           ...(snapshot ? { lastSnapshotAt: now, lastBalance: snapshot.data.balance, lastEquity: snapshot.data.equity } : {}),
         },

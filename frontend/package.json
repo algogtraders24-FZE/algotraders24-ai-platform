@@ -21,6 +21,7 @@
     "validate:edge-saved": "tsx scripts/validate-edge-saved.ts",
     "validate:live-sync": "tsx scripts/validate-live-sync.ts",
     "validate:live-sync-ea": "tsx scripts/validate-live-sync-ea.ts",
+    "validate:live-sync-ea-mt4": "tsx scripts/validate-live-sync-ea-mt4.ts",
     "validate:messages": "tsx scripts/validate-conversation-messages.ts",
     "validate:orchestration": "tsx scripts/validate-chat-orchestration.ts",
     "validate:client-conversation": "tsx scripts/validate-client-conversation-identity.ts",
