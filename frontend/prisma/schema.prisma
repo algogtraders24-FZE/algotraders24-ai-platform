@@ -3189,3 +3189,22 @@ model SellerPayout {
   @@index([status])
   @@map("seller_payouts")
 }
+
+// ── Seller self-serve: identity verification (Sumsub) ───────────────────
+// Only the RESULT is stored here (pass/fail + the provider's applicant id). The ID document, selfie and everything else
+// stay with the provider; nothing about the document ever reaches our database or logs.
+model SellerIdentity {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  provider      String    @default("sumsub")
+  applicantId   String?
+  status        String    @default("PENDING") // PENDING (link issued / under review) | VERIFIED | REJECTED (final) | RETRY (rejected, may try again)
+  rejectType    String? // FINAL | RETRY from the provider
+  verifiedAt    DateTime?
+  lastEventAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status])
+  @@map("seller_identities")
+}

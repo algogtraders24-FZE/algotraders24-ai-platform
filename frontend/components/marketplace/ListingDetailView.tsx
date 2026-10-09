@@ -86,7 +86,7 @@ export default function ListingDetailView({
           <h1 className="text-3xl md:text-5xl font-bold mt-4">{listing.title}</h1>
           <p className="text-text-2 mt-3 max-w-3xl whitespace-pre-line">{listing.description}</p>
           <p className="text-xs text-text-3 mt-2">
-            Listed by {listing.sellerName ?? "Unknown seller"} <span className="text-text-3/60">· seller-provided identity</span>
+            Listed by {listing.sellerName ?? "Unknown seller"} {listing.sellerIdentityVerified ? <span className="font-semibold text-emerald-400">· ✓ Identity verified</span> : <span className="text-text-3/60">· seller-provided identity</span>}
           </p>
 
           {screenshots.length > 0 && (

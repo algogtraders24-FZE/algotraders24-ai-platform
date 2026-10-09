@@ -11,7 +11,8 @@ import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { prisma } from "@/lib/prisma";
 import { withTableFallback } from "@/services/marketplace/tableGuard";
 import { createBuildUploadUrl, downloadBuild, removeBuild } from "@/lib/marketplace/buildStorage";
-import { sellerVerificationBlocker, selfServeAllowedFor, sanitizeFileName, extensionOf, ALLOWED_PRODUCT_EXTENSIONS, BLOCKED_EXTENSIONS, MAX_BUILD_BYTES } from "@/lib/marketplace/selfServe";
+import { selfServeAllowedFor, sanitizeFileName, extensionOf, ALLOWED_PRODUCT_EXTENSIONS, BLOCKED_EXTENSIONS, MAX_BUILD_BYTES } from "@/lib/marketplace/selfServe";
+import { sellerGate } from "@/services/marketplace/identityStore";
 import { inspectBuild } from "@/lib/marketplace/buildInspect";
 
 export const maxDuration = 60;
@@ -33,7 +34,7 @@ export const POST = withContext(async (req, ctx) => {
   }
 
 
-  const unverified = sellerVerificationBlocker({ email: sessionUser.profile.email, emailVerified: sessionUser.profile.emailVerified });
+  const unverified = await sellerGate({ id: sessionUser.profile.id, email: sessionUser.profile.email, emailVerified: sessionUser.profile.emailVerified });
   if (unverified) {
     return ApiResponse.error({ code: "SELLER_NOT_VERIFIED", message: unverified }, ctx.requestId, 403, ctx.startedAt);
   }

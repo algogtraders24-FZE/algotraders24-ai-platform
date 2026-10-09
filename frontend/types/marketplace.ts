@@ -166,6 +166,8 @@ export interface TrustStateInfo {
 
 // --- Full detail page -------------------------------------------------------
 export interface MarketplaceListingDetail extends MarketplaceListingSummary {
+  /** The seller passed the Sumsub identity check (we store only the result, never the document). */
+  sellerIdentityVerified?: boolean;
   tradingSystemId: string | null;
   // A real PUBLISHED ReleaseArtifact exists for this tradingSystemId/
   // versionId/platform - purchase can only ever be offered when this is

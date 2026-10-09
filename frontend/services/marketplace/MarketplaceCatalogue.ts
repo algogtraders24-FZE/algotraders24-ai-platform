@@ -10,6 +10,7 @@
 // Only PUBLICLY_VISIBLE_STATES (READY, PUBLISHED) are ever returned to
 // public callers - DRAFT/SUBMITTED/UNDER_REVIEW/etc. listings never leak
 // into the public catalog or detail page, regardless of filters.
+import { verifiedSellerIds } from "@/services/marketplace/identityStore";
 import "server-only";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -308,7 +309,8 @@ export class MarketplaceCatalogue {
     if (!row) return null;
 
     const sellerNames = await resolveSellerNames([row.sellerId]);
-    return rowToDetail(row, sellerNames);
+    const detail = await rowToDetail(row, sellerNames);
+    return { ...detail, sellerIdentityVerified: (await verifiedSellerIds([row.sellerId])).has(row.sellerId) };
   }
 
   // Owner-only preview read - deliberately does NOT filter by

@@ -8,7 +8,8 @@ import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { prisma } from "@/lib/prisma";
 import { withTableFallback } from "@/services/marketplace/tableGuard";
 import { auditLogService } from "@/services/admin/AuditLogService";
-import { sellerVerificationBlocker, selfServeAllowedFor, isPlatformOwner, checkPublishRequirements, MAX_NEW_LISTINGS_PER_DAY } from "@/lib/marketplace/selfServe";
+import { selfServeAllowedFor, isPlatformOwner, checkPublishRequirements, MAX_NEW_LISTINGS_PER_DAY } from "@/lib/marketplace/selfServe";
+import { sellerGate } from "@/services/marketplace/identityStore";
 
 function listingIdFromPath(path: string): string | undefined {
   const segments = path.split("/").filter(Boolean);
@@ -28,7 +29,7 @@ export const POST = withContext(async (req, ctx) => {
   }
 
 
-  const unverified = sellerVerificationBlocker({ email: email, emailVerified: sessionUser.profile.emailVerified });
+  const unverified = await sellerGate({ id: sessionUser.profile.id, email: email, emailVerified: sessionUser.profile.emailVerified });
   if (unverified) {
     return ApiResponse.error({ code: "SELLER_NOT_VERIFIED", message: unverified }, ctx.requestId, 403, ctx.startedAt);
   }

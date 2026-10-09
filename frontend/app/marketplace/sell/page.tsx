@@ -10,7 +10,10 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
 import SellClient from "./SellClient";
 import SelfServeSellClient from "./SelfServeSellClient";
-import { selfServeAllowedFor, sellerVerificationBlocker } from "@/lib/marketplace/selfServe";
+import { selfServeAllowedFor } from "@/lib/marketplace/selfServe";
+import { sellerGate, getIdentity } from "@/services/marketplace/identityStore";
+import { identityRequired } from "@/lib/marketplace/identity";
+import IdentityVerifyPanel from "./IdentityVerifyPanel";
 
 export const metadata = {
   title: "Submit a Trading System | AT24 Marketplace",
@@ -19,7 +22,8 @@ export const metadata = {
 export default async function SellPage() {
   const user = await requireUser("/login?redirect=/marketplace/sell");
   const selfServe = selfServeAllowedFor(user.profile.email);
-  const notVerified = selfServe ? sellerVerificationBlocker({ email: user.profile.email, emailVerified: user.profile.emailVerified }) : null;
+  const notVerified = selfServe ? await sellerGate({ id: user.profile.id, email: user.profile.email, emailVerified: user.profile.emailVerified }) : null;
+  const identity = selfServe && notVerified && user.profile.emailVerified && identityRequired() ? await getIdentity(user.profile.id) : null;
 
   return (
     <main className="min-h-screen bg-ink pt-20 text-text">
@@ -49,9 +53,10 @@ export default async function SellPage() {
           </Link>
         </header>
         )}
-        {notVerified && (
+        {notVerified && identity && <IdentityVerifyPanel status={identity.status} message={identity.message} />}
+        {notVerified && !identity && (
           <div role="alert" className="rounded-card border border-amber-600 bg-ink-2 p-4 text-sm text-amber-300">
-            <p className="font-semibold">Verify your email first</p>
+            <p className="font-semibold">Verification needed</p>
             <p className="mt-1 text-text-2">{notVerified}</p>
             <Link href="/dashboard/settings" className="mt-2 inline-block font-semibold text-gold hover:underline">Open Settings →</Link>
           </div>

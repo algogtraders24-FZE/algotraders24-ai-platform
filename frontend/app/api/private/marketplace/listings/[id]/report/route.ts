@@ -11,7 +11,8 @@ import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { prisma } from "@/lib/prisma";
 import { withTableFallback } from "@/services/marketplace/tableGuard";
 import { createBuildUploadUrl } from "@/lib/marketplace/buildStorage";
-import { sellerVerificationBlocker, selfServeAllowedFor, sanitizeFileName, extensionOf } from "@/lib/marketplace/selfServe";
+import { selfServeAllowedFor, sanitizeFileName, extensionOf } from "@/lib/marketplace/selfServe";
+import { sellerGate } from "@/services/marketplace/identityStore";
 import { ALLOWED_REPORT_EXTENSIONS, MAX_REPORT_BYTES, isAllowedReportFile } from "@/lib/marketplace/reportCheck";
 import { enqueueReportCheck, reportCheckStatusForSeller } from "@/services/marketplace/reportCheckStore";
 
@@ -31,7 +32,7 @@ async function authorize(ctx: { path: string; requestId: string; startedAt: numb
   if (!selfServeAllowedFor(sessionUser.profile.email)) {
     return { ok: false as const, error: ApiResponse.error({ code: "SELF_SERVE_UNAVAILABLE", message: "Self-serve listing is not open for this account yet." }, ctx.requestId, 403, ctx.startedAt) };
   }
-  const unverified = sellerVerificationBlocker({ email: sessionUser.profile.email, emailVerified: sessionUser.profile.emailVerified });
+  const unverified = await sellerGate({ id: sessionUser.profile.id, email: sessionUser.profile.email, emailVerified: sessionUser.profile.emailVerified });
   if (unverified) {
     return { ok: false as const, error: ApiResponse.error({ code: "SELLER_NOT_VERIFIED", message: unverified }, ctx.requestId, 403, ctx.startedAt) };
   }
