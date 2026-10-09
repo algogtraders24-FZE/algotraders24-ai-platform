@@ -183,14 +183,14 @@ export default function ResultsView({ r, ownerNote, actions, visibility }: { r: 
             id: "periods",
             label: "Periods",
             content: (
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto"><table className="w-full min-w-max text-sm [&_td]:whitespace-nowrap [&_td]:px-2 [&_th]:px-2 [&_td:first-child]:pl-0 [&_th:first-child]:pl-0">
                 <thead><tr className="text-xs text-text-3"><th className="py-1.5 text-left font-medium"></th><th className="text-right font-medium">Gain</th>{r.amounts && <th className="text-right font-medium">Profit</th>}<th className="text-right font-medium">Trades</th><th className="text-right font-medium">Win%</th></tr></thead>
                 <tbody>
                   {([["Today", s.daily], ["This week", s.weekly], ["This month", s.monthly], ["This year", s.yearly]] as const).map(([n, p]) => (
                     <tr key={n} className="border-t border-border"><td className="py-1.5 text-text-2">{n}</td><td className={`text-right tabular-nums ${tone(p.gainPct)}`}>{pct(p.gainPct)}</td>{r.amounts && <td className={`text-right tabular-nums ${tone(p.profit)}`}>{money(p.profit, cur)}</td>}<td className="text-right tabular-nums">{p.trades}</td><td className="text-right tabular-nums">{p.winRatePct === null ? "-" : `${num(p.winRatePct)}%`}</td></tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             ),
           },
           { id: "calendar", label: "Calendar", content: <CalendarTab daily={s.dailyHistory} currency={cur} /> },
@@ -204,7 +204,7 @@ export default function ResultsView({ r, ownerNote, actions, visibility }: { r: 
 
       {r.strategies.length > 0 && (
         <Panel title={`Strategies inside ${r.title}`}>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full min-w-max text-sm [&_td]:whitespace-nowrap [&_td]:px-2 [&_th]:px-2 [&_td:first-child]:pl-0 [&_th:first-child]:pl-0">
             <thead><tr className="text-xs text-text-3"><th className="py-1.5 text-left font-medium">Strategy</th><th className="text-left font-medium">Share of trades</th><th className="text-right font-medium">Trades</th><th className="text-right font-medium">Win%</th><th className="text-right font-medium">Profit factor</th>{r.strategies[0].net !== undefined && <th className="text-right font-medium">Net</th>}</tr></thead>
             <tbody>
               {r.strategies.map((x) => (
@@ -218,7 +218,7 @@ export default function ResultsView({ r, ownerNote, actions, visibility }: { r: 
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
           <p className="mt-2 text-xs text-text-3">A strategy is the part of the trade comment before _Buy / _Sell. Broker auto comments are grouped as untagged.</p>
         </Panel>
       )}
@@ -254,14 +254,14 @@ export default function ResultsView({ r, ownerNote, actions, visibility }: { r: 
             </ul>
           )}
           <h3 className="mb-1 mt-4 text-sm font-semibold text-text">By symbol</h3>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full min-w-max text-sm [&_td]:whitespace-nowrap [&_td]:px-2 [&_th]:px-2 [&_td:first-child]:pl-0 [&_th:first-child]:pl-0">
             <thead><tr className="text-xs text-text-3"><th className="py-1 text-left font-medium">Symbol</th><th className="text-right font-medium">Trades</th><th className="text-right font-medium">Won</th><th className="text-right font-medium">Longs</th><th className="text-right font-medium">Shorts</th>{s.bySymbol[0]?.net !== undefined && <th className="text-right font-medium">Net</th>}</tr></thead>
             <tbody>
               {s.bySymbol.map((x) => (
                 <tr key={x.symbol} className="border-t border-border"><td className="py-1.5">{x.symbol}</td><td className="text-right tabular-nums">{x.trades}</td><td className="text-right tabular-nums">{num(x.wonPct)}%</td><td className="text-right tabular-nums">{x.longs}</td><td className="text-right tabular-nums">{x.shorts}</td>{x.net !== undefined && <td className={`text-right tabular-nums ${tone(x.net)}`}>{money(x.net, cur)}</td>}</tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </Panel>
       </div>
 
@@ -294,14 +294,14 @@ export default function ResultsView({ r, ownerNote, actions, visibility }: { r: 
           {r.amounts.cashflows.length > 0 && (
             <div className="mt-4">
               <h3 className="mb-1 text-xs font-semibold text-text-2">Deposits and withdrawals <span className="font-normal text-text-3">(broker time)</span></h3>
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto"><table className="w-full min-w-max text-sm [&_td]:whitespace-nowrap [&_td]:px-2 [&_th]:px-2 [&_td:first-child]:pl-0 [&_th:first-child]:pl-0">
                 <thead><tr className="text-xs text-text-3"><th className="py-1 text-left font-medium">Date</th><th className="text-left font-medium">Type</th><th className="text-right font-medium">Amount</th></tr></thead>
                 <tbody>
                   {r.amounts.cashflows.map((c, idx) => (
                     <tr key={idx} className="border-t border-border"><td className="py-1.5 text-text-2">{day(c.time)}</td><td>{c.amount >= 0 ? (idx === 0 ? "Initial deposit" : "Deposit") : "Withdrawal"}</td><td className={`text-right tabular-nums ${c.amount >= 0 ? "text-emerald-400" : "text-red-400"}`}>{money(c.amount, cur)}</td></tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             </div>
           )}
         </Panel>

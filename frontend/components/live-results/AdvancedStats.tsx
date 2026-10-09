@@ -98,7 +98,7 @@ export default function AdvancedStatsPanel({ adv, showAmounts, currency }: { adv
 
       {tab === "daily" && (
         <>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full min-w-max text-sm [&_td]:whitespace-nowrap [&_td]:px-2 [&_th]:px-2 [&_td:first-child]:pl-0 [&_th:first-child]:pl-0">
             <thead><tr className="text-xs text-text-3"><th className="py-1.5 text-left font-medium">Day of entry</th><th className="text-right font-medium">Trades</th><th className="text-right font-medium">Win%</th>{showAmounts && <th className="text-right font-medium">Net</th>}<th className="w-40 text-left font-medium pl-4">Win rate</th></tr></thead>
             <tbody>
               {adv.weekday.map((d) => (
@@ -111,14 +111,14 @@ export default function AdvancedStatsPanel({ adv, showAmounts, currency }: { adv
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
           <p className="mt-2 text-xs text-text-3">By the weekday each trade was opened (broker server time).</p>
         </>
       )}
 
       {tab === "ruin" && (adv.ruin ? (
         <>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full min-w-max text-sm [&_td]:whitespace-nowrap [&_td]:px-2 [&_th]:px-2 [&_td:first-child]:pl-0 [&_th:first-child]:pl-0">
             <thead><tr className="text-xs text-text-3"><th className="py-1.5 text-left font-medium">Loss size</th><th className="text-right font-medium">Chance, trades independent</th><th className="text-right font-medium">Chance, streaks kept</th><th className="text-right font-medium">Average losses in a row</th></tr></thead>
             <tbody>
               {adv.ruin.rows.map((r) => (
@@ -130,7 +130,7 @@ export default function AdvancedStatsPanel({ adv, showAmounts, currency }: { adv
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
           <p className="mt-2 text-xs text-text-3">
             Chance that the account falls this far from a peak at some point in the next {adv.ruin.horizonTrades} trades, from a seeded resampling of this page&apos;s own results. &quot;Streaks kept&quot; is the more cautious reading.
             &quot;Average losses in a row&quot; is how many average-sized losing trades back to back it would take to lose that share of the current balance; the longest losing streak so far is {adv.ruin.longestLosingStreak}.
