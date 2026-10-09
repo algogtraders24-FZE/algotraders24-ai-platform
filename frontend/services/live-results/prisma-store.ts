@@ -52,14 +52,14 @@ async function fetchDeals(accountId: string): Promise<DealWithMagic[]> {
 export async function loadOwnerTrades(userId: string, pageId: string): Promise<{ slug: string; trades: ClosedTrade[] } | null> {
   const page = await prisma.liveResultsPage.findFirst({ where: { id: pageId, userId } });
   if (!page) return null;
-  const account = await prisma.liveSyncAccount.findFirst({ where: { id: page.accountId, userId }, select: { id: true } });
+  const account = await prisma.liveSyncAccount.findFirst({ where: { id: page.accountId, userId }, select: { id: true, marginMode: true } });
   if (!account) return null;
   const deals = await fetchDeals(account.id);
   const magic = page.magicFilter === null ? null : page.magicFilter.toString();
   const opens = new Map<string, string>();
   for (const d of deals) if (d.entry === "in" && !opens.has(d.positionId)) opens.set(d.positionId, d.magic);
   const kept = magic === null ? deals : deals.filter((d) => d.type === "balance" || opens.get(d.positionId) === magic);
-  return { slug: page.slug, trades: dealsToHistory(kept).trades };
+  return { slug: page.slug, trades: dealsToHistory(kept, account.marginMode).trades };
 }
 
 export async function loadResults(slug: string, viewer: { userId: string | null; key: string | null; isAdmin?: boolean }, opts: { sinceUtc?: number } = {}): Promise<ResultsLoad> {
