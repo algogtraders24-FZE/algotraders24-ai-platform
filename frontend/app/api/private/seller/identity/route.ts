@@ -6,13 +6,20 @@
 import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
-import { getIdentity, startVerification } from "@/services/marketplace/identityStore";
+import { getIdentity, identityProvider, startVerification } from "@/services/marketplace/identityStore";
+import { identityRequired } from "@/lib/marketplace/identity";
 import { selfServeAllowedFor, isPlatformOwner } from "@/lib/marketplace/selfServe";
 
 export const GET = withContext(async (_req, ctx) => {
   const user = await getUserOrNull();
   if (!user) return ApiResponse.error({ code: "UNAUTHORIZED", message: "Authentication required" }, ctx.requestId, 401, ctx.startedAt);
-  return ApiResponse.success(await getIdentity(user.profile.id), ctx.requestId, 200, ctx.startedAt);
+  const identity = await getIdentity(user.profile.id);
+  return ApiResponse.success(
+    { ...identity, available: identityProvider() !== null, required: identityRequired() && !isPlatformOwner(user.profile.email) },
+    ctx.requestId,
+    200,
+    ctx.startedAt,
+  );
 });
 
 export const POST = withContext(async (_req, ctx) => {

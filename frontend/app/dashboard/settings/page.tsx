@@ -23,7 +23,7 @@
 // (plan label + link-out, a different file) is unaffected and still
 // in scope. Same updateNameAction/changePasswordAction/changeEmailAction
 // server actions, same real user/plan data, same signOutAction.
-import { useActionState } from "react";
+import { useActionState, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useUserContext } from "@/context/UserContext";
 import { signOutAction, type ActionState } from "@/app/(auth)/actions/auth.actions";
@@ -59,6 +59,74 @@ function SectionCard({ title, description, children }: { title: string; descript
       {description && <p className="mt-1 text-sm text-text-3">{description}</p>}
       <div className="mt-5">{children}</div>
     </Card>
+  );
+}
+
+interface IdentityView { status: string; message: string; available: boolean; required: boolean }
+
+function SellerVerificationSection({ emailVerified }: { emailVerified: boolean }) {
+  const [view, setView] = useState<IdentityView | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/private/seller/identity", { cache: "no-store" });
+      const body = await res.json().catch(() => null);
+      if (res.ok && body?.status === "ok") setView(body.data as IdentityView);
+    } catch {
+      /* the section simply stays without identity details */
+    }
+  }, []);
+  useEffect(() => { void load(); }, [load]);
+
+  async function start() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/private/seller/identity", { method: "POST" });
+      const body = await res.json().catch(() => null);
+      if (!res.ok || body?.status !== "ok") throw new Error(body?.error?.message ?? `Request failed (${res.status})`);
+      if (body.data.verified) {
+        await load();
+        setBusy(false);
+        return;
+      }
+      window.location.href = body.data.url as string;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not start the verification.");
+      setBusy(false);
+    }
+  }
+
+  const status = view?.status ?? "NONE";
+  const tone = status === "VERIFIED" ? "success" : status === "REJECTED" ? "danger" : status === "PENDING" || status === "RETRY" ? "warning" : "neutral";
+  const label = status === "VERIFIED" ? "Verified" : status === "PENDING" ? "In review" : status === "RETRY" ? "Try again" : status === "REJECTED" ? "Not verified" : "Not verified";
+  return (
+    <SectionCard title="Seller verification" description="Needed only if you want to sell on the AT24 Marketplace. Buyers see an Identity verified mark on verified sellers.">
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-text-2">Email address</p>
+          <Badge tone={emailVerified ? "success" : "warning"}>{emailVerified ? "Verified" : "Unverified - confirm the link we emailed you"}</Badge>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-text-2">Identity {view?.required ? "(required to list)" : "(optional for now)"}</p>
+          <Badge tone={tone}>{label}</Badge>
+        </div>
+        {view && <p className="text-xs text-text-3">{view.message}</p>}
+        {error && <Alert tone="danger">{error}</Alert>}
+        {view?.available && status !== "VERIFIED" && status !== "REJECTED" && (
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => void start()} loading={busy} disabled={!emailVerified}>
+              {status === "PENDING" ? "Open the verification again" : status === "RETRY" ? "Try again" : "Verify identity"}
+            </Button>
+            {status === "PENDING" && <Button variant="secondary" onClick={() => void load()}>Refresh status</Button>}
+          </div>
+        )}
+        {view && !view.available && <p className="text-xs text-text-3">Identity verification is not switched on yet.</p>}
+        {!emailVerified && view?.available && <p className="text-xs text-text-3">Confirm your email address first, then you can verify your identity.</p>}
+      </div>
+    </SectionCard>
   );
 }
 
@@ -169,6 +237,7 @@ export default function SettingsPage() {
 
           <ProfileSection name={user.name} />
           <EmailSection currentEmail={user.email} emailVerified={user.emailVerified} />
+          <SellerVerificationSection emailVerified={user.emailVerified} />
           <PasswordSection />
 
           <SectionCard title="Billing">
