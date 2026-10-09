@@ -49,6 +49,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { isValidCronSecret } from "@/lib/intelligence/cron-auth";
+import { mfaDecision, mfaEnforced } from "@/lib/auth/mfa";
 
 // AT24 Security Hardening P2.1 - CSRF Origin validation. Defense-in-depth
 // layered ON TOP OF SameSite=Lax cookies, which the P1 CSP research
@@ -150,6 +151,21 @@ export async function proxy(request: NextRequest) {
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("redirectTo", pathname);
     return NextResponse.redirect(loginUrl);
+  }
+  // Two-factor authentication (authenticator app): a user who enrolled a TOTP factor must also pass the code check in THIS session.
+  // Off unless MFA_ENFORCE=true (remove the variable to switch it off at once). The aal level is read from the session token.
+  if (user && (isProtectedApi || isProtectedPage) && mfaEnforced()) {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal && mfaDecision({ currentLevel: aal.currentLevel, nextLevel: aal.nextLevel }, true) === "challenge") {
+      if (isProtectedApi) {
+        return NextResponse.json({ success: false, error: "Two-factor code required", code: "MFA_REQUIRED" }, { status: 401 });
+      }
+      const challengeUrl = request.nextUrl.clone();
+      challengeUrl.pathname = "/login/2fa";
+      challengeUrl.search = "";
+      challengeUrl.searchParams.set("redirectTo", pathname);
+      return NextResponse.redirect(challengeUrl);
+    }
   }
   return response;
 }

@@ -36,6 +36,7 @@ import Input from "@/components/ui/Input";
 import ErrorState from "@/components/ui/ErrorState";
 import Alert from "@/components/ui/Alert";
 import PageHeader from "@/components/ui/PageHeader";
+import TwoFactorSection from "@/components/settings/TwoFactorSection";
 import { PLAN_LABELS } from "@/config/billing.config";
 import type { PlanId } from "@/types/billing";
 
@@ -239,6 +240,7 @@ export default function SettingsPage() {
           <EmailSection currentEmail={user.email} emailVerified={user.emailVerified} />
           <SellerVerificationSection emailVerified={user.emailVerified} />
           <PasswordSection />
+          <TwoFactorSection />
 
           <SectionCard title="Billing">
             <div className="flex items-center justify-between gap-4">
