@@ -5,8 +5,7 @@ import assert from "node:assert/strict";
 import { deflateRawSync } from "node:zlib";
 import {
   parseMode, parseAllowlist, selfServeAllowedFor, isPlatformOwner, extensionOf, sanitizeFileName,
-  checkPublishRequirements, MAX_BUILD_BYTES, MIN_DESCRIPTION_CHARS,
-} from "../lib/marketplace/selfServe";
+  checkPublishRequirements, MAX_BUILD_BYTES, MIN_DESCRIPTION_CHARS, sellerVerificationBlocker } from "../lib/marketplace/selfServe";
 import { inspectBuild, listZipEntries } from "../lib/marketplace/buildInspect";
 
 let pass = 0;
@@ -138,6 +137,16 @@ ok("every missing item is named", () => {
   assert.equal(m.length, 6);
   assert.deepEqual(checkPublishRequirements({ ...good, pricing: { model: "one_time", amount: 0 } }), ["a price"]);
   assert.match(checkPublishRequirements({ ...good, pricing: { model: "one_time", amount: 999999 } })[0], /at most/);
+});
+
+ok("an unverified seller is blocked with a clear message", () => {
+  assert.match(sellerVerificationBlocker({ email: "seller@example.com", emailVerified: false }) ?? "", /confirm your email/);
+  assert.match(sellerVerificationBlocker({ email: "seller@example.com", emailVerified: null }) ?? "", /confirm your email/);
+  assert.match(sellerVerificationBlocker({ email: "seller@example.com", emailVerified: undefined }) ?? "", /Settings/);
+});
+ok("a verified seller passes; the platform owner is always exempt", () => {
+  assert.equal(sellerVerificationBlocker({ email: "seller@example.com", emailVerified: true }), null);
+  assert.equal(sellerVerificationBlocker({ email: "algogtraders24@gmail.com", emailVerified: false }), null);
 });
 
 console.log(`\n${pass} checks passed.`);

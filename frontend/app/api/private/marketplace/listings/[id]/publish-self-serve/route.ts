@@ -8,7 +8,7 @@ import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { prisma } from "@/lib/prisma";
 import { withTableFallback } from "@/services/marketplace/tableGuard";
 import { auditLogService } from "@/services/admin/AuditLogService";
-import { selfServeAllowedFor, isPlatformOwner, checkPublishRequirements, MAX_NEW_LISTINGS_PER_DAY } from "@/lib/marketplace/selfServe";
+import { sellerVerificationBlocker, selfServeAllowedFor, isPlatformOwner, checkPublishRequirements, MAX_NEW_LISTINGS_PER_DAY } from "@/lib/marketplace/selfServe";
 
 function listingIdFromPath(path: string): string | undefined {
   const segments = path.split("/").filter(Boolean);
@@ -25,6 +25,12 @@ export const POST = withContext(async (req, ctx) => {
   const email = sessionUser.profile.email;
   if (!selfServeAllowedFor(email)) {
     return ApiResponse.error({ code: "SELF_SERVE_UNAVAILABLE", message: "Self-serve listing is not open for this account yet." }, ctx.requestId, 403, ctx.startedAt);
+  }
+
+
+  const unverified = sellerVerificationBlocker({ email: email, emailVerified: sessionUser.profile.emailVerified });
+  if (unverified) {
+    return ApiResponse.error({ code: "SELLER_NOT_VERIFIED", message: unverified }, ctx.requestId, 403, ctx.startedAt);
   }
 
   const listingId = listingIdFromPath(ctx.path);

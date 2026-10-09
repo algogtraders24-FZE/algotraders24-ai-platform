@@ -11,7 +11,7 @@ import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { prisma } from "@/lib/prisma";
 import { withTableFallback } from "@/services/marketplace/tableGuard";
 import { createBuildUploadUrl, downloadBuild, removeBuild } from "@/lib/marketplace/buildStorage";
-import { selfServeAllowedFor, sanitizeFileName, extensionOf, ALLOWED_PRODUCT_EXTENSIONS, BLOCKED_EXTENSIONS, MAX_BUILD_BYTES } from "@/lib/marketplace/selfServe";
+import { sellerVerificationBlocker, selfServeAllowedFor, sanitizeFileName, extensionOf, ALLOWED_PRODUCT_EXTENSIONS, BLOCKED_EXTENSIONS, MAX_BUILD_BYTES } from "@/lib/marketplace/selfServe";
 import { inspectBuild } from "@/lib/marketplace/buildInspect";
 
 export const maxDuration = 60;
@@ -30,6 +30,12 @@ export const POST = withContext(async (req, ctx) => {
   const sellerId = sessionUser.profile.id;
   if (!selfServeAllowedFor(sessionUser.profile.email)) {
     return ApiResponse.error({ code: "SELF_SERVE_UNAVAILABLE", message: "Self-serve listing is not open for this account yet." }, ctx.requestId, 403, ctx.startedAt);
+  }
+
+
+  const unverified = sellerVerificationBlocker({ email: sessionUser.profile.email, emailVerified: sessionUser.profile.emailVerified });
+  if (unverified) {
+    return ApiResponse.error({ code: "SELLER_NOT_VERIFIED", message: unverified }, ctx.requestId, 403, ctx.startedAt);
   }
 
   const listingId = listingIdFromPath(ctx.path);

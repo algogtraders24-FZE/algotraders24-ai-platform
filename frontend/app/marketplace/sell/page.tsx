@@ -10,7 +10,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
 import SellClient from "./SellClient";
 import SelfServeSellClient from "./SelfServeSellClient";
-import { selfServeAllowedFor } from "@/lib/marketplace/selfServe";
+import { selfServeAllowedFor, sellerVerificationBlocker } from "@/lib/marketplace/selfServe";
 
 export const metadata = {
   title: "Submit a Trading System | AT24 Marketplace",
@@ -19,6 +19,7 @@ export const metadata = {
 export default async function SellPage() {
   const user = await requireUser("/login?redirect=/marketplace/sell");
   const selfServe = selfServeAllowedFor(user.profile.email);
+  const notVerified = selfServe ? sellerVerificationBlocker({ email: user.profile.email, emailVerified: user.profile.emailVerified }) : null;
 
   return (
     <main className="min-h-screen bg-ink pt-20 text-text">
@@ -48,7 +49,14 @@ export default async function SellPage() {
           </Link>
         </header>
         )}
-        {selfServe ? <SelfServeSellClient /> : <SellClient />}
+        {notVerified && (
+          <div role="alert" className="rounded-card border border-amber-600 bg-ink-2 p-4 text-sm text-amber-300">
+            <p className="font-semibold">Verify your email first</p>
+            <p className="mt-1 text-text-2">{notVerified}</p>
+            <Link href="/dashboard/settings" className="mt-2 inline-block font-semibold text-gold hover:underline">Open Settings →</Link>
+          </div>
+        )}
+        {selfServe ? (notVerified ? null : <SelfServeSellClient />) : <SellClient />}
       </div>
       <Footer />
     </main>

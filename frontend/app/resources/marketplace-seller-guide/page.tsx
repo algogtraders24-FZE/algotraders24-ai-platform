@@ -27,7 +27,7 @@ const STEPS = [
         file: <code className="text-text">.ex5</code>, <code className="text-text">.ex4</code>, or a <code className="text-text">.zip</code> with
         several files (also .mq5 .mq4 .pine .cs .py .set .tpl .pdf), up to 50 MB. Programs and scripts (.dll, .exe, .bat,
         .ps1, .js ...) are not accepted, not even inside a zip. Your file is stored privately and is only ever given to
-        people who bought it.
+        people who bought it. You need an account with a confirmed email address to list a product.
       </>
     ),
   },

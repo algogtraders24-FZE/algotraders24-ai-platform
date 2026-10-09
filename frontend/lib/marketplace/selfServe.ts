@@ -55,6 +55,19 @@ export function selfServeAllowedFor(
   return false;
 }
 
+/**
+ * Seller verification gate (owner decision 2026-10-09: self-serve stays public, but sellers must be verified).
+ * Level 1 = a confirmed email address. Returns the message to show when the seller may not list yet (null = fine).
+ * The platform owner accounts are exempt.
+ */
+export function sellerVerificationBlocker(user: { email: string | null | undefined; emailVerified: boolean | null | undefined }): string | null {
+  if (isPlatformOwner(user.email)) return null;
+  if (!user.emailVerified) {
+    return "Please confirm your email address before you list a product: open the confirmation email we sent you and click the link (check spam). You can request a new link in Dashboard > Settings.";
+  }
+  return null;
+}
+
 export function extensionOf(fileName: string): string {
   const i = fileName.lastIndexOf(".");
   return i < 0 ? "" : fileName.slice(i).toLowerCase();
