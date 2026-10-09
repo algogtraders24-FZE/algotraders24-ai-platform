@@ -12,6 +12,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = join(HERE, 'signals');
 const DELAY_MS = 4000;
 const UA = 'Mozilla/5.0 (compatible; AT24-research-feed; personal R&D archive)';
+const PLATFORM = process.env.PLATFORM || 'mt5';
 const pages = Number(process.argv[process.argv.indexOf('--pages') + 1]) || 10;
 // quality = MQL5's own rating; funds = real subscriber money following the signal
 const ORDERINGS = ['quality', 'subscribersdepositstotal'];
@@ -45,7 +46,7 @@ const all = new Map();
 let fails = 0;
 outer: for (const ord of ORDERINGS) {
   for (let p = 1; p <= pages; p++) {
-    const url = `https://www.mql5.com/en/signals/mt5/list${p > 1 ? `/page${p}` : ''}?orderby=${ord}`;
+    const url = `https://www.mql5.com/en/signals/${PLATFORM}/list${p > 1 ? `/page${p}` : ''}?orderby=${ord}`;
     try {
       const res = await fetch(url, { headers: { 'user-agent': UA, 'accept-language': 'en' } });
       if (res.status !== 200) { fails++; console.log(`${res.status} ${url}`); if (fails >= 4) break outer; await new Promise((r) => setTimeout(r, 60000)); continue; }
@@ -61,7 +62,7 @@ outer: for (const ord of ORDERINGS) {
 const list = [...all.values()].map(({ _t, ...s }) => s);
 mkdirSync(OUT, { recursive: true });
 const stamp = new Date().toISOString().slice(0, 10);
-writeFileSync(join(OUT, `signals-${stamp}.json`), JSON.stringify(list, null, 1));
+writeFileSync(join(OUT, `signals-${PLATFORM}-${stamp}.json`), JSON.stringify(list, null, 1));
 
 // ---- analysis ----
 const med = (a) => { const v = a.filter((x) => x != null).sort((x, y) => x - y); return v.length ? v[Math.floor(v.length / 2)] : null; };
@@ -86,5 +87,5 @@ const md = [`# MQL5 Signals: live track-record index (${stamp})`, '',
   '', '## Where subscribers actually put money (top 15 by funds)', '',
   '| Signal | Funds USD | Subscribers | Weeks | Drawdown | PF | Growth |', '|---|---|---|---|---|---|---|',
   ...byFunds.map((s) => `| [${s.name}](https://www.mql5.com/en/signals/${s.id}) | ${f(s.fundsUSD)} | ${s.subscribers} | ${s.weeks} | ${f(s.drawdownPct)}% | ${f(s.profitFactor, 2)} | ${f(s.growthPct)}% |`), ''];
-writeFileSync(join(OUT, 'SIGNALS_INDEX.md'), md.join('\n') + '\n');
+writeFileSync(join(OUT, `SIGNALS_INDEX_${PLATFORM}.md`), md.join('\n') + '\n');
 console.log(`${list.length} signals, ${robust.length} pass the robust screen. Report: signals/SIGNALS_INDEX.md`);
