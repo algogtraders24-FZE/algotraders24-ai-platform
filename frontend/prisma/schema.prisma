@@ -3208,3 +3208,23 @@ model SellerIdentity {
   @@index([status])
   @@map("seller_identities")
 }
+
+// ── Seller self-serve Phase 5: buyer reports + auto-suspend ─────────────
+// A buyer who paid for a listing can report it (one report per buyer per listing). When enough DISTINCT buyers have an OPEN
+// report, the listing is suspended automatically (hidden, no new sales, downloads paused) and the owner is notified; the
+// owner then restores it (reports DISMISSED) or retires it (reports UPHELD, builds revoked). Nothing is deleted.
+model ListingReport {
+  id         String    @id @default(cuid())
+  listingId  String
+  reporterId String
+  reason     String // MALWARE | FAKE_RESULTS | NOT_AS_DESCRIBED | DOES_NOT_WORK | COPYRIGHT | OTHER
+  details    String    @default("")
+  status     String    @default("OPEN") // OPEN | DISMISSED | UPHELD
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@unique([listingId, reporterId])
+  @@index([listingId, status])
+  @@index([status, createdAt])
+  @@map("listing_reports")
+}

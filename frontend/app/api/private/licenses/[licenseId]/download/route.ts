@@ -49,6 +49,14 @@ export const GET = withContext(async (req, ctx) => {
     return ApiResponse.error({ code: "RELEASE_NOT_AVAILABLE", message: "This release is not currently available for download (revoked/deprecated)." }, ctx.requestId, 409, ctx.startedAt);
   }
 
+  // Phase 5: a listing suspended after buyer reports pauses downloads until the owner decides (existing installs keep running).
+  const suspended = release.marketplaceListingId
+    ? await prisma.marketplaceListing.count({ where: { id: release.marketplaceListingId, publicationState: "SUSPENDED" } })
+    : 0;
+  if (suspended > 0) {
+    return ApiResponse.error({ code: "LISTING_SUSPENDED", message: "This product is temporarily suspended while buyer reports are reviewed. Downloads resume if it is cleared." }, ctx.requestId, 409, ctx.startedAt);
+  }
+
   let bytes: Buffer | null = null;
   let storedExt = ".ex5";
   let filename = `${release.tradingSystemId}_${release.artifactVersion}.ex5`;

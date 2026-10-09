@@ -32,6 +32,10 @@ export type AuditAction =
   | "marketplace.trust_evaluated"
   | "marketplace.eligibility_evaluated"
   // Seller self-serve Phase 4 - payout requests and the admin confirmation that a transfer was sent.
+  | "marketplace.listing_reported"
+  | "marketplace.auto_suspended"
+  | "marketplace.report_dismissed"
+  | "marketplace.report_upheld"
   | "seller.payout_requested"
   | "seller.payout_paid"
   | "seller.payout_rejected"
