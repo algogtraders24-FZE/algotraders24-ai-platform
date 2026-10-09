@@ -7,6 +7,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSiteUrl } from "@/lib/payments/env";
 import { sellerVerificationBlocker, isPlatformOwner } from "@/lib/marketplace/selfServe";
+import { DIDIT_SESSION_URL, diditConfigured } from "@/lib/marketplace/didit";
 import {
   DEFAULT_LEVEL_NAME, SUMSUB_BASE_URL, identityMessage, identityRequired, signSumsubRequest, sumsubConfigured,
   type IdentityStatus, type ReviewVerdict,
@@ -21,18 +22,68 @@ export async function getIdentity(userId: string): Promise<{ status: IdentitySta
 export type StartResult = { ok: true; url: string } | { ok: true; verified: true } | { ok: false; code: string; message: string };
 
 export async function startVerification(user: { id: string; email: string | null | undefined }): Promise<StartResult> {
-  if (!sumsubConfigured()) return { ok: false, code: "NOT_CONFIGURED", message: "Identity verification is not switched on yet." };
+  const provider = identityProvider();
+  if (!provider) return { ok: false, code: "NOT_CONFIGURED", message: "Identity verification is not switched on yet." };
   const existing = await prisma.sellerIdentity.findUnique({ where: { userId: user.id } });
   if (existing?.status === "VERIFIED") return { ok: true, verified: true };
   if (existing?.status === "REJECTED") return { ok: false, code: "REJECTED", message: identityMessage("REJECTED") };
 
+  const successUrl = `${getSiteUrl().replace(/\/$/, "")}/marketplace/sell?identity=submitted`;
+  const started = provider === "didit" ? await startDidit(user, successUrl) : await startSumsub(user, successUrl);
+  if (!started.ok) return started;
+  await prisma.sellerIdentity.upsert({
+    where: { userId: user.id },
+    create: { userId: user.id, status: "PENDING" },
+    update: { status: "PENDING", rejectType: null },
+  });
+  return { ok: true, url: started.url };
+}
+
+/** Which provider is switched on: an explicit SELLER_IDENTITY_PROVIDER (didit | sumsub), otherwise whichever one has all its keys (Didit first - free tier). */
+export function identityProvider(env: Record<string, string | undefined> = process.env): "didit" | "sumsub" | null {
+  const pick = (env.SELLER_IDENTITY_PROVIDER ?? "").trim().toLowerCase();
+  if (pick === "didit") return diditConfigured(env) ? "didit" : null;
+  if (pick === "sumsub") return sumsubConfigured(env) ? "sumsub" : null;
+  if (diditConfigured(env)) return "didit";
+  if (sumsubConfigured(env)) return "sumsub";
+  return null;
+}
+
+type Started = { ok: true; url: string } | { ok: false; code: string; message: string };
+const UNREACHABLE: Started = { ok: false, code: "PROVIDER_UNREACHABLE", message: "The verification service did not answer. Please try again in a minute." };
+const PROVIDER_FAILED: Started = { ok: false, code: "PROVIDER_ERROR", message: "Could not start the verification. Please try again later." };
+
+async function startDidit(user: { id: string; email: string | null | undefined }, successUrl: string): Promise<Started> {
+  let res: Response;
+  try {
+    res = await fetch(DIDIT_SESSION_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": process.env.DIDIT_API_KEY as string },
+      body: JSON.stringify({
+        workflow_id: process.env.DIDIT_WORKFLOW_ID,
+        vendor_data: user.id,
+        callback: successUrl,
+        language: "en",
+        ...(user.email ? { contact_details: { email: user.email, send_notification_emails: false } } : {}),
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    return UNREACHABLE;
+  }
+  const json = (await res.json().catch(() => null)) as { url?: unknown } | null;
+  if (!res.ok || typeof json?.url !== "string" || !json.url.startsWith("https://")) return PROVIDER_FAILED;
+  return { ok: true, url: json.url };
+}
+
+async function startSumsub(user: { id: string; email: string | null | undefined }, successUrl: string): Promise<Started> {
   const path = "/resources/sdkIntegrations/levels/-/websdkLink";
   const body = JSON.stringify({
     levelName: process.env.SUMSUB_LEVEL_NAME || DEFAULT_LEVEL_NAME,
     ttlInSecs: 1800,
     userId: user.id,
     ...(user.email ? { applicantIdentifiers: { email: user.email } } : {}),
-    redirect: { successUrl: `${getSiteUrl().replace(/\/$/, "")}/marketplace/sell?identity=submitted` },
+    redirect: { successUrl },
   });
   const ts = String(Math.floor(Date.now() / 1000));
   let res: Response;
@@ -49,17 +100,12 @@ export async function startVerification(user: { id: string; email: string | null
       signal: AbortSignal.timeout(15_000),
     });
   } catch {
-    return { ok: false, code: "PROVIDER_UNREACHABLE", message: "The verification service did not answer. Please try again in a minute." };
+    return UNREACHABLE;
   }
   const json = (await res.json().catch(() => null)) as { url?: unknown } | null;
   if (!res.ok || typeof json?.url !== "string" || !json.url.startsWith("https://")) {
-    return { ok: false, code: "PROVIDER_ERROR", message: "Could not start the verification. Please try again later." };
+    return PROVIDER_FAILED;
   }
-  await prisma.sellerIdentity.upsert({
-    where: { userId: user.id },
-    create: { userId: user.id, status: "PENDING" },
-    update: { status: "PENDING", rejectType: null },
-  });
   return { ok: true, url: json.url };
 }
 
@@ -96,5 +142,5 @@ export async function sellerGate(profile: { id: string; email: string | null | u
   if (emailBlock) return emailBlock;
   if (isPlatformOwner(profile.email) || !identityRequired()) return null;
   if (await isIdentityVerified(profile.id)) return null;
-  return "Please verify your identity before you list a product (one-time ID check, done by our partner Sumsub). Open the Sell page and press Verify identity.";
+  return "Please verify your identity before you list a product (one-time ID check, done by our verification partner). Open the Sell page and press Verify identity.";
 }

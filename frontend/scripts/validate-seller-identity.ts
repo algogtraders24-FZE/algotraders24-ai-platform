@@ -2,6 +2,7 @@
 // Seller identity verification (Sumsub): webhook signature, verdict mapping, request signing, enforcement flag.
 // Pure - no database, no network. Run: npx tsx scripts/validate-seller-identity.ts
 import { createHmac } from "node:crypto";
+import { canonicalJson, diditConfigured, diditVerdict, verifyDiditWebhook } from "../lib/marketplace/didit";
 import { identityRequired, signSumsubRequest, sumsubConfigured, verdictFromWebhook, verifyWebhookSignature } from "../lib/marketplace/identity";
 
 let failed = 0;
@@ -49,6 +50,29 @@ check("the query string is part of the signed path", signSumsubRequest("sk", "1"
 // --- switches
 check("enforcement is OFF unless explicitly 'true'", !identityRequired(undefined) && !identityRequired("") && !identityRequired("1") && identityRequired("true") && identityRequired(" TRUE "));
 check("provider counts as configured only with all three secrets", !sumsubConfigured({}) && !sumsubConfigured({ SUMSUB_APP_TOKEN: "a", SUMSUB_SECRET_KEY: "b" }) && sumsubConfigured({ SUMSUB_APP_TOKEN: "a", SUMSUB_SECRET_KEY: "b", SUMSUB_WEBHOOK_SECRET: "c" }));
+
+// --- Didit
+const dsecret = "didit_whsec_test_123";
+const now = 1_800_000_000;
+const dpayload = { webhook_type: "status.updated", session_id: "s-1", status: "Approved", vendor_data: "user-9", created_at: 1_799_999_990, decision: { id_verifications: [{ status: "Approved", score: 10.0 }] } };
+const draw = JSON.stringify(dpayload);
+const dRawSig = createHmac("sha256", dsecret).update(draw).digest("hex");
+const dV2Sig = createHmac("sha256", dsecret).update(canonicalJson(JSON.parse(draw))).digest("hex");
+check("Didit: raw-body signature accepted", verifyDiditWebhook(draw, { signature: dRawSig, signatureV2: null, timestamp: String(now) }, dsecret, now));
+check("Didit: V2 (canonical JSON) signature accepted, even if the body was re-ordered in transit", verifyDiditWebhook(JSON.stringify(Object.fromEntries(Object.entries(JSON.parse(draw)).reverse())), { signature: null, signatureV2: dV2Sig, timestamp: String(now) }, dsecret, now));
+check("Didit: canonical JSON sorts keys at every level", canonicalJson({ b: 1, a: { d: 2, c: [{ z: 1, y: 2 }] } }) === '{"a":{"c":[{"y":2,"z":1}],"d":2},"b":1}');
+check("Didit: wrong secret refused", !verifyDiditWebhook(draw, { signature: dRawSig, signatureV2: dV2Sig, timestamp: String(now) }, "other", now));
+check("Didit: a tampered body refused", !verifyDiditWebhook(draw.replace("Approved", "Declined"), { signature: dRawSig, signatureV2: dV2Sig, timestamp: String(now) }, dsecret, now));
+check("Didit: stale timestamp refused (replay)", !verifyDiditWebhook(draw, { signature: dRawSig, signatureV2: null, timestamp: String(now - 301) }, dsecret, now));
+check("Didit: timestamp inside 5 minutes accepted", verifyDiditWebhook(draw, { signature: dRawSig, signatureV2: null, timestamp: String(now - 299) }, dsecret, now));
+check("Didit: missing / garbage timestamp refused", !verifyDiditWebhook(draw, { signature: dRawSig, signatureV2: null, timestamp: null }, dsecret, now) && !verifyDiditWebhook(draw, { signature: dRawSig, signatureV2: null, timestamp: "abc" }, dsecret, now));
+check("Didit: no signature headers refused", !verifyDiditWebhook(draw, { signature: null, signatureV2: null, timestamp: String(now) }, dsecret, now));
+check("Didit: the deprecated simple signature is not accepted", !verifyDiditWebhook(draw, { signature: createHmac("sha256", dsecret).update(`${now}:s-1:Approved:status.updated`).digest("hex"), signatureV2: null, timestamp: String(now) }, dsecret, now));
+check("Didit: Approved -> VERIFIED for OUR user id", diditVerdict(dpayload)?.status === "VERIFIED" && diditVerdict(dpayload)?.userId === "user-9" && diditVerdict(dpayload)?.applicantId === "s-1");
+check("Didit: Declined -> RETRY", diditVerdict({ ...dpayload, status: "Declined" })?.status === "RETRY");
+check("Didit: In Review / Abandoned / Expired / In Progress change nothing", ["In Review", "Abandoned", "Expired", "In Progress", "Not Started"].every((s) => diditVerdict({ ...dpayload, status: s }) === null));
+check("Didit: other webhook types and missing vendor_data are ignored", diditVerdict({ ...dpayload, webhook_type: "data.updated" }) === null && diditVerdict({ ...dpayload, vendor_data: "" }) === null && diditVerdict(null) === null);
+check("Didit: configured only with all three settings", !diditConfigured({}) && !diditConfigured({ DIDIT_API_KEY: "a", DIDIT_WORKFLOW_ID: "b" }) && diditConfigured({ DIDIT_API_KEY: "a", DIDIT_WORKFLOW_ID: "b", DIDIT_WEBHOOK_SECRET: "c" }));
 
 console.log(failed === 0 ? "\nAll checks passed." : `\n${failed} check(s) FAILED.`);
 process.exit(failed === 0 ? 0 : 1);
