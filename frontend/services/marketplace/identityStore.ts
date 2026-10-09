@@ -33,8 +33,8 @@ export async function startVerification(user: { id: string; email: string | null
   if (!started.ok) return started;
   await prisma.sellerIdentity.upsert({
     where: { userId: user.id },
-    create: { userId: user.id, status: "PENDING" },
-    update: { status: "PENDING", rejectType: null },
+    create: { userId: user.id, status: "PENDING", provider },
+    update: { status: "PENDING", rejectType: null, provider },
   });
   return { ok: true, url: started.url };
 }
