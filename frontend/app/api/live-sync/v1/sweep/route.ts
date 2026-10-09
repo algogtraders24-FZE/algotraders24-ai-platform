@@ -9,6 +9,7 @@
 import { sweepOfflineAlerts } from "@/services/live-sync/alert-runner";
 import { sweepAuthorized } from "@/services/live-sync/sweep-auth";
 import { sweepWatchers } from "@/services/live-results/watch-notify";
+import { announceNewListings, postWeeklyDigest, productionChannelDeps } from "@/services/telegram/channel";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +23,14 @@ export async function POST(request: Request): Promise<Response> {
   const now = new Date();
   const r = await sweepOfflineAlerts(now);
   const w = await sweepWatchers(now);
-  return Response.json({ ok: true, ...r, watchers: w.watched, watcherNotices: w.notified }, { headers: { "cache-control": "no-store" } });
+  // AT24's own Telegram channel (dormant without a bot and a channel id): neutral listing announcements, optional weekly digest.
+  let channelPosts = 0;
+  const channel = await productionChannelDeps().catch(() => null);
+  if (channel) {
+    channelPosts += (await announceNewListings(channel)).posted;
+    if (await postWeeklyDigest(channel)) channelPosts++;
+  }
+  return Response.json({ ok: true, ...r, watchers: w.watched, watcherNotices: w.notified, channelPosts }, { headers: { "cache-control": "no-store" } });
 }
 
 export const GET = () => Response.json({ ok: false, code: "METHOD" }, { status: 405, headers: { allow: "POST" } });

@@ -18,6 +18,7 @@ import Input from "@/components/ui/Input";
 import LivePanel from "@/components/live-sync/LivePanel";
 import PublishPanel from "@/components/live-results/PublishPanel";
 import AlertsPanel from "@/components/live-sync/AlertsPanel";
+import TelegramPanel from "@/components/telegram/TelegramPanel";
 
 interface DeviceRow {
   id: string;
@@ -183,6 +184,8 @@ export default function LiveSyncPage() {
           </div>
         </Card>
       )}
+
+      <TelegramPanel />
 
       <Card className="space-y-3">
         <p className="text-sm font-semibold text-text">Device tokens</p>

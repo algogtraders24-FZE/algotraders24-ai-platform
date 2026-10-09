@@ -12,6 +12,9 @@ import { prisma } from "@/lib/prisma";
 import { ALERT_KINDS, KIND_INFO, validateRuleInput } from "@/services/live-sync/alerts";
 import { createNotification } from "@/services/notifications/NotificationService";
 import { sendLiveSyncAlertEmail } from "@/services/notifications/EmailService";
+import { sendTelegramToUser } from "@/services/telegram/deliver";
+import { alertMessage } from "@/services/telegram/messages";
+import { telegramConfig } from "@/services/telegram/config";
 
 export const dynamic = "force-dynamic";
 
@@ -99,6 +102,8 @@ export const POST = withContext(async (req, ctx) => {
     const text = "This is a test. If you can read this, your Live Sync alerts will reach you. Alerts are information only; AT24 does not trade or close positions for you.";
     await createNotification({ userId: user.profile.id, kind: "live_sync_alert", severity: "info", title, body: text, href: "/dashboard/live-sync" });
     await sendLiveSyncAlertEmail({ to: user.profile.email, recipientUserId: user.profile.id, title, body: text, severity: "warning", dedupeKey: `test:${user.profile.id}:${Date.now()}` });
+    // Telegram too, when it is connected (no-op otherwise).
+    await sendTelegramToUser(user.profile.id, "alerts", alertMessage({ title, body: text, siteUrl: telegramConfig().siteUrl })).catch(() => false);
     return ApiResponse.success({ sent: true }, ctx.requestId, 200, ctx.startedAt);
   } catch {
     return unavailable(ctx);
