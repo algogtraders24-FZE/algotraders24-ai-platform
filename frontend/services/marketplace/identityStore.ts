@@ -19,7 +19,7 @@ export async function getIdentity(userId: string): Promise<{ status: IdentitySta
   return { status, message: identityMessage(status) };
 }
 
-export type StartResult = { ok: true; url: string } | { ok: true; verified: true } | { ok: false; code: string; message: string };
+export type StartResult = { ok: true; url: string } | { ok: true; verified: true } | { ok: false; code: string; message: string; debug?: string };
 
 export async function startVerification(user: { id: string; email: string | null | undefined }): Promise<StartResult> {
   const provider = identityProvider();
@@ -49,9 +49,10 @@ export function identityProvider(env: Record<string, string | undefined> = proce
   return null;
 }
 
-type Started = { ok: true; url: string } | { ok: false; code: string; message: string };
-const UNREACHABLE: Started = { ok: false, code: "PROVIDER_UNREACHABLE", message: "The verification service did not answer. Please try again in a minute." };
-const PROVIDER_FAILED: Started = { ok: false, code: "PROVIDER_ERROR", message: "Could not start the verification. Please try again later." };
+type Failed = { ok: false; code: string; message: string; debug?: string };
+type Started = { ok: true; url: string } | Failed;
+const UNREACHABLE: Failed = { ok: false, code: "PROVIDER_UNREACHABLE", message: "The verification service did not answer. Please try again in a minute." };
+const PROVIDER_FAILED: Failed = { ok: false, code: "PROVIDER_ERROR", message: "Could not start the verification. Please try again later." };
 
 async function startDidit(user: { id: string; email: string | null | undefined }, successUrl: string): Promise<Started> {
   let res: Response;
@@ -71,8 +72,12 @@ async function startDidit(user: { id: string; email: string | null | undefined }
   } catch {
     return UNREACHABLE;
   }
-  const json = (await res.json().catch(() => null)) as { url?: unknown } | null;
-  if (!res.ok || typeof json?.url !== "string" || !json.url.startsWith("https://")) return PROVIDER_FAILED;
+  const json = (await res.json().catch(() => null)) as { url?: unknown; detail?: unknown; message?: unknown; error?: unknown } | null;
+  if (!res.ok || typeof json?.url !== "string" || !json.url.startsWith("https://")) {
+    // Provider error text is shown ONLY to the platform owner (never to sellers) so a bad key / workflow id can be fixed quickly.
+    const text = [json?.detail, json?.message, json?.error].find((x) => typeof x === "string") as string | undefined;
+    return { ...PROVIDER_FAILED, debug: `Didit answered HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ""}` };
+  }
   return { ok: true, url: json.url };
 }
 

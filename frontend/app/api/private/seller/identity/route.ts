@@ -7,7 +7,7 @@ import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { getIdentity, startVerification } from "@/services/marketplace/identityStore";
-import { selfServeAllowedFor } from "@/lib/marketplace/selfServe";
+import { selfServeAllowedFor, isPlatformOwner } from "@/lib/marketplace/selfServe";
 
 export const GET = withContext(async (_req, ctx) => {
   const user = await getUserOrNull();
@@ -25,6 +25,10 @@ export const POST = withContext(async (_req, ctx) => {
     return ApiResponse.error({ code: "SELLER_NOT_VERIFIED", message: "Please confirm your email address first." }, ctx.requestId, 403, ctx.startedAt);
   }
   const r = await startVerification({ id: user.profile.id, email: user.profile.email });
-  if (!r.ok) return ApiResponse.error({ code: r.code, message: r.message }, ctx.requestId, r.code === "NOT_CONFIGURED" ? 503 : 502, ctx.startedAt);
+  // 422, not 502: Cloudflare replaces an origin 502 with its own "Bad gateway" page and hides our message.
+  if (!r.ok) {
+    const message = r.debug && isPlatformOwner(user.profile.email) ? `${r.message} [owner debug] ${r.debug}` : r.message;
+    return ApiResponse.error({ code: r.code, message }, ctx.requestId, r.code === "NOT_CONFIGURED" ? 503 : 422, ctx.startedAt);
+  }
   return ApiResponse.success("url" in r ? { url: r.url } : { verified: true }, ctx.requestId, 200, ctx.startedAt);
 });
