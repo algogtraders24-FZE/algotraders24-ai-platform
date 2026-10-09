@@ -72,6 +72,6 @@ export function identityMessage(status: IdentityStatus): string {
     case "PENDING": return "Your verification is being reviewed. This usually takes a few minutes; refresh this page afterwards.";
     case "RETRY": return "The verification did not pass, but you can try again with a clearer photo of your ID.";
     case "REJECTED": return "Your identity could not be verified. Please contact support.";
-    default: return "Verify your identity to list products: a one-time check of an ID document and a selfie, done by our verification partner Sumsub. AT24 never sees or stores your document, only the result.";
+    default: return "Verify your identity to list products: a one-time check of an ID document and a selfie, done by our verification partner. AT24 never sees or stores your document, only the result.";
   }
 }

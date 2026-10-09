@@ -34,7 +34,122 @@ export interface MappedHistory {
 
 const EPS = 1e-6;
 
-export function dealsToHistory(deals: readonly SyncedDeal[]): MappedHistory {
+export type MarginKind = "hedging" | "netting";
+
+/** Hedging accounts pair deals by position id; netting accounts keep ONE position per symbol, so they are built from a per-symbol ledger. */
+export function dealsToHistory(deals: readonly SyncedDeal[], marginMode: MarginKind | string = "hedging"): MappedHistory {
+  if (marginMode === "netting") return netDealsToHistory(deals);
+  return hedgingDealsToHistory(deals);
+}
+
+function splitBalanceOps(deals: readonly SyncedDeal[]): { balanceOps: BalanceOp[]; tradeDeals: SyncedDeal[] } {
+  const balanceOps: BalanceOp[] = [];
+  const tradeDeals: SyncedDeal[] = [];
+  for (const d of deals) {
+    if (d.type === "balance") balanceOps.push({ time: d.timeMsc, amount: d.profit });
+    else if (d.type === "buy" || d.type === "sell") tradeDeals.push(d);
+  }
+  balanceOps.sort((a, b) => a.time - b.time);
+  return { balanceOps, tradeDeals };
+}
+
+interface NetState {
+  dir: "buy" | "sell";
+  /** Signed open volume: buys positive, sells negative. */
+  net: number;
+  openTime: number;
+  inVol: number;
+  inCost: number;
+  profit: number;
+  commission: number;
+  swap: number;
+  tag: string;
+}
+
+/**
+ * Netting accounts: all deals of one symbol form ONE position that is added to, reduced and possibly reversed.
+ * A trade starts when the net volume leaves zero and ends when it returns to zero; a deal that overshoots zero
+ * (a reversal, entry "inout") closes the trade and its remainder opens the next one in the other direction.
+ * The deal's profit is realised on the part that closes, its commission and swap are split by volume.
+ * Position ids are not used at all, so this does not depend on how a broker numbers a reversal.
+ */
+export function netDealsToHistory(deals: readonly SyncedDeal[]): MappedHistory {
+  const { balanceOps, tradeDeals } = splitBalanceOps(deals);
+  const ordered = tradeDeals.map((d, i) => ({ d, i })).sort((a, b) => a.d.timeMsc - b.d.timeMsc || a.i - b.i).map((x) => x.d);
+  const states = new Map<string, NetState>();
+  const trades: ClosedTrade[] = [];
+  let missingOpen = 0;
+
+  const open = (d: SyncedDeal, volume: number, share: number): NetState => ({
+    dir: d.type === "buy" ? "buy" : "sell",
+    net: (d.type === "buy" ? 1 : -1) * volume,
+    openTime: d.timeMsc,
+    inVol: volume,
+    inCost: volume * d.price,
+    profit: 0,
+    commission: (d.commission + d.fee) * share,
+    swap: d.swap * share,
+    tag: d.comment || "",
+  });
+
+  for (const d of ordered) {
+    const v = d.volume;
+    if (!(v > EPS)) continue;
+    const s = d.type === "buy" ? 1 : -1;
+    const st = states.get(d.symbol);
+    if (!st) {
+      if (d.entry === "out") {
+        missingOpen++; // reduces a position whose opening deal is not in the synced history
+        continue;
+      }
+      states.set(d.symbol, open(d, v, 1));
+      continue;
+    }
+    if (Math.sign(st.net) === s) {
+      st.net += s * v;
+      st.inVol += v;
+      st.inCost += v * d.price;
+      st.profit += d.profit;
+      st.commission += d.commission + d.fee;
+      st.swap += d.swap;
+      if (!st.tag) st.tag = d.comment || "";
+      continue;
+    }
+    const closeVol = Math.min(v, Math.abs(st.net));
+    const share = closeVol / v;
+    st.profit += d.profit;
+    st.commission += (d.commission + d.fee) * share;
+    st.swap += d.swap * share;
+    st.net += s * closeVol;
+    if (Math.abs(st.net) <= EPS) {
+      const profit = st.profit;
+      trades.push({
+        positionId: `${d.symbol}@${st.openTime}`,
+        symbol: d.symbol,
+        direction: st.dir,
+        volume: st.inVol,
+        openTime: st.openTime,
+        closeTime: d.timeMsc,
+        openPrice: st.inCost / st.inVol,
+        closePrice: d.price,
+        stopLoss: null,
+        takeProfit: null,
+        commission: st.commission,
+        swap: st.swap,
+        profit,
+        net: profit + st.commission + st.swap,
+        tag: st.tag,
+      });
+      states.delete(d.symbol);
+      const rest = v - closeVol;
+      if (rest > EPS) states.set(d.symbol, open(d, rest, 1 - share));
+    }
+  }
+  trades.sort((a, b) => a.closeTime - b.closeTime);
+  return { trades, balanceOps, missingOpen, stillOpen: states.size };
+}
+
+function hedgingDealsToHistory(deals: readonly SyncedDeal[]): MappedHistory {
   const balanceOps: BalanceOp[] = [];
   const byPosition = new Map<string, SyncedDeal[]>();
   for (const d of deals) {

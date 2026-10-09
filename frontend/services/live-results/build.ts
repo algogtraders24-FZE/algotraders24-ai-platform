@@ -193,6 +193,8 @@ export const DISCLOSURE: readonly string[] = [
   "Past results do not predict future results. This is not investment advice or an offer to manage money.",
 ];
 
+export const NETTING_NOTE = "Netting account: all deals of one symbol form one position, so a trade here runs from the first deal that opens the symbol until its net volume is back to zero (a reversal closes one trade and opens the next). An Expert Advisor filter is approximate because positions of different EAs on the same symbol merge.";
+
 const STRATEGY_SUFFIX = /[\s_-]*(buy|sell|long|short)$/i;
 /** "Zenith_Sell" -> "Zenith". Broker auto comments and empty comments are grouped, never shown raw. */
 export function strategyName(tag: string): string {
@@ -265,7 +267,7 @@ export function buildPublicResults(input: BuildInput): PublicResults {
   if (page.magicFilter !== null) {
     deals = input.deals.filter((d) => d.type === "balance" || magicOf.get(d.positionId) === page.magicFilter);
   }
-  const hist = dealsToHistory(deals);
+  const hist = dealsToHistory(deals, account.marginMode);
   const stats: LiveResultsStats = computeLiveResults(hist.trades, hist.balanceOps, null);
   const edge = hist.trades.length >= 2 ? computeEdgeEvidence(hist.trades, { currency: account.currency }) : null;
 
@@ -408,7 +410,7 @@ export function buildPublicResults(input: BuildInput): PublicResults {
           }
       : null,
     openPositions,
-    disclosure: [...DISCLOSURE],
+    disclosure: account.marginMode === "netting" ? [...DISCLOSURE, NETTING_NOTE] : [...DISCLOSURE],
   };
 
   if (withAmounts) {
