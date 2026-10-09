@@ -27,7 +27,15 @@ export async function submitReport(listingId: string, reporterId: string, input:
   if (!elig.canReport) return { ok: false, code: "NOT_A_BUYER", message: "Only buyers of this product can report it. For other concerns please contact support." };
   if (elig.alreadyReported) return { ok: false, code: "ALREADY_REPORTED", message: "You have already reported this listing. Thank you - we are looking at it." };
 
-  await prisma.listingReport.create({ data: { listingId, reporterId, reason: String(input.reason), details: String(input.details).trim() } });
+  try {
+    await prisma.listingReport.create({ data: { listingId, reporterId, reason: String(input.reason), details: String(input.details).trim() } });
+  } catch (err) {
+    // A double click can pass the check above twice; the database's unique (listing, reporter) key is what really enforces one report per buyer.
+    if ((err as { code?: string }).code === "P2002" || /unique/i.test((err as Error).message ?? "")) {
+      return { ok: false, code: "ALREADY_REPORTED", message: "You have already reported this listing. Thank you - we are looking at it." };
+    }
+    throw err;
+  }
 
   const reporters = await prisma.listingReport.count({ where: { listingId, status: "OPEN" } });
   const seller = await prisma.user.findUnique({ where: { id: listing.sellerId }, select: { email: true } });
