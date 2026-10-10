@@ -62,6 +62,14 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // The service worker must always be fetched fresh so an update reaches users at once, and may control the whole site.
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
+      {
         source: "/(.*)",
         headers: [
           {

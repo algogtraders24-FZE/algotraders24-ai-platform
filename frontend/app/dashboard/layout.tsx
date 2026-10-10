@@ -6,6 +6,7 @@
 // the auth guard + user context; AppShell owns all shell geometry.
 import AppShell from "@/components/shell/AppShell";
 import FeedbackWidget from "@/components/dashboard/FeedbackWidget";
+import PwaProvider from "@/components/pwa/PwaProvider";
 import { requireUser } from "@/lib/auth/protectedRoute";
 import { UserProvider, type CurrentUser } from "@/context/UserContext";
 
@@ -33,6 +34,7 @@ export default async function DashboardLayout({
     <UserProvider initialUser={currentUser}>
       <AppShell userName={currentUser.name}>{children}</AppShell>
       <FeedbackWidget />
+      <PwaProvider />
     </UserProvider>
   );
 }

@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/services/notifications/NotificationService";
 import { sendLiveSyncAlertEmail } from "@/services/notifications/EmailService";
 import { sendTelegramToUser } from "@/services/telegram/deliver";
+import { sendPushToUser } from "@/services/push/deliver";
 import { alertMessage } from "@/services/telegram/messages";
 import { telegramConfig } from "@/services/telegram/config";
 import type { WirePosition } from "./contract";
@@ -66,6 +67,8 @@ export async function runAlertsForAccount(accountId: string, nowDate: Date = new
       }
       // Telegram: only when the user linked it (a no-op otherwise); best effort, never blocks the alert.
       await sendTelegramToUser(account.userId, "alerts", alertMessage({ title: text.title, body: text.body, siteUrl: telegramConfig().siteUrl })).catch(() => false);
+      // Web Push to the devices the user enabled notifications on (a no-op otherwise); best effort, never blocks the alert.
+      await sendPushToUser(account.userId, "alerts", { title: text.title, body: text.body, url: "/dashboard/live-sync", tag: `ls-${rule.kind}` }).catch(() => 0);
     }
     return fired;
   } catch {

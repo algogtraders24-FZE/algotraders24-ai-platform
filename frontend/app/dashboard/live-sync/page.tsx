@@ -19,6 +19,7 @@ import LivePanel from "@/components/live-sync/LivePanel";
 import PublishPanel from "@/components/live-results/PublishPanel";
 import AlertsPanel from "@/components/live-sync/AlertsPanel";
 import TelegramPanel from "@/components/telegram/TelegramPanel";
+import DeviceNotificationsPanel from "@/components/pwa/DeviceNotificationsPanel";
 
 interface DeviceRow {
   id: string;
@@ -184,6 +185,8 @@ export default function LiveSyncPage() {
           </div>
         </Card>
       )}
+
+      <DeviceNotificationsPanel />
 
       <TelegramPanel />
 

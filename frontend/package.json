@@ -22,6 +22,7 @@
     "validate:live-sync": "tsx scripts/validate-live-sync.ts",
     "validate:live-sync-ea": "tsx scripts/validate-live-sync-ea.ts",
     "validate:telegram": "tsx scripts/validate-telegram.ts",
+    "validate:pwa": "tsx scripts/validate-pwa.ts",
     "validate:live-results-directory": "tsx scripts/validate-live-results-directory.ts",
     "validate:live-results-mcp": "tsx scripts/validate-live-results-mcp.ts",
     "validate:live-sync-netting": "tsx scripts/validate-live-sync-netting.ts",
@@ -212,7 +213,8 @@
     "server-only": "^0.0.1",
     "simple-icons": "^16.33.0",
     "stripe": "^22.4.0",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -220,6 +222,7 @@
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/web-push": "^3.6.4",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "prisma": "^7.8.0",
