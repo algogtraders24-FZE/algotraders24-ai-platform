@@ -6,7 +6,7 @@
 //
 // Only a salted fingerprint identifies an account; the account number, name and
 // server are never sent or shown. The raw device token is displayed ONCE.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
@@ -67,6 +67,14 @@ export default function LiveSyncPage() {
   const [copied, setCopied] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [consent, setConsent] = useState(false);
+  const freshRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!fresh) return;
+    // After the list reloads the layout settles; scroll a moment later so the token is really on screen
+    // (a timer, not an animation frame: frames stop in a background tab).
+    const id = window.setTimeout(() => freshRef.current?.scrollIntoView({ block: "center" }), 80);
+    return () => window.clearTimeout(id);
+  }, [fresh]);
 
   const load = useCallback(async () => {
     try {
@@ -163,47 +171,47 @@ export default function LiveSyncPage() {
         </p>
       </Card>
 
-      {fresh && (
-        <Card className="space-y-3">
-          <p className="text-sm font-semibold text-text">Your new device token</p>
-          <p className="text-sm text-text-2">Copy it now. It is shown only once and cannot be recovered.</p>
-          <code className="block break-all rounded-control border border-border bg-ink-2 p-3 text-xs text-text">{fresh}</code>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(fresh);
-                  setCopied(true);
-                } catch {
-                  setCopied(false);
-                }
-              }}
-            >
-              {copied ? "Copied" : "Copy token"}
-            </Button>
-            <Button size="sm" variant="secondary" onClick={() => setFresh(null)}>I have saved it</Button>
-          </div>
-        </Card>
-      )}
-
       <DeviceNotificationsPanel />
 
       <TelegramPanel />
 
       <Card className="space-y-3">
         <p className="text-sm font-semibold text-text">Device tokens</p>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} placeholder="Name (e.g. Home PC - demo)" aria-label="Device name" />
-          <Button onClick={createDevice} loading={busy} disabled={unavailable || !consent}>Create token</Button>
-        </div>
-        {!consent && <p className="text-xs text-text-3">Tick the box below to enable &quot;Create token&quot;.</p>}
         <label className="flex items-start gap-2 text-sm text-text-2">
           <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1" />
           <span>
             I understand that the Live Sync EA is read-only and will send my closed trades, balance, equity and open positions to AT24 (if I switch on a <b className="text-text">real account</b>, that is real account data). It never sends my account number, name, server or password (my broker company name is sent only if I switch on ShareBrokerName in the EA), and I can revoke the token or delete the synced data at any time.
           </span>
         </label>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} placeholder="Name (e.g. Home PC - demo)" aria-label="Device name" />
+          <Button onClick={createDevice} loading={busy} disabled={unavailable || !consent}>Create token</Button>
+        </div>
+        {!consent && <p className="text-xs text-amber-300">Tick the box above first: &quot;Create token&quot; stays disabled until you do.</p>}
+        {error && <Alert tone="danger">{error}</Alert>}
+        {fresh && (
+          <div ref={freshRef} className="space-y-3 rounded-lg border border-gold/50 bg-ink-2 p-3">
+            <p className="text-sm font-semibold text-text">Your new device token</p>
+            <p className="text-sm text-text-2">Copy it now. It is shown only once and cannot be recovered.</p>
+            <code className="block break-all rounded-control border border-border bg-ink p-3 text-xs text-text">{fresh}</code>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(fresh);
+                    setCopied(true);
+                  } catch {
+                    setCopied(false);
+                  }
+                }}
+              >
+                {copied ? "Copied" : "Copy token"}
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setFresh(null)}>I have saved it</Button>
+            </div>
+          </div>
+        )}
         {devices.length === 0 ? (
           <p className="text-sm text-text-2">{loaded ? "No devices yet." : "Loading…"}</p>
         ) : (
