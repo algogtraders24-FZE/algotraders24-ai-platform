@@ -47,7 +47,8 @@ export interface ListingNote {
 /** A neutral "new on the marketplace" line. No performance claim of any kind. */
 export function listingAnnouncement(l: ListingNote, siteUrl: string): string {
   const facts = [l.platform, l.asset, l.priceText].filter((x): x is string => typeof x === "string" && x.trim().length > 0).map(escapeHtml).join(" · ");
-  return `<b>New on AT24 Marketplace</b>\n${escapeHtml(l.title)}${facts ? `\n${facts}` : ""}\n\n${hr(siteUrl, `/marketplace/${l.slug}`, "See the listing, its evidence and its limits")}\n<i>Past results do not predict future results. Not investment advice.</i>`;
+  const url = `${siteUrl}/marketplace/${l.slug}`;
+  return `<b>New on AT24 Marketplace</b>\n${escapeHtml(l.title)}${facts ? `\n${facts}` : ""}\n\n${hr(siteUrl, `/marketplace/${l.slug}`, "View this product on AT24 →")}\n${escapeHtml(url)}\nSee its evidence and its limits on the page.\n\n<i>Past results do not predict future results. Not investment advice.</i>`;
 }
 
 export interface DigestRow {

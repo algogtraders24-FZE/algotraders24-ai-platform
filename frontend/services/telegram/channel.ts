@@ -58,7 +58,7 @@ export async function announceNewListings(deps: ChannelDeps): Promise<{ posted: 
         continue;
       }
       if (await deps.store.hasPosted("listing", l.id)) continue;
-      const res = await deps.client.sendMessage(deps.channelId, listingAnnouncement({ title: l.title, slug: l.slug, priceText: priceText(l.pricing), platform: l.platformTag, asset: l.assetTag }, deps.siteUrl));
+      const res = await deps.client.sendMessage(deps.channelId, listingAnnouncement({ title: l.title, slug: l.slug, priceText: priceText(l.pricing), platform: l.platformTag, asset: l.assetTag }, deps.siteUrl), { preview: true });
       if (!res.ok) break; // do not hammer a failing channel; the next run retries
       await deps.store.recordPost("listing", l.id, res.messageId ?? null);
       posted++;
