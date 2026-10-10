@@ -6,6 +6,7 @@
 import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/services/notifications/NotificationService";
 import { sendTelegramToUser } from "@/services/telegram/deliver";
+import { sendPushToUser } from "@/services/push/deliver";
 import { alertMessage } from "@/services/telegram/messages";
 import { telegramConfig } from "@/services/telegram/config";
 import { liveResultsEnabled } from "./prisma-store";
@@ -48,6 +49,7 @@ export async function sweepWatchers(nowDate: Date = new Date()): Promise<{ watch
       const msg = watchMessage(action, page.title, Math.max(1, Math.round((now - lastAt) / 60_000)));
       await createNotification({ userId: f.userId, kind: action === "stopped" ? WATCH_KIND_STALE : WATCH_KIND_RESUMED, severity: msg.severity, title: msg.title, body: msg.body, href }).catch(() => undefined);
       await sendTelegramToUser(f.userId, "watch", alertMessage({ title: msg.title, body: msg.body, href, siteUrl: telegramConfig().siteUrl })).catch(() => false);
+      await sendPushToUser(f.userId, "watch", { title: msg.title, body: msg.body, url: href, tag: `watch-${page.slug}` }).catch(() => 0);
       notified++;
     }
     return { watched: follows.length, notified };

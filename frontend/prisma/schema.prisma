@@ -3269,3 +3269,24 @@ model TelegramChannelPost {
   @@unique([kind, refId])
   @@map("telegram_channel_posts")
 }
+
+/// Web Push subscriptions: one row per browser/device a user enabled notifications on (installed PWA or a normal browser).
+/// The endpoint is a push-service URL chosen by the browser; the server only ever sends to allow-listed push-service hosts.
+model PushSubscription {
+  id         String    @id @default(cuid())
+  userId     String
+  endpoint   String    @unique
+  p256dh     String
+  auth       String
+  userAgent  String?
+  /// Live Sync alerts (margin, daily loss, drawdown, EA offline, no stop loss) and the test message.
+  alertsOn   Boolean   @default(true)
+  /// "A watched page stopped reporting / is back" notices.
+  watchOn    Boolean   @default(true)
+  failures   Int       @default(0)
+  createdAt  DateTime  @default(now())
+  lastSentAt DateTime?
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
