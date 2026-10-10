@@ -14,6 +14,7 @@ import Button from "@/components/ui/Button";
 import Skeleton from "@/components/ui/Skeleton";
 import EmptyState from "@/components/ui/EmptyState";
 import ButtonLink from "@/components/ui/ButtonLink";
+import SelfServeFilesPanel from "@/components/marketplace/SelfServeFilesPanel";
 import { deriveSubmissionState } from "@/services/marketplace/factory/submissionState";
 import { publicationStateTone, trustStateLabel, trustStateTone } from "@/lib/marketplace";
 
@@ -35,6 +36,7 @@ interface ListingRow {
   riskAnalysisId: string | null;
   trustState: string | null;
   trustReasonCode: string | null;
+  selfServe?: boolean;
   updatedAt: string;
 }
 
@@ -212,6 +214,8 @@ export default function MyProductsClient() {
                 {item.trustReasonCode && <span className="text-xs text-text-3">{item.trustReasonCode}</span>}
               </div>
             </div>
+
+            {item.selfServe && <SelfServeFilesPanel listingId={item.id} />}
 
             <div className="mt-4 rounded-control border border-border/60 bg-ink-3 p-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-text-3">Price (one-time purchase)</p>

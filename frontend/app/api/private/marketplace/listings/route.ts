@@ -82,6 +82,8 @@ export const GET = withContext(async (req, ctx) => {
         riskAnalysisId: r.riskAnalysisId,
         trustState: r.trustState,
         trustReasonCode: r.trustReasonCode,
+        // Seller self-serve listings (file uploaded through the sell page) can get a new file version or a backtest report from My Products.
+        selfServe: typeof r.tradingSystemId === "string" && r.tradingSystemId.startsWith("SELF-"),
         updatedAt: r.updatedAt.toISOString(),
       })),
       total,

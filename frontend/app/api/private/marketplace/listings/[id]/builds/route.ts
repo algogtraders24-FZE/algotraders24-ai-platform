@@ -90,6 +90,10 @@ export const POST = withContext(async (req, ctx) => {
       return ApiResponse.error({ code: "BUILD_REJECTED", message: inspection.reasons.join(" ") }, ctx.requestId, 422, ctx.startedAt);
     }
 
+    if (listing.tradingSystemId && !listing.tradingSystemId.startsWith("SELF-")) {
+      await removeBuild(path).catch(() => undefined);
+      return ApiResponse.error({ code: "NOT_SELF_SERVE", message: "This listing is managed through AT24's evidence process; its file cannot be replaced here." }, ctx.requestId, 409, ctx.startedAt);
+    }
     const tradingSystemId = `SELF-${listingId}`;
     const platform = listing.platformTag;
     if (!platform) {
