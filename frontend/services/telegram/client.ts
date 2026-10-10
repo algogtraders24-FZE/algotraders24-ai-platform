@@ -16,8 +16,13 @@ export interface SendResult {
 
 export type FetchLike = (url: string, init: { method: string; headers: Record<string, string>; body: string; signal?: AbortSignal }) => Promise<{ status: number; json(): Promise<unknown> }>;
 
+export interface SendOptions {
+  /** Show the link preview card (title, description, image) of the first link. Off by default; used for channel announcements. */
+  preview?: boolean;
+}
+
 export interface TelegramClient {
-  sendMessage(chatId: string, text: string): Promise<SendResult>;
+  sendMessage(chatId: string, text: string, opts?: SendOptions): Promise<SendResult>;
 }
 
 export const MAX_MESSAGE_CHARS = 3800;
@@ -29,14 +34,14 @@ export function escapeHtml(s: string): string {
 
 export function createTelegramClient(token: string, fetchImpl: FetchLike = fetch as unknown as FetchLike, timeoutMs = 5000): TelegramClient {
   return {
-    async sendMessage(chatId, text) {
+    async sendMessage(chatId, text, opts) {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), timeoutMs);
       try {
         const res = await fetchImpl(`https://api.telegram.org/bot${token}/sendMessage`, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ chat_id: chatId, text: text.slice(0, MAX_MESSAGE_CHARS), parse_mode: "HTML", disable_web_page_preview: true }),
+          body: JSON.stringify({ chat_id: chatId, text: text.slice(0, MAX_MESSAGE_CHARS), parse_mode: "HTML", disable_web_page_preview: opts?.preview !== true }),
           signal: ctrl.signal,
         });
         const body = (await res.json().catch(() => null)) as { ok?: boolean; description?: string; result?: { message_id?: number }; parameters?: { retry_after?: number } } | null;

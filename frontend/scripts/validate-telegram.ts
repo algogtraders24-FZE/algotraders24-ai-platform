@@ -36,9 +36,9 @@ function fakeStore(now = () => new Date()): TelegramStore & { links: Map<string,
     async recordPost(kind, refId) { posts.add(`${kind}:${refId}`); },
   };
 }
-function fakeClient(result: Partial<SendResult> = {}): TelegramClient & { sent: { chatId: string; text: string }[] } {
-  const sent: { chatId: string; text: string }[] = [];
-  return { sent, async sendMessage(chatId, text) { sent.push({ chatId, text }); return { ok: true, status: 200, gone: false, messageId: String(sent.length), ...result }; } };
+function fakeClient(result: Partial<SendResult> = {}): TelegramClient & { sent: { chatId: string; text: string; preview?: boolean }[] } {
+  const sent: { chatId: string; text: string; preview?: boolean }[] = [];
+  return { sent, async sendMessage(chatId, text, opts) { sent.push({ chatId, text, preview: opts?.preview }); return { ok: true, status: 200, gone: false, messageId: String(sent.length), ...result }; } };
 }
 const upd = (text: string, o: { type?: string; id?: number; bot?: boolean; username?: string } = {}) => ({ update_id: 1, message: { text, chat: { id: o.id ?? 555, type: o.type ?? "private" }, from: { id: o.id ?? 555, is_bot: o.bot ?? false, username: o.username ?? "trader_1" } } });
 
@@ -64,7 +64,9 @@ async function main(): Promise<void> {
   ok(statusMessage(null).includes("not connected") && statusMessage({ alertsOn: true, watchOn: false }).includes("Watch notices: off"), "status messages");
   const l = listingAnnouncement({ title: "Gold <Range> Breaker", slug: "gold-range", priceText: "299 USD", platform: "MT5", asset: "Gold" }, SITE);
   ok(l.includes("Gold &lt;Range&gt; Breaker") && l.includes("/marketplace/gold-range") && l.includes("299 USD"), "a listing announcement is escaped and links the listing");
-  ok(!/profit|return|%|guarantee|win rate|gain/i.test(l.replace(/Past results do not predict future results\./, "")), "a listing announcement makes no performance claim");
+  ok(l.includes('<a href="https://www.algotraders24.ai/marketplace/gold-range">View this product on AT24') && l.split("\n").includes("https://www.algotraders24.ai/marketplace/gold-range"), "the listing link is a clear call to action AND the full address is on its own line, so it is visibly a link");
+  ok(!l.includes("<Range>"), "a hostile title cannot break out of the link or the message");
+  ok(!/profit|return|%|guarantee|win rate|gain/i.test(l.replace(/Past results do not predict future results\./, "").replace(/https?:\/\/\S+/g, "")), "a listing announcement makes no performance claim");
   eq([priceText({ model: "one_time", amount: 79, currency: "USD" }), priceText({ amount: 0 }), priceText({ model: "subscription", amount: 9.5, currency: "USD" }), priceText(null), priceText({ amount: "x" })], ["79 USD", "Free", "9.50 USD/month", null, null], "price text");
   const dg = digestMessage([{ title: "XXXUS30", slug: "xxxus30", trades: 800, gainPct: 248.13, maxDrawdownPct: 61.91, monthlyPct: 20.2 }, { title: "B <b>", slug: "b", trades: 40, gainPct: null, maxDrawdownPct: null, monthlyPct: null }], SITE, "2026-W41");
   ok(dg.includes("max drawdown 61.91%") && dg.includes("NOT independently verified") && dg.includes("no particular order"), "the digest shows drawdown next to gain, says not verified and never ranks");
@@ -150,7 +152,8 @@ async function main(): Promise<void> {
     eq(await sendTelegramToUser("u1", "alerts", "hi", { store, client, enabled: true }), false, "an unlinked user gets nothing");
     await store.link("u1", "100", "x");
     eq(await sendTelegramToUser("u1", "alerts", "hi", { store, client, enabled: true }), true, "a linked user gets the alert");
-    eq(client.sent, [{ chatId: "100", text: "hi" }], "sent to the linked chat only");
+    eq(client.sent.map((m) => ({ chatId: m.chatId, text: m.text })), [{ chatId: "100", text: "hi" }], "sent to the linked chat only");
+    ok(client.sent.every((m) => m.preview !== true), "personal alerts never show a link preview card");
     await store.setPrefs("u1", { alertsOn: false });
     eq(await sendTelegramToUser("u1", "alerts", "again", { store, client, enabled: true }), false, "alerts switched off = nothing");
     eq(await sendTelegramToUser("u1", "watch", "w", { store, client, enabled: true }), true, "watch notices have their own switch");
@@ -174,10 +177,12 @@ async function main(): Promise<void> {
     const f = (status: number, body: unknown): FetchLike => async (url, init) => { calls.push({ url, body: JSON.parse(init.body) as Record<string, unknown> }); return { status, async json() { return body; } }; };
     const okRes = await createTelegramClient(TOKEN, f(200, { ok: true, result: { message_id: 77 } })).sendMessage("1", "hello");
     eq([okRes.ok, okRes.messageId, okRes.gone], [true, "77", false], "a successful send returns the message id");
-    ok(calls[0]!.url === `https://api.telegram.org/bot${TOKEN}/sendMessage` && calls[0]!.body.parse_mode === "HTML" && calls[0]!.body.disable_web_page_preview === true, "HTML mode, no link previews");
+    ok(calls[0]!.url === `https://api.telegram.org/bot${TOKEN}/sendMessage` && calls[0]!.body.parse_mode === "HTML" && calls[0]!.body.disable_web_page_preview === true, "HTML mode, no link previews by default");
+    await createTelegramClient(TOKEN, f(200, { ok: true, result: {} })).sendMessage("1", "x", { preview: true });
+    eq(calls.at(-1)!.body.disable_web_page_preview, false, "preview: true shows the link preview card");
     ok(!JSON.stringify(calls[0]!.body).includes(TOKEN), "the token is only in the URL, never in the body");
     await createTelegramClient(TOKEN, f(200, { ok: true, result: {} })).sendMessage("1", "x".repeat(10_000));
-    eq((calls[1]!.body.text as string).length, MAX_MESSAGE_CHARS, "a long text is cut to the message cap");
+    eq((calls[2]!.body.text as string).length, MAX_MESSAGE_CHARS, "a long text is cut to the message cap");
     const blocked = await createTelegramClient(TOKEN, f(403, { ok: false, description: "Forbidden: bot was blocked by the user" })).sendMessage("1", "x");
     eq([blocked.ok, blocked.gone], [false, true], "403 / blocked = gone");
     const nochat = await createTelegramClient(TOKEN, f(400, { ok: false, description: "Bad Request: chat not found" })).sendMessage("1", "x");
@@ -203,6 +208,7 @@ async function main(): Promise<void> {
   {
     const { deps, client, store } = chan({ listings: [listing("a", true), listing("b", false), listing("c", true)] });
     eq(await announceNewListings(deps), { posted: 2, skipped: 1 }, "default mode announces only AT24's own listings");
+    ok(client.sent.every((s) => s.preview === true), "channel announcements ask for the link preview card");
     ok(client.sent.every((s) => s.chatId === "@at24updates") && client.sent[0]!.text.includes("slug-a") && !client.sent.some((s) => s.text.includes("slug-b")), "posted to the channel; the seller's listing is not announced");
     eq(await announceNewListings(deps), { posted: 0, skipped: 1 }, "running again announces nothing twice");
     ok(store.posts.has("listing:a") && store.posts.has("listing:c"), "each announcement is recorded");
