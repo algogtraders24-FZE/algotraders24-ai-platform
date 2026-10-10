@@ -132,6 +132,7 @@ export default function LiveSyncPage() {
         eyebrow="INTELLIGENCE"
         title="Live Sync"
         description="Connect your MetaTrader 4 or 5 terminal with a small read-only Expert Advisor so AT24 can show your trades live. It only reads: it never trades, never sees your broker password, and never sends your account number or name."
+        action={<ButtonLink href="/dashboard/live-sync/portfolio" size="sm" variant="secondary">My portfolio</ButtonLink>}
       />
 
       {error && <Alert tone="danger">{error}</Alert>}

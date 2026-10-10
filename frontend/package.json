@@ -21,6 +21,7 @@
     "validate:edge-saved": "tsx scripts/validate-edge-saved.ts",
     "validate:live-sync": "tsx scripts/validate-live-sync.ts",
     "validate:live-sync-ea": "tsx scripts/validate-live-sync-ea.ts",
+    "validate:live-sync-portfolio": "tsx scripts/validate-live-sync-portfolio.ts",
     "validate:telegram": "tsx scripts/validate-telegram.ts",
     "validate:pwa": "tsx scripts/validate-pwa.ts",
     "validate:live-results-directory": "tsx scripts/validate-live-results-directory.ts",

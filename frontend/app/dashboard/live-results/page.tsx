@@ -124,6 +124,7 @@ export default function LiveResultsDirectoryPage() {
         eyebrow="INTELLIGENCE"
         title="Live Results"
         description="Real-time results of trading accounts, reported by the account owners' own MetaTrader terminals. Watch a page and it updates in your dashboard by itself, so you can see how an Expert Advisor behaves on a live feed before you choose one."
+        action={<ButtonLink href="/dashboard/live-sync/portfolio" size="sm" variant="secondary">My portfolio</ButtonLink>}
       />
       <Alert tone="info">
         Every page is terminal-reported by its owner and is <b>not independently verified</b> by a broker or by AT24. Past results do not predict future results. This is not investment advice.{" "}
