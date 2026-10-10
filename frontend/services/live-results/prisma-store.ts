@@ -25,7 +25,7 @@ export type ResultsLoad =
   | { state: "not_found" };
 
 /** All synced deals of an account (oldest first), shaped for the view builder. */
-async function fetchDeals(accountId: string): Promise<DealWithMagic[]> {
+export async function fetchDeals(accountId: string): Promise<DealWithMagic[]> {
   const rows = await prisma.liveSyncDeal.findMany({
     where: { accountId },
     orderBy: { timeMsc: "asc" },
