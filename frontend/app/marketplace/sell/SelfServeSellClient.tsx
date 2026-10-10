@@ -221,7 +221,7 @@ export default function SelfServeSellClient() {
         </div>
         <div>
           <label htmlFor="ss-report" className="mb-1.5 block text-sm font-medium text-text">Backtest report (optional)</label>
-          <input id="ss-report" type="file" accept=".xlsx,.html,.htm" disabled={busy} onChange={(e) => setReport(e.target.files?.[0] ?? null)} className="block w-full text-sm text-text-2" />
+          <input id="ss-report" type="file" accept=".xlsx,.html,.htm" disabled={busy} onChange={(e) => setReport(e.target.files?.[0] ?? null)} className="block w-full text-sm text-text-2 file:mr-3 file:rounded-control file:border file:border-gold file:bg-transparent file:px-4 file:py-2 file:font-semibold file:text-gold" />
           <p className="mt-1 text-xs text-text-3">The MT5 Strategy Tester report (Save as Report: Excel .xlsx or HTML), up to {MAX_REPORT_BYTES / (1024 * 1024)} MB, with the Deals section. AT24 reads it automatically after you publish and shows its figures on your listing as &quot;Checked from the seller&apos;s report&quot;. No report? The listing simply stays &quot;Not checked&quot;.</p>
         </div>
       </section>
@@ -239,11 +239,11 @@ export default function SelfServeSellClient() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
             <label htmlFor="ss-icon" className="mb-1.5 block text-sm font-medium text-text">Logo (200x200)</label>
-            <input id="ss-icon" type="file" accept="image/svg+xml,image/png,image/jpeg,image/webp" disabled={busy} onChange={(e) => setIcon(e.target.files?.[0] ?? null)} className="block w-full text-sm text-text-2" />
+            <input id="ss-icon" type="file" accept="image/svg+xml,image/png,image/jpeg,image/webp" disabled={busy} onChange={(e) => setIcon(e.target.files?.[0] ?? null)} className="block w-full text-sm text-text-2 file:mr-3 file:rounded-control file:border-0 file:bg-gold file:px-4 file:py-2 file:font-semibold file:text-ink" />
           </div>
           <div>
             <label htmlFor="ss-banner" className="mb-1.5 block text-sm font-medium text-text">Banner (optional)</label>
-            <input id="ss-banner" type="file" accept="image/svg+xml,image/png,image/jpeg,image/webp" disabled={busy} onChange={(e) => setBanner(e.target.files?.[0] ?? null)} className="block w-full text-sm text-text-2" />
+            <input id="ss-banner" type="file" accept="image/svg+xml,image/png,image/jpeg,image/webp" disabled={busy} onChange={(e) => setBanner(e.target.files?.[0] ?? null)} className="block w-full text-sm text-text-2 file:mr-3 file:rounded-control file:border file:border-gold file:bg-transparent file:px-4 file:py-2 file:font-semibold file:text-gold" />
           </div>
           <div>
             <label htmlFor="ss-price" className="mb-1.5 block text-sm font-medium text-text">Price (USD)</label>
