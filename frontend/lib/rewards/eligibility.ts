@@ -1,6 +1,7 @@
 // lib/rewards/eligibility.ts
 // (Pure - no I/O.) Who may buy a program contract, receive a rebate instalment, or withdraw.
-// "Pro" mirrors lib/access/quant-pro.ts: a non-free plan whose Subscription is active and not past its period end.
+// "Pro" mirrors lib/access/quant-pro.ts (a non-free plan whose Subscription is active and not past its period end) with one
+// stricter rule for this paid program: it must be backed by a real payment provider, so admin-granted Pro never qualifies.
 import { isPlatformOwner } from "@/lib/marketplace/selfServe";
 import type { IdentityStatus } from "@/lib/marketplace/identity";
 import type { SelfServeMode } from "@/lib/marketplace/selfServe";
@@ -9,6 +10,8 @@ export interface SubscriptionFacts {
   planId: string;
   status: string;
   currentPeriodEnd: Date;
+  /** Subscription.provider - set only by a verified payment webhook. Null = free or admin-granted, which does NOT qualify. */
+  provider: string | null;
 }
 
 export interface UserFacts {
@@ -26,6 +29,7 @@ const no = (...reasons: string[]): Verdict => ({ ok: false, reasons });
 export function isProActive(sub: SubscriptionFacts | null, now: Date = new Date()): boolean {
   if (!sub) return false;
   if (sub.planId === "free") return false;
+  if (!sub.provider) return false;
   if (sub.status !== "active") return false;
   return sub.currentPeriodEnd.getTime() > now.getTime();
 }

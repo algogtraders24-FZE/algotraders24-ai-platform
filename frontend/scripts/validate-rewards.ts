@@ -8,6 +8,7 @@ import {
 import { bps, formatUsd, addMonths, computeContractMoney, computeReferralShares, assertProductSane, maxOutflowCents } from "../lib/rewards/money";
 import { isProActive, programOpenFor, canBuyContract, decideInstalment, canWithdraw, canEarnReferral, type UserFacts } from "../lib/rewards/eligibility";
 import { bucketOf, summarizeBalances, summarizeReserve, reserveShortfall, ledgerKey } from "../lib/rewards/ledger";
+import { badgeFor, displayNameWithBadge, BADGE_TIERS } from "../lib/rewards/badge";
 import { monthKey, slotsRemaining, holdExpiry } from "../lib/rewards/slots";
 
 let failed = 0;
@@ -69,10 +70,11 @@ check("max outflow (rebate + direct referral), multi-level off", maxOutflowCents
 check("max outflow with all 4 levels = rebate + $1,500 on Index", maxOutflowCents(idx, true) === 1_800_000 + 150_000);
 
 // --- eligibility
-const pro = { planId: "pro", status: "active", currentPeriodEnd: future };
+const pro = { planId: "pro", status: "active", currentPeriodEnd: future, provider: "nowpayments" as string | null };
 const u = (o: Partial<UserFacts> = {}): UserFacts => ({ email: "buyer@example.com", subscription: pro, identity: "VERIFIED", ...o });
 const ctx = { mode: "public" as const, allowlist: [], productEnabled: true, slotsRemaining: 3, now: NOW };
 check("Pro active", isProActive(pro, NOW));
+check("admin-granted Pro (no payment provider) does not qualify", !isProActive({ ...pro, provider: null }, NOW) && !canBuyContract(u({ subscription: { ...pro, provider: null } }), ctx).ok);
 check("free plan, inactive, expired and no subscription are not Pro", !isProActive({ ...pro, planId: "free" }, NOW) && !isProActive({ ...pro, status: "canceled" }, NOW) && !isProActive({ ...pro, currentPeriodEnd: past }, NOW) && !isProActive(null, NOW));
 check("eligible user can buy", canBuyContract(u(), ctx).ok);
 const noKyc = canBuyContract(u({ identity: "PENDING" }), ctx);
@@ -136,6 +138,18 @@ check("remaining counts converted + live holds", slotsRemaining(slot, [...held(4
 check("expired / released holds free the slot", slotsRemaining(slot, [...held(3, "HELD", past), ...held(2, "RELEASED", future), ...held(1, "EXPIRED", future)], NOW) === 10);
 check("never negative; closed month has none", slotsRemaining(slot, held(12, "CONVERTED", past), NOW) === 0 && slotsRemaining({ limit: 10, opened: false }, [], NOW) === 0 && slotsRemaining(null, [], NOW) === 0);
 check("hold lasts 30 minutes", holdExpiry(NOW).getTime() - NOW.getTime() === 30 * 60_000);
+
+// --- member badge (diamond + colour next to the name)
+type PK = "BTC_AI_ALGO" | "GOLD_AI_ALGO" | "INDEX_AI_ALGO";
+const bd = (productKey: PK, status: "ACTIVE" | "FROZEN" | "ENDED" | "REVOKED" | "PENDING_DOCUMENT") => badgeFor([{ productKey, status }]);
+check("each product has its own diamond colour", new Set(Object.values(BADGE_TIERS).map((t) => t.color)).size === 3);
+check("active contract shows the badge", bd("GOLD_AI_ALGO", "ACTIVE")?.tier === "GOLD_AI_ALGO" && bd("GOLD_AI_ALGO", "ACTIVE")?.dimmed === false);
+check("frozen contract shows the badge dimmed", bd("BTC_AI_ALGO", "FROZEN")?.dimmed === true);
+check("ended / revoked / pending shows no badge", bd("BTC_AI_ALGO", "ENDED") === null && bd("BTC_AI_ALGO", "REVOKED") === null && bd("BTC_AI_ALGO", "PENDING_DOCUMENT") === null && badgeFor([]) === null);
+check("highest tier wins with several contracts", badgeFor([{ productKey: "BTC_AI_ALGO", status: "ACTIVE" }, { productKey: "INDEX_AI_ALGO", status: "ACTIVE" }, { productKey: "GOLD_AI_ALGO", status: "ACTIVE" }])?.tier === "INDEX_AI_ALGO");
+check("an active lower tier beats a frozen higher one", badgeFor([{ productKey: "INDEX_AI_ALGO", status: "FROZEN" }, { productKey: "BTC_AI_ALGO", status: "ACTIVE" }])?.tier === "BTC_AI_ALGO");
+check("name + diamond text", displayNameWithBadge("Ravi", bd("INDEX_AI_ALGO", "ACTIVE")) === "Ravi \u{1F48E}" && displayNameWithBadge("Ravi", null) === "Ravi");
+check("badge labels carry no return/profit wording", Object.values(BADGE_TIERS).every((t) => BANNED_COPY_WORDS.every((w) => !(t.label + " " + t.description).toLowerCase().includes(w))));
 
 // --- copy guard on the strings this program shows
 const copy = REWARD_PRODUCT_KEYS.map((k) => REWARD_PRODUCTS[k].name).join(" ").toLowerCase();
