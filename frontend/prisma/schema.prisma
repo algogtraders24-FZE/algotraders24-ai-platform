@@ -3025,6 +3025,8 @@ model LiveSyncSnapshot {
   margin     Float
   freeMargin Float
   positions  Json
+  /// Pending orders (EA v1.2+); null for older EAs.
+  orders     Json?
 
   @@index([accountId, timeUtc])
   @@map("live_sync_snapshots")

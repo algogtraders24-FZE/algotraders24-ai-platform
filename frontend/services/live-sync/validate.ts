@@ -5,8 +5,8 @@
 // numbers, oversized arrays. Free text (the deal comment) is sanitized, not trusted.
 
 import {
-  ACCOUNT_KEYS, BODY_KEYS, DEAL_KEYS, LIMITS, LIVE_SYNC_VERSION, POSITION_KEYS, SNAPSHOT_KEYS,
-  type AccountMode, type DealEntry, type DealType, type IngestBody, type MarginMode, type Platform, type WireAccountFacts, type WireDeal, type WirePosition, type WireSnapshot,
+  ACCOUNT_KEYS, BODY_KEYS, DEAL_KEYS, LIMITS, LIVE_SYNC_VERSION, ORDER_KEYS, ORDER_TYPES, POSITION_KEYS, SNAPSHOT_KEYS,
+  type AccountMode, type DealEntry, type DealType, type IngestBody, type MarginMode, type Platform, type WireAccountFacts, type WireDeal, type WirePendingOrder, type WirePosition, type WireSnapshot,
 } from "./contract";
 
 export type ValidationResult = { ok: true; body: IngestBody } | { ok: false; message: string };
@@ -62,21 +62,44 @@ function parsePosition(raw: unknown, i: number): WirePosition | string {
   if (!isRec(raw)) return `positions[${i}] must be an object`;
   const extra = onlyKeys(raw, POSITION_KEYS, `positions[${i}]`);
   if (extra) return extra;
-  const { ticket, symbol, side, volume, priceOpen, sl, tp, profit, timeMsc } = raw;
+  const { ticket, symbol, side, volume, priceOpen, sl, tp, profit, timeMsc, pips, riskToSl } = raw;
   if (!int(ticket, 1, Number.MAX_SAFE_INTEGER)) return `positions[${i}].ticket invalid`;
   if (typeof symbol !== "string" || symbol.length > LIMITS.symbolMaxLen || symbol.length === 0 || !SYMBOL.test(symbol)) return `positions[${i}].symbol invalid`;
   if (side !== "buy" && side !== "sell") return `positions[${i}].side invalid`;
   if (!finite(volume, 1e6) || volume <= 0) return `positions[${i}].volume invalid`;
   if (!finite(priceOpen, 1e9) || !finite(sl, 1e9) || !finite(tp, 1e9) || !finite(profit)) return `positions[${i}] number invalid`;
   if (!int(timeMsc, MIN_MSC, MAX_MSC)) return `positions[${i}].timeMsc invalid`;
-  return { ticket, symbol, side, volume, priceOpen, sl, tp, profit, timeMsc };
+  const out: WirePosition = { ticket, symbol, side, volume, priceOpen, sl, tp, profit, timeMsc };
+  if (pips !== undefined) {
+    if (!finite(pips, 1e7)) return `positions[${i}].pips invalid`;
+    out.pips = pips;
+  }
+  if (riskToSl !== undefined) {
+    if (!finite(riskToSl) || riskToSl < 0) return `positions[${i}].riskToSl invalid`;
+    out.riskToSl = riskToSl;
+  }
+  return out;
+}
+
+function parseOrder(raw: unknown, i: number): WirePendingOrder | string {
+  if (!isRec(raw)) return `orders[${i}] must be an object`;
+  const extra = onlyKeys(raw, ORDER_KEYS, `orders[${i}]`);
+  if (extra) return extra;
+  const { ticket, symbol, type, volume, price, sl, tp, timeMsc } = raw;
+  if (!int(ticket, 1, Number.MAX_SAFE_INTEGER)) return `orders[${i}].ticket invalid`;
+  if (typeof symbol !== "string" || symbol.length > LIMITS.symbolMaxLen || symbol.length === 0 || !SYMBOL.test(symbol)) return `orders[${i}].symbol invalid`;
+  if (!oneOf(type, ORDER_TYPES)) return `orders[${i}].type invalid`;
+  if (!finite(volume, 1e6) || volume <= 0) return `orders[${i}].volume invalid`;
+  if (!finite(price, 1e9) || !finite(sl, 1e9) || !finite(tp, 1e9)) return `orders[${i}] number invalid`;
+  if (!int(timeMsc, MIN_MSC, MAX_MSC)) return `orders[${i}].timeMsc invalid`;
+  return { ticket, symbol, type, volume, price, sl, tp, timeMsc };
 }
 
 function parseSnapshot(raw: unknown): WireSnapshot | string {
   if (!isRec(raw)) return "snapshot must be an object";
   const extra = onlyKeys(raw, SNAPSHOT_KEYS, "snapshot");
   if (extra) return extra;
-  const { timeMsc, balance, equity, margin, freeMargin, positions } = raw;
+  const { timeMsc, balance, equity, margin, freeMargin, positions, orders } = raw;
   if (!int(timeMsc, MIN_MSC, MAX_MSC)) return "snapshot.timeMsc invalid";
   if (!finite(balance) || !finite(equity) || !finite(margin) || !finite(freeMargin)) return "snapshot money field invalid";
   if (!Array.isArray(positions) || positions.length > LIMITS.maxPositions) return "snapshot.positions invalid";
@@ -86,7 +109,18 @@ function parseSnapshot(raw: unknown): WireSnapshot | string {
     if (typeof p === "string") return p;
     out.push(p);
   }
-  return { timeMsc, balance, equity, margin, freeMargin, positions: out };
+  const snap: WireSnapshot = { timeMsc, balance, equity, margin, freeMargin, positions: out };
+  if (orders !== undefined) {
+    if (!Array.isArray(orders) || orders.length > LIMITS.maxPendingOrders) return "snapshot.orders invalid";
+    const list: WirePendingOrder[] = [];
+    for (let i = 0; i < orders.length; i++) {
+      const o = parseOrder(orders[i], i);
+      if (typeof o === "string") return o;
+      list.push(o);
+    }
+    snap.orders = list;
+  }
+  return snap;
 }
 
 /** A company name: letters, digits, spaces and a few punctuation marks. No angle brackets, quotes or control characters. */

@@ -83,6 +83,7 @@ export const prismaLiveSyncStore: LiveSyncStore = {
             margin: snapshot.data.margin,
             freeMargin: snapshot.data.freeMargin,
             positions: snapshot.data.positions as unknown as object,
+            ...(snapshot.data.orders ? { orders: snapshot.data.orders as unknown as object } : {}),
           },
         });
       }

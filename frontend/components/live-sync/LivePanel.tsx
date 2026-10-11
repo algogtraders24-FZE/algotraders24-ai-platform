@@ -93,12 +93,29 @@ export default function LivePanel({ accountId }: { accountId: string }) {
             {l.positions.map((p) => (
               <li key={p.ticket} className="flex items-center justify-between py-1.5">
                 <span className="text-text">{p.symbol} {p.side} {p.volume}</span>
-                <span className="text-text-3">{p.sl > 0 ? `SL ${p.sl}` : "no SL"}</span>
-                <span className={p.profit < 0 ? "text-red-400" : "text-text"}>{money(p.profit, cur)}</span>
+                <span className="text-text-3">{p.sl > 0 ? `SL ${p.sl}${typeof p.riskToSl === "number" ? ` (risk ${money(p.riskToSl, cur)})` : ""}` : "no SL"}</span>
+                <span className={p.profit < 0 ? "text-red-400" : "text-text"}>{typeof p.pips === "number" ? `${p.pips > 0 ? "+" : ""}${p.pips.toFixed(1)} pips · ` : ""}{money(p.profit, cur)}</span>
               </li>
             ))}
           </ul>
+          {data.riskToSl !== null && (
+            <p className="text-xs text-text-3">If every stop loss is hit: {money(data.riskToSl, cur)}{data.riskToSlPct !== null ? ` (${data.riskToSlPct.toFixed(2)}% of equity)` : ""}{data.withoutStopLoss > 0 ? ` · positions without a stop loss are not counted` : ""}</p>
+          )}
           <p className="text-xs text-text-3">Exposure: {data.exposure.map((e) => `${e.symbol} net ${e.netVolume > 0 ? "+" : ""}${e.netVolume} lots`).join(" · ")}</p>
+        </div>
+      )}
+      {data.pendingOrders !== null && data.pendingOrders.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-text">Pending orders ({data.pendingOrders.length})</p>
+          <ul className="divide-y divide-border text-xs">
+            {data.pendingOrders.map((o) => (
+              <li key={o.ticket} className="flex items-center justify-between py-1.5">
+                <span className="text-text">{o.symbol} {o.type.replace(/_/g, " ")} {o.volume}</span>
+                <span className="text-text-3">at {o.price}</span>
+                <span className="text-text-3">{o.sl > 0 ? `SL ${o.sl}` : "no SL"}{o.tp > 0 ? ` · TP ${o.tp}` : ""}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>

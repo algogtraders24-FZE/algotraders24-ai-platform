@@ -29,7 +29,7 @@ export const GET = withContext(async (req, ctx) => {
       where: { accountId: account.id, timeUtc: { gte: since } },
       orderBy: { timeUtc: "desc" },
       take: SERIES_MAX,
-      select: { timeUtc: true, balance: true, equity: true, margin: true, freeMargin: true, positions: true },
+      select: { timeUtc: true, balance: true, equity: true, margin: true, freeMargin: true, positions: true, orders: true },
     });
     const rows: SnapshotRow[] = snaps.reverse().map((s) => ({
       time: s.timeUtc.getTime(),
@@ -38,6 +38,7 @@ export const GET = withContext(async (req, ctx) => {
       margin: s.margin,
       freeMargin: s.freeMargin,
       positions: Array.isArray(s.positions) ? (s.positions as unknown as SnapshotRow["positions"]) : [],
+      orders: Array.isArray(s.orders) ? (s.orders as unknown as NonNullable<SnapshotRow["orders"]>) : undefined,
     }));
     const live = summarizeLive(rows, Date.now());
     return ApiResponse.success(

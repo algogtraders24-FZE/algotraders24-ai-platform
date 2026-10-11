@@ -235,3 +235,13 @@ A netting account has ONE position per symbol that is added to, reduced and reve
 - A reduce with no opening deal in the synced history is counted as "skipped"; positions still net-open are not trades yet.
 - Pages of a netting account carry a disclosure line: trades are built per symbol and an Expert Advisor (magic) filter is approximate, because the positions of different EAs on the same symbol merge.
 - Verified with hand-computed cases (scale-in, reversal with split commission, partial reductions, history cut, independent symbols) in `scripts/validate-live-sync-netting.ts`. Not yet seen on a real netting account: the first one should be checked against its terminal history.
+
+## EA v1.2 (MT5) / v1.1 (MT4): pips, risk to stop loss, pending orders
+
+All additions are optional on the wire, so older EAs keep working unchanged. Everything is terminal-reported, not verified.
+
+- `positions[].pips`: floating result in pips (signed). Pip size = 10 points on 3- and 5-digit symbols, otherwise 1 point (the common broker convention; gold, indices and crypto therefore use their own point size).
+- `positions[].riskToSl`: money (account currency, >= 0) lost if the stop loss is hit, computed in the EA from the symbol's own tick value (`|open - SL| / tickSize * tickValue * volume`). Absent when the position has no stop loss or the broker reports no tick value. The Live panel sums it ("If every stop loss is hit") and never counts a position without a stop loss as zero risk.
+- `snapshot.orders[]` (max 50): pending orders `{ticket, symbol, type, volume, price, sl, tp, timeMsc}`; `type` is one of buy/sell limit, stop, stop-limit (MT4: limit and stop). Stored in `live_sync_snapshots.orders` (additive, nullable; migration `20261012150000_live_sync_snapshot_orders`). An EA that does not send `orders` shows no pending-orders section; an EA that sends an empty list means "none".
+- Still read-only: no `OrderCalc*` or trade functions are used (enforced by the static scan in `validate-live-sync-ea*`).
+- Not included: closed-trade pips (the server has no per-symbol pip size for history; would need a further wire field).
