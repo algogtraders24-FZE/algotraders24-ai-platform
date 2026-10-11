@@ -11,6 +11,8 @@ import { bucketOf, summarizeBalances, summarizeReserve, reserveShortfall, ledger
 import { badgeFor, displayNameWithBadge, BADGE_TIERS } from "../lib/rewards/badge";
 import { buildContractPdf, contractClauses, type ContractPdfInput } from "../lib/rewards/contractPdf";
 import { contractStatusAfter, unreleasedCents, purchaseVoided } from "../lib/rewards/lifecycle";
+import { guideText, GUIDE_SECTIONS, GUIDE_FAQ, QUICK_START, GUIDE_PATH } from "../lib/rewards/guide";
+import { contractEmailBody, contractEmailSubject, escapeHtmlText } from "../lib/rewards/emailContent";
 import { monthKey, slotsRemaining, holdExpiry, validateSlotLimits, isMonthKey } from "../lib/rewards/slots";
 import { generateReferralCode, normalizeReferralCode, referralLink, CODE_ALPHABET, REF_COOKIE, REF_COOKIE_MAX_AGE_SECONDS, REFERRAL_LANDING_PATH } from "../lib/rewards/referral";
 
@@ -207,6 +209,21 @@ async function pdfChecks() {
   const odd = await buildContractPdf({ ...input, buyerName: "Zoe \u4e2d\u6587 O'Brien" });
   check("a non-Latin name cannot break the PDF", Buffer.from(odd.slice(0, 5)).toString() === "%PDF-");
 }
+
+// --- user guide and purchase email
+const gt = guideText().toLowerCase();
+const bannedHits = BANNED_COPY_WORDS.filter((w) => new RegExp(`\\b${w.replace(/ /g, "\\s+")}`, "i").test(gt));
+check("guide has no banned wording", bannedHits.length === 0, bannedHits.join());
+check("guide states the real hold period and minimum", gt.includes(`${HOLD_DAYS}-day hold`) && gt.includes("50 usd") && MIN_PAYOUT_CENTS === 5_000);
+check("guide covers every topic", ["what-you-bought", "get-started", "your-contract", "rebate", "withdraw", "referral", "badge", "refunds-risk"].every((id) => GUIDE_SECTIONS.some((s) => s.id === id)) && GUIDE_FAQ.length >= 5);
+check("guide section ids are unique and the quick start has 4 steps", new Set(GUIDE_SECTIONS.map((s) => s.id)).size === GUIDE_SECTIONS.length && QUICK_START.length === 4 && GUIDE_PATH === "/dashboard/algo-contracts/guide");
+check("guide says a pause keeps the money and that results are not promised", /paused and kept/.test(gt) && /no promise about trading results/.test(gt) && /sales are final/.test(gt));
+const emailIn = { name: "Ravi <b>K</b>", productName: "BTC AI Algo", contractId: "c_1", listPriceCents: mB.listPriceCents, rebateTotalCents: mB.rebateTotalCents, netPriceCents: mB.netPriceCents, schedule: mB.schedule, startsAt: NOW, endsAt: mB.endsAt, siteUrl: "https://algotraders24.ai/", pdfAttached: true };
+const eb = contractEmailBody(emailIn);
+check("email shows price, total rebate, net price and 4 instalments", eb.includes("$4,999.00") && eb.includes("$2,000.00") && eb.includes("$2,999.00") && (eb.match(/Rebate \d &middot; due/g) ?? []).length === 4);
+check("email escapes the buyer name", !eb.includes("<b>K</b>") && eb.includes(escapeHtmlText("Ravi <b>K</b>")));
+check("email links the guide (no double slash) and mentions the attached PDF", eb.includes("https://algotraders24.ai/dashboard/algo-contracts/guide") && /attached to this email/.test(eb) && !/attached to this email/.test(contractEmailBody({ ...emailIn, pdfAttached: false })));
+check("email subject names the product and the email has no banned wording", contractEmailSubject("BTC AI Algo").includes("BTC AI Algo") && BANNED_COPY_WORDS.every((w) => !new RegExp(`\\b${w.replace(/ /g, "\\s+")}`, "i").test(eb)));
 
 // --- copy guard on the strings this program shows
 const copy = REWARD_PRODUCT_KEYS.map((k) => REWARD_PRODUCTS[k].name).join(" ").toLowerCase();

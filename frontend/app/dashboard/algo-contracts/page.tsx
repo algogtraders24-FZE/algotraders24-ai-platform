@@ -84,6 +84,7 @@ export default async function RewardsPage() {
         eyebrow="Pro members"
         title="Algo Contracts"
         description="12-month AI Algo contracts for Pro members. Each contract includes the product, a signed licence, and a fixed quarterly rebate on the price you pay."
+        action={<ButtonLink href="/dashboard/algo-contracts/guide" variant="secondary" size="sm">User guide</ButtonLink>}
       />
 
       <Card className="space-y-1">

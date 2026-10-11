@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { buildContractPdf } from "@/lib/rewards/contractPdf";
 import { REWARD_PRODUCTS, isRewardProductKey } from "@/lib/rewards/config";
 import { saveContractPdf, sha256Hex } from "@/lib/rewards/documentStorage";
+import { sendAlgoContractEmail } from "@/services/notifications/EmailService";
 
 export async function issueContractDocument(contractId: string): Promise<{ ok: true; alreadyIssued: boolean } | { ok: false; error: string }> {
   try {
@@ -50,6 +51,27 @@ export async function issueContractDocument(contractId: string): Promise<{ ok: t
       prisma.rewardContract.update({ where: { id: contractId }, data: { status: "ACTIVE" } }),
       prisma.rewardAuditEvent.create({ data: { actor: "system", action: "contract.document_issued", subjectType: "RewardContract", subjectId: contractId, data: { sha256: hash } } }),
     ]);
+    // Best effort: the buyer is told and gets the PDF, but a failed email must never undo or hide an issued contract.
+    try {
+      await sendAlgoContractEmail({
+        to: user.email,
+        recipientUserId: contract.userId,
+        pdf: Buffer.from(bytes),
+        contract: {
+          name: user.name || "there",
+          productName: REWARD_PRODUCTS[contract.productKey].name,
+          contractId,
+          listPriceCents: contract.listPriceCents,
+          rebateTotalCents: contract.rebateTotalCents,
+          netPriceCents: contract.netPriceCents,
+          schedule: installments.map((i) => ({ seq: i.seq, dueAt: i.dueAt, amountCents: i.amountCents })),
+          startsAt: contract.startsAt,
+          endsAt: contract.endsAt,
+        },
+      });
+    } catch (mailError) {
+      console.error("[rewards] contract email failed (non-fatal):", mailError);
+    }
     return { ok: true, alreadyIssued: false };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

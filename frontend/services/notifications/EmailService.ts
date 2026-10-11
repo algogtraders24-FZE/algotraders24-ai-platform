@@ -5,7 +5,8 @@
 import "server-only";
 import { Resend } from "resend";
 import { getSiteUrl } from "@/lib/payments/env";
-import { recordEmailLog } from "./EmailLogService";
+import { recordEmailLog, wasEmailAlreadySent } from "./EmailLogService";
+import { contractEmailBody, contractEmailSubject, type ContractEmailInput } from "@/lib/rewards/emailContent";
 
 // billing@ is a real, active mailbox on this domain (unlike a
 // purchases@/no-reply@ address with no inbox behind it) - a buyer who
@@ -76,6 +77,7 @@ async function dispatch(params: {
   html: string;
   recipientUserId?: string;
   dedupeKey?: string;
+  attachments?: Array<{ filename: string; content: Buffer }>;
 }): Promise<void> {
   const client = getClient();
   if (!client) {
@@ -85,7 +87,7 @@ async function dispatch(params: {
   }
 
   try {
-    const result = await client.emails.send({ from: FROM_ADDRESS, to: params.to, subject: params.subject, html: params.html });
+    const result = await client.emails.send({ from: FROM_ADDRESS, to: params.to, subject: params.subject, html: params.html, ...(params.attachments?.length ? { attachments: params.attachments } : {}) });
     await recordEmailLog({
       type: params.type,
       recipientEmail: params.to,
@@ -133,6 +135,29 @@ export async function sendPurchaseConfirmationEmail(params: {
   });
 
   await dispatch({ type: "purchase_confirmation", to: params.to, subject: `Your purchase: ${params.productName}`, html });
+}
+
+/** Algo Contracts: the "your contract is ready" email, with the contract PDF attached and a short quick-start. Sent once per
+ *  contract (deduped on the contract id), best effort - a failed email never affects the contract. */
+export async function sendAlgoContractEmail(params: { to: string; recipientUserId?: string; pdf?: Buffer; contract: Omit<ContractEmailInput, "siteUrl" | "pdfAttached"> }): Promise<void> {
+  const dedupeKey = `algo-contract:${params.contract.contractId}`;
+  if (await wasEmailAlreadySent("algo_contract", dedupeKey)) return;
+  const siteUrl = getSiteUrl();
+  const html = renderLayout({
+    title: "Your Algo Contract is ready",
+    maxWidth: 560,
+    bodyHtml: contractEmailBody({ ...params.contract, siteUrl, pdfAttached: !!params.pdf }),
+    cta: { text: "Open your contract", url: `${siteUrl}/dashboard/algo-contracts` },
+  });
+  await dispatch({
+    type: "algo_contract",
+    to: params.to,
+    subject: contractEmailSubject(params.contract.productName),
+    html,
+    recipientUserId: params.recipientUserId,
+    dedupeKey,
+    attachments: params.pdf ? [{ filename: `AT24-contract-${params.contract.contractId}.pdf`, content: params.pdf }] : undefined,
+  });
 }
 
 // AT24_EMAIL_COMMUNICATION_RECONCILIATION.md's top finding: if
