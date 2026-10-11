@@ -61,6 +61,10 @@ async function main() {
   await mkUser("partner");
   await mkUser("lapsed", { pro: false, kyc: false });
   await mkUser("buyer2");
+  await mkUser("buyer3");
+  await mkUser("buyer4");
+  await mkUser("par2");
+  await mkUser("grand");
 
   // ---- slots
   const month = monthKey(T0);
@@ -118,6 +122,31 @@ async function main() {
   check("self-referral earns nothing", (await prisma.referralCommission.count({ where: { purchaseId: selfSale.purchase.id } })) === 0);
   // keep the other two contracts out of the way of the main scenario
   for (const id of ["intent_2", "intent_3"]) {
+    const co = await prisma.rewardCheckout.findUnique({ where: { intentId: id } });
+    if (co?.contractId) await cancelContract(co.contractId, "test cleanup", "e2e");
+  }
+
+  // ---- multi-level referral (flag): grand -> par2 -> buyer3. Off by default; on only while the flag is set.
+  const par2Code = await ensureReferralCode("par2");
+  await prisma.referralAttribution.create({ data: { partnerId: "grand", buyerId: "par2", codeId: (await prisma.referralCode.findFirstOrThrow({ where: { userId: "par2" } })).id } });
+  delete process.env.REWARDS_MULTI_LEVEL;
+  const mlOff = await mkSale("buyer3", 4, par2Code);
+  await fulfilRewardCheckout({ intentId: "intent_4", providerRef: "pay_4" });
+  const offRows = await prisma.referralCommission.findMany({ where: { purchaseId: mlOff.purchase.id } });
+  check("multi-level OFF: only the direct partner is paid ($100)", offRows.length === 1 && offRows[0].partnerId === "par2" && offRows[0].amountCents === 10_000, JSON.stringify(offRows.map((r) => [r.partnerId, r.level, r.amountCents])));
+  process.env.REWARDS_MULTI_LEVEL = "true";
+  const mlOn = await mkSale("buyer4", 5, par2Code);
+  await fulfilRewardCheckout({ intentId: "intent_5", providerRef: "pay_5" });
+  const onRows = await prisma.referralCommission.findMany({ where: { purchaseId: mlOn.purchase.id }, orderBy: { level: "asc" } });
+  check("multi-level ON: direct $100 and the partner above $50", onRows.length === 2 && onRows[0].partnerId === "par2" && onRows[0].amountCents === 10_000 && onRows[1].partnerId === "grand" && onRows[1].level === 1 && onRows[1].amountCents === 5_000, JSON.stringify(onRows.map((r) => [r.partnerId, r.level, r.amountCents])));
+  await prisma.subscription.updateMany({ where: { userId: "grand" }, data: { currentPeriodEnd: later(-1) } });
+  await mkUser("buyer5");
+  const mlLapsed = await mkSale("buyer5", 6, par2Code);
+  await fulfilRewardCheckout({ intentId: "intent_6", providerRef: "pay_6" });
+  const lapsedRows = await prisma.referralCommission.findMany({ where: { purchaseId: mlLapsed.purchase.id } });
+  check("an upline partner who lapsed earns nothing, the direct one still does", lapsedRows.length === 1 && lapsedRows[0].partnerId === "par2");
+  delete process.env.REWARDS_MULTI_LEVEL;
+  for (const id of ["intent_4", "intent_5", "intent_6"]) {
     const co = await prisma.rewardCheckout.findUnique({ where: { intentId: id } });
     if (co?.contractId) await cancelContract(co.contractId, "test cleanup", "e2e");
   }
