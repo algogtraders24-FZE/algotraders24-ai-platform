@@ -10,6 +10,7 @@ import { isProActive, programOpenFor, canBuyContract, decideInstalment, canWithd
 import { bucketOf, summarizeBalances, summarizeReserve, reserveShortfall, ledgerKey } from "../lib/rewards/ledger";
 import { badgeFor, displayNameWithBadge, BADGE_TIERS } from "../lib/rewards/badge";
 import { buildContractPdf, contractClauses, type ContractPdfInput } from "../lib/rewards/contractPdf";
+import { contractStatusAfter, unreleasedCents, purchaseVoided } from "../lib/rewards/lifecycle";
 import { monthKey, slotsRemaining, holdExpiry, validateSlotLimits, isMonthKey } from "../lib/rewards/slots";
 import { generateReferralCode, normalizeReferralCode, referralLink, CODE_ALPHABET, REF_COOKIE, REF_COOKIE_MAX_AGE_SECONDS, REFERRAL_LANDING_PATH } from "../lib/rewards/referral";
 
@@ -157,6 +158,24 @@ check("limits within 10 are fine", validateSlotLimits({ BTC_AI_ALGO: 5, GOLD_AI_
 check("limits above 10 in total are refused", validateSlotLimits({ BTC_AI_ALGO: 6, GOLD_AI_ALGO: 3, INDEX_AI_ALGO: 2 }, 10) !== null);
 check("negative / fractional limits are refused", validateSlotLimits({ BTC_AI_ALGO: -1 }, 10) !== null && validateSlotLimits({ BTC_AI_ALGO: 1.5 }, 10) !== null);
 check("month keys", isMonthKey("2026-11") && isMonthKey("2026-01") && !isMonthKey("2026-13") && !isMonthKey("2026-1") && !isMonthKey("26-11") && !isMonthKey(null));
+
+// --- contract lifecycle (daily sweep)
+const endLater = new Date("2027-11-01T00:00:00Z"), endPast = new Date("2026-10-01T00:00:00Z");
+check("nothing frozen, term running: ACTIVE", contractStatusAfter("ACTIVE", ["RELEASED", "SCHEDULED", "SCHEDULED", "SCHEDULED"], endLater, NOW) === "ACTIVE");
+check("a frozen instalment freezes the contract", contractStatusAfter("ACTIVE", ["RELEASED", "FROZEN", "SCHEDULED"], endLater, NOW) === "FROZEN");
+check("restored: FROZEN goes back to ACTIVE", contractStatusAfter("FROZEN", ["RELEASED", "RELEASED", "SCHEDULED"], endLater, NOW) === "ACTIVE");
+check("term over and everything released: ENDED", contractStatusAfter("ACTIVE", ["RELEASED", "RELEASED", "RELEASED", "RELEASED"], endPast, NOW) === "ENDED");
+check("term over but an instalment is still frozen: stays FROZEN, not ended or forfeited", contractStatusAfter("FROZEN", ["RELEASED", "FROZEN"], endPast, NOW) === "FROZEN");
+check("revoked / pending-document are not changed by the sweep", contractStatusAfter("REVOKED", ["RELEASED"], endPast, NOW) === "REVOKED" && contractStatusAfter("PENDING_DOCUMENT", ["SCHEDULED"], endLater, NOW) === "PENDING_DOCUMENT");
+check("cancelled-only contract after term: ENDED", contractStatusAfter("ACTIVE", ["RELEASED", "CANCELLED"], endPast, NOW) === "ENDED");
+check("unreleased cents = scheduled + frozen only", unreleasedCents([{ amountCents: 100, status: "SCHEDULED" }, { amountCents: 50, status: "FROZEN" }, { amountCents: 70, status: "RELEASED" }, { amountCents: 30, status: "CANCELLED" }, { amountCents: 20, status: "PAID" }]) === 150);
+check("refunded / reversed purchases are voided", purchaseVoided("REFUNDED") && purchaseVoided("REVERSED") && !purchaseVoided("COMPLETED") && !purchaseVoided("PENDING"));
+// the reserve identity the sweep checks: after releasing 1 of 4 and cancelling the rest, outstanding is zero
+const full = mB.reserveCents, one = mB.schedule[0].amountCents;
+const after = summarizeReserve([{ type: "RESERVED", amountCents: full }, { type: "RELEASED", amountCents: one }, { type: "RETURNED", amountCents: full - one }]);
+check("reserve identity: reserved - released - returned = 0 after a full cancel", after.outstanding === 0, JSON.stringify(after));
+const mid = summarizeReserve([{ type: "RESERVED", amountCents: full }, { type: "RELEASED", amountCents: one }]);
+check("reserve identity: outstanding equals the 3 remaining instalments", mid.outstanding === unreleasedCents(mB.schedule.slice(1).map((s) => ({ amountCents: s.amountCents, status: "SCHEDULED" }))));
 
 // --- member badge (diamond + colour next to the name)
 type PK = "BTC_AI_ALGO" | "GOLD_AI_ALGO" | "INDEX_AI_ALGO";

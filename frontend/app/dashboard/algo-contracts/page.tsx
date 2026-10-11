@@ -12,13 +12,15 @@ import ButtonLink from "@/components/ui/ButtonLink";
 import MemberBadge from "@/components/rewards/MemberBadge";
 import BuyContract from "@/components/rewards/BuyContract";
 import ReferralCard from "@/components/rewards/ReferralCard";
+import WithdrawCard from "@/components/rewards/WithdrawCard";
+import { getBalances, listPayouts } from "@/services/rewards/payoutStore";
 import { prisma } from "@/lib/prisma";
 import { getReferralCode } from "@/services/rewards/referralStore";
 import { slotSummary } from "@/services/rewards/slotStore";
 import { badgeFor } from "@/lib/rewards/badge";
 import { canEarnReferral } from "@/lib/rewards/eligibility";
 import { referralLink } from "@/lib/rewards/referral";
-import { isRewardProductKey } from "@/lib/rewards/config";
+import { isRewardProductKey, MIN_PAYOUT_CENTS, withdrawalsEnabled } from "@/lib/rewards/config";
 import { requireUser } from "@/lib/auth/protectedRoute";
 import { loadUserFacts, rewardsOpenFor } from "@/lib/rewards/access";
 import { isIdentityVerified, isProActive } from "@/lib/rewards/eligibility";
@@ -61,11 +63,13 @@ export default async function RewardsPage() {
   const kycOk = isIdentityVerified(facts.identity);
 
   // The reward tables only exist once the migration is applied; until then every read below falls back to "nothing yet".
-  const [slots, productRows, contracts, refCode] = await Promise.all([
+  const [slots, productRows, contracts, refCode, balances, payouts] = await Promise.all([
     slotSummary().catch(() => ({ month: "", byProduct: {} as Record<string, { limit: number; opened: boolean; remaining: number }> })),
     prisma.rewardProduct.findMany({ select: { key: true, enabled: true } }).catch(() => []),
     prisma.rewardContract.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" } }).catch(() => []),
     getReferralCode(user.id),
+    getBalances(user.id).catch(() => ({ scheduled: 0, frozen: 0, holding: 0, available: 0, requested: 0, paid: 0, reversed: 0 })),
+    listPayouts(user.id).catch(() => []),
   ]);
   const enabled = new Set(productRows.filter((r) => r.enabled).map((r) => r.key));
   const installments = contracts.length
@@ -156,6 +160,17 @@ export default async function RewardsPage() {
           {REWARD_PRODUCT_KEYS.map((key) => <MemberBadge key={key} tier={key} />)}
         </div>
       </Card>
+
+      {contracts.length > 0 || balances.available + balances.holding + balances.frozen + balances.paid > 0 ? (
+        <WithdrawCard
+          balances={balances}
+          payouts={payouts.map((p) => ({ id: p.id, amountCents: p.amountCents, network: p.network, status: p.status, txRef: p.txRef, createdAt: p.createdAt.toISOString() }))}
+          minCents={MIN_PAYOUT_CENTS}
+          holdDays={HOLD_DAYS}
+          withdrawalsOpen={withdrawalsEnabled()}
+          blockedReason={!proOk ? "An active paid Pro plan is needed to withdraw." : !kycOk ? "Identity verification is needed to withdraw." : null}
+        />
+      ) : null}
 
       <ReferralCard
         initialLink={refCode ? referralLink(refCode, siteOrigin) : null}
