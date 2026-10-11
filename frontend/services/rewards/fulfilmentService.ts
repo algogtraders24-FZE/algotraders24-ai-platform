@@ -10,13 +10,17 @@ import { addDays, computeContractMoney, computeReferralShares } from "@/lib/rewa
 import { canEarnReferral } from "@/lib/rewards/eligibility";
 import { ledgerKey } from "@/lib/rewards/ledger";
 import { loadUserFacts } from "@/lib/rewards/access";
+import { issueContractDocument } from "@/services/rewards/contractDocument";
 
 export type FulfilResult = { handled: false } | { handled: true; contractId: string; duplicate: boolean };
 
 export async function fulfilRewardCheckout(input: { intentId: string; providerRef: string }): Promise<FulfilResult> {
   const checkout = await prisma.rewardCheckout.findUnique({ where: { intentId: input.intentId } });
   if (!checkout) return { handled: false };
-  if (checkout.status === "FULFILLED" && checkout.contractId) return { handled: true, contractId: checkout.contractId, duplicate: true };
+  if (checkout.status === "FULFILLED" && checkout.contractId) {
+    await issueContractDocument(checkout.contractId); // a replay also finishes a document that failed the first time
+    return { handled: true, contractId: checkout.contractId, duplicate: true };
+  }
   if (!isRewardProductKey(checkout.productKey)) throw new Error(`Unknown reward product "${checkout.productKey}"`);
   const product = REWARD_PRODUCTS[checkout.productKey];
 
@@ -84,6 +88,8 @@ export async function fulfilRewardCheckout(input: { intentId: string; providerRe
       });
       return contract.id;
     });
+    // Document and activation come right after the money is recorded; if they fail the contract stays PENDING_DOCUMENT and is retried.
+    await issueContractDocument(contractId);
     return { handled: true, contractId, duplicate: false };
   } catch (err) {
     // A replay raced past the status check: the unique purchaseId stops the second contract; return the first.

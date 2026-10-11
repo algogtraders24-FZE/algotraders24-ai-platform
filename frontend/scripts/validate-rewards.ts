@@ -9,6 +9,7 @@ import { bps, formatUsd, addMonths, computeContractMoney, computeReferralShares,
 import { isProActive, programOpenFor, canBuyContract, decideInstalment, canWithdraw, canEarnReferral, type UserFacts } from "../lib/rewards/eligibility";
 import { bucketOf, summarizeBalances, summarizeReserve, reserveShortfall, ledgerKey } from "../lib/rewards/ledger";
 import { badgeFor, displayNameWithBadge, BADGE_TIERS } from "../lib/rewards/badge";
+import { buildContractPdf, contractClauses, type ContractPdfInput } from "../lib/rewards/contractPdf";
 import { monthKey, slotsRemaining, holdExpiry, validateSlotLimits, isMonthKey } from "../lib/rewards/slots";
 import { generateReferralCode, normalizeReferralCode, referralLink, CODE_ALPHABET, REF_COOKIE, REF_COOKIE_MAX_AGE_SECONDS, REFERRAL_LANDING_PATH } from "../lib/rewards/referral";
 
@@ -169,9 +170,30 @@ check("an active lower tier beats a frozen higher one", badgeFor([{ productKey: 
 check("name + diamond text", displayNameWithBadge("Ravi", bd("INDEX_AI_ALGO", "ACTIVE")) === "Ravi \u{1F48E}" && displayNameWithBadge("Ravi", null) === "Ravi");
 check("badge labels carry no return/profit wording", Object.values(BADGE_TIERS).every((t) => BANNED_COPY_WORDS.every((w) => !(t.label + " " + t.description).toLowerCase().includes(w))));
 
+
+// --- contract PDF (snapshot of the stored figures; brand only)
+async function pdfChecks() {
+  const input: ContractPdfInput = {
+    contractId: "c_test_1", productName: "BTC AI Algo", buyerName: "Ravi Kumar", buyerEmail: "ravi@example.com", buyerUserId: "u1", licenseId: "lic_1",
+    listPriceCents: mB.listPriceCents, rebateTotalCents: mB.rebateTotalCents, netPriceCents: mB.netPriceCents, schedule: mB.schedule,
+    startsAt: NOW, endsAt: mB.endsAt, termsVersion: "v-test", consentAt: NOW, issuedAt: NOW,
+  };
+  const bytes = await buildContractPdf(input);
+  check("contract PDF is a real PDF", Buffer.from(bytes.slice(0, 5)).toString() === "%PDF-" && bytes.length > 1500, String(bytes.length));
+  const text = contractClauses(input).map((c) => c.title + " " + c.body).join("\n");
+  check("contract shows price, total rebate, net price and every instalment", text.includes("$4,999.00") && text.includes("$2,000.00") && text.includes("$2,999.00") && (text.match(/Instalment \d: \$500\.00/g) ?? []).length === 4);
+  check("contract names only the brand, no company or licence number", text.includes("algotraders24.ai") && !/\bFZE\b|\bFZ\b|licen[cs]e no|trade licen/i.test(text));
+  check("contract says freeze, not forfeit, and 12 months", /paused and kept/.test(text) && /12-month licence/.test(text));
+  check("contract has no return / guarantee wording", BANNED_COPY_WORDS.filter((w) => w !== "invest").every((w) => !text.toLowerCase().includes(w)), BANNED_COPY_WORDS.filter((w) => text.toLowerCase().includes(w)).join());
+  const odd = await buildContractPdf({ ...input, buyerName: "Zoe \u4e2d\u6587 O'Brien" });
+  check("a non-Latin name cannot break the PDF", Buffer.from(odd.slice(0, 5)).toString() === "%PDF-");
+}
+
 // --- copy guard on the strings this program shows
 const copy = REWARD_PRODUCT_KEYS.map((k) => REWARD_PRODUCTS[k].name).join(" ").toLowerCase();
 check("no banned words in product names", BANNED_COPY_WORDS.every((w) => !copy.includes(w)));
 
-console.log(failed === 0 ? "\nALL PASS" : `\n${failed} FAILED`);
-process.exit(failed === 0 ? 0 : 1);
+pdfChecks().then(() => {
+  console.log(failed === 0 ? "\nALL PASS" : `\n${failed} FAILED`);
+  process.exit(failed === 0 ? 0 : 1);
+});
