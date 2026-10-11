@@ -3,7 +3,7 @@
 // Only facts the snapshots contain; margin level and floating P&L are plain
 // arithmetic on them. No predictions.
 
-import type { WirePosition } from "./contract";
+import type { WirePendingOrder, WirePosition } from "./contract";
 
 export interface SnapshotRow {
   time: number;
@@ -12,6 +12,8 @@ export interface SnapshotRow {
   margin: number;
   freeMargin: number;
   positions: WirePosition[];
+  /** Pending orders; undefined when the EA is older than v1.2. */
+  orders?: WirePendingOrder[];
 }
 
 export interface ExposureRow {
@@ -37,6 +39,12 @@ export interface LiveSummary {
   exposure: ExposureRow[];
   /** Open positions without a stop loss. */
   withoutStopLoss: number;
+  /** Sum of the money lost if every stop loss is hit (account currency), over positions that HAVE a stop loss and report it; null when no EA v1.2 data. */
+  riskToSl: number | null;
+  /** riskToSl as a percent of the latest equity; null when unknown. */
+  riskToSlPct: number | null;
+  /** Pending orders of the latest snapshot; null when the EA does not report them (older than v1.2). */
+  pendingOrders: WirePendingOrder[] | null;
 }
 
 export const STALE_MS = 3 * 60_000;
@@ -44,7 +52,7 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 
 export function summarizeLive(rows: readonly SnapshotRow[], now: number, maxPoints = 120): LiveSummary {
   if (rows.length === 0) {
-    return { hasData: false, stale: true, latest: null, series: [], equityHigh: null, equityLow: null, windowDrawdownPct: null, exposure: [], withoutStopLoss: 0 };
+    return { hasData: false, stale: true, latest: null, series: [], equityHigh: null, equityLow: null, windowDrawdownPct: null, exposure: [], withoutStopLoss: 0, riskToSl: null, riskToSlPct: null, pendingOrders: null };
   }
   const last = rows[rows.length - 1];
   const floating = r2(last.equity - last.balance);
@@ -65,6 +73,7 @@ export function summarizeLive(rows: readonly SnapshotRow[], now: number, maxPoin
 
   const bySymbol = new Map<string, ExposureRow>();
   let withoutStopLoss = 0;
+  let riskSum = 0;
   for (const p of last.positions) {
     const e = bySymbol.get(p.symbol) ?? { symbol: p.symbol, buyVolume: 0, sellVolume: 0, netVolume: 0, floating: 0 };
     if (p.side === "buy") e.buyVolume += p.volume;
@@ -75,7 +84,9 @@ export function summarizeLive(rows: readonly SnapshotRow[], now: number, maxPoin
     e.floating = r2(e.floating + p.profit);
     bySymbol.set(p.symbol, e);
     if (!(p.sl > 0)) withoutStopLoss++;
+    if (typeof p.riskToSl === "number") riskSum += p.riskToSl;
   }
+  const riskKnown = last.positions.some((p) => typeof p.riskToSl === "number");
 
   return {
     hasData: true,
@@ -87,5 +98,8 @@ export function summarizeLive(rows: readonly SnapshotRow[], now: number, maxPoin
     windowDrawdownPct: r2(maxDd),
     exposure: [...bySymbol.values()].sort((a, b) => Math.abs(b.netVolume) - Math.abs(a.netVolume)),
     withoutStopLoss,
+    riskToSl: riskKnown ? r2(riskSum) : null,
+    riskToSlPct: riskKnown && last.equity > 0 ? r2((riskSum / last.equity) * 100) : null,
+    pendingOrders: last.orders ?? null,
   };
 }

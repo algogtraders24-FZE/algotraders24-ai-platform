@@ -2970,6 +2970,8 @@ model LiveSyncAccount {
   broker             String?
   /// "mt5" (default) or "mt4": which terminal sends the data.
   platform           String    @default("mt5")
+  /// The owner left this account out of "My portfolio" (e.g. a demo test account). Display only: sync and alerts continue.
+  hiddenFromPortfolio Boolean  @default(false)
 
   @@unique([userId, accountKey])
   @@index([userId])
@@ -3023,6 +3025,8 @@ model LiveSyncSnapshot {
   margin     Float
   freeMargin Float
   positions  Json
+  /// Pending orders (EA v1.2+); null for older EAs.
+  orders     Json?
 
   @@index([accountId, timeUtc])
   @@map("live_sync_snapshots")

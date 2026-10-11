@@ -13,6 +13,7 @@ export const LIMITS = {
   maxBodyBytes: 200_000,
   maxDealsPerBatch: 500,
   maxPositions: 50,
+  maxPendingOrders: 50,
   maxAccountsPerUser: 5,
   maxDevicesPerUser: 5,
   /** Minimum seconds between accepted snapshots per account (extra ones are dropped, not errors). */
@@ -63,6 +64,24 @@ export interface WirePosition {
   tp: number;
   profit: number;
   timeMsc: number;
+  /** Floating result in pips (signed). Optional (EA v1.2+). */
+  pips?: number;
+  /** Money lost in the ACCOUNT currency if the stop loss is hit (>= 0). Absent when the position has no stop loss. Optional (EA v1.2+). */
+  riskToSl?: number;
+}
+
+export type PendingOrderType = "buy_limit" | "sell_limit" | "buy_stop" | "sell_stop" | "buy_stop_limit" | "sell_stop_limit";
+
+/** A pending (not yet filled) order. Optional snapshot content (EA v1.2+). */
+export interface WirePendingOrder {
+  ticket: number;
+  symbol: string;
+  type: PendingOrderType;
+  volume: number;
+  price: number;
+  sl: number;
+  tp: number;
+  timeMsc: number;
 }
 
 export interface WireSnapshot {
@@ -72,6 +91,8 @@ export interface WireSnapshot {
   margin: number;
   freeMargin: number;
   positions: WirePosition[];
+  /** Pending orders (EA v1.2+); absent from older EAs. */
+  orders?: WirePendingOrder[];
 }
 
 export interface WireAccountFacts {
@@ -102,7 +123,9 @@ export interface IngestBody {
 }
 
 export const DEAL_KEYS = ["ticket", "positionId", "timeMsc", "symbol", "type", "entry", "volume", "price", "commission", "swap", "profit", "fee", "magic", "comment"] as const;
-export const POSITION_KEYS = ["ticket", "symbol", "side", "volume", "priceOpen", "sl", "tp", "profit", "timeMsc"] as const;
-export const SNAPSHOT_KEYS = ["timeMsc", "balance", "equity", "margin", "freeMargin", "positions"] as const;
+export const POSITION_KEYS = ["ticket", "symbol", "side", "volume", "priceOpen", "sl", "tp", "profit", "timeMsc", "pips", "riskToSl"] as const;
+export const ORDER_KEYS = ["ticket", "symbol", "type", "volume", "price", "sl", "tp", "timeMsc"] as const;
+export const ORDER_TYPES = ["buy_limit", "sell_limit", "buy_stop", "sell_stop", "buy_stop_limit", "sell_stop_limit"] as const;
+export const SNAPSHOT_KEYS = ["timeMsc", "balance", "equity", "margin", "freeMargin", "positions", "orders"] as const;
 export const ACCOUNT_KEYS = ["currency", "mode", "marginMode", "leverage", "serverUtcOffsetSec", "terminalBuild", "broker", "platform"] as const;
 export const BODY_KEYS = ["v", "accountKey", "account", "seq", "prevHash", "hash", "deals", "snapshot"] as const;

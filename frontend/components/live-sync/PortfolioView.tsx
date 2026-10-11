@@ -9,6 +9,9 @@ import Badge from "@/components/ui/Badge";
 import Alert from "@/components/ui/Alert";
 import type { Portfolio, PortfolioGroup, PortfolioRow } from "@/services/live-sync/portfolio";
 
+interface HiddenAccount { id: string; label: string; mode: string; platform: string }
+type PortfolioData = Portfolio & { hidden?: HiddenAccount[] };
+
 const POLL_MS = 60_000;
 const COLORS = ["#d4a017", "#34d399", "#60a5fa", "#f472b6", "#a78bfa", "#fb923c", "#22d3ee", "#f87171"];
 const pct = (n: number | null | undefined) => (n === null || n === undefined ? "-" : `${n > 0 ? "+" : ""}${n.toFixed(2)}%`);
@@ -51,7 +54,7 @@ function GrowthChart({ rows }: { rows: PortfolioRow[] }) {
   );
 }
 
-function GroupCard({ g, rows }: { g: PortfolioGroup; rows: PortfolioRow[] }) {
+function GroupCard({ g, rows, onHide }: { g: PortfolioGroup; rows: PortfolioRow[]; onHide: (id: string) => void }) {
   const cur = g.currency;
   const th = "px-2 py-1.5 text-right font-medium";
   return (
@@ -84,7 +87,7 @@ function GroupCard({ g, rows }: { g: PortfolioGroup; rows: PortfolioRow[] }) {
             <tr className="text-xs text-text-3">
               <th className="py-1.5 text-left font-medium">Account</th>
               <th className={th}>Gain</th><th className={th}>Abs. gain</th><th className={th}>Today</th><th className={th}>Month</th><th className={th}>Drawdown</th>
-              <th className={th}>Balance</th><th className={th}>Equity</th><th className={th}>Profit</th><th className={th}>Deposits</th><th className={th}>Trades</th><th className={th}>Win %</th><th className={th}>Updated (UTC)</th>
+              <th className={th}>Balance</th><th className={th}>Equity</th><th className={th}>Profit</th><th className={th}>Deposits</th><th className={th}>Trades</th><th className={th}>Win %</th><th className={th}>Updated (UTC)</th><th className={th}><span className="sr-only">Hide</span></th>
             </tr>
           </thead>
           <tbody>
@@ -107,6 +110,7 @@ function GroupCard({ g, rows }: { g: PortfolioGroup; rows: PortfolioRow[] }) {
                 <td className="text-right">{r.trades}</td>
                 <td className="text-right">{r.winRatePct === null ? "-" : `${r.winRatePct.toFixed(1)}%`}</td>
                 <td className="text-right text-text-3">{utc(r.lastSyncAt)}</td>
+                <td className="text-right"><button type="button" onClick={() => onHide(r.id)} className="text-[11px] text-text-3 hover:text-gold" title="Leave this account out of My portfolio (it keeps syncing)">Hide</button></td>
               </tr>
             ))}
             <tr className="border-t-2 border-border font-semibold tabular-nums">
@@ -122,7 +126,7 @@ function GroupCard({ g, rows }: { g: PortfolioGroup; rows: PortfolioRow[] }) {
               <td className="text-right">{num(g.deposits)}</td>
               <td className="text-right">{g.trades}</td>
               <td className="text-right">{g.winRatePct === null ? "-" : `${g.winRatePct.toFixed(1)}%`}</td>
-              <td />
+              <td /><td />
             </tr>
           </tbody>
         </table>
@@ -159,7 +163,7 @@ function GroupCard({ g, rows }: { g: PortfolioGroup; rows: PortfolioRow[] }) {
 }
 
 export default function PortfolioView() {
-  const [data, setData] = useState<Portfolio | null>(null);
+  const [data, setData] = useState<PortfolioData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -169,12 +173,22 @@ export default function PortfolioView() {
         setError(r.status === 503 ? "Live Sync is not available yet." : "Could not load your portfolio.");
         return;
       }
-      setData((await r.json()).data as Portfolio);
+      setData((await r.json()).data as PortfolioData);
       setError(null);
     } catch {
       setError("Could not load your portfolio.");
     }
   }, []);
+
+  const setHidden = useCallback(async (accountId: string, hidden: boolean) => {
+    try {
+      const r = await fetch("/api/private/live-sync/portfolio", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId, hidden }) });
+      if (!r.ok) setError("Could not update that account.");
+      else await load();
+    } catch {
+      setError("Could not update that account.");
+    }
+  }, [load]);
 
   useEffect(() => {
     void load();
@@ -188,13 +202,28 @@ export default function PortfolioView() {
     <div className="space-y-6">
       {error && <Alert tone="danger">{error}</Alert>}
       {!error && data === null && <p className="text-sm text-text-3">Loading…</p>}
-      {data && data.rows.length === 0 && (
+      {data && data.rows.length === 0 && (data.hidden ?? []).length === 0 && (
         <Card className="space-y-2">
           <p className="text-sm font-semibold text-text">No synced accounts yet</p>
           <p className="text-sm text-text-2">Connect a MetaTrader 4 or 5 terminal on the <Link href="/dashboard/live-sync" className="text-gold hover:underline">Live Sync</Link> page and your accounts will appear here.</p>
         </Card>
       )}
-      {data?.groups.map((g) => <GroupCard key={g.key} g={g} rows={data.rows.filter((r) => `${r.mode === "real" ? "real" : "demo"}|${r.currency}` === g.key)} />)}
+      {data?.groups.map((g) => <GroupCard key={g.key} g={g} rows={data.rows.filter((r) => `${r.mode === "real" ? "real" : "demo"}|${r.currency}` === g.key)} onHide={(id) => void setHidden(id, true)} />)}
+      {data && (data.hidden ?? []).length > 0 && (
+        <Card className="space-y-2">
+          <p className="text-sm font-semibold text-text">Hidden accounts ({data.hidden!.length})</p>
+          <p className="text-xs text-text-3">Left out of the tables and totals above. They keep syncing and their alerts keep working.</p>
+          <ul className="space-y-1">
+            {data.hidden!.map((h) => (
+              <li key={h.id} className="flex items-center gap-2 text-sm text-text-2">
+                <span>{h.label}</span>
+                <span className="text-[11px] text-text-3">{h.platform} · {h.mode === "real" ? "REAL" : "DEMO"}</span>
+                <button type="button" onClick={() => void setHidden(h.id, false)} className="ml-auto text-xs text-gold hover:underline">Show</button>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
       {data && data.rows.length > 0 && (
         <p className="text-xs text-text-3">
           Closed trades only; balance and equity are your terminal&apos;s own figures at its last sync. Real and demo accounts are never pooled together and currencies are never added: each group above is its own total. Everything is reported by your own MetaTrader terminals and is not independently verified. Past results do not predict future results.

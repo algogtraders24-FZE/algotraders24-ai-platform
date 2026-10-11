@@ -1,12 +1,12 @@
 //+------------------------------------------------------------------+
 //|                                              AT24LiveSync.mq5    |
-//|  AT24 Live Sync - READ-ONLY Expert Advisor (v1.1)     |
+//|  AT24 Live Sync - READ-ONLY Expert Advisor (v1.2)     |
 //|  https://www.algotraders24.ai                                    |
 //+------------------------------------------------------------------+
 #property copyright   "AT24"
 #property link        "https://www.algotraders24.ai"
-#property version     "1.10"
-#property description "Reads your closed deals, balance/equity and open positions and sends them to"
+#property version     "1.20"
+#property description "Reads your closed deals, balance/equity, open positions and pending orders and sends them to"
 #property description "your AT24 account over HTTPS. It NEVER trades: this file contains no order,"
 #property description "position-modify or close functions. It never sends your account number, name,"
 #property description "server or any password. Your broker company name is sent ONLY if you switch on"
@@ -20,12 +20,13 @@ input bool   AllowLiveAccount  = false;                        // Demo only by d
 input bool   ShareBrokerName    = false;                        // Off by default. On = send your broker COMPANY name (e.g. "Exness Technologies Ltd") so your results page can show it. Never the account number or server
 
 //--- constants ------------------------------------------------------
-#define AT24_VERSION          "1.1"
+#define AT24_VERSION          "1.2"
 #define ZERO_HASH             "0000000000000000000000000000000000000000000000000000000000000000"
 #define MAX_DEALS_PER_BATCH   300
 #define MAX_BATCHES_PER_CYCLE 5
 #define MAX_CANDIDATES        2000
 #define MAX_POSITIONS         50
+#define MAX_PENDING_ORDERS    50
 #define SETTLE_MS             2000      // only send deals older than this (all deals of the same ms are present)
 #define HTTP_TIMEOUT_MS       5000
 
@@ -249,6 +250,71 @@ string AccountFactsJson()
    return json;
   }
 
+//--- v1.2 read-only helpers: pips, money at risk if the stop loss is hit, pending orders ----------------------
+// Pip size follows the usual broker convention: 10 points on 3- and 5-digit symbols, otherwise 1 point.
+double PipSize(const string symbol)
+  {
+   const double point = SymbolInfoDouble(symbol, SYMBOL_POINT);
+   const long digits = SymbolInfoInteger(symbol, SYMBOL_DIGITS);
+   if(point <= 0.0)
+      return 0.0;
+   return (digits == 3 || digits == 5) ? point * 10.0 : point;
+  }
+
+// Money (account currency) lost if the stop loss is hit, from the symbol's own tick value. -1 = cannot be computed.
+double RiskToStop(const string symbol, const double volume, const double priceOpen, const double sl)
+  {
+   if(sl <= 0.0)
+      return -1.0;
+   const double tickSize = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_SIZE);
+   double tickValue = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_VALUE_LOSS);
+   if(tickValue <= 0.0)
+      tickValue = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_VALUE);
+   if(tickSize <= 0.0 || tickValue <= 0.0)
+      return -1.0;
+   return MathAbs(priceOpen - sl) / tickSize * tickValue * volume;
+  }
+
+// Pending order type as the wire name. The numbers are the ENUM_ORDER_TYPE values (2..7 = limit / stop / stop-limit).
+string PendingTypeName(const long t)
+  {
+   switch((int)t)
+     {
+      case 2: return "buy_limit";
+      case 3: return "sell_limit";
+      case 4: return "buy_stop";
+      case 5: return "sell_stop";
+      case 6: return "buy_stop_limit";
+      case 7: return "sell_stop_limit";
+     }
+   return "";
+  }
+
+string PendingOrdersJson()
+  {
+   string list = "";
+   int count = 0;
+   const int total = OrdersTotal();
+   for(int i = 0; i < total && count < MAX_PENDING_ORDERS; i++)
+     {
+      const ulong tk = OrderGetTicket(i);
+      if(tk == 0)
+         continue;
+      const string name = PendingTypeName(OrderGetInteger(ORDER_TYPE));
+      if(name == "")
+         continue;
+      if(count > 0)
+         list += ",";
+      list += StringFormat("{\"ticket\":%I64u,\"symbol\":\"%s\",\"type\":\"%s\",\"volume\":%s,\"price\":%s,\"sl\":%s,\"tp\":%s,\"timeMsc\":%I64d}",
+                           tk, JsonEsc(OrderGetString(ORDER_SYMBOL), 32), name,
+                           DoubleToString(OrderGetDouble(ORDER_VOLUME_CURRENT), 8), DoubleToString(OrderGetDouble(ORDER_PRICE_OPEN), 8),
+                           DoubleToString(OrderGetDouble(ORDER_SL), 8), DoubleToString(OrderGetDouble(ORDER_TP), 8),
+                           OrderGetInteger(ORDER_TIME_SETUP_MSC));
+      count++;
+     }
+   return list;
+  }
+
 string SnapshotJson()
   {
    string pos = "";
@@ -259,19 +325,31 @@ string SnapshotJson()
       const ulong tk = PositionGetTicket(i);
       if(tk == 0)
          continue;
-      const string side = (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY) ? "buy" : "sell";
+      const bool isBuy = (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY);
+      const string symbol = PositionGetString(POSITION_SYMBOL);
+      const double volume = PositionGetDouble(POSITION_VOLUME);
+      const double priceOpen = PositionGetDouble(POSITION_PRICE_OPEN);
+      const double sl = PositionGetDouble(POSITION_SL);
       if(count > 0)
          pos += ",";
-      pos += StringFormat("{\"ticket\":%I64u,\"symbol\":\"%s\",\"side\":\"%s\",\"volume\":%s,\"priceOpen\":%s,\"sl\":%s,\"tp\":%s,\"profit\":%s,\"timeMsc\":%I64d}",
-                          tk, JsonEsc(PositionGetString(POSITION_SYMBOL), 32), side,
-                          DoubleToString(PositionGetDouble(POSITION_VOLUME), 8), DoubleToString(PositionGetDouble(POSITION_PRICE_OPEN), 8),
-                          DoubleToString(PositionGetDouble(POSITION_SL), 8), DoubleToString(PositionGetDouble(POSITION_TP), 8),
+      pos += StringFormat("{\"ticket\":%I64u,\"symbol\":\"%s\",\"side\":\"%s\",\"volume\":%s,\"priceOpen\":%s,\"sl\":%s,\"tp\":%s,\"profit\":%s,\"timeMsc\":%I64d",
+                          tk, JsonEsc(symbol, 32), isBuy ? "buy" : "sell",
+                          DoubleToString(volume, 8), DoubleToString(priceOpen, 8),
+                          DoubleToString(sl, 8), DoubleToString(PositionGetDouble(POSITION_TP), 8),
                           Money(PositionGetDouble(POSITION_PROFIT)), PositionGetInteger(POSITION_TIME_MSC));
+      const double pip = PipSize(symbol);
+      const double current = PositionGetDouble(POSITION_PRICE_CURRENT);
+      if(pip > 0.0 && current > 0.0)
+         pos += ",\"pips\":" + DoubleToString((isBuy ? current - priceOpen : priceOpen - current) / pip, 1);
+      const double risk = RiskToStop(symbol, volume, priceOpen, sl);
+      if(risk >= 0.0)
+         pos += ",\"riskToSl\":" + Money(risk);
+      pos += "}";
       count++;
      }
-   return StringFormat("{\"timeMsc\":%I64d,\"balance\":%s,\"equity\":%s,\"margin\":%s,\"freeMargin\":%s,\"positions\":[%s]}",
+   return StringFormat("{\"timeMsc\":%I64d,\"balance\":%s,\"equity\":%s,\"margin\":%s,\"freeMargin\":%s,\"positions\":[%s],\"orders\":[%s]}",
                        (long)TimeCurrent() * 1000, Money(AccountInfoDouble(ACCOUNT_BALANCE)), Money(AccountInfoDouble(ACCOUNT_EQUITY)),
-                       Money(AccountInfoDouble(ACCOUNT_MARGIN)), Money(AccountInfoDouble(ACCOUNT_MARGIN_FREE)), pos);
+                       Money(AccountInfoDouble(ACCOUNT_MARGIN)), Money(AccountInfoDouble(ACCOUNT_MARGIN_FREE)), pos, PendingOrdersJson());
   }
 
 //+------------------------------------------------------------------+

@@ -5,9 +5,9 @@
 //+------------------------------------------------------------------+
 #property copyright   "AT24"
 #property link        "https://www.algotraders24.ai"
-#property version     "1.00"
+#property version     "1.10"
 #property strict
-#property description "Reads your closed orders, balance/equity and open orders and sends them to"
+#property description "Reads your closed orders, balance/equity, open and pending orders and sends them to"
 #property description "your AT24 account over HTTPS. It NEVER trades: this file contains no order-send,"
 #property description "modify, close or delete functions. It never sends your account number, name,"
 #property description "server or any password. Your broker company name is sent ONLY if you switch on"
@@ -21,12 +21,13 @@ input bool   AllowLiveAccount  = false;                        // Demo only by d
 input bool   ShareBrokerName   = false;                        // Off by default. On = send your broker COMPANY name so your results page can show it. Never the account number or server
 
 //--- constants ------------------------------------------------------
-#define AT24_VERSION          "1.0"
+#define AT24_VERSION          "1.1"
 #define ZERO_HASH             "0000000000000000000000000000000000000000000000000000000000000000"
 #define MAX_ORDERS_PER_BATCH  150       // an order is sent as two deals (open + close) = at most 300 deals per batch
 #define MAX_BATCHES_PER_CYCLE 5
 #define MAX_CANDIDATES        3000
 #define MAX_POSITIONS         50
+#define MAX_PENDING_ORDERS    50
 #define SETTLE_SEC            2         // only send orders closed more than this long ago
 #define HTTP_TIMEOUT_MS       5000
 #define OP_BALANCE_TYPE       6         // MT4 order type used for deposits and withdrawals
@@ -273,31 +274,94 @@ string AccountFactsJson()
    return json;
   }
 
+//--- v1.1 read-only helpers: pips, money at risk if the stop loss is hit, pending orders -------------------
+// Pip size follows the usual broker convention: 10 points on 3- and 5-digit symbols, otherwise 1 point.
+double PipSize(const string symbol)
+  {
+   const double point = MarketInfo(symbol, MODE_POINT);
+   const int digits = (int)MarketInfo(symbol, MODE_DIGITS);
+   if(point <= 0.0)
+      return 0.0;
+   return (digits == 3 || digits == 5) ? point * 10.0 : point;
+  }
+
+// Money (account currency) lost if the stop loss is hit, from the symbol's own tick value. -1 = cannot be computed.
+double RiskToStop(const string symbol, const double lots, const double priceOpen, const double sl)
+  {
+   if(sl <= 0.0)
+      return -1.0;
+   const double tickSize = MarketInfo(symbol, MODE_TICKSIZE);
+   const double tickValue = MarketInfo(symbol, MODE_TICKVALUE);
+   if(tickSize <= 0.0 || tickValue <= 0.0)
+      return -1.0;
+   return MathAbs(priceOpen - sl) / tickSize * tickValue * lots;
+  }
+
+string PendingTypeName(const int t)
+  {
+   if(t == OP_BUYLIMIT)
+      return "buy_limit";
+   if(t == OP_SELLLIMIT)
+      return "sell_limit";
+   if(t == OP_BUYSTOP)
+      return "buy_stop";
+   if(t == OP_SELLSTOP)
+      return "sell_stop";
+   return "";
+  }
+
 string SnapshotJson()
   {
    string pos = "";
+   string pend = "";
    int count = 0;
+   int pcount = 0;
    const int total = OrdersTotal();
-   for(int i = 0; i < total && count < MAX_POSITIONS; i++)
+   for(int i = 0; i < total; i++)
      {
       if(!OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
          continue;
       const int t = OrderType();
-      if(t != OP_BUY && t != OP_SELL)   // pending orders are not positions
+      if(t != OP_BUY && t != OP_SELL)   // pending orders go to the orders list below
+        {
+         const string name = PendingTypeName(t);
+         if(name == "" || pcount >= MAX_PENDING_ORDERS)
+            continue;
+         if(pcount > 0)
+            pend += ",";
+         pend += StringFormat("{\"ticket\":%I64d,\"symbol\":\"%s\",\"type\":\"%s\",\"volume\":%s,\"price\":%s,\"sl\":%s,\"tp\":%s,\"timeMsc\":%I64d}",
+                              (long)OrderTicket(), JsonEsc(OrderSymbol(), 32), name,
+                              DoubleToString(OrderLots(), 8), DoubleToString(OrderOpenPrice(), 8),
+                              DoubleToString(OrderStopLoss(), 8), DoubleToString(OrderTakeProfit(), 8),
+                              (long)OrderOpenTime() * 1000);
+         pcount++;
          continue;
-      const string side = (t == OP_BUY) ? "buy" : "sell";
+        }
+      if(count >= MAX_POSITIONS)
+         continue;
+      const bool isBuy = (t == OP_BUY);
+      const string symbol = OrderSymbol();
+      const double priceOpen = OrderOpenPrice();
       if(count > 0)
          pos += ",";
-      pos += StringFormat("{\"ticket\":%I64d,\"symbol\":\"%s\",\"side\":\"%s\",\"volume\":%s,\"priceOpen\":%s,\"sl\":%s,\"tp\":%s,\"profit\":%s,\"timeMsc\":%I64d}",
-                          (long)OrderTicket(), JsonEsc(OrderSymbol(), 32), side,
-                          DoubleToString(OrderLots(), 8), DoubleToString(OrderOpenPrice(), 8),
+      pos += StringFormat("{\"ticket\":%I64d,\"symbol\":\"%s\",\"side\":\"%s\",\"volume\":%s,\"priceOpen\":%s,\"sl\":%s,\"tp\":%s,\"profit\":%s,\"timeMsc\":%I64d",
+                          (long)OrderTicket(), JsonEsc(symbol, 32), isBuy ? "buy" : "sell",
+                          DoubleToString(OrderLots(), 8), DoubleToString(priceOpen, 8),
                           DoubleToString(OrderStopLoss(), 8), DoubleToString(OrderTakeProfit(), 8),
                           Money(OrderProfit()), (long)OrderOpenTime() * 1000);
+      const double pip = PipSize(symbol);
+      const double current = OrderClosePrice();   // for an open order: the price it would close at right now
+      if(pip > 0.0 && current > 0.0)
+         pos += ",\"pips\":" + DoubleToString((isBuy ? current - priceOpen : priceOpen - current) / pip, 1);
+      const double risk = RiskToStop(symbol, OrderLots(), priceOpen, OrderStopLoss());
+      if(risk >= 0.0)
+         pos += ",\"riskToSl\":" + Money(risk);
+      pos += "}";
       count++;
      }
-   return StringFormat("{\"timeMsc\":%I64d,\"balance\":%s,\"equity\":%s,\"margin\":%s,\"freeMargin\":%s,\"positions\":[%s]}",
+   return StringFormat("{\"timeMsc\":%I64d,\"balance\":%s,\"equity\":%s,\"margin\":%s,\"freeMargin\":%s,\"positions\":[%s],\"orders\":[%s]}",
                        (long)TimeCurrent() * 1000, Money(AccountBalance()), Money(AccountEquity()),
-                       Money(AccountMargin()), Money(AccountFreeMargin()), pos);
+                       Money(AccountMargin()), Money(AccountFreeMargin()), pos, pend);
   }
 
 //+------------------------------------------------------------------+
