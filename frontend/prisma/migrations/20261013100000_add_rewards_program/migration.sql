@@ -1,4 +1,4 @@
--- AT24 Rewards & Partner Program, Phase 1 foundation. Additive only: 14 new tables, nothing existing is touched. NOT applied to any database yet.
+-- AT24 Rewards / Algo Contracts program (Phase 1-2 foundation). Additive only: 15 new tables, nothing existing is touched. NOT applied to any database yet.
 
 -- CreateTable
 CREATE TABLE IF NOT EXISTS "reward_products" (
@@ -207,6 +207,28 @@ CREATE TABLE IF NOT EXISTS "reward_audit_events" (
     CONSTRAINT "reward_audit_events_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE IF NOT EXISTS "reward_checkouts" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "productKey" TEXT NOT NULL,
+    "month" TEXT NOT NULL,
+    "slotHoldId" TEXT NOT NULL,
+    "intentId" TEXT NOT NULL,
+    "refCode" TEXT,
+    "termsVersion" TEXT NOT NULL,
+    "consentAt" TIMESTAMP(3) NOT NULL,
+    "consentIp" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "purchaseId" TEXT,
+    "contractId" TEXT,
+    "error" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "reward_checkouts_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX IF NOT EXISTS "reward_products_key_key" ON "reward_products"("key");
 
@@ -287,4 +309,19 @@ CREATE INDEX IF NOT EXISTS "reward_audit_events_subjectType_subjectId_idx" ON "r
 
 -- CreateIndex
 CREATE INDEX IF NOT EXISTS "reward_audit_events_createdAt_idx" ON "reward_audit_events"("createdAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX IF NOT EXISTS "reward_checkouts_intentId_key" ON "reward_checkouts"("intentId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX IF NOT EXISTS "reward_checkouts_purchaseId_key" ON "reward_checkouts"("purchaseId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX IF NOT EXISTS "reward_checkouts_contractId_key" ON "reward_checkouts"("contractId");
+
+-- CreateIndex
+CREATE INDEX IF NOT EXISTS "reward_checkouts_userId_status_idx" ON "reward_checkouts"("userId", "status");
+
+-- CreateIndex
+CREATE INDEX IF NOT EXISTS "reward_checkouts_status_createdAt_idx" ON "reward_checkouts"("status", "createdAt");
 

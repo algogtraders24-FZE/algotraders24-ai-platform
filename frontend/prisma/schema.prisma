@@ -3514,3 +3514,27 @@ model RewardAuditEvent {
   @@index([createdAt])
   @@map("reward_audit_events")
 }
+
+/// Links one program checkout to its payment intent so the verified-payment webhook can create the contract.
+model RewardCheckout {
+  id           String   @id @default(cuid())
+  userId       String
+  productKey   String
+  month        String
+  slotHoldId   String
+  intentId     String   @unique // MarketplacePurchaseIntent.id
+  refCode      String? // already validated server-side; null when none or not allowed
+  termsVersion String
+  consentAt    DateTime
+  consentIp    String?
+  status       String   @default("PENDING") // PENDING | FULFILLED | FAILED
+  purchaseId   String?  @unique
+  contractId   String?  @unique
+  error        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([status, createdAt])
+  @@map("reward_checkouts")
+}

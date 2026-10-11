@@ -9,7 +9,8 @@ import { bps, formatUsd, addMonths, computeContractMoney, computeReferralShares,
 import { isProActive, programOpenFor, canBuyContract, decideInstalment, canWithdraw, canEarnReferral, type UserFacts } from "../lib/rewards/eligibility";
 import { bucketOf, summarizeBalances, summarizeReserve, reserveShortfall, ledgerKey } from "../lib/rewards/ledger";
 import { badgeFor, displayNameWithBadge, BADGE_TIERS } from "../lib/rewards/badge";
-import { monthKey, slotsRemaining, holdExpiry } from "../lib/rewards/slots";
+import { monthKey, slotsRemaining, holdExpiry, validateSlotLimits, isMonthKey } from "../lib/rewards/slots";
+import { generateReferralCode, normalizeReferralCode, referralLink, CODE_ALPHABET, REF_COOKIE, REF_COOKIE_MAX_AGE_SECONDS, REFERRAL_LANDING_PATH } from "../lib/rewards/referral";
 
 let failed = 0;
 function check(name: string, ok: boolean, detail = "") {
@@ -138,6 +139,23 @@ check("remaining counts converted + live holds", slotsRemaining(slot, [...held(4
 check("expired / released holds free the slot", slotsRemaining(slot, [...held(3, "HELD", past), ...held(2, "RELEASED", future), ...held(1, "EXPIRED", future)], NOW) === 10);
 check("never negative; closed month has none", slotsRemaining(slot, held(12, "CONVERTED", past), NOW) === 0 && slotsRemaining({ limit: 10, opened: false }, [], NOW) === 0 && slotsRemaining(null, [], NOW) === 0);
 check("hold lasts 30 minutes", holdExpiry(NOW).getTime() - NOW.getTime() === 30 * 60_000);
+
+// --- referral codes and links
+const code = generateReferralCode();
+check("code is 8 readable characters", code.length === 8 && [...code].every((c) => CODE_ALPHABET.includes(c)) && !/[01OIL]/.test(code), code);
+check("codes differ", new Set(Array.from({ length: 200 }, () => generateReferralCode())).size === 200);
+check("code never contains look-alike characters", !/[01OIL]/.test(CODE_ALPHABET));
+check("normalize accepts a good code in any case / with spaces", normalizeReferralCode(` ${code.toLowerCase()} `) === code);
+check("normalize rejects bad input", normalizeReferralCode("short") === null && normalizeReferralCode("ABCDEFG0") === null && normalizeReferralCode("ABCDEFGHJ") === null && normalizeReferralCode(null) === null && normalizeReferralCode("<script>") === null && normalizeReferralCode(12345678) === null);
+check("link format", referralLink("K7M2QX9A") === "https://algotraders24.ai/r/K7M2QX9A" && referralLink("K7M2QX9A", "https://x.test/") === "https://x.test/r/K7M2QX9A");
+check("cookie lasts 30 days", REF_COOKIE_MAX_AGE_SECONDS === 30 * 86_400 && REF_COOKIE === "at24_ref");
+check("landing path is a fixed internal path", REFERRAL_LANDING_PATH.startsWith("/") && !REFERRAL_LANDING_PATH.startsWith("//"));
+
+// --- admin slot limits
+check("limits within 10 are fine", validateSlotLimits({ BTC_AI_ALGO: 5, GOLD_AI_ALGO: 3, INDEX_AI_ALGO: 2 }, 10) === null);
+check("limits above 10 in total are refused", validateSlotLimits({ BTC_AI_ALGO: 6, GOLD_AI_ALGO: 3, INDEX_AI_ALGO: 2 }, 10) !== null);
+check("negative / fractional limits are refused", validateSlotLimits({ BTC_AI_ALGO: -1 }, 10) !== null && validateSlotLimits({ BTC_AI_ALGO: 1.5 }, 10) !== null);
+check("month keys", isMonthKey("2026-11") && isMonthKey("2026-01") && !isMonthKey("2026-13") && !isMonthKey("2026-1") && !isMonthKey("26-11") && !isMonthKey(null));
 
 // --- member badge (diamond + colour next to the name)
 type PK = "BTC_AI_ALGO" | "GOLD_AI_ALGO" | "INDEX_AI_ALGO";

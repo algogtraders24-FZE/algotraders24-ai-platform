@@ -1,5 +1,5 @@
-// app/dashboard/rewards/page.tsx
-// AT24 Rewards & Partner Program - the member's own page (docs/REWARDS-PARTNER-PROGRAM-SPEC.md).
+// app/dashboard/algo-contracts/page.tsx
+// AT24 Diamond Members program ("Algo Contracts") - the member's own page (docs/REWARDS-PARTNER-PROGRAM-SPEC.md).
 // Server-gated: only accounts the rollout mode has opened see it. Phase 1 shows the eligibility checklist, the three 12-month
 // contracts with their fixed rebate schedule and net price, and the badge tiers. Purchasing opens in the next phase, so no
 // buy button is live and no reward table is read yet. A rebate is a fixed price adjustment written into the contract.
@@ -10,6 +10,15 @@ import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
 import ButtonLink from "@/components/ui/ButtonLink";
 import MemberBadge from "@/components/rewards/MemberBadge";
+import BuyContract from "@/components/rewards/BuyContract";
+import ReferralCard from "@/components/rewards/ReferralCard";
+import { prisma } from "@/lib/prisma";
+import { getReferralCode } from "@/services/rewards/referralStore";
+import { slotSummary } from "@/services/rewards/slotStore";
+import { badgeFor } from "@/lib/rewards/badge";
+import { canEarnReferral } from "@/lib/rewards/eligibility";
+import { referralLink } from "@/lib/rewards/referral";
+import { isRewardProductKey } from "@/lib/rewards/config";
 import { requireUser } from "@/lib/auth/protectedRoute";
 import { loadUserFacts, rewardsOpenFor } from "@/lib/rewards/access";
 import { isIdentityVerified, isProActive } from "@/lib/rewards/eligibility";
@@ -40,8 +49,8 @@ export default async function RewardsPage() {
   if (!rewardsOpenFor(user.email)) {
     return (
       <div className="space-y-6">
-        <PageHeader eyebrow="Account" title="Rewards" description="The AT24 Rewards program." />
-        <EmptyState title="Not open for your account yet" description="We will let you know when the Rewards program opens." />
+        <PageHeader eyebrow="Pro members" title="Algo Contracts" description="12-month AI Algo contracts for Pro members." />
+        <EmptyState title="Not open for your account yet" description="We will let you know when Algo Contracts opens." />
       </div>
     );
   }
@@ -51,11 +60,25 @@ export default async function RewardsPage() {
   const proOk = isProActive(facts.subscription, now);
   const kycOk = isIdentityVerified(facts.identity);
 
+  // The reward tables only exist once the migration is applied; until then every read below falls back to "nothing yet".
+  const [slots, productRows, contracts, refCode] = await Promise.all([
+    slotSummary().catch(() => ({ month: "", byProduct: {} as Record<string, { limit: number; opened: boolean; remaining: number }> })),
+    prisma.rewardProduct.findMany({ select: { key: true, enabled: true } }).catch(() => []),
+    prisma.rewardContract.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" } }).catch(() => []),
+    getReferralCode(user.id),
+  ]);
+  const enabled = new Set(productRows.filter((r) => r.enabled).map((r) => r.key));
+  const installments = contracts.length
+    ? await prisma.rebateInstallment.findMany({ where: { contractId: { in: contracts.map((c) => c.id) } }, orderBy: [{ contractId: "asc" }, { seq: "asc" }] }).catch(() => [])
+    : [];
+  const myBadge = badgeFor(contracts.filter((c) => isRewardProductKey(c.productKey)).map((c) => ({ productKey: c.productKey as never, status: c.status as never })));
+  const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL || undefined;
+
   return (
     <div className="space-y-8">
       <PageHeader
-        eyebrow="Account"
-        title="Rewards"
+        eyebrow="Pro members"
+        title="Algo Contracts"
         description="12-month AI Algo contracts for Pro members. Each contract includes the product, a signed licence, and a fixed quarterly rebate on the price you pay."
       />
 
@@ -86,6 +109,8 @@ export default async function RewardsPage() {
             const p = REWARD_PRODUCTS[key];
             const m = computeContractMoney(p, now);
             const perQuarter = m.schedule[0].amountCents;
+            const slot = slots.byProduct[key];
+            const blocked = !enabled.has(key) ? "Opens soon" : !proOk ? "Active paid Pro plan needed" : !kycOk ? "Identity verification needed" : !slot?.opened ? "Closed this month" : slot.remaining <= 0 ? "All slots taken this month" : null;
             return (
               <Card key={key} className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
@@ -102,9 +127,11 @@ export default async function RewardsPage() {
                   <div className="flex justify-between border-t border-border pt-1.5"><dt className="text-text-3">Net price</dt><dd className="font-semibold text-text">{formatUsd(m.netPriceCents)}</dd></div>
                   <div className="flex justify-between"><dt className="text-text-3">Term</dt><dd className="font-medium text-text">{p.termMonths} months</dd></div>
                 </dl>
-                <p className="text-xs text-text-3">Up to {DEFAULT_SLOTS_PER_MONTH} contracts open each month, set by AT24.</p>
+                <p className="text-xs text-text-3">
+                  {slot?.opened ? `${slot.remaining} of ${slot.limit} slots left this month.` : `Up to ${DEFAULT_SLOTS_PER_MONTH} contracts open each month, set by AT24.`}
+                </p>
                 <div className="mt-auto">
-                  <span className="inline-flex w-full items-center justify-center rounded-control border border-border px-4 py-2 text-sm text-text-3">Opens soon</span>
+                  <BuyContract productKey={key} productName={p.name} blockedReason={blocked} />
                 </div>
               </Card>
             );
@@ -130,9 +157,49 @@ export default async function RewardsPage() {
         </div>
       </Card>
 
+      <ReferralCard
+        initialLink={refCode ? referralLink(refCode, siteOrigin) : null}
+        blockedReason={canEarnReferral(facts, now) ? null : "An active paid Pro plan and a verified identity are needed to get a referral link."}
+      />
+
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-text">Your contracts</h2>
-        <EmptyState title="No contracts yet" description="Your contract, product download and rebate schedule will appear here after purchase." />
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-text">Your contracts</h2>
+          {myBadge && <MemberBadge tier={myBadge.tier} dimmed={myBadge.dimmed} />}
+        </div>
+        {contracts.length === 0 ? (
+          <EmptyState title="No contracts yet" description="Your contract, product download and rebate schedule will appear here after purchase." />
+        ) : (
+          <div className="space-y-4">
+            {contracts.map((c) => {
+              const mine = installments.filter((i) => i.contractId === c.id);
+              const name = isRewardProductKey(c.productKey) ? REWARD_PRODUCTS[c.productKey].name : c.productKey;
+              return (
+                <Card key={c.id} className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h3 className="text-base font-semibold text-text">{name}</h3>
+                      <p className="text-xs text-text-3">{c.startsAt.toISOString().slice(0, 10)} to {c.endsAt.toISOString().slice(0, 10)} · Price {formatUsd(c.listPriceCents)} · Net {formatUsd(c.netPriceCents)}</p>
+                    </div>
+                    <Badge tone={c.status === "ACTIVE" ? "success" : c.status === "PENDING_DOCUMENT" ? "warning" : "neutral"}>{c.status === "PENDING_DOCUMENT" ? "Preparing documents" : c.status.toLowerCase()}</Badge>
+                  </div>
+                  <ul className="divide-y divide-border text-sm">
+                    {mine.map((i) => (
+                      <li key={i.id} className="flex justify-between py-1.5">
+                        <span className="text-text-2">Rebate {i.seq} · due {i.dueAt.toISOString().slice(0, 10)}</span>
+                        <span className="font-medium text-text">{formatUsd(i.amountCents)} <span className="text-xs text-text-3">{i.status.toLowerCase()}</span></span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex flex-wrap gap-3">
+                    <ButtonLink href="/dashboard/licenses" variant="secondary" size="sm">Download product</ButtonLink>
+                    {c.status !== "PENDING_DOCUMENT" && <ButtonLink href={`/api/private/rewards/contracts/${c.id}/document`} variant="secondary" size="sm">Download contract</ButtonLink>}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </section>
     </div>
   );

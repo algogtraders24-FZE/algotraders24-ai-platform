@@ -28,3 +28,19 @@ export function slotsRemaining(slot: { limit: number; opened: boolean } | null, 
 export function holdExpiry(now: Date = new Date()): Date {
   return new Date(now.getTime() + SLOT_HOLD_MINUTES * 60_000);
 }
+
+/** Admin input check: each limit 0-10 and the whole month never above the program maximum (10 contracts a month across all products). */
+export function validateSlotLimits(limits: Record<string, number>, maxPerMonth: number): string | null {
+  let total = 0;
+  for (const [k, v] of Object.entries(limits)) {
+    if (!Number.isInteger(v) || v < 0) return `${k}: the limit must be a whole number, 0 or more.`;
+    total += v;
+  }
+  if (total > maxPerMonth) return `A month can hold at most ${maxPerMonth} contracts in total (you set ${total}).`;
+  return null;
+}
+
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+export function isMonthKey(v: unknown): v is string {
+  return typeof v === "string" && MONTH_RE.test(v);
+}
