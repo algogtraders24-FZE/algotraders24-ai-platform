@@ -138,11 +138,31 @@ export type AutomationStep =
   | AutomationPublicationDraftStep
   | AutomationWorkspaceSaveStep;
 
+/** Where a SUCCEEDED run's result is delivered. Stored in the definition JSON
+ *  (no schema change). Omitted = the default (in-app bell only); an explicit
+ *  empty `channels` array turns delivery off. */
+export const AUTOMATION_DELIVERY_CHANNELS = ["bell", "telegram", "push"] as const;
+export type AutomationDeliveryChannel = (typeof AUTOMATION_DELIVERY_CHANNELS)[number];
+
+export interface AutomationDeliveryConfig {
+  channels: AutomationDeliveryChannel[];
+}
+
 export interface AutomationWorkflowDefinition {
   schemaVersion: 1;
   trigger: AutomationTriggerConfig;
   steps: AutomationStep[];
+  delivery?: AutomationDeliveryConfig;
   metadata?: { templateId?: string; [k: string]: unknown };
+}
+
+/** A human-readable summary of one agent run's output (services/automation/brief.ts). */
+export interface AgentBrief {
+  kind: string;
+  headline: string;
+  lines: string[];
+  disclaimer: string | null;
+  empty: boolean;
 }
 
 // ── API shapes ───────────────────────────────────────────────────────────
@@ -211,6 +231,8 @@ export interface AutomationStepRunView {
   articleId: string | null;
   artifactId: string | null;
   output: unknown;
+  /** Readable summary of the child agent run's output (agent_run steps only). */
+  brief: AgentBrief | null;
   error: { code: string; message: string } | null;
   reason: string | null;
 }

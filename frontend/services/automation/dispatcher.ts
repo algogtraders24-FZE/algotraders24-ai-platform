@@ -34,6 +34,9 @@ import { artifactSink } from "./artifact-sink";
 import { evaluateCondition } from "./condition-eval";
 import { emptyRunContext, resolveContextPath, type AutomationRunContext } from "./context-path";
 import { computeNextRunAt } from "./scheduler";
+import { composeAgentBrief, briefToText } from "./brief";
+import { deliverRunResult } from "./delivery";
+import { productionDeliveryDeps } from "./delivery-deps";
 import { prisma } from "@/lib/prisma";
 
 const log = logger.child("automation-dispatch");
@@ -182,7 +185,11 @@ export async function dispatchAutomationRun(automationRunId: string): Promise<vo
     }
   }
 
-  await finalize(automationRunId, "SUCCEEDED", null, totalCredits, lastOutputRef, ctx);
+  await finalize(automationRunId, "SUCCEEDED", null, totalCredits, lastOutputRef, ctx, {
+    definition: def,
+    automationId: automation.id,
+    automationName: automation.name,
+  });
 }
 
 // ── step execution ───────────────────────────────────────────────────────
@@ -267,6 +274,10 @@ async function executeStep(step: AutomationStep, x: StepExecCtx): Promise<StepEx
 
       const rawOutput = (obs?.run?.output ?? {}) as Record<string, unknown>;
       const contextPatch: Record<string, unknown> = { result: rawOutput, ...flattenTopLevel(rawOutput) };
+      // Readable text of what the agent concluded - usable as `aiOverviewFrom`
+      // for a publication draft. Only when there is something to say.
+      const stepBrief = composeAgentBrief(rawOutput);
+      if (stepBrief && !stepBrief.empty) contextPatch.briefText = briefToText(stepBrief);
       if (step.outputBindings) {
         for (const [key, path] of Object.entries(step.outputBindings)) {
           // outputBindings paths address THIS step's raw output as `$.result.*`
@@ -384,6 +395,7 @@ async function finalize(
   creditsUsed = 0,
   outputRef: { kind: string; ids: Record<string, string> } | null = null,
   ctx?: AutomationRunContext,
+  deliveryCtx?: { definition: AutomationWorkflowDefinition; automationId: string; automationName: string },
 ): Promise<void> {
   const run = await automationRepository.getRun(automationRunId);
   if (!run) return;
@@ -434,6 +446,29 @@ async function finalize(
     }
   }
 
+  // Phase 2: deliver the result of a run that really succeeded (bell /
+  // Telegram / push, per the definition). `wasAlreadyTerminal` guards a
+  // double delivery if finalize() is ever reached twice. Best-effort: never
+  // allowed to affect the run's outcome.
+  if (!wasAlreadyTerminal && status === "SUCCEEDED" && deliveryCtx) {
+    try {
+      const agentOutputs = await collectAgentOutputs(automationRunId, run.userId);
+      const report = await deliverRunResult({
+        userId: run.userId,
+        automationId: deliveryCtx.automationId,
+        automationName: deliveryCtx.automationName,
+        runId: automationRunId,
+        definition: deliveryCtx.definition,
+        agentOutputs,
+      }, productionDeliveryDeps());
+      await automationRepository.patchRun(automationRunId, {
+        contextSnapshot: { trigger: ctx?.trigger, steps: ctx?.steps, delivery: report },
+      });
+    } catch (deliveryError) {
+      log.warn("automation result delivery failed", { automationRunId, err: String(deliveryError) });
+    }
+  }
+
   // best-effort: advance the parent automation's lastRunAt / nextRunAt
   try {
     const automation = await automationRepository.getAutomationForUser(run.automationId, run.userId);
@@ -451,6 +486,20 @@ async function finalize(
   } catch (err) {
     log.warn("post-run automation bookkeeping failed", { automationRunId, err: String(err) });
   }
+}
+
+/** Raw output of each OK agent_run step's child AgentRun, in step order. Read
+ *  from the persisted rows (not the in-memory context) so it is correct even
+ *  when the run was resumed across invocations. Ownership-scoped via userId. */
+async function collectAgentOutputs(automationRunId: string, userId: string): Promise<unknown[]> {
+  const steps = await automationRepository.stepRunsForRun(automationRunId);
+  const outputs: unknown[] = [];
+  for (const s of steps) {
+    if (s.kind !== "agent_run" || s.status !== "OK" || !s.agentRunId) continue;
+    const obs = await getAgentRun(userId, s.agentRunId).catch(() => null);
+    if (obs?.run?.output !== undefined && obs.run.output !== null) outputs.push(obs.run.output);
+  }
+  return outputs;
 }
 
 function asError(v: unknown): StepError | null {

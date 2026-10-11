@@ -24,6 +24,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import ButtonLink from "@/components/ui/ButtonLink";
 import StatCard from "@/components/ui/StatCard";
 import DataTable, { type DataTableColumn } from "@/components/ui/DataTable";
+import { ResultsFeed } from "@/components/automation/ResultsFeed";
 import { Zap, Calendar, CheckCircle2, XCircle, CreditCard } from "lucide-react";
 
 export default function AutomationPage() {
@@ -78,11 +79,18 @@ export default function AutomationPage() {
             <StatCard label="Credits Used (30d)" value={m.credits} icon={CreditCard} />
           </div>
 
+          {items.length > 0 && (
+            <section className="space-y-3">
+              <h2 className="text-sm font-semibold text-text-2">Latest results</h2>
+              <ResultsFeed limit={3} />
+            </section>
+          )}
+
           {items.length === 0 ? (
             <EmptyState
               title="No automations yet"
-              description="Automate recurring market research, intelligence and AI agent tasks. Create your first automation to get started."
-              action={<ButtonLink href="/dashboard/automation/new">Create your first automation</ButtonLink>}
+              description="Set it up once and AT24 runs the analysis on schedule, then sends you the result - in the app, on Telegram, or as a phone notification. Try Daily Market Brief, Gold Morning Intelligence or Evening Outlook Draft."
+              action={<ButtonLink href="/dashboard/automation/new?mode=template">Pick a template</ButtonLink>}
             />
           ) : (
             <DataTable columns={columns} rows={items} getRowKey={(a) => a.id} />

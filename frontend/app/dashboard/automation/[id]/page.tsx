@@ -20,6 +20,7 @@ import { AutomationApi, AutomationApiError } from "@/services/api/AutomationApi"
 import { AutomationStatusPill, RunStatusPill, WorkflowSequence, describeTrigger } from "@/components/automation/ui";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
+import ButtonLink from "@/components/ui/ButtonLink";
 import Alert from "@/components/ui/Alert";
 import ErrorState from "@/components/ui/ErrorState";
 import LoadingState from "@/components/ui/LoadingState";
@@ -125,6 +126,11 @@ export default function AutomationDetailPage() {
                 Resume
               </Button>
             )}
+            {a.status !== "ARCHIVED" && (
+              <ButtonLink variant="secondary" href={`/dashboard/automation/${a.id}/edit`}>
+                Edit
+              </ButtonLink>
+            )}
             <Button
               variant="secondary"
               disabled={!!busy}
@@ -159,6 +165,7 @@ export default function AutomationDetailPage() {
             <Row k="Active version" v={a.activeVersion ? `v${a.activeVersion}` : "—"} />
             <Row k="Next run" v={a.nextRunAt ? new Date(a.nextRunAt).toLocaleString() : "—"} />
             <Row k="Last run" v={a.lastRun ? <RunStatusPill status={a.lastRun.status} /> : "—"} />
+            <Row k="Sends results to" v={deliveryLabel(a.definition.delivery?.channels)} />
             <Row k="Created" v={new Date(a.createdAt).toLocaleDateString()} />
           </dl>
         </Card>
@@ -190,6 +197,13 @@ export default function AutomationDetailPage() {
       </section>
     </div>
   );
+}
+
+function deliveryLabel(channels: string[] | undefined): string {
+  const c = channels ?? ["bell"];
+  if (c.length === 0) return "Nowhere (off)";
+  const names: Record<string, string> = { bell: "In-app bell", telegram: "Telegram", push: "Phone push" };
+  return c.map((x) => names[x] ?? x).join(", ");
 }
 
 function Row({ k, v }: { k: string; v: ReactNode }) {

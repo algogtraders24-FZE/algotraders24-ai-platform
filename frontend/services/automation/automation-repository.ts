@@ -440,6 +440,27 @@ export const automationRepository = {
     });
   },
 
+  /** The user's newest artifacts with the automation each came from (names
+   *  resolved server-side, ownership-scoped on BOTH tables). */
+  async listArtifactsWithAutomation(userId: string, limit: number) {
+    const artifacts = await prisma.automationArtifact.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: Math.min(Math.max(limit, 1), 100),
+    });
+    if (artifacts.length === 0) return [];
+    const runs = await prisma.automationRun.findMany({
+      where: { id: { in: [...new Set(artifacts.map((a) => a.automationRunId))] }, userId },
+      select: { id: true, automationId: true, automation: { select: { name: true } } },
+    });
+    const byRun = new Map(runs.map((r) => [r.id, r]));
+    return artifacts.map((a) => ({
+      artifact: a,
+      automationId: byRun.get(a.automationRunId)?.automationId ?? null,
+      automationName: byRun.get(a.automationRunId)?.automation.name ?? null,
+    }));
+  },
+
   // -- stats -----------------------------------------------------------
 
   async runStatsSince(automationId: string, since: Date) {

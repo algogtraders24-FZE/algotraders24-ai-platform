@@ -6,6 +6,7 @@
 // DECISION_LOCK.md). This module never computes any of that.
 
 import type {
+  AgentBrief,
   AutomationDetail,
   AutomationListItem,
   AutomationRunDetail,
@@ -49,6 +50,16 @@ export interface TemplateSummary {
   definition: AutomationWorkflowDefinition;
 }
 
+export interface ResultItem {
+  artifactId: string;
+  title: string;
+  runId: string;
+  automationId: string | null;
+  automationName: string | null;
+  createdAt: string;
+  brief: AgentBrief;
+}
+
 export const AutomationApi = {
   list: (opts: { includeArchived?: boolean } = {}) =>
     call<{ items: AutomationListItem[]; total: number }>(
@@ -86,6 +97,8 @@ export const AutomationApi = {
 
   runs: (id: string, limit = 20) =>
     call<{ items: AutomationRunSummary[]; total: number }>(`/api/private/automations/${id}/runs?limit=${limit}`),
+
+  results: (limit = 20) => call<{ items: ResultItem[]; total: number }>(`/api/private/automations/results?limit=${limit}`),
 
   templates: () => call<{ items: TemplateSummary[] }>(`/api/private/automations/templates`),
 

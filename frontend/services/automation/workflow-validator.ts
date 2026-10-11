@@ -9,6 +9,7 @@
 
 import {
   AUTOMATION_AGENT_TYPES,
+  AUTOMATION_DELIVERY_CHANNELS,
   AUTOMATION_CONDITION_OPS,
   AUTOMATION_TRIGGER_TYPES,
   AUTOMATION_WEEKDAYS,
@@ -111,6 +112,18 @@ export function validateWorkflowDefinition(
     }
     if (ttype === "manual" && trigger.slot !== undefined) {
       add("$.trigger.slot", "manual triggers do not take a slot");
+    }
+  }
+
+  // ── delivery (optional) ──
+  if (def.delivery !== undefined) {
+    const d: unknown = def.delivery;
+    if (!isPlainObject(d) || !Array.isArray(d.channels)) {
+      add("$.delivery", "delivery must be an object with a channels array");
+    } else {
+      const bad = d.channels.filter((c) => !(AUTOMATION_DELIVERY_CHANNELS as readonly string[]).includes(c as string));
+      if (bad.length) add("$.delivery.channels", `channels must be a subset of: ${AUTOMATION_DELIVERY_CHANNELS.join(", ")}`);
+      if (new Set(d.channels).size !== d.channels.length) add("$.delivery.channels", "duplicate delivery channels");
     }
   }
 

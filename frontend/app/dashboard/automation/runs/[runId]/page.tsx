@@ -142,6 +142,20 @@ function StepRow({ step }: { step: AutomationStepRunView }) {
           {step.output.note ? ` (${step.output.note})` : ""}
         </p>
       )}
+      {step.brief && !step.brief.empty && (
+        <div className="mt-2 rounded-control border border-border bg-ink p-3">
+          <p className="text-sm font-medium text-text">{step.brief.headline}</p>
+          {step.brief.lines.length > 0 && (
+            <ul className="mt-1 space-y-0.5 text-xs text-text-2">
+              {step.brief.lines.map((l, i) => (
+                <li key={i}>• {l}</li>
+              ))}
+            </ul>
+          )}
+          {step.brief.disclaimer && <p className="mt-2 text-[11px] leading-snug text-text-3">{step.brief.disclaimer}</p>}
+        </div>
+      )}
+      {step.brief?.empty && <p className="mt-1 text-xs text-text-3">{step.brief.headline} - nothing to report from this step.</p>}
       {step.error && (
         <p className="mt-1 text-xs text-danger">
           {step.error.code}: {step.error.message}

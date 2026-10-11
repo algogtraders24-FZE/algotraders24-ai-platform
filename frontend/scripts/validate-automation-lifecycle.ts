@@ -20,6 +20,9 @@ import { automationRepository } from "../services/automation/automation-reposito
 import { triggerManualRun, requestRunCancellation } from "../services/automation/run-dispatch";
 import { dispatchAutomationRun } from "../services/automation/dispatcher";
 import { getRunDetail } from "../services/automation/run-view";
+import { deliverRunResult, DELIVERY_NOTIFICATION_KIND } from "../services/automation/delivery";
+import { productionDeliveryDeps } from "../services/automation/delivery-deps";
+import { getLatestResults } from "../services/automation/results";
 import type { AutomationWorkflowDefinition } from "../types/automation";
 
 const RID = Math.random().toString(36).slice(2, 8);
@@ -54,8 +57,9 @@ const save = (id: string, title = "Result"): AutomationWorkflowDefinition["steps
 });
 
 async function cleanup(): Promise<void> {
-  for (const u of [USER, U("a"), U("b")]) {
+  for (const u of [USER, U("a"), U("b"), U("c")]) {
     await automationRepository._deleteAllForUser(u).catch(() => {});
+    await prisma.userNotification.deleteMany({ where: { userId: u } }).catch(() => {});
   }
 }
 
@@ -266,6 +270,69 @@ async function main(): Promise<void> {
     const d = await automationService.detail(USER, autoId);
     assert.equal(d.status, "ARCHIVED");
     await assert.rejects(() => automationService.transition(USER, autoId, "activate"), /Cannot transition/);
+  });
+
+  // ── Phase 2: delivery + results ──
+  const MI_OUTPUT = {
+    kind: "market-intelligence-conclusion",
+    symbol: "XAUUSD",
+    timeframe: "1h",
+    bias: "bullish-leaning",
+    resolved: true,
+    regimeType: "trending-bullish",
+    regimeConfidence: 90,
+    basis: ["regime: trending-bullish (confidence 90)"],
+    disclaimer: "Decision support only.",
+  };
+
+  await test("a SUCCEEDED run with nothing to report delivers nothing and records why", async () => {
+    const r = await automationService.create({
+      userId: U("c"),
+      name: "No-agent delivery",
+      definition: { ...(manualDef([save("s1", "x")]) as object), delivery: { channels: ["bell", "telegram", "push"] } },
+    });
+    await automationService.transition(U("c"), r.id, "activate");
+    const { runId } = await triggerManualRun(U("c"), r.id);
+    const row = await prisma.automationRun.findUnique({ where: { id: runId }, select: { status: true, contextSnapshot: true } });
+    assert.equal(row?.status, "SUCCEEDED");
+    const snap = row?.contextSnapshot as { delivery?: { status: string; reason?: string } } | null;
+    assert.equal(snap?.delivery?.status, "skipped");
+    assert.equal(snap?.delivery?.reason, "nothing-to-report");
+    assert.equal(await prisma.userNotification.count({ where: { userId: U("c"), kind: DELIVERY_NOTIFICATION_KIND } }), 0);
+  });
+
+  await test("default wiring: a real result lands in the user's bell; unlinked Telegram/push quietly do nothing", async () => {
+    const report = await deliverRunResult({
+      userId: U("b"),
+      automationId: "auto-x",
+      automationName: "Wiring check",
+      runId: "run-x",
+      definition: { delivery: { channels: ["bell", "telegram", "push"] } },
+      agentOutputs: [MI_OUTPUT],
+    }, productionDeliveryDeps());
+    assert.equal(report.status, "delivered");
+    assert.equal(report.channels.bell, true);
+    assert.ok(!report.channels.telegram, "a user with no linked Telegram must not receive one");
+    assert.ok(!report.channels.push, "a user with no push device must not receive one");
+    const n = await prisma.userNotification.findFirst({ where: { userId: U("b"), kind: DELIVERY_NOTIFICATION_KIND } });
+    assert.ok(n && n.href === "/dashboard/automation/runs/run-x" && n.body.includes("XAUUSD 1h: bullish-leaning"));
+  });
+
+  await test("results feed: shows meaningful results, hides empty ones, and is owner-scoped", async () => {
+    await automationRepository.appendArtifact({ userId: U("b"), automationRunId: "run-r1", stepRunId: "step-r1", kind: "agent_result", title: "Brief", payload: MI_OUTPUT });
+    await automationRepository.appendArtifact({
+      userId: U("b"),
+      automationRunId: "run-r2",
+      stepRunId: "step-r2",
+      kind: "agent_result",
+      title: "Empty research",
+      payload: { kind: "research-brief", citationCount: 0, coverage: "no-coverage", sources: [] },
+    });
+    const mine = await getLatestResults(U("b"), 10);
+    assert.equal(mine.length, 1, "the empty research artifact must be hidden");
+    assert.equal(mine[0].brief.headline, "XAUUSD 1h: bullish-leaning · regime trending-bullish (confidence 90)");
+    const others = await getLatestResults(U("a"), 10);
+    assert.equal(others.length, 0, "another user must never see it");
   });
 
   await cleanup();

@@ -13,6 +13,8 @@ import type {
 import { automationRepository } from "./automation-repository";
 import { automationService } from "./automation-service";
 import { stepLabel } from "./definition";
+import { composeAgentBrief } from "./brief";
+import { getAgentRun } from "@/services/agent-framework/api/agent-run-service";
 import { AppError } from "@/services/backend/ErrorHandler";
 import { ERROR_CODES } from "@/config/backend.config";
 
@@ -44,6 +46,22 @@ export async function getRunDetail(userId: string, runId: string): Promise<Autom
   const def = run.definitionVersion.definition as unknown as AutomationWorkflowDefinition;
   const stepsById = new Map<string, AutomationStep>(def.steps.map((s) => [s.id, s]));
 
+  // Readable result of each child agent run. getAgentRun is ownership-scoped
+  // (userId) so a run that is not the caller's can never leak through here.
+  const briefs = new Map<string, ReturnType<typeof composeAgentBrief>>();
+  await Promise.all(
+    run.steps
+      .filter((s) => s.kind === "agent_run" && s.agentRunId && s.status === "OK")
+      .map(async (s) => {
+        try {
+          const obs = await getAgentRun(userId, s.agentRunId as string);
+          briefs.set(s.id, composeAgentBrief(obs?.run?.output));
+        } catch {
+          briefs.set(s.id, null);
+        }
+      }),
+  );
+
   const steps: AutomationStepRunView[] = run.steps.map((s) => {
     const defStep = stepsById.get(s.stepId);
     return {
@@ -60,6 +78,7 @@ export async function getRunDetail(userId: string, runId: string): Promise<Autom
       articleId: s.articleId ?? null,
       artifactId: s.artifactId ?? null,
       output: s.output ?? null,
+      brief: briefs.get(s.id) ?? null,
       error: parseError(s.error),
       reason: s.reason ?? null,
     };
