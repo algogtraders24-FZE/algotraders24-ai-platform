@@ -30,6 +30,7 @@ A **Pro member ($20/month) who is KYC-verified** can take a **12-month contract*
 | BTC AI Algo | list $4,999 / rebate 40% = $2,000 / $500 per quarter / net $2,999 | |
 | Gold AI Algo | list $9,999 / rebate 50% = $5,000 / $1,250 per quarter / net $4,999 | |
 | Index AI Algo | list $29,999 / rebate 60% = $18,000 / $4,500 per quarter / net $11,999 | see §5 |
+| Fixed dollars, not percentages | Rebate and referral are stored as **fixed dollar amounts** (e.g. BTC $2,000 = $500 × 4, i.e. about 40%, not 40% of $4,999 = $1,999.60). Referral per level: BTC $100/$50/$50/$50, Gold $200/$100/$100/$100, Index $600/$300/$300/$300. | decided during Phase 1 |
 | Slots | max 10 per month, per product limits set by admin | admin opens/closes each month |
 | Referral | 2% / 1% / 1% / 1% of list price, fixed dollar amount shown to the partner | level 1 live; levels 2–4 behind a flag until counsel approves |
 | Payout | USDT TRC20/ERC20/BEP20, minimum $50, admin approved | reuse `SellerPayout` pattern |

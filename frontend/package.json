@@ -23,6 +23,7 @@
     "validate:live-sync-ea": "tsx scripts/validate-live-sync-ea.ts",
     "validate:live-sync-portfolio": "tsx scripts/validate-live-sync-portfolio.ts",
     "validate:telegram": "tsx scripts/validate-telegram.ts",
+    "validate:rewards": "tsx scripts/validate-rewards.ts",
     "validate:pwa": "tsx scripts/validate-pwa.ts",
     "validate:live-results-directory": "tsx scripts/validate-live-results-directory.ts",
     "validate:live-results-mcp": "tsx scripts/validate-live-results-mcp.ts",
