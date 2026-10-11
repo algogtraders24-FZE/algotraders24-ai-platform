@@ -8,20 +8,31 @@ import { buildPortfolio, type Portfolio, type PortfolioAccountInput } from "./po
 
 const MAX_ACCOUNTS = 20;
 
-export async function loadPortfolio(userId: string, nowUtc: number = Date.now()): Promise<Portfolio> {
-  const accounts = await prisma.liveSyncAccount.findMany({ where: { userId }, orderBy: { lastSyncAt: "desc" }, take: MAX_ACCOUNTS });
-  if (accounts.length === 0) return { generatedAt: nowUtc, rows: [], groups: [] };
-  const pages = await prisma.liveResultsPage.findMany({ where: { userId, accountId: { in: accounts.map((a) => a.id) } }, orderBy: { createdAt: "asc" }, select: { accountId: true, title: true } });
+export interface HiddenAccount {
+  id: string;
+  label: string;
+  mode: string;
+  platform: "MT4" | "MT5";
+}
+
+export async function loadPortfolio(userId: string, nowUtc: number = Date.now()): Promise<Portfolio & { hidden: HiddenAccount[] }> {
+  const all = await prisma.liveSyncAccount.findMany({ where: { userId }, orderBy: { lastSyncAt: "desc" }, take: MAX_ACCOUNTS });
+  const accounts = all.filter((a) => !a.hiddenFromPortfolio);
+  const hiddenRows = all.filter((a) => a.hiddenFromPortfolio);
+  if (all.length === 0) return { generatedAt: nowUtc, rows: [], groups: [], hidden: [] };
+  const pages = await prisma.liveResultsPage.findMany({ where: { userId, accountId: { in: all.map((a) => a.id) } }, orderBy: { createdAt: "asc" }, select: { accountId: true, title: true } });
   const titleOf = new Map<string, string>();
   for (const p of pages) if (!titleOf.has(p.accountId)) titleOf.set(p.accountId, p.title);
+
+  const labelOf = (a: (typeof all)[number]) => { const short = `Account ${a.accountKey.slice(0, 6)}`; return titleOf.has(a.id) ? `${titleOf.get(a.id)} (${short.slice(8)})` : short; };
+  const hidden: HiddenAccount[] = hiddenRows.map((a) => ({ id: a.id, label: labelOf(a), mode: a.mode, platform: a.platform === "mt4" ? "MT4" : "MT5" }));
 
   const inputs: PortfolioAccountInput[] = [];
   for (const a of accounts) {
     const deals = await fetchDeals(a.id);
-    const short = `Account ${a.accountKey.slice(0, 6)}`;
     inputs.push({
       id: a.id,
-      label: titleOf.has(a.id) ? `${titleOf.get(a.id)} (${short.slice(8)})` : short,
+      label: labelOf(a),
       mode: a.mode,
       platform: a.platform === "mt4" ? "MT4" : "MT5",
       broker: a.broker,
@@ -35,5 +46,5 @@ export async function loadPortfolio(userId: string, nowUtc: number = Date.now())
       deals,
     });
   }
-  return buildPortfolio(inputs, nowUtc);
+  return { ...buildPortfolio(inputs, nowUtc), hidden };
 }

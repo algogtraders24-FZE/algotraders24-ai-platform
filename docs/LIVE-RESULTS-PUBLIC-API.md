@@ -26,7 +26,7 @@ The summary is built from the already-redacted view model, so it carries no amou
 ## Limits and honesty
 
 - At most 60 public pages are summarised; computing them reads each page's deals, so the list is cached for 5 minutes per server instance.
-- No rate limiting beyond the CDN cache headers; if abuse appears, add a per-IP limiter.
+- Rate limit: 60 uncached requests per minute per IP (HTTP 429 with `Retry-After`); best-effort, per server instance. CDN-cached responses never reach it.
 - Nothing here is investment advice; past results do not predict future results.
 
 ## MCP tool `live_results`

@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { listPublicSummaries, liveResultsEnabled } from "@/services/live-results/prisma-store";
+import { clientKey, liveResultsReadLimiter } from "@/lib/security/publicReadLimit";
 import { SUMMARY_DISCLAIMER } from "@/services/live-results/summary";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,14 @@ export function OPTIONS(): NextResponse {
   return new NextResponse(null, { status: 204, headers: CORS });
 }
 
-export const GET = withContext(async (_req, ctx) => {
+export const GET = withContext(async (req, ctx) => {
+  const gate = liveResultsReadLimiter.check(clientKey(req.headers));
+  if (!gate.allowed) {
+    const limited = ApiResponse.error({ code: "RATE_LIMITED", message: "Too many requests. Please slow down." }, ctx.requestId, 429, ctx.startedAt);
+    limited.headers.set("retry-after", String(gate.retryAfterSec));
+    for (const [k, v] of Object.entries(CORS)) limited.headers.set(k, v);
+    return limited;
+  }
   if (!liveResultsEnabled()) return ApiResponse.error({ code: "UNAVAILABLE", message: "Live Results is not available yet." }, ctx.requestId, 503, ctx.startedAt);
   try {
     const pages = await listPublicSummaries();
