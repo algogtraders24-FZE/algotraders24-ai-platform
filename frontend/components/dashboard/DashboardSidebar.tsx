@@ -62,7 +62,7 @@ export default function DashboardSidebar() {
       <nav className={collapsed ? "mt-3 flex-1 space-y-2" : "mt-3 flex-1 space-y-5"}>
         {DASHBOARD_NAV_GROUPS.map((group, groupIndex) => {
           // Sprint L2.6 - discoverability only; the real gate is server-side.
-          const items = group.items.filter((item) => !item.adminOnly || user?.role === "admin");
+          const items = group.items.filter((item) => (!item.adminOnly || user?.role === "admin") && (!item.rewardsOnly || user?.rewardsOpen === true));
           if (items.length === 0) return null;
           const groupKey = group.label ?? `ungrouped-${groupIndex}`;
           const headingCollapsed = group.label ? (groupCollapsed[groupKey] ?? false) : false;

@@ -13,6 +13,7 @@ const ADMIN_NAV = [
   { label: "Subscriptions", href: "/dashboard/admin/subscriptions" },
   { label: "Payment Links", href: "/dashboard/admin/payment-links" },
   { label: "Seller Payouts", href: "/dashboard/admin/seller-payouts" },
+  { label: "Algo Contracts", href: "/dashboard/admin/rewards" },
   { label: "Listing Reports", href: "/dashboard/admin/listing-reports" },
   { label: "Live Results", href: "/dashboard/admin/live-results" },
   { label: "Knowledge", href: "/dashboard/admin/knowledge" },

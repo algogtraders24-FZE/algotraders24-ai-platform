@@ -8,6 +8,7 @@ import AppShell from "@/components/shell/AppShell";
 import FeedbackWidget from "@/components/dashboard/FeedbackWidget";
 import PwaProvider from "@/components/pwa/PwaProvider";
 import { requireUser } from "@/lib/auth/protectedRoute";
+import { rewardsOpenFor } from "@/lib/rewards/access";
 import { UserProvider, type CurrentUser } from "@/context/UserContext";
 
 export default async function DashboardLayout({
@@ -28,6 +29,7 @@ export default async function DashboardLayout({
     planId: p.planId,
     status: p.status,
     emailVerified: p.emailVerified,
+    rewardsOpen: rewardsOpenFor(p.email),
   };
 
   return (
