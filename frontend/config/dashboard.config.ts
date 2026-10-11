@@ -57,6 +57,7 @@ import {
   BookOpen,
   Radio,
   Wallet,
+  Gem,
   type LucideIcon,
 } from "lucide-react";
 
@@ -74,6 +75,8 @@ export interface DashboardNavItem {
   // (requireRole in app/dashboard/admin/layout.tsx) - hiding the link is
   // just discoverability, never the actual authorization boundary.
   adminOnly?: boolean;
+  // Rewards program: only listed for accounts the rollout mode has opened (see lib/rewards/access.ts). Discoverability only.
+  rewardsOnly?: boolean;
   // Sprint IA1 - a second, unlabeled nesting tier. Used for real existing
   // pages that are a sub-capability of the parent (e.g. Trading Copilot
   // and Knowledge Base under AI Assistant) rather than a distinct locked
@@ -222,6 +225,8 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       { label: "Live Results", href: "/dashboard/live-results", icon: LineChart },
       // Seller self-serve Phase 4: what the seller earned from marketplace sales + USDT payout requests.
       { label: "Earnings", href: "/dashboard/earnings", icon: Wallet },
+      // Rewards & Partner Program: 12-month contracts, rebate schedule, member badge. Hidden unless the program is open for the account.
+      { label: "Rewards", href: "/dashboard/rewards", icon: Gem, rewardsOnly: true },
       // No standalone Research page exists (Sprint D2.4.A1 deliberately
       // redirected the marketing /platform/research page into Assistant,
       // since Research wasn't distinct content there). Inside the

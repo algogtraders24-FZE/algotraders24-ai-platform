@@ -24,6 +24,8 @@ import { PLAN_LABELS } from "@/config/billing.config";
 import type { PlanId } from "@/types/billing";
 import ResendVerificationButton from "@/components/auth/ResendVerificationButton";
 import Card from "@/components/ui/Card";
+import { Gem } from "lucide-react";
+import { rewardsOpenFor } from "@/lib/rewards/access";
 
 export default async function DashboardHome() {
   const sessionUser = await requireUser();
@@ -100,6 +102,19 @@ export default async function DashboardHome() {
           </ButtonLink>
         }
       />
+
+      {rewardsOpenFor(user.email) && (
+        <Card className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Gem size={20} className="text-gold" aria-hidden="true" />
+            <div>
+              <p className="text-sm font-semibold text-text">Rewards</p>
+              <p className="text-xs text-text-3">12-month AI Algo contracts with a fixed quarterly rebate, for Pro members.</p>
+            </div>
+          </div>
+          <ButtonLink href="/dashboard/rewards" variant="secondary" size="sm">Open Rewards</ButtonLink>
+        </Card>
+      )}
 
       <Card className="flex flex-wrap gap-6">
         <div>

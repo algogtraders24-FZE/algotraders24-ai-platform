@@ -14,6 +14,8 @@ export interface CurrentUser {
   planId: string;
   status: "active" | "suspended";
   emailVerified: boolean;
+  /** Rewards program is open for this account (server-computed rollout check). Controls the sidebar link only; the page and APIs gate again. */
+  rewardsOpen?: boolean;
 }
 
 interface UserContextValue {
