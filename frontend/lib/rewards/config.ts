@@ -28,8 +28,8 @@ export const REWARD_PRODUCTS: Record<RewardProductKey, RewardProductConfig> = {
   BTC_AI_ALGO: { key: "BTC_AI_ALGO", name: "BTC AI Algo", listPriceCents: 499_900, rebateCents: 200_000, installments: 4, intervalDays: 90, termMonths: 12, referralCents: [10_000, 5_000, 5_000, 5_000] },
   GOLD_AI_ALGO: { key: "GOLD_AI_ALGO", name: "Gold AI Algo", listPriceCents: 999_900, rebateCents: 500_000, installments: 4, intervalDays: 90, termMonths: 12, referralCents: [20_000, 10_000, 10_000, 10_000] },
   INDEX_AI_ALGO: { key: "INDEX_AI_ALGO", name: "Index AI Algo", listPriceCents: 2_999_900, rebateCents: 1_800_000, installments: 4, intervalDays: 90, termMonths: 12, referralCents: [60_000, 30_000, 30_000, 30_000] },
-  // Owner-only test contract: $10, rebate 4 x $1 due one day apart (so a test finishes in 4 days), commission 2% / 1% / 1% / 1% of $10.
-  TEST_AI_ALGO: { key: "TEST_AI_ALGO", name: "Test Contract (owner only)", listPriceCents: 1_000, rebateCents: 400, installments: 4, intervalDays: 1, termMonths: 12, referralCents: [20, 10, 10, 10], testOnly: true },
+  // Owner-only test contract: $15 (NOWPayments refuses less than about $10 on USDT-TRC20), rebate 4 x $1.50 due one day apart (so a test finishes in 4 days), commission 2% / 1% / 1% / 1% of $15.
+  TEST_AI_ALGO: { key: "TEST_AI_ALGO", name: "Test Contract (owner only)", listPriceCents: 1_500, rebateCents: 600, installments: 4, intervalDays: 1, termMonths: 12, referralCents: [30, 15, 15, 15], testOnly: true },
 };
 
 /** The three real products (what every member sees). */
