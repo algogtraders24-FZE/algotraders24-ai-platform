@@ -43,3 +43,6 @@ Set `REWARDS_OWNER_AS_PRO=true` (Vercel, then redeploy) and the owner accounts c
 
 ## If the Vercel build for a merge does not appear
 A merge to main normally starts a production build in 1-2 minutes. On 2026-10-12 the build for the $15 test-price merge (#231) never started (webhook miss), so the live site kept the old $10 config. Merging any small PR starts a new build of the latest main; check Vercel -> Deployments for a Production row that matches the newest "Merge pull request" commit before testing.
+
+## Second platform (MT4 next to MT5)
+A contract product can carry a second listing for the other platform (admin -> Products, "MT4 listing id (optional)"). The buyer then gets BOTH licences from the one payment (the second is free, same 12-month expiry), and both show under My Licenses. Each EA must be compiled with its own listing's system id (`SELF-<listingId>`), otherwise the licence guard answers "this key is for another product". Verified live on 2026-10-12 with the test contract.
