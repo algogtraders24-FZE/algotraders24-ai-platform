@@ -1,6 +1,6 @@
 // lib/rewards/ledger.ts
 // (Pure - no I/O.) Balance buckets, the reserve view, and idempotency keys.
-import { HOLD_DAYS } from "./config";
+import { holdDays } from "./config";
 import { addDays } from "./money";
 
 /** One money item a user may hold: a released rebate instalment or an earned referral commission. */
@@ -30,7 +30,7 @@ export function bucketOf(i: BalanceItem, now: Date = new Date()): keyof Balances
   // RELEASED
   if (i.payoutId) return "requested";
   if (!i.releasedAt) return "holding";
-  return addDays(i.releasedAt, HOLD_DAYS).getTime() <= now.getTime() ? "available" : "holding";
+  return addDays(i.releasedAt, holdDays()).getTime() <= now.getTime() ? "available" : "holding";
 }
 
 export function summarizeBalances(items: BalanceItem[], now: Date = new Date()): Balances {

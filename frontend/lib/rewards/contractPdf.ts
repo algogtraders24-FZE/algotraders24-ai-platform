@@ -4,7 +4,7 @@
 // named; a legal-entity block is printed only if one is passed in (it is empty by default, see spec section 9).
 // DRAFT wording - to be reviewed by counsel before the program opens to the public.
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
-import { HOLD_DAYS, MIN_PAYOUT_CENTS } from "./config";
+import { holdDays, minPayoutCents } from "./config";
 import { formatUsd } from "./money";
 
 export interface ContractPdfInput {
@@ -71,7 +71,7 @@ export function contractClauses(i: ContractPdfInput): Array<{ title: string; bod
     },
     {
       title: "5. Conditions for crediting and withdrawal",
-      body: `An instalment is credited on its due date while you hold an active, paid Pro plan and a verified identity. If either is not in place on the due date, the instalment is paused and kept for you, and is credited once both are restored during the contract term. Credited amounts can be withdrawn in USDT after a ${HOLD_DAYS}-day hold, subject to a minimum of ${formatUsd(MIN_PAYOUT_CENTS)}, and withdrawals also need an active Pro plan and a verified identity at the time of the request. AT24 may withhold or reverse amounts obtained through fraud, self-referral or misuse, and will record the reason.`,
+      body: `An instalment is credited on its due date while you hold an active, paid Pro plan and a verified identity. If either is not in place on the due date, the instalment is paused and kept for you, and is credited once both are restored during the contract term. Credited amounts can be withdrawn in USDT after a ${holdDays()}-day hold, subject to a minimum of ${formatUsd(minPayoutCents())}, and withdrawals also need an active Pro plan and a verified identity at the time of the request. AT24 may withhold or reverse amounts obtained through fraud, self-referral or misuse, and will record the reason.`,
     },
     {
       title: "6. Refunds",

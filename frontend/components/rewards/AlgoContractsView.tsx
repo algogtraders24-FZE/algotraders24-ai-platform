@@ -106,7 +106,8 @@ function HowItWorks() {
 
 // ---------- contract cards ----------
 function RebateRail({ p }: { p: ProductVM }) {
-  const months = Array.from({ length: p.installments }, (_, i) => (i + 1) * p.intervalMonths);
+  const short = p.intervalDays < 30; // the owner-only test contract pays one instalment a day
+  const months = Array.from({ length: p.installments }, (_, i) => (short ? (i + 1) * p.intervalDays : (i + 1) * p.intervalMonths));
   return (
     <div>
       <div className="relative flex items-center justify-between px-1">
@@ -119,7 +120,7 @@ function RebateRail({ p }: { p: ProductVM }) {
         {months.map((m) => (
           <div key={m}>
             <p className="text-xs font-semibold text-text">{formatUsd(p.perQuarterCents)}</p>
-            <p className="text-[11px] text-text-3">month {m}</p>
+            <p className="text-[11px] text-text-3">{short ? "day" : "month"} {m}</p>
           </div>
         ))}
       </div>
@@ -131,6 +132,7 @@ function ContractCard({ p }: { p: ProductVM }) {
   const color = BADGE_TIERS[p.key].color;
   const slot = p.slot;
   const used = slot && slot.opened ? Math.max(0, slot.limit - slot.remaining) : 0;
+  const short = p.intervalDays < 30; // the owner-only test contract pays one instalment a day
   return (
     <Card padding="none" className="flex flex-col overflow-hidden">
       <div className="h-1.5" style={{ background: color }} aria-hidden="true" />
@@ -159,7 +161,7 @@ function ContractCard({ p }: { p: ProductVM }) {
         </div>
 
         <div>
-          <p className="mb-2 text-xs font-medium text-text-2">{p.installments} instalments of {formatUsd(p.perQuarterCents)} over {p.termMonths} months</p>
+          <p className="mb-2 text-xs font-medium text-text-2">{p.installments} instalments of {formatUsd(p.perQuarterCents)} over {short ? `${p.installments * p.intervalDays} days` : `${p.termMonths} months`}</p>
           <RebateRail p={p} />
         </div>
 

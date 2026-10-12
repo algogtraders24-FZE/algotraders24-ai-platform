@@ -10,7 +10,7 @@ import Alert from "@/components/ui/Alert";
 import Badge from "@/components/ui/Badge";
 
 interface Slot { limit: number; opened: boolean; remaining: number }
-interface Product { key: string; name: string; enabled: boolean; listingId: string | null; slot: Slot | null }
+interface Product { key: string; name: string; listPriceCents?: number; enabled: boolean; listingId: string | null; slot: Slot | null }
 interface Overview {
   month: string;
   products: Product[];
@@ -45,6 +45,7 @@ export default function AdminRewardsClient() {
   const [notice, setNotice] = useState<string | null>(null);
   const [limits, setLimits] = useState<Record<string, number>>({});
   const [tx, setTx] = useState<Record<string, string>>({});
+  const [listing, setListing] = useState<Record<string, string>>({});
 
   const load = useCallback(async (m?: string) => {
     try {
@@ -52,6 +53,7 @@ export default function AdminRewardsClient() {
       setData(d);
       setMonth(d.month);
       setLimits(Object.fromEntries(d.products.map((p) => [p.key, p.slot?.limit ?? 0])));
+      setListing(Object.fromEntries(d.products.map((p) => [p.key, p.listingId ?? ""])));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load.");
     }
@@ -87,6 +89,32 @@ export default function AdminRewardsClient() {
           <Stat label="Still owed" value={usd(r.owedCents)} tone={r.balanced ? undefined : "bad"} />
         </div>
         {r.balanced ? <Badge tone="success">Reserve matches what is owed</Badge> : <Alert tone="danger">Reserve does not match what is owed. Shortfall {usd(r.shortfallCents)}. Check before paying anything out.</Alert>}
+      </Card>
+
+      <Card className="space-y-3">
+        <h2 className="text-lg font-semibold text-text">Products</h2>
+        <p className="text-xs text-text-3">Bind each contract to its marketplace listing (the listing price must equal the contract price, and it needs a published build), then switch it on. The test contract is visible to owner accounts only.</p>
+        <ul className="divide-y divide-border">
+          {data.products.map((p) => (
+            <li key={p.key} className="flex flex-wrap items-center justify-between gap-3 py-3">
+              <div>
+                <p className="text-sm font-medium text-text">{p.name} {p.listPriceCents !== undefined && <span className="text-text-3">· {usd(p.listPriceCents)}</span>}</p>
+                <p className="text-xs text-text-3">{p.enabled && p.listingId ? "On, sold from listing " + p.listingId : "Off"}</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Input value={listing[p.key] ?? ""} onChange={(e) => setListing({ ...listing, [p.key]: e.target.value })} placeholder="Listing id" aria-label={`${p.name} listing id`} className="w-64" />
+                <Button size="sm" onClick={() => act(() => call("/api/private/admin/rewards/products", "POST", { key: p.key, listingId: listing[p.key] ?? "", enabled: true }), `${p.name}: switched on.`)}>Save and switch on</Button>
+                <Button size="sm" variant="secondary" onClick={() => act(() => call("/api/private/admin/rewards/products", "POST", { key: p.key, listingId: listing[p.key] ?? "", enabled: false }), `${p.name}: switched off.`)}>Switch off</Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </Card>
+
+      <Card className="space-y-3">
+        <h2 className="text-lg font-semibold text-text">Daily check</h2>
+        <p className="text-xs text-text-3">Releases the rebate instalments that are due, pauses the ones whose member is not in good standing, releases commissions past their hold, and checks the reserve. Safe to run more than once.</p>
+        <Button size="sm" onClick={async () => { setError(null); setNotice(null); try { const r = (await call("/api/private/rewards/cron/sweep", "POST")) as Record<string, number | string[]>; const errs = (r.errors as string[]) ?? []; setNotice(`Daily check done: ${r.released} released, ${r.frozen} paused, ${r.commissionsReleased} commissions released, ${r.contractsCancelled} cancelled. ${errs.length ? "Problems: " + errs.join("; ") : "No problems."}`); await load(month); } catch (e) { setError(e instanceof Error ? e.message : "The daily check failed."); } }}>Run the daily check now</Button>
       </Card>
 
       <Card className="space-y-3">

@@ -6,11 +6,11 @@ import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { rewardsOpenFor } from "@/lib/rewards/access";
-import { HOLD_DAYS, MIN_PAYOUT_CENTS, withdrawalsEnabled } from "@/lib/rewards/config";
+import { holdDays, minPayoutCents, withdrawalsEnabled } from "@/lib/rewards/config";
 import { PAYOUT_NETWORKS } from "@/lib/marketplace/earnings";
 import { getBalances, listPayouts, requestWithdrawal } from "@/services/rewards/payoutStore";
 
-const RULES = () => ({ holdDays: HOLD_DAYS, minCents: MIN_PAYOUT_CENTS, networks: PAYOUT_NETWORKS, method: "USDT", withdrawalsOpen: withdrawalsEnabled() });
+const RULES = () => ({ holdDays: holdDays(), minCents: minPayoutCents(), networks: PAYOUT_NETWORKS, method: "USDT", withdrawalsOpen: withdrawalsEnabled() });
 
 export const GET = withContext(async (_req, ctx) => {
   const user = await getUserOrNull();

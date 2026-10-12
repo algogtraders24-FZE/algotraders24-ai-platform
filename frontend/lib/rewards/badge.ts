@@ -17,6 +17,7 @@ export const BADGE_TIERS: Record<RewardProductKey, BadgeTier> = {
   BTC_AI_ALGO: { key: "BTC_AI_ALGO", rank: 1, label: "Blue Diamond", color: "#2F80ED", description: "Active BTC AI Algo contract" },
   GOLD_AI_ALGO: { key: "GOLD_AI_ALGO", rank: 2, label: "Gold Diamond", color: "#E0A800", description: "Active Gold AI Algo contract" },
   INDEX_AI_ALGO: { key: "INDEX_AI_ALGO", rank: 3, label: "Violet Diamond", color: "#8E44EC", description: "Active Index AI Algo contract" },
+  TEST_AI_ALGO: { key: "TEST_AI_ALGO", rank: 0, label: "Test Diamond", color: "#9CA3AF", description: "Active test contract (owner only)" },
 };
 
 export interface MemberBadge {

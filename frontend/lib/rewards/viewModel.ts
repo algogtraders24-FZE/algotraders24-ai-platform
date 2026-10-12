@@ -16,6 +16,7 @@ export interface ProductVM {
   perQuarterCents: number;
   installments: number;
   intervalMonths: number;
+  intervalDays: number;
   netPriceCents: number;
   slot: SlotVM | null;
   /** Why the buy button is not available, or null when the member can buy. */
@@ -60,6 +61,7 @@ const TAGLINES: Record<RewardProductKey, string> = {
   BTC_AI_ALGO: "BTC-USD, trades around the clock",
   GOLD_AI_ALGO: "XAUUSD gold, for 2 and 3 digit brokers",
   INDEX_AI_ALGO: "Index CFDs such as US30",
+  TEST_AI_ALGO: "Owner-only test of the whole flow",
 };
 
 /** The static part of a product card (money maths comes from the same code that issues the contract). */
@@ -76,6 +78,7 @@ export function buildProductVM(key: RewardProductKey, opts: { slot: SlotVM | nul
     perQuarterCents: m.schedule[0].amountCents,
     installments: p.installments,
     intervalMonths: Math.round(p.intervalDays / 30),
+    intervalDays: p.intervalDays,
     netPriceCents: m.netPriceCents,
     slot: opts.slot,
     blockedReason: opts.blockedReason,

@@ -5,7 +5,7 @@
 // issueLicenseForPurchase; its expiry was set to the end of the 12-month term by the webhook before issuing.
 import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { HOLD_DAYS, REWARD_PRODUCTS, isRewardProductKey, multiLevelReferralEnabled } from "@/lib/rewards/config";
+import { holdDays, REWARD_PRODUCTS, isRewardProductKey, multiLevelReferralEnabled } from "@/lib/rewards/config";
 import { addDays, computeContractMoney, computeReferralShares } from "@/lib/rewards/money";
 import { canEarnReferral } from "@/lib/rewards/eligibility";
 import { ledgerKey } from "@/lib/rewards/ledger";
@@ -105,7 +105,7 @@ export async function fulfilRewardCheckout(input: { intentId: string; providerRe
         await tx.referralAttribution.create({ data: { partnerId: attribution.partnerId, buyerId: checkout.userId, codeId: attribution.codeId, purchaseId: purchase.id } });
         for (const s of shares) {
           await tx.referralCommission.create({
-            data: { purchaseId: purchase.id, partnerId: s.partnerId, level: s.level, amountCents: s.amountCents, status: "PENDING", availableAt: addDays(purchase.purchasedAt, HOLD_DAYS) },
+            data: { purchaseId: purchase.id, partnerId: s.partnerId, level: s.level, amountCents: s.amountCents, status: "PENDING", availableAt: addDays(purchase.purchasedAt, holdDays()) },
           });
         }
       }
