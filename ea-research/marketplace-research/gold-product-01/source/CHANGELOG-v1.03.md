@@ -12,3 +12,7 @@ Compiles with MetaEditor64 (0 errors, 0 warnings). NOT run in the Strategy Teste
 
 Before it is sold: set AT24_TRADING_SYSTEM_ID / AT24_VERSION_ID to the registered ids, allow the AT24 URL for WebRequest, deliver the
 .ex5 only, do not market it as AI (rule-based breakout), and run a fresh backtest plus a demo.
+
+## One-key licence option (added after the first v1.03 commit)
+New input InpLicenseKey: paste the single key (AT24-...) from the purchase page and leave the four alternative rows empty. The EA calls /api/license/check, which also binds the trading account, and then checks that the key belongs to THIS product (tradingSystemId and platform from the answer) so a key for another AT24 product cannot run this EA. A refusal stops new trades; a network or server problem keeps the last known state. The four-value mode still works.
+Compiles with 0 errors, 0 warnings. Not tested against the live server (needs a real licence).
