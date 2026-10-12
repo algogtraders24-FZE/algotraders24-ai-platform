@@ -66,6 +66,7 @@ export const POST = withContext(async (req, ctx) => {
     pricing: listing.pricing,
     hasBuild: !!release,
     acceptTerms,
+    ownerExemptFromPriceCap: isPlatformOwner(email),
   });
   if (missing.length > 0) {
     return ApiResponse.error({ code: "NOT_READY", message: `Before publishing you still need: ${missing.join(", ")}.` }, ctx.requestId, 422, ctx.startedAt);

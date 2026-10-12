@@ -85,6 +85,8 @@ export interface PublishRequirementsInput {
   pricing: unknown;
   hasBuild: boolean;
   acceptTerms: boolean;
+  /** The platform owner is not held to the seller price cap (Algo Contract products are priced above it). */
+  ownerExemptFromPriceCap?: boolean;
 }
 
 /** What must be true before a self-serve listing goes live. Returns the exact missing items. */
@@ -95,7 +97,7 @@ export function checkPublishRequirements(i: PublishRequirementsInput): string[] 
   if (!i.media[0]) missing.push("a logo (icon)");
   const p = i.pricing as { model?: unknown; amount?: unknown } | null;
   if (!p || p.model !== "one_time" || typeof p.amount !== "number" || !(p.amount > 0)) missing.push("a price");
-  else if (p.amount > MAX_SELF_SERVE_PRICE_USD) missing.push(`a price of at most ${MAX_SELF_SERVE_PRICE_USD} USD`);
+  else if (p.amount > MAX_SELF_SERVE_PRICE_USD && !i.ownerExemptFromPriceCap) missing.push(`a price of at most ${MAX_SELF_SERVE_PRICE_USD} USD`);
   if (!i.hasBuild) missing.push("an uploaded product file");
   if (!i.acceptTerms) missing.push("acceptance of the seller terms");
   return missing;
