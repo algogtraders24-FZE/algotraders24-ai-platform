@@ -3,7 +3,7 @@
 // No database, no network. Run: npx tsx scripts/validate-rewards.ts
 import {
   REWARD_PRODUCTS, REWARD_PRODUCT_KEYS, HOLD_DAYS, MIN_PAYOUT_CENTS, BANNED_COPY_WORDS,
-  rewardsMode, multiLevelReferralEnabled, withdrawalsEnabled, isRewardProductKey,
+  rewardsMode, multiLevelReferralEnabled, withdrawalsEnabled, isRewardProductKey, ALL_REWARD_PRODUCT_KEYS, REWARD_TEST_KEY, holdDays, minPayoutCents,
 } from "../lib/rewards/config";
 import { bps, formatUsd, addMonths, computeContractMoney, computeReferralShares, assertProductSane, maxOutflowCents } from "../lib/rewards/money";
 import { isProActive, programOpenFor, canBuyContract, decideInstalment, canWithdraw, canEarnReferral, type UserFacts } from "../lib/rewards/eligibility";
@@ -185,7 +185,7 @@ check("reserve identity: outstanding equals the 3 remaining instalments", mid.ou
 // --- member badge (diamond + colour next to the name)
 type PK = "BTC_AI_ALGO" | "GOLD_AI_ALGO" | "INDEX_AI_ALGO";
 const bd = (productKey: PK, status: "ACTIVE" | "FROZEN" | "ENDED" | "REVOKED" | "PENDING_DOCUMENT") => badgeFor([{ productKey, status }]);
-check("each product has its own diamond colour", new Set(Object.values(BADGE_TIERS).map((t) => t.color)).size === 3);
+check("each product has its own diamond colour (the test tier too)", new Set(Object.values(BADGE_TIERS).map((t) => t.color)).size === ALL_REWARD_PRODUCT_KEYS.length && ALL_REWARD_PRODUCT_KEYS.length === 4);
 check("active contract shows the badge", bd("GOLD_AI_ALGO", "ACTIVE")?.tier === "GOLD_AI_ALGO" && bd("GOLD_AI_ALGO", "ACTIVE")?.dimmed === false);
 check("frozen contract shows the badge dimmed", bd("BTC_AI_ALGO", "FROZEN")?.dimmed === true);
 check("ended / revoked / pending shows no badge", bd("BTC_AI_ALGO", "ENDED") === null && bd("BTC_AI_ALGO", "REVOKED") === null && bd("BTC_AI_ALGO", "PENDING_DOCUMENT") === null && badgeFor([]) === null);
@@ -268,6 +268,23 @@ const kb = kycEmailBody({ name: "Ravi <b>K</b>", siteUrl: "https://algotraders24
 check("KYC email links Settings (no double slash) and escapes the name", kb.includes("https://algotraders24.ai/dashboard/settings") && !kb.includes("<b>K</b>") && kb.includes("Ravi &lt;b&gt;K&lt;/b&gt;"));
 check("KYC email is truthful: plan keeps working, rule applies to the next purchase/renewal, document not seen by AT24", /keeps working until it ends/.test(kb) && /Nothing is cancelled/.test(kb) && /renewing a paid plan/.test(kb) && /never sees or stores your ID document/.test(kb));
 check("KYC email has no banned wording and a plain subject", BANNED_COPY_WORDS.every((w) => !new RegExp(`\\b${w.replace(/ /g, "\\s+")}`, "i").test(kb + " " + KYC_EMAIL_SUBJECT)) && KYC_EMAIL_SUBJECT.length < 70);
+
+// --- the owner-only $10 test contract and the test-only settings
+const tp = REWARD_PRODUCTS[REWARD_TEST_KEY];
+const tm = computeContractMoney(tp, NOW);
+check("test contract: $10, rebate 4 x $1, net $6, one instalment a day", tp.testOnly === true && tm.listPriceCents === 1_000 && tm.rebateTotalCents === 400 && tm.netPriceCents === 600 && tm.schedule.map((x) => x.amountCents).join() === "100,100,100,100" && tm.schedule.map((x) => Math.round((x.dueAt.getTime() - NOW.getTime()) / 86_400_000)).join() === "1,2,3,4");
+check("test contract commission is 2/1/1/1 percent of $10 (20/10/10/10 cents), within the price", tp.referralCents.join() === "20,10,10,10" && tp.rebateCents + tp.referralCents.reduce((a, c) => a + c, 0) < tp.listPriceCents);
+check("the test contract is not one of the public products, but is a known key", !REWARD_PRODUCT_KEYS.includes(REWARD_TEST_KEY) && isRewardProductKey(REWARD_TEST_KEY) && !REWARD_PRODUCT_KEYS.some((k) => REWARD_PRODUCTS[k].testOnly));
+check("real products are never test-only", REWARD_PRODUCT_KEYS.every((k) => !REWARD_PRODUCTS[k].testOnly));
+check("hold days: default 7, override 0-30 only", holdDays(undefined) === 7 && holdDays("") === 7 && holdDays("0") === 0 && holdDays("3") === 3 && holdDays("30") === 30 && holdDays("31") === 7 && holdDays("-1") === 7 && holdDays("abc") === 7 && holdDays("1.5") === 7);
+check("min payout: default $50, can only be LOWERED (1-50 whole dollars)", minPayoutCents(undefined) === 5_000 && minPayoutCents("1") === 100 && minPayoutCents("50") === 5_000 && minPayoutCents("51") === 5_000 && minPayoutCents("0") === 5_000 && minPayoutCents("2.5") === 5_000 && minPayoutCents("x") === 5_000);
+// with hold days 0 a released amount is withdrawable at once; with the default it waits 7 days
+process.env.REWARDS_HOLD_DAYS = "0";
+check("hold 0: a released instalment is available immediately", bucketOf({ amountCents: 100, status: "RELEASED", releasedAt: NOW, payoutId: null }, NOW) === "available");
+delete process.env.REWARDS_HOLD_DAYS;
+check("hold default: the same instalment is still holding", bucketOf({ amountCents: 100, status: "RELEASED", releasedAt: NOW, payoutId: null }, NOW) === "holding");
+const tCard = buildProductVM(REWARD_TEST_KEY, { slot: null, blockedReason: null });
+check("test card shows the day rhythm", tCard.intervalDays === 1 && tCard.perQuarterCents === 100 && tCard.netPriceCents === 600);
 
 // --- copy guard on the strings this program shows
 const copy = REWARD_PRODUCT_KEYS.map((k) => REWARD_PRODUCTS[k].name).join(" ").toLowerCase();

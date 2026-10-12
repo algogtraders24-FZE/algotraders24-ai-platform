@@ -5,7 +5,7 @@ import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { requireAdmin } from "@/lib/auth/adminRoute";
 import { prisma } from "@/lib/prisma";
-import { REWARD_PRODUCT_KEYS, REWARD_PRODUCTS } from "@/lib/rewards/config";
+import { ALL_REWARD_PRODUCT_KEYS, REWARD_PRODUCTS } from "@/lib/rewards/config";
 import { reserveShortfall, summarizeReserve } from "@/lib/rewards/ledger";
 import { isMonthKey, monthKey } from "@/lib/rewards/slots";
 import { slotSummary } from "@/services/rewards/slotStore";
@@ -35,9 +35,10 @@ export const GET = withContext(async (req, ctx) => {
   return ApiResponse.success(
     {
       month,
-      products: REWARD_PRODUCT_KEYS.map((k) => ({
+      products: ALL_REWARD_PRODUCT_KEYS.map((k) => ({
         key: k,
         name: REWARD_PRODUCTS[k].name,
+        listPriceCents: REWARD_PRODUCTS[k].listPriceCents,
         enabled: enabledRows.find((r) => r.key === k)?.enabled ?? false,
         listingId: enabledRows.find((r) => r.key === k)?.listingId ?? null,
         slot: slots.byProduct[k] ?? null,

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { nowPaymentsProvider } from "@/services/billing/providers/NowPaymentsProvider";
 import { PaymentProviderError } from "@/lib/payments/errors";
 import { CONTRACT_TERMS_VERSION, REWARD_PRODUCTS, isRewardProductKey, rewardsAllowlist, rewardsMode } from "@/lib/rewards/config";
+import { isPlatformOwner } from "@/lib/marketplace/selfServe";
 import { canBuyContract } from "@/lib/rewards/eligibility";
 import { loadUserFacts } from "@/lib/rewards/access";
 import { normalizeReferralCode } from "@/lib/rewards/referral";
@@ -31,6 +32,7 @@ const fail = (code: string, message: string, status: 400 | 403 | 409 | 502 | 503
 export async function startRewardCheckout(input: StartCheckoutInput): Promise<StartCheckoutResult> {
   if (!isRewardProductKey(input.productKey)) return fail("VALIDATION", "Unknown product.", 400);
   const product = REWARD_PRODUCTS[input.productKey];
+  if (product.testOnly && !isPlatformOwner(input.email)) return fail("NOT_AVAILABLE", "This contract is not open yet.", 409);
   if (input.acceptTerms !== true || input.acceptRefundPolicy !== true) {
     return fail("CONSENT_REQUIRED", "Please accept the contract terms and the refund policy to continue.", 400);
   }

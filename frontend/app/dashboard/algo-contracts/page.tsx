@@ -10,7 +10,8 @@ import { requireUser } from "@/lib/auth/protectedRoute";
 import { prisma } from "@/lib/prisma";
 import { loadUserFacts, rewardsOpenFor } from "@/lib/rewards/access";
 import { badgeFor } from "@/lib/rewards/badge";
-import { HOLD_DAYS, MIN_PAYOUT_CENTS, REWARD_PRODUCTS, REWARD_PRODUCT_KEYS, isRewardProductKey, multiLevelReferralEnabled, withdrawalsEnabled } from "@/lib/rewards/config";
+import { REWARD_PRODUCTS, REWARD_PRODUCT_KEYS, REWARD_TEST_KEY, holdDays, isRewardProductKey, minPayoutCents, multiLevelReferralEnabled, withdrawalsEnabled } from "@/lib/rewards/config";
+import { isPlatformOwner } from "@/lib/marketplace/selfServe";
 import { canEarnReferral, isIdentityVerified, isProActive } from "@/lib/rewards/eligibility";
 import { referralLink } from "@/lib/rewards/referral";
 import { buildProductVM, type AlgoContractsVM } from "@/lib/rewards/viewModel";
@@ -59,7 +60,7 @@ export default async function AlgoContractsPage() {
   const vm: AlgoContractsVM = {
     nowIso: now.toISOString(),
     eligibility: { proOk, kycOk, kycAvailable: identityProvider() !== null },
-    products: REWARD_PRODUCT_KEYS.map((key) => {
+    products: (isPlatformOwner(user.email) ? [...REWARD_PRODUCT_KEYS, REWARD_TEST_KEY] : REWARD_PRODUCT_KEYS).map((key) => {
       const slot = slots.byProduct[key] ?? null;
       const blockedReason = !enabled.has(key) ? "Opens soon" : !proOk ? "Active paid Pro plan needed" : !kycOk ? "Identity verification needed" : !slot?.opened ? "Closed this month" : slot.remaining <= 0 ? "All slots taken this month" : null;
       return buildProductVM(key, { slot, blockedReason });
@@ -85,12 +86,12 @@ export default async function AlgoContractsPage() {
     withdrawals: {
       open: withdrawalsEnabled(),
       blockedReason: !proOk ? "An active paid Pro plan is needed to withdraw." : !kycOk ? "Identity verification is needed to withdraw." : null,
-      minCents: MIN_PAYOUT_CENTS,
-      holdDays: HOLD_DAYS,
+      minCents: minPayoutCents(),
+      holdDays: holdDays(),
     },
     referral: {
       link: refCode ? referralLink(refCode, process.env.NEXT_PUBLIC_SITE_URL || undefined) : null,
-      blockedReason: canEarnReferral(facts, now) ? null : "An active paid Pro plan and a verified identity are needed to get a referral link.",
+      blockedReason: canEarnReferral(facts, now) || isPlatformOwner(user.email) ? null : "An active paid Pro plan and a verified identity are needed to get a referral link.",
       multiLevel: multiLevelReferralEnabled(),
     },
   };

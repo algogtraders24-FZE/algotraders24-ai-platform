@@ -4,7 +4,7 @@
 // instalments and referral commission that are released and past the hold); an admin pays it by hand. Eligibility (active paid Pro,
 // verified identity, withdrawals switched on) is checked at the request AND again when the admin approves.
 import { prisma } from "@/lib/prisma";
-import { HOLD_DAYS, MIN_PAYOUT_CENTS, withdrawalsEnabled } from "@/lib/rewards/config";
+import { holdDays, minPayoutCents, withdrawalsEnabled } from "@/lib/rewards/config";
 import { canWithdraw } from "@/lib/rewards/eligibility";
 import { summarizeBalances, type Balances, type BalanceItem } from "@/lib/rewards/ledger";
 import { addDays } from "@/lib/rewards/money";
@@ -37,14 +37,14 @@ export async function requestWithdrawal(input: { userId: string; email: string; 
   const open = await prisma.rewardPayout.findFirst({ where: { userId: input.userId, status: "REQUESTED" }, select: { id: true } });
   if (open) return { ok: false, code: "OPEN_REQUEST", message: "You already have a withdrawal waiting to be paid." };
 
-  const holdCutoff = addDays(now, -HOLD_DAYS);
+  const holdCutoff = addDays(now, -holdDays());
   const [inst, comm] = await Promise.all([
     prisma.rebateInstallment.findMany({ where: { userId: input.userId, status: "RELEASED", payoutId: null, releasedAt: { lte: holdCutoff } }, select: { id: true, amountCents: true } }),
     prisma.referralCommission.findMany({ where: { partnerId: input.userId, status: "RELEASED", payoutId: null, releasedAt: { lte: now } }, select: { id: true, amountCents: true } }),
   ]);
   const total = [...inst, ...comm].reduce((s, i) => s + i.amountCents, 0);
   const facts = await loadUserFacts(input.userId, input.email);
-  const verdict = canWithdraw(facts, { availableCents: total, amountCents: total, minCents: MIN_PAYOUT_CENTS, withdrawalsOn: withdrawalsEnabled(), now });
+  const verdict = canWithdraw(facts, { availableCents: total, amountCents: total, minCents: minPayoutCents(), withdrawalsOn: withdrawalsEnabled(), now });
   if (!verdict.ok) return { ok: false, code: "NOT_ELIGIBLE", message: verdict.reasons[0] };
 
   try {
@@ -77,7 +77,7 @@ export async function decideWithdrawal(input: { payoutId: string; decision: "PAI
     if (txRef.length < 6) return { ok: false, code: "TX_REQUIRED", message: "Enter the transaction reference of the USDT transfer." };
     const user = await prisma.user.findUnique({ where: { id: payout.userId }, select: { email: true } });
     const facts = await loadUserFacts(payout.userId, user?.email);
-    const verdict = canWithdraw(facts, { availableCents: payout.amountCents, amountCents: payout.amountCents, minCents: MIN_PAYOUT_CENTS, withdrawalsOn: withdrawalsEnabled(), now });
+    const verdict = canWithdraw(facts, { availableCents: payout.amountCents, amountCents: payout.amountCents, minCents: minPayoutCents(), withdrawalsOn: withdrawalsEnabled(), now });
     if (!verdict.ok) return { ok: false, code: "NOT_ELIGIBLE", message: `Cannot pay now: ${verdict.reasons[0]} Reject the request to return the amount to the member's balance.` };
     await prisma.$transaction([
       prisma.rebateInstallment.updateMany({ where: { payoutId: payout.id }, data: { status: "PAID" } }),
