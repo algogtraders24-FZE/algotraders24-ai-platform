@@ -52,7 +52,7 @@ export default async function LicenseDetailPage({ params }: { params: Promise<{ 
         <h2 className="text-sm font-semibold text-text">1. Download</h2>
         <p className="mt-1 text-xs text-text-2">The exact compiled build your license authorizes.</p>
         <a href={`/api/private/licenses/${license.licenseId}/download`} className={`mt-3 ${buttonClasses("primary", "md")}`}>
-          Download EA (.ex5)
+          Download EA ({license.platform === "MT4" ? ".ex4" : ".ex5"})
         </a>
       </Card>
 
