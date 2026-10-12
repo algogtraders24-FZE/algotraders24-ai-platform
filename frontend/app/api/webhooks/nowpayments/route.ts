@@ -69,7 +69,7 @@ export const POST = withContext(async (req, ctx) => {
     return ApiResponse.error({ code: "INVALID_SIGNATURE", message: "NOWPayments IPN signature verification failed" }, ctx.requestId, 400, ctx.startedAt);
   }
 
-  const body = payload as { payment_status?: string; order_id?: string; payment_id?: string; created_at?: string; updated_at?: string };
+  const body = payload as { payment_status?: string; order_id?: string; payment_id?: string | number; created_at?: string; updated_at?: string };
 
   // Payment Verification/Hardening - unlike Stripe (whose SDK enforces a
   // 5-minute signature-timestamp tolerance by default), NOWPayments' HMAC
@@ -100,7 +100,8 @@ export const POST = withContext(async (req, ctx) => {
   if (body.payment_status && body.order_id && FINAL_SUCCESS_STATUSES.has(body.payment_status)) {
     if (body.order_id.startsWith("mkt_")) {
       const intentId = body.order_id.slice("mkt_".length);
-      const paymentId = body.payment_id;
+      // NOWPayments sends payment_id as a JSON NUMBER; everything downstream (Purchase.providerRef, alerts) needs a string.
+      const paymentId = body.payment_id !== undefined && body.payment_id !== null ? String(body.payment_id) : undefined;
       try {
         if (!paymentId) throw new Error("NOWPayments IPN missing payment_id - cannot use as an idempotency key");
 
@@ -219,7 +220,7 @@ export const POST = withContext(async (req, ctx) => {
             provider: "nowpayments",
             currentPeriodStart: now,
             currentPeriodEnd,
-            nowPaymentsInvoiceId: body.payment_id,
+            nowPaymentsInvoiceId: body.payment_id !== undefined ? String(body.payment_id) : undefined,
           });
         } catch (activationError) {
           // The buyer's crypto payment already confirmed at this point (a
@@ -233,7 +234,7 @@ export const POST = withContext(async (req, ctx) => {
               userId: parsed.userId,
               planId: parsed.planId,
               provider: "nowpayments",
-              providerRef: body.payment_id ?? body.order_id,
+              providerRef: String(body.payment_id ?? body.order_id),
               errorMessage: activationError instanceof Error ? activationError.message : String(activationError),
             });
           } catch (alertError) {
@@ -254,7 +255,7 @@ export const POST = withContext(async (req, ctx) => {
           await sendWebhookMetadataMissingAlert({
             provider: "nowpayments",
             eventContext: "subscription IPN (order_id unparseable)",
-            providerRef: body.payment_id ?? body.order_id ?? "unknown",
+            providerRef: String(body.payment_id ?? body.order_id ?? "unknown"),
             missingFields: ["userId", "planId"],
             rawMetadata: { orderId: body.order_id },
           });
