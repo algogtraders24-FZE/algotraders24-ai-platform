@@ -300,7 +300,7 @@ async function main() {
   const left = await prisma.rebateInstallment.findMany({ where: { contractId, status: { in: ["SCHEDULED", "FROZEN"] } } });
   check("no unpaid instalment is left owing", left.length === 0);
 
-  // ---- the owner-only $10 TEST contract, end to end: kharid -> contract -> 4 daily instalments -> commission -> withdrawal
+  // ---- the owner-only $15 TEST contract, end to end: kharid -> contract -> 4 daily instalments -> commission -> withdrawal
   process.env.REWARDS_HOLD_DAYS = "0";
   process.env.REWARDS_MIN_PAYOUT_USD = "1";
   await mkUser("tbuyer");
@@ -310,28 +310,28 @@ async function main() {
   const tf = await fulfilRewardCheckout({ intentId: "intent_30", providerRef: "pay_30" });
   const tId = tf.handled ? tf.contractId : "";
   const tc = await prisma.rewardContract.findUnique({ where: { id: tId } });
-  check("TEST contract: $10 price, $4 rebate, $6 net", tc?.listPriceCents === 1_000 && tc?.rebateTotalCents === 400 && tc?.netPriceCents === 600 && tc?.productKey === "TEST_AI_ALGO");
+  check("TEST contract: $15 price, $6 rebate, $9 net", tc?.listPriceCents === 1_500 && tc?.rebateTotalCents === 600 && tc?.netPriceCents === 900 && tc?.productKey === "TEST_AI_ALGO");
   const tInst = await prisma.rebateInstallment.findMany({ where: { contractId: tId }, orderBy: { seq: "asc" } });
-  check("TEST contract: 4 instalments of $1, one per day", tInst.length === 4 && tInst.every((i) => i.amountCents === 100) && tInst.map((i) => Math.round((i.dueAt.getTime() - T0.getTime()) / 86_400_000)).join() === "1,2,3,4");
+  check("TEST contract: 4 instalments of $1.50, one per day", tInst.length === 4 && tInst.every((i) => i.amountCents === 150) && tInst.map((i) => Math.round((i.dueAt.getTime() - T0.getTime()) / 86_400_000)).join() === "1,2,3,4");
   const tComm = await prisma.referralCommission.findMany({ where: { purchaseId: tsale.purchase.id } });
-  check("TEST contract: the partner earns 20 cents (2% of $10)", tComm.length === 1 && tComm[0].partnerId === "tpartner" && tComm[0].amountCents === 20);
+  check("TEST contract: the partner earns 30 cents (2% of $15)", tComm.length === 1 && tComm[0].partnerId === "tpartner" && tComm[0].amountCents === 30);
   await prisma.rewardContract.update({ where: { id: tId }, data: { status: "ACTIVE" } }); // stands in for the issued PDF
   const t1 = await runRewardsSweep(addDays(later(1), 0.05));
   check("day 1: instalment 1 released and the commission too", t1.released === 1 && t1.commissionsReleased === 1 && t1.errors.length === 0, JSON.stringify(t1.errors));
   const tb1 = await getBalances("tbuyer", addDays(later(1), 0.05));
   const tp1 = await getBalances("tpartner", addDays(later(1), 0.05));
-  check("hold 0: the buyer can withdraw $1 at once, the partner has 20 cents", tb1.available === 100 && tp1.available === 20, JSON.stringify([tb1.available, tp1.available]));
+  check("hold 0: the buyer can withdraw $1.50 at once, the partner has 30 cents", tb1.available === 150 && tp1.available === 30, JSON.stringify([tb1.available, tp1.available]));
   const tw0 = await requestWithdrawal({ userId: "tpartner", email: "tpartner@example.com", network: "TRC20", address: TRC20, now: addDays(later(1), 0.05) });
-  check("20 cents is below the $1 test minimum", !tw0.ok && /minimum/i.test(tw0.message), tw0.ok ? "" : tw0.message);
+  check("30 cents is below the $1 test minimum", !tw0.ok && /minimum/i.test(tw0.message), tw0.ok ? "" : tw0.message);
   const t4 = await runRewardsSweep(addDays(later(4), 0.05));
   check("day 4: the remaining 3 instalments are released", t4.released === 3 && t4.errors.length === 0);
   const tb4 = await getBalances("tbuyer", addDays(later(4), 0.05));
-  check("the buyer now has the whole $4 rebate available and nothing owed", tb4.available === 400 && tb4.scheduled === 0, JSON.stringify(tb4));
+  check("the buyer now has the whole $6 rebate available and nothing owed", tb4.available === 600 && tb4.scheduled === 0, JSON.stringify(tb4));
   const tw1 = await requestWithdrawal({ userId: "tbuyer", email: "tbuyer@example.com", network: "TRC20", address: TRC20, now: addDays(later(4), 0.05) });
-  check("withdrawal of the $4 is accepted", tw1.ok && tw1.amountCents === 400);
+  check("withdrawal of the $6 is accepted", tw1.ok && tw1.amountCents === 600);
   if (tw1.ok) {
     const tpaid = await decideWithdrawal({ payoutId: tw1.payoutId, decision: "PAID", txRef: "0xtest0001abc", adminId: "admin", now: addDays(later(4), 0.05) });
-    check("admin marks it paid; the buyer shows $4 paid", tpaid.ok && (await getBalances("tbuyer", addDays(later(4), 0.05))).paid === 400);
+    check("admin marks it paid; the buyer shows $6 paid", tpaid.ok && (await getBalances("tbuyer", addDays(later(4), 0.05))).paid === 600);
   }
   const tr = await runRewardsSweep(addDays(later(5), 0.05));
   check("test run leaves the reserve balanced", tr.errors.length === 0 && tr.reserveOutstandingCents === tr.owedCents, JSON.stringify(tr.errors));
