@@ -100,6 +100,20 @@ export interface PatchRunInput {
   cancelRequestedAt?: Date | null;
 }
 
+function runPatchData(patch: PatchRunInput) {
+  return {
+    ...(patch.status !== undefined ? { status: patch.status } : {}),
+    ...(patch.startedAt !== undefined ? { startedAt: patch.startedAt } : {}),
+    ...(patch.completedAt !== undefined ? { completedAt: patch.completedAt } : {}),
+    ...(patch.durationMs !== undefined ? { durationMs: patch.durationMs } : {}),
+    ...(patch.creditsUsed !== undefined ? { creditsUsed: patch.creditsUsed } : {}),
+    ...(patch.error !== undefined ? { error: asNullableJson(patch.error) } : {}),
+    ...(patch.outputRef !== undefined ? { outputRef: asNullableJson(patch.outputRef) } : {}),
+    ...(patch.contextSnapshot !== undefined ? { contextSnapshot: asNullableJson(patch.contextSnapshot) } : {}),
+    ...(patch.cancelRequestedAt !== undefined ? { cancelRequestedAt: patch.cancelRequestedAt } : {}),
+  };
+}
+
 // ── repository ───────────────────────────────────────────────────────────
 
 export const automationRepository = {
@@ -288,20 +302,19 @@ export const automationRepository = {
   },
 
   async patchRun(runId: string, patch: PatchRunInput) {
-    return prisma.automationRun.update({
-      where: { id: runId },
-      data: {
-        ...(patch.status !== undefined ? { status: patch.status } : {}),
-        ...(patch.startedAt !== undefined ? { startedAt: patch.startedAt } : {}),
-        ...(patch.completedAt !== undefined ? { completedAt: patch.completedAt } : {}),
-        ...(patch.durationMs !== undefined ? { durationMs: patch.durationMs } : {}),
-        ...(patch.creditsUsed !== undefined ? { creditsUsed: patch.creditsUsed } : {}),
-        ...(patch.error !== undefined ? { error: asNullableJson(patch.error) } : {}),
-        ...(patch.outputRef !== undefined ? { outputRef: asNullableJson(patch.outputRef) } : {}),
-        ...(patch.contextSnapshot !== undefined ? { contextSnapshot: asNullableJson(patch.contextSnapshot) } : {}),
-        ...(patch.cancelRequestedAt !== undefined ? { cancelRequestedAt: patch.cancelRequestedAt } : {}),
-      },
+    return prisma.automationRun.update({ where: { id: runId }, data: runPatchData(patch) });
+  },
+
+  /** Compare-and-set terminal transition: writes the terminal fields ONLY if the
+   *  run is still QUEUED/RUNNING and reports whether THIS caller won. A second
+   *  (concurrent or repeated) finalizer gets `false` and must not send
+   *  notifications or do bookkeeping again; a terminal run is never rewritten. */
+  async finalizeRunIfActive(runId: string, patch: PatchRunInput): Promise<boolean> {
+    const res = await prisma.automationRun.updateMany({
+      where: { id: runId, status: { in: ["QUEUED", "RUNNING"] } },
+      data: runPatchData(patch),
     });
+    return res.count === 1;
   },
 
   /** Conditional claim used by the dispatch catch-up pass: flip QUEUED ->

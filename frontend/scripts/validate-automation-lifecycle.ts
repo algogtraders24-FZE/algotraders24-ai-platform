@@ -335,6 +335,31 @@ async function main(): Promise<void> {
     assert.equal(others.length, 0, "another user must never see it");
   });
 
+  await test("terminal transition is compare-and-set: two concurrent finalizers -> exactly one wins, terminal row never rewritten", async () => {
+    const r = await automationService.create({ userId: U("c"), name: "CAS", definition: manualDef([save("s1", "cas")]) });
+    const auto = await automationRepository.getAutomationForUser(r.id, U("c"));
+    const run = await automationRepository.createRun({
+      automationId: r.id,
+      definitionVersionId: auto!.activeVersionId!,
+      userId: U("c"),
+      requesterId: U("c"),
+      trigger: "manual",
+      scheduledFor: null,
+    });
+    await automationRepository.patchRun(run.id, { status: "RUNNING", startedAt: new Date() });
+    const results = await Promise.all([
+      automationRepository.finalizeRunIfActive(run.id, { status: "SUCCEEDED", completedAt: new Date(), creditsUsed: 5 }),
+      automationRepository.finalizeRunIfActive(run.id, { status: "SUCCEEDED", completedAt: new Date(), creditsUsed: 5 }),
+      automationRepository.finalizeRunIfActive(run.id, { status: "FAILED", completedAt: new Date(), creditsUsed: 99 }),
+    ]);
+    assert.equal(results.filter(Boolean).length, 1, "exactly one finalizer may win");
+    const again = await automationRepository.finalizeRunIfActive(run.id, { status: "FAILED", creditsUsed: 1234 });
+    assert.equal(again, false, "a terminal run is never finalized again");
+    const row = await prisma.automationRun.findUnique({ where: { id: run.id }, select: { status: true, creditsUsed: true } });
+    assert.notEqual(row?.creditsUsed, 1234);
+    assert.ok(row?.status === "SUCCEEDED" || row?.status === "FAILED");
+  });
+
   await cleanup();
   await prisma.$disconnect();
   console.log(`\n${passed} passed, ${failed} failed`);

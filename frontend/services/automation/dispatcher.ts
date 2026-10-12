@@ -401,8 +401,11 @@ async function finalize(
   if (!run) return;
   const startedAtMs = run.startedAt ? run.startedAt.getTime() : run.createdAt.getTime();
   const completedAt = new Date();
-  const wasAlreadyTerminal = isTerminal(run.status);
-  await automationRepository.patchRun(automationRunId, {
+  // Compare-and-set: only the caller that actually moves the run out of
+  // QUEUED/RUNNING proceeds to notifications + bookkeeping. A concurrent or
+  // repeated finalizer loses the race here, so nobody is notified twice and a
+  // terminal run is never rewritten.
+  const wonTerminalTransition = await automationRepository.finalizeRunIfActive(automationRunId, {
     status,
     completedAt,
     durationMs: completedAt.getTime() - startedAtMs,
@@ -411,13 +414,14 @@ async function finalize(
     outputRef: outputRef ?? undefined,
     contextSnapshot: ctx ? { trigger: ctx.trigger, steps: ctx.steps } : undefined,
   });
+  if (!wonTerminalTransition) return;
 
   // Per AT24_EMAIL_COMMUNICATION_RECONCILIATION.md - a real, terminal,
-  // per-run failure with no notification today. `wasAlreadyTerminal` guards
+  // per-run failure with no notification today. The compare-and-set above guards
   // against double-sending if finalize() is ever reached twice for the same
   // run. Deliberately excludes SUCCEEDED (see EmailService's own comment).
   // Best-effort: never allowed to affect run finalization.
-  if (!wasAlreadyTerminal && (status === "FAILED" || status === "CREDIT_BLOCKED")) {
+  if (status === "FAILED" || status === "CREDIT_BLOCKED") {
     try {
       // Lazy import: EmailService has a top-level `import "server-only"`,
       // which throws immediately at module load under this repo's
@@ -447,10 +451,10 @@ async function finalize(
   }
 
   // Phase 2: deliver the result of a run that really succeeded (bell /
-  // Telegram / push, per the definition). `wasAlreadyTerminal` guards a
+  // Telegram / push, per the definition). The compare-and-set above guards against a
   // double delivery if finalize() is ever reached twice. Best-effort: never
   // allowed to affect the run's outcome.
-  if (!wasAlreadyTerminal && status === "SUCCEEDED" && deliveryCtx) {
+  if (status === "SUCCEEDED" && deliveryCtx) {
     try {
       const agentOutputs = await collectAgentOutputs(automationRunId, run.userId);
       const report = await deliverRunResult({

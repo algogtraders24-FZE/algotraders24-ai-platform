@@ -191,6 +191,7 @@
     "validate:automation-scheduler": "tsx scripts/validate-automation-scheduler.ts",
     "validate:automation-brief": "tsx scripts/validate-automation-brief.ts",
     "validate:automation-delivery": "tsx scripts/validate-automation-delivery.ts",
+    "validate:automation-p2-smoke": "node --conditions=react-server -r tsx/cjs --env-file=.env --env-file=.env.local scripts/validate-automation-p2-delivery-smoke.ts",
     "validate:automation-lifecycle": "node --conditions=react-server -r tsx/cjs --env-file=.env --env-file=.env.local scripts/validate-automation-lifecycle.ts",
     "validate:automation-security": "node --env-file=.env --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/validate-automation-security.ts",
     "validate:automation": "npm run validate:automation-workflow-validation && npm run validate:automation-condition-eval && npm run validate:automation-scheduler && npm run validate:automation-brief && npm run validate:automation-delivery && npm run validate:automation-lifecycle && npm run validate:automation-security",
