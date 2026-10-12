@@ -11,6 +11,11 @@ import { bucketOf, summarizeBalances, summarizeReserve, reserveShortfall, ledger
 import { badgeFor, displayNameWithBadge, BADGE_TIERS } from "../lib/rewards/badge";
 import { buildContractPdf, contractClauses, type ContractPdfInput } from "../lib/rewards/contractPdf";
 import { contractStatusAfter, unreleasedCents, purchaseVoided } from "../lib/rewards/lifecycle";
+import { guideText, GUIDE_SECTIONS, GUIDE_FAQ, QUICK_START, GUIDE_PATH } from "../lib/rewards/guide";
+import { contractEmailBody, contractEmailSubject, escapeHtmlText } from "../lib/rewards/emailContent";
+import { buildProductVM } from "../lib/rewards/viewModel";
+import { decideProKyc, proRequiresKyc, PRO_KYC_MESSAGE } from "../lib/billing/proKyc";
+import { kycEmailBody, KYC_EMAIL_SUBJECT } from "../lib/rewards/kycEmail";
 import { monthKey, slotsRemaining, holdExpiry, validateSlotLimits, isMonthKey } from "../lib/rewards/slots";
 import { generateReferralCode, normalizeReferralCode, referralLink, CODE_ALPHABET, REF_COOKIE, REF_COOKIE_MAX_AGE_SECONDS, REFERRAL_LANDING_PATH } from "../lib/rewards/referral";
 
@@ -207,6 +212,62 @@ async function pdfChecks() {
   const odd = await buildContractPdf({ ...input, buyerName: "Zoe \u4e2d\u6587 O'Brien" });
   check("a non-Latin name cannot break the PDF", Buffer.from(odd.slice(0, 5)).toString() === "%PDF-");
 }
+
+// --- user guide and purchase email
+const gt = guideText().toLowerCase();
+const bannedHits = BANNED_COPY_WORDS.filter((w) => new RegExp(`\\b${w.replace(/ /g, "\\s+")}`, "i").test(gt));
+check("guide has no banned wording", bannedHits.length === 0, bannedHits.join());
+check("guide states the real hold period and minimum", gt.includes(`${HOLD_DAYS}-day hold`) && gt.includes("50 usd") && MIN_PAYOUT_CENTS === 5_000);
+check("guide covers every topic", ["what-you-bought", "get-started", "your-contract", "rebate", "withdraw", "referral", "badge", "refunds-risk"].every((id) => GUIDE_SECTIONS.some((s) => s.id === id)) && GUIDE_FAQ.length >= 5);
+check("install guide covers MT5 and MT4 with the real folders, the allowed URL and the licence inputs", ["install-mt5", "install-mt4", "licence-values", "per-product", "check-working"].every((id) => GUIDE_SECTIONS.some((s) => s.id === id)) && gt.includes("mql5") && gt.includes("mql4") && gt.includes("https://www.algotraders24.ai") && ["inplicensekey", "inplicenseid", "inpapikey", "inpbuyerid", "inpreleaseid", "show / generate my licence key"].every((k) => gt.includes(k)) && gt.includes("algo trading") && gt.includes("autotrading") && gt.includes("demo account"));
+check("troubleshooting covers the common failures", ["webrequest", "not licensed", "account limit", "no orders appear", "all history"].every((k) => gt.includes(k)));
+check("guide never asks the buyer to share the API key", /never ask you for it/.test(gt) && !/send (us|me) your (api )?key/.test(gt));
+check("guide section ids are unique and the quick start has 4 steps", new Set(GUIDE_SECTIONS.map((s) => s.id)).size === GUIDE_SECTIONS.length && QUICK_START.length === 4 && GUIDE_PATH === "/dashboard/algo-contracts/guide");
+check("guide says a pause keeps the money and that results are not promised", /paused and kept/.test(gt) && /no promise about trading results/.test(gt) && /sales are final/.test(gt));
+const emailIn = { name: "Ravi <b>K</b>", productName: "BTC AI Algo", contractId: "c_1", listPriceCents: mB.listPriceCents, rebateTotalCents: mB.rebateTotalCents, netPriceCents: mB.netPriceCents, schedule: mB.schedule, startsAt: NOW, endsAt: mB.endsAt, siteUrl: "https://algotraders24.ai/", pdfAttached: true };
+const eb = contractEmailBody(emailIn);
+check("email shows price, total rebate, net price and 4 instalments", eb.includes("$4,999.00") && eb.includes("$2,000.00") && eb.includes("$2,999.00") && (eb.match(/Rebate \d &middot; due/g) ?? []).length === 4);
+check("email escapes the buyer name", !eb.includes("<b>K</b>") && eb.includes(escapeHtmlText("Ravi <b>K</b>")));
+check("email links the guide (no double slash) and mentions the attached PDF", eb.includes("https://algotraders24.ai/dashboard/algo-contracts/guide") && /attached to this email/.test(eb) && !/attached to this email/.test(contractEmailBody({ ...emailIn, pdfAttached: false })));
+check("email subject names the product and the email has no banned wording", contractEmailSubject("BTC AI Algo").includes("BTC AI Algo") && BANNED_COPY_WORDS.every((w) => !new RegExp(`\\b${w.replace(/ /g, "\\s+")}`, "i").test(eb)));
+
+// --- page view-model (what the Algo Contracts page shows is the same maths that issues the contract)
+const vmB = buildProductVM("BTC_AI_ALGO", { slot: { opened: true, limit: 5, remaining: 3 }, blockedReason: null });
+check("page card for BTC: price, rebate, net, instalments, interval", vmB.listPriceCents === 499_900 && vmB.rebateTotalCents === 200_000 && vmB.netPriceCents === 299_900 && vmB.perQuarterCents === 50_000 && vmB.installments === 4 && vmB.intervalMonths === 3 && vmB.termMonths === 12);
+const vmI = buildProductVM("INDEX_AI_ALGO", { slot: null, blockedReason: "Opens soon" });
+check("page card for Index and its referral amounts", vmI.netPriceCents === 1_199_900 && vmI.perQuarterCents === 450_000 && vmI.referralDirectCents === 60_000 && vmI.referralUpperCents.join() === "30000,30000,30000" && vmI.blockedReason === "Opens soon");
+check("every page card adds up: price - rebate = net, 4 x instalment = rebate", REWARD_PRODUCT_KEYS.every((k) => { const v = buildProductVM(k, { slot: null, blockedReason: null }); return v.listPriceCents - v.rebateTotalCents === v.netPriceCents && v.perQuarterCents * v.installments === v.rebateTotalCents; }));
+check("page taglines carry no banned wording", REWARD_PRODUCT_KEYS.every((k) => BANNED_COPY_WORDS.every((w) => !new RegExp(`\\b${w.replace(/ /g, "\\s+")}`, "i").test(buildProductVM(k, { slot: null, blockedReason: null }).tagline))));
+
+// --- the commission table on the page must equal what the engine really pays (flag off / on, every product)
+for (const k of REWARD_PRODUCT_KEYS) {
+  const prod = REWARD_PRODUCTS[k];
+  const card = buildProductVM(k, { slot: null, blockedReason: null });
+  const upline = ["p0", "p1", "p2", "p3"]; // direct partner, then the three above
+  const off = computeReferralShares(prod, "buyer", upline, false);
+  const on = computeReferralShares(prod, "buyer", upline, true);
+  check(`${k}: flag OFF pays only the direct amount shown on the page`, off.length === 1 && off[0].amountCents === card.referralDirectCents);
+  check(`${k}: flag ON pays direct + the three upper amounts shown on the page`, on.length === 4 && on[0].amountCents === card.referralDirectCents && on.slice(1).map((r) => r.amountCents).join() === card.referralUpperCents.join());
+  const total = on.reduce((a, r) => a + r.amountCents, 0);
+  check(`${k}: all four levels together are 5% of the list price, rounded to whole dollars (within $1)`, Math.abs(total - prod.listPriceCents * 0.05) <= 100 && total % 100 === 0, `${total} vs ${prod.listPriceCents * 0.05}`);
+  check(`${k}: the maximum outflow figure matches (rebate + commission)`, maxOutflowCents(prod, true) === prod.rebateCents + total && maxOutflowCents(prod, false) === prod.rebateCents + card.referralDirectCents);
+}
+
+// --- KYC to become Pro (buying a paid plan)
+const pk = (o: Partial<{ required: boolean; providerAvailable: boolean; isOwner: boolean; verified: boolean }>) => decideProKyc({ required: true, providerAvailable: true, isOwner: false, verified: false, ...o });
+check("flag defaults to OFF and only literal true turns it on", !proRequiresKyc(undefined) && !proRequiresKyc("1") && !proRequiresKyc("yes") && proRequiresKyc("true") && proRequiresKyc(" TRUE "));
+check("rule off: anyone may buy", decideProKyc({ required: false, providerAvailable: true, isOwner: false, verified: false }).allow);
+check("rule on, not verified: blocked with the Settings message", (() => { const d = pk({}); return !d.allow && d.message === PRO_KYC_MESSAGE && /Settings/.test(d.message); })());
+check("rule on, verified: allowed", pk({ verified: true }).allow);
+check("rule on, owner account: allowed", pk({ isOwner: true }).allow);
+check("rule on but no identity provider yet: allowed (no lock-out)", pk({ providerAvailable: false }).allow);
+check("KYC rule message has no banned wording", BANNED_COPY_WORDS.every((w) => !new RegExp(`\\b${w.replace(/ /g, "\\s+")}`, "i").test(PRO_KYC_MESSAGE)));
+
+// --- KYC reminder email
+const kb = kycEmailBody({ name: "Ravi <b>K</b>", siteUrl: "https://algotraders24.ai/" });
+check("KYC email links Settings (no double slash) and escapes the name", kb.includes("https://algotraders24.ai/dashboard/settings") && !kb.includes("<b>K</b>") && kb.includes("Ravi &lt;b&gt;K&lt;/b&gt;"));
+check("KYC email is truthful: plan keeps working, rule applies to the next purchase/renewal, document not seen by AT24", /keeps working until it ends/.test(kb) && /Nothing is cancelled/.test(kb) && /renewing a paid plan/.test(kb) && /never sees or stores your ID document/.test(kb));
+check("KYC email has no banned wording and a plain subject", BANNED_COPY_WORDS.every((w) => !new RegExp(`\\b${w.replace(/ /g, "\\s+")}`, "i").test(kb + " " + KYC_EMAIL_SUBJECT)) && KYC_EMAIL_SUBJECT.length < 70);
 
 // --- copy guard on the strings this program shows
 const copy = REWARD_PRODUCT_KEYS.map((k) => REWARD_PRODUCTS[k].name).join(" ").toLowerCase();

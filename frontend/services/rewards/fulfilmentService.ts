@@ -60,18 +60,17 @@ export async function fulfilRewardCheckout(input: { intentId: string; providerRe
   const licenseId = purchase.entitlements[0]?.licenses[0]?.id ?? null;
   const money = computeContractMoney(product, purchase.purchasedAt);
 
-  // Referral: look the partner up again and re-check that they are still Pro + verified at the moment the sale is verified.
+  // Referral: look the code up again. The link (attribution) is always recorded - it is how the chain above is found later. Each level is
+  // then paid ONLY if that person has an active paid Pro plan and a verified identity at the moment the sale is verified. A level that
+  // does not qualify earns nothing and its share is not passed up: the people above are judged on their own.
   let shares: ReturnType<typeof computeReferralShares> = [];
   let attribution: { partnerId: string; codeId: string } | null = null;
   if (checkout.refCode) {
     const ref = await prisma.referralCode.findUnique({ where: { code: checkout.refCode } });
     if (ref && ref.userId !== checkout.userId) {
+      attribution = { partnerId: ref.userId, codeId: ref.id };
       const upline = await resolveUpline(ref.userId, checkout.userId, purchase.purchasedAt);
-      // The direct partner must qualify for the sale to be attributed at all.
-      if (upline[0]) {
-        attribution = { partnerId: ref.userId, codeId: ref.id };
-        shares = computeReferralShares(product, checkout.userId, upline);
-      }
+      shares = computeReferralShares(product, checkout.userId, upline);
     }
   }
 

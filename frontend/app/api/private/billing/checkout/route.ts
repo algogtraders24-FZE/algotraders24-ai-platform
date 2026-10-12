@@ -9,6 +9,7 @@ import { stripeProvider } from "@/services/billing/providers/StripeProvider";
 import { PaymentProviderError } from "@/lib/payments/errors";
 import { isPlanId } from "@/config/plan-limits";
 import { checkAndRecordCheckoutAttempt, CHECKOUT_RATE_LIMIT_MESSAGE } from "@/lib/security/checkoutRateLimit";
+import { checkProKycGate } from "@/services/billing/proKycGate";
 
 // PAY-4C - see the same-named export in the marketplace checkout route for
 // why: pins this Stripe-calling function to a single region to remove a
@@ -43,6 +44,11 @@ export const POST = withContext(async (req, ctx) => {
     return ApiResponse.error({ code: "VALIDATION", message: "planId must be a valid plan id" }, ctx.requestId, 400, ctx.startedAt);
   }
   const cycle = body.cycle === "yearly" ? "yearly" : "monthly";
+
+  const kyc = body.planId === "free" ? { allow: true as const } : await checkProKycGate({ id: sessionUser.profile.id, email: sessionUser.profile.email });
+  if (!kyc.allow) {
+    return ApiResponse.error({ code: "KYC_REQUIRED", message: kyc.message }, ctx.requestId, 403, ctx.startedAt);
+  }
 
   try {
     const { url } = await stripeProvider.createCheckoutSession({
