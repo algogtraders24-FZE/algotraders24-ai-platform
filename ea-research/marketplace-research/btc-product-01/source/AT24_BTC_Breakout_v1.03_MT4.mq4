@@ -99,10 +99,11 @@ input double InpBreakoutBufferUSD    = 20.0;
 input bool   InpShowDashboard        = true;
 
 input string __lic__                  = "=== AT24 LICENSE ===";
-input string InpLicenseId            = "";      // AT24 License ID (from your Algo Contracts / Licenses page)
-input string InpApiKey               = "";      // AT24 API Key
-input string InpBuyerId              = "";      // AT24 Buyer ID
-input string InpReleaseId            = "";      // AT24 Release ID
+input string InpLicenseKey           = "";      // EASIEST: paste ONE key here (AT24-...). If you use it, leave the 4 rows below empty
+input string InpLicenseId            = "";      // (alternative) AT24 License ID
+input string InpApiKey               = "";      // (alternative) AT24 API Key
+input string InpBuyerId              = "";      // (alternative) AT24 Buyer ID
+input string InpReleaseId            = "";      // (alternative) AT24 Release ID
 input string InpApiBaseUrl           = "https://www.algotraders24.ai";
 input int    InpLicenseRecheckHours  = 24;
 
@@ -193,7 +194,7 @@ bool AT24_ActivateLicense()
 {
    if(StringLen(InpLicenseId) == 0 || StringLen(InpApiKey) == 0)
    {
-      Print("AT24 License: InpLicenseId / InpApiKey are empty. Copy them from your AT24 dashboard after buying this product.");
+      Print("AT24 License: No licence key. Paste your key into InpLicenseKey (or the four values into InpLicenseId / InpApiKey / InpBuyerId / InpReleaseId) from your AT24 purchase page.");
       return false;
    }
    string deviceLabel = AT24_JsonEscape(AccountServer() + " #" + IntegerToString(AccountNumber()));
@@ -212,10 +213,70 @@ bool AT24_ActivateLicense()
    return false;
 }
 
+//+------------------------------------------------------------------+
+//| ONE-KEY mode: POST /api/license/check with the single key        |
+//| AT24-<licenseId>.<secret>. The same call binds this trading      |
+//| account (one activation per account by default). Returns         |
+//|   1 = valid for THIS product, 0 = explicitly refused,            |
+//|  -1 = no usable answer (network / server problem: keep state).   |
+//+------------------------------------------------------------------+
+int AT24_CheckKey()
+{
+   string k = InpLicenseKey;
+   StringTrimLeft(k);
+   StringTrimRight(k);
+   string body = "{\"key\":\"" + AT24_JsonEscape(k) + "\",\"account\":\"" + AT24_JsonEscape(IntegerToString(AccountNumber())) +
+                 "\",\"server\":\"" + AT24_JsonEscape(AccountServer()) + "\",\"requireAccount\":true}";
+   string resp = AT24_PostJson("/api/license/check", body);
+   if(StringLen(resp) == 0) return -1;
+   if(StringFind(resp, "\"valid\":false") >= 0)
+   {
+      Print("AT24 License: key REJECTED (", AT24_JsonExtractString(resp, "reason"), "): ", AT24_JsonExtractString(resp, "detail"),
+            ". This copy will not trade. Check the key on your AT24 purchase page.");
+      return 0;
+   }
+   if(StringFind(resp, "\"valid\":true") < 0) return -1;
+   // The key must belong to THIS product on THIS platform (a key for another AT24 product must not run this EA).
+   string sys = AT24_JsonExtractString(resp, "tradingSystemId");
+   string plat = AT24_JsonExtractString(resp, "platform");
+   if(sys != AT24_TRADING_SYSTEM_ID || plat != AT24_PLATFORM)
+   {
+      Print("AT24 License: this key is for another product (", sys, " / ", plat, "), not ", AT24_TRADING_SYSTEM_ID, " / ", AT24_PLATFORM, ". This copy will not trade.");
+      return 0;
+   }
+   Print("AT24 License: key accepted. Expires: ", AT24_JsonExtractString(resp, "expiresAt"));
+   g_AT24_LastCheck = TimeCurrent();
+   return 1;
+}
+
+// Start-up: one key if given, else the four separate values.
+bool AT24_StartLicense()
+{
+   if(StringLen(InpLicenseKey) > 0) return (AT24_CheckKey() == 1);
+   return AT24_ActivateLicense();
+}
+
 void AT24_RevalidateIfDue()
 {
    if(InpLicenseRecheckHours <= 0) return;
    if(TimeCurrent() - g_AT24_LastCheck < InpLicenseRecheckHours * 3600) return;
+   if(StringLen(InpLicenseKey) > 0)
+   {
+      bool wasLicensed = g_AT24_Licensed;
+      int r = AT24_CheckKey();
+      g_AT24_LastCheck = TimeCurrent();
+      if(r == 1)
+      {
+         if(!wasLicensed) Print("AT24 License: re-validated OK, resuming new trades.");
+         g_AT24_Licensed = true;
+      }
+      else if(r == 0)
+      {
+         if(wasLicensed) Print("AT24 License: re-validation FAILED - no new trades will open. Existing positions are still managed.");
+         g_AT24_Licensed = false;
+      }
+      return;
+   }
    if(StringLen(InpBuyerId) == 0 || StringLen(InpReleaseId) == 0)
    {
       g_AT24_LastCheck = TimeCurrent();
@@ -259,10 +320,10 @@ int OnInit()
    }
    else
    {
-      g_AT24_Licensed = AT24_ActivateLicense();
+      g_AT24_Licensed = AT24_StartLicense();
       if(!g_AT24_Licensed)
       {
-         Print(PRODUCT_NAME, ": NOT licensed - the EA will not trade. Fill in InpLicenseId / InpApiKey (and BuyerId / ReleaseId) from your AT24 account.");
+         Print(PRODUCT_NAME, ": NOT licensed - the EA will not trade. Paste your key into InpLicenseKey from your AT24 purchase page.");
          return INIT_FAILED;
       }
    }
