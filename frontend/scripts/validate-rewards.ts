@@ -13,6 +13,7 @@ import { buildContractPdf, contractClauses, type ContractPdfInput } from "../lib
 import { contractStatusAfter, unreleasedCents, purchaseVoided } from "../lib/rewards/lifecycle";
 import { guideText, GUIDE_SECTIONS, GUIDE_FAQ, QUICK_START, GUIDE_PATH } from "../lib/rewards/guide";
 import { contractEmailBody, contractEmailSubject, escapeHtmlText } from "../lib/rewards/emailContent";
+import { buildProductVM } from "../lib/rewards/viewModel";
 import { monthKey, slotsRemaining, holdExpiry, validateSlotLimits, isMonthKey } from "../lib/rewards/slots";
 import { generateReferralCode, normalizeReferralCode, referralLink, CODE_ALPHABET, REF_COOKIE, REF_COOKIE_MAX_AGE_SECONDS, REFERRAL_LANDING_PATH } from "../lib/rewards/referral";
 
@@ -227,6 +228,14 @@ check("email shows price, total rebate, net price and 4 instalments", eb.include
 check("email escapes the buyer name", !eb.includes("<b>K</b>") && eb.includes(escapeHtmlText("Ravi <b>K</b>")));
 check("email links the guide (no double slash) and mentions the attached PDF", eb.includes("https://algotraders24.ai/dashboard/algo-contracts/guide") && /attached to this email/.test(eb) && !/attached to this email/.test(contractEmailBody({ ...emailIn, pdfAttached: false })));
 check("email subject names the product and the email has no banned wording", contractEmailSubject("BTC AI Algo").includes("BTC AI Algo") && BANNED_COPY_WORDS.every((w) => !new RegExp(`\\b${w.replace(/ /g, "\\s+")}`, "i").test(eb)));
+
+// --- page view-model (what the Algo Contracts page shows is the same maths that issues the contract)
+const vmB = buildProductVM("BTC_AI_ALGO", { slot: { opened: true, limit: 5, remaining: 3 }, blockedReason: null });
+check("page card for BTC: price, rebate, net, instalments, interval", vmB.listPriceCents === 499_900 && vmB.rebateTotalCents === 200_000 && vmB.netPriceCents === 299_900 && vmB.perQuarterCents === 50_000 && vmB.installments === 4 && vmB.intervalMonths === 3 && vmB.termMonths === 12);
+const vmI = buildProductVM("INDEX_AI_ALGO", { slot: null, blockedReason: "Opens soon" });
+check("page card for Index and its referral amounts", vmI.netPriceCents === 1_199_900 && vmI.perQuarterCents === 450_000 && vmI.referralDirectCents === 60_000 && vmI.referralUpperCents.join() === "30000,30000,30000" && vmI.blockedReason === "Opens soon");
+check("every page card adds up: price - rebate = net, 4 x instalment = rebate", REWARD_PRODUCT_KEYS.every((k) => { const v = buildProductVM(k, { slot: null, blockedReason: null }); return v.listPriceCents - v.rebateTotalCents === v.netPriceCents && v.perQuarterCents * v.installments === v.rebateTotalCents; }));
+check("page taglines carry no banned wording", REWARD_PRODUCT_KEYS.every((k) => BANNED_COPY_WORDS.every((w) => !new RegExp(`\\b${w.replace(/ /g, "\\s+")}`, "i").test(buildProductVM(k, { slot: null, blockedReason: null }).tagline))));
 
 // --- copy guard on the strings this program shows
 const copy = REWARD_PRODUCT_KEYS.map((k) => REWARD_PRODUCTS[k].name).join(" ").toLowerCase();
