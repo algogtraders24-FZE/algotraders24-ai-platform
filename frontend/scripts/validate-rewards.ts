@@ -14,6 +14,7 @@ import { contractStatusAfter, unreleasedCents, purchaseVoided } from "../lib/rew
 import { guideText, GUIDE_SECTIONS, GUIDE_FAQ, QUICK_START, GUIDE_PATH } from "../lib/rewards/guide";
 import { contractEmailBody, contractEmailSubject, escapeHtmlText } from "../lib/rewards/emailContent";
 import { buildProductVM } from "../lib/rewards/viewModel";
+import { decideProKyc, proRequiresKyc, PRO_KYC_MESSAGE } from "../lib/billing/proKyc";
 import { monthKey, slotsRemaining, holdExpiry, validateSlotLimits, isMonthKey } from "../lib/rewards/slots";
 import { generateReferralCode, normalizeReferralCode, referralLink, CODE_ALPHABET, REF_COOKIE, REF_COOKIE_MAX_AGE_SECONDS, REFERRAL_LANDING_PATH } from "../lib/rewards/referral";
 
@@ -250,6 +251,16 @@ for (const k of REWARD_PRODUCT_KEYS) {
   check(`${k}: all four levels together are 5% of the list price, rounded to whole dollars (within $1)`, Math.abs(total - prod.listPriceCents * 0.05) <= 100 && total % 100 === 0, `${total} vs ${prod.listPriceCents * 0.05}`);
   check(`${k}: the maximum outflow figure matches (rebate + commission)`, maxOutflowCents(prod, true) === prod.rebateCents + total && maxOutflowCents(prod, false) === prod.rebateCents + card.referralDirectCents);
 }
+
+// --- KYC to become Pro (buying a paid plan)
+const pk = (o: Partial<{ required: boolean; providerAvailable: boolean; isOwner: boolean; verified: boolean }>) => decideProKyc({ required: true, providerAvailable: true, isOwner: false, verified: false, ...o });
+check("flag defaults to OFF and only literal true turns it on", !proRequiresKyc(undefined) && !proRequiresKyc("1") && !proRequiresKyc("yes") && proRequiresKyc("true") && proRequiresKyc(" TRUE "));
+check("rule off: anyone may buy", decideProKyc({ required: false, providerAvailable: true, isOwner: false, verified: false }).allow);
+check("rule on, not verified: blocked with the Settings message", (() => { const d = pk({}); return !d.allow && d.message === PRO_KYC_MESSAGE && /Settings/.test(d.message); })());
+check("rule on, verified: allowed", pk({ verified: true }).allow);
+check("rule on, owner account: allowed", pk({ isOwner: true }).allow);
+check("rule on but no identity provider yet: allowed (no lock-out)", pk({ providerAvailable: false }).allow);
+check("KYC rule message has no banned wording", BANNED_COPY_WORDS.every((w) => !new RegExp(`\\b${w.replace(/ /g, "\\s+")}`, "i").test(PRO_KYC_MESSAGE)));
 
 // --- copy guard on the strings this program shows
 const copy = REWARD_PRODUCT_KEYS.map((k) => REWARD_PRODUCTS[k].name).join(" ").toLowerCase();
