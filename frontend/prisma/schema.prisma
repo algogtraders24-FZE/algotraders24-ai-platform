@@ -3294,3 +3294,251 @@ model PushSubscription {
   @@index([userId])
   @@map("push_subscriptions")
 }
+
+// ── AT24 Rewards & Partner Program (Phase 1 foundation; docs/REWARDS-PARTNER-PROGRAM-SPEC.md) ──────────────────
+// Everything is integer CENTS. A rebate is a fixed price adjustment written into the contract, reserved on the day the
+// payment is verified - never a return, never tied to revenue or trading results. The whole program is OFF unless
+// REWARDS_PROGRAM_MODE says otherwise. Additive only: new tables, nothing existing is touched.
+
+/// Per-product program config (price, fixed rebate, instalments, term). The code defaults in lib/rewards/config.ts seed this.
+model RewardProduct {
+  id             String   @id @default(cuid())
+  key            String   @unique // BTC_AI_ALGO | GOLD_AI_ALGO | INDEX_AI_ALGO
+  name           String
+  listingId      String? // the marketplace listing that carries the EA files + licence
+  listPriceCents Int
+  rebateCents    Int
+  installments   Int      @default(4)
+  intervalDays   Int      @default(90)
+  termMonths     Int      @default(12)
+  referralCents  Int[] // [direct, L1, L2, L3]
+  enabled        Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("reward_products")
+}
+
+/// Admin opens a month per product and sets the limit (default max 10 in total).
+model RewardSlotMonth {
+  id         String   @id @default(cuid())
+  month      String // "2026-11" (UTC)
+  productKey String
+  limit      Int
+  opened     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([month, productKey])
+  @@map("reward_slot_months")
+}
+
+/// A checkout keeps a slot for a short time. HELD -> CONVERTED (became a contract) | EXPIRED | RELEASED.
+model RewardSlotHold {
+  id         String   @id @default(cuid())
+  month      String
+  productKey String
+  userId     String
+  status     String   @default("HELD")
+  invoiceRef String?
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([month, productKey, status])
+  @@index([userId])
+  @@map("reward_slot_holds")
+}
+
+model RewardContract {
+  id               String   @id @default(cuid())
+  userId           String
+  productKey       String
+  purchaseId       String   @unique // the existing Purchase (source of truth for the payment)
+  licenseId        String?
+  status           String   @default("PENDING_DOCUMENT") // PENDING_DOCUMENT | ACTIVE | FROZEN | ENDED | REVOKED
+  listPriceCents   Int
+  rebateTotalCents Int
+  netPriceCents    Int
+  startsAt         DateTime
+  endsAt           DateTime
+  termsVersion     String
+  consentAt        DateTime
+  consentIp        String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([productKey, status])
+  @@map("reward_contracts")
+}
+
+/// The issued contract PDF. The terms are a snapshot: later template changes never alter an issued contract.
+model RewardContractDocument {
+  id          String   @id @default(cuid())
+  contractId  String   @unique
+  storagePath String
+  sha256      String
+  createdAt   DateTime @default(now())
+
+  @@map("reward_contract_documents")
+}
+
+model RebateInstallment {
+  id          String    @id @default(cuid())
+  contractId  String
+  userId      String
+  seq         Int
+  dueAt       DateTime
+  amountCents Int
+  status      String    @default("SCHEDULED") // SCHEDULED | FROZEN | RELEASED | CANCELLED | PAID
+  releasedAt  DateTime?
+  payoutId    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([contractId, seq])
+  @@index([userId, status])
+  @@index([status, dueAt])
+  @@map("rebate_installments")
+}
+
+model ReferralCode {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  code      String   @unique
+  createdAt DateTime @default(now())
+
+  @@map("referral_codes")
+}
+
+/// Who brought a buyer. Recorded by the server at checkout (first touch, 30-day window), never trusted from the browser.
+model ReferralAttribution {
+  id         String   @id @default(cuid())
+  partnerId  String
+  buyerId    String
+  codeId     String
+  purchaseId String?  @unique
+  createdAt  DateTime @default(now())
+
+  @@index([buyerId])
+  @@index([partnerId])
+  @@map("referral_attributions")
+}
+
+model ReferralCommission {
+  id          String    @id @default(cuid())
+  purchaseId  String
+  partnerId   String
+  level       Int // 0 = direct seller; 1-3 only while REWARDS_MULTI_LEVEL is on
+  amountCents Int
+  status      String    @default("PENDING") // PENDING | RELEASED | CANCELLED | REVERSED | PAID
+  availableAt DateTime
+  releasedAt  DateTime?
+  payoutId    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([purchaseId, level])
+  @@index([partnerId, status])
+  @@map("referral_commissions")
+}
+
+/// Append-only. The unique idempotencyKey makes a retried webhook or cron unable to write the same movement twice.
+model RewardLedgerEntry {
+  id             String   @id @default(cuid())
+  userId         String
+  type           String
+  amountCents    Int
+  refType        String
+  refId          String
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("reward_ledger_entries")
+}
+
+/// Money set aside on the day of sale to pay a contract's rebate. outstanding = RESERVED - RELEASED - RETURNED.
+model RewardReserveEntry {
+  id             String   @id @default(cuid())
+  contractId     String
+  type           String // RESERVED | RELEASED | RETURNED
+  amountCents    Int
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now())
+
+  @@index([contractId])
+  @@map("reward_reserve_entries")
+}
+
+model RewardPayout {
+  id          String    @id @default(cuid())
+  userId      String
+  amountCents Int
+  currency    String    @default("USD")
+  method      String    @default("USDT")
+  network     String // TRC20 | ERC20 | BEP20
+  address     String
+  status      String    @default("REQUESTED") // REQUESTED | PAID | REJECTED
+  txRef       String?
+  note        String?
+  decidedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@map("reward_payouts")
+}
+
+model RewardDownloadLog {
+  id         String   @id @default(cuid())
+  userId     String
+  contractId String
+  kind       String // PRODUCT | CONTRACT
+  version    String?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([contractId, createdAt])
+  @@map("reward_download_logs")
+}
+
+model RewardAuditEvent {
+  id          String   @id @default(cuid())
+  actor       String // user id, "system", or an admin id
+  action      String
+  subjectType String
+  subjectId   String
+  data        Json?
+  createdAt   DateTime @default(now())
+
+  @@index([subjectType, subjectId])
+  @@index([createdAt])
+  @@map("reward_audit_events")
+}
+
+/// Links one program checkout to its payment intent so the verified-payment webhook can create the contract.
+model RewardCheckout {
+  id           String   @id @default(cuid())
+  userId       String
+  productKey   String
+  month        String
+  slotHoldId   String
+  intentId     String   @unique // MarketplacePurchaseIntent.id
+  refCode      String? // already validated server-side; null when none or not allowed
+  termsVersion String
+  consentAt    DateTime
+  consentIp    String?
+  status       String   @default("PENDING") // PENDING | FULFILLED | FAILED
+  purchaseId   String?  @unique
+  contractId   String?  @unique
+  error        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([status, createdAt])
+  @@map("reward_checkouts")
+}

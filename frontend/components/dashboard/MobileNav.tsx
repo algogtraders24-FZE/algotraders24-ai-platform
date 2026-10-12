@@ -60,7 +60,7 @@ export default function MobileNav() {
 
       <nav className="space-y-5 p-4">
         {DASHBOARD_NAV_GROUPS.map((group, groupIndex) => {
-          const items = group.items.filter((item) => !item.adminOnly || user?.role === "admin");
+          const items = group.items.filter((item) => (!item.adminOnly || user?.role === "admin") && (!item.rewardsOnly || user?.rewardsOpen === true));
           if (items.length === 0) return null;
           const groupKey = group.label ?? `ungrouped-${groupIndex}`;
           const isCollapsed = group.label ? (groupCollapsed[groupKey] ?? false) : false;

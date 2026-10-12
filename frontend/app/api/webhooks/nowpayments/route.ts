@@ -13,6 +13,9 @@ import { subscriptionActionService } from "@/services/billing/SubscriptionAction
 import { isPlanId } from "@/config/plan-limits";
 import { prisma } from "@/lib/prisma";
 import { issueLicenseForPurchase } from "@/services/licensing/licenseService";
+import { fulfilRewardCheckout, markCheckoutFailed } from "@/services/rewards/fulfilmentService";
+import { REWARD_PRODUCTS, isRewardProductKey } from "@/lib/rewards/config";
+import { addMonths as addContractMonths } from "@/lib/rewards/money";
 import {
   sendPurchaseConfirmationEmail,
   sendLicenseIssuanceFailureAlert,
@@ -108,6 +111,10 @@ export const POST = withContext(async (req, ctx) => {
           // constraint makes a retried IPN for the same payment a no-op
           // duplicate return, mirroring the Stripe webhook's own pattern
           // (session.id) exactly - see that function's header comment.
+          // Algo Contracts: a purchase started through the rewards checkout gets a 12-month licence. Anything else is unchanged.
+          // A missing rewards table (migration not applied yet) is treated as "not a rewards purchase".
+          const rewardCheckout = await prisma.rewardCheckout.findUnique({ where: { intentId: intent.id }, select: { productKey: true } }).catch(() => null);
+          const rewardTermMonths = rewardCheckout && isRewardProductKey(rewardCheckout.productKey) ? REWARD_PRODUCTS[rewardCheckout.productKey].termMonths : null;
           let result: Awaited<ReturnType<typeof issueLicenseForPurchase>>;
           try {
             result = await issueLicenseForPurchase({
@@ -119,7 +126,7 @@ export const POST = withContext(async (req, ctx) => {
               platform: intent.platform as PlatformName,
               amount: intent.amount,
               currency: intent.currency,
-              expiresAt: null,
+              expiresAt: rewardTermMonths ? addContractMonths(new Date(), rewardTermMonths) : null,
               provider: "nowpayments",
               providerRef: paymentId,
             });
@@ -147,6 +154,17 @@ export const POST = withContext(async (req, ctx) => {
             where: { id: intent.id },
             data: { status: "CONSUMED", consumedAt: new Date() },
           });
+
+          if (rewardCheckout) {
+            // The payment is already confirmed and the licence issued; a failure here must not undo or hide either, so it is
+            // recorded on the checkout (admin can retry - fulfilment is idempotent) and the webhook still answers 200.
+            try {
+              await fulfilRewardCheckout({ intentId: intent.id, providerRef: paymentId });
+            } catch (rewardError) {
+              console.error("[webhook:nowpayments] rewards fulfilment failed:", rewardError);
+              await markCheckoutFailed(intent.id, rewardError);
+            }
+          }
 
           if (!result.duplicate) {
             try {

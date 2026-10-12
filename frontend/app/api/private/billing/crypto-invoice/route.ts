@@ -14,6 +14,7 @@ import { isPlanId } from "@/config/plan-limits";
 import { prisma } from "@/lib/prisma";
 import { getPlanCyclePrice } from "@/services/billing/planPricing";
 import { checkAndRecordCheckoutAttempt, CHECKOUT_RATE_LIMIT_MESSAGE } from "@/lib/security/checkoutRateLimit";
+import { checkProKycGate } from "@/services/billing/proKycGate";
 
 export const POST = withContext(async (req, ctx) => {
   const sessionUser = await getUserOrNull();
@@ -46,6 +47,10 @@ export const POST = withContext(async (req, ctx) => {
   const plan = await prisma.plan.findUnique({ where: { id: body.planId } });
   if (!plan || plan.priceMonthly <= 0) {
     return ApiResponse.error({ code: "VALIDATION", message: "Plan is not a valid paid plan" }, ctx.requestId, 400, ctx.startedAt);
+  }
+  const kyc = await checkProKycGate({ id: sessionUser.profile.id, email: sessionUser.profile.email });
+  if (!kyc.allow) {
+    return ApiResponse.error({ code: "KYC_REQUIRED", message: kyc.message }, ctx.requestId, 403, ctx.startedAt);
   }
   const priceUsd = getPlanCyclePrice(plan, cycle);
   if (priceUsd > MAX_REASONABLE_PAYMENT_AMOUNT_USD) {
