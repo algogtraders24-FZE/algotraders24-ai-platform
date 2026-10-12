@@ -26,3 +26,7 @@ Fixes 1, 3, 5, 7 and 8 change what the EA does. Run a fresh backtest and a demo 
 - Deliver the compiled .ex4 only, never the .mq4.
 - MT4 shows only the history loaded in the Account History tab; for the stats to cover everything, set it to All History.
 - Do not market it as AI: it is a rule-based breakout with an EMA trend filter.
+
+## One-key licence option (added after the first v1.03 commit)
+New input InpLicenseKey: paste the single key (AT24-...) from the purchase page and leave the four alternative rows empty. The EA calls /api/license/check, which also binds the trading account, and then checks that the key belongs to THIS product (tradingSystemId and platform from the answer) so a key for another AT24 product cannot run this EA. A refusal stops new trades; a network or server problem keeps the last known state. The four-value mode still works.
+Compiles with 0 errors, 0 warnings. Not tested against the live server (needs a real licence).

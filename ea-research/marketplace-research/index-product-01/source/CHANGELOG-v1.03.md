@@ -25,3 +25,7 @@ Fix 3 (fewer stacked orders), fix 5 (distances on brokers whose point is not 1.0
 - Deliver the compiled `.ex5` only, never the `.mq5`.
 - Naming: the file no longer says "AI" anywhere because the logic is rule-based (breakout + EMA trend filter). Do not market it as AI.
 - MoonLock closes a trade as soon as profit falls to 50% of its peak (once it has made 1.0 in account currency). That keeps wins small by design; check it in the new backtest.
+
+## One-key licence option (added after the first v1.03 commit)
+New input InpLicenseKey: paste the single key (AT24-...) from the purchase page and leave the four alternative rows empty. The EA calls /api/license/check, which also binds the trading account, and then checks that the key belongs to THIS product (tradingSystemId and platform from the answer) so a key for another AT24 product cannot run this EA. A refusal stops new trades; a network or server problem keeps the last known state. The four-value mode still works.
+Compiles with 0 errors, 0 warnings. Not tested against the live server (needs a real licence).
