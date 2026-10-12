@@ -5,7 +5,8 @@
 import { prisma } from "@/lib/prisma";
 import type { IdentityStatus } from "@/lib/marketplace/identity";
 import { programOpenFor, type UserFacts } from "./eligibility";
-import { rewardsAllowlist, rewardsMode } from "./config";
+import { ownerAsProEnabled, rewardsAllowlist, rewardsMode } from "./config";
+import { isPlatformOwner } from "@/lib/marketplace/selfServe";
 
 export function rewardsOpenFor(email: string | null | undefined): boolean {
   return programOpenFor(rewardsMode(), email, rewardsAllowlist());
@@ -19,6 +20,10 @@ export async function loadUserFacts(userId: string, email: string | null | undef
     prisma.sellerIdentity.findUnique({ where: { userId }, select: { status: true } }).catch(() => null),
   ]);
   const identity = (IDENTITY_STATUSES as string[]).includes(ident?.status ?? "") ? (ident!.status as IdentityStatus) : "NONE";
+  // Owner test switch: an owner account counts as paid Pro (never anyone else, and KYC is still required).
+  if (ownerAsProEnabled() && isPlatformOwner(email)) {
+    return { email, subscription: { planId: "pro", status: "active", currentPeriodEnd: new Date(Date.now() + 3650 * 86_400_000), provider: "owner-test" }, identity };
+  }
   return {
     email,
     subscription: sub ? { planId: sub.planId, status: sub.status, currentPeriodEnd: sub.currentPeriodEnd, provider: sub.provider } : null,

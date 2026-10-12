@@ -36,3 +36,7 @@ After the test **delete the first two** so the real rules (7-day hold, $50 minim
 Price/rebate/net on the card and in the PDF; the 4 dates; commission amount; the contract PDF download; the email; the reserve staying balanced; the badge ("Test Diamond", grey).
 
 Tested on a scratch Postgres (`scripts/e2e-rewards-db.ts`, the "TEST contract" block). Not yet run against NOWPayments or live storage.
+
+## Owner test switch
+Set `REWARDS_OWNER_AS_PRO=true` (Vercel, then redeploy) and the owner accounts count as an active paid Pro plan for the rewards rules (buy, commission, instalments, withdrawal). Identity (KYC) is still required, and no other account is affected. **Turn it off after the test.**
+

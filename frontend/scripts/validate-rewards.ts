@@ -3,7 +3,7 @@
 // No database, no network. Run: npx tsx scripts/validate-rewards.ts
 import {
   REWARD_PRODUCTS, REWARD_PRODUCT_KEYS, HOLD_DAYS, MIN_PAYOUT_CENTS, BANNED_COPY_WORDS,
-  rewardsMode, multiLevelReferralEnabled, withdrawalsEnabled, isRewardProductKey, ALL_REWARD_PRODUCT_KEYS, REWARD_TEST_KEY, holdDays, minPayoutCents,
+  rewardsMode, multiLevelReferralEnabled, withdrawalsEnabled, isRewardProductKey, ALL_REWARD_PRODUCT_KEYS, REWARD_TEST_KEY, holdDays, minPayoutCents, ownerAsProEnabled,
 } from "../lib/rewards/config";
 import { bps, formatUsd, addMonths, computeContractMoney, computeReferralShares, assertProductSane, maxOutflowCents } from "../lib/rewards/money";
 import { isProActive, programOpenFor, canBuyContract, decideInstalment, canWithdraw, canEarnReferral, type UserFacts } from "../lib/rewards/eligibility";
@@ -285,6 +285,8 @@ delete process.env.REWARDS_HOLD_DAYS;
 check("hold default: the same instalment is still holding", bucketOf({ amountCents: 100, status: "RELEASED", releasedAt: NOW, payoutId: null }, NOW) === "holding");
 const tCard = buildProductVM(REWARD_TEST_KEY, { slot: null, blockedReason: null });
 check("test card shows the day rhythm", tCard.intervalDays === 1 && tCard.perQuarterCents === 100 && tCard.netPriceCents === 600);
+
+check("owner test switch defaults OFF and only the literal true turns it on", !ownerAsProEnabled(undefined) && !ownerAsProEnabled("1") && !ownerAsProEnabled("yes") && ownerAsProEnabled("true") && ownerAsProEnabled(" TRUE "));
 
 // --- copy guard on the strings this program shows
 const copy = REWARD_PRODUCT_KEYS.map((k) => REWARD_PRODUCTS[k].name).join(" ").toLowerCase();

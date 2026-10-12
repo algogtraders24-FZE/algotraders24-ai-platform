@@ -78,6 +78,15 @@ export function multiLevelReferralEnabled(raw: string | undefined | null = proce
   return (raw ?? "").trim().toLowerCase() === "true";
 }
 
+/**
+ * TEST SWITCH (owner only, temporary): with REWARDS_OWNER_AS_PRO=true the platform OWNER accounts are treated as having an active paid Pro
+ * plan for the rewards rules (buy, commission, instalments, withdrawal), so the whole flow can be tested with one's own accounts.
+ * Identity (KYC) is still required. Other accounts are never affected. Turn it OFF after the test (default off).
+ */
+export function ownerAsProEnabled(raw: string | undefined | null = process.env.REWARDS_OWNER_AS_PRO): boolean {
+  return (raw ?? "").trim().toLowerCase() === "true";
+}
+
 /** Withdrawals can be switched off independently of the rest of the program. */
 export function withdrawalsEnabled(raw: string | undefined | null = process.env.REWARDS_WITHDRAWALS): boolean {
   return (raw ?? "").trim().toLowerCase() === "true";

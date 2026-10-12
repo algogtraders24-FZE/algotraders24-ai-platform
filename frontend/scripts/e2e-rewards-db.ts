@@ -23,6 +23,8 @@ import { decideWithdrawal, getBalances, requestWithdrawal } from "../services/re
 import { ensureReferralCode } from "../services/rewards/referralStore";
 import { isProgramListing } from "../services/rewards/listingGuard";
 import { findKycReminderTargets, runKycReminders } from "../services/rewards/kycReminder";
+import { loadUserFacts } from "../lib/rewards/access";
+import { isProActive } from "../lib/rewards/eligibility";
 
 let failed = 0;
 function check(name: string, ok: boolean, detail = "") {
@@ -68,6 +70,16 @@ async function main() {
   await mkUser("buyer4");
   await mkUser("par2");
   await mkUser("grand");
+
+  // ---- owner test switch: an owner account without any plan counts as paid Pro ONLY while the switch is on; nobody else ever does
+  await prisma.user.create({ data: { id: "ownerx", email: "algogtraders24@gmail.com", name: "owner" } });
+  delete process.env.REWARDS_OWNER_AS_PRO;
+  check("switch off: the owner without a plan is not Pro", !isProActive((await loadUserFacts("ownerx", "algogtraders24@gmail.com")).subscription));
+  process.env.REWARDS_OWNER_AS_PRO = "true";
+  check("switch on: the owner counts as Pro", isProActive((await loadUserFacts("ownerx", "algogtraders24@gmail.com")).subscription));
+  check("switch on: a normal account is still not Pro", !isProActive((await loadUserFacts("lapsed", "lapsed@example.com")).subscription));
+  check("switch on: KYC is still required (owner has none here)", (await loadUserFacts("ownerx", "algogtraders24@gmail.com")).identity === "NONE");
+  delete process.env.REWARDS_OWNER_AS_PRO;
 
   // ---- who gets the KYC reminder: an active PAID plan (real payment) and no verified identity - nobody else
   await mkUser("kycA", { pro: true, kyc: false });                       // paid Pro, not verified -> yes
