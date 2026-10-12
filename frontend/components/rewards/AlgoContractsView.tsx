@@ -79,23 +79,25 @@ function StatusStrip({ vm }: { vm: AlgoContractsVM }) {
 }
 
 // ---------- how it works ----------
-function HowItWorks() {
+function HowItWorks({ hasMoney }: { hasMoney: boolean }) {
   const steps = [
-    { icon: ShieldCheck, title: "Choose a contract", text: "12 months, one AI Algo for MetaTrader 5 and MetaTrader 4." },
-    { icon: Download, title: "Get your files", text: "The EA, a signed licence and your contract PDF, right after payment." },
-    { icon: CalendarClock, title: "Rebate every quarter", text: "A fixed amount, written in your contract, credited in 4 instalments." },
-    { icon: Wallet, title: "Withdraw in USDT", text: "Credited amounts can be withdrawn after a short hold." },
+    { icon: ShieldCheck, href: "#choose-contract", title: "Choose a contract", text: "12 months, one AI Algo for MetaTrader 5 and MetaTrader 4." },
+    { icon: Download, href: "#your-contracts", title: "Get your files", text: "The EA, a signed licence and your contract PDF, right after payment." },
+    { icon: CalendarClock, href: "#your-contracts", title: "Rebate every quarter", text: "A fixed amount, written in your contract, credited in 4 instalments." },
+    { icon: Wallet, href: hasMoney ? "#balance" : "/dashboard/algo-contracts/guide", title: "Withdraw in USDT", text: "Credited amounts can be withdrawn after a short hold." },
   ];
   return (
     <section className="space-y-3">
       <SectionTitle icon={Gem} title="How it works" />
       <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {steps.map((s, n) => (
-          <li key={s.title} className="relative rounded-card border border-border bg-ink-2 p-4">
-            <span className="absolute right-3 top-3 text-xs font-semibold text-text-3">{n + 1}</span>
-            <s.icon size={20} className="text-gold" aria-hidden="true" />
-            <p className="mt-2 text-sm font-semibold text-text">{s.title}</p>
-            <p className="mt-1 text-xs text-text-3">{s.text}</p>
+          <li key={s.title} className="relative">
+            <a href={s.href} className="block h-full rounded-card border border-border bg-ink-2 p-4 transition-colors hover:border-gold/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold">
+              <span className="absolute right-3 top-3 text-xs font-semibold text-text-3">{n + 1}</span>
+              <s.icon size={20} className="text-gold" aria-hidden="true" />
+              <p className="mt-2 text-sm font-semibold text-text">{s.title}</p>
+              <p className="mt-1 text-xs text-text-3">{s.text}</p>
+            </a>
           </li>
         ))}
       </ol>
@@ -313,16 +315,16 @@ export default function AlgoContractsView({ vm }: { vm: AlgoContractsVM }) {
 
       <StatusStrip vm={vm} />
 
-      <section className="space-y-3">
+      <section id="choose-contract" className="scroll-mt-24 space-y-3">
         <SectionTitle icon={Gem} title="Choose your contract" hint="Price, rebate and net price are fixed in your contract" />
         <div className="grid gap-5 lg:grid-cols-3">
           {vm.products.map((p) => <ContractCard key={p.key} p={p} />)}
         </div>
       </section>
 
-      <HowItWorks />
+      <HowItWorks hasMoney={hasMoney} />
 
-      <section className="space-y-3">
+      <section id="your-contracts" className="scroll-mt-24 space-y-3">
         <SectionTitle icon={FileText} title="Your contracts" />
         {vm.contracts.length === 0 ? (
           <EmptyState title="No contracts yet" description="After purchase your contract, product download and rebate schedule appear here." />
@@ -332,7 +334,7 @@ export default function AlgoContractsView({ vm }: { vm: AlgoContractsVM }) {
       </section>
 
       {hasMoney && (
-        <section className="space-y-3">
+        <section id="balance" className="scroll-mt-24 space-y-3">
           <SectionTitle icon={Wallet} title="Balance and withdrawals" />
           <WithdrawCard
             balances={vm.balances}
