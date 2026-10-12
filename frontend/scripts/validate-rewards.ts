@@ -237,6 +237,20 @@ check("page card for Index and its referral amounts", vmI.netPriceCents === 1_19
 check("every page card adds up: price - rebate = net, 4 x instalment = rebate", REWARD_PRODUCT_KEYS.every((k) => { const v = buildProductVM(k, { slot: null, blockedReason: null }); return v.listPriceCents - v.rebateTotalCents === v.netPriceCents && v.perQuarterCents * v.installments === v.rebateTotalCents; }));
 check("page taglines carry no banned wording", REWARD_PRODUCT_KEYS.every((k) => BANNED_COPY_WORDS.every((w) => !new RegExp(`\\b${w.replace(/ /g, "\\s+")}`, "i").test(buildProductVM(k, { slot: null, blockedReason: null }).tagline))));
 
+// --- the commission table on the page must equal what the engine really pays (flag off / on, every product)
+for (const k of REWARD_PRODUCT_KEYS) {
+  const prod = REWARD_PRODUCTS[k];
+  const card = buildProductVM(k, { slot: null, blockedReason: null });
+  const upline = ["p0", "p1", "p2", "p3"]; // direct partner, then the three above
+  const off = computeReferralShares(prod, "buyer", upline, false);
+  const on = computeReferralShares(prod, "buyer", upline, true);
+  check(`${k}: flag OFF pays only the direct amount shown on the page`, off.length === 1 && off[0].amountCents === card.referralDirectCents);
+  check(`${k}: flag ON pays direct + the three upper amounts shown on the page`, on.length === 4 && on[0].amountCents === card.referralDirectCents && on.slice(1).map((r) => r.amountCents).join() === card.referralUpperCents.join());
+  const total = on.reduce((a, r) => a + r.amountCents, 0);
+  check(`${k}: all four levels together are 5% of the list price, rounded to whole dollars (within $1)`, Math.abs(total - prod.listPriceCents * 0.05) <= 100 && total % 100 === 0, `${total} vs ${prod.listPriceCents * 0.05}`);
+  check(`${k}: the maximum outflow figure matches (rebate + commission)`, maxOutflowCents(prod, true) === prod.rebateCents + total && maxOutflowCents(prod, false) === prod.rebateCents + card.referralDirectCents);
+}
+
 // --- copy guard on the strings this program shows
 const copy = REWARD_PRODUCT_KEYS.map((k) => REWARD_PRODUCTS[k].name).join(" ").toLowerCase();
 check("no banned words in product names", BANNED_COPY_WORDS.every((w) => !copy.includes(w)));
