@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { nowPaymentsProvider } from "@/services/billing/providers/NowPaymentsProvider";
 import { PaymentProviderError } from "@/lib/payments/errors";
 import { CONTRACT_TERMS_VERSION, REWARD_PRODUCTS, isRewardProductKey, rewardsAllowlist, rewardsMode } from "@/lib/rewards/config";
-import { canBuyContract, canEarnReferral } from "@/lib/rewards/eligibility";
+import { canBuyContract } from "@/lib/rewards/eligibility";
 import { loadUserFacts } from "@/lib/rewards/access";
 import { normalizeReferralCode } from "@/lib/rewards/referral";
 import { releaseHold, reserveSlot } from "@/services/rewards/slotStore";
@@ -60,16 +60,14 @@ export async function startRewardCheckout(input: StartCheckoutInput): Promise<St
   const verdict = canBuyContract(facts, { mode: rewardsMode(), allowlist: rewardsAllowlist(), productEnabled: true, slotsRemaining: 1 });
   if (!verdict.ok) return fail("NOT_ELIGIBLE", verdict.reasons[0], 403, verdict.reasons);
 
-  // Referral: the code must exist, belong to someone else, and that partner must be Pro + verified right now.
+  // Referral: the code must exist and belong to someone else. Whether each person in the chain is PAID is decided when the sale is
+  // verified (only an active paid Pro plan plus a verified identity earns); the link itself is kept either way, because it is also
+  // how the chain above the partner is found.
   let refCode: string | null = null;
   const code = normalizeReferralCode(input.refCookie);
   if (code) {
     const ref = await prisma.referralCode.findUnique({ where: { code } });
-    if (ref && ref.userId !== input.userId) {
-      const partnerUser = await prisma.user.findUnique({ where: { id: ref.userId }, select: { email: true } });
-      const partnerFacts = await loadUserFacts(ref.userId, partnerUser?.email);
-      if (canEarnReferral(partnerFacts)) refCode = code;
-    }
+    if (ref && ref.userId !== input.userId) refCode = code;
   }
 
   const slot = await reserveSlot({ userId: input.userId, productKey: product.key });

@@ -151,6 +151,54 @@ async function main() {
     if (co?.contractId) await cancelContract(co.contractId, "test cleanup", "e2e");
   }
 
+  // ---- DEMO (mock data): a 4-level chain, 2/1/1/1. Each person is paid ONLY with an active paid Pro plan + verified identity.
+  //   top (ra) brought rb, rb brought rc, rc brought rd, rd brings the buyer.   BTC contract: direct $100, then $50 / $50 / $50.
+  const chain = ["rd", "rc", "rb", "ra"]; // direct partner first, then upward
+  for (const id of chain) await mkUser(id);
+  const codeRow: Record<string, { code: string; id: string }> = {};
+  for (const id of chain) {
+    const code = await ensureReferralCode(id);
+    codeRow[id] = { code, id: (await prisma.referralCode.findFirstOrThrow({ where: { userId: id } })).id };
+  }
+  for (const [partner, buyer] of [["rc", "rd"], ["rb", "rc"], ["ra", "rb"]] as const) {
+    await prisma.referralAttribution.create({ data: { partnerId: partner, buyerId: buyer, codeId: codeRow[partner].id } });
+  }
+  process.env.REWARDS_MULTI_LEVEL = "true";
+  type State = "active" | "lapsed" | "adminGranted" | "free" | "noKyc";
+  const setState = async (id: string, st: State) => {
+    const sub = st === "lapsed" ? { currentPeriodEnd: later(-1), provider: "nowpayments", planId: "pro" }
+      : st === "adminGranted" ? { currentPeriodEnd: later(900), provider: null, planId: "pro" }
+      : st === "free" ? { currentPeriodEnd: later(900), provider: null, planId: "free" }
+      : { currentPeriodEnd: later(900), provider: "nowpayments", planId: "pro" };
+    await prisma.subscription.updateMany({ where: { userId: id }, data: sub });
+    await prisma.sellerIdentity.updateMany({ where: { userId: id }, data: { status: st === "noKyc" ? "PENDING" : "VERIFIED" } });
+  };
+  const demoRows: Array<Record<string, string | number>> = [];
+  const demo = async (n: number, label: string, states: [State, State, State, State], expected: [number, number, number, number]) => {
+    for (let i = 0; i < 4; i++) await setState(chain[i], states[i]);
+    const buyer = `demo_buyer_${n}`;
+    await mkUser(buyer);
+    const sale = await mkSale(buyer, n, codeRow.rd.code);
+    await fulfilRewardCheckout({ intentId: `intent_${n}`, providerRef: `pay_${n}` });
+    const rows = await prisma.referralCommission.findMany({ where: { purchaseId: sale.purchase.id } });
+    const got = chain.map((id) => rows.filter((r) => r.partnerId === id).reduce((a, r) => a + r.amountCents, 0));
+    const buyerPaid = rows.some((r) => r.partnerId === buyer);
+    const levelsOk = chain.every((id, i) => rows.filter((r) => r.partnerId === id).every((r) => r.level === i));
+    check(`DEMO ${label}: direct / level2 / level3 / level4 = ${expected.map((c) => "$" + c / 100).join(" / ")}`, got.join() === expected.join() && !buyerPaid && levelsOk, `got ${got.map((c) => "$" + c / 100).join(" / ")}`);
+    demoRows.push({ scenario: label, "direct rd": `$${got[0] / 100}`, "level 2 rc": `$${got[1] / 100}`, "level 3 rb": `$${got[2] / 100}`, "level 4 ra": `$${got[3] / 100}`, total: `$${got.reduce((a, c) => a + c, 0) / 100}` });
+    const co = await prisma.rewardCheckout.findUnique({ where: { intentId: `intent_${n}` } });
+    if (co?.contractId) await cancelContract(co.contractId, "demo cleanup", "e2e");
+  };
+  await demo(11, "everyone active", ["active", "active", "active", "active"], [10_000, 5_000, 5_000, 5_000]);
+  await demo(12, "level 3 (rb) Pro lapsed", ["active", "active", "lapsed", "active"], [10_000, 5_000, 0, 5_000]);
+  await demo(13, "level 2 (rc) admin-granted Pro, level 4 (ra) no KYC", ["active", "adminGranted", "active", "noKyc"], [10_000, 0, 5_000, 0]);
+  await demo(14, "direct (rd) on the free plan", ["free", "active", "active", "active"], [0, 5_000, 5_000, 5_000]);
+  await demo(15, "nobody qualifies", ["lapsed", "free", "noKyc", "adminGranted"], [0, 0, 0, 0]);
+  console.log("\nDEMO - BTC AI Algo sold through a 4-level chain (2/1/1/1, fixed dollars):");
+  console.table(demoRows);
+  delete process.env.REWARDS_MULTI_LEVEL;
+  for (const id of chain) await setState(id, "active");
+
   // ---- sweep with simulated time
   await prisma.rewardContract.update({ where: { id: contractId }, data: { status: "ACTIVE" } }); // stands in for the issued PDF
   const r0 = await runRewardsSweep(later(10));
