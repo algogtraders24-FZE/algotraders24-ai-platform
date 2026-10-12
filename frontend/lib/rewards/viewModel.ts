@@ -45,7 +45,8 @@ export interface PayoutVM { id: string; amountCents: number; network: string; st
 
 export interface AlgoContractsVM {
   nowIso: string;
-  eligibility: { proOk: boolean; kycOk: boolean };
+  /** kycAvailable = an identity provider (Didit or Sumsub) is switched on, so the member can actually verify. */
+  eligibility: { proOk: boolean; kycOk: boolean; kycAvailable: boolean };
   products: ProductVM[];
   contracts: ContractVM[];
   badge: { tier: RewardProductKey; dimmed: boolean } | null;

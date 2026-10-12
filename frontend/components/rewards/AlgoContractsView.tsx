@@ -38,7 +38,13 @@ function StatusStrip({ vm }: { vm: AlgoContractsVM }) {
   const ready = proOk && kycOk;
   const items = [
     { done: proOk, label: "Active paid Pro plan", hint: "A plan granted without a payment does not qualify.", href: "/dashboard/billing", cta: "Go to billing" },
-    { done: kycOk, label: "Identity verified", hint: "One-time ID and selfie check. AT24 never stores your document.", href: "/dashboard/settings", cta: "Verify identity" },
+    {
+      done: kycOk,
+      label: "Identity verified (KYC)",
+      hint: vm.eligibility.kycAvailable ? "Required to buy any contract. One-time ID and selfie check; AT24 never stores your document." : "Required to buy any contract. The verification service is not switched on yet, so contracts open after it is.",
+      href: "/dashboard/settings",
+      cta: vm.eligibility.kycAvailable ? "Verify identity" : "",
+    },
   ];
   return (
     <Card className="space-y-4">
@@ -64,7 +70,7 @@ function StatusStrip({ vm }: { vm: AlgoContractsVM }) {
                 <p className="text-xs text-text-3">{i.hint}</p>
               </div>
             </div>
-            {i.done ? <Badge tone="success">Done</Badge> : <ButtonLink href={i.href} variant="secondary" size="sm">{i.cta}</ButtonLink>}
+            {i.done ? <Badge tone="success">Done</Badge> : i.cta ? <ButtonLink href={i.href} variant="secondary" size="sm">{i.cta}</ButtonLink> : <Badge tone="neutral">Not open yet</Badge>}
           </li>
         ))}
       </ul>

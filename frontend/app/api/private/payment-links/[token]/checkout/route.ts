@@ -20,6 +20,7 @@ import { nowPaymentsProvider } from "@/services/billing/providers/NowPaymentsPro
 import { PaymentProviderError } from "@/lib/payments/errors";
 import { resolvePaymentLink, recordPaymentLinkUse } from "@/services/marketplace/paymentLinkService";
 import { checkAndRecordCheckoutAttempt, CHECKOUT_RATE_LIMIT_MESSAGE } from "@/lib/security/checkoutRateLimit";
+import { isProgramListing, PROGRAM_LISTING_MESSAGE } from "@/services/rewards/listingGuard";
 
 // PAY-4C convention - same region pin as the direct marketplace checkout
 // routes, for the same Edge Middleware -> Node cross-region 502 reason.
@@ -62,6 +63,10 @@ export const POST = withContext(async (req, ctx) => {
     return ApiResponse.error({ code: resolved.code, message }, ctx.requestId, 404, ctx.startedAt);
   }
   const { listing } = resolved;
+
+  if (await isProgramListing(listing.id)) {
+    return ApiResponse.error({ code: "USE_ALGO_CONTRACTS", message: PROGRAM_LISTING_MESSAGE }, ctx.requestId, 409, ctx.startedAt);
+  }
 
   if (!listing.tradingSystemId || !listing.versionId) {
     return ApiResponse.error({ code: "NOT_PURCHASABLE", message: "This listing is not bound to a TradingSystem/Version yet" }, ctx.requestId, 409, ctx.startedAt);

@@ -17,6 +17,7 @@ import { buildProductVM, type AlgoContractsVM } from "@/lib/rewards/viewModel";
 import { getBalances, listPayouts } from "@/services/rewards/payoutStore";
 import { getReferralCode } from "@/services/rewards/referralStore";
 import { slotSummary } from "@/services/rewards/slotStore";
+import { identityProvider } from "@/services/marketplace/identityStore";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,7 @@ export default async function AlgoContractsPage() {
 
   const vm: AlgoContractsVM = {
     nowIso: now.toISOString(),
-    eligibility: { proOk, kycOk },
+    eligibility: { proOk, kycOk, kycAvailable: identityProvider() !== null },
     products: REWARD_PRODUCT_KEYS.map((key) => {
       const slot = slots.byProduct[key] ?? null;
       const blockedReason = !enabled.has(key) ? "Opens soon" : !proOk ? "Active paid Pro plan needed" : !kycOk ? "Identity verification needed" : !slot?.opened ? "Closed this month" : slot.remaining <= 0 ? "All slots taken this month" : null;

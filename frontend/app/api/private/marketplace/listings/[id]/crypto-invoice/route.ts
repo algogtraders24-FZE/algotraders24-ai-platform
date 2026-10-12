@@ -15,6 +15,7 @@ import { PaymentProviderError } from "@/lib/payments/errors";
 import { MAX_REASONABLE_PAYMENT_AMOUNT_USD } from "@/lib/payments/env";
 import { PUBLICLY_VISIBLE_STATES } from "@/types/marketplace";
 import { checkAndRecordCheckoutAttempt, CHECKOUT_RATE_LIMIT_MESSAGE } from "@/lib/security/checkoutRateLimit";
+import { isProgramListing, PROGRAM_LISTING_MESSAGE } from "@/services/rewards/listingGuard";
 
 // PAY-4C - same region pin as ../checkout/route.ts (Stripe): production
 // smoke testing found the Edge Middleware -> Node function region handoff
@@ -57,6 +58,9 @@ export const POST = withContext(async (req, ctx) => {
   );
   if (!listing) {
     return ApiResponse.error({ code: "NOT_FOUND", message: "Listing not found" }, ctx.requestId, 404, ctx.startedAt);
+  }
+  if (await isProgramListing(listing.id)) {
+    return ApiResponse.error({ code: "USE_ALGO_CONTRACTS", message: PROGRAM_LISTING_MESSAGE }, ctx.requestId, 409, ctx.startedAt);
   }
 
   const pricing = listing.pricing as Record<string, unknown> | null;

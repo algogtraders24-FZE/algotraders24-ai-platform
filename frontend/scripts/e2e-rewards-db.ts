@@ -21,6 +21,7 @@ import { fulfilRewardCheckout } from "../services/rewards/fulfilmentService";
 import { cancelContract, runRewardsSweep } from "../services/rewards/releaseService";
 import { decideWithdrawal, getBalances, requestWithdrawal } from "../services/rewards/payoutStore";
 import { ensureReferralCode } from "../services/rewards/referralStore";
+import { isProgramListing } from "../services/rewards/listingGuard";
 
 let failed = 0;
 function check(name: string, ok: boolean, detail = "") {
@@ -65,6 +66,11 @@ async function main() {
   await mkUser("buyer4");
   await mkUser("par2");
   await mkUser("grand");
+
+  // ---- a listing bound to a reward product cannot be bought around the KYC check through the ordinary marketplace checkout
+  await prisma.rewardProduct.create({ data: { key: "BTC_AI_ALGO", name: "BTC AI Algo", listingId: "lst_program", listPriceCents: btc.listPriceCents, rebateCents: btc.rebateCents, referralCents: [...btc.referralCents], enabled: false } });
+  check("a listing bound to a reward product is a program listing (even before it is switched on)", await isProgramListing("lst_program"));
+  check("any other listing is not", !(await isProgramListing("lst_other")));
 
   // ---- slots
   const month = monthKey(T0);
