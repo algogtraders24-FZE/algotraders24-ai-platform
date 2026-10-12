@@ -3306,6 +3306,7 @@ model RewardProduct {
   key            String   @unique // BTC_AI_ALGO | GOLD_AI_ALGO | INDEX_AI_ALGO
   name           String
   listingId      String? // the marketplace listing that carries the EA files + licence
+  mt4ListingId   String? // optional second listing (the other platform); its licence is issued free with the contract
   listPriceCents Int
   rebateCents    Int
   installments   Int      @default(4)

@@ -9,6 +9,6 @@ export const PROGRAM_LISTING_MESSAGE =
 
 /** True when a reward product is bound to this listing (whether or not it is switched on yet). A missing table counts as "no". */
 export async function isProgramListing(listingId: string): Promise<boolean> {
-  const row = await prisma.rewardProduct.findFirst({ where: { listingId }, select: { id: true } }).catch(() => null);
+  const row = await prisma.rewardProduct.findFirst({ where: { OR: [{ listingId }, { mt4ListingId: listingId }] }, select: { id: true } }).catch(() => null);
   return row !== null;
 }

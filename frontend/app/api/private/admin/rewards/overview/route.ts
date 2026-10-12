@@ -23,7 +23,7 @@ export const GET = withContext(async (req, ctx) => {
     prisma.rewardContract.findMany({ orderBy: { createdAt: "desc" }, take: 50 }),
     prisma.rewardPayout.findMany({ where: { status: "REQUESTED" }, orderBy: { createdAt: "asc" }, take: 100 }),
     prisma.rewardCheckout.findMany({ where: { status: "FAILED" }, orderBy: { createdAt: "desc" }, take: 50 }),
-    prisma.rewardProduct.findMany({ select: { key: true, enabled: true, listingId: true } }),
+    prisma.rewardProduct.findMany({ select: { key: true, enabled: true, listingId: true, mt4ListingId: true } }),
   ]);
   const reserve = summarizeReserve(reserveRows.map((r) => ({ type: r.type as "RESERVED" | "RELEASED" | "RETURNED", amountCents: r.amountCents })));
   const owedCents = owed._sum.amountCents ?? 0;
@@ -41,6 +41,7 @@ export const GET = withContext(async (req, ctx) => {
         listPriceCents: REWARD_PRODUCTS[k].listPriceCents,
         enabled: enabledRows.find((r) => r.key === k)?.enabled ?? false,
         listingId: enabledRows.find((r) => r.key === k)?.listingId ?? null,
+        mt4ListingId: enabledRows.find((r) => r.key === k)?.mt4ListingId ?? null,
         slot: slots.byProduct[k] ?? null,
       })),
       reserve: { ...reserve, owedCents, shortfallCents: reserveShortfall(owedCents, reserve.outstanding), balanced: reserve.outstanding === owedCents },

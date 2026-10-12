@@ -10,7 +10,7 @@ import Alert from "@/components/ui/Alert";
 import Badge from "@/components/ui/Badge";
 
 interface Slot { limit: number; opened: boolean; remaining: number }
-interface Product { key: string; name: string; listPriceCents?: number; enabled: boolean; listingId: string | null; slot: Slot | null }
+interface Product { key: string; name: string; listPriceCents?: number; enabled: boolean; listingId: string | null; mt4ListingId?: string | null; slot: Slot | null }
 interface Overview {
   month: string;
   products: Product[];
@@ -46,6 +46,7 @@ export default function AdminRewardsClient() {
   const [limits, setLimits] = useState<Record<string, number>>({});
   const [tx, setTx] = useState<Record<string, string>>({});
   const [listing, setListing] = useState<Record<string, string>>({});
+  const [second, setSecond] = useState<Record<string, string>>({});
 
   const load = useCallback(async (m?: string) => {
     try {
@@ -54,6 +55,7 @@ export default function AdminRewardsClient() {
       setMonth(d.month);
       setLimits(Object.fromEntries(d.products.map((p) => [p.key, p.slot?.limit ?? 0])));
       setListing(Object.fromEntries(d.products.map((p) => [p.key, p.listingId ?? ""])));
+      setSecond(Object.fromEntries(d.products.map((p) => [p.key, p.mt4ListingId ?? ""])));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load.");
     }
@@ -99,12 +101,13 @@ export default function AdminRewardsClient() {
             <li key={p.key} className="flex flex-wrap items-center justify-between gap-3 py-3">
               <div>
                 <p className="text-sm font-medium text-text">{p.name} {p.listPriceCents !== undefined && <span className="text-text-3">· {usd(p.listPriceCents)}</span>}</p>
-                <p className="text-xs text-text-3">{p.enabled && p.listingId ? "On, sold from listing " + p.listingId : "Off"}</p>
+                <p className="text-xs text-text-3">{p.enabled && p.listingId ? "On, sold from listing " + p.listingId + (p.mt4ListingId ? " + second platform " + p.mt4ListingId : "") : "Off"}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Input value={listing[p.key] ?? ""} onChange={(e) => setListing({ ...listing, [p.key]: e.target.value })} placeholder="Listing id" aria-label={`${p.name} listing id`} className="w-64" />
-                <Button size="sm" onClick={() => act(() => call("/api/private/admin/rewards/products", "POST", { key: p.key, listingId: listing[p.key] ?? "", enabled: true }), `${p.name}: switched on.`)}>Save and switch on</Button>
-                <Button size="sm" variant="secondary" onClick={() => act(() => call("/api/private/admin/rewards/products", "POST", { key: p.key, listingId: listing[p.key] ?? "", enabled: false }), `${p.name}: switched off.`)}>Switch off</Button>
+                <Input value={second[p.key] ?? ""} onChange={(e) => setSecond({ ...second, [p.key]: e.target.value })} placeholder="MT4 listing id (optional)" aria-label={`${p.name} second platform listing id`} className="w-64" />
+                <Button size="sm" onClick={() => act(() => call("/api/private/admin/rewards/products", "POST", { key: p.key, listingId: listing[p.key] ?? "", mt4ListingId: second[p.key] ?? "", enabled: true }), `${p.name}: switched on.`)}>Save and switch on</Button>
+                <Button size="sm" variant="secondary" onClick={() => act(() => call("/api/private/admin/rewards/products", "POST", { key: p.key, listingId: listing[p.key] ?? "", mt4ListingId: second[p.key] ?? "", enabled: false }), `${p.name}: switched off.`)}>Switch off</Button>
               </div>
             </li>
           ))}

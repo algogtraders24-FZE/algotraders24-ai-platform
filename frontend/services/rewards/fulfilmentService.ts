@@ -11,6 +11,7 @@ import { canEarnReferral } from "@/lib/rewards/eligibility";
 import { ledgerKey } from "@/lib/rewards/ledger";
 import { loadUserFacts } from "@/lib/rewards/access";
 import { issueContractDocument } from "@/services/rewards/contractDocument";
+import { ensureCompanionLicense } from "@/services/rewards/companionLicense";
 
 export type FulfilResult = { handled: false } | { handled: true; contractId: string; duplicate: boolean };
 
@@ -42,11 +43,22 @@ async function resolveUpline(directPartnerId: string, buyerId: string, at: Date)
   return out;
 }
 
+/** Second-platform licence, best effort: the contract and the main licence stand even if this fails; a replay (admin retry) tries again. */
+async function tryCompanion(productKey: string, buyerId: string, providerRef: string, expiresAt: Date | null): Promise<void> {
+  try {
+    await ensureCompanionLicense({ productKey, buyerId, providerRef, expiresAt });
+  } catch (e) {
+    console.error("[rewards] second-platform licence failed (non-fatal):", e);
+  }
+}
+
 export async function fulfilRewardCheckout(input: { intentId: string; providerRef: string }): Promise<FulfilResult> {
   const checkout = await prisma.rewardCheckout.findUnique({ where: { intentId: input.intentId } });
   if (!checkout) return { handled: false };
   if (checkout.status === "FULFILLED" && checkout.contractId) {
     await issueContractDocument(checkout.contractId); // a replay also finishes a document that failed the first time
+    const first = await prisma.purchase.findUnique({ where: { providerRef: input.providerRef }, include: { entitlements: { include: { licenses: true } } } }).catch(() => null);
+    await tryCompanion(checkout.productKey, checkout.userId, input.providerRef, first?.entitlements[0]?.licenses[0]?.expiresAt ?? null);
     return { handled: true, contractId: checkout.contractId, duplicate: true };
   }
   if (!isRewardProductKey(checkout.productKey)) throw new Error(`Unknown reward product "${checkout.productKey}"`);
@@ -117,6 +129,8 @@ export async function fulfilRewardCheckout(input: { intentId: string; providerRe
     });
     // Document and activation come right after the money is recorded; if they fail the contract stays PENDING_DOCUMENT and is retried.
     await issueContractDocument(contractId);
+    const mainLicense = licenseId ? await prisma.license.findUnique({ where: { id: licenseId }, select: { expiresAt: true } }).catch(() => null) : null;
+    await tryCompanion(checkout.productKey, checkout.userId, input.providerRef, mainLicense?.expiresAt ?? null);
     return { handled: true, contractId, duplicate: false };
   } catch (err) {
     // A replay raced past the status check: the unique purchaseId stops the second contract; return the first.
