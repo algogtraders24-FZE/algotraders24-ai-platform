@@ -22,6 +22,7 @@ import { cancelContract, runRewardsSweep } from "../services/rewards/releaseServ
 import { decideWithdrawal, getBalances, requestWithdrawal } from "../services/rewards/payoutStore";
 import { ensureReferralCode } from "../services/rewards/referralStore";
 import { isProgramListing } from "../services/rewards/listingGuard";
+import { findKycReminderTargets, runKycReminders } from "../services/rewards/kycReminder";
 
 let failed = 0;
 function check(name: string, ok: boolean, detail = "") {
@@ -66,6 +67,22 @@ async function main() {
   await mkUser("buyer4");
   await mkUser("par2");
   await mkUser("grand");
+
+  // ---- who gets the KYC reminder: an active PAID plan (real payment) and no verified identity - nobody else
+  await mkUser("kycA", { pro: true, kyc: false });                       // paid Pro, not verified -> yes
+  await mkUser("kycB", { pro: true, kyc: true });                        // paid Pro, verified     -> no
+  await mkUser("kycC", { pro: true, kyc: false });                       // admin-granted Pro       -> no
+  await prisma.subscription.updateMany({ where: { userId: "kycC" }, data: { provider: null } });
+  await mkUser("kycD", { pro: true, kyc: false });                       // paid Pro that expired   -> no
+  await prisma.subscription.updateMany({ where: { userId: "kycD" }, data: { currentPeriodEnd: later(-1) } });
+  await mkUser("kycE", { pro: false, kyc: false });                      // free plan               -> no
+  await mkUser("kycF", { pro: true, kyc: false });                       // paid Pro, verification still pending -> yes
+  await prisma.sellerIdentity.create({ data: { userId: "kycF", status: "PENDING" } });
+  const kycTargets = (await findKycReminderTargets(100)).map((t) => t.userId).sort();
+  check("KYC reminder targets: paid active plan without a verified identity only (kycA, kycF)", kycTargets.join() === "kycA,kycF", kycTargets.join());
+  const dry = await runKycReminders({ send: false, limit: 100 });
+  check("dry run counts them, sends nothing and returns only masked addresses", dry.matched === 2 && dry.sent === 0 && dry.sample.every((x) => /^\w\*\*\*@/.test(x)), JSON.stringify(dry));
+  check("the limit is respected", (await findKycReminderTargets(1)).length === 1);
 
   // ---- a listing bound to a reward product cannot be bought around the KYC check through the ordinary marketplace checkout
   await prisma.rewardProduct.create({ data: { key: "BTC_AI_ALGO", name: "BTC AI Algo", listingId: "lst_program", listPriceCents: btc.listPriceCents, rebateCents: btc.rebateCents, referralCents: [...btc.referralCents], enabled: false } });

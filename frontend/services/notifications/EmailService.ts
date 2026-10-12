@@ -7,6 +7,7 @@ import { Resend } from "resend";
 import { getSiteUrl } from "@/lib/payments/env";
 import { recordEmailLog, wasEmailAlreadySent } from "./EmailLogService";
 import { contractEmailBody, contractEmailSubject, type ContractEmailInput } from "@/lib/rewards/emailContent";
+import { KYC_EMAIL_SUBJECT, kycEmailBody } from "@/lib/rewards/kycEmail";
 
 // billing@ is a real, active mailbox on this domain (unlike a
 // purchases@/no-reply@ address with no inbox behind it) - a buyer who
@@ -135,6 +136,20 @@ export async function sendPurchaseConfirmationEmail(params: {
   });
 
   await dispatch({ type: "purchase_confirmation", to: params.to, subject: `Your purchase: ${params.productName}`, html });
+}
+
+/** KYC reminder for members who already hold a paid plan. Sent at most once per person (deduped on the user id), best effort. */
+export async function sendKycReminderEmail(params: { to: string; name: string; userId: string }): Promise<void> {
+  const dedupeKey = `kyc-reminder:${params.userId}`;
+  if (await wasEmailAlreadySent("kyc_reminder", dedupeKey)) return;
+  const siteUrl = getSiteUrl();
+  const html = renderLayout({
+    title: "Please verify your identity",
+    maxWidth: 520,
+    bodyHtml: kycEmailBody({ name: params.name, siteUrl }),
+    cta: { text: "Verify my identity", url: `${siteUrl}/dashboard/settings` },
+  });
+  await dispatch({ type: "kyc_reminder", to: params.to, subject: KYC_EMAIL_SUBJECT, html, recipientUserId: params.userId, dedupeKey });
 }
 
 /** Algo Contracts: the "your contract is ready" email, with the contract PDF attached and a short quick-start. Sent once per

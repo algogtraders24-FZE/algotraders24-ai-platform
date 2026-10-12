@@ -15,6 +15,7 @@ import { guideText, GUIDE_SECTIONS, GUIDE_FAQ, QUICK_START, GUIDE_PATH } from ".
 import { contractEmailBody, contractEmailSubject, escapeHtmlText } from "../lib/rewards/emailContent";
 import { buildProductVM } from "../lib/rewards/viewModel";
 import { decideProKyc, proRequiresKyc, PRO_KYC_MESSAGE } from "../lib/billing/proKyc";
+import { kycEmailBody, KYC_EMAIL_SUBJECT } from "../lib/rewards/kycEmail";
 import { monthKey, slotsRemaining, holdExpiry, validateSlotLimits, isMonthKey } from "../lib/rewards/slots";
 import { generateReferralCode, normalizeReferralCode, referralLink, CODE_ALPHABET, REF_COOKIE, REF_COOKIE_MAX_AGE_SECONDS, REFERRAL_LANDING_PATH } from "../lib/rewards/referral";
 
@@ -261,6 +262,12 @@ check("rule on, verified: allowed", pk({ verified: true }).allow);
 check("rule on, owner account: allowed", pk({ isOwner: true }).allow);
 check("rule on but no identity provider yet: allowed (no lock-out)", pk({ providerAvailable: false }).allow);
 check("KYC rule message has no banned wording", BANNED_COPY_WORDS.every((w) => !new RegExp(`\\b${w.replace(/ /g, "\\s+")}`, "i").test(PRO_KYC_MESSAGE)));
+
+// --- KYC reminder email
+const kb = kycEmailBody({ name: "Ravi <b>K</b>", siteUrl: "https://algotraders24.ai/" });
+check("KYC email links Settings (no double slash) and escapes the name", kb.includes("https://algotraders24.ai/dashboard/settings") && !kb.includes("<b>K</b>") && kb.includes("Ravi &lt;b&gt;K&lt;/b&gt;"));
+check("KYC email is truthful: plan keeps working, rule applies to the next purchase/renewal, document not seen by AT24", /keeps working until it ends/.test(kb) && /Nothing is cancelled/.test(kb) && /renewing a paid plan/.test(kb) && /never sees or stores your ID document/.test(kb));
+check("KYC email has no banned wording and a plain subject", BANNED_COPY_WORDS.every((w) => !new RegExp(`\\b${w.replace(/ /g, "\\s+")}`, "i").test(kb + " " + KYC_EMAIL_SUBJECT)) && KYC_EMAIL_SUBJECT.length < 70);
 
 // --- copy guard on the strings this program shows
 const copy = REWARD_PRODUCT_KEYS.map((k) => REWARD_PRODUCTS[k].name).join(" ").toLowerCase();
