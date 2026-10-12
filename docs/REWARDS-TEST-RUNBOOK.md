@@ -40,3 +40,6 @@ Tested on a scratch Postgres (`scripts/e2e-rewards-db.ts`, the "TEST contract" b
 ## Owner test switch
 Set `REWARDS_OWNER_AS_PRO=true` (Vercel, then redeploy) and the owner accounts count as an active paid Pro plan for the rewards rules (buy, commission, instalments, withdrawal). Identity (KYC) is still required, and no other account is affected. **Turn it off after the test.**
 
+
+## If the Vercel build for a merge does not appear
+A merge to main normally starts a production build in 1-2 minutes. On 2026-10-12 the build for the $15 test-price merge (#231) never started (webhook miss), so the live site kept the old $10 config. Merging any small PR starts a new build of the latest main; check Vercel -> Deployments for a Production row that matches the newest "Merge pull request" commit before testing.
