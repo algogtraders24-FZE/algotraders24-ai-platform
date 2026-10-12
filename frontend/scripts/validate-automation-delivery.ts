@@ -84,7 +84,7 @@ async function main(): Promise<void> {
     assert.equal(s.notified.length, 1);
     assert.equal(s.notified[0].kind, DELIVERY_NOTIFICATION_KIND);
     assert.equal(s.notified[0].href, "/dashboard/automation/runs/run1");
-    assert.ok(s.notified[0].body.includes("XAUUSD 1h: bearish-leaning"));
+    assert.ok(s.notified[0].body.includes("Gold (XAUUSD 1h): leaning bearish - trending down"));
     assert.equal(s.telegram.length + s.push.length, 0);
   });
 
@@ -160,6 +160,77 @@ async function main(): Promise<void> {
     assert.equal(validateWorkflowDefinition({ ...base, delivery: { channels: ["bell", "bell"] } }).ok, false);
     assert.equal(validateWorkflowDefinition({ ...base, delivery: "bell" }).ok, false);
     assert.equal(validateWorkflowDefinition(base).ok, true); // delivery stays optional
+  });
+
+  // ── Brief v2 ──
+  const onChange = { delivery: { channels: ["bell", "telegram"] as ("bell" | "telegram")[], mode: "on_change" as const } };
+
+  await test("on_change: unchanged result sends nothing", async () => {
+    const s = spy();
+    const r = await deliverRunResult(input({ definition: onChange, agentOutputs: [MI], previousOutputs: [{ ...MI, regimeConfidence: 70 }] }), s.deps);
+    assert.equal(r.status, "skipped");
+    assert.equal(r.reason, "no-change");
+    assert.equal(s.notified.length + s.telegram.length, 0);
+  });
+
+  await test("on_change: a changed bias is delivered, with the change note", async () => {
+    const s = spy();
+    const r = await deliverRunResult(input({ definition: onChange, agentOutputs: [MI], previousOutputs: [{ ...MI, bias: "bullish-leaning" }] }), s.deps);
+    assert.equal(r.status, "delivered");
+    assert.ok(s.notified[0].body.includes("Changed since the last brief: was leaning bullish, now leaning bearish."));
+    assert.ok(s.telegram[0].text.includes("Changed since the last brief"));
+  });
+
+  await test("on_change: the FIRST run (no previous) is delivered, never swallowed", async () => {
+    const s = spy();
+    const r = await deliverRunResult(input({ definition: onChange, agentOutputs: [MI] }), s.deps);
+    assert.equal(r.status, "delivered");
+  });
+
+  await test("mode 'always' (default) still delivers an unchanged result", async () => {
+    const s = spy();
+    const r = await deliverRunResult(input({ agentOutputs: [MI], previousOutputs: [MI] }), s.deps);
+    assert.equal(r.status, "delivered");
+    assert.ok(s.notified[0].body.includes("No change since the last brief."));
+  });
+
+  await test("enrich: price, macro line and today's events appear for gold MI; a throwing enrich is harmless", async () => {
+    const extras = { priceLine: "Gold $4,166.15 (+0.40% today)", macroLine: "Macro alignment 75% - Supports gold (4/5 drivers)", eventLines: ["19:30 IST (in 3h 20m) - USD CPI"] };
+    const s = spy({ enrich: async () => extras });
+    await deliverRunResult(input({ definition: { delivery: { channels: ["bell", "telegram"] } }, agentOutputs: [MI] }), s.deps);
+    assert.ok(s.notified[0].body.includes("Gold $4,166.15"));
+    assert.ok(s.notified[0].body.includes("Macro alignment 75%"));
+    assert.ok(s.telegram[0].text.includes("high-impact events"));
+    assert.ok(s.telegram[0].text.includes("USD CPI"));
+
+    const boom = spy({
+      enrich: async () => {
+        throw new Error("calendar down");
+      },
+    });
+    const r = await deliverRunResult(input({ agentOutputs: [MI] }), boom.deps);
+    assert.equal(r.status, "delivered");
+    assert.ok(!boom.notified[0].body.includes("Macro alignment"));
+  });
+
+  await test("enrich is NOT called for a non-gold instrument", async () => {
+    let called = 0;
+    const s = spy({
+      enrich: async () => {
+        called += 1;
+        return { priceLine: "Gold $1" };
+      },
+    });
+    await deliverRunResult(input({ agentOutputs: [{ ...MI, symbol: "EURUSD" }] }), s.deps);
+    assert.equal(called, 0);
+    assert.ok(!s.notified[0].body.includes("Gold $1"));
+  });
+
+  await test("validator: delivery.mode accepts always/on_change, rejects anything else", () => {
+    const base = { schemaVersion: 1, trigger: { type: "manual", timezone: "Asia/Kolkata" }, steps: [{ id: "s1", kind: "agent_run", action: { agentType: "MARKET_INTELLIGENCE", input: { symbol: "XAUUSD" } } }] };
+    assert.equal(validateWorkflowDefinition({ ...base, delivery: { channels: ["bell"], mode: "on_change" } }).ok, true);
+    assert.equal(validateWorkflowDefinition({ ...base, delivery: { channels: ["bell"], mode: "always" } }).ok, true);
+    assert.equal(validateWorkflowDefinition({ ...base, delivery: { channels: ["bell"], mode: "sometimes" } }).ok, false);
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);

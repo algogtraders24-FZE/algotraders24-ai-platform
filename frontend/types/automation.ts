@@ -144,8 +144,13 @@ export type AutomationStep =
 export const AUTOMATION_DELIVERY_CHANNELS = ["bell", "telegram", "push"] as const;
 export type AutomationDeliveryChannel = (typeof AUTOMATION_DELIVERY_CHANNELS)[number];
 
+/** "always" (default): deliver every successful run. "on_change": deliver only when the result changed since the last delivered run. */
+export const AUTOMATION_DELIVERY_MODES = ["always", "on_change"] as const;
+export type AutomationDeliveryMode = (typeof AUTOMATION_DELIVERY_MODES)[number];
+
 export interface AutomationDeliveryConfig {
   channels: AutomationDeliveryChannel[];
+  mode?: AutomationDeliveryMode;
 }
 
 export interface AutomationWorkflowDefinition {
@@ -163,6 +168,10 @@ export interface AgentBrief {
   lines: string[];
   disclaimer: string | null;
   empty: boolean;
+  /** Only set when a previous result was supplied: did the bias / regime change? Absent = unknown (treated as changed). */
+  changed?: boolean;
+  /** Plain sentence about what changed since the last run, or null. */
+  changeNote?: string | null;
 }
 
 // ── API shapes ───────────────────────────────────────────────────────────

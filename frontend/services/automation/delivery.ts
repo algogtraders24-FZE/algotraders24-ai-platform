@@ -20,6 +20,7 @@
 
 import type { AutomationDeliveryChannel, AutomationWorkflowDefinition } from "@/types/automation";
 import { composeAgentBrief, type AgentBrief } from "./brief";
+import type { DeliveryExtras } from "./brief-extras";
 import { escapeHtml } from "@/services/telegram/client";
 
 export const DELIVERY_NOTIFICATION_KIND = "automation_result";
@@ -47,14 +48,28 @@ export function buildDeliveryMessage(args: {
   briefs: readonly (AgentBrief | null)[];
   href: string;
   siteUrl: string;
+  extras?: DeliveryExtras | null;
 }): DeliveryMessage | null {
   const useful = args.briefs.filter((b): b is AgentBrief => b !== null && !b.empty);
   if (useful.length === 0) return null;
 
   const name = args.automationName.trim() || "Automation";
-  const short = useful.map((b) => b.headline).join("\n").slice(0, 560);
+  const x = args.extras ?? {};
+  const shortParts = [useful[0].headline, useful[0].changeNote, x.priceLine, x.macroLine, ...useful.slice(1).map((b) => b.headline)];
+  const short = shortParts.filter((p): p is string => !!p).join("\n").slice(0, 560);
 
-  const blocks = useful.map((b) => [`<b>${escapeHtml(b.headline)}</b>`, ...b.lines.map((l) => `• ${escapeHtml(l)}`)].join("\n"));
+  const blocks = useful.map((b, i) =>
+    [
+      `<b>${escapeHtml(b.headline)}</b>`,
+      ...(i === 0 && x.priceLine ? [escapeHtml(x.priceLine)] : []),
+      ...(b.changeNote ? [`<i>${escapeHtml(b.changeNote)}</i>`] : []),
+      ...(i === 0 && x.macroLine ? [escapeHtml(x.macroLine)] : []),
+      ...b.lines.map((l) => `• ${escapeHtml(l)}`),
+    ].join("\n"),
+  );
+  if (x.eventLines && x.eventLines.length > 0) {
+    blocks.push(["<b>Today's high-impact events</b>", ...x.eventLines.map((l) => `• ${escapeHtml(l)}`)].join("\n"));
+  }
   let html = `<b>${escapeHtml(name)}</b>\n\n${blocks.join("\n\n")}`;
   if (html.length > 3300) html = `${html.slice(0, 3299)}…`;
   html += `\n\n<a href="${escapeHtml(args.siteUrl + args.href)}">Open the full run on AT24</a>\n<i>${escapeHtml(DECISION_SUPPORT)}</i>`;
@@ -67,11 +82,13 @@ export interface DeliveryDeps {
   telegram?: (userId: string, text: string) => Promise<boolean>;
   push?: (userId: string, msg: { title: string; body: string; url: string; tag: string }) => Promise<number>;
   siteUrl?: string;
+  /** Optional Brief v2 extras (price, macro alignment, today's events). Called only for a gold Market Intelligence brief; a failure just drops the extras. */
+  enrich?: () => Promise<DeliveryExtras | null>;
 }
 
 export interface DeliveryReport {
   status: "delivered" | "skipped";
-  reason?: "delivery-off" | "nothing-to-report";
+  reason?: "delivery-off" | "nothing-to-report" | "no-change";
   channels: Partial<Record<AutomationDeliveryChannel, boolean | number>>;
 }
 
@@ -83,7 +100,15 @@ export interface DeliveryInput {
   definition: Pick<AutomationWorkflowDefinition, "delivery">;
   /** Raw output of each agent_run step's child AgentRun, in step order. */
   agentOutputs: readonly unknown[];
+  /** The same agent steps' outputs from the previous successful run, parallel by index. Enables "what changed". */
+  previousOutputs?: readonly unknown[];
 }
+
+const isGoldMarketIntelligence = (o: unknown): boolean => {
+  if (typeof o !== "object" || o === null) return false;
+  const r = o as Record<string, unknown>;
+  return r.kind === "market-intelligence-conclusion" && r.symbol === "XAUUSD" && r.resolved !== false;
+};
 
 export async function deliverRunResult(input: DeliveryInput, deps: DeliveryDeps = {}): Promise<DeliveryReport> {
   const channels = resolveDeliveryChannels(input.definition);
@@ -91,12 +116,26 @@ export async function deliverRunResult(input: DeliveryInput, deps: DeliveryDeps 
 
   const href = `/dashboard/automation/runs/${input.runId}`;
   const siteUrl = deps.siteUrl ?? "https://www.algotraders24.ai";
-  const msg = buildDeliveryMessage({
-    automationName: input.automationName,
-    briefs: input.agentOutputs.map((o) => composeAgentBrief(o)),
-    href,
-    siteUrl,
-  });
+  const briefs = input.agentOutputs.map((o, i) => composeAgentBrief(o, input.previousOutputs?.[i]));
+  const useful = briefs.filter((b): b is AgentBrief => b !== null && !b.empty);
+  if (useful.length === 0) return { status: "skipped", reason: "nothing-to-report", channels: {} };
+
+  // on_change: stay quiet unless something moved. A brief with no comparison
+  // (first run, non-comparable agent kinds) counts as "changed" so it is never
+  // silently swallowed.
+  if (input.definition.delivery?.mode === "on_change" && useful.every((b) => b.changed === false)) {
+    return { status: "skipped", reason: "no-change", channels: {} };
+  }
+
+  let extras: DeliveryExtras | null = null;
+  if (deps.enrich && input.agentOutputs.some(isGoldMarketIntelligence)) {
+    try {
+      extras = await deps.enrich();
+    } catch {
+      extras = null;
+    }
+  }
+  const msg = buildDeliveryMessage({ automationName: input.automationName, briefs, href, siteUrl, extras });
   if (!msg) return { status: "skipped", reason: "nothing-to-report", channels: {} };
 
   const report: DeliveryReport = { status: "delivered", channels: {} };

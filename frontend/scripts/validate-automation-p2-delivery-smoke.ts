@@ -83,7 +83,7 @@ async function main(): Promise<void> {
     const agent = d.steps.find((s) => s.kind === "agent_run");
     assert.ok(agent?.brief && !agent.brief.empty, "agent step must carry a readable brief");
     console.log(`    brief: ${agent!.brief!.headline}`);
-    assert.ok(agent!.brief!.headline.startsWith("XAUUSD"));
+    assert.ok(agent!.brief!.headline.startsWith("Gold (XAUUSD"));
     assert.ok(agent!.brief!.lines.length > 0);
     assert.ok(agent!.brief!.disclaimer);
   });
@@ -104,7 +104,8 @@ async function main(): Promise<void> {
     const notes = await prisma.userNotification.findMany({ where: { userId: A } });
     assert.equal(notes.length, 1, "exactly one notification - never duplicated");
     assert.equal(notes[0].href, `/dashboard/automation/runs/${runId}`);
-    assert.ok(notes[0].body.startsWith("XAUUSD"));
+    console.log(`    bell body:\n      ${notes[0].body.split("\n").join("\n      ")}`);
+    assert.ok(notes[0].body.startsWith("Gold (XAUUSD"));
   });
 
   await test("a second finalize attempt does not notify again", async () => {

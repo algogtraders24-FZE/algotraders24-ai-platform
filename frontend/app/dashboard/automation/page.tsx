@@ -25,6 +25,7 @@ import ButtonLink from "@/components/ui/ButtonLink";
 import StatCard from "@/components/ui/StatCard";
 import DataTable, { type DataTableColumn } from "@/components/ui/DataTable";
 import { ResultsFeed } from "@/components/automation/ResultsFeed";
+import { MacroAlignmentCard } from "@/components/macro/MacroAlignmentCard";
 import { Zap, Calendar, CheckCircle2, XCircle, CreditCard } from "lucide-react";
 
 export default function AutomationPage() {
@@ -78,6 +79,8 @@ export default function AutomationPage() {
             <StatCard label="Failed Runs (30d)" value={m.failed} icon={XCircle} />
             <StatCard label="Credits Used (30d)" value={m.credits} icon={CreditCard} />
           </div>
+
+          <MacroAlignmentCard />
 
           {items.length > 0 && (
             <section className="space-y-3">

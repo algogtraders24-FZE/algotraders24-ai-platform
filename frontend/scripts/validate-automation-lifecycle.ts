@@ -315,7 +315,7 @@ async function main(): Promise<void> {
     assert.ok(!report.channels.telegram, "a user with no linked Telegram must not receive one");
     assert.ok(!report.channels.push, "a user with no push device must not receive one");
     const n = await prisma.userNotification.findFirst({ where: { userId: U("b"), kind: DELIVERY_NOTIFICATION_KIND } });
-    assert.ok(n && n.href === "/dashboard/automation/runs/run-x" && n.body.includes("XAUUSD 1h: bullish-leaning"));
+    assert.ok(n && n.href === "/dashboard/automation/runs/run-x" && n.body.includes("Gold (XAUUSD 1h): leaning bullish"));
   });
 
   await test("results feed: shows meaningful results, hides empty ones, and is owner-scoped", async () => {
@@ -330,7 +330,7 @@ async function main(): Promise<void> {
     });
     const mine = await getLatestResults(U("b"), 10);
     assert.equal(mine.length, 1, "the empty research artifact must be hidden");
-    assert.equal(mine[0].brief.headline, "XAUUSD 1h: bullish-leaning · regime trending-bullish (confidence 90)");
+    assert.equal(mine[0].brief.headline, "Gold (XAUUSD 1h): leaning bullish - trending up");
     const others = await getLatestResults(U("a"), 10);
     assert.equal(others.length, 0, "another user must never see it");
   });
