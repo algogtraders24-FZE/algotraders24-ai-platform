@@ -62,6 +62,13 @@ SYMBOL_MAP: dict[str, str] = {
     "US30": "US30",
     "USOIL": "USOIL",
     "UKOIL": "UKOIL",
+    # Risk barometer (AUD/JPY: falls when risk is being taken off), regional indices
+    # for the JPY / EUR drivers (Nikkei 225, DAX 40) and copper (growth barometer).
+    # Verified present on the Exness terminal, 2026-10-13.
+    "AUDJPY": "AUDJPY",
+    "JP225": "JP225",
+    "DE30": "DE30",
+    "XCUUSD": "XCUUSD",
 }
 
 

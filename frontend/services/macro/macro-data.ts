@@ -11,8 +11,8 @@
 //     symbol is not mapped on it yet, or it is down - using ETF proxies (UUP,
 //     QQQ, USO, SLV) where the plan has no index/spot symbol. The card names the
 //     source of every reading, so a proxy is never presented as the real thing.
-//  3. Always Twelve Data (no MT5 equivalent on the account): IEF (Treasuries) and
-//     VIXY (volatility, DAY CHANGE only - it decays, so never its level).
+//  3. Always Twelve Data (no MT5 equivalent on the account): IEF (Treasuries).
+//     Risk barometer = AUD/JPY from MT5 only (the account has no VIX).
 //  4. FRED series DFII10 / DGS10 (Board of Governors H.15, public domain,
 //     citation requested) for real yield / US 10Y. Needs FRED_API_KEY.
 //
@@ -79,11 +79,13 @@ export interface MacroFetchResult {
 }
 
 /** Drivers fed by a quote. `mt5` = the Exness symbol tried first; `td` = Twelve Data symbol (fallback, or the only source). */
-const QUOTE_DRIVERS: Partial<Record<DriverId, { td: { symbol: string; source: string }; mt5?: { symbol: string; source: string } }>> = {
+const QUOTE_DRIVERS: Partial<Record<DriverId, { td?: { symbol: string; source: string }; mt5?: { symbol: string; source: string } }>> = {
   dollar: { td: { symbol: "UUP", source: "UUP (dollar proxy)" }, mt5: { symbol: "DXY", source: "DXY (US dollar index, Exness)" } },
   yields: { td: { symbol: "IEF", source: "IEF (Treasury proxy)" } },
   riskAppetite: { td: { symbol: "QQQ", source: "QQQ (stock-market proxy)" }, mt5: { symbol: "USTEC", source: "USTEC (Nasdaq-100, Exness)" } },
-  riskSentiment: { td: { symbol: "VIXY", source: "VIXY (volatility proxy)" } },
+  // No VIX on the Exness account. AUD/JPY is the classic risk barometer (it falls when risk is taken off) and, unlike a
+  // volatility ETF, does not decay. MT5 only: when the bridge cannot serve it the driver is "not available", never estimated.
+  riskBarometer: { mt5: { symbol: "AUDJPY", source: "AUDJPY (risk barometer, Exness)" } },
 };
 const FRED_DRIVERS: Partial<Record<DriverId, { series: string; source: string }>> = {
   realYield: { series: "DFII10", source: "FRED DFII10" },
@@ -160,7 +162,8 @@ async function resolveQuote(
     const q = await tdQuote(f, env.twelveDataKey, want.td.symbol, noCache);
     return { q, source: want.td.source, provider: "twelve-data" };
   }
-  return want.td ? { q: null, source: want.td.source, provider: "twelve-data" } : null;
+  if (want.td) return { q: null, source: want.td.source, provider: "twelve-data" };
+  return want.mt5 ? { q: null, source: want.mt5.source, provider: "mt5" } : null;
 }
 
 /** Change in the latest FRED observation vs 5 observations earlier, in percentage points. */
@@ -202,7 +205,7 @@ export async function fetchMacroInputs(env: MacroDataEnv, f: FetchLike, profile:
         env,
         {
           mt5: oq.mt5 ? { symbol: oq.mt5, source: `${oq.mt5} (Exness)` } : undefined,
-          td: { symbol: oq.symbol, source: oq.source },
+          td: oq.symbol ? { symbol: oq.symbol, source: oq.source } : undefined,
         },
         noCache,
       ).then((r) => {
@@ -214,9 +217,10 @@ export async function fetchMacroInputs(env: MacroDataEnv, f: FetchLike, profile:
   }
   for (const [id, cfg] of Object.entries(QUOTE_DRIVERS) as [DriverId, NonNullable<(typeof QUOTE_DRIVERS)[DriverId]>][]) {
     if (!ids.has(id)) continue;
+    const mt5 = id === "riskAppetite" && profile.riskIndex ? { symbol: profile.riskIndex.mt5, source: profile.riskIndex.source } : cfg.mt5;
     need.push(
-      resolveQuote(f, env, { mt5: cfg.mt5, td: cfg.td }, noCache).then((r) => {
-        const src = r?.source ?? cfg.td.source;
+      resolveQuote(f, env, { mt5, td: cfg.td }, noCache).then((r) => {
+        const src = r?.source ?? cfg.td?.source ?? mt5?.source ?? "";
         inputs[id] = r?.q?.pct != null ? { value: r.q.pct, unit: "% day change", source: src, asOf: r.q.asOf } : NA("% day change", src);
       }),
     );
