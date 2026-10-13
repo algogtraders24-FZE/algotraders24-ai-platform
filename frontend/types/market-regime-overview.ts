@@ -35,6 +35,8 @@ export interface MarketRegimeOverviewItem {
   riskDriver?: { categories: string[]; reason: string };
   /** Which of the eight evidence types actually reached this answer (price, technical, news, macro, sentiment, historical-pattern, cross-asset, provider-meta). */
   evidenceTypes?: string[];
+  /** SMC market-structure summary (services/smc): a rule-based structure lean, never a trade signal. Absent when there were not enough candles. */
+  smc?: { lean: "bullish-leaning" | "bearish-leaning" | "none"; strength: "strong" | "developing" | "weak"; score: number; bias: string; htfBias: string };
   /** One real, engine-produced evidence/basis line - never invented commentary. */
   basis?: string;
   generatedAt?: string;

@@ -17,7 +17,7 @@
 import type { MarketSymbol } from "./market";
 import type { EvidenceItem, EvidenceType } from "./evidence";
 
-export type EvidenceSourceType = "market-data" | "search" | "rag" | "news" | "economic-calendar" | "sentiment" | "macro-drivers";
+export type EvidenceSourceType = "market-data" | "search" | "rag" | "news" | "economic-calendar" | "sentiment" | "macro-drivers" | "smc-structure";
 
 /** One provider's already-collected evidence, tagged with what kind of provider produced it. Fusion performs no collection itself - every group here must already be a real EvidenceItem[] from an existing (or future) collector. */
 export interface EvidenceSourceGroup {

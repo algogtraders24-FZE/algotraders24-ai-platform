@@ -92,6 +92,15 @@ export default function RegimeOverviewCard({ item, macro }: Props) {
             Data quality <span className="font-mono text-text-2">{formatScore(item.intelligenceScore)}</span>
           </span>
         </div>
+        {item.smc && (
+          <p className="text-text-3" title="Market-structure lean from the AT24 SMC engine (swings, BOS/MSS, higher-timeframe bias, liquidity sweeps, order blocks, fair value gaps, premium/discount). Rule-based with unvalidated weights - a structure summary, not a trade signal.">
+            SMC structure:{" "}
+            <span className={item.smc.lean === "bullish-leaning" ? "text-success" : item.smc.lean === "bearish-leaning" ? "text-danger" : "text-text-2"}>
+              {item.smc.lean === "none" ? "no clear lean" : `${item.smc.lean} (${item.smc.strength})`}
+            </span>{" "}
+            · <span className="font-mono text-text-2">{item.smc.score}/100</span> · 4h {item.smc.htfBias.toLowerCase()}
+          </p>
+        )}
         {item.evidenceTypes && (
           <p className="text-text-3" title="Evidence types that reached this reading: price, technical, news, macro (economic calendar), cross-asset (macro drivers), sentiment, historical-pattern, provider-meta.">
             Evidence: {item.evidenceTypes.length > 0 ? item.evidenceTypes.join(" · ") : "none"} ({item.evidenceTypes.length} of 8 types)
