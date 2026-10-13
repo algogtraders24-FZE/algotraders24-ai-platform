@@ -68,7 +68,7 @@ export default function TermsOfServicePage() {
         {
           heading: "Governing law",
           body: [
-            "These terms are governed by the laws of the United Arab Emirates, without regard to conflict-of-law principles. Any dispute will be subject to the exclusive jurisdiction of the competent courts of the UAE, unless mandatory local consumer-protection law in your own country provides otherwise.",
+            "These terms are governed by the laws of Saint Vincent and the Grenadines, without regard to conflict-of-law principles. Any dispute will be subject to the exclusive jurisdiction of the competent courts of Saint Vincent and the Grenadines, unless mandatory local consumer-protection law in your own country provides otherwise.",
           ],
         },
         {
