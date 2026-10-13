@@ -87,6 +87,15 @@ export function ownerAsProEnabled(raw: string | undefined | null = process.env.R
   return (raw ?? "").trim().toLowerCase() === "true";
 }
 
+/**
+ * Universal referral (docs/UNIVERSAL-REFERRAL-SPEC.md): the same 2% / 1% / 1% / 1% plan on every other payment (products and Pro subscription
+ * payments, including every renewal). OFF unless REFERRAL_ALL_PRODUCTS is exactly "true". Levels 2-4 still need REWARDS_MULTI_LEVEL.
+ */
+export const REFERRAL_PERCENT_BPS: [number, number, number, number] = [200, 100, 100, 100];
+export function referralAllProductsEnabled(raw: string | undefined | null = process.env.REFERRAL_ALL_PRODUCTS): boolean {
+  return (raw ?? "").trim().toLowerCase() === "true";
+}
+
 /** Withdrawals can be switched off independently of the rest of the program. */
 export function withdrawalsEnabled(raw: string | undefined | null = process.env.REWARDS_WITHDRAWALS): boolean {
   return (raw ?? "").trim().toLowerCase() === "true";
