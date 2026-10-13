@@ -1,4 +1,6 @@
 // components/trading/AIReasoningCard.tsx
+import RichText from "@/components/ui/RichText";
+
 interface Props {
   reasoning: string;
   warnings: string[];
@@ -15,7 +17,7 @@ export default function AIReasoningCard({ reasoning, warnings, nextActions, aiCo
       {aiCommentary && (
         <div className="mt-3 rounded-lg bg-ink p-3">
           <p className="text-xs font-semibold text-gold">Gemini Commentary</p>
-          <p className="mt-1 whitespace-pre-wrap text-sm text-text-2">{aiCommentary}</p>
+          <RichText text={aiCommentary} className="mt-1 text-sm text-text-2" />
         </div>
       )}
 
