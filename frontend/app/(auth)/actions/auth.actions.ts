@@ -193,6 +193,28 @@ export async function resendVerificationAction(
   return { success: true, message: "Verification email sent - check your inbox." };
 }
 
+// Lets someone who cannot sign in because their email is not verified yet ask for a fresh confirmation link from the login page (they have
+// no session, so the signed-in version above cannot help them). Always answers the same way, so it cannot be used to find out which
+// addresses have accounts; rate limited per IP and per address so it cannot be used to spam an inbox.
+export async function resendVerificationForEmailAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  void _prev;
+  const email = String(formData.get("email") ?? "").trim();
+  if (!email || !email.includes("@")) return { error: "Enter your email address above first." };
+
+  const ip = await getClientIp();
+  const rateLimit = await checkSignupRateLimit({ action: "resend_verification", ip, email });
+  if (!rateLimit.allowed) return { error: RATE_LIMIT_MESSAGE };
+
+  const result = await AuthService.resendVerificationEmail(email);
+  if (!result.success && /rate|limit|too many|seconds/i.test(result.error ?? "")) {
+    return { error: "Too many emails were sent just now. Please wait a few minutes and try again." };
+  }
+  return { success: true, message: "If that address is waiting for verification, a new link is on its way. Check your inbox and spam folder." };
+}
+
 // Sprint R1.0.1 - Completes the password reset flow started by
 // forgotPasswordAction. Requires an active recovery session (established by
 // /auth/callback after the user clicks the real emailed link) - AuthService
