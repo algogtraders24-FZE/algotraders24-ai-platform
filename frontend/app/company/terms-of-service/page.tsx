@@ -13,7 +13,7 @@ export default function TermsOfServicePage() {
       eyebrow="Company / Legal"
       title="Terms of Service"
       lastUpdated="19 September 2026"
-      intro="These terms govern your use of algotraders24.ai, operated by Algotraders24 AI, registered in Ajman Free Zone, UAE. By creating an account or using the platform, you agree to them."
+      intro="These terms govern your use of algotraders24.ai, operated by Algotraders24, Saint Vincent and the Grenadines. By creating an account or using the platform, you agree to them."
       sections={[
         {
           heading: "The platform",
@@ -68,7 +68,7 @@ export default function TermsOfServicePage() {
         {
           heading: "Governing law",
           body: [
-            "These terms are governed by the laws of the United Arab Emirates, without regard to conflict-of-law principles. Any dispute will be subject to the exclusive jurisdiction of the competent courts of the UAE, unless mandatory local consumer-protection law in your own country provides otherwise.",
+            "These terms are governed by the laws of Saint Vincent and the Grenadines, without regard to conflict-of-law principles. Any dispute will be subject to the exclusive jurisdiction of the competent courts of Saint Vincent and the Grenadines, unless mandatory local consumer-protection law in your own country provides otherwise.",
           ],
         },
         {
