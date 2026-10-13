@@ -18,7 +18,8 @@ import { IntelligenceEnvelopeService } from "../services/intelligence/envelope/i
 import { DecisionContextService } from "../services/intelligence/decision/decision-context.service";
 import type { Candle } from "../types/market-candle";
 import type { MarketSnapshot } from "../types/market-snapshot";
-import type { EvidenceBundle } from "../types/evidence";
+import type { EvidenceBundle, EvidenceItem } from "../types/evidence";
+import { formatDecisionContextAsText } from "../services/intelligence/chat/decision-context-formatter";
 import type { RiskProfile } from "../types/risk-intelligence";
 import type { HistoricalValidation } from "../types/intelligence-historical-validation";
 import type { IntelligenceEnvelope } from "../types/intelligence-envelope";
@@ -339,6 +340,23 @@ async function main(): Promise<void> {
     for (const needle of ["fetch(", "XMLHttpRequest"]) {
       assert.ok(!source.includes(needle), `${file} must not perform a raw network call ("${needle}")`);
     }
+  });
+
+  // ---- Bundle evidence beyond hypothesis citations ----
+  await test("contextEvidence: bundle items no hypothesis cites (calendar/macro/SMC/news) are surfaced; cited, price and provider-meta items are not", () => {
+    const base = fullEnvelope();
+    const now = new Date().toISOString();
+    const mk = (type: EvidenceItem["type"], claim: string): EvidenceItem => ({ type, symbol: base.symbol, claim, source: "test", asOf: now, retrievedAt: now });
+    const extra = [mk("macro", "US CPI due in 3h"), mk("cross-asset", "Dollar index is rising"), mk("technical", "SMC: bullish-leaning"), mk("provider-meta", "provider ok"), mk("price", "price 1.1")];
+    const cited = base.hypotheses.flatMap((h) => h.supportingEvidence)[0];
+    const items = [...(base.evidence?.items ?? []), ...extra, ...(cited ? [cited] : [])];
+    const env = { ...base, evidence: { ...(base.evidence as EvidenceBundle), items } } as IntelligenceEnvelope;
+    const dc = decisionSvc.build(env);
+    const claims = (dc.contextEvidence ?? []).map((e) => e.claim);
+    for (const c of ["US CPI due in 3h", "Dollar index is rising", "SMC: bullish-leaning"]) assert.ok(claims.includes(c), `missing ${c}`);
+    assert.ok(!claims.includes("provider ok") && !claims.includes("price 1.1"));
+    if (cited) assert.ok(!claims.includes(cited.claim), "hypothesis-cited item must not repeat in contextEvidence");
+    assert.ok(formatDecisionContextAsText(dc).includes("US CPI due in 3h"), "formatter must show the additional context");
   });
 
   // ---- Signal / prediction prohibition ----

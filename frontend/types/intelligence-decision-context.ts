@@ -182,6 +182,14 @@ export interface IntelligenceDecisionContext {
   supportingEvidence: EvidenceItem[];
   /** Deduplicated union of every primaryHypotheses[].opposingEvidence. */
   opposingEvidence: EvidenceItem[];
+  /**
+   * The rest of the evidence bundle the pipeline collected (economic calendar,
+   * cross-asset macro drivers, SMC structure, stored news, ...) that no
+   * hypothesis cites. Real EvidenceBundle items passed through, never a separate
+   * detection pass and never padded: absent items stay absent. provider-meta and
+   * price items are excluded (price is already in currentState).
+   */
+  contextEvidence?: EvidenceItem[];
   /** Real, already-detected EvidenceConflicts with resolution === "unresolved" - never auto-resolved here. */
   unresolvedConflicts: EvidenceConflict[];
 

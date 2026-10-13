@@ -60,6 +60,8 @@ export interface VerifiedAnswerResponse {
   currentState: DecisionCurrentState;
   supportingEvidence: EvidenceItem[];
   opposingEvidence: EvidenceItem[];
+  /** Remaining evidence-bundle items no hypothesis cites (calendar, macro drivers, SMC structure, news) - direct passthrough of DecisionContext.contextEvidence. */
+  contextEvidence?: EvidenceItem[];
   /** Real, already-detected conflicts with resolution === "unresolved" - never auto-resolved, never hidden behind a fake consensus. */
   unresolvedConflicts: EvidenceConflict[];
   /** May legitimately be empty - not every regime generates a hypothesis (D2.5.3). */

@@ -52,6 +52,12 @@ export function formatDecisionContextAsText(dc: IntelligenceDecisionContext): st
   else for (const item of dc.opposingEvidence) lines.push(formatEvidenceItem(item));
   lines.push("");
 
+  if (dc.contextEvidence && dc.contextEvidence.length > 0) {
+    lines.push("## Additional Context (economic calendar, macro drivers, market structure, news - facts, not a forecast)");
+    for (const item of dc.contextEvidence) lines.push(formatEvidenceItem(item));
+    lines.push("");
+  }
+
   if (dc.unresolvedConflicts.length > 0) {
     lines.push("## Unresolved Conflicts (never auto-resolved - both sides are real)");
     for (const c of dc.unresolvedConflicts) lines.push(`- ${c.reason}`);
