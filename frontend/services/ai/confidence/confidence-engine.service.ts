@@ -30,6 +30,7 @@ import type {
 // list (rather than derived at runtime from a TS type, which isn't
 // possible) so "which types are missing" is computable - same convention
 // ReasoningEngineService already established.
+// provider-meta is deliberately NOT here (data-feed bookkeeping, not a market factor).
 const ALL_EVIDENCE_TYPES: readonly EvidenceType[] = [
   "price",
   "technical",
@@ -38,13 +39,12 @@ const ALL_EVIDENCE_TYPES: readonly EvidenceType[] = [
   "sentiment",
   "historical-pattern",
   "cross-asset",
-  "provider-meta",
 ];
 
 const FRESHNESS_WARNING_MINUTES = 15;
 const FRESHNESS_STALE_MINUTES = 60;
 const SOURCE_DIVERSITY_TARGET = 3;
-const EVIDENCE_QUANTITY_TARGET = ALL_EVIDENCE_TYPES.length;
+const EVIDENCE_QUANTITY_TARGET = 8; // item-count target (unchanged), independent of the number of market evidence types
 
 export class ConfidenceEngineService {
   /**
@@ -216,7 +216,7 @@ export class ConfidenceEngineService {
   // agreed or resolved cleanly (that is evidence-agreement/
   // unknown-factors' job).
   private assessCoverageCompleteness(bundle: EvidenceBundle): ConfidenceCategoryScore {
-    const present = new Set(bundle.items.map((item) => item.type));
+    const present = new Set(bundle.items.map((item) => item.type).filter((type) => ALL_EVIDENCE_TYPES.includes(type)));
     const score = Math.round((100 * present.size) / ALL_EVIDENCE_TYPES.length);
     const representative = ALL_EVIDENCE_TYPES.filter((type) => present.has(type)).map(
       (type) => bundle.items.find((item) => item.type === type)!,

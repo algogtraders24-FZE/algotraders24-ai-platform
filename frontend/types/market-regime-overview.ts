@@ -31,9 +31,9 @@ export interface MarketRegimeOverviewItem {
   riskLevel?: RiskLevel;
   /** The regime's own deterministic confidence (0-100) - unlike the data-quality score below, this one differs per market. */
   regimeConfidence?: number;
-  /** Which risk categories sit at the overall level, and the engine's own first reason for the worst one (e.g. "7 of 8 evidence types unavailable"). The overall risk is the WORST of eight categories, so this says what is driving it. */
+  /** Which risk categories sit at the overall level, and the engine's own first reason for the worst one (e.g. "6 of 7 evidence types unavailable"). The overall risk is the WORST of eight categories, so this says what is driving it. */
   riskDriver?: { categories: string[]; reason: string };
-  /** Which of the eight evidence types actually reached this answer (price, technical, news, macro, sentiment, historical-pattern, cross-asset, provider-meta). */
+  /** Which of the seven market evidence types actually reached this answer (price, technical, news, macro, sentiment, historical-pattern, cross-asset). */
   evidenceTypes?: string[];
   /** SMC market-structure summary (services/smc): a rule-based structure lean, never a trade signal. Absent when there were not enough candles. */
   smc?: { lean: "bullish-leaning" | "bearish-leaning" | "none"; strength: "strong" | "developing" | "weak"; score: number; bias: string; htfBias: string };

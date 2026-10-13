@@ -102,8 +102,8 @@ export default function RegimeOverviewCard({ item, macro }: Props) {
           </p>
         )}
         {item.evidenceTypes && (
-          <p className="text-text-3" title="Evidence types that reached this reading: price, technical, news, macro (economic calendar), cross-asset (macro drivers), sentiment, historical-pattern, provider-meta.">
-            Evidence: {item.evidenceTypes.length > 0 ? item.evidenceTypes.join(" · ") : "none"} ({item.evidenceTypes.length} of 8 types)
+          <p className="text-text-3" title="Evidence types that reached this reading: price, technical, news, macro (economic calendar), cross-asset (macro drivers), sentiment, historical-pattern.">
+            Evidence: {item.evidenceTypes.length > 0 ? item.evidenceTypes.join(" · ") : "none"} ({item.evidenceTypes.length} of 7 types)
           </p>
         )}
         {item.basis && <p className="line-clamp-2 text-text-3">{item.basis}</p>}

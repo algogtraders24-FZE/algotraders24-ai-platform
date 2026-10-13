@@ -202,7 +202,15 @@ function main(): void {
     assert.ok(!result.assumptions.some((a) => a.type === "price"), "price is present - must not get an assumption");
     assert.ok(!result.assumptions.some((a) => a.type === "news"), "news is present - must not get an assumption");
     assert.ok(result.assumptions.some((a) => a.type === "technical"), "technical is absent - must get an assumption");
-    assert.equal(result.assumptions.length, 6, "8 total types - 2 present = 6 assumptions");
+    assert.equal(result.assumptions.length, 5, "7 market types - 2 present = 5 assumptions (provider-meta is never an assumption)");
+    assert.ok(!result.assumptions.some((a) => a.type === "provider-meta"));
+  });
+
+  test("provider-meta evidence is data-feed bookkeeping: it neither fills a coverage slot nor counts as missing", () => {
+    const withMeta = engine.reason(ranking.buildBundle("XAUUSD", [item({ type: "price" }), item({ type: "provider-meta", claim: "feed ok" })], T1));
+    const without = engine.reason(ranking.buildBundle("XAUUSD", [item({ type: "price" })], T1));
+    assert.deepEqual(withMeta.assumptions.map((a) => a.type), without.assumptions.map((a) => a.type));
+    assert.equal(withMeta.uncertainty.score, without.uncertainty.score);
   });
 
   test("no fabrication: freshness/staleness drivers are omitted entirely (not defaulted to zero) when there is no evidence", () => {
