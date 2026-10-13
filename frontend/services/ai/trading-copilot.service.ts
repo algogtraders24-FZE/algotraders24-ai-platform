@@ -13,6 +13,8 @@ import { MarketDataService } from "@/services/market-data/market-data.service";
 import { TechnicalContextService } from "./technical-context.service";
 import { MarketContextBuilderService } from "./market-context-builder.service";
 import { MarketDataProviderError } from "@/lib/market-data/errors";
+import { collectContextEvidence, contextLabel } from "@/services/evidence-sources/collect-context";
+import type { EvidenceExtraSource } from "@/types/evidence-fusion";
 import type { SnapshotProvider, TimeSeriesProvider } from "@/types/market-data-provider";
 import type { MarketSnapshot } from "@/types/market-snapshot";
 import type { Candle } from "@/types/market-candle";
@@ -32,6 +34,8 @@ export interface CopilotAnalysis {
   explanation?: string;
   aiStatus: "completed" | "ai-failed";
   evidence: CopilotEvidenceItem[];
+  /** Context from the platform evidence engine (economic calendar, macro drivers, SMC structure) - absent sources are simply missing, never estimated. */
+  context?: CopilotEvidenceItem[];
 }
 
 export type CopilotOutcome =
@@ -54,6 +58,7 @@ export class TradingCopilotService {
     private readonly data: SnapshotProvider & TimeSeriesProvider = new MarketDataService(),
     private readonly technicalService: TechnicalContextService = new TechnicalContextService(),
     private readonly contextBuilder: MarketContextBuilderService = new MarketContextBuilderService(),
+    private readonly contextSources: EvidenceExtraSource[] = [],
   ) {}
 
   async analyze(request: CopilotAnalyzeRequest): Promise<CopilotOutcome> {
@@ -89,6 +94,9 @@ export class TradingCopilotService {
 
     // The AI Context Builder receives snapshot + technical + risk as one
     // structured object and restates it - it never sees the raw provider JSON.
+    const contextItems = await collectContextEvidence(this.contextSources, symbol);
+    const context: CopilotEvidenceItem[] = contextItems.map((i) => ({ label: contextLabel(i.type), value: i.claim }));
+
     const structured = {
       snapshot: {
         symbol: snapshot.symbol,
@@ -103,6 +111,7 @@ export class TradingCopilotService {
       },
       technical,
       risk,
+      ...(context.length > 0 ? { marketContext: context.map((c) => ({ kind: c.label, fact: c.value })) } : {}),
     };
     const ai = await this.contextBuilder.explainStructured(structured);
 
@@ -124,6 +133,7 @@ export class TradingCopilotService {
         explanation: ai.status === "completed" ? ai.explanation : undefined,
         aiStatus: ai.status,
         evidence,
+        context,
       },
     };
   }

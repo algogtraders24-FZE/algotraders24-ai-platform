@@ -15,7 +15,8 @@
 // direction). Series-based indicators (RSI, moving averages) require a real
 // price series and are intentionally NOT fabricated from one quote - they are
 // a future extension once a /time_series feed is wired.
-import { createAIService, AIProviderError, type AIService } from "@/lib/ai";
+import { createAIService, AIProviderError, ClaudeProvider, type AIService } from "@/lib/ai";
+import { completeWithResilience, friendlyAiMessage } from "@/services/ai/ai-resilience";
 import { AI_COMMUNICATION_POLICY } from "@/lib/ai/response-policy";
 import { MarketDataService } from "@/services/market-data/market-data.service";
 import { MarketDataProviderError } from "@/lib/market-data/errors";
@@ -24,6 +25,7 @@ import type { MarketSnapshot } from "@/types/market-snapshot";
 import type { MarketCategory } from "@/types/market";
 
 const MAX_PROMPT_CHARS = 6000;
+const MAX_STRUCTURED_PROMPT_CHARS = 10000;
 
 export type MarketDirection = "up" | "down" | "flat";
 
@@ -70,6 +72,17 @@ export class MarketContextBuilderService {
 
   private getAI(): Pick<AIService, "complete"> {
     return this.ai ?? createAIService();
+  }
+
+  /** An injected AI (tests) is called as-is; production retries once and falls back to a second provider when one is configured. */
+  private completeResilient(prompt: string) {
+    if (this.ai) return this.ai.complete(prompt);
+    return completeWithResilience({
+      primary: () => createAIService().complete(prompt),
+      fallback: process.env.ANTHROPIC_API_KEY?.trim()
+        ? () => new ClaudeProvider().complete({ messages: [{ role: "user", content: prompt }] })
+        : null,
+    });
   }
 
   computeIndicators(snapshot: MarketSnapshot): MarketIndicators {
@@ -143,17 +156,18 @@ export class MarketContextBuilderService {
   // the Trading Copilot flow (snapshot + TechnicalContext + RiskContext).
   private buildStructuredPrompt(structured: unknown): string {
     const lines: string[] = [
-      "You are a market-data explainer. You are given a fully-computed, structured market analysis as JSON (a live snapshot plus computed technical indicators and a risk context).",
+      "You are a market-data explainer. You are given a fully-computed, structured market analysis as JSON (a live snapshot, computed technical indicators, a risk context and, when present, marketContext: economic-calendar events, cross-asset macro drivers and a rule-based market-structure summary).",
       "Your only task is to explain it in clear, natural language for a trader - you are a translator, not an analyst.",
       "Do not add any price, percentage, indicator value, or conclusion that is not explicitly present in the JSON.",
       "Do not give buy/sell advice or invent support/resistance or trade setups. Where a value is null/absent, say the data is insufficient rather than estimating.",
-      "Keep it concise (4-6 sentences).",
+      "The market-structure summary is rule-based with unvalidated weights - describe it as structure, never as a signal.",
+      "Format: write exactly three sections, each heading on its own line in bold: **Summary** (2 sentences), **What stands out** (3-4 short bullets, using marketContext facts when present), **Risks and gaps** (1-3 short bullets). About 150 words in total.",
       AI_COMMUNICATION_POLICY,
       "Structured analysis:",
       JSON.stringify(structured, null, 2),
     ];
     const prompt = lines.join("\n");
-    return prompt.length > MAX_PROMPT_CHARS ? prompt.slice(0, MAX_PROMPT_CHARS) : prompt;
+    return prompt.length > MAX_STRUCTURED_PROMPT_CHARS ? prompt.slice(0, MAX_STRUCTURED_PROMPT_CHARS) : prompt;
   }
 
   async explainStructured(
@@ -161,11 +175,11 @@ export class MarketContextBuilderService {
   ): Promise<{ status: "completed"; explanation: string } | { status: "ai-failed"; message: string }> {
     const prompt = this.buildStructuredPrompt(structured);
     try {
-      const completion = await this.getAI().complete(prompt);
+      const completion = await this.completeResilient(prompt);
       if (completion.content.trim().length === 0) return { status: "ai-failed", message: "The AI returned an empty response." };
       return { status: "completed", explanation: completion.content };
     } catch (error) {
-      const message = error instanceof AIProviderError ? error.message : "The AI explanation could not be completed.";
+      const message = this.ai ? (error instanceof AIProviderError ? error.message : "The AI explanation could not be completed.") : friendlyAiMessage(error);
       return { status: "ai-failed", message };
     }
   }

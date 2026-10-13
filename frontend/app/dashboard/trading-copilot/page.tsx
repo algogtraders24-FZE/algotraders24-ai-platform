@@ -24,6 +24,7 @@ import { useState } from "react";
 import type { CopilotAnalysis } from "@/services/ai/trading-copilot.service";
 import { listEnabledMarkets } from "@/lib/market-data/market-registry";
 import Disclaimer from "@/components/ui/Disclaimer";
+import RichText from "@/components/ui/RichText";
 import PageHeader from "@/components/ui/PageHeader";
 import ErrorState from "@/components/ui/ErrorState";
 import EmptyState from "@/components/ui/EmptyState";
@@ -138,6 +139,7 @@ export default function TradingCopilotPage() {
 
 function Result({ analysis }: { analysis: CopilotAnalysis }) {
   const { snapshot, technical, risk, confidence, evidence, explanation, aiStatus } = analysis;
+  const context = analysis.context ?? [];
   const ind = technical.indicators;
   const confTone =
     confidence.band === "high"
@@ -194,12 +196,30 @@ function Result({ analysis }: { analysis: CopilotAnalysis }) {
         )}
       </section>
 
+      {/* Platform evidence engine: economic calendar, macro drivers, SMC structure */}
+      {context.length > 0 && (
+        <section className="rounded-panel border border-border bg-ink-2 p-6">
+          <h2 className="text-lg font-semibold">Market Context</h2>
+          <p className="mt-1 text-xs text-text-3">
+            Economic calendar, cross-asset macro drivers and rule-based market structure (unvalidated weights; not a trade signal).
+          </p>
+          <ul className="mt-4 space-y-2 text-sm text-text-2">
+            {context.map((c) => (
+              <li key={`${c.label}-${c.value}`}>
+                <span className="mr-2 text-xs font-medium uppercase tracking-wider text-text-3">{c.label}</span>
+                {c.value}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* AI Explanation + Confidence + Risk */}
       <div className="grid gap-5 lg:grid-cols-3">
         <section className="rounded-panel border border-border bg-ink-2 p-6 lg:col-span-2">
           <h2 className="text-lg font-semibold">AI Explanation</h2>
           {aiStatus === "completed" && explanation ? (
-            <p className="mt-3 text-sm leading-7 text-text-2">{explanation}</p>
+            <RichText text={explanation} className="mt-3 text-sm leading-7 text-text-2" />
           ) : (
             <p className="mt-3 text-sm italic text-text-3">
               The AI explanation is unavailable right now — the computed indicators above are unaffected.

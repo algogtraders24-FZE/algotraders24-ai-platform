@@ -17,6 +17,7 @@ import { TradingCopilotService } from "@/services/ai/trading-copilot.service";
 import { MarketContextBuilderService } from "@/services/ai/market-context-builder.service";
 import { buildIntelligencePanelData } from "@/services/ai/intelligence-panel.service";
 import { isEnabledMarket, listEnabledMarkets } from "@/lib/market-data/market-registry";
+import { productionExtraEvidenceSources } from "@/services/evidence-sources/production-sources";
 import { marketData } from "@/services/market-data/shared-instance";
 import { toMarketDataErrorDTO, statusCodeForReason, reasonForKind } from "@/lib/market-data/error-dto";
 import { checkAndRecordAiRateLimit, AI_RATE_LIMIT_MESSAGE } from "@/lib/security/aiRateLimit";
@@ -35,7 +36,7 @@ import { checkAndRecordAiRateLimit, AI_RATE_LIMIT_MESSAGE } from "@/lib/security
 // called on it, explainStructured(), never touches that dependency), but a
 // latent trap if a future change ever calls a method that does - explicitly
 // wiring the shared instance here closes it the same way as the first arg.
-const copilot = new TradingCopilotService(marketData, undefined, new MarketContextBuilderService(marketData));
+const copilot = new TradingCopilotService(marketData, undefined, new MarketContextBuilderService(marketData), productionExtraEvidenceSources());
 
 export const POST = withContext(async (req, ctx) => {
   const sessionUser = await getUserOrNull();
