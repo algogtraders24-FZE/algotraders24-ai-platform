@@ -394,6 +394,8 @@ async function main() {
   check("changing it replaces the single row and restarts the wait", ads3.ok && !ads3.unchanged && saved3?.address.startsWith("TXYZ") === true && (await prisma.rewardPayoutAddress.count({ where: { userId: "addr1" } })) === 1 && saved3.activeFrom.getTime() === addDays(T0, 3).getTime());
   const aud = await prisma.rewardAuditEvent.findMany({ where: { subjectType: "RewardPayoutAddress" }, orderBy: { createdAt: "asc" } });
   check("save and change are both audited, with the address masked", aud.map((a) => a.action).join() === "payout_address.saved,payout_address.changed" && aud.every((a) => !JSON.stringify(a.data).includes(A1)));
+  const mails = await prisma.emailLog.findMany({ where: { type: "payout_address_changed", recipientUserId: "addr1" }, orderBy: { sentAt: "asc" } });
+  check("the member is emailed on save and on change (logged; skipped here because no mail key is set)", mails.length === 2 && mails.every((m) => m.status === "SKIPPED"), JSON.stringify(mails.map((m) => m.status)));
   delete process.env.REWARDS_ADDRESS_COOLING_HOURS;
 
   // ---- reserve identity across the whole run

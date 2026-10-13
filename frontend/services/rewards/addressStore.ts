@@ -32,6 +32,16 @@ export async function saveAddress(input: { userId: string; network: string; addr
     }),
     prisma.rewardAuditEvent.create({ data: { actor: input.userId, action: existing ? "payout_address.changed" : "payout_address.saved", subjectType: "RewardPayoutAddress", subjectId: input.userId, data: { network: input.network, address: maskAddress(address), activeFrom: activeFrom.toISOString() } } }),
   ]);
+  // Best effort: the member is told about every save or change. A failed email never undoes the save.
+  try {
+    const user = await prisma.user.findUnique({ where: { id: input.userId }, select: { email: true } });
+    if (user?.email) {
+      const { sendPayoutAddressChangedEmail } = await import("@/services/notifications/EmailService");
+      await sendPayoutAddressChangedEmail({ to: user.email, recipientUserId: input.userId, network: input.network, maskedAddress: maskAddress(address), changed: !!existing, usableFromIso: activeFrom.toISOString() });
+    }
+  } catch (e) {
+    console.error("[wallet] address email failed (non-fatal):", e);
+  }
   return { ok: true, activeFrom, unchanged: false };
 }
 
