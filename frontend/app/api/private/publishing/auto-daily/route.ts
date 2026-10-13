@@ -15,9 +15,10 @@ import { prisma } from "@/lib/prisma";
 import { articleService } from "@/services/publishing/article.service";
 import { publishingService } from "@/services/publishing/publishing.service";
 import { productionAnalysisOrchestrator } from "@/services/ai/production-analysis-orchestrator";
+import { getEconomicCalendar } from "@/services/calendar/calendar.service";
 import { DailyAutoPublisherService } from "@/services/publishing/daily-auto-publisher.service";
 
-// Up to 3 sequential live-data + AI analyses.
+// Up to ~6 sequential live-data + AI analyses (Sunday weekly review = 3, plus the daily crypto report).
 export const maxDuration = 300;
 
 async function resolveOwnerId(): Promise<string> {
@@ -37,6 +38,7 @@ async function runDaily(): Promise<Awaited<ReturnType<DailyAutoPublisherService[
     publishNow: async (articleId) => {
       await publishingService.publishArticleNow(ownerId, articleId);
     },
+    getCalendarEvents: async () => (await getEconomicCalendar({ week: "this" })).events,
   });
   return service.run();
 }

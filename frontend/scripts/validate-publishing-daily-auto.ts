@@ -6,6 +6,8 @@ import { join } from "node:path";
 import {
   DailyAutoPublisherService,
   buildReportContent,
+  buildCalendarContent,
+  buildWeeklyContent,
   toPlainText,
   planDailyReports,
   reportTitle,
@@ -14,6 +16,7 @@ import {
 import { buildSeo } from "../services/ai/publishing/seo.service";
 import { validateArticle } from "../services/ai/publishing/article-validator.service";
 import type { Article } from "../types/article";
+import type { EconomicEvent } from "../types/economic-calendar";
 import type { MarketAnalysisOutcome } from "../types/market-analysis-orchestration";
 
 let passed = 0;
@@ -59,6 +62,25 @@ function completed(symbol: string): MarketAnalysisOutcome {
   } as unknown as MarketAnalysisOutcome;
 }
 
+const ev = (i: number, impact: EconomicEvent["impact"], currency = "USD", title = `Event ${i}`): EconomicEvent => ({
+  id: `e${i}`,
+  title,
+  currency,
+  impact,
+  isHoliday: false,
+  eventTime: `2026-10-${String(19 + (i % 4)).padStart(2, "0")}T12:30:00.000Z`,
+  allDay: false,
+  forecast: "0.3%",
+  previous: "0.4%",
+  actual: null,
+  provider: "t",
+});
+const CAL: EconomicEvent[] = [ev(1, "high", "USD", "CPI m/m"), ev(2, "high", "EUR", "ECB Rate Decision"), ev(3, "high", "USD", "Fed Chair Speaks"), ev(4, "low"), ev(5, "medium")];
+const MON = new Date("2026-10-19T06:15:00Z");
+const TUE = new Date("2026-10-20T06:15:00Z");
+const THU = new Date("2026-10-22T06:15:00Z");
+const SUN = new Date("2026-10-18T06:15:00Z");
+
 const WED = new Date("2026-10-14T06:15:00Z"); // Wednesday
 const SAT = new Date("2026-10-17T06:15:00Z");
 
@@ -74,11 +96,14 @@ function makeDeps(over: Partial<DailyAutoPublisherDeps> = {}, store = new Set<st
       return { id: `art-${created.length}` } as Article;
     },
     publishNow: async (id) => void published.push(id),
+    getCalendarEvents: async () => CAL,
     now: () => WED,
     ...over,
   };
   return { deps, published, created, store };
 }
+
+const root = join(__dirname, "..");
 
 async function main(): Promise<void> {
   console.log("validate-publishing-daily-auto\n");
@@ -193,8 +218,102 @@ async function main(): Promise<void> {
     assert.ok(out.includes("Outlook\nMixed."), out);
   });
 
+  await test("Mon adds the calendar preview, Tue/Thu add a fundamental report, Sun adds the weekly review (max 4 a day)", () => {
+    assert.deepEqual(planDailyReports(MON).map((p) => p.kind ?? "analysis"), ["analysis", "analysis", "analysis", "calendar"]);
+    const tue = planDailyReports(TUE);
+    assert.equal(tue[3].kind, "fundamental");
+    assert.equal(tue[3].symbol, "XAUUSD");
+    assert.equal(planDailyReports(THU)[3].symbol, "EURUSD");
+    assert.deepEqual(planDailyReports(SUN).map((p) => p.kind ?? "analysis"), ["analysis", "weekly"]);
+    for (let d = 0; d < 14; d++) assert.ok(planDailyReports(new Date(WED.getTime() + d * 86_400_000)).length <= 4);
+  });
+
+  await test("titles per kind are distinct and dated", () => {
+    assert.equal(reportTitle(planDailyReports(MON)[3], MON), "Economic Calendar Preview - Week of 19 Oct 2026");
+    assert.equal(reportTitle(planDailyReports(SUN)[1], SUN), "Weekly Market Review - Week Ending 18 Oct 2026");
+    assert.equal(reportTitle(planDailyReports(TUE)[3], TUE), "Gold (XAU/USD) Fundamental Analysis - 20 Oct 2026");
+  });
+
+  await test("calendar preview: only high-impact events, deterministic fields, passes validateArticle", () => {
+    const spec = planDailyReports(MON)[3];
+    const c = buildCalendarContent(spec, MON, CAL)!;
+    assert.ok(c);
+    const text = c.sections.map((x) => x.body).join("\n");
+    assert.ok(text.includes("CPI m/m") && text.includes("ECB Rate Decision") && text.includes("forecast 0.3%, previous 0.4%"));
+    assert.ok(!text.includes("Event 4") && !text.includes("Event 5"), "low/medium events must not be listed");
+    const article = { sections: c.sections, disclaimer: "d", summary: c.summary, seo: buildSeo(c.title, spec.keywords) } as unknown as Article;
+    assert.deepEqual(validateArticle(article).issues, []);
+  });
+
+  await test("calendar preview is skipped (not faked) with fewer than 3 high-impact events", () => {
+    assert.equal(buildCalendarContent(planDailyReports(MON)[3], MON, [ev(1, "high"), ev(2, "low")]), null);
+  });
+
+  await test("weekly review needs >= 2 analysed assets, adds a risk section, passes validateArticle", () => {
+    const spec = planDailyReports(SUN)[1];
+    const parts = [
+      { label: "Gold (XAU/USD)", outcome: completed("XAUUSD") as never },
+      { label: "EUR/USD", outcome: completed("EURUSD") as never },
+    ];
+    const c = buildWeeklyContent(spec, SUN, parts)!;
+    assert.deepEqual(c.sections.map((x) => x.heading), ["Gold (XAU/USD)", "EUR/USD", "Risk, Confidence and Limits"]);
+    const article = { sections: c.sections, disclaimer: "d", summary: c.summary, seo: buildSeo(c.title, spec.keywords) } as unknown as Article;
+    assert.deepEqual(validateArticle(article).issues, []);
+    assert.equal(buildWeeklyContent(spec, SUN, parts.slice(0, 1)), null);
+  });
+
+  await test("Monday run publishes 4 reports incl. the calendar preview with no AI call for it", async () => {
+    const asked: string[] = [];
+    const { deps, published } = makeDeps({
+      now: () => MON,
+      analyze: async (symbol, q) => (asked.push(symbol), completed(symbol)),
+    });
+    const out = await new DailyAutoPublisherService(deps).run();
+    assert.equal(out.results.length, 4);
+    assert.ok(out.results.every((r) => r.status === "published"), JSON.stringify(out.results));
+    assert.equal(published.length, 4);
+    assert.ok(!asked.includes("CALENDAR"));
+  });
+
+  await test("Sunday run: weekly review analyses gold, EUR/USD and BTC; one failed asset still leaves a publishable review", async () => {
+    const asked: string[] = [];
+    const { deps } = makeDeps({
+      now: () => SUN,
+      analyze: async (symbol) => {
+        asked.push(symbol);
+        return symbol === "EURUSD" ? ({ status: "ai-failed", run: {} as never, message: "x" } as MarketAnalysisOutcome) : completed(symbol);
+      },
+    });
+    const out = await new DailyAutoPublisherService(deps).run();
+    const weekly = out.results.find((r) => r.category === "weekly-review")!;
+    assert.equal(weekly.status, "published");
+    for (const sym of ["XAUUSD", "EURUSD", "BTCUSD"]) assert.ok(asked.includes(sym), sym);
+  });
+
+  await test("a fundamental report asks a fundamentals question and uses the fundamental heading", async () => {
+    let q = "";
+    const { deps, created } = makeDeps({
+      now: () => TUE,
+      analyze: async (symbol, question) => {
+        if (symbol === "XAUUSD" && /fundamental/i.test(question)) q = question;
+        return completed(symbol);
+      },
+    });
+    await new DailyAutoPublisherService(deps).run();
+    assert.ok(/fundamental drivers/i.test(q), q);
+    assert.ok(created.some((c) => c.title.includes("Fundamental Analysis")));
+  });
+
+  await test("blog article page has Article JSON-LD (with '<' escaped), a byline and a methodology link; /methodology exists and is in the sitemap", () => {
+    const page = readFileSync(join(root, "app/blog/[slug]/page.tsx"), "utf8");
+    assert.ok(page.includes('"@type": "Article"') && page.includes("datePublished") && page.includes("application/ld+json"));
+    assert.ok(page.includes('replace(/</g, "\\\\u003c")'), "JSON-LD must escape '<'");
+    assert.ok(page.includes('href="/methodology"'));
+    assert.ok(readFileSync(join(root, "app/methodology/page.tsx"), "utf8").includes('canonical: "/methodology"'));
+    assert.ok(readFileSync(join(root, "app/sitemap.ts"), "utf8").includes("/methodology"));
+  });
+
   // ---- cron wiring (drift guards) ---------------------------------
-  const root = join(__dirname, "..");
   const vercel = JSON.parse(readFileSync(join(root, "vercel.json"), "utf8")) as { crons?: { path: string; schedule: string }[] };
 
   await test("vercel.json has exactly one DAILY auto-daily cron, before the 07:00 dispatch", () => {

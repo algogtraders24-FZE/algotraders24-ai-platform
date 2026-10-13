@@ -3,8 +3,10 @@
 // Visible ONLY when blogReaderService.getPostBySlug returns a post (a
 // SUCCEEDED INTERNAL_BLOG job whose content still matches the published
 // version). Content is sanitized plain text; rendered as plain React text
-// children - the reader never injects raw HTML.
+// children - the reader never injects raw HTML. The one exception is the
+// schema.org JSON-LD <script>, built with JSON.stringify and "<"-escaped.
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
@@ -62,10 +64,31 @@ export default async function BlogArticlePage({
   const post = await blogReaderService.getPostBySlug(slug);
   if (!post) notFound();
 
+  const related = (await blogReaderService.listPosts().catch(() => []))
+    .filter((p) => p.slug !== post.slug && p.category === post.category)
+    .slice(0, 3);
+
+  // schema.org Article. Plain text only (sanitized upstream); "<" is escaped so the
+  // JSON can never close the script tag.
+  const jsonLd = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: post.title,
+    description: post.summary || post.seo.description,
+    datePublished: post.publishedAt,
+    dateModified: post.publishedAt,
+    mainEntityOfPage: post.seo.canonicalUrl,
+    articleSection: prettyCategory(post.category),
+    keywords: post.seo.keywords.join(", "),
+    author: { "@type": "Organization", name: "Algotraders24 AI", url: "https://algotraders24.ai" },
+    publisher: { "@type": "Organization", name: "Algotraders24 AI", url: "https://algotraders24.ai" },
+  }).replace(/</g, "\\u003c");
+
   return (
     <main className="min-h-screen bg-ink text-text">
       <Navbar />
       <article className="mx-auto max-w-3xl px-6 pb-16 pt-32 md:pt-40">
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd }} />
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
           {prettyCategory(post.category)}
         </p>
@@ -77,6 +100,12 @@ export default async function BlogArticlePage({
             month: "long",
             day: "numeric",
           })}
+        </p>
+        <p className="mt-1 text-xs text-text-3">
+          By Algotraders24 AI - automated, evidence-based analysis.{" "}
+          <Link href="/methodology" className="text-gold hover:underline">
+            How this report is made
+          </Link>
         </p>
 
         {post.summary && <p className="mt-6 text-lg leading-8 text-text-2">{post.summary}</p>}
@@ -91,6 +120,38 @@ export default async function BlogArticlePage({
         </div>
 
         <Disclaimer text={post.disclaimer} className="mt-10" />
+
+        <nav aria-label="Related" className="mt-10 space-y-6 border-t border-border pt-8">
+          {related.length > 0 && (
+            <div>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-text-3">More {prettyCategory(post.category)}</h2>
+              <ul className="mt-3 space-y-2">
+                {related.map((p) => (
+                  <li key={p.slug}>
+                    <Link href={`/blog/${p.slug}`} className="text-text-2 hover:text-gold">
+                      {p.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <p className="text-sm leading-7 text-text-3">
+            Explore the{" "}
+            <Link href="/marketplace" className="text-gold hover:underline">
+              Expert Advisor marketplace
+            </Link>
+            , build a strategy with{" "}
+            <Link href="/quant-lite" className="text-gold hover:underline">
+              Quant Lite
+            </Link>
+            , or browse{" "}
+            <Link href="/blog" className="text-gold hover:underline">
+              all reports
+            </Link>
+            .
+          </p>
+        </nav>
       </article>
       <Footer />
     </main>

@@ -12,9 +12,14 @@
 import type { Article, ArticleSection } from "@/types/article";
 import type { ContentCategory } from "@/types/content-category";
 import type { MarketAnalysisOutcome } from "@/types/market-analysis-orchestration";
+import type { EconomicEvent } from "@/types/economic-calendar";
 import { buildSeo } from "@/services/ai/publishing/seo.service";
 
+/** analysis = daily instrument report; fundamental = macro-driver focus; calendar = deterministic weekly event preview; weekly = multi-asset review. */
+export type ReportKind = "analysis" | "fundamental" | "calendar" | "weekly";
+
 export interface DailyReportSpec {
+  kind?: ReportKind;
   category: ContentCategory;
   symbol: string;
   /** Name used in the title, e.g. "Gold (XAU/USD)". */
@@ -51,22 +56,75 @@ export function formatReportDate(d: Date): string {
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
+const FUNDAMENTAL_GOLD: DailyReportSpec = {
+  kind: "fundamental",
+  category: "fundamental-analysis",
+  symbol: "XAUUSD",
+  label: "Gold (XAU/USD)",
+  keywords: ["gold fundamentals", "xauusd", "fundamental analysis"],
+};
+const FUNDAMENTAL_EUR: DailyReportSpec = {
+  kind: "fundamental",
+  category: "fundamental-analysis",
+  symbol: "EURUSD",
+  label: "EUR/USD",
+  keywords: ["eurusd fundamentals", "euro dollar", "fundamental analysis"],
+};
+const CALENDAR_PREVIEW: DailyReportSpec = {
+  kind: "calendar",
+  category: "economic-preview",
+  symbol: "CALENDAR",
+  label: "Economic Calendar",
+  keywords: ["economic calendar", "high impact news", "forex news this week"],
+};
+const WEEKLY_REVIEW: DailyReportSpec = {
+  kind: "weekly",
+  category: "weekly-review",
+  symbol: "WEEKLY",
+  label: "Weekly",
+  keywords: ["weekly market review", "gold eurusd bitcoin", "market outlook"],
+};
+/** The assets covered by the Sunday weekly review. */
+const WEEKLY_ASSETS: { symbol: string; label: string }[] = [
+  { symbol: "XAUUSD", label: "Gold (XAU/USD)" },
+  { symbol: "EURUSD", label: "EUR/USD" },
+  { symbol: "BTCUSD", label: "Bitcoin (BTC/USD)" },
+];
+
 /**
- * Which reports to write on a given UTC date. Weekdays: gold + that day's forex pair
- * + a rotating crypto pair. Weekends: crypto only (gold/forex markets are closed, so a
- * "daily" report would just restate Friday's close).
+ * Which reports to write on a given UTC date (at most 4):
+ *  - Mon-Fri: gold + that day's forex pair + a rotating crypto pair
+ *  - Mon: + Economic Calendar Preview (deterministic, no AI)
+ *  - Tue/Thu: + a Fundamental Analysis report (gold / EUR/USD)
+ *  - Sat: crypto only (gold/forex closed - a "daily" report would restate Friday's close)
+ *  - Sun: crypto + the Weekly Market Review
  */
 export function planDailyReports(date: Date): DailyReportSpec[] {
   const weekday = date.getUTCDay(); // 0 = Sunday
   const dayNumber = Math.floor(date.getTime() / 86_400_000);
   const crypto = CRYPTO_ROTATION[dayNumber % CRYPTO_ROTATION.length];
-  if (weekday === 0 || weekday === 6) return [crypto];
-  return [GOLD, FOREX_BY_WEEKDAY[weekday], crypto];
+  if (weekday === 6) return [crypto];
+  if (weekday === 0) return [crypto, WEEKLY_REVIEW];
+  const plan = [GOLD, FOREX_BY_WEEKDAY[weekday], crypto];
+  if (weekday === 1) plan.push(CALENDAR_PREVIEW);
+  if (weekday === 2) plan.push(FUNDAMENTAL_GOLD);
+  if (weekday === 4) plan.push(FUNDAMENTAL_EUR);
+  return plan;
 }
 
 export function reportTitle(spec: DailyReportSpec, date: Date): string {
-  const kind = spec.category === "gold-analysis" ? "Analysis" : spec.category === "forex-analysis" ? "Forex Analysis" : "Crypto Analysis";
-  return `${spec.label} ${kind} - ${formatReportDate(date)}`;
+  switch (spec.kind ?? "analysis") {
+    case "calendar":
+      return `Economic Calendar Preview - Week of ${formatReportDate(date)}`;
+    case "weekly":
+      return `Weekly Market Review - Week Ending ${formatReportDate(date)}`;
+    case "fundamental":
+      return `${spec.label} Fundamental Analysis - ${formatReportDate(date)}`;
+    default: {
+      const kind = spec.category === "gold-analysis" ? "Analysis" : spec.category === "forex-analysis" ? "Forex Analysis" : "Crypto Analysis";
+      return `${spec.label} ${kind} - ${formatReportDate(date)}`;
+    }
+  }
 }
 
 /**
@@ -121,10 +179,89 @@ export function buildReportContent(
     title: reportTitle(spec, date),
     summary: toPlainText(ex.executiveSummary && ex.executiveSummary.trim().length >= 20 ? ex.executiveSummary : overview).slice(0, 300),
     sections: [
-      { heading: "Market Overview", body: overview },
+      { heading: spec.kind === "fundamental" ? "Fundamental Overview" : "Market Overview", body: overview },
       { heading: "Evidence Behind This Reading", body: evidenceParts.join("\n\n") },
       { heading: "Risk, Confidence and Limits", body: riskParts.join("\n\n") },
     ],
+  };
+}
+
+const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function two(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/** The week's high-impact events as a plain-text schedule. Deterministic: only fields the feed carries; null when there is nothing to show. */
+export function buildCalendarContent(
+  spec: DailyReportSpec,
+  date: Date,
+  events: readonly EconomicEvent[],
+): { title: string; summary: string; sections: ArticleSection[] } | null {
+  const high = events
+    .filter((e) => e.impact === "high" && !e.isHoliday)
+    .slice()
+    .sort((x, y) => x.eventTime.localeCompare(y.eventTime));
+  if (high.length < 3) return null;
+
+  const detail = (e: EconomicEvent): string => {
+    const parts: string[] = [];
+    if (e.forecast) parts.push(`forecast ${e.forecast}`);
+    if (e.previous) parts.push(`previous ${e.previous}`);
+    return parts.length > 0 ? ` (${parts.join(", ")})` : "";
+  };
+
+  const byDay = new Map<string, string[]>();
+  for (const e of high) {
+    const t = new Date(e.eventTime);
+    const key = `${WEEKDAY_NAMES[t.getUTCDay()]} ${formatReportDate(t)}`;
+    const line = `- ${two(t.getUTCHours())}:${two(t.getUTCMinutes())} UTC - ${e.currency} - ${e.title}${detail(e)}`;
+    byDay.set(key, [...(byDay.get(key) ?? []), line]);
+  }
+  const schedule = [...byDay.entries()].map(([day, lines]) => `${day}\n${lines.join("\n")}`).join("\n\n");
+
+  const perCurrency = new Map<string, number>();
+  for (const e of high) perCurrency.set(e.currency, (perCurrency.get(e.currency) ?? 0) + 1);
+  const focus = [...perCurrency.entries()].sort((a, b) => b[1] - a[1]).map(([c, n]) => `${c}: ${n} high-impact release${n === 1 ? "" : "s"}`);
+
+  return {
+    title: reportTitle(spec, date),
+    summary: `${high.length} high-impact economic releases are scheduled this week, led by ${focus[0].split(":")[0]}. Times are UTC.`,
+    sections: [
+      { heading: "High-Impact Events This Week", body: schedule },
+      { heading: "Currencies in Focus", body: `${focus.join("\n")}\n\nMore scheduled releases for a currency means more potential for volatility in the pairs and metals that trade against it.` },
+      {
+        heading: "How to Read This Calendar",
+        body:
+          "Impact ratings come from the calendar feed and describe how much a release has historically moved prices, not which direction it will move them. Forecast and previous values are the feed's consensus and prior reading; the actual release can differ. All times are UTC, and scheduled times can change - confirm close to the release. This page is general information, not a trading recommendation.",
+      },
+    ],
+  };
+}
+
+/** Sunday roundup: one section per asset that analysed successfully, plus a shared risk section. Null with fewer than 2 assets. */
+export function buildWeeklyContent(
+  spec: DailyReportSpec,
+  date: Date,
+  parts: { label: string; outcome: CompletedOutcome }[],
+): { title: string; summary: string; sections: ArticleSection[] } | null {
+  if (parts.length < 2) return null;
+  const sections: ArticleSection[] = parts.map((p) => ({ heading: p.label, body: toPlainText(p.outcome.result.summary) }));
+  const riskLines = parts
+    .map((p) => {
+      const ex = p.outcome.result.explainable;
+      return `${p.label}: ${[ex.riskSummary, ex.confidenceSummary].filter((x) => x && x.trim().length > 0).join(" ")}`;
+    })
+    .filter((l) => l.length > 0);
+  if (sections.some((s) => s.body.length === 0) || riskLines.length === 0) return null;
+  sections.push({
+    heading: "Risk, Confidence and Limits",
+    body: `${riskLines.join("\n\n")}\n\nThese readings restate computed evidence at the time of writing and can change quickly. They are general information, not a trading recommendation.`,
+  });
+  return {
+    title: reportTitle(spec, date),
+    summary: `This week's evidence-based read on ${parts.map((p) => p.label).join(", ")}, with the risk and confidence behind each reading.`,
+    sections,
   };
 }
 
@@ -148,6 +285,8 @@ export interface DailyAutoPublisherDeps {
     custom: { title: string; summary: string; sections: ArticleSection[] };
   }) => Promise<Article>;
   publishNow: (articleId: string) => Promise<void>;
+  /** This week's calendar events (all impacts; the builder filters). */
+  getCalendarEvents: () => Promise<readonly EconomicEvent[]>;
   now?: () => Date;
 }
 
@@ -169,22 +308,13 @@ export class DailyAutoPublisherService {
           continue;
         }
 
-        const outcome = await this.deps.analyze(
-          spec.symbol,
-          `Write today's market report for ${spec.label}: current structure, key levels, what could change the picture, and risks. Use hedged, evidence-based language - never a directive to buy or sell.`,
-        );
-        if (outcome.status !== "completed") {
-          results.push({ ...base, status: "skipped", reason: `analysis ${outcome.status}` });
+        const content = await this.buildContent(spec, date);
+        if ("skip" in content) {
+          results.push({ ...base, status: "skipped", reason: content.skip });
           continue;
         }
 
-        const content = buildReportContent(spec, date, outcome);
-        if (!content) {
-          results.push({ ...base, status: "skipped", reason: "analysis had no usable content" });
-          continue;
-        }
-
-        const article = await this.deps.createDraft({ category: spec.category, keywords: spec.keywords, custom: content });
+        const article = await this.deps.createDraft({ category: spec.category, keywords: spec.keywords, custom: content.content });
         await this.deps.publishNow(article.id);
         results.push({ ...base, status: "published", articleId: article.id });
       } catch (err) {
@@ -192,5 +322,39 @@ export class DailyAutoPublisherService {
       }
     }
     return { date: date.toISOString(), results };
+  }
+
+  private async buildContent(
+    spec: DailyReportSpec,
+    date: Date,
+  ): Promise<{ content: { title: string; summary: string; sections: ArticleSection[] } } | { skip: string }> {
+    const kind = spec.kind ?? "analysis";
+
+    if (kind === "calendar") {
+      const content = buildCalendarContent(spec, date, await this.deps.getCalendarEvents());
+      return content ? { content } : { skip: "fewer than 3 high-impact events in the feed" };
+    }
+
+    if (kind === "weekly") {
+      const parts: { label: string; outcome: CompletedOutcome }[] = [];
+      for (const asset of WEEKLY_ASSETS) {
+        const outcome = await this.deps.analyze(
+          asset.symbol,
+          `Summarise the past week and the current evidence for ${asset.label}: what drove it, key levels, and the main risks. Use hedged, evidence-based language - never a directive to buy or sell.`,
+        );
+        if (outcome.status === "completed") parts.push({ label: asset.label, outcome });
+      }
+      const content = buildWeeklyContent(spec, date, parts);
+      return content ? { content } : { skip: "fewer than 2 assets analysed" };
+    }
+
+    const question =
+      kind === "fundamental"
+        ? `Explain the fundamental drivers for ${spec.label}: macro data, central-bank expectations, real yields and the dollar, news flow, and what could change the picture. Focus on fundamentals, not chart patterns. Use hedged, evidence-based language - never a directive to buy or sell.`
+        : `Write today's market report for ${spec.label}: current structure, key levels, what could change the picture, and risks. Use hedged, evidence-based language - never a directive to buy or sell.`;
+    const outcome = await this.deps.analyze(spec.symbol, question);
+    if (outcome.status !== "completed") return { skip: `analysis ${outcome.status}` };
+    const content = buildReportContent(spec, date, outcome);
+    return content ? { content } : { skip: "analysis had no usable content" };
   }
 }
