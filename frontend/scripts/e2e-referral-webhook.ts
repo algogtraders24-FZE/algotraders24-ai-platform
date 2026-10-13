@@ -115,6 +115,7 @@ async function main() {
   await ipn(sub(6));
   check("flag OFF: a renewal creates no commission", (await comm("sub:7100006")).length === 0);
 
+  await wipe(); // leave the scratch database clean for the other e2e scripts
   console.log(failed === 0 ? "\nWEBHOOK E2E ALL PASS" : `\nWEBHOOK E2E ${failed} FAILED`);
 }
 main().catch((e) => { console.error(e); failed++; }).finally(async () => { await prisma.$disconnect(); process.exit(failed === 0 ? 0 : 1); });
