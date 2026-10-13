@@ -134,6 +134,35 @@ async function claimManualRunSlot(
   return "in_progress";
 }
 
+export interface ResumeResult {
+  resumed: number;
+  found: number;
+  durationMs: number;
+}
+
+export interface ResumeDeps {
+  list?: (olderThanMs: number, limit: number) => Promise<{ id: string }[]>;
+  dispatch?: (runId: string) => Promise<boolean>;
+}
+
+/** Resumes runs that stopped making progress (a function was killed mid-run, a
+ *  deploy interrupted it...). Called by the every-2-minute resume cron AND by
+ *  each slot cron's catch-up pass. A run is picked up once its row has not been
+ *  touched for RESUME_AFTER_MS, so a run that is being driven right now is left
+ *  alone. The child agent run times out 5 minutes after it started, so resuming
+ *  quickly is what makes a stalled run finish instead of fail. */
+export async function resumeStalledRuns(deps: ResumeDeps = {}): Promise<ResumeResult> {
+  const startedAt = Date.now();
+  const list = deps.list ?? ((olderThanMs, limit) => automationRepository.listResumableRuns(olderThanMs, limit));
+  const dispatch = deps.dispatch ?? safeDispatch;
+  const stalled = await list(RESUME_AFTER_MS, DISPATCH_BATCH);
+  let resumed = 0;
+  await runWithConcurrency(stalled, DISPATCH_CONCURRENCY, async (r) => {
+    if (await dispatch(r.id)) resumed += 1;
+  }, () => Date.now() - startedAt > SLOT_START_BUDGET_MS);
+  return { resumed, found: stalled.length, durationMs: Date.now() - startedAt };
+}
+
 export interface SlotDispatchResult {
   slot: string;
   now: string;
@@ -153,12 +182,8 @@ export async function dispatchSlot(slotId: string, now: Date = new Date()): Prom
   const skipped: { automationId: string; reason: string }[] = [];
 
   // ── catch-up: resume stalled runs ──
-  let resumed = 0;
   const overBudget = () => Date.now() - startedAt > SLOT_START_BUDGET_MS;
-  const stalled = await automationRepository.listResumableRuns(RESUME_AFTER_MS, DISPATCH_BATCH);
-  await runWithConcurrency(stalled, DISPATCH_CONCURRENCY, async (r) => {
-    if (await safeDispatch(r.id)) resumed += 1;
-  }, overBudget);
+  const { resumed } = await resumeStalledRuns();
 
   // ── new dispatch ──
   // Create every due run first (cheap, sequential - the (automationId,

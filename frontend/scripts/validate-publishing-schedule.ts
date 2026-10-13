@@ -162,8 +162,9 @@ test("the publishing dispatch cron is DAILY (Hobby: one run/path/day)", () => {
   assert.equal(dow, "*", "day-of-week must be *");
 });
 
-test("no sub-daily cron anywhere in vercel.json (would block all deploys on Hobby)", () => {
+test("no sub-daily cron in vercel.json except the automation resume cron (the team is on Pro; on Hobby a sub-daily cron would block all deploys)", () => {
   for (const c of vercel.crons ?? []) {
+    if (c.path === "/api/private/automations/cron/resume") continue;
     const [min, hour] = c.schedule.trim().split(/\s+/);
     assert.match(min, /^\d+$/, `${c.path}: minute must be fixed (no "*" / "*/n")`);
     assert.match(hour, /^\d+$/, `${c.path}: hour must be fixed (no "*" / "*/n")`);

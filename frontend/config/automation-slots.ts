@@ -11,8 +11,8 @@
 //     list.
 //
 // To add a slot post-Beta: add an entry here, add the matching daily cron to
-// frontend/vercel.json (schedule MUST be `<min> <hour> * * *` - never `*/n`,
-// which silently blocks all main deploys on the Hobby plan), add the dispatch
+// frontend/vercel.json (slot schedules MUST be `<min> <hour> * * *`; the only sub-daily cron is AUTOMATION_RESUME_CRON below,
+// allowed because the team is on Pro - on Hobby it would block all main deploys), add the dispatch
 // path to CRON_SECRET_EXEMPT_PATHS in frontend/proxy.ts, and add the route
 // file. The `assertSlotWiring()` check in
 // scripts/validate-automation-dispatch.ts fails if any of those drift.
@@ -114,3 +114,13 @@ export function istWeekday(at: Date): "MON" | "TUE" | "WED" | "THU" | "FRI" | "S
   const map = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"] as const;
   return map[istClock.getUTCDay()];
 }
+
+/** The resume cron: every 2 minutes, picks up automation runs that stopped
+ *  making progress (see resumeStalledRuns in services/automation/run-dispatch.ts).
+ *  This is the ONLY sub-daily cron in vercel.json: it needs the Pro plan (the
+ *  Vercel team `algotraders24ai` is on Pro, verified 2026-10-13). On Hobby a
+ *  sub-daily cron blocks every production deploy. */
+export const AUTOMATION_RESUME_CRON = {
+  path: "/api/private/automations/cron/resume",
+  schedule: "*/2 * * * *",
+} as const;
