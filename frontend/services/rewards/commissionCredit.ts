@@ -21,7 +21,7 @@ export interface CommissionInput {
 }
 
 /** Creates the commission row (RELEASED at once when there is no hold) and, when released, its ledger entry. Throws P2002 on a replay - callers decide. */
-export async function createCommission(db: Db, c: CommissionInput): Promise<{ released: boolean }> {
+export async function createCommission(db: Db, c: CommissionInput): Promise<{ released: boolean; id: string }> {
   const hold = commissionHoldDays();
   const availableAt = addDays(c.paidAt, hold);
   const releaseNow = hold === 0;
@@ -36,5 +36,5 @@ export async function createCommission(db: Db, c: CommissionInput): Promise<{ re
       data: { userId: c.partnerId, type: "COMMISSION_RELEASED", amountCents: c.amountCents, refType: "ReferralCommission", refId: row.id, idempotencyKey: ledgerKey.commission(c.purchaseRef, c.level) },
     });
   }
-  return { released: releaseNow };
+  return { released: releaseNow, id: row.id };
 }

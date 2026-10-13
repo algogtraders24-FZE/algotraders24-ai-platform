@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { referralAllProductsEnabled } from "@/lib/rewards/config";
 import { computePercentShares } from "@/lib/rewards/money";
 import { createCommission } from "@/services/rewards/commissionCredit";
+import { notifyCommission } from "@/services/rewards/rewardNotifier";
 import { REF_COOKIE, normalizeReferralCode } from "@/lib/rewards/referral";
 import { resolveUpline } from "@/services/rewards/upline";
 
@@ -59,9 +60,8 @@ export async function creditReferralForPayment(input: { buyerId: string; amountC
   let credited = 0;
   for (const s of shares) {
     try {
-      await prisma.$transaction(async (tx) => {
-        await createCommission(tx, { purchaseRef: input.saleRef, partnerId: s.partnerId, level: s.level, amountCents: s.amountCents, buyerId: input.buyerId, source: input.source, paidAt: input.paidAt });
-      });
+      const made = await prisma.$transaction(async (tx) => createCommission(tx, { purchaseRef: input.saleRef, partnerId: s.partnerId, level: s.level, amountCents: s.amountCents, buyerId: input.buyerId, source: input.source, paidAt: input.paidAt }));
+      if (made.released) await notifyCommission({ commissionId: made.id, partnerId: s.partnerId, level: s.level, amountCents: s.amountCents, source: input.source, buyerId: input.buyerId });
       credited++;
     } catch (e) {
       if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")) throw e; // already credited by an earlier delivery of the same payment

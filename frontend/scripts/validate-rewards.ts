@@ -343,6 +343,26 @@ check("a stored hash is tied to the member and the salt (no reuse across account
 check("typed codes are normalised; anything else is refused", normalizeCode("123 456") === "123456" && normalizeCode("123-456") === "123456" && normalizeCode("12345") === null && normalizeCode("1234567") === null && normalizeCode("12345a") === null && normalizeCode(null) === null);
 check("a code lasts 10 minutes and allows 5 tries", CODE_TTL_MINUTES === 10 && MAX_ATTEMPTS === 5 && expiresAtFor(new Date(0)).getTime() === 600_000);
 
+// --- wallet notices (bell + email wording)
+import * as NT from "../lib/rewards/notices";
+const notices = [
+  NT.withdrawalRequested({ amountCents: 150, network: "TRC20", maskedAddress: "TQn9Y2...cbLSE" }),
+  NT.withdrawalPaid({ amountCents: 150, network: "TRC20", txRef: "0xabc123" }),
+  NT.withdrawalDeclined({ amountCents: 150, note: "address could not be verified" }),
+  NT.withdrawalDeclined({ amountCents: 150 }),
+  NT.instalmentReleased({ amountCents: 150, contractName: "Test Contract", seq: 1, total: 4 }),
+  NT.instalmentPaused({ amountCents: 150, contractName: "Test Contract", seq: 2, total: 4 }),
+  NT.commissionCredited({ amountCents: 40, levelLabel: "direct", sourceText: "Pro plan payment", buyerName: "R*** K." }),
+  NT.commissionCredited({ amountCents: 40, levelLabel: "level 2", sourceText: "Pro plan payment", buyerName: null }),
+  NT.contractCancelled({ contractName: "Test Contract", reason: "purchase refunded" }),
+];
+check("every notice has a title, text, a wallet or contracts link and a button label", notices.every((n) => n.title && n.text && /^\/dashboard\//.test(n.href) && n.cta));
+check("notices carry no email address and no banned words", notices.every((n) => !/@/.test(n.text + n.rows.flat().join(" ")) && BANNED_COPY_WORDS.every((w) => !(n.title + " " + n.text).toLowerCase().includes(w))));
+check("a paid withdrawal notice shows the amount, network and transaction reference", notices[1].text.includes("$1.50") && notices[1].text.includes("TRC20") && notices[1].text.includes("0xabc123"));
+check("a declined withdrawal says the amount is back in the balance, with or without a reason", notices[2].text.includes("back in your balance") && notices[2].text.includes("address could not be verified") && !notices[3].text.includes("Reason"));
+check("a paused instalment is a warning and says it is kept for the member", notices[5].severity === "warning" && notices[5].text.includes("kept for you"));
+check("a commission notice names the level, the source and the masked buyer", notices[6].text.includes("direct") && notices[6].text.includes("Pro plan payment") && notices[6].text.includes("R*** K.") && !notices[7].text.includes(" from "));
+
 // --- copy guard on the strings this program shows
 const copy = REWARD_PRODUCT_KEYS.map((k) => REWARD_PRODUCTS[k].name).join(" ").toLowerCase();
 check("no banned words in product names", BANNED_COPY_WORDS.every((w) => !copy.includes(w)));

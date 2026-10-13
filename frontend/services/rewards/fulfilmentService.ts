@@ -10,6 +10,7 @@ import { computeContractMoney, computeReferralShares } from "@/lib/rewards/money
 import { ledgerKey } from "@/lib/rewards/ledger";
 import { resolveUpline } from "@/services/rewards/upline";
 import { createCommission } from "@/services/rewards/commissionCredit";
+import { notifyCommission } from "@/services/rewards/rewardNotifier";
 import { issueContractDocument } from "@/services/rewards/contractDocument";
 import { ensureCompanionLicense } from "@/services/rewards/companionLicense";
 
@@ -60,6 +61,7 @@ export async function fulfilRewardCheckout(input: { intentId: string; providerRe
   }
 
   try {
+    const credited: Array<{ commissionId: string; partnerId: string; level: number; amountCents: number }> = [];
     const contractId = await prisma.$transaction(async (tx) => {
       const contract = await tx.rewardContract.create({
         data: {
@@ -89,7 +91,8 @@ export async function fulfilRewardCheckout(input: { intentId: string; providerRe
       if (attribution) {
         await tx.referralAttribution.create({ data: { partnerId: attribution.partnerId, buyerId: checkout.userId, codeId: attribution.codeId, purchaseId: purchase.id } });
         for (const s of shares) {
-          await createCommission(tx, { purchaseRef: purchase.id, partnerId: s.partnerId, level: s.level, amountCents: s.amountCents, buyerId: checkout.userId, source: "CONTRACT", paidAt: purchase.purchasedAt });
+          const made = await createCommission(tx, { purchaseRef: purchase.id, partnerId: s.partnerId, level: s.level, amountCents: s.amountCents, buyerId: checkout.userId, source: "CONTRACT", paidAt: purchase.purchasedAt });
+          if (made.released) credited.push({ commissionId: made.id, partnerId: s.partnerId, level: s.level, amountCents: s.amountCents });
         }
       }
       await tx.rewardCheckout.update({ where: { id: checkout.id }, data: { status: "FULFILLED", purchaseId: purchase.id, contractId: contract.id, error: null } });
@@ -99,6 +102,8 @@ export async function fulfilRewardCheckout(input: { intentId: string; providerRe
       return contract.id;
     });
     // Document and activation come right after the money is recorded; if they fail the contract stays PENDING_DOCUMENT and is retried.
+    // Partners are told only after the money is recorded; a failure here never touches the contract.
+    for (const c of credited) await notifyCommission({ ...c, source: "CONTRACT", detail: product.name, buyerId: checkout.userId });
     await issueContractDocument(contractId);
     const mainLicense = licenseId ? await prisma.license.findUnique({ where: { id: licenseId }, select: { expiresAt: true } }).catch(() => null) : null;
     await tryCompanion(checkout.productKey, checkout.userId, input.providerRef, mainLicense?.expiresAt ?? null);

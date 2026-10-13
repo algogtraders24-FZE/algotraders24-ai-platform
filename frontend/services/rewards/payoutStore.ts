@@ -10,6 +10,7 @@ import { summarizeBalances, type Balances, type BalanceItem } from "@/lib/reward
 import { addDays } from "@/lib/rewards/money";
 import { loadUserFacts } from "@/lib/rewards/access";
 import { validatePayoutAddress } from "@/lib/marketplace/earnings";
+import { notifyWithdrawalDecided } from "@/services/rewards/rewardNotifier";
 
 export async function getBalances(userId: string, now: Date = new Date()): Promise<Balances> {
   const [inst, comm] = await Promise.all([
@@ -86,6 +87,7 @@ export async function decideWithdrawal(input: { payoutId: string; decision: "PAI
       prisma.rewardLedgerEntry.create({ data: { userId: payout.userId, type: "PAYOUT_PAID", amountCents: -payout.amountCents, refType: "RewardPayout", refId: payout.id, idempotencyKey: `payout:${payout.id}` } }),
       prisma.rewardAuditEvent.create({ data: { actor: input.adminId, action: "payout.paid", subjectType: "RewardPayout", subjectId: payout.id, data: { amountCents: payout.amountCents, txRef } } }),
     ]);
+    await notifyWithdrawalDecided({ payoutId: payout.id, userId: payout.userId, amountCents: payout.amountCents, network: payout.network, decision: "PAID", txRef });
     return { ok: true };
   }
 
@@ -95,5 +97,6 @@ export async function decideWithdrawal(input: { payoutId: string; decision: "PAI
     prisma.rewardPayout.update({ where: { id: payout.id }, data: { status: "REJECTED", note: input.note?.slice(0, 300) ?? null, decidedAt: now } }),
     prisma.rewardAuditEvent.create({ data: { actor: input.adminId, action: "payout.rejected", subjectType: "RewardPayout", subjectId: payout.id, data: { note: input.note ?? null } } }),
   ]);
+  await notifyWithdrawalDecided({ payoutId: payout.id, userId: payout.userId, amountCents: payout.amountCents, network: payout.network, decision: "REJECTED", note: input.note });
   return { ok: true };
 }
