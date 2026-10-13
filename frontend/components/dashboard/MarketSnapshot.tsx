@@ -73,6 +73,9 @@ function MacroMiniCards() {
             <p className="text-xs font-semibold text-text-2">{it.title}</p>
             <MiniGauge score={it.score} lean={it.lean} />
             <p className={`text-center text-sm font-semibold ${LEAN_TEXT[it.lean]}`}>{it.label}</p>
+            <p className="text-center text-[11px] text-text-3">
+              {it.availableDrivers}/{it.totalDrivers} drivers
+            </p>
             {it.price ? (
               <p className="text-center text-xs text-text-2">
                 {it.price.text} ·{" "}
