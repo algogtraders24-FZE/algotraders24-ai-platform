@@ -3495,6 +3495,21 @@ model RewardPayout {
   @@map("reward_payouts")
 }
 
+/// One-time 6-digit code emailed to a member to confirm a withdrawal (members without an authenticator app). Only a salted hash is stored.
+model RewardWithdrawCode {
+  id        String    @id @default(cuid())
+  userId    String
+  salt      String
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int       @default(0)
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@map("reward_withdraw_codes")
+}
+
 /// The member's saved USDT withdrawal address (one per member). A saved or changed address is usable from activeFrom.
 model RewardPayoutAddress {
   id         String   @id @default(cuid())

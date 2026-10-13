@@ -5,6 +5,7 @@ import { useState } from "react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Alert from "@/components/ui/Alert";
+import Input from "@/components/ui/Input";
 import Badge from "@/components/ui/Badge";
 
 export interface BalanceView { scheduled: number; frozen: number; holding: number; available: number; requested: number; paid: number }
@@ -30,15 +31,40 @@ export default function WithdrawCard({ balances, payouts, minCents, holdDays, wi
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  async function submit() {
+  // Withdrawing needs a fresh 6-digit code: from the member's authenticator app, or emailed to them when they have none.
+  const [step, setStep] = useState<"idle" | "code">("idle");
+  const [method, setMethod] = useState<"totp" | "email">("email");
+  const [code, setCode] = useState("");
+
+  async function askForCode() {
     setBusy(true);
     setError(null);
     setNotice(null);
     try {
-      const res = await fetch("/api/private/rewards/withdraw", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      const res = await fetch("/api/private/rewards/withdraw/code", { method: "POST" });
+      const body = await res.json().catch(() => null);
+      if (!res.ok || body?.status !== "ok") throw new Error(body?.error?.message ?? `Request failed (${res.status})`);
+      setMethod(body.data.method === "totp" ? "totp" : "email");
+      setCode("");
+      setStep("code");
+      if (body.data.method === "email") setNotice(`We emailed you a 6-digit code. It works once and lasts ${body.data.minutes ?? 10} minutes.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not send the code.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submit() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/private/rewards/withdraw", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
       const body = await res.json().catch(() => null);
       if (!res.ok || body?.status !== "ok") throw new Error(body?.error?.message ?? `Request failed (${res.status})`);
       setNotice(`Withdrawal of ${usd(body.data.amountCents)} requested. It is paid by hand after a quick check.`);
+      setStep("idle");
+      setCode("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not request the withdrawal.");
     } finally {
@@ -78,7 +104,22 @@ export default function WithdrawCard({ balances, payouts, minCents, holdDays, wi
         {canTry && address && (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-text-2">Sent to {address.network} <code className="text-xs">{address.masked}</code>. <a className="text-gold underline" href="/dashboard/wallet">Change</a></p>
-            <Button onClick={submit} disabled={busy}>{busy ? "Sending..." : `Withdraw ${usd(balances.available)}`}</Button>
+            {step === "idle" && <Button onClick={askForCode} disabled={busy}>{busy ? "Please wait..." : `Withdraw ${usd(balances.available)}`}</Button>}
+          </div>
+        )}
+        {canTry && address && step === "code" && (
+          <div className="space-y-3 rounded-card border border-border bg-ink-2 p-3">
+            <p className="text-sm text-text-2">
+              {method === "totp"
+                ? "Open your authenticator app and enter the 6-digit code for Algotraders24 to confirm this withdrawal."
+                : "Enter the 6-digit code we emailed you to confirm this withdrawal."}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input inputMode="numeric" autoComplete="one-time-code" maxLength={7} value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" aria-label="6-digit code" className="w-40" />
+              <Button onClick={submit} disabled={busy || code.replace(/\D/g, "").length !== 6}>{busy ? "Confirming..." : `Confirm withdrawal of ${usd(balances.available)}`}</Button>
+              {method === "email" && <Button variant="secondary" onClick={askForCode} disabled={busy}>Send a new code</Button>}
+              <Button variant="secondary" onClick={() => { setStep("idle"); setCode(""); setError(null); setNotice(null); }} disabled={busy}>Cancel</Button>
+            </div>
           </div>
         )}
       </div>

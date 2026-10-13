@@ -25,6 +25,7 @@ import { isProgramListing } from "../services/rewards/listingGuard";
 import { findKycReminderTargets, runKycReminders } from "../services/rewards/kycReminder";
 import { loadUserFacts } from "../lib/rewards/access";
 import { getSavedAddress, saveAddress } from "../services/rewards/addressStore";
+import { issueWithdrawCode, verifyWithdrawCode } from "../services/rewards/withdrawCodeStore";
 import { isProActive } from "../lib/rewards/eligibility";
 import { creditReferralForPayment } from "../services/rewards/universalReferral";
 
@@ -41,7 +42,7 @@ const T0 = new Date();
 const later = (days: number) => addDays(T0, days);
 
 async function wipe() {
-  for (const t of ["reward_audit_events", "reward_download_logs", "reward_payouts", "reward_reserve_entries", "reward_ledger_entries", "referral_commissions", "referral_attributions", "referral_codes", "rebate_installments", "reward_contract_documents", "reward_contracts", "reward_checkouts", "reward_slot_holds", "reward_slot_months", "reward_products", "reward_payout_addresses", "purchases", "seller_identities", "Subscription", "User"]) {
+  for (const t of ["reward_audit_events", "reward_download_logs", "reward_payouts", "reward_reserve_entries", "reward_ledger_entries", "referral_commissions", "referral_attributions", "referral_codes", "rebate_installments", "reward_contract_documents", "reward_contracts", "reward_checkouts", "reward_slot_holds", "reward_slot_months", "reward_products", "reward_payout_addresses", "reward_withdraw_codes", "purchases", "seller_identities", "Subscription", "User"]) {
     await prisma.$executeRawUnsafe(`DELETE FROM "${t}"`);
   }
 }
@@ -397,6 +398,42 @@ async function main() {
   const mails = await prisma.emailLog.findMany({ where: { type: "payout_address_changed", recipientUserId: "addr1" }, orderBy: { sentAt: "asc" } });
   check("the member is emailed on save and on change (logged; skipped here because no mail key is set)", mails.length === 2 && mails.every((m) => m.status === "SKIPPED"), JSON.stringify(mails.map((m) => m.status)));
   delete process.env.REWARDS_ADDRESS_COOLING_HOURS;
+
+  // ---- withdrawal confirmation code (members without an authenticator app): one use, 10 minutes, 5 tries, rate limited
+  const wc1 = await issueWithdrawCode("addr1", T0);
+  check("a code is issued", wc1.ok && /^\d{6}$/.test(wc1.ok ? wc1.code : ""));
+  const wcRow = await prisma.rewardWithdrawCode.findFirst({ where: { userId: "addr1" } });
+  check("only a hash is stored, never the code", !!wcRow && wc1.ok && !JSON.stringify(wcRow).includes(wc1.code));
+  const wcSoon = await issueWithdrawCode("addr1", addDays(T0, 0.0001));
+  check("asking again within 30 seconds is refused", !wcSoon.ok && wcSoon.code === "TOO_SOON");
+  if (wc1.ok) {
+    const wrong = await verifyWithdrawCode("addr1", wc1.code === "000000" ? "111111" : "000000", addDays(T0, 0.001));
+    check("a wrong code is refused and counted", !wrong.ok && wrong.reason === "WRONG" && (await prisma.rewardWithdrawCode.findFirst({ where: { userId: "addr1" } }))?.attempts === 1);
+    const other = await verifyWithdrawCode("someone-else", wc1.code, addDays(T0, 0.001));
+    check("a code never works for another member", !other.ok && other.reason === "NO_CODE");
+    const okv = await verifyWithdrawCode("addr1", wc1.code, addDays(T0, 0.001));
+    check("the right code works once", okv.ok);
+    const again = await verifyWithdrawCode("addr1", wc1.code, addDays(T0, 0.001));
+    check("and never a second time", !again.ok && again.reason === "NO_CODE");
+  }
+  const wc2 = await issueWithdrawCode("addr1", addDays(T0, 0.01));
+  if (wc2.ok) {
+    const late = await verifyWithdrawCode("addr1", wc2.code, addDays(T0, 0.01 + 11 / 1440));
+    check("a code expires after 10 minutes", !late.ok && late.reason === "EXPIRED");
+  }
+  const wc3 = await issueWithdrawCode("addr1", addDays(T0, 0.02));
+  if (wc3.ok) {
+    const guess = wc3.code === "000000" ? "111111" : "000000";
+    for (let i = 0; i < 5; i++) await verifyWithdrawCode("addr1", guess, addDays(T0, 0.02));
+    const locked = await verifyWithdrawCode("addr1", wc3.code, addDays(T0, 0.02));
+    check("after 5 wrong tries even the right code is locked", !locked.ok && locked.reason === "LOCKED");
+  }
+  const wc4 = await issueWithdrawCode("addr1", addDays(T0, 0.03));
+  const wc4old = wc3.ok && wc4.ok ? await verifyWithdrawCode("addr1", wc3.code, addDays(T0, 0.03)) : null;
+  check("a new code replaces the older ones", wc4.ok && !!wc4old && !wc4old.ok);
+  let issuedInHour = 0;
+  for (let i = 0; i < 8; i++) { const r = await issueWithdrawCode("addr2", addDays(T0, 0.04 + i * 0.001)); if (r.ok) issuedInHour++; }
+  check("no more than 5 codes an hour", issuedInHour === 5, String(issuedInHour));
 
   // ---- reserve identity across the whole run
   const r5 = await runRewardsSweep(later(185));

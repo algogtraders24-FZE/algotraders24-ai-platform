@@ -175,6 +175,21 @@ export async function sendAlgoContractEmail(params: { to: string; recipientUserI
   });
 }
 
+/** Wallet: the one-time 6-digit code that confirms a withdrawal (members without an authenticator app). Never logged or stored in clear. */
+export async function sendWithdrawCodeEmail(params: { to: string; recipientUserId?: string; code: string; minutes: number }): Promise<void> {
+  const html = renderLayout({
+    title: "Your withdrawal code",
+    maxWidth: 520,
+    bodyHtml: `
+      <p>Use this code to confirm your withdrawal:</p>
+      <p style="font-size: 30px; letter-spacing: 6px; font-weight: 700; margin: 16px 0;">${escapeHtml(params.code)}</p>
+      <p style="color: #666; font-size: 13px;">It works once and expires in ${params.minutes} minutes. <strong>If you did not ask for a withdrawal</strong>, do not share this code: change your password now and contact support.</p>
+    `,
+    footerHtml: "",
+  });
+  await dispatch({ type: "withdraw_code", to: params.to, subject: "Your withdrawal code", html, recipientUserId: params.recipientUserId });
+}
+
 /** Wallet: told to the member whenever their USDT withdrawal address is saved or changed, so a change they did not make is noticed
  *  inside the cooling period. Shows the address masked only. Best effort - the caller never lets a failed email undo the save. */
 export async function sendPayoutAddressChangedEmail(params: { to: string; recipientUserId?: string; network: string; maskedAddress: string; changed: boolean; usableFromIso: string }): Promise<void> {
