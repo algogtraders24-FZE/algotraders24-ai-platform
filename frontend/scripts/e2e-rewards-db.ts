@@ -439,6 +439,18 @@ async function main() {
   for (let i = 0; i < 8; i++) { const r = await issueWithdrawCode("addr2", addDays(T0, 0.04 + i * 0.001)); if (r.ok) issuedInHour++; }
   check("no more than 5 codes an hour", issuedInHour === 5, String(issuedInHour));
 
+  // ---- the member is told (bell + email log) when money moves; best effort, and never twice for the same event
+  const kinds = async (t: string) => prisma.emailLog.count({ where: { type: t } });
+  const bells = async (k: string) => prisma.userNotification.count({ where: { kind: k } });
+  check("instalments released by the daily check were announced (email log + bell)", (await kinds("rewards_instalment_released")) > 0 && (await bells("rewards.instalment_released")) > 0);
+  check("a withdrawal marked paid was announced", (await kinds("rewards_withdrawal_paid")) > 0 && (await bells("rewards.withdrawal_paid")) > 0);
+  check("a paused instalment was announced as a warning", (await kinds("rewards_instalment_paused")) > 0 && (await prisma.userNotification.count({ where: { kind: "rewards.instalment_paused", severity: "warning" } })) > 0);
+  check("a declined withdrawal was announced", (await kinds("rewards_withdrawal_declined")) > 0 && (await prisma.userNotification.count({ where: { kind: "rewards.withdrawal_declined" } })) > 0);
+  check("a cancelled contract was announced", (await kinds("rewards_contract_cancelled")) > 0 && (await bells("rewards.contract_cancelled")) > 0);
+  check("a commission released by the daily check got a bell notice", (await bells("rewards.commission_credited")) > 0);
+  const dupe = await prisma.$queryRawUnsafe<Array<{ n: bigint }>>(`select count(*)::bigint as n from (select type, "dedupeKey" from "EmailLog" where type like 'rewards_%' and "dedupeKey" is not null group by 1,2 having count(*) > 1) d`);
+  check("no event was ever emailed twice", Number(dupe[0]?.n ?? 0) === 0);
+
   // ---- reserve identity across the whole run
   const r5 = await runRewardsSweep(later(185));
   check("reserve equals what is still owed (no mismatch reported)", r5.errors.length === 0 && r5.reserveOutstandingCents === r5.owedCents && r5.shortfallCents === 0, JSON.stringify({ errs: r5.errors, res: r5.reserveOutstandingCents, owed: r5.owedCents }));

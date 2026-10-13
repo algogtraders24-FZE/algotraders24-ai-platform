@@ -7,6 +7,8 @@
 //   5. the reserve is reconciled against what is still owed, and any gap is reported.
 // Every write is idempotent (unique keys, status-guarded updates) so a retried or overlapping run cannot pay twice.
 import { Prisma } from "@/lib/generated/prisma/client";
+import { notifyCommission, notifyContractCancelled, notifyInstalment } from "@/services/rewards/rewardNotifier";
+import { inferSource } from "@/lib/rewards/wallet";
 import { prisma } from "@/lib/prisma";
 import { decideInstalment, type UserFacts } from "@/lib/rewards/eligibility";
 import { contractStatusAfter, purchaseVoided, unreleasedCents, type InstallmentStatus } from "@/lib/rewards/lifecycle";
@@ -33,6 +35,15 @@ const isDuplicate = (e: unknown) => e instanceof Prisma.PrismaClientKnownRequest
 
 /** Cancels a contract: unpaid instalments cancelled, their cents returned out of the reserve, pending commission reversed, licence left to the caller. */
 export async function cancelContract(contractId: string, reason: string, actor: string): Promise<{ ok: boolean; returnedCents: number }> {
+  const result = await cancelContractTx(contractId, reason, actor);
+  if (result.ok) {
+    const c = await prisma.rewardContract.findUnique({ where: { id: contractId }, select: { userId: true, productKey: true } }).catch(() => null);
+    if (c) await notifyContractCancelled({ contractId, userId: c.userId, productKey: c.productKey, reason });
+  }
+  return result;
+}
+
+async function cancelContractTx(contractId: string, reason: string, actor: string): Promise<{ ok: boolean; returnedCents: number }> {
   return prisma.$transaction(async (tx) => {
     const contract = await tx.rewardContract.findUnique({ where: { id: contractId } });
     if (!contract || contract.status === "REVOKED") return { ok: false, returnedCents: 0 };
@@ -106,12 +117,16 @@ export async function runRewardsSweep(now: Date = new Date()): Promise<SweepRepo
           await tx.rewardAuditEvent.create({ data: { actor: "system", action: "rebate.released", subjectType: "RebateInstallment", subjectId: inst.id, data: { contractId: inst.contractId, seq: inst.seq, amountCents: inst.amountCents } } });
           return true;
         });
-        if (moved) report.released++;
+        if (moved) {
+          report.released++;
+          await notifyInstalment({ instalmentId: inst.id, userId: inst.userId, contractId: inst.contractId, seq: inst.seq, amountCents: inst.amountCents, paused: false });
+        }
       } else if (decision.action === "FREEZE") {
         if (inst.status === "SCHEDULED") {
           const upd = await prisma.rebateInstallment.updateMany({ where: { id: inst.id, status: "SCHEDULED" }, data: { status: "FROZEN" } });
           if (upd.count) {
             report.frozen++;
+            await notifyInstalment({ instalmentId: inst.id, userId: inst.userId, contractId: inst.contractId, seq: inst.seq, amountCents: inst.amountCents, paused: true });
             await prisma.rewardAuditEvent.create({ data: { actor: "system", action: "rebate.frozen", subjectType: "RebateInstallment", subjectId: inst.id, data: { reason: decision.reason } } });
           }
         }
@@ -156,6 +171,7 @@ export async function runRewardsSweep(now: Date = new Date()): Promise<SweepRepo
           if (voided) report.commissionsReversed++;
           else {
             report.commissionsReleased++;
+            await notifyCommission({ commissionId: c.id, partnerId: c.partnerId, level: c.level, amountCents: c.amountCents, source: inferSource(c.purchaseId, c.source, false), buyerId: c.buyerId });
             await prisma.rewardLedgerEntry
               .create({ data: { userId: c.partnerId, type: "COMMISSION_RELEASED", amountCents: c.amountCents, refType: "ReferralCommission", refId: c.id, idempotencyKey: ledgerKey.commission(c.purchaseId, c.level) } })
               .catch((e) => { if (!isDuplicate(e)) throw e; });

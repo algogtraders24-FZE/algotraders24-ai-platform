@@ -175,6 +175,43 @@ export async function sendAlgoContractEmail(params: { to: string; recipientUserI
   });
 }
 
+/** Wallet / Algo Contracts: one generic "something happened in your wallet" email. The wording comes from lib/rewards/notices.ts. Deduped on
+ *  `dedupeKey` (one email per event), best effort - a failed email never affects the money movement it describes. */
+export async function sendRewardsNoticeEmail(params: { to: string; recipientUserId: string; kind: string; dedupeKey: string; title: string; text: string; rows: Array<[string, string]>; href: string; cta: string }): Promise<void> {
+  if (await wasEmailAlreadySent(`rewards_${params.kind}`, params.dedupeKey)) return;
+  const siteUrl = getSiteUrl();
+  const html = renderLayout({
+    title: params.title,
+    maxWidth: 560,
+    bodyHtml: `<p>${escapeHtml(params.text)}</p>${params.rows.length ? detailTable(params.rows.map(([k, v]) => [escapeHtml(k), escapeHtml(v)] as [string, string])) : ""}`,
+    cta: { text: params.cta, url: `${siteUrl}${params.href}` },
+  });
+  await dispatch({ type: `rewards_${params.kind}`, to: params.to, subject: params.title, html, recipientUserId: params.recipientUserId, dedupeKey: params.dedupeKey });
+}
+
+/** Ops alert: a member asked to withdraw, so someone has to check and pay it. The address is masked here; the full address is in the admin page. */
+export async function sendWithdrawalRequestAlert(params: { payoutId: string; userEmail: string; amountText: string; network: string; maskedAddress: string }): Promise<void> {
+  const siteUrl = getSiteUrl();
+  const html = renderLayout({
+    title: "A withdrawal needs to be paid",
+    titleColor: "#b45309",
+    maxWidth: 560,
+    bodyHtml: `
+      <p>A member requested a USDT withdrawal. Check the account, send the USDT, then mark it paid with the transaction reference.</p>
+      ${detailTable([
+        ["Member", escapeHtml(params.userEmail)],
+        ["Amount", escapeHtml(params.amountText)],
+        ["Network", escapeHtml(params.network)],
+        ["To address", `<span style="font-family: monospace; font-size: 12px;">${escapeHtml(params.maskedAddress)}</span>`],
+        ["Request", `<span style="font-family: monospace; font-size: 11px;">${escapeHtml(params.payoutId)}</span>`],
+      ])}
+    `,
+    cta: { text: "Open admin withdrawals", url: `${siteUrl}/dashboard/admin/rewards` },
+    footerHtml: "",
+  });
+  await dispatch({ type: "withdrawal_request_alert", to: OPS_ALERT_ADDRESS, subject: `[ACTION NEEDED] Withdrawal request - ${params.amountText}`, html, dedupeKey: `withdrawal-request:${params.payoutId}` });
+}
+
 /** Wallet: the one-time 6-digit code that confirms a withdrawal (members without an authenticator app). Never logged or stored in clear. */
 export async function sendWithdrawCodeEmail(params: { to: string; recipientUserId?: string; code: string; minutes: number }): Promise<void> {
   const html = renderLayout({

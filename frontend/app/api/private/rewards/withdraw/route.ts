@@ -14,6 +14,7 @@ import { getSavedAddress } from "@/services/rewards/addressStore";
 import { addressStatusText, isAddressActive } from "@/lib/rewards/payoutAddress";
 import { getTotpFactorId, verifyTotp } from "@/services/rewards/withdrawTotp";
 import { verifyWithdrawCode } from "@/services/rewards/withdrawCodeStore";
+import { notifyWithdrawalRequested } from "@/services/rewards/rewardNotifier";
 
 const RULES = () => ({ holdDays: holdDays(), minCents: minPayoutCents(), networks: PAYOUT_NETWORKS, method: "USDT", withdrawalsOpen: withdrawalsEnabled() });
 
@@ -47,5 +48,6 @@ export const POST = withContext(async (req, ctx) => {
 
   const r = await requestWithdrawal({ userId: user.profile.id, email: user.profile.email, network: saved.network, address: saved.address, now });
   if (!r.ok) return ApiResponse.error({ code: r.code, message: r.message }, ctx.requestId, r.code === "OPEN_REQUEST" || r.code === "BALANCE_CHANGED" ? 409 : r.code === "NOT_ELIGIBLE" ? 403 : 422, ctx.startedAt);
+  await notifyWithdrawalRequested({ payoutId: r.payoutId, userId: user.profile.id, userEmail: user.profile.email, amountCents: r.amountCents, network: saved.network, address: saved.address });
   return ApiResponse.success({ payoutId: r.payoutId, amountCents: r.amountCents }, ctx.requestId, 201, ctx.startedAt);
 });
