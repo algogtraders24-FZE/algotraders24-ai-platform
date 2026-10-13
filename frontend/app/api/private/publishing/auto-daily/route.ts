@@ -17,8 +17,10 @@ import { publishingService } from "@/services/publishing/publishing.service";
 import { productionAnalysisOrchestrator } from "@/services/ai/production-analysis-orchestrator";
 import { getEconomicCalendar } from "@/services/calendar/calendar.service";
 import { sendTelegramToUser } from "@/services/telegram/deliver";
+import { createTelegramClient } from "@/services/telegram/client";
+import { prismaTelegramStore } from "@/services/telegram/store";
 import { telegramConfig } from "@/services/telegram/config";
-import { DailyAutoPublisherService, dailyRunTelegramMessage } from "@/services/publishing/daily-auto-publisher.service";
+import { DailyAutoPublisherService, blogGroupMessage, dailyRunTelegramMessage } from "@/services/publishing/daily-auto-publisher.service";
 
 // Up to ~6 sequential live-data + AI analyses (Sunday weekly review = 3, plus the daily crypto report).
 export const maxDuration = 300;
@@ -48,7 +50,31 @@ async function runDaily(): Promise<Awaited<ReturnType<DailyAutoPublisherService[
   if (report.results.length > 0) {
     await sendTelegramToUser(ownerId, "alerts", dailyRunTelegramMessage(report.results, telegramConfig().siteUrl));
   }
+  await postToTelegramGroup(report.results);
   return report;
+}
+
+/**
+ * Each newly published report goes once to the AT24 Telegram group/channel (TELEGRAM_CHANNEL_ID).
+ * Dormant without a chat id; TELEGRAM_CHANNEL_BLOG=off turns it off; nothing is posted twice (kind "blog", refId = article id).
+ * Best effort: a Telegram failure never affects publishing.
+ */
+async function postToTelegramGroup(results: Awaited<ReturnType<DailyAutoPublisherService["run"]>>["results"]): Promise<void> {
+  try {
+    const cfg = telegramConfig();
+    if (!cfg.enabled || !cfg.channelId || (process.env.TELEGRAM_CHANNEL_BLOG ?? "").trim().toLowerCase() === "off") return;
+    const store = prismaTelegramStore();
+    const client = createTelegramClient(cfg.token);
+    for (const r of results) {
+      if (r.status !== "published" || !r.articleId) continue;
+      if (await store.hasPosted("blog", r.articleId)) continue;
+      const res = await client.sendMessage(cfg.channelId, blogGroupMessage(r.title, cfg.siteUrl), { preview: true });
+      if (!res.ok) break; // do not hammer a failing chat
+      await store.recordPost("blog", r.articleId, res.messageId ?? null);
+    }
+  } catch {
+    /* best effort */
+  }
 }
 
 async function handleAutoDaily(req: Request, ctx: { requestId: string; startedAt: number }) {

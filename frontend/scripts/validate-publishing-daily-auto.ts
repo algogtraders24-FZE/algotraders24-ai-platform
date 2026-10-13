@@ -7,6 +7,7 @@ import {
   DailyAutoPublisherService,
   buildReportContent,
   dailyRunTelegramMessage,
+  blogGroupMessage,
   buildCalendarContent,
   buildWeeklyContent,
   toPlainText,
@@ -328,10 +329,14 @@ async function main(): Promise<void> {
     assert.ok(!msg.includes("<b>Forex</b>") && !msg.includes("<x>"), "dynamic text must be escaped");
   });
 
-  await test("auto-daily route sends the owner summary through the user-linked Telegram delivery (no channel post)", () => {
+  await test("group message: title + real /blog link, escaped, no performance claim; route posts once per article and is dormant without a chat id", () => {
+    const msg = blogGroupMessage("Gold (XAU/USD) Analysis - 14 Oct 2026 <i>", "https://www.algotraders24.ai");
+    assert.ok(msg.includes('href="https://www.algotraders24.ai/blog/gold-xau-usd-analysis-14-oct-2026-i"') || msg.includes("/blog/gold-xau-usd-analysis-14-oct-2026"), msg);
+    assert.ok(!msg.includes("<i> ") && msg.includes("Not investment advice"));
     const route = readFileSync(join(root, "app/api/private/publishing/auto-daily/route.ts"), "utf8");
     assert.ok(route.includes('sendTelegramToUser(ownerId, "alerts"'));
-    assert.ok(!route.includes("channelId") && !route.includes("productionChannelDeps"));
+    assert.ok(route.includes('!cfg.channelId') && route.includes('hasPosted("blog"') && route.includes('recordPost("blog"'));
+    assert.ok(route.includes('TELEGRAM_CHANNEL_BLOG'));
   });
 
   // ---- cron wiring (drift guards) ---------------------------------

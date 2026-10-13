@@ -374,3 +374,12 @@ export function dailyRunTelegramMessage(results: readonly DailyReportResult[], s
   const bad = results.filter((r) => r.status === "skipped" || r.status === "failed").length;
   return `<b>AT24 daily blog run</b>${bad > 0 ? ` - ${bad} need attention` : ""}\n${lines.join("\n")}`;
 }
+
+/** One neutral line per published report for the AT24 Telegram group: title, link, no performance claim, no instruction. */
+export function blogGroupMessage(title: string, siteUrl: string): string {
+  const url = `${siteUrl}/blog/${buildSeo(title, []).slug}`;
+  return `<b>${escapeHtml(title)}</b>
+<a href="${escapeHtml(url)}">Read the report</a>
+
+<i>Automated, evidence-based analysis. Not investment advice.</i>`;
+}
