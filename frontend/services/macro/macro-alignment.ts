@@ -12,8 +12,8 @@
 //
 // "Supports" always means "favours a higher price of the asset".
 
-export type DriverId = "realYield" | "nominalYield" | "dollar" | "yields" | "riskAppetite" | "riskSentiment" | "momentum";
-export type AssetId = "gold" | "silver" | "eurusd" | "gbpusd" | "usdjpy" | "btcusd" | "ethusd" | "oil";
+export type DriverId = "realYield" | "nominalYield" | "dollar" | "yields" | "riskAppetite" | "riskBarometer" | "momentum";
+export type AssetId = "gold" | "silver" | "copper" | "eurusd" | "gbpusd" | "usdjpy" | "btcusd" | "ethusd" | "oil";
 /** +1 supports the asset, -1 is a headwind, 0 neutral. */
 export type DriverSign = -1 | 0 | 1;
 export type AlignmentLean = "supportive" | "headwind" | "mixed" | "insufficient";
@@ -77,7 +77,7 @@ interface DriverSpec {
   threshold: number;
   /** Multiplier applied to the value before comparing with the threshold (-1: a fall supports the asset). */
   direction: 1 | -1;
-  /** Only a rise past the threshold counts; anything else is neutral. "support": the rise helps the asset, "headwind": it hurts. */
+  /** Only a move past the threshold (after `direction`) counts; anything else is neutral. "support": it helps the asset, "headwind": it hurts. */
   spike?: "support" | "headwind";
 }
 
@@ -90,7 +90,9 @@ export interface AssetProfile {
   headwindLabel: string;
   /** Twelve Data symbol of the asset's own quote (momentum + price). */
   /** `symbol`/`source` = the Twelve Data quote (fallback); `mt5` = the Exness symbol tried first, when the bridge has it. */
-  ownQuote: { symbol: string; source: string; mt5?: string };
+  ownQuote: { symbol?: string; source: string; mt5?: string };
+  /** Stock-index used for the "risk appetite" driver when it is not the default (Nasdaq-100 / USTEC). */
+  riskIndex?: { mt5: string; source: string };
   /** `fallbackLabel` is used when the price came from the proxy instead of the real instrument. */
   price: { label: string; prefix: string; decimals: number; fallbackLabel?: string };
   /** Symbol the Market Intelligence agent uses for this asset, when it supports it. */
@@ -111,7 +113,7 @@ export const ASSET_PROFILES: Record<AssetId, AssetProfile> = {
       { id: "realYield", label: "Real yield (10Y TIPS)", weight: 30, threshold: 0.05, direction: -1 },
       { id: "dollar", label: "US dollar", weight: 20, threshold: 0.15, direction: -1 },
       { id: "yields", label: "Treasury yields", weight: 15, threshold: 0.15, direction: 1 },
-      { id: "riskSentiment", label: "Risk sentiment", weight: 10, threshold: 2, direction: 1, spike: "support" },
+      { id: "riskBarometer", label: "Risk barometer (AUD/JPY)", weight: 10, threshold: 0.4, direction: -1, spike: "support" },
       { id: "momentum", label: "Gold momentum", weight: 25, threshold: 0.3, direction: 1 },
     ],
     notCovered: ["central-bank buying", "geopolitical headlines"],
@@ -130,16 +132,30 @@ export const ASSET_PROFILES: Record<AssetId, AssetProfile> = {
     ],
     notCovered: ["industrial demand", "the gold/silver ratio", "if the Exness silver quote is unavailable an ETF proxy (SLV) is used and labelled on the card"],
   },
+  copper: {
+    id: "copper", name: "copper", title: "Copper", supportLabel: "Supports copper", headwindLabel: "Headwind for copper",
+    ownQuote: { source: "XCUUSD (Exness)", mt5: "XCUUSD" },
+    price: { label: "Copper", prefix: "$", decimals: 4 },
+    miSymbol: null, calendarCurrencies: ["USD", "CNY"],
+    drivers: [
+      { id: "dollar", label: "US dollar", weight: 25, threshold: 0.15, direction: -1 },
+      { id: "riskAppetite", label: "Risk appetite (stocks)", weight: 25, threshold: 0.4, direction: 1 },
+      { id: "riskBarometer", label: "Risk barometer (AUD/JPY)", weight: 10, threshold: 0.4, direction: -1, spike: "headwind" },
+      { id: "momentum", label: "Copper momentum", weight: 40, threshold: 0.7, direction: 1 },
+    ],
+    notCovered: ["China demand and property data", "warehouse inventories", "available only from the Exness feed (no Twelve Data fallback)"],
+  },
   eurusd: {
     id: "eurusd", name: "EUR/USD", title: "EUR/USD", supportLabel: "Supports EUR/USD", headwindLabel: "Headwind for EUR/USD",
     ownQuote: { symbol: "EUR/USD", source: "EUR/USD", mt5: "EURUSD" },
     price: { label: "EUR/USD", prefix: "", decimals: 4 },
     miSymbol: "EURUSD", calendarCurrencies: ["USD", "EUR"],
+    riskIndex: { mt5: "DE30", source: "DE30 (DAX 40, Exness)" },
     drivers: [
       { id: "dollar", label: "US dollar", weight: 30, threshold: 0.15, direction: -1 },
       { id: "yields", label: "Treasury yields", weight: 15, threshold: 0.15, direction: 1 },
       { id: "riskAppetite", label: "Risk appetite (stocks)", weight: 15, threshold: 0.4, direction: 1 },
-      { id: "riskSentiment", label: "Risk sentiment", weight: 10, threshold: 2, direction: 1, spike: "headwind" },
+      { id: "riskBarometer", label: "Risk barometer (AUD/JPY)", weight: 10, threshold: 0.4, direction: -1, spike: "headwind" },
       { id: "momentum", label: "EUR/USD momentum", weight: 30, threshold: 0.2, direction: 1 },
     ],
     notCovered: ["euro-area data and ECB policy", "the dollar driver largely mirrors EUR/USD itself (EUR is most of the dollar basket), so dollar and momentum overlap"],
@@ -153,7 +169,7 @@ export const ASSET_PROFILES: Record<AssetId, AssetProfile> = {
       { id: "dollar", label: "US dollar", weight: 30, threshold: 0.15, direction: -1 },
       { id: "yields", label: "Treasury yields", weight: 15, threshold: 0.15, direction: 1 },
       { id: "riskAppetite", label: "Risk appetite (stocks)", weight: 15, threshold: 0.4, direction: 1 },
-      { id: "riskSentiment", label: "Risk sentiment", weight: 10, threshold: 2, direction: 1, spike: "headwind" },
+      { id: "riskBarometer", label: "Risk barometer (AUD/JPY)", weight: 10, threshold: 0.4, direction: -1, spike: "headwind" },
       { id: "momentum", label: "GBP/USD momentum", weight: 30, threshold: 0.2, direction: 1 },
     ],
     notCovered: ["UK data and Bank of England policy", "the dollar driver largely mirrors GBP/USD itself, so dollar and momentum overlap"],
@@ -163,14 +179,15 @@ export const ASSET_PROFILES: Record<AssetId, AssetProfile> = {
     ownQuote: { symbol: "USD/JPY", source: "USD/JPY", mt5: "USDJPY" },
     price: { label: "USD/JPY", prefix: "", decimals: 2 },
     miSymbol: "USDJPY", calendarCurrencies: ["USD", "JPY"],
+    riskIndex: { mt5: "JP225", source: "JP225 (Nikkei 225, Exness)" },
     drivers: [
       { id: "nominalYield", label: "US 10Y yield", weight: 30, threshold: 0.05, direction: 1 },
       { id: "yields", label: "Treasury yields (live proxy)", weight: 20, threshold: 0.15, direction: -1 },
       { id: "riskAppetite", label: "Risk appetite (stocks)", weight: 15, threshold: 0.4, direction: 1 },
-      { id: "riskSentiment", label: "Risk sentiment", weight: 10, threshold: 2, direction: 1, spike: "headwind" },
+      { id: "riskBarometer", label: "Risk barometer (AUD/JPY)", weight: 10, threshold: 0.4, direction: -1, spike: "headwind" },
       { id: "momentum", label: "USD/JPY momentum", weight: 25, threshold: 0.2, direction: 1 },
     ],
-    notCovered: ["Bank of Japan policy and intervention risk", "Japan data"],
+    notCovered: ["Bank of Japan policy and intervention risk", "Japan data", "the AUD/JPY risk barometer shares the yen leg with USD/JPY, so it partly overlaps with momentum"],
   },
   btcusd: {
     id: "btcusd", name: "Bitcoin", title: "Bitcoin", supportLabel: "Supports Bitcoin", headwindLabel: "Headwind for Bitcoin",
@@ -181,7 +198,7 @@ export const ASSET_PROFILES: Record<AssetId, AssetProfile> = {
       { id: "riskAppetite", label: "Risk appetite (stocks)", weight: 25, threshold: 0.4, direction: 1 },
       { id: "dollar", label: "US dollar", weight: 15, threshold: 0.15, direction: -1 },
       { id: "realYield", label: "Real yield (10Y TIPS)", weight: 20, threshold: 0.05, direction: -1 },
-      { id: "riskSentiment", label: "Risk sentiment", weight: 10, threshold: 2, direction: 1, spike: "headwind" },
+      { id: "riskBarometer", label: "Risk barometer (AUD/JPY)", weight: 10, threshold: 0.4, direction: -1, spike: "headwind" },
       { id: "momentum", label: "Bitcoin momentum", weight: 30, threshold: 1, direction: 1 },
     ],
     notCovered: ["on-chain flows and ETF flows", "exchange or regulatory news"],
@@ -195,7 +212,7 @@ export const ASSET_PROFILES: Record<AssetId, AssetProfile> = {
       { id: "riskAppetite", label: "Risk appetite (stocks)", weight: 25, threshold: 0.4, direction: 1 },
       { id: "dollar", label: "US dollar", weight: 15, threshold: 0.15, direction: -1 },
       { id: "realYield", label: "Real yield (10Y TIPS)", weight: 20, threshold: 0.05, direction: -1 },
-      { id: "riskSentiment", label: "Risk sentiment", weight: 10, threshold: 2, direction: 1, spike: "headwind" },
+      { id: "riskBarometer", label: "Risk barometer (AUD/JPY)", weight: 10, threshold: 0.4, direction: -1, spike: "headwind" },
       { id: "momentum", label: "Ethereum momentum", weight: 30, threshold: 1.2, direction: 1 },
     ],
     notCovered: ["on-chain and ETF flows", "network activity and staking", "exchange or regulatory news"],
@@ -208,7 +225,7 @@ export const ASSET_PROFILES: Record<AssetId, AssetProfile> = {
     drivers: [
       { id: "dollar", label: "US dollar", weight: 25, threshold: 0.15, direction: -1 },
       { id: "riskAppetite", label: "Risk appetite (stocks)", weight: 25, threshold: 0.4, direction: 1 },
-      { id: "riskSentiment", label: "Risk sentiment", weight: 10, threshold: 2, direction: 1, spike: "headwind" },
+      { id: "riskBarometer", label: "Risk barometer (AUD/JPY)", weight: 10, threshold: 0.4, direction: -1, spike: "headwind" },
       { id: "momentum", label: "Oil momentum (USO)", weight: 40, threshold: 0.8, direction: 1 },
     ],
     notCovered: ["inventories and OPEC+ supply decisions", "geopolitical supply risk", "if the Exness WTI quote is unavailable an ETF proxy (USO) is used and labelled on the card"],
@@ -228,7 +245,7 @@ const signed = (n: number) => `${n > 0 ? "+" : ""}${f2(n)}`;
 function signFor(spec: DriverSpec, value: number): DriverSign {
   const v = value * spec.direction;
   if (spec.spike) {
-    if (value < spec.threshold) return 0;
+    if (v < spec.threshold) return 0;
     return spec.spike === "support" ? 1 : -1;
   }
   if (v >= spec.threshold) return 1;
@@ -250,7 +267,7 @@ function describe(spec: DriverSpec, sign: DriverSign, v: number, asset: AssetPro
     case "dollar": return `Dollar ${flat ? "little changed" : v < 0 ? "weaker" : "stronger"} (${signed(v)}%) - ${tail}`;
     case "yields": return `Treasuries ${flat ? "little changed" : v > 0 ? "bid, yields easing" : "sold, yields rising"} (${signed(v)}%) - ${tail}`;
     case "riskAppetite": return `Stocks ${flat ? "little changed" : v > 0 ? "rising (risk-on)" : "falling (risk-off)"} (${signed(v)}%) - ${tail}`;
-    case "riskSentiment": return `Volatility ${sign !== 0 ? "rising" : "calm"} (${signed(v)}%) - ${tail}`;
+    case "riskBarometer": return `${-v >= spec.threshold ? "Risk-off: AUD/JPY falling" : "Risk barometer steady, AUD/JPY"} (${signed(v)}%) - ${tail}`;
     case "momentum": return `${asset.id === "oil" ? "Oil" : asset.title} ${flat ? "little changed" : v > 0 ? "up" : "down"} ${signed(v)}% today - ${tail}`;
   }
 }

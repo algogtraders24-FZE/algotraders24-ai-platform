@@ -95,3 +95,15 @@ price that came from a proxy keeps the proxy's label. Twelve Data is now only 2 
 
 **VPS step:** the bridge's `SYMBOL_MAP` (mt5-bridge/bridge.py) gained DXY, USTEC, US500, US30, USOIL, UKOIL. Copy bridge.py
 to the VPS and restart the bridge task; until then DXY/USTEC/USOIL fall back to UUP/QQQ/USO. Own-asset quotes work without it.
+
+## Update 2026-10-13 (later): risk barometer, regional indices, copper
+
+* **VIXY removed.** The Exness account has no VIX, and a volatility ETF decays. The "risk sentiment" driver is replaced by a
+  **risk barometer = AUD/JPY** (falls when risk is taken off), MT5 only: if the bridge cannot serve it the driver is "not
+  available" - no ETF substitute is invented. Support for gold, headwind for the others (EUR/USD, GBP/USD, USD/JPY, Bitcoin,
+  Ethereum, oil, copper). Note: on USD/JPY it shares the yen leg with the pair itself (stated on the card).
+* **Regional risk index:** USD/JPY uses the Nikkei (JP225), EUR/USD the DAX (DE30); the others the Nasdaq-100 (USTEC). Fallback QQQ.
+* **Copper** (XCUUSD, Exness only - no Twelve Data fallback): dollar 25, stocks 25, risk barometer 10, momentum 40. Card-only (no
+  Market Intelligence agent for copper).
+* Twelve Data is now just IEF (Treasuries) plus the fallbacks; FRED for real yield / US 10Y.
+* bridge.py `SYMBOL_MAP` now also has AUDJPY, JP225, DE30, XCUUSD (plus the six from before).

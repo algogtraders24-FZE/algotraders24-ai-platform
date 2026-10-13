@@ -28,7 +28,7 @@ async function test(name: string, fn: () => Promise<void> | void): Promise<void>
 }
 
 const json = (body: unknown) => ({ ok: true, status: 200, json: async () => body });
-const PCT: Record<string, string> = { "XAU/USD": "0.40", UUP: "-0.30", IEF: "0.20", VIXY: "-1.50", QQQ: "0.80", "EUR/USD": "0.25", "USD/JPY": "0.35", "BTC/USD": "2.50", USO: "1.90", "GBP/USD": "0.15", "ETH/USD": "3.40", SLV: "-0.80" };
+const PCT: Record<string, string> = { "XAU/USD": "0.40", UUP: "-0.30", IEF: "0.20", QQQ: "0.80", "EUR/USD": "0.25", "USD/JPY": "0.35", "BTC/USD": "2.50", USO: "1.90", "GBP/USD": "0.15", "ETH/USD": "3.40", SLV: "-0.80" };
 const goodFetch: FetchLike = async (url) => {
   if (url.includes("stlouisfed")) {
     const vals = [2.87, 2.9, 2.92, 2.95, 2.98, 3.02, 3, 3, 3, 3];
@@ -92,7 +92,7 @@ async function main(): Promise<void> {
     resetMacroCacheForTests();
   });
 
-  await test("overview: shared quotes are fetched once (9 unique Twelve Data symbols for all five assets)", async () => {
+  await test("overview: shared quotes are fetched once (8 unique Twelve Data symbols for all five assets; the risk barometer is MT5-only)", async () => {
     resetMacroCacheForTests();
     const symbols: string[] = [];
     const spy: FetchLike = async (u) => {
@@ -101,7 +101,7 @@ async function main(): Promise<void> {
     };
     await getMacroOverview(spy);
     assert.equal(symbols.length, new Set(symbols).size, `duplicate fetches: ${symbols.join(",")}`);
-    assert.equal(symbols.length, 9);
+    assert.equal(symbols.length, 8);
     resetMacroCacheForTests();
   });
 
