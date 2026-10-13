@@ -53,7 +53,7 @@ export interface AlgoContractsVM {
   badge: { tier: RewardProductKey; dimmed: boolean } | null;
   balances: BalancesVM;
   payouts: PayoutVM[];
-  withdrawals: { open: boolean; blockedReason: string | null; minCents: number; holdDays: number };
+  withdrawals: { open: boolean; blockedReason: string | null; minCents: number; holdDays: number; address: { network: string; masked: string; status: string } | null };
   referral: { link: string | null; blockedReason: string | null; multiLevel: boolean; allProducts: boolean };
 }
 

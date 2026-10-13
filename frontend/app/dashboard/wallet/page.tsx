@@ -7,6 +7,7 @@ import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import ButtonLink from "@/components/ui/ButtonLink";
 import WithdrawCard from "@/components/rewards/WithdrawCard";
+import PayoutAddressCard from "@/components/rewards/PayoutAddressCard";
 import { requireUser } from "@/lib/auth/protectedRoute";
 import { loadUserFacts, rewardsOpenFor } from "@/lib/rewards/access";
 import { holdDays, minPayoutCents, withdrawalsEnabled } from "@/lib/rewards/config";
@@ -14,6 +15,7 @@ import { isIdentityVerified, isProActive } from "@/lib/rewards/eligibility";
 import { formatUsd } from "@/lib/rewards/money";
 import { getBalances, listPayouts } from "@/services/rewards/payoutStore";
 import { loadWallet } from "@/services/rewards/walletStore";
+import { getAddressView } from "@/services/rewards/addressStore";
 
 export const dynamic = "force-dynamic";
 
@@ -53,10 +55,11 @@ export default async function WalletPage() {
   const facts = await loadUserFacts(user.id, user.email);
   const proOk = isProActive(facts.subscription, now);
   const kycOk = isIdentityVerified(facts.identity);
-  const [balances, payouts, wallet] = await Promise.all([
+  const [balances, payouts, wallet, addressView] = await Promise.all([
     getBalances(user.id).catch(() => EMPTY_BALANCES),
     listPayouts(user.id).catch(() => []),
     loadWallet(user.id),
+    getAddressView(user.id).catch(() => null),
   ]);
   const { entries, totals } = wallet;
   const earned = totals.rebates + totals.referralDirect + totals.referralTeam;
@@ -72,7 +75,9 @@ export default async function WalletPage() {
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-text">Balance and withdrawals</h2>
+        <PayoutAddressCard initial={addressView ? { network: addressView.network, masked: addressView.masked, activeFrom: addressView.activeFrom, status: addressView.status } : null} />
         <WithdrawCard
+          address={addressView}
           balances={balances}
           payouts={payouts.map((p) => ({ id: p.id, amountCents: p.amountCents, network: p.network, status: p.status, txRef: p.txRef, createdAt: p.createdAt.toISOString() }))}
           minCents={minPayoutCents()}

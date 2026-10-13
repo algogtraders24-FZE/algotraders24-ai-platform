@@ -17,6 +17,7 @@ import { referralLink } from "@/lib/rewards/referral";
 import { buildProductVM, type AlgoContractsVM } from "@/lib/rewards/viewModel";
 import { getBalances, listPayouts } from "@/services/rewards/payoutStore";
 import { getReferralCode } from "@/services/rewards/referralStore";
+import { getAddressView } from "@/services/rewards/addressStore";
 import { slotSummary } from "@/services/rewards/slotStore";
 import { identityProvider } from "@/services/marketplace/identityStore";
 
@@ -43,13 +44,14 @@ export default async function AlgoContractsPage() {
   const kycOk = isIdentityVerified(facts.identity);
 
   // The reward tables only exist once the migration is applied; until then every read below falls back to "nothing yet".
-  const [slots, productRows, contracts, refCode, balances, payouts] = await Promise.all([
+  const [slots, productRows, contracts, refCode, balances, payouts, addressView] = await Promise.all([
     slotSummary().catch(() => ({ month: "", byProduct: {} as Record<string, { limit: number; opened: boolean; remaining: number }> })),
     prisma.rewardProduct.findMany({ select: { key: true, enabled: true } }).catch(() => []),
     prisma.rewardContract.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" } }).catch(() => []),
     getReferralCode(user.id),
     getBalances(user.id).catch(() => EMPTY_BALANCES),
     listPayouts(user.id).catch(() => []),
+    getAddressView(user.id).catch(() => null),
   ]);
   const enabled = new Set(productRows.filter((r) => r.enabled).map((r) => r.key));
   const installments = contracts.length
@@ -88,6 +90,7 @@ export default async function AlgoContractsPage() {
       blockedReason: !proOk ? "An active paid Pro plan is needed to withdraw." : !kycOk ? "Identity verification is needed to withdraw." : null,
       minCents: minPayoutCents(),
       holdDays: holdDays(),
+      address: addressView,
     },
     referral: {
       link: refCode ? referralLink(refCode, process.env.NEXT_PUBLIC_SITE_URL || undefined) : null,

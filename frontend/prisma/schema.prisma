@@ -3495,6 +3495,19 @@ model RewardPayout {
   @@map("reward_payouts")
 }
 
+/// The member's saved USDT withdrawal address (one per member). A saved or changed address is usable from activeFrom.
+model RewardPayoutAddress {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  network    String // TRC20 | ERC20 | BEP20
+  address    String
+  activeFrom DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("reward_payout_addresses")
+}
+
 model RewardDownloadLog {
   id         String   @id @default(cuid())
   userId     String

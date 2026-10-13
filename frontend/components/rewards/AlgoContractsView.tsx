@@ -352,6 +352,7 @@ export default function AlgoContractsView({ vm }: { vm: AlgoContractsVM }) {
             holdDays={vm.withdrawals.holdDays}
             withdrawalsOpen={vm.withdrawals.open}
             blockedReason={vm.withdrawals.blockedReason}
+            address={vm.withdrawals.address}
           />
         </section>
       )}

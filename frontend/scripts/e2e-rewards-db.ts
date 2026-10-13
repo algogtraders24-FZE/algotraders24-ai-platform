@@ -24,6 +24,7 @@ import { ensureReferralCode } from "../services/rewards/referralStore";
 import { isProgramListing } from "../services/rewards/listingGuard";
 import { findKycReminderTargets, runKycReminders } from "../services/rewards/kycReminder";
 import { loadUserFacts } from "../lib/rewards/access";
+import { getSavedAddress, saveAddress } from "../services/rewards/addressStore";
 import { isProActive } from "../lib/rewards/eligibility";
 import { creditReferralForPayment } from "../services/rewards/universalReferral";
 
@@ -40,7 +41,7 @@ const T0 = new Date();
 const later = (days: number) => addDays(T0, days);
 
 async function wipe() {
-  for (const t of ["reward_audit_events", "reward_download_logs", "reward_payouts", "reward_reserve_entries", "reward_ledger_entries", "referral_commissions", "referral_attributions", "referral_codes", "rebate_installments", "reward_contract_documents", "reward_contracts", "reward_checkouts", "reward_slot_holds", "reward_slot_months", "reward_products", "purchases", "seller_identities", "Subscription", "User"]) {
+  for (const t of ["reward_audit_events", "reward_download_logs", "reward_payouts", "reward_reserve_entries", "reward_ledger_entries", "referral_commissions", "referral_attributions", "referral_codes", "rebate_installments", "reward_contract_documents", "reward_contracts", "reward_checkouts", "reward_slot_holds", "reward_slot_months", "reward_products", "reward_payout_addresses", "purchases", "seller_identities", "Subscription", "User"]) {
     await prisma.$executeRawUnsafe(`DELETE FROM "${t}"`);
   }
 }
@@ -377,6 +378,23 @@ async function main() {
   check("sweep releases subscription commissions and never reverses them as refunded", released === 12 && reversed === 0 && us.errors.length === 0, JSON.stringify({ released, reversed, errs: us.errors }));
   delete process.env.REFERRAL_ALL_PRODUCTS;
   delete process.env.REWARDS_MULTI_LEVEL;
+
+  // ---- saved USDT address: validated, audited, cooled down, one per member
+  await mkUser("addr1");
+  process.env.REWARDS_ADDRESS_COOLING_HOURS = "24";
+  const A1 = "TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE";
+  const bad = await saveAddress({ userId: "addr1", network: "TRC20", address: "not-an-address" });
+  check("a bad address is refused and nothing is saved", !bad.ok && (await getSavedAddress("addr1")) === null);
+  const ads1 = await saveAddress({ userId: "addr1", network: "TRC20", address: A1, now: T0 });
+  check("a good address is saved and waits 24h", ads1.ok && !ads1.unchanged && ads1.activeFrom.getTime() === addDays(T0, 1).getTime());
+  const ads2 = await saveAddress({ userId: "addr1", network: "TRC20", address: A1, now: addDays(T0, 0.5) });
+  check("saving the same address again changes nothing (the wait does not restart)", ads2.ok && ads2.unchanged && ads2.activeFrom.getTime() === addDays(T0, 1).getTime());
+  const ads3 = await saveAddress({ userId: "addr1", network: "TRC20", address: "TXYZ" + A1.slice(4), now: addDays(T0, 2) });
+  const saved3 = await getSavedAddress("addr1");
+  check("changing it replaces the single row and restarts the wait", ads3.ok && !ads3.unchanged && saved3?.address.startsWith("TXYZ") === true && (await prisma.rewardPayoutAddress.count({ where: { userId: "addr1" } })) === 1 && saved3.activeFrom.getTime() === addDays(T0, 3).getTime());
+  const aud = await prisma.rewardAuditEvent.findMany({ where: { subjectType: "RewardPayoutAddress" }, orderBy: { createdAt: "asc" } });
+  check("save and change are both audited, with the address masked", aud.map((a) => a.action).join() === "payout_address.saved,payout_address.changed" && aud.every((a) => !JSON.stringify(a.data).includes(A1)));
+  delete process.env.REWARDS_ADDRESS_COOLING_HOURS;
 
   // ---- reserve identity across the whole run
   const r5 = await runRewardsSweep(later(185));
