@@ -31,6 +31,8 @@ import type { TrendDirection } from "@/types/market";
 import { keyPriceLevels } from "@/lib/market-data/indicators";
 
 const MAX_EVIDENCE_ITEMS = 4;
+/** Bundle items (calendar / macro drivers / SMC / news) shown after the hypothesis-cited ones. */
+const MAX_CONTEXT_EVIDENCE_ITEMS = 4;
 
 // A regime/decisionState honestly means "insufficient" before any directional
 // reading is attempted - mirrors RegimeService's own "insufficient-data" being
@@ -134,6 +136,9 @@ export function buildIntelligencePanelDataFromVerifiedAnswer(va: VerifiedAnswerR
     // DecisionCurrentState.liquidityZones (D2.5.x/D2.6.x's own real SMC
     // Equal High/Low computation) - never recomputed here.
     liquidityZones: va.currentState.liquidityZones ?? {},
-    evidence: va.supportingEvidence.slice(0, MAX_EVIDENCE_ITEMS).map((item) => item.claim),
+    evidence: [
+      ...va.supportingEvidence.slice(0, MAX_EVIDENCE_ITEMS),
+      ...(va.contextEvidence ?? []).slice(0, MAX_CONTEXT_EVIDENCE_ITEMS),
+    ].map((item) => item.claim),
   };
 }

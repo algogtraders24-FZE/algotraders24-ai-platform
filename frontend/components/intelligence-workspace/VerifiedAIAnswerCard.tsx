@@ -92,11 +92,12 @@ export default function VerifiedAIAnswerCard({ result }: { result: VerifiedAnswe
         </div>
       ) : (
         <>
-          {(result.supportingEvidence.length > 0 || result.opposingEvidence.length > 0) && (
+          {(result.supportingEvidence.length > 0 || result.opposingEvidence.length > 0 || (result.contextEvidence?.length ?? 0) > 0) && (
             <Section title="Why">
               <EvidencePanel
                 supportingEvidence={result.supportingEvidence}
                 opposingEvidence={result.opposingEvidence}
+                contextEvidence={result.contextEvidence}
                 unresolvedConflicts={result.unresolvedConflicts}
               />
             </Section>

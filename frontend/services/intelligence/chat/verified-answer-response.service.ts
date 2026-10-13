@@ -53,6 +53,7 @@ export function buildVerifiedAnswerResponse(input: BuildVerifiedAnswerResponseIn
     currentState: decisionContext.currentState,
     supportingEvidence: decisionContext.supportingEvidence,
     opposingEvidence: decisionContext.opposingEvidence,
+    contextEvidence: decisionContext.contextEvidence,
     unresolvedConflicts: decisionContext.unresolvedConflicts,
     hypotheses: decisionContext.primaryHypotheses,
     invalidationConditions: decisionContext.invalidationConditions,

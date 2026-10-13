@@ -52,10 +52,13 @@ function ConflictItem({ conflict }: { conflict: EvidenceConflict }) {
 export default function EvidencePanel({
   supportingEvidence,
   opposingEvidence,
+  contextEvidence = [],
   unresolvedConflicts,
 }: {
   supportingEvidence: EvidenceItem[];
   opposingEvidence: EvidenceItem[];
+  /** Bundle items no hypothesis cites (calendar, macro drivers, SMC structure, news) - neutral context, neither for nor against. */
+  contextEvidence?: EvidenceItem[];
   unresolvedConflicts: EvidenceConflict[];
 }) {
   return (
@@ -64,6 +67,21 @@ export default function EvidencePanel({
         <EvidenceColumn title="Supporting" items={supportingEvidence} tone="up" />
         <EvidenceColumn title="Opposing" items={opposingEvidence} tone="down" />
       </div>
+      {contextEvidence.length > 0 && (
+        <div className="rounded-card border border-border bg-ink-2 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-text-3">Other context</p>
+          <ul className="mt-2 space-y-2">
+            {contextEvidence.map((item) => (
+              <li key={`${item.type}-${item.source}-${item.claim}`} className="text-sm leading-6 text-text-2">
+                {item.claim}
+                <span className={`ml-1.5 ${FIN_TERTIARY} text-[11px]`}>
+                  — {formatLabel(item.type)} · {item.source}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {unresolvedConflicts.length > 0 && (
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-warning">

@@ -48,6 +48,9 @@ import type {
 const WELL_SUPPORTED_SCORE_THRESHOLD = 70;
 const CONFLICTED_EVIDENCE_AGREEMENT_THRESHOLD = 50;
 
+/** Upper bound on bundle items surfaced beyond the hypothesis-cited ones (the bundle is already ranked). */
+const MAX_CONTEXT_EVIDENCE = 12;
+
 function dedupEvidence(items: EvidenceItem[]): EvidenceItem[] {
   const seen = new Set<string>();
   const result: EvidenceItem[] = [];
@@ -357,6 +360,12 @@ export class DecisionContextService {
     const primaryHypotheses = buildHypothesisContexts(envelope.hypotheses);
     const supportingEvidence = dedupEvidence(envelope.hypotheses.flatMap((h) => h.supportingEvidence));
     const opposingEvidence = dedupEvidence(envelope.hypotheses.flatMap((h) => h.opposingEvidence));
+    const cited = new Set([...supportingEvidence, ...opposingEvidence].map((e) => `${e.type}|${e.symbol}|${e.claim}`));
+    const contextEvidence = dedupEvidence(
+      (envelope.evidence?.items ?? []).filter(
+        (e) => e.type !== "provider-meta" && e.type !== "price" && !cited.has(`${e.type}|${e.symbol}|${e.claim}`),
+      ),
+    ).slice(0, MAX_CONTEXT_EVIDENCE);
     const unresolvedConflicts = envelope.evidence?.conflicts.filter((c) => c.resolution === "unresolved") ?? [];
     const riskContext = buildRiskContext(envelope.risk);
     const historicalContext = buildHistoricalContext(envelope.historicalValidation);
@@ -380,6 +389,7 @@ export class DecisionContextService {
       primaryHypotheses,
       supportingEvidence,
       opposingEvidence,
+      contextEvidence,
       unresolvedConflicts,
       riskContext,
       historicalContext,

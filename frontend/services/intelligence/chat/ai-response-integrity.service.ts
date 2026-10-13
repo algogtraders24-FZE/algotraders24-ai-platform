@@ -116,6 +116,7 @@ export function allRealDecisionContextText(dc: IntelligenceDecisionContext): str
     ...dc.regimeContext.basis,
     ...dc.supportingEvidence.map((e) => e.claim),
     ...dc.opposingEvidence.map((e) => e.claim),
+    ...(dc.contextEvidence ?? []).map((e) => e.claim),
     ...dc.primaryHypotheses.flatMap((h) => [h.claim, h.invalidationCondition.description]),
     ...dc.invalidationConditions.map((i) => i.description),
     ...dc.riskContext.basis,
@@ -152,7 +153,7 @@ export function allowedPriceValues(dc: IntelligenceDecisionContext): number[] {
   if (dc.currentState.recentRange) values.push(dc.currentState.recentRange.high, dc.currentState.recentRange.low);
   if (dc.currentState.rsi14 !== undefined) values.push(dc.currentState.rsi14);
   if (dc.currentState.atr14 !== undefined) values.push(dc.currentState.atr14);
-  for (const item of [...dc.supportingEvidence, ...dc.opposingEvidence]) {
+  for (const item of [...dc.supportingEvidence, ...dc.opposingEvidence, ...(dc.contextEvidence ?? [])]) {
     if (item.magnitude !== undefined) values.push(item.magnitude);
   }
   // Sprint §11 fix: a hypothesis's real, deterministic invalidation
