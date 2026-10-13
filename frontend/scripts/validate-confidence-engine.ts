@@ -209,20 +209,20 @@ function main(): void {
     assert.equal(categoryOf(confidence, "coverage-completeness").score, 0);
   });
 
-  test("coverage-completeness: 8 of 8 evidence types present -> score 100", () => {
+  test("coverage-completeness: 7 of 7 market evidence types present (provider-meta is not counted) -> score 100", () => {
     const { confidence } = pipeline(FULL_COVERAGE_ITEMS);
     assert.equal(categoryOf(confidence, "coverage-completeness").score, 100);
   });
 
-  test("coverage-completeness: 2 of 8 evidence types present -> score 25", () => {
+  test("coverage-completeness: 2 of 7 evidence types present -> score 29", () => {
     const { confidence } = pipeline([item({ type: "price", source: "a" }), item({ type: "technical", source: "a", claim: "RSI neutral" })]);
-    assert.equal(categoryOf(confidence, "coverage-completeness").score, 25);
+    assert.equal(categoryOf(confidence, "coverage-completeness").score, 29);
   });
 
   // ---------------------------------------------------------------------
   // Unknown Factors
   // ---------------------------------------------------------------------
-  test("unknown-factors: totally empty bundle (8 of 8 types unaddressed) -> score 0", () => {
+  test("unknown-factors: totally empty bundle (7 of 7 types unaddressed) -> score 0", () => {
     const { confidence } = pipeline([]);
     assert.equal(categoryOf(confidence, "unknown-factors").score, 0);
   });

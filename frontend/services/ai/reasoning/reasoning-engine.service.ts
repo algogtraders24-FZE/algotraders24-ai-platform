@@ -19,6 +19,8 @@ import type { RiskLevel } from "@/types/risk";
 // Mirrors the EvidenceType union in types/evidence.ts. Kept as an explicit
 // list (rather than derived at runtime from a TS type, which isn't
 // possible) so "which types are missing" is computable.
+// provider-meta is deliberately NOT here: it is bookkeeping about the data feed, not a market
+// factor, so its absence is neither a coverage gap nor an assumption.
 const ALL_EVIDENCE_TYPES: readonly EvidenceType[] = [
   "price",
   "technical",
@@ -27,7 +29,6 @@ const ALL_EVIDENCE_TYPES: readonly EvidenceType[] = [
   "sentiment",
   "historical-pattern",
   "cross-asset",
-  "provider-meta",
 ];
 
 const FRESHNESS_WARNING_MINUTES = 15;
@@ -132,7 +133,7 @@ export class ReasoningEngineService {
   }
 
   private presentTypes(items: readonly EvidenceItem[]): Set<EvidenceType> {
-    return new Set(items.map((item) => item.type));
+    return new Set(items.map((item) => item.type).filter((type) => ALL_EVIDENCE_TYPES.includes(type)));
   }
 
   // One deterministic statement per absent EvidenceType - derived purely

@@ -253,7 +253,7 @@ async function main(): Promise<void> {
     assert.deepEqual([...present(out.result.evidence.items.map((i) => i.type))], ["price"]);
   });
 
-  await test("pipeline: calendar + macro drivers + news lift 1 of 8 present evidence types to 4 and the data-gap risk drops", async () => {
+  await test("pipeline: calendar + macro drivers + news lift 1 of 7 present evidence types to 4 and the data-gap risk drops", async () => {
     await withAvKey(async () => {
       const out = await build([calSource, macSource], true).run({ symbol: "XAUUSD" });
       assert.equal(out.status, "completed");
@@ -262,8 +262,8 @@ async function main(): Promise<void> {
       assert.deepEqual([...types].sort(), ["cross-asset", "macro", "news", "price"]);
       assert.equal(out.result.evidence.conflicts.length, 0);
       const gap = out.result.reasoning.riskDrivers.find((d) => d.factor === "data-gap")!;
-      assert.equal(gap.detail, "4 of 8 evidence types missing");
-      assert.equal(gap.level, "medium"); // was "high" (7 of 8 missing)
+      assert.equal(gap.detail, "3 of 7 evidence types missing");
+      assert.equal(gap.level, "low"); // was "high" (7 of 8 missing) before the extra sources; provider-meta no longer counts as a gap
     });
   });
 
@@ -300,7 +300,8 @@ async function main(): Promise<void> {
     const types = presentEvidenceTypes([mk("cross-asset"), mk("price"), mk("news"), mk("macro"), mk("price")]);
     assert.deepEqual(types, ["price", "news", "macro", "cross-asset"]);
     assert.deepEqual(presentEvidenceTypes([]), []);
-    assert.equal(ALL_EVIDENCE_TYPES.length, 8);
+    assert.equal(ALL_EVIDENCE_TYPES.length, 7);
+    assert.ok(!ALL_EVIDENCE_TYPES.includes("provider-meta"));
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);
