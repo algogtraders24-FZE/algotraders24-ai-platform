@@ -33,6 +33,8 @@ export interface MarketRegimeOverviewItem {
   regimeConfidence?: number;
   /** Which risk categories sit at the overall level, and the engine's own first reason for the worst one (e.g. "7 of 8 evidence types unavailable"). The overall risk is the WORST of eight categories, so this says what is driving it. */
   riskDriver?: { categories: string[]; reason: string };
+  /** Which of the eight evidence types actually reached this answer (price, technical, news, macro, sentiment, historical-pattern, cross-asset, provider-meta). */
+  evidenceTypes?: string[];
   /** One real, engine-produced evidence/basis line - never invented commentary. */
   basis?: string;
   generatedAt?: string;

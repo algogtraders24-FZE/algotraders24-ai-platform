@@ -17,7 +17,7 @@
 import type { MarketSymbol } from "./market";
 import type { EvidenceItem, EvidenceType } from "./evidence";
 
-export type EvidenceSourceType = "market-data" | "search" | "rag" | "news" | "economic-calendar" | "sentiment";
+export type EvidenceSourceType = "market-data" | "search" | "rag" | "news" | "economic-calendar" | "sentiment" | "macro-drivers";
 
 /** One provider's already-collected evidence, tagged with what kind of provider produced it. Fusion performs no collection itself - every group here must already be a real EvidenceItem[] from an existing (or future) collector. */
 export interface EvidenceSourceGroup {
@@ -56,6 +56,14 @@ export interface EvidenceProviderRequest {
   symbol: MarketSymbol;
   /** ISO timestamp: context "as of" this time. Providers may ignore this - mirrors MarketContextRequest. */
   asOf?: string;
+}
+
+/** A pluggable extra evidence source for the Market Intelligence pipeline (calendar, macro drivers, ...). `collect` throws on failure; the pipeline treats any failure or timeout as "no evidence from this source", never as an error. */
+export interface EvidenceExtraSource {
+  readonly name: string;
+  readonly sourceType: EvidenceSourceType;
+  isConfigured(): boolean;
+  collect(request: EvidenceProviderRequest): Promise<EvidenceItem[]>;
 }
 
 export interface NewsProvider {
