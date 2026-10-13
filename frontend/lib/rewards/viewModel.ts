@@ -54,7 +54,7 @@ export interface AlgoContractsVM {
   balances: BalancesVM;
   payouts: PayoutVM[];
   withdrawals: { open: boolean; blockedReason: string | null; minCents: number; holdDays: number };
-  referral: { link: string | null; blockedReason: string | null; multiLevel: boolean };
+  referral: { link: string | null; blockedReason: string | null; multiLevel: boolean; allProducts: boolean };
 }
 
 const TAGLINES: Record<RewardProductKey, string> = {

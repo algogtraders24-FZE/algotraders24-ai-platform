@@ -10,7 +10,7 @@ import { requireUser } from "@/lib/auth/protectedRoute";
 import { prisma } from "@/lib/prisma";
 import { loadUserFacts, rewardsOpenFor } from "@/lib/rewards/access";
 import { badgeFor } from "@/lib/rewards/badge";
-import { REWARD_PRODUCTS, REWARD_PRODUCT_KEYS, REWARD_TEST_KEY, holdDays, isRewardProductKey, minPayoutCents, multiLevelReferralEnabled, withdrawalsEnabled } from "@/lib/rewards/config";
+import { REWARD_PRODUCTS, REWARD_PRODUCT_KEYS, REWARD_TEST_KEY, holdDays, isRewardProductKey, minPayoutCents, multiLevelReferralEnabled, referralAllProductsEnabled, withdrawalsEnabled } from "@/lib/rewards/config";
 import { isPlatformOwner } from "@/lib/marketplace/selfServe";
 import { canEarnReferral, isIdentityVerified, isProActive } from "@/lib/rewards/eligibility";
 import { referralLink } from "@/lib/rewards/referral";
@@ -93,6 +93,7 @@ export default async function AlgoContractsPage() {
       link: refCode ? referralLink(refCode, process.env.NEXT_PUBLIC_SITE_URL || undefined) : null,
       blockedReason: canEarnReferral(facts, now) || isPlatformOwner(user.email) ? null : "An active paid Pro plan and a verified identity are needed to get a referral link.",
       multiLevel: multiLevelReferralEnabled(),
+      allProducts: referralAllProductsEnabled(),
     },
   };
 

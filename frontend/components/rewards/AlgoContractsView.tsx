@@ -297,6 +297,15 @@ function ReferralEarnings({ vm }: { vm: AlgoContractsVM }) {
           </tbody>
         </table>
       </div>
+      {vm.referral.allProducts && (
+        <div className="space-y-1 border-t border-border pt-3">
+          <p className="text-sm font-medium text-text">Every other purchase</p>
+          <p className="text-xs text-text-3">
+            Any product or Pro payment (every renewal) by someone you brought: <span className="text-text">2%</span> of the price paid on a direct sale
+            {multi ? ", and 1% on each of levels 2 to 4" : ""}. Rounded down to the cent, paid after the same 7-day hold once the payment is confirmed.
+          </p>
+        </div>
+      )}
     </Card>
   );
 }
@@ -350,7 +359,7 @@ export default function AlgoContractsView({ vm }: { vm: AlgoContractsVM }) {
       <section className="space-y-3">
         <SectionTitle icon={Users} title="Refer and earn" />
         <div className="grid gap-5 lg:grid-cols-2">
-          <ReferralCard initialLink={vm.referral.link} blockedReason={vm.referral.blockedReason} />
+          <ReferralCard initialLink={vm.referral.link} blockedReason={vm.referral.blockedReason} allProducts={vm.referral.allProducts} />
           <ReferralEarnings vm={vm} />
         </div>
       </section>
