@@ -81,7 +81,7 @@ function StatusStrip({ vm }: { vm: AlgoContractsVM }) {
 // ---------- how it works ----------
 function HowItWorks({ hasMoney }: { hasMoney: boolean }) {
   const steps = [
-    { icon: ShieldCheck, href: "#choose-contract", title: "Choose a contract", text: "12 months, one AI Algo for MetaTrader 5 and MetaTrader 4." },
+    { icon: ShieldCheck, href: "#choose-contract", title: "Choose a contract", text: "35, 30 or 25 months depending on the product, one AI Algo for MetaTrader 5 and MetaTrader 4." },
     { icon: Download, href: "#your-contracts", title: "Get your files", text: "The EA, a signed licence and your contract PDF, right after payment." },
     { icon: CalendarClock, href: "#your-contracts", title: "Rebate every quarter", text: "A fixed amount, written in your contract, credited in 4 instalments." },
     { icon: Wallet, href: hasMoney ? "#balance" : "/dashboard/algo-contracts/guide", title: "Withdraw in USDT", text: "Credited amounts can be withdrawn after a short hold." },
@@ -109,7 +109,7 @@ function HowItWorks({ hasMoney }: { hasMoney: boolean }) {
 // ---------- contract cards ----------
 function RebateRail({ p }: { p: ProductVM }) {
   const short = p.intervalDays < 30; // the owner-only test contract pays one instalment a day
-  const months = Array.from({ length: p.installments }, (_, i) => (short ? (i + 1) * p.intervalDays : (i + 1) * p.intervalMonths));
+  const months = p.rail.map((r) => r.at);
   return (
     <div>
       <div className="relative flex items-center justify-between px-1">
@@ -118,14 +118,21 @@ function RebateRail({ p }: { p: ProductVM }) {
           <span key={m} className="relative z-10 h-2.5 w-2.5 rounded-full border border-gold bg-ink-2" aria-hidden="true" />
         ))}
       </div>
+      {p.rail.length > 6 ? (
+        <div className="mt-2 flex justify-between text-[11px] text-text-3">
+          <span>{formatUsd(p.rail[0].amountCents)} · month {p.rail[0].at}</span>
+          <span>{formatUsd(p.rail[p.rail.length - 1].amountCents)} · month {p.rail[p.rail.length - 1].at}</span>
+        </div>
+      ) : (
       <div className="mt-2 grid text-center" style={{ gridTemplateColumns: `repeat(${p.installments}, minmax(0, 1fr))` }}>
-        {months.map((m) => (
-          <div key={m}>
-            <p className="text-xs font-semibold text-text">{formatUsd(p.perQuarterCents)}</p>
-            <p className="text-[11px] text-text-3">{short ? "day" : "month"} {m}</p>
+        {p.rail.map((r) => (
+          <div key={r.at}>
+            <p className="text-xs font-semibold text-text">{formatUsd(r.amountCents)}</p>
+            <p className="text-[11px] text-text-3">{short ? "day" : "month"} {r.at}</p>
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }
@@ -157,13 +164,13 @@ function ContractCard({ p }: { p: ProductVM }) {
             <span className="text-sm text-success">− {formatUsd(p.rebateTotalCents)}</span>
           </div>
           <div className="mt-2 flex items-baseline justify-between border-t border-border pt-2">
-            <span className="text-xs font-medium text-text-2">Net price</span>
-            <span className="text-2xl font-semibold text-text">{formatUsd(p.netPriceCents)}</span>
+            <span className="text-xs font-medium text-text-2">{p.netPriceCents < 0 ? "Net after rebate (credit to you)" : "Net price"}</span>
+            <span className="text-2xl font-semibold text-text">{formatUsd(Math.abs(p.netPriceCents))}</span>
           </div>
         </div>
 
         <div>
-          <p className="mb-2 text-xs font-medium text-text-2">{p.installments} instalments of {formatUsd(p.perQuarterCents)} over {short ? `${p.installments * p.intervalDays} days` : `${p.termMonths} months`}</p>
+          <p className="mb-2 text-xs font-medium text-text-2">{p.monthlyRebateCents !== null ? `${formatUsd(p.monthlyRebateCents)} a month for ${p.termMonths} months, credited every 3 months (${p.installments} credits)` : <>{p.installments} instalments of {formatUsd(p.perQuarterCents)} over {short ? `${p.installments * p.intervalDays} days` : `${p.termMonths} months`}</>}</p>
           <RebateRail p={p} />
         </div>
 
@@ -318,7 +325,7 @@ export default function AlgoContractsView({ vm }: { vm: AlgoContractsVM }) {
       <PageHeader
         eyebrow="Pro members"
         title="Algo Contracts"
-        description="12-month AI Algo contracts for Pro members. The product, a signed licence and a fixed quarterly rebate on the price you pay."
+        description="AI Algo contracts for Pro members. The product, a signed licence and a fixed rebate credited every 3 months on the price you pay."
         action={<ButtonLink href="/dashboard/algo-contracts/guide" variant="secondary" size="sm">User guide <ArrowRight size={14} className="ml-1.5" aria-hidden="true" /></ButtonLink>}
       />
 

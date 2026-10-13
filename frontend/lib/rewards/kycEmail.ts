@@ -10,7 +10,7 @@ export function kycEmailBody(i: { name: string; siteUrl: string }): string {
   const settings = `${i.siteUrl.replace(/\/+$/, "")}/dashboard/settings`;
   return `
     <p>Hi ${escapeHtmlText(i.name)},</p>
-    <p>We are adding an identity check (KYC) for paid plans. From now on, <strong>buying or renewing a paid plan</strong>, and joining <strong>Algo Contracts</strong> (12-month AI Algo contracts with a fixed quarterly rebate), needs a verified identity.</p>
+    <p>We are adding an identity check (KYC) for paid plans. From now on, <strong>buying or renewing a paid plan</strong>, and joining <strong>Algo Contracts</strong> (AI Algo contracts with a fixed rebate credited every 3 months), needs a verified identity.</p>
     <p><strong>Your current plan keeps working until it ends.</strong> Nothing is cancelled today. Verifying now just means your next renewal, and Algo Contracts, are not interrupted.</p>
     <h2 style="font-size: 16px; margin: 20px 0 4px;">How to verify</h2>
     <ol style="padding-left: 20px; margin: 8px 0 16px;">

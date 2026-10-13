@@ -32,30 +32,31 @@ const past = new Date("2026-10-01T00:00:00Z");
 // --- products and the agreed numbers
 const btc = REWARD_PRODUCTS.BTC_AI_ALGO, gold = REWARD_PRODUCTS.GOLD_AI_ALGO, idx = REWARD_PRODUCTS.INDEX_AI_ALGO;
 const mB = computeContractMoney(btc, NOW), mG = computeContractMoney(gold, NOW), mI = computeContractMoney(idx, NOW);
-check("BTC: list 4,999 / rebate 2,000 / net 2,999 / 4 x 500", mB.listPriceCents === 499_900 && mB.rebateTotalCents === 200_000 && mB.netPriceCents === 299_900 && mB.schedule.every((s) => s.amountCents === 50_000) && mB.schedule.length === 4);
-check("Gold: list 9,999 / rebate 5,000 / net 4,999 / 4 x 1,250", mG.rebateTotalCents === 500_000 && mG.netPriceCents === 499_900 && mG.schedule.every((s) => s.amountCents === 125_000));
-check("Index: list 29,999 / rebate 18,000 / net 11,999 / 4 x 4,500", mI.rebateTotalCents === 1_800_000 && mI.netPriceCents === 1_199_900 && mI.schedule.every((s) => s.amountCents === 450_000));
-check("reserve equals the whole rebate", mB.reserveCents === mB.rebateTotalCents && mI.reserveCents === 1_800_000);
+check("BTC: list 4,999 / rebate $200 x 35 = 7,000 / 12 credits (11 x 600 + 400)", mB.listPriceCents === 499_900 && mB.rebateTotalCents === 700_000 && mB.netPriceCents === -200_100 && mB.schedule.length === 12 && mB.schedule.slice(0, 11).every((s) => s.amountCents === 60_000) && mB.schedule[11].amountCents === 40_000);
+check("Gold: $500 x 30 = 15,000 / 10 x 1,500", mG.rebateTotalCents === 1_500_000 && mG.schedule.length === 10 && mG.schedule.every((s) => s.amountCents === 150_000));
+check("Index: $1,800 x 25 = 45,000 / 8 x 5,400 + 1,800", mI.rebateTotalCents === 4_500_000 && mI.schedule.length === 9 && mI.schedule.slice(0, 8).every((s) => s.amountCents === 540_000) && mI.schedule[8].amountCents === 180_000);
+check("reserve equals the whole rebate", mB.reserveCents === mB.rebateTotalCents && mI.reserveCents === 4_500_000);
 check("schedule always adds up to the rebate", [mB, mG, mI].every((m) => m.schedule.reduce((s, x) => s + x.amountCents, 0) === m.rebateTotalCents));
-check("due dates are 90/180/270/360 days after purchase", mB.schedule.map((s) => Math.round((s.dueAt.getTime() - NOW.getTime()) / 86_400_000)).join() === "90,180,270,360");
-check("12-month contract end", mB.endsAt.toISOString() === "2027-11-01T00:00:00.000Z");
-check("last instalment falls inside the term", mB.schedule[3].dueAt.getTime() <= mB.endsAt.getTime());
-check("rebate never reaches the price", REWARD_PRODUCT_KEYS.every((k) => REWARD_PRODUCTS[k].rebateCents < REWARD_PRODUCTS[k].listPriceCents));
-check("rebate is about the agreed 40 / 50 / 60 percent", [[btc, 40], [gold, 50], [idx, 60]].every(([p, pct]) => { const r = (p as typeof btc).rebateCents / (p as typeof btc).listPriceCents * 100; return Math.abs(r - (pct as number)) < 0.05; }));
+check("due dates are every 3 months, last on month 35", mB.schedule.map((s) => s.dueAt.toISOString().slice(0, 7)).join() === "2027-02,2027-05,2027-08,2027-11,2028-02,2028-05,2028-08,2028-11,2029-02,2029-05,2029-08,2029-10");
+check("contract ends: 35 / 30 / 25 months", mB.endsAt.toISOString() === "2029-10-01T00:00:00.000Z" && mG.endsAt.toISOString() === "2029-05-01T00:00:00.000Z" && mI.endsAt.toISOString() === "2028-12-01T00:00:00.000Z");
+check("last instalment falls inside the term", mB.schedule[11].dueAt.getTime() <= mB.endsAt.getTime());
+check("owner-approved: rebate is monthly amount x months and above the price", REWARD_PRODUCT_KEYS.every((k) => { const p = REWARD_PRODUCTS[k]; return p.rebateAbovePrice === true && p.monthlyRebateCents! * p.termMonths === p.rebateCents; }));
+check("monthly amounts and terms: 200x35, 500x30, 1800x25", btc.monthlyRebateCents === 20_000 && btc.termMonths === 35 && gold.monthlyRebateCents === 50_000 && gold.termMonths === 30 && idx.monthlyRebateCents === 180_000 && idx.termMonths === 25);
 check("referral is about 2 / 1 / 1 / 1 percent of list", REWARD_PRODUCT_KEYS.every((k) => { const p = REWARD_PRODUCTS[k]; return p.referralCents.every((c, i) => Math.abs(c / p.listPriceCents * 100 - [2, 1, 1, 1][i]) < 0.05); }));
-check("net price is below list price but positive", REWARD_PRODUCT_KEYS.every((k) => { const m = computeContractMoney(REWARD_PRODUCTS[k], NOW); return m.netPriceCents > 0 && m.netPriceCents < m.listPriceCents; }));
+check("net after rebate is negative (a credit to the buyer), shown as such", REWARD_PRODUCT_KEYS.every((k) => computeContractMoney(REWARD_PRODUCTS[k], NOW).netPriceCents < 0));
 
 // odd amount: the remainder cent goes to the last instalment, total stays exact
-const odd = { ...btc, listPriceCents: 1_000_001, rebateCents: 400_001, referralCents: [0, 0, 0, 0] as [number, number, number, number] };
+const legacy = { ...btc, rebateCents: 200_000, installments: 4, termMonths: 12, monthlyRebateCents: undefined, payoutEveryMonths: undefined, rebateAbovePrice: false };
+const odd = { ...legacy, listPriceCents: 1_000_001, rebateCents: 400_001, referralCents: [0, 0, 0, 0] as [number, number, number, number] };
 const mo = computeContractMoney(odd, NOW);
 check("odd price: exact total, no lost cent", mo.schedule.reduce((s, x) => s + x.amountCents, 0) === mo.rebateTotalCents);
-const odd2 = { ...btc, listPriceCents: 1_000_003, rebateCents: 333_333, referralCents: [0, 0, 0, 0] as [number, number, number, number] };
+const odd2 = { ...legacy, listPriceCents: 1_000_003, rebateCents: 333_333, referralCents: [0, 0, 0, 0] as [number, number, number, number] };
 const mo2 = computeContractMoney(odd2, NOW);
 check("uneven split: last instalment takes the remainder", mo2.schedule.reduce((s, x) => s + x.amountCents, 0) === mo2.rebateTotalCents && mo2.schedule[3].amountCents >= mo2.schedule[0].amountCents);
 
 // unsafe configurations are refused
-const bad = (p: Partial<typeof btc>) => { try { assertProductSane({ ...btc, ...p }); return false; } catch { return true; } };
-check("config guards", bad({ rebateCents: btc.listPriceCents }) && bad({ rebateCents: -1 }) && bad({ rebateCents: btc.listPriceCents - 100 }) && bad({ referralCents: [-1, 0, 0, 0] }) && bad({ listPriceCents: 0 }) && bad({ installments: 0 }) && bad({ intervalDays: 0 }) && bad({ installments: 6 }) && bad({ listPriceCents: 10.5 }));
+const bad = (p: Partial<typeof btc>) => { try { assertProductSane({ ...legacy, ...p }); return false; } catch { return true; } };
+check("config guards", bad({ rebateCents: btc.listPriceCents }) && bad({ rebateCents: -1 }) && bad({ rebateCents: btc.listPriceCents - 100 }) && (() => { try { assertProductSane({ ...btc, monthlyRebateCents: 20_001 }); return false; } catch { return true; } })() && bad({ referralCents: [-1, 0, 0, 0] }) && bad({ listPriceCents: 0 }) && bad({ installments: 0 }) && bad({ intervalDays: 0 }) && bad({ installments: 6 }) && bad({ listPriceCents: 10.5 }));
 
 // --- helpers
 check("bps rounds to the cent", bps(100_001, 4000) === 40_000 && bps(499_900, 200) === 9_998);
@@ -74,8 +75,8 @@ check("self-referral earns nothing", computeReferralShares(btc, "buyer", ["buyer
 check("same partner is never paid twice on one sale", computeReferralShares(btc, "buyer", ["a", "a", "b"], true).filter((r) => r.partnerId === "a").length === 1);
 check("gaps in the upline are skipped", computeReferralShares(idx, "buyer", ["a", null, "c"], true).map((r) => r.level).join() === "0,2");
 check("no seller, no commission", computeReferralShares(btc, "buyer", [], true).length === 0);
-check("max outflow (rebate + direct referral), multi-level off", maxOutflowCents(btc, false) === 200_000 + 10_000 && maxOutflowCents(idx, false) === 1_800_000 + 60_000);
-check("max outflow with all 4 levels = rebate + $1,500 on Index", maxOutflowCents(idx, true) === 1_800_000 + 150_000);
+check("max outflow (rebate + direct referral), multi-level off", maxOutflowCents(btc, false) === 700_000 + 10_000 && maxOutflowCents(idx, false) === 4_500_000 + 60_000);
+check("max outflow with all 4 levels = rebate + $1,500 on Index", maxOutflowCents(idx, true) === 4_500_000 + 150_000);
 
 // --- eligibility
 const pro = { planId: "pro", status: "active", currentPeriodEnd: future, provider: "nowpayments" as string | null };
@@ -136,7 +137,7 @@ check("reserve outstanding = reserved - released - returned", rs.reserved === 70
 check("shortfall alert", reserveShortfall(640_000, 700_000) === 0 && reserveShortfall(640_000, 600_000) === 40_000);
 check("idempotency keys are deterministic and distinct", ledgerKey.release("c1", 2) === ledgerKey.release("c1", 2) && ledgerKey.release("c1", 2) !== ledgerKey.release("c1", 3) && ledgerKey.commission("p", 0) !== ledgerKey.commission("p", 1));
 const worstMonth = 10 * computeContractMoney(idx, NOW).reserveCents;
-check("worst month (10 Index) reserve is $180,000", worstMonth === 18_000_000);
+check("worst month (10 Index) reserve is $450,000", worstMonth === 45_000_000);
 
 // --- slots
 check("monthKey", monthKey(new Date("2026-11-30T23:59:59Z")) === "2026-11" && monthKey(new Date("2026-12-01T00:00:00Z")) === "2026-12");
@@ -205,9 +206,9 @@ async function pdfChecks() {
   const bytes = await buildContractPdf(input);
   check("contract PDF is a real PDF", Buffer.from(bytes.slice(0, 5)).toString() === "%PDF-" && bytes.length > 1500, String(bytes.length));
   const text = contractClauses(input).map((c) => c.title + " " + c.body).join("\n");
-  check("contract shows price, total rebate, net price and every instalment", text.includes("$4,999.00") && text.includes("$2,000.00") && text.includes("$2,999.00") && (text.match(/Instalment \d: \$500\.00/g) ?? []).length === 4);
+  check("contract shows price, total rebate, net price and every instalment", text.includes("$4,999.00") && text.includes("$7,000.00") && text.includes("-$2,001.00") && (text.match(/Instalment \d+: \$600\.00/g) ?? []).length === 11 && /Instalment 12: \$400\.00/.test(text));
   check("contract names only the brand, no company or licence number", text.includes("algotraders24.ai") && !/\bFZE\b|\bFZ\b|licen[cs]e no|trade licen/i.test(text));
-  check("contract says freeze, not forfeit, and 12 months", /paused and kept/.test(text) && /12-month licence/.test(text));
+  check("contract says freeze, not forfeit, and 35 months", /paused and kept/.test(text) && /35-month licence/.test(text));
   check("contract has no return / guarantee wording", BANNED_COPY_WORDS.filter((w) => w !== "invest").every((w) => !text.toLowerCase().includes(w)), BANNED_COPY_WORDS.filter((w) => text.toLowerCase().includes(w)).join());
   const odd = await buildContractPdf({ ...input, buyerName: "Zoe \u4e2d\u6587 O'Brien" });
   check("a non-Latin name cannot break the PDF", Buffer.from(odd.slice(0, 5)).toString() === "%PDF-");
@@ -226,17 +227,17 @@ check("guide section ids are unique and the quick start has 4 steps", new Set(GU
 check("guide says a pause keeps the money and that results are not promised", /paused and kept/.test(gt) && /no promise about trading results/.test(gt) && /sales are final/.test(gt));
 const emailIn = { name: "Ravi <b>K</b>", productName: "BTC AI Algo", contractId: "c_1", listPriceCents: mB.listPriceCents, rebateTotalCents: mB.rebateTotalCents, netPriceCents: mB.netPriceCents, schedule: mB.schedule, startsAt: NOW, endsAt: mB.endsAt, siteUrl: "https://algotraders24.ai/", pdfAttached: true };
 const eb = contractEmailBody(emailIn);
-check("email shows price, total rebate, net price and 4 instalments", eb.includes("$4,999.00") && eb.includes("$2,000.00") && eb.includes("$2,999.00") && (eb.match(/Rebate \d &middot; due/g) ?? []).length === 4);
+check("email shows price, total rebate, net price and 12 instalments", eb.includes("$4,999.00") && eb.includes("$7,000.00") && eb.includes("-$2,001.00") && (eb.match(/Rebate \d+ &middot; due/g) ?? []).length === 12);
 check("email escapes the buyer name", !eb.includes("<b>K</b>") && eb.includes(escapeHtmlText("Ravi <b>K</b>")));
 check("email links the guide (no double slash) and mentions the attached PDF", eb.includes("https://algotraders24.ai/dashboard/algo-contracts/guide") && /attached to this email/.test(eb) && !/attached to this email/.test(contractEmailBody({ ...emailIn, pdfAttached: false })));
 check("email subject names the product and the email has no banned wording", contractEmailSubject("BTC AI Algo").includes("BTC AI Algo") && BANNED_COPY_WORDS.every((w) => !new RegExp(`\\b${w.replace(/ /g, "\\s+")}`, "i").test(eb)));
 
 // --- page view-model (what the Algo Contracts page shows is the same maths that issues the contract)
 const vmB = buildProductVM("BTC_AI_ALGO", { slot: { opened: true, limit: 5, remaining: 3 }, blockedReason: null });
-check("page card for BTC: price, rebate, net, instalments, interval", vmB.listPriceCents === 499_900 && vmB.rebateTotalCents === 200_000 && vmB.netPriceCents === 299_900 && vmB.perQuarterCents === 50_000 && vmB.installments === 4 && vmB.intervalMonths === 3 && vmB.termMonths === 12);
+check("page card for BTC: price, rebate, net, instalments, interval", vmB.listPriceCents === 499_900 && vmB.rebateTotalCents === 700_000 && vmB.netPriceCents === -200_100 && vmB.perQuarterCents === 60_000 && vmB.monthlyRebateCents === 20_000 && vmB.installments === 12 && vmB.intervalMonths === 3 && vmB.termMonths === 35 && vmB.rail.length === 12 && vmB.rail[11].at === 35);
 const vmI = buildProductVM("INDEX_AI_ALGO", { slot: null, blockedReason: "Opens soon" });
-check("page card for Index and its referral amounts", vmI.netPriceCents === 1_199_900 && vmI.perQuarterCents === 450_000 && vmI.referralDirectCents === 60_000 && vmI.referralUpperCents.join() === "30000,30000,30000" && vmI.blockedReason === "Opens soon");
-check("every page card adds up: price - rebate = net, 4 x instalment = rebate", REWARD_PRODUCT_KEYS.every((k) => { const v = buildProductVM(k, { slot: null, blockedReason: null }); return v.listPriceCents - v.rebateTotalCents === v.netPriceCents && v.perQuarterCents * v.installments === v.rebateTotalCents; }));
+check("page card for Index and its referral amounts", vmI.netPriceCents === -1_500_100 && vmI.perQuarterCents === 540_000 && vmI.referralDirectCents === 60_000 && vmI.referralUpperCents.join() === "30000,30000,30000" && vmI.blockedReason === "Opens soon");
+check("every page card adds up: price - rebate = net, the rail adds up to the rebate", REWARD_PRODUCT_KEYS.every((k) => { const v = buildProductVM(k, { slot: null, blockedReason: null }); return v.listPriceCents - v.rebateTotalCents === v.netPriceCents && v.rail.reduce((a, x) => a + x.amountCents, 0) === v.rebateTotalCents; }));
 check("page taglines carry no banned wording", REWARD_PRODUCT_KEYS.every((k) => BANNED_COPY_WORDS.every((w) => !new RegExp(`\\b${w.replace(/ /g, "\\s+")}`, "i").test(buildProductVM(k, { slot: null, blockedReason: null }).tagline))));
 
 // --- the commission table on the page must equal what the engine really pays (flag off / on, every product)

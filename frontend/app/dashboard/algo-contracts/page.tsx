@@ -32,7 +32,7 @@ export default async function AlgoContractsPage() {
   if (!rewardsOpenFor(user.email)) {
     return (
       <div className="space-y-6">
-        <PageHeader eyebrow="Pro members" title="Algo Contracts" description="12-month AI Algo contracts for Pro members." />
+        <PageHeader eyebrow="Pro members" title="Algo Contracts" description="AI Algo contracts for Pro members." />
         <EmptyState title="Not open for your account yet" description="We will let you know when Algo Contracts opens." />
       </div>
     );

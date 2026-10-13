@@ -37,7 +37,7 @@ export function contractEmailBody(i: ContractEmailInput): string {
   const summary = [
     row("Product", escapeHtmlText(i.productName)),
     row("Contract", `<span style="font-family: monospace; font-size: 12px;">${escapeHtmlText(i.contractId)}</span>`),
-    row("Term", `${day(i.startsAt)} to ${day(i.endsAt)} (12 months)`),
+    row("Term", `${day(i.startsAt)} to ${day(i.endsAt)} `),
     row("Price", formatUsd(i.listPriceCents)),
     row("Total rebate", formatUsd(i.rebateTotalCents)),
     row("<strong>Net price</strong>", `<strong>${formatUsd(i.netPriceCents)}</strong>`),
@@ -45,7 +45,7 @@ export function contractEmailBody(i: ContractEmailInput): string {
   const schedule = i.schedule.map((s) => row(`Rebate ${s.seq} &middot; due ${day(s.dueAt)}`, formatUsd(s.amountCents))).join("");
   const steps = QUICK_START.map((s) => `<li style="margin-bottom: 6px;">${escapeHtmlText(s)}</li>`).join("");
   return `
-    <p>Hi ${escapeHtmlText(i.name)}, your payment is confirmed and your 12-month contract for <strong>${escapeHtmlText(i.productName)}</strong> is active.</p>
+    <p>Hi ${escapeHtmlText(i.name)}, your payment is confirmed and your contract for <strong>${escapeHtmlText(i.productName)}</strong> is active.</p>
     <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">${summary}</table>
     <h2 style="font-size: 16px; margin: 24px 0 4px;">Your rebate schedule</h2>
     <p style="margin: 0 0 4px; color: #666; font-size: 13px;">A fixed adjustment to the price you paid. Each instalment is credited on its due date while your Pro plan is active and your identity is verified; otherwise it is paused and kept for you.</p>

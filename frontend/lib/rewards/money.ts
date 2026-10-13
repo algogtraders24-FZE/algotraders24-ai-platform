@@ -49,11 +49,18 @@ export interface ContractMoney {
 /** Throws on a configuration that would be unsafe (rebate must be below the price, instalments positive). */
 export function assertProductSane(p: RewardProductConfig): void {
   if (!Number.isInteger(p.listPriceCents) || p.listPriceCents <= 0) throw new Error(`${p.key}: bad list price`);
-  if (!Number.isInteger(p.rebateCents) || p.rebateCents < 0 || p.rebateCents >= p.listPriceCents) throw new Error(`${p.key}: rebate must be below the price`);
+  if (!Number.isInteger(p.rebateCents) || p.rebateCents < 0 || (!p.rebateAbovePrice && p.rebateCents >= p.listPriceCents)) throw new Error(`${p.key}: rebate must be below the price`);
   if (p.referralCents.some((c) => !Number.isInteger(c) || c < 0)) throw new Error(`${p.key}: bad referral amount`);
-  if (p.rebateCents + p.referralCents.reduce((a, b) => a + b, 0) >= p.listPriceCents) throw new Error(`${p.key}: rebate plus referral must stay below the price`);
+  if (!p.rebateAbovePrice && p.rebateCents + p.referralCents.reduce((a, b) => a + b, 0) >= p.listPriceCents) throw new Error(`${p.key}: rebate plus referral must stay below the price`);
   if (!Number.isInteger(p.installments) || p.installments < 1 || p.installments > 12) throw new Error(`${p.key}: bad instalment count`);
   if (!Number.isInteger(p.intervalDays) || p.intervalDays < 1) throw new Error(`${p.key}: bad interval`);
+  if (p.monthlyRebateCents !== undefined) {
+    const every = p.payoutEveryMonths ?? 3;
+    if (!Number.isInteger(p.monthlyRebateCents) || p.monthlyRebateCents <= 0 || !Number.isInteger(every) || every < 1) throw new Error(`${p.key}: bad monthly plan`);
+    if (p.monthlyRebateCents * p.termMonths !== p.rebateCents) throw new Error(`${p.key}: monthly amount x months must equal the rebate`);
+    if (Math.ceil(p.termMonths / every) !== p.installments) throw new Error(`${p.key}: instalment count does not match the monthly plan`);
+    return;
+  }
   if (p.installments * p.intervalDays > Math.round(p.termMonths * 30.5) + 5) throw new Error(`${p.key}: instalments do not fit inside the contract term`);
 }
 
@@ -61,6 +68,17 @@ export function assertProductSane(p: RewardProductConfig): void {
 export function computeContractMoney(p: RewardProductConfig, purchasedAt: Date): ContractMoney {
   assertProductSane(p);
   const rebateTotalCents = p.rebateCents;
+  if (p.monthlyRebateCents !== undefined) {
+    // Accrues monthly, credited every N months; the last credit carries whatever months remain (e.g. 35 months = 11 x 3 + 2).
+    const every = p.payoutEveryMonths ?? 3;
+    const schedule: InstallmentPlan[] = [];
+    for (let i = 1; i <= p.installments; i++) {
+      const monthsAtDue = Math.min(i * every, p.termMonths);
+      const monthsCovered = monthsAtDue - (i - 1) * every;
+      schedule.push({ seq: i, dueAt: addMonths(purchasedAt, monthsAtDue), amountCents: monthsCovered * p.monthlyRebateCents });
+    }
+    return { listPriceCents: p.listPriceCents, rebateTotalCents, netPriceCents: p.listPriceCents - rebateTotalCents, reserveCents: rebateTotalCents, schedule, startsAt: purchasedAt, endsAt: addMonths(purchasedAt, p.termMonths) };
+  }
   const base = Math.floor(rebateTotalCents / p.installments);
   const schedule: InstallmentPlan[] = [];
   let allocated = 0;

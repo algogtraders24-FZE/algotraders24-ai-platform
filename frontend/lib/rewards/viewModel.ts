@@ -14,6 +14,10 @@ export interface ProductVM {
   listPriceCents: number;
   rebateTotalCents: number;
   perQuarterCents: number;
+  /** Monthly accrual (cents) for monthly-plan products, else null. */
+  monthlyRebateCents: number | null;
+  /** Each credit with the day/month count it falls on (the last one can be smaller). */
+  rail: { at: number; amountCents: number }[];
   installments: number;
   intervalMonths: number;
   intervalDays: number;
@@ -76,6 +80,8 @@ export function buildProductVM(key: RewardProductKey, opts: { slot: SlotVM | nul
     listPriceCents: m.listPriceCents,
     rebateTotalCents: m.rebateTotalCents,
     perQuarterCents: m.schedule[0].amountCents,
+    monthlyRebateCents: p.monthlyRebateCents ?? null,
+    rail: m.schedule.map((s) => ({ at: p.monthlyRebateCents !== undefined ? Math.min(s.seq * (p.payoutEveryMonths ?? 3), p.termMonths) : (p.intervalDays < 30 ? s.seq * p.intervalDays : s.seq * Math.round(p.intervalDays / 30)), amountCents: s.amountCents })),
     installments: p.installments,
     intervalMonths: Math.round(p.intervalDays / 30),
     intervalDays: p.intervalDays,

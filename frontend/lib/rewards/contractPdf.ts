@@ -67,6 +67,7 @@ export function contractClauses(i: ContractPdfInput): Array<{ title: string; bod
       title: "4. Rebate schedule",
       body:
         i.schedule.map((s) => `Instalment ${s.seq}: ${formatUsd(s.amountCents)}, due ${day(s.dueAt)}`).join("\n") +
+        "\nThe rebate accrues monthly over the contract term and is credited every 3 months as listed above; the last instalment carries any remaining months." +
         "\nThe rebate is a fixed adjustment to the price you paid. It is set on the day of purchase and does not depend on trading results, on AT24 revenue, or on any other customer purchase.",
     },
     {

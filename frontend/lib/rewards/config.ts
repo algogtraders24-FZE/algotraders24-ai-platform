@@ -18,6 +18,11 @@ export interface RewardProductConfig {
   /** Days between instalments (first one is due after one interval). */
   intervalDays: number;
   termMonths: number;
+  /** Monthly-accrual plan: the rebate is monthlyRebateCents x termMonths, accrued monthly and credited every payoutEveryMonths (last payout carries the remaining months). When set, rebateCents must equal that product and intervalDays is only a rough spacing (about 3 months). */
+  monthlyRebateCents?: number;
+  payoutEveryMonths?: number;
+  /** Owner decision 2026-10-13: the rebate for the three real products is above the list price. Lifts the "rebate below price" guard for this product only. */
+  rebateAbovePrice?: boolean;
   /** Referral commission per level in fixed cents: [direct, L1, L2, L3] (2% / 1% / 1% / 1% of the list price, rounded to whole dollars). */
   referralCents: [number, number, number, number];
   /** Owner-only product for testing the whole flow with a tiny amount. Never shown to, or buyable by, anyone else. */
@@ -25,9 +30,9 @@ export interface RewardProductConfig {
 }
 
 export const REWARD_PRODUCTS: Record<RewardProductKey, RewardProductConfig> = {
-  BTC_AI_ALGO: { key: "BTC_AI_ALGO", name: "BTC AI Algo", listPriceCents: 499_900, rebateCents: 200_000, installments: 4, intervalDays: 90, termMonths: 12, referralCents: [10_000, 5_000, 5_000, 5_000] },
-  GOLD_AI_ALGO: { key: "GOLD_AI_ALGO", name: "Gold AI Algo", listPriceCents: 999_900, rebateCents: 500_000, installments: 4, intervalDays: 90, termMonths: 12, referralCents: [20_000, 10_000, 10_000, 10_000] },
-  INDEX_AI_ALGO: { key: "INDEX_AI_ALGO", name: "Index AI Algo", listPriceCents: 2_999_900, rebateCents: 1_800_000, installments: 4, intervalDays: 90, termMonths: 12, referralCents: [60_000, 30_000, 30_000, 30_000] },
+  BTC_AI_ALGO: { key: "BTC_AI_ALGO", name: "BTC AI Algo", listPriceCents: 499_900, rebateCents: 700_000, installments: 12, intervalDays: 90, termMonths: 35, monthlyRebateCents: 20_000, payoutEveryMonths: 3, rebateAbovePrice: true, referralCents: [10_000, 5_000, 5_000, 5_000] },
+  GOLD_AI_ALGO: { key: "GOLD_AI_ALGO", name: "Gold AI Algo", listPriceCents: 999_900, rebateCents: 1_500_000, installments: 10, intervalDays: 90, termMonths: 30, monthlyRebateCents: 50_000, payoutEveryMonths: 3, rebateAbovePrice: true, referralCents: [20_000, 10_000, 10_000, 10_000] },
+  INDEX_AI_ALGO: { key: "INDEX_AI_ALGO", name: "Index AI Algo", listPriceCents: 2_999_900, rebateCents: 4_500_000, installments: 9, intervalDays: 90, termMonths: 25, monthlyRebateCents: 180_000, payoutEveryMonths: 3, rebateAbovePrice: true, referralCents: [60_000, 30_000, 30_000, 30_000] },
   // Owner-only test contract: $15 (NOWPayments refuses less than about $10 on USDT-TRC20), rebate 4 x $1.50 due one day apart (so a test finishes in 4 days), commission 2% / 1% / 1% / 1% of $15.
   TEST_AI_ALGO: { key: "TEST_AI_ALGO", name: "Test Contract (owner only)", listPriceCents: 1_500, rebateCents: 600, installments: 4, intervalDays: 1, termMonths: 12, referralCents: [30, 15, 15, 15], testOnly: true },
 };
