@@ -18,7 +18,7 @@ import ButtonLink from "@/components/ui/ButtonLink";
 import QuickActions from "@/components/dashboard/QuickActions";
 import { MarketSnapshot } from "@/components/dashboard/MarketSnapshot";
 import RecentActivity from "@/components/dashboard/RecentActivity";
-import NewUserOnboarding from "@/components/dashboard/NewUserOnboarding";
+import { GetStarted } from "@/components/dashboard/NewUserOnboarding";
 import { dashboardService } from "@/services/dashboard.service";
 import { requireUser } from "@/lib/auth/protectedRoute";
 import { PLAN_LABELS } from "@/config/billing.config";
@@ -41,11 +41,10 @@ export default async function DashboardHome() {
   // conversations and no documents. Deliberately not schema-backed (see
   // dashboard.service.ts's disclosed gap on tracked analyses); this sprint
   // doesn't add new persistence, so it's inferred from existing counts.
+  // A new user sees the SAME dashboard as everyone else (stats, Market
+  // snapshot, activity, quick actions) with the "where to start" block on top -
+  // not a separate, emptier page that hides the rest of the product.
   const isNewUser = overview.totalConversations === 0 && overview.totalDocuments === 0;
-
-  if (isNewUser) {
-    return <NewUserOnboarding name={user.name} email={user.email} emailVerified={user.emailVerified} />;
-  }
 
   const stats = [
     {
@@ -84,8 +83,8 @@ export default async function DashboardHome() {
   return (
     <div className="space-y-8">
       <PageHeader
-        eyebrow="Account"
-        title={`Welcome back, ${user.name}`}
+        eyebrow={isNewUser ? "Welcome" : "Account"}
+        title={isNewUser ? `Welcome to Algotraders24, ${user.name}` : `Welcome back, ${user.name}`}
         description={
           <>
             {user.email}
@@ -116,6 +115,8 @@ export default async function DashboardHome() {
           <ButtonLink href="/dashboard/algo-contracts" variant="secondary" size="sm">Open Algo Contracts</ButtonLink>
         </Card>
       )}
+
+      {isNewUser && <GetStarted />}
 
       <Card className="flex flex-wrap gap-6">
         <div>
