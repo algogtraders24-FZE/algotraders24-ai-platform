@@ -9,7 +9,7 @@
 import { Suspense, useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { signInAction, type ActionState } from "@/app/(auth)/actions/auth.actions";
+import { signInAction, resendVerificationForEmailAction, type ActionState } from "@/app/(auth)/actions/auth.actions";
 import GoogleButton from "@/components/auth/GoogleButton";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
@@ -45,6 +45,8 @@ function LoginFormBody() {
   const error = searchParams.get("error");
   const redirect = searchParams.get("redirectTo") ?? searchParams.get("redirect");
   const [state, formAction, pending] = useActionState(signInAction, initialState);
+  const [resendState, resendAction, resending] = useActionState(resendVerificationForEmailAction, initialState);
+  const notVerified = !!state.error && /confirm|verif/i.test(state.error);
 
   return (
     <>
@@ -72,7 +74,16 @@ function LoginFormBody() {
           <Input type="password" name="password" required autoComplete="current-password" className="mt-1" />
         </div>
 
-        {state.error ? <p className="text-sm text-danger">{state.error}</p> : null}
+        {state.error ? <p className="text-sm text-danger">{notVerified ? "Your email address is not verified yet. Open the link we emailed you (check spam too), or send a new one below." : state.error}</p> : null}
+        {notVerified && (
+          <div className="space-y-2">
+            <button type="submit" formAction={resendAction} disabled={resending} className="text-sm text-gold underline underline-offset-2 hover:text-gold-strong disabled:opacity-50">
+              {resending ? "Sending..." : "Send a new verification email"}
+            </button>
+            {resendState.success && resendState.message ? <p className="text-sm text-success">{resendState.message}</p> : null}
+            {resendState.error ? <p className="text-sm text-danger">{resendState.error}</p> : null}
+          </div>
+        )}
 
         <Button type="submit" loading={pending} fullWidth>
           {pending ? "Signing in..." : "Sign in"}
