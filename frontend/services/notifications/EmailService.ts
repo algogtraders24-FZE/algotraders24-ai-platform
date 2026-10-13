@@ -175,6 +175,28 @@ export async function sendAlgoContractEmail(params: { to: string; recipientUserI
   });
 }
 
+/** Wallet: told to the member whenever their USDT withdrawal address is saved or changed, so a change they did not make is noticed
+ *  inside the cooling period. Shows the address masked only. Best effort - the caller never lets a failed email undo the save. */
+export async function sendPayoutAddressChangedEmail(params: { to: string; recipientUserId?: string; network: string; maskedAddress: string; changed: boolean; usableFromIso: string }): Promise<void> {
+  const siteUrl = getSiteUrl();
+  const usable = new Date(params.usableFromIso).toUTCString();
+  const html = renderLayout({
+    title: params.changed ? "Your USDT withdrawal address was changed" : "Your USDT withdrawal address was saved",
+    maxWidth: 560,
+    bodyHtml: `
+      <p>${params.changed ? "The address your withdrawals are sent to was changed." : "A USDT withdrawal address was saved on your account."}</p>
+      ${detailTable([
+        ["Network", escapeHtml(params.network)],
+        ["Address", `<span style="font-family: monospace; font-size: 12px;">${escapeHtml(params.maskedAddress)}</span>`],
+        ["Can receive a withdrawal from", escapeHtml(usable)],
+      ])}
+      <p style="color: #666; font-size: 13px;">For your safety a new address waits before it can be used. <strong>If this was not you</strong>, change your password now and contact support before that time.</p>
+    `,
+    cta: { text: "Open your wallet", url: `${siteUrl}/dashboard/wallet` },
+  });
+  await dispatch({ type: "payout_address_changed", to: params.to, subject: params.changed ? "Your USDT withdrawal address was changed" : "Your USDT withdrawal address was saved", html, recipientUserId: params.recipientUserId });
+}
+
 // AT24_EMAIL_COMMUNICATION_RECONCILIATION.md's top finding: if
 // issueLicenseForPurchase() throws AFTER Stripe has already charged the
 // buyer (e.g. a signing-key misconfiguration, a DB error), the webhook
