@@ -40,7 +40,7 @@ export function contractEmailBody(i: ContractEmailInput): string {
     row("Term", `${day(i.startsAt)} to ${day(i.endsAt)} `),
     row("Price", formatUsd(i.listPriceCents)),
     row("Total rebate", formatUsd(i.rebateTotalCents)),
-    row("<strong>Net price</strong>", `<strong>${formatUsd(i.netPriceCents)}</strong>`),
+    row(i.netPriceCents >= 0 ? "<strong>Net price</strong>" : "<strong>Net after all instalments (credit to you)</strong>", `<strong>${formatUsd(Math.abs(i.netPriceCents))}</strong>`),
   ].join("");
   const schedule = i.schedule.map((s) => row(`Rebate ${s.seq} &middot; due ${day(s.dueAt)}`, formatUsd(s.amountCents))).join("");
   const steps = QUICK_START.map((s) => `<li style="margin-bottom: 6px;">${escapeHtmlText(s)}</li>`).join("");

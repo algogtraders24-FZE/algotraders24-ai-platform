@@ -206,7 +206,7 @@ async function pdfChecks() {
   const bytes = await buildContractPdf(input);
   check("contract PDF is a real PDF", Buffer.from(bytes.slice(0, 5)).toString() === "%PDF-" && bytes.length > 1500, String(bytes.length));
   const text = contractClauses(input).map((c) => c.title + " " + c.body).join("\n");
-  check("contract shows price, total rebate, net price and every instalment", text.includes("$4,999.00") && text.includes("$7,000.00") && text.includes("-$2,001.00") && (text.match(/Instalment \d+: \$600\.00/g) ?? []).length === 11 && /Instalment 12: \$400\.00/.test(text));
+  check("contract shows price, total rebate, net price and every instalment", text.includes("$4,999.00") && text.includes("$7,000.00") && text.includes("$2,001.00") && /more than the price you paid/.test(text) && (text.match(/Instalment \d+: \$600\.00/g) ?? []).length === 11 && /Instalment 12: \$400\.00/.test(text));
   check("contract names only the brand, no company or licence number", text.includes("algotraders24.ai") && !/\bFZE\b|\bFZ\b|licen[cs]e no|trade licen/i.test(text));
   check("contract says freeze, not forfeit, and 35 months", /paused and kept/.test(text) && /35-month licence/.test(text));
   check("contract has no return / guarantee wording", BANNED_COPY_WORDS.filter((w) => w !== "invest").every((w) => !text.toLowerCase().includes(w)), BANNED_COPY_WORDS.filter((w) => text.toLowerCase().includes(w)).join());
@@ -227,7 +227,7 @@ check("guide section ids are unique and the quick start has 4 steps", new Set(GU
 check("guide says a pause keeps the money and that results are not promised", /paused and kept/.test(gt) && /no promise about trading results/.test(gt) && /sales are final/.test(gt));
 const emailIn = { name: "Ravi <b>K</b>", productName: "BTC AI Algo", contractId: "c_1", listPriceCents: mB.listPriceCents, rebateTotalCents: mB.rebateTotalCents, netPriceCents: mB.netPriceCents, schedule: mB.schedule, startsAt: NOW, endsAt: mB.endsAt, siteUrl: "https://algotraders24.ai/", pdfAttached: true };
 const eb = contractEmailBody(emailIn);
-check("email shows price, total rebate, net price and 12 instalments", eb.includes("$4,999.00") && eb.includes("$7,000.00") && eb.includes("-$2,001.00") && (eb.match(/Rebate \d+ &middot; due/g) ?? []).length === 12);
+check("email shows price, total rebate, net price and 12 instalments", eb.includes("$4,999.00") && eb.includes("$7,000.00") && eb.includes("$2,001.00") && !eb.includes("-$2,001.00") && (eb.match(/Rebate \d+ &middot; due/g) ?? []).length === 12);
 check("email escapes the buyer name", !eb.includes("<b>K</b>") && eb.includes(escapeHtmlText("Ravi <b>K</b>")));
 check("email links the guide (no double slash) and mentions the attached PDF", eb.includes("https://algotraders24.ai/dashboard/algo-contracts/guide") && /attached to this email/.test(eb) && !/attached to this email/.test(contractEmailBody({ ...emailIn, pdfAttached: false })));
 check("email subject names the product and the email has no banned wording", contractEmailSubject("BTC AI Algo").includes("BTC AI Algo") && BANNED_COPY_WORDS.every((w) => !new RegExp(`\\b${w.replace(/ /g, "\\s+")}`, "i").test(eb)));
