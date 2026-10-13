@@ -8,7 +8,7 @@ process.env.FRED_API_KEY = "test-fred";
 import assert from "node:assert/strict";
 import { pickNextHighImpactEvent } from "../services/calendar/next-event";
 import { countdown } from "../services/automation/brief-extras";
-import { getMacroOverview, toOverviewItem, OVERVIEW_ORDER, SIGNALS_ORDER } from "../services/macro/macro-overview";
+import { getMacroOverview, toOverviewItem, attachSmc, OVERVIEW_ORDER, SIGNALS_ORDER } from "../services/macro/macro-overview";
 import { resetMacroCacheForTests, type FetchLike } from "../services/macro/macro-data";
 import { riskDriverOf } from "../services/intelligence/overview/risk-driver";
 import { ASSET_PROFILES, profileForMiSymbol } from "../services/macro/macro-alignment";
@@ -154,6 +154,29 @@ async function main(): Promise<void> {
     for (const sym of ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "XAGUSD", "BTCUSD", "ETHUSD"]) assert.ok(profileForMiSymbol(sym), sym);
     assert.match(ASSET_PROFILES.silver.ownQuote.source, /proxy/i);
     assert.ok(ASSET_PROFILES.silver.notCovered.some((n) => /proxy/i.test(n)));
+  });
+
+  await test("attachSmc: summary per asset with an MI symbol; failures, timeouts and missing data leave the item as it was", async () => {
+    resetMacroCacheForTests();
+    const items = await getMacroOverview(goodFetch);
+    const summary = { lean: "bullish-leaning" as const, strength: "developing" as const, score: 62, bias: "Bullish" as const, htfBias: "Bullish" as const };
+    const out = await attachSmc(
+      items,
+      async (symbol) => {
+        if (symbol === "BTCUSD") throw new Error("boom");
+        if (symbol === "EURUSD") return null;
+        if (symbol === "USDJPY") return new Promise(() => {});
+        return summary;
+      },
+      30,
+    );
+    const by = (id: string) => out.find((i) => i.asset === id);
+    assert.deepEqual(by("gold")?.smc, summary);
+    assert.equal(by("btcusd")?.smc, undefined);
+    assert.equal(by("eurusd")?.smc, undefined);
+    assert.equal(by("usdjpy")?.smc, undefined);
+    assert.equal(out.length, items.length);
+    resetMacroCacheForTests();
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);

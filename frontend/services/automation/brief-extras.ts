@@ -8,7 +8,14 @@
 export interface DeliveryExtras {
   priceLine?: string;
   macroLine?: string;
+  smcLine?: string;
   eventLines?: string[];
+}
+
+/** "Structure: bullish-leaning (developing), 62/100, 4h bullish - rule-based" from the SMC engine's summary; null when there is no clear lean (nothing worth a line). */
+export function smcBriefLine(s: { lean: string; strength: string; score: number; htfBias: string }): string | null {
+  if (s.lean === "none") return null;
+  return `Structure: ${s.lean} (${s.strength}), ${s.score}/100, 4h ${s.htfBias.toLowerCase()} - rule-based, not a signal`;
 }
 
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;

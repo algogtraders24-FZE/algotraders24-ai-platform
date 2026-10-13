@@ -195,11 +195,13 @@ async function main(): Promise<void> {
   });
 
   await test("enrich: price, macro line and today's events appear for gold MI; a throwing enrich is harmless", async () => {
-    const extras = { priceLine: "Gold $4,166.15 (+0.40% today)", macroLine: "Macro alignment 75% - Supports gold (4/5 drivers)", eventLines: ["19:30 IST (in 3h 20m) - USD CPI"] };
+    const extras = { priceLine: "Gold $4,166.15 (+0.40% today)", macroLine: "Macro alignment 75% - Supports gold (4/5 drivers)", smcLine: "Structure: bullish-leaning (developing), 62/100, 4h bullish - rule-based, not a signal", eventLines: ["19:30 IST (in 3h 20m) - USD CPI"] };
     const s = spy({ enrich: async () => extras });
     await deliverRunResult(input({ definition: { delivery: { channels: ["bell", "telegram"] } }, agentOutputs: [MI] }), s.deps);
     assert.ok(s.notified[0].body.includes("Gold $4,166.15"));
     assert.ok(s.notified[0].body.includes("Macro alignment 75%"));
+    assert.ok(s.notified[0].body.includes("Structure: bullish-leaning"));
+    assert.ok(s.telegram[0].text.includes("Structure: bullish-leaning"));
     assert.ok(s.telegram[0].text.includes("high-impact events"));
     assert.ok(s.telegram[0].text.includes("USD CPI"));
 

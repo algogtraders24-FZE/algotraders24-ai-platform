@@ -20,21 +20,27 @@ import { telegramConfig } from "@/services/telegram/config";
 import { getEconomicCalendar } from "@/services/calendar/calendar.service";
 import { getMacroAlignmentSnapshot } from "@/services/macro/macro-service";
 import { alignmentLine, profileForMiSymbol } from "@/services/macro/macro-alignment";
-import { formatEventLines, formatPriceLine, type DeliveryExtras } from "./brief-extras";
+import { getSmcAnalysis, summariseSmc } from "@/services/smc/smc-service";
+import { formatEventLines, formatPriceLine, smcBriefLine, type DeliveryExtras } from "./brief-extras";
 import type { DeliveryDeps } from "./delivery";
 
 async function enrichMacro(symbol: string): Promise<DeliveryExtras> {
   const profile = profileForMiSymbol(symbol);
   if (!profile) return {};
   const now = new Date();
-  const [macro, calendar] = await Promise.allSettled([
+  const [macro, calendar, smc] = await Promise.allSettled([
     getMacroAlignmentSnapshot(profile.id),
     getEconomicCalendar({ week: "this", currencies: profile.calendarCurrencies, impacts: ["high"] }),
+    getSmcAnalysis(symbol),
   ]);
   const extras: DeliveryExtras = {};
   if (macro.status === "fulfilled") {
     extras.priceLine = formatPriceLine(macro.value.price);
     if (macro.value.alignment.score !== null) extras.macroLine = alignmentLine(macro.value.alignment);
+  }
+  if (smc.status === "fulfilled" && smc.value) {
+    const line = smcBriefLine(summariseSmc(smc.value));
+    if (line) extras.smcLine = line;
   }
   if (calendar.status === "fulfilled") {
     const lines = formatEventLines(calendar.value.events, now);

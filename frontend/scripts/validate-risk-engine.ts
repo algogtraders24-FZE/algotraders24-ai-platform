@@ -10,7 +10,7 @@
 // 15D.6 pipeline end to end, not a hand-rolled stand-in for any of it.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import type { EvidenceItem } from "../types/evidence";
+import { ATR_RATIO_UNIT, type EvidenceItem } from "../types/evidence";
 import { EvidenceRankingService } from "../services/ai/evidence/evidence-ranking.service";
 import { ReasoningEngineService } from "../services/ai/reasoning/reasoning-engine.service";
 import { RiskEngineService } from "../services/ai/risk/risk-engine.service";
@@ -161,6 +161,27 @@ function main(): void {
   test("volatility risk: no technical conflict -> medium (unmeasured), even with agreeing technical evidence", () => {
     const reasoning = reasoningFrom([item({ type: "technical", claim: "Trend: bullish", magnitude: undefined })]);
     assert.equal(categoryOf(riskEngine.assess(reasoning).categories, "volatility").level, "medium");
+  });
+
+  test("volatility risk: measured from the SMC ATR ratio (>=1.3 high, 1.0-1.3 medium, <1.0 low), with the reading in the rationale", () => {
+    const at = (ratio: number) =>
+      categoryOf(
+        riskEngine.assess(reasoningFrom([item({ type: "technical", source: "AT24 SMC structure", claim: "Volatility regime: x", magnitude: ratio, unit: ATR_RATIO_UNIT })])).categories,
+        "volatility",
+      );
+    assert.equal(at(1.6).level, "high");
+    assert.equal(at(1.1).level, "medium");
+    assert.equal(at(0.8).level, "low");
+    assert.ok(at(1.6).rationale[0].includes("1.60x"));
+  });
+
+  test("volatility risk: a technical conflict still wins over a calm ATR reading", () => {
+    const reasoning = reasoningFrom([
+      item({ type: "technical", source: "a", claim: "Trend: bullish", magnitude: undefined }),
+      item({ type: "technical", source: "b", claim: "Trend: bearish", magnitude: undefined }),
+      item({ type: "technical", source: "c", claim: "Volatility regime: x", magnitude: 0.8, unit: ATR_RATIO_UNIT }),
+    ]);
+    assert.equal(categoryOf(riskEngine.assess(reasoning).categories, "volatility").level, "high");
   });
 
   // ---------------------------------------------------------------------
