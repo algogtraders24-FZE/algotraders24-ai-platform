@@ -51,11 +51,15 @@ export async function fulfilRewardCheckout(input: { intentId: string; providerRe
   // does not qualify earns nothing and its share is not passed up: the people above are judged on their own.
   let shares: ReturnType<typeof computeReferralShares> = [];
   let attribution: { partnerId: string; codeId: string } | null = null;
-  if (checkout.refCode) {
-    const ref = await prisma.referralCode.findUnique({ where: { code: checkout.refCode } });
-    if (ref && ref.userId !== checkout.userId) {
-      attribution = { partnerId: ref.userId, codeId: ref.id };
-      const upline = await resolveUpline(ref.userId, checkout.userId, purchase.purchasedAt);
+  // One referral link for everything: if this buyer already came through a link (signup or an earlier purchase), that FIRST partner earns
+  // the contract commission too; the checkout cookie is only used when the buyer has no earlier link. (First touch wins everywhere.)
+  const earlier = await prisma.referralAttribution.findFirst({ where: { buyerId: checkout.userId }, orderBy: { createdAt: "asc" }, select: { partnerId: true, codeId: true } });
+  const refCodeRow = earlier ? null : checkout.refCode ? await prisma.referralCode.findUnique({ where: { code: checkout.refCode } }) : null;
+  const first = earlier ?? (refCodeRow ? { partnerId: refCodeRow.userId, codeId: refCodeRow.id } : null);
+  if (first) {
+    if (first.partnerId !== checkout.userId) {
+      attribution = { partnerId: first.partnerId, codeId: first.codeId };
+      const upline = await resolveUpline(first.partnerId, checkout.userId, purchase.purchasedAt);
       shares = computeReferralShares(product, checkout.userId, upline);
     }
   }
