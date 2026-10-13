@@ -334,6 +334,15 @@ check("with a wait, a new address is usable only after it", !isAddressActive(act
 check("lowering the wait frees an address saved under the old wait", isAddressActive(effectiveActiveFrom(activeFromFor(t0, 24), t0, 0), t0) && !isAddressActive(effectiveActiveFrom(activeFromFor(t0, 24), t0, 24), t0) && effectiveActiveFrom(activeFromFor(t0, 0), t0, 24).getTime() === t0.getTime());
 check("the member is told when it becomes usable", addressStatusText(activeFromFor(t0, 24), t0) === "Usable in about 24 hours" && addressStatusText(activeFromFor(t0, 0), t0) === "Active");
 
+// --- withdrawal confirmation code
+import { generateCode, hashCode, newSalt, codeMatches, normalizeCode, expiresAtFor, CODE_TTL_MINUTES, MAX_ATTEMPTS } from "../lib/rewards/withdrawCode";
+check("a code is always 6 digits, zero padded", generateCode(() => 4217) === "004217" && generateCode(() => 0) === "000000" && /^\d{6}$/.test(generateCode()));
+const wsalt = newSalt();
+check("only the right code matches the stored hash", codeMatches("123456", wsalt, "u1", hashCode("123456", wsalt, "u1")) && !codeMatches("123457", wsalt, "u1", hashCode("123456", wsalt, "u1")));
+check("a stored hash is tied to the member and the salt (no reuse across accounts)", !codeMatches("123456", wsalt, "u2", hashCode("123456", wsalt, "u1")) && !codeMatches("123456", newSalt(), "u1", hashCode("123456", wsalt, "u1")) && !hashCode("123456", wsalt, "u1").includes("123456"));
+check("typed codes are normalised; anything else is refused", normalizeCode("123 456") === "123456" && normalizeCode("123-456") === "123456" && normalizeCode("12345") === null && normalizeCode("1234567") === null && normalizeCode("12345a") === null && normalizeCode(null) === null);
+check("a code lasts 10 minutes and allows 5 tries", CODE_TTL_MINUTES === 10 && MAX_ATTEMPTS === 5 && expiresAtFor(new Date(0)).getTime() === 600_000);
+
 // --- copy guard on the strings this program shows
 const copy = REWARD_PRODUCT_KEYS.map((k) => REWARD_PRODUCTS[k].name).join(" ").toLowerCase();
 check("no banned words in product names", BANNED_COPY_WORDS.every((w) => !copy.includes(w)));
