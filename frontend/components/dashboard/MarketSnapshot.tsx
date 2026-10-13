@@ -40,26 +40,26 @@ function MacroMiniCards() {
   if (failed) return <p className="text-sm text-text-3">Macro snapshot is unavailable right now.</p>;
   if (!items) {
     return (
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5" aria-busy="true">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
         {[0, 1, 2, 3, 4].map((i) => (
-          <Skeleton key={i} className="h-40 w-full" />
+          <Skeleton key={i} className="h-64 w-full" />
         ))}
       </div>
     );
   }
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {items.map((it) => (
         <Link key={it.asset} href="/dashboard/automation" className="block rounded-card focus:outline-none focus-visible:ring-2 focus-visible:ring-gold">
-          <Card padding="sm" className="h-full space-y-2 transition-colors hover:border-gold/40">
-            <p className="text-xs font-semibold text-text-2">{it.title}</p>
-            <MiniGauge score={it.score} lean={it.lean} />
-            <p className={`text-center text-sm font-semibold ${LEAN_TEXT[it.lean]}`}>{it.label}</p>
-            <p className="text-center text-[11px] text-text-3">
+          <Card padding="md" className="h-full space-y-3 transition-colors hover:border-gold/40">
+            <p className="text-base font-semibold text-text">{it.title}</p>
+            <MiniGauge score={it.score} lean={it.lean} size="lg" />
+            <p className={`text-center text-lg font-semibold ${LEAN_TEXT[it.lean]}`}>{it.label}</p>
+            <p className="text-center text-xs text-text-3">
               {it.availableDrivers}/{it.totalDrivers} drivers
             </p>
             {it.smc && (
-              <p className="text-center text-[11px] text-text-3" title="Market-structure lean from the AT24 SMC engine. Rule-based with unvalidated weights - a structure summary, not a trade signal.">
+              <p className="text-center text-xs text-text-3" title="Market-structure lean from the AT24 SMC engine. Rule-based with unvalidated weights - a structure summary, not a trade signal.">
                 Structure:{" "}
                 <span className={it.smc.lean === "bullish-leaning" ? "text-success" : it.smc.lean === "bearish-leaning" ? "text-danger" : "text-text-2"}>
                   {it.smc.lean === "none" ? "no clear lean" : it.smc.lean.replace("-leaning", "")}
@@ -67,7 +67,7 @@ function MacroMiniCards() {
               </p>
             )}
             {it.price ? (
-              <p className="text-center text-xs text-text-2">
+              <p className="text-center text-sm text-text-2">
                 {it.price.text} ·{" "}
                 <span className={it.price.changePct >= 0 ? "text-success" : "text-danger"}>
                   {it.price.changePct >= 0 ? "+" : ""}
