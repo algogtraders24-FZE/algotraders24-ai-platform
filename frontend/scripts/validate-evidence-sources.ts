@@ -242,10 +242,8 @@ async function main(): Promise<void> {
   });
 
   await test("rich text keepLines: line-oriented rows stay on separate lines", () => {
-    const blocks = parseRichText(["**Name**", "Timeframe(s): 1h", "Instrument(s): XAUUSD"].join("
-"), true);
-    assert.equal((blocks[1] as { text: string }).text, "Timeframe(s): 1h
-Instrument(s): XAUUSD");
+    const blocks = parseRichText(["**Name**", "Timeframe(s): 1h", "Instrument(s): XAUUSD"].join("\n"), true);
+    assert.equal((blocks[1] as { text: string }).text, "Timeframe(s): 1h\nInstrument(s): XAUUSD");
   });
 
   await test("pipeline: with no extra sources behaviour is unchanged (price only)", async () => {
