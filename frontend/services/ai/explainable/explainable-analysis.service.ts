@@ -121,10 +121,12 @@ export class ExplainableAnalysisService {
   }
 
   private buildAssumptions(reasoning: ReasoningResult): string[] {
-    if (reasoning.assumptions.length === 0) {
-      return ["No assumptions were required; every evidence type was represented in the collected evidence."];
+    // provider-meta is bookkeeping about the data feed, not a market factor: it is never an assumption worth showing.
+    const shown = reasoning.assumptions.filter((a) => a.type !== "provider-meta");
+    if (shown.length === 0) {
+      return ["No assumptions were required; every market evidence type was represented in the collected evidence."];
     }
-    return reasoning.assumptions.map((a) => a.statement);
+    return shown.map((a) => a.statement);
   }
 
   private buildUnknownFactors(reasoning: ReasoningResult, conflictCount: number): string[] {
@@ -135,9 +137,7 @@ export class ExplainableAnalysisService {
     if (conflictCount > 0) {
       lines.push(`${conflictCount} unresolved evidence conflict(s) were detected across the evidence bundle.`);
     }
-    if (lines.length === 0) {
-      return ["No unresolved items or conflicts were found."];
-    }
+    // Nothing unresolved: an empty list (the report hides the section) instead of a filler sentence.
     return lines;
   }
 
