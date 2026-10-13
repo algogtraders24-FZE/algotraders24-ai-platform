@@ -106,11 +106,6 @@ export default function RegimeOverviewCard({ item, macro }: Props) {
             Evidence: {item.evidenceTypes.length > 0 ? item.evidenceTypes.join(" · ") : "none"} ({item.evidenceTypes.length} of 8 types)
           </p>
         )}
-        {item.riskDriver && item.riskDriver.reason && (
-          <p className="text-text-3">
-            Risk is {item.riskLevel}: {item.riskDriver.categories.join(", ")} - {item.riskDriver.reason}
-          </p>
-        )}
         {item.basis && <p className="line-clamp-2 text-text-3">{item.basis}</p>}
       </div>
     </Card>
