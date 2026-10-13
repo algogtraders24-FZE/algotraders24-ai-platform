@@ -48,7 +48,7 @@ export interface CreditResult { credited: number; reason?: "OFF" | "NO_PARTNER" 
  * `saleRef` identifies the payment: the Purchase id for a product, "sub:<paymentId>" for a subscription payment. (saleRef, level) is
  * unique in the database, so a replayed webhook cannot pay a level twice.
  */
-export async function creditReferralForPayment(input: { buyerId: string; amountCents: number; saleRef: string; paidAt: Date }): Promise<CreditResult> {
+export async function creditReferralForPayment(input: { buyerId: string; amountCents: number; saleRef: string; paidAt: Date; source: "PRODUCT" | "SUBSCRIPTION" }): Promise<CreditResult> {
   if (!referralAllProductsEnabled()) return { credited: 0, reason: "OFF" };
   const first = await prisma.referralAttribution.findFirst({ where: { buyerId: input.buyerId }, orderBy: { createdAt: "asc" }, select: { partnerId: true } });
   if (!first) return { credited: 0, reason: "NO_PARTNER" };
@@ -59,7 +59,7 @@ export async function creditReferralForPayment(input: { buyerId: string; amountC
   for (const s of shares) {
     try {
       await prisma.referralCommission.create({
-        data: { purchaseId: input.saleRef, partnerId: s.partnerId, level: s.level, amountCents: s.amountCents, status: "PENDING", availableAt: addDays(input.paidAt, holdDays()) },
+        data: { purchaseId: input.saleRef, partnerId: s.partnerId, level: s.level, amountCents: s.amountCents, buyerId: input.buyerId, source: input.source, status: "PENDING", availableAt: addDays(input.paidAt, holdDays()) },
       });
       credited++;
     } catch (e) {

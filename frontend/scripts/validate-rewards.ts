@@ -300,6 +300,27 @@ check("percent plan: zero or negative or fractional amounts pay nothing", comput
 check("percent plan: the rates are 2/1/1/1 percent", REFERRAL_PERCENT_BPS.join() === "200,100,100,100");
 check("universal referral flag defaults OFF and only the literal true turns it on", !referralAllProductsEnabled(undefined) && !referralAllProductsEnabled("1") && referralAllProductsEnabled("true"));
 
+// --- wallet: where each amount came from
+import { maskName, inferSource, buildWalletEntries, summarizeBySource, levelLabel, sourceLabel } from "../lib/rewards/wallet";
+check("maskName hides everything but the initials", maskName("Ravi Kumar") === "R*** K." && maskName("ravi") === "R***" && maskName("", "ravi.k@example.com") === "R***" && maskName(null, null) === "A member");
+check("maskName never leaks an email or a full name", !maskName("Ravi Kumar", "ravi@example.com").includes("@") && !maskName("Ravi Kumar").includes("avi"));
+check("source is inferred for old rows", inferSource("sub:123", null, false) === "SUBSCRIPTION" && inferSource("pur1", null, true) === "CONTRACT" && inferSource("pur1", null, false) === "PRODUCT" && inferSource("pur1", "SUBSCRIPTION", true) === "SUBSCRIPTION");
+check("level and source wording", levelLabel(0) === "direct" && levelLabel(2) === "level 3" && sourceLabel("SUBSCRIPTION") === "Pro plan payment" && sourceLabel("CONTRACT", "BTC AI Algo") === "Algo Contract (BTC AI Algo)");
+const wd = new Date("2026-10-10T00:00:00Z");
+const we = buildWalletEntries({
+  rebates: [{ id: "i1", contractId: "c1", seq: 1, dueAt: wd, releasedAt: null, amountCents: 150, status: "SCHEDULED" }, { id: "i2", contractId: "c1", seq: 2, dueAt: wd, releasedAt: wd, amountCents: 150, status: "CANCELLED" }],
+  contractNames: { c1: "Test Contract" }, installmentsPerContract: { c1: 4 },
+  commissions: [
+    { id: "k1", purchaseRef: "p", level: 0, amountCents: 158, status: "RELEASED", createdAt: wd, availableAt: wd, releasedAt: wd, source: "PRODUCT", detail: "Some EA", buyerName: "R*** K." },
+    { id: "k2", purchaseRef: "sub:1", level: 2, amountCents: 20, status: "PENDING", createdAt: wd, availableAt: wd, releasedAt: null, source: "SUBSCRIPTION", detail: null, buyerName: "S***" },
+    { id: "k3", purchaseRef: "p2", level: 1, amountCents: 99, status: "REVERSED", createdAt: wd, availableAt: wd, releasedAt: null, source: "CONTRACT", detail: "BTC AI Algo", buyerName: "T***" },
+  ],
+  payouts: [{ id: "w1", amountCents: 100, network: "TRC20", status: "PAID", txRef: "0xabc", createdAt: wd }],
+});
+const wt = summarizeBySource(we);
+check("wallet: totals by source ignore cancelled and reversed", wt.rebates === 150 && wt.referralDirect === 158 && wt.referralTeam === 20 && wt.byType.products === 158 && wt.byType.subscriptions === 20 && wt.byType.contracts === 0 && wt.withdrawn === 100, JSON.stringify(wt));
+check("wallet: a withdrawal is negative and every row names its source", we.find((e) => e.kind === "WITHDRAWAL")?.amountCents === -100 && we.find((e) => e.id === "commission:k1")?.detail === "Product: Some EA - R*** K." && we.find((e) => e.id === "rebate:i1")?.detail === "Test Contract - instalment 1 of 4");
+
 // --- copy guard on the strings this program shows
 const copy = REWARD_PRODUCT_KEYS.map((k) => REWARD_PRODUCTS[k].name).join(" ").toLowerCase();
 check("no banned words in product names", BANNED_COPY_WORDS.every((w) => !copy.includes(w)));

@@ -9,7 +9,7 @@
 //   right : search · notifications · account menu
 // Breadcrumb text comes from getBreadcrumbLabel, which walks the same nav
 // data the sidebar renders (one source of truth for "what is this page").
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Menu } from "lucide-react";
 import { signOutAction } from "@/app/(auth)/actions/auth.actions";
 import { getBreadcrumbLabel } from "@/config/dashboard.config";
@@ -20,6 +20,7 @@ import NotificationBell from "@/components/shell/NotificationBell";
 
 export default function Topbar({ userName }: { userName: string }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { openMobile } = useSidebar();
   const initial = userName.trim().charAt(0).toUpperCase() || "?";
 
@@ -49,7 +50,12 @@ export default function Topbar({ userName }: { userName: string }) {
               </span>
             </span>
           }
-          items={[{ label: "Sign out", tone: "danger", onSelect: () => void signOutAction() }]}
+          items={[
+            { label: "Profile", onSelect: () => router.push("/dashboard/profile") },
+            { label: "Wallet", onSelect: () => router.push("/dashboard/wallet") },
+            { label: "Settings", onSelect: () => router.push("/dashboard/settings") },
+            { label: "Sign out", tone: "danger", onSelect: () => void signOutAction() },
+          ]}
         />
       </div>
     </header>

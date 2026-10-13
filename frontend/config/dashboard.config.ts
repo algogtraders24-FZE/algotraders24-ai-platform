@@ -327,6 +327,9 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
 // then falling back to the longest href prefix for dynamic sub-routes
 // (e.g. /dashboard/licenses/[licenseId]) that have no nav entry of their own.
 export function getBreadcrumbLabel(pathname: string): string {
+  // The profile page is reached from the account menu, not from the sidebar, so it has no nav entry of its own.
+  if (pathname === "/dashboard/profile") return "Account / Profile";
+  if (pathname === "/dashboard/wallet") return "Account / Wallet";
   const allItems = DASHBOARD_NAV_GROUPS.flatMap((group) =>
     group.items.flatMap((item) => [
       { label: item.label, href: item.href, parent: group.label },

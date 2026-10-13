@@ -89,7 +89,7 @@ export async function fulfilRewardCheckout(input: { intentId: string; providerRe
         await tx.referralAttribution.create({ data: { partnerId: attribution.partnerId, buyerId: checkout.userId, codeId: attribution.codeId, purchaseId: purchase.id } });
         for (const s of shares) {
           await tx.referralCommission.create({
-            data: { purchaseId: purchase.id, partnerId: s.partnerId, level: s.level, amountCents: s.amountCents, status: "PENDING", availableAt: addDays(purchase.purchasedAt, holdDays()) },
+            data: { purchaseId: purchase.id, partnerId: s.partnerId, level: s.level, amountCents: s.amountCents, buyerId: checkout.userId, source: "CONTRACT", status: "PENDING", availableAt: addDays(purchase.purchasedAt, holdDays()) },
           });
         }
       }

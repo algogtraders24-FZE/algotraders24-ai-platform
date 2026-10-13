@@ -3433,6 +3433,8 @@ model ReferralCommission {
   partnerId   String
   level       Int // 0 = direct seller; 1-3 only while REWARDS_MULTI_LEVEL is on
   amountCents Int
+  buyerId     String? // who paid (shown masked in the wallet); null on rows created before the wallet existed
+  source      String? // CONTRACT | PRODUCT | SUBSCRIPTION; null on older rows (inferred from the reference)
   status      String    @default("PENDING") // PENDING | RELEASED | CANCELLED | REVERSED | PAID
   availableAt DateTime
   releasedAt  DateTime?
