@@ -63,7 +63,7 @@ const COMPANY: FooterItem[] = [
 const RESOURCES: FooterItem[] = [
   { label: "FAQ", href: "/resources/faq" },
   { label: "All Resources", href: "/resources" },
-  { label: "Blog" },
+  { label: "Blog", href: "/blog" },
   { label: "Tutorials" },
   { label: "Release Notes" },
   { label: "Roadmap" },
