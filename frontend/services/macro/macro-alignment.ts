@@ -135,7 +135,7 @@ export const ASSET_PROFILES: Record<AssetId, AssetProfile> = {
   copper: {
     id: "copper", name: "copper", title: "Copper", supportLabel: "Supports copper", headwindLabel: "Headwind for copper",
     ownQuote: { source: "XCUUSD (Exness)", mt5: "XCUUSD" },
-    price: { label: "Copper", prefix: "$", decimals: 4 },
+    price: { label: "Copper (XCUUSD)", prefix: "$", decimals: 2 },
     miSymbol: null, calendarCurrencies: ["USD", "CNY"],
     drivers: [
       { id: "dollar", label: "US dollar", weight: 25, threshold: 0.15, direction: -1 },

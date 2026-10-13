@@ -51,6 +51,8 @@ export function loadMacroDataEnv(): MacroDataEnv {
 }
 
 const MT5_TTL_MS = 60 * 1000;
+/** An MT5 reading whose last daily candle is older than this is stale (the terminal can serve old history for a symbol it has not synced yet - AUDJPY showed a candle from a year ago). Long enough for a weekend plus a holiday. */
+export const MT5_MAX_AGE_MS = 5 * 24 * 60 * 60 * 1000;
 const TD_TTL_MS = 5 * 60 * 1000;
 const FRED_TTL_MS = 30 * 60 * 1000;
 /** A failed fetch is remembered only briefly so an outage heals quickly but a rate-limited key is not hammered. */
@@ -137,7 +139,10 @@ async function mt5Quote(f: FetchLike, mt5: { bridgeUrl: string; secret: string }
       if (last && typeof last.close === "number") {
         const pct = prev && typeof prev.close === "number" && prev.close !== 0 ? ((last.close - prev.close) / prev.close) * 100 : null;
         const t = last.datetime ? new Date(last.datetime).getTime() : NaN;
-        value = { price: last.close, pct, asOf: Number.isFinite(t) ? new Date(t).toISOString() : null };
+        // No candle time, or one that is too old, means we cannot vouch the reading is current: treat it as unavailable.
+        if (Number.isFinite(t) && Date.now() - t <= MT5_MAX_AGE_MS) {
+          value = { price: last.close, pct, asOf: new Date(t).toISOString() };
+        }
       }
     }
   } catch {
