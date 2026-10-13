@@ -52,6 +52,7 @@ export default function Topbar({ userName }: { userName: string }) {
           }
           items={[
             { label: "Profile", onSelect: () => router.push("/dashboard/profile") },
+            { label: "Wallet", onSelect: () => router.push("/dashboard/wallet") },
             { label: "Settings", onSelect: () => router.push("/dashboard/settings") },
             { label: "Sign out", tone: "danger", onSelect: () => void signOutAction() },
           ]}

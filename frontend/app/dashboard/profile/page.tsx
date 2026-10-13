@@ -7,13 +7,16 @@ import Badge from "@/components/ui/Badge";
 import ButtonLink from "@/components/ui/ButtonLink";
 import PageHeader from "@/components/ui/PageHeader";
 import MemberBadge from "@/components/rewards/MemberBadge";
+import ReferralCard from "@/components/rewards/ReferralCard";
 import { requireUser } from "@/lib/auth/protectedRoute";
 import { prisma } from "@/lib/prisma";
 import { PLAN_LABELS } from "@/config/billing.config";
 import type { PlanId } from "@/types/billing";
 import { loadUserFacts, rewardsOpenFor } from "@/lib/rewards/access";
 import { badgeFor } from "@/lib/rewards/badge";
-import { isRewardProductKey } from "@/lib/rewards/config";
+import { isRewardProductKey, referralAllProductsEnabled } from "@/lib/rewards/config";
+import { canEarnReferral } from "@/lib/rewards/eligibility";
+import { isPlatformOwner } from "@/lib/marketplace/selfServe";
 import { isIdentityVerified, isProActive } from "@/lib/rewards/eligibility";
 import { formatUsd } from "@/lib/rewards/money";
 import { referralLink } from "@/lib/rewards/referral";
@@ -83,25 +86,32 @@ export default async function ProfilePage() {
       </Card>
 
       {rewardsOpen && (
-        <Card padding="lg" className="space-y-3">
-          <h2 className="text-base font-semibold text-text">Algo Contracts and referrals</h2>
-          <div>
-            <Row label="Contracts">{contracts.length === 0 ? "None yet" : `${contracts.filter((c) => c.status === "ACTIVE").length} active of ${contracts.length}`}</Row>
-            {balances && (
-              <>
-                <Row label="Available to withdraw">{formatUsd(balances.available)}</Row>
-                <Row label="On hold or scheduled">{formatUsd(balances.holding + balances.scheduled)}</Row>
-              </>
-            )}
-            <Row label="Your referral link">{link ? <code className="break-all text-xs">{link}</code> : <span className="text-text-3">Create it on the Algo Contracts page</span>}</Row>
-          </div>
-          <ButtonLink href="/dashboard/algo-contracts" variant="secondary" size="sm">Open Algo Contracts</ButtonLink>
-        </Card>
+        <>
+          <Card padding="lg" className="space-y-3">
+            <h2 className="text-base font-semibold text-text">Wallet</h2>
+            <div>
+              <Row label="Available to withdraw">{balances ? formatUsd(balances.available) : "$0.00"}</Row>
+              <Row label="On hold or scheduled">{balances ? formatUsd(balances.holding + balances.scheduled) : "$0.00"}</Row>
+              <Row label="Algo Contracts">{contracts.length === 0 ? "None yet" : `${contracts.filter((c) => c.status === "ACTIVE").length} active of ${contracts.length}`}</Row>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <ButtonLink href="/dashboard/wallet" variant="secondary" size="sm">Open wallet and history</ButtonLink>
+              <ButtonLink href="/dashboard/algo-contracts" variant="secondary" size="sm">Open Algo Contracts</ButtonLink>
+            </div>
+            <p className="text-xs text-text-3">The wallet shows where every amount came from: contract rebates and referral commission, by level and by what was bought.</p>
+          </Card>
+          <ReferralCard
+            initialLink={link}
+            blockedReason={(facts ? canEarnReferral(facts, now) : false) || isPlatformOwner(user.email) ? null : "An active paid Pro plan and a verified identity are needed to get a referral link."}
+            allProducts={referralAllProductsEnabled()}
+          />
+        </>
       )}
 
       <Card padding="lg">
         <h2 className="text-base font-semibold text-text">Shortcuts</h2>
         <ul className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+          <li><Link href="/dashboard/wallet" className="text-gold hover:underline">Wallet</Link></li>
           <li><Link href="/dashboard/licenses" className="text-gold hover:underline">My licenses</Link></li>
           <li><Link href="/dashboard/purchases" className="text-gold hover:underline">My purchases</Link></li>
           <li><Link href="/dashboard/settings" className="text-gold hover:underline">Settings</Link></li>

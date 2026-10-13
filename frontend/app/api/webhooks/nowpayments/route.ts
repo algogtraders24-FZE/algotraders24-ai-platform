@@ -172,7 +172,7 @@ export const POST = withContext(async (req, ctx) => {
           if (!rewardCheckout && !result.duplicate) {
             try {
               const purchaseRow = await prisma.purchase.findUnique({ where: { providerRef: paymentId }, select: { id: true } });
-              if (purchaseRow) await creditReferralForPayment({ buyerId: intent.buyerId, amountCents: Math.round(intent.amount * 100), saleRef: purchaseRow.id, paidAt: new Date() });
+              if (purchaseRow) await creditReferralForPayment({ buyerId: intent.buyerId, amountCents: Math.round(intent.amount * 100), saleRef: purchaseRow.id, paidAt: new Date(), source: "PRODUCT" });
             } catch (referralError) {
               console.error("[webhook:nowpayments] referral credit failed (non-fatal):", referralError);
             }
@@ -262,7 +262,7 @@ export const POST = withContext(async (req, ctx) => {
         const paidUsd = Number(body.price_amount);
         if (body.payment_id !== undefined && Number.isFinite(paidUsd) && paidUsd > 0) {
           try {
-            await creditReferralForPayment({ buyerId: parsed.userId, amountCents: Math.round(paidUsd * 100), saleRef: `sub:${body.payment_id}`, paidAt: now });
+            await creditReferralForPayment({ buyerId: parsed.userId, amountCents: Math.round(paidUsd * 100), saleRef: `sub:${body.payment_id}`, paidAt: now, source: "SUBSCRIPTION" });
           } catch (referralError) {
             console.error("[webhook:nowpayments] referral credit failed (non-fatal):", referralError);
           }

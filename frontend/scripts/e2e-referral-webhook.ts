@@ -21,6 +21,7 @@ import { prisma } from "../lib/prisma";
 import { attachSignupFromCode } from "../services/rewards/universalReferral";
 import { ensureReferralCode } from "../services/rewards/referralStore";
 import { runRewardsSweep } from "../services/rewards/releaseService";
+import { loadWallet } from "../services/rewards/walletStore";
 import { POST } from "../app/api/webhooks/nowpayments/route";
 
 let failed = 0;
@@ -115,6 +116,16 @@ async function main() {
   await ipn(sub(6));
   check("flag OFF: a renewal creates no commission", (await comm("sub:7100006")).length === 0);
 
+  // ---- the wallet shows where each commission came from, with the buyer masked
+  process.env.REFERRAL_ALL_PRODUCTS = "true";
+  const w = await loadWallet("p2");
+  const wProduct = w.entries.find((x) => x.detail.startsWith("Product: Third party EA"));
+  const wSub = w.entries.find((x) => x.detail.startsWith("Pro plan payment"));
+  check("wallet: a product commission names the product and a masked buyer", !!wProduct && wProduct.detail === "Product: Third party EA - B***" && wProduct.title === "Referral commission (level 2)", wProduct?.detail);
+  check("wallet: a Pro payment commission names the source and a masked buyer", !!wSub && wSub.detail === "Pro plan payment - B***");
+  check("wallet: no email address and no full name anywhere", w.entries.every((x) => !x.detail.includes("@") && !x.detail.toLowerCase().includes("buyer")));
+  check("wallet: totals by type match the rows", w.totals.byType.products === 79 && w.totals.byType.subscriptions > 0 && w.totals.referralTeam === w.totals.byType.products + w.totals.byType.subscriptions + w.totals.byType.contracts, JSON.stringify(w.totals));
+  delete process.env.REFERRAL_ALL_PRODUCTS;
   await wipe(); // leave the scratch database clean for the other e2e scripts
   console.log(failed === 0 ? "\nWEBHOOK E2E ALL PASS" : `\nWEBHOOK E2E ${failed} FAILED`);
 }
