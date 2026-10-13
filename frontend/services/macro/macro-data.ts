@@ -1,19 +1,22 @@
 // services/macro/macro-data.ts
-// Fetches the raw readings behind the Macro Alignment score (macro-alignment.ts).
+// Fetches the raw readings behind the Macro Alignment score (macro-alignment.ts)
+// for one asset profile.
 //
-//  - Gold momentum + dollar / Treasury / volatility proxies: Twelve Data `quote`
-//    (percent_change). The dollar, Treasury and VIX drivers use ETFs as proxies
-//    (UUP, IEF, VIXY) because the plan's index symbols are not served - the card
-//    names the proxy, it never presents it as the index itself. VIXY decays, so
-//    only its DAY CHANGE is used, never its level.
-//  - Real yield: FRED series DFII10 (Board of Governors, public domain, citation
-//    requested). Needs FRED_API_KEY; without it the driver is simply reported as
-//    unavailable - never estimated.
+//  - Asset price/momentum and the dollar / Treasury / equity / volatility
+//    drivers: Twelve Data `quote` (percent_change). The dollar, Treasury, stock
+//    and VIX drivers use ETFs as proxies (UUP, IEF, QQQ, VIXY) because the plan's
+//    index symbols are not served - the card names the proxy, it never presents
+//    it as the index itself. VIXY decays, so only its DAY CHANGE is used, never
+//    its level. Crude oil uses USO (a WTI futures ETF) - a proxy, not spot WTI.
+//  - Real yield / US 10Y yield: FRED series DFII10 / DGS10 (Board of Governors
+//    H.15, public domain, citation requested). Needs FRED_API_KEY; without it
+//    those drivers are simply reported as unavailable - never estimated.
 //
 // Every fetch is best-effort: a failed source yields value=null for that driver.
-// Results are cached in-process for a few minutes (Twelve Data Basic = 8 req/min).
+// Quotes are cached in-process 5 minutes per symbol and FRED series 30 minutes
+// (Twelve Data Basic = 8 req/min; switching asset reuses the shared quotes).
 
-import type { MacroInputs, DriverInput } from "./macro-alignment";
+import type { AssetProfile, DriverId, DriverInput, MacroInputs } from "./macro-alignment";
 
 export type FetchLike = (url: string) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
 
@@ -23,7 +26,7 @@ export interface MacroDataEnv {
 }
 
 export const FRED_ATTRIBUTION =
-  "This product uses the FRED® API but is not endorsed or certified by the Federal Reserve Bank of St. Louis. Real-yield data: Board of Governors of the Federal Reserve System (US), DFII10, retrieved from FRED, Federal Reserve Bank of St. Louis.";
+  "This product uses the FRED® API but is not endorsed or certified by the Federal Reserve Bank of St. Louis. Yield data: Board of Governors of the Federal Reserve System (US), retrieved from FRED, Federal Reserve Bank of St. Louis.";
 
 export function loadMacroDataEnv(): MacroDataEnv {
   const td = process.env.TWELVEDATA_API_KEY?.trim();
@@ -31,82 +34,137 @@ export function loadMacroDataEnv(): MacroDataEnv {
   return { twelveDataKey: td ? td : null, fredKey: fred ? fred : null };
 }
 
-const CACHE_TTL_MS = 5 * 60 * 1000;
-let cache: { at: number; key: string; value: MacroFetchResult } | null = null;
+const QUOTE_TTL_MS = 5 * 60 * 1000;
+const FRED_TTL_MS = 30 * 60 * 1000;
+
+interface Quote {
+  price: number | null;
+  pct: number | null;
+  asOf: string | null;
+}
+interface FredChange {
+  change: number;
+  asOf: string;
+}
+
+/** A failed fetch is remembered only briefly so an outage heals quickly but a rate-limited key is not hammered. */
+const FAILURE_TTL_MS = 60 * 1000;
+const quoteCache = new Map<string, { at: number; ttl: number; value: Quote | null }>();
+const fredCache = new Map<string, { at: number; ttl: number; value: FredChange | null }>();
 
 export interface MacroFetchResult {
   inputs: MacroInputs;
-  /** Latest gold quote (for the plain-language brief). */
-  gold: { price: number; changePct: number } | null;
+  /** The asset's own latest quote, for the price line. */
+  own: { price: number; changePct: number } | null;
   fetchedAt: string;
+}
+
+/** Twelve Data symbol behind each quote-based driver (momentum uses the profile's own quote). */
+const QUOTE_DRIVERS: Partial<Record<DriverId, { symbol: string; source: string }>> = {
+  dollar: { symbol: "UUP", source: "UUP (dollar proxy)" },
+  yields: { symbol: "IEF", source: "IEF (Treasury proxy)" },
+  riskAppetite: { symbol: "QQQ", source: "QQQ (stock-market proxy)" },
+  riskSentiment: { symbol: "VIXY", source: "VIXY (volatility proxy)" },
+};
+const FRED_DRIVERS: Partial<Record<DriverId, { series: string; source: string }>> = {
+  realYield: { series: "DFII10", source: "FRED DFII10" },
+  nominalYield: { series: "DGS10", source: "FRED DGS10" },
+};
+
+async function tdQuote(f: FetchLike, key: string, symbol: string, noCache: boolean): Promise<Quote | null> {
+  const hit = quoteCache.get(symbol);
+  if (!noCache && hit && Date.now() - hit.at < hit.ttl) return hit.value;
+  let value: Quote | null = null;
+  try {
+    const r = await f(`https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(key)}`);
+    if (r.ok) {
+      const j = (await r.json()) as Record<string, unknown>;
+      if (j.status !== "error" && !j.code) {
+        const pct = Number(j.percent_change);
+        const price = Number(j.close);
+        const ts = Number(j.last_quote_at ?? j.timestamp);
+        value = {
+          price: Number.isFinite(price) ? price : null,
+          pct: Number.isFinite(pct) ? pct : null,
+          asOf: Number.isFinite(ts) ? new Date(ts * 1000).toISOString() : null,
+        };
+      }
+    }
+  } catch {
+    value = null;
+  }
+  if (!noCache) quoteCache.set(symbol, { at: Date.now(), ttl: value ? QUOTE_TTL_MS : FAILURE_TTL_MS, value });
+  return value;
+}
+
+/** Change in the latest FRED observation vs 5 observations earlier, in percentage points. */
+async function fredChange(f: FetchLike, key: string, series: string, noCache: boolean): Promise<FredChange | null> {
+  const hit = fredCache.get(series);
+  if (!noCache && hit && Date.now() - hit.at < hit.ttl) return hit.value;
+  let value: FredChange | null = null;
+  try {
+    const r = await f(
+      `https://api.stlouisfed.org/fred/series/observations?series_id=${encodeURIComponent(series)}&api_key=${encodeURIComponent(key)}&file_type=json&sort_order=desc&limit=10`,
+    );
+    if (r.ok) {
+      const j = (await r.json()) as { observations?: { date: string; value: string }[] };
+      const obs = (j.observations ?? []).filter((o) => o.value !== "." && Number.isFinite(Number(o.value)));
+      if (obs.length >= 6) value = { change: Number(obs[0].value) - Number(obs[5].value), asOf: new Date(`${obs[0].date}T00:00:00Z`).toISOString() };
+    }
+  } catch {
+    value = null;
+  }
+  if (!noCache) fredCache.set(series, { at: Date.now(), ttl: value ? FRED_TTL_MS : FAILURE_TTL_MS, value });
+  return value;
 }
 
 const NA = (unit: string, source: string): DriverInput => ({ value: null, unit, source, asOf: null });
 
-async function tdQuote(f: FetchLike, key: string, symbol: string): Promise<{ price: number | null; pct: number | null; asOf: string | null } | null> {
-  try {
-    const r = await f(`https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(key)}`);
-    if (!r.ok) return null;
-    const j = (await r.json()) as Record<string, unknown>;
-    if (j.status === "error" || j.code) return null;
-    const pct = Number(j.percent_change);
-    const price = Number(j.close);
-    const ts = Number(j.last_quote_at ?? j.timestamp);
-    return {
-      price: Number.isFinite(price) ? price : null,
-      pct: Number.isFinite(pct) ? pct : null,
-      asOf: Number.isFinite(ts) ? new Date(ts * 1000).toISOString() : null,
-    };
-  } catch {
-    return null;
-  }
-}
+export async function fetchMacroInputs(env: MacroDataEnv, f: FetchLike, profile: AssetProfile, opts: { noCache?: boolean } = {}): Promise<MacroFetchResult> {
+  const noCache = opts.noCache === true;
+  const ids = new Set<DriverId>(profile.drivers.map((d) => d.id));
+  const td = env.twelveDataKey;
 
-/** Change in the latest DFII10 reading vs 5 observations earlier, in percentage points. */
-async function fredRealYieldChange(f: FetchLike, key: string): Promise<{ change: number; asOf: string } | null> {
-  try {
-    const r = await f(
-      `https://api.stlouisfed.org/fred/series/observations?series_id=DFII10&api_key=${encodeURIComponent(key)}&file_type=json&sort_order=desc&limit=10`,
+  const need: Promise<void>[] = [];
+  const inputs: MacroInputs = {};
+  let own: Quote | null = null;
+
+  const needsOwn = ids.has("momentum");
+  if (needsOwn) {
+    need.push(
+      (td ? tdQuote(f, td, profile.ownQuote.symbol, noCache) : Promise.resolve(null)).then((q) => {
+        own = q;
+        inputs.momentum = q?.pct != null ? { value: q.pct, unit: "% day change", source: profile.ownQuote.source, asOf: q.asOf } : NA("% day change", profile.ownQuote.source);
+      }),
     );
-    if (!r.ok) return null;
-    const j = (await r.json()) as { observations?: { date: string; value: string }[] };
-    const obs = (j.observations ?? []).filter((o) => o.value !== "." && Number.isFinite(Number(o.value)));
-    if (obs.length < 6) return null;
-    return { change: Number(obs[0].value) - Number(obs[5].value), asOf: new Date(`${obs[0].date}T00:00:00Z`).toISOString() };
-  } catch {
-    return null;
   }
-}
+  for (const [id, cfg] of Object.entries(QUOTE_DRIVERS) as [DriverId, { symbol: string; source: string }][]) {
+    if (!ids.has(id)) continue;
+    need.push(
+      (td ? tdQuote(f, td, cfg.symbol, noCache) : Promise.resolve(null)).then((q) => {
+        inputs[id] = q?.pct != null ? { value: q.pct, unit: "% day change", source: cfg.source, asOf: q.asOf } : NA("% day change", cfg.source);
+      }),
+    );
+  }
+  for (const [id, cfg] of Object.entries(FRED_DRIVERS) as [DriverId, { series: string; source: string }][]) {
+    if (!ids.has(id)) continue;
+    need.push(
+      (env.fredKey ? fredChange(f, env.fredKey, cfg.series, noCache) : Promise.resolve(null)).then((c) => {
+        inputs[id] = c ? { value: c.change, unit: "pp over 5 days", source: cfg.source, asOf: c.asOf } : NA("pp over 5 days", cfg.source);
+      }),
+    );
+  }
+  await Promise.all(need);
 
-export async function fetchMacroInputs(env: MacroDataEnv, f: FetchLike, opts: { noCache?: boolean } = {}): Promise<MacroFetchResult> {
-  const cacheKey = `${env.twelveDataKey ? 1 : 0}${env.fredKey ? 1 : 0}`;
-  if (!opts.noCache && cache && cache.key === cacheKey && Date.now() - cache.at < CACHE_TTL_MS) return cache.value;
-
-  const [gold, uup, ief, vixy, real] = await Promise.all([
-    env.twelveDataKey ? tdQuote(f, env.twelveDataKey, "XAU/USD") : null,
-    env.twelveDataKey ? tdQuote(f, env.twelveDataKey, "UUP") : null,
-    env.twelveDataKey ? tdQuote(f, env.twelveDataKey, "IEF") : null,
-    env.twelveDataKey ? tdQuote(f, env.twelveDataKey, "VIXY") : null,
-    env.fredKey ? fredRealYieldChange(f, env.fredKey) : null,
-  ]);
-
-  const inputs: MacroInputs = {
-    realYield: real ? { value: real.change, unit: "pp over 5 days", source: "FRED DFII10", asOf: real.asOf } : NA("pp over 5 days", "FRED DFII10"),
-    dollar: uup?.pct != null ? { value: uup.pct, unit: "% day change", source: "UUP (dollar proxy)", asOf: uup.asOf } : NA("% day change", "UUP (dollar proxy)"),
-    yields: ief?.pct != null ? { value: ief.pct, unit: "% day change", source: "IEF (Treasury proxy)", asOf: ief.asOf } : NA("% day change", "IEF (Treasury proxy)"),
-    riskSentiment: vixy?.pct != null ? { value: vixy.pct, unit: "% day change", source: "VIXY (volatility proxy)", asOf: vixy.asOf } : NA("% day change", "VIXY (volatility proxy)"),
-    momentum: gold?.pct != null ? { value: gold.pct, unit: "% day change", source: "XAU/USD", asOf: gold.asOf } : NA("% day change", "XAU/USD"),
-  };
-  const result: MacroFetchResult = {
+  const ownQuote = own as Quote | null;
+  return {
     inputs,
-    gold: gold && gold.price != null && gold.pct != null ? { price: gold.price, changePct: gold.pct } : null,
+    own: ownQuote && ownQuote.price != null && ownQuote.pct != null ? { price: ownQuote.price, changePct: ownQuote.pct } : null,
     fetchedAt: new Date().toISOString(),
   };
-  // Only cache a result that has something in it, so a transient outage is retried.
-  if (Object.values(inputs).some((i) => i.value !== null)) cache = { at: Date.now(), key: cacheKey, value: result };
-  return result;
 }
 
 export function resetMacroCacheForTests(): void {
-  cache = null;
+  quoteCache.clear();
+  fredCache.clear();
 }

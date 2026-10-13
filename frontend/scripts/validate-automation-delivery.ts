@@ -213,7 +213,7 @@ async function main(): Promise<void> {
     assert.ok(!boom.notified[0].body.includes("Macro alignment"));
   });
 
-  await test("enrich is NOT called for a non-gold instrument", async () => {
+  await test("enrich is NOT called for an instrument without a macro profile", async () => {
     let called = 0;
     const s = spy({
       enrich: async () => {
@@ -221,9 +221,19 @@ async function main(): Promise<void> {
         return { priceLine: "Gold $1" };
       },
     });
-    await deliverRunResult(input({ agentOutputs: [{ ...MI, symbol: "EURUSD" }] }), s.deps);
+    await deliverRunResult(input({ agentOutputs: [{ ...MI, symbol: "SOLUSD" }] }), s.deps);
     assert.equal(called, 0);
     assert.ok(!s.notified[0].body.includes("Gold $1"));
+  });
+
+  await test("enrich is called with the MI symbol for every asset that has a macro profile", async () => {
+    const seen: string[] = [];
+    for (const symbol of ["XAUUSD", "EURUSD", "USDJPY", "BTCUSD"]) {
+      const s = spy({ enrich: async (sym) => (seen.push(sym), { macroLine: `Macro alignment for ${sym}` }) });
+      await deliverRunResult(input({ agentOutputs: [{ ...MI, symbol }] }), s.deps);
+      assert.ok(s.notified[0].body.includes(`Macro alignment for ${symbol}`));
+    }
+    assert.deepEqual(seen, ["XAUUSD", "EURUSD", "USDJPY", "BTCUSD"]);
   });
 
   await test("validator: delivery.mode accepts always/on_change, rejects anything else", () => {

@@ -1,4 +1,4 @@
-# Automation Brief v2 + Macro Alignment (gold)
+# Automation Brief v2 + Macro Alignment (gold, EUR/USD, USD/JPY, Bitcoin, crude oil)
 
 Follow-up to `AUTOMATION_P2_DELIVERY.md`. Phase 2 delivered results; users found the text unreadable
 ("regime low-volatility (confidence 100)") and repetitive. Brief v2 makes the delivered result plain,
@@ -46,3 +46,26 @@ Five drivers, each reads +1 (supports gold), -1 (headwind) or 0 (neutral); missi
 
 `npm run validate:macro-alignment` (scoring, fetch degrade paths, cache, IST events), `validate:automation-brief`,
 `validate:automation-delivery`, lifecycle + `validate:automation-p2-smoke` (real DB, synthetic users).
+
+## Update 2026-10-13: more assets (per-asset profiles)
+
+The scorer is now profile-based (`ASSET_PROFILES` in `services/macro/macro-alignment.ts`). Same formula for every
+asset; each asset has its own drivers, weights and thresholds, and lists what it does NOT cover. "Supports" always means
+"favours a higher price". The card has an asset selector (`/api/private/macro-alignment?asset=gold|eurusd|usdjpy|btcusd|oil`).
+
+| Asset | Drivers (weight) | Own quote | Not covered |
+|---|---|---|---|
+| Gold | real yield 30, dollar 20, Treasuries 15, volatility spike 10 (support), momentum 25 | XAU/USD | central-bank buying, geopolitics |
+| EUR/USD | dollar 30, Treasuries 15, stocks 15, volatility spike 10 (headwind), momentum 30 | EUR/USD | euro-area data / ECB; dollar and momentum overlap (EUR is most of the dollar basket) |
+| USD/JPY | US 10Y yield (FRED DGS10) 30, Treasuries 20 (inverse), stocks 15, volatility spike 10 (headwind), momentum 25 | USD/JPY | BoJ policy / intervention |
+| Bitcoin | stocks 25, dollar 15, real yield 20, volatility spike 10 (headwind), momentum 30 (1% threshold) | BTC/USD | on-chain / ETF flows |
+| Crude oil (WTI) | dollar 25, stocks 25, volatility spike 10 (headwind), momentum 40 (0.8%) | USO (ETF proxy) | inventories, OPEC+, geopolitics; USO is a proxy, not spot WTI |
+
+* Quote drivers use Twelve Data ETF proxies: UUP (dollar), IEF (Treasuries), QQQ (stocks), VIXY (volatility, day change only),
+  USO (oil). Quotes are cached 5 min per symbol, FRED series 30 min, a failed fetch 60s. A cold gold card = 5 quotes; switching
+  asset re-uses the shared ones (Twelve Data Basic = 8 req/min).
+* FRED series: DFII10 (real yield), DGS10 (US 10Y) - Board of Governors H.15, public domain, citation requested.
+* Silver and spot WTI/Brent need the Twelve Data Grow plan (not served on Basic). BNO (Brent ETF) is available as a proxy if wanted.
+* Brief v2 extras (price, macro line, today's events in IST) now run for any Market Intelligence symbol that has a profile
+  (XAUUSD, EURUSD, USDJPY, BTCUSD); events use that asset's currencies. Oil has no Market Intelligence agent, so it appears on the card only.
+* Weights/thresholds are a research-based choice, not backtested. The card shows the formula, the caveat and "not covered".
