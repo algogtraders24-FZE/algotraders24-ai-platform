@@ -9,8 +9,8 @@
 // other AT24 alert. Both are best-effort and return false/0 for a user who
 // never connected them.
 //
-// Brief v2: `enrich` adds the gold price, the macro-alignment line and today's
-// high-impact USD events (IST). Each part is independent and best-effort - a
+// Brief v2: `enrich` adds the asset's price, the macro-alignment line and today's
+// high-impact events for its currencies (IST). Each part is independent and best-effort - a
 // source that is down is left out, never estimated.
 
 import { createNotification } from "@/services/notifications/NotificationService";
@@ -19,19 +19,21 @@ import { sendPushToUser } from "@/services/push/deliver";
 import { telegramConfig } from "@/services/telegram/config";
 import { getEconomicCalendar } from "@/services/calendar/calendar.service";
 import { getMacroAlignmentSnapshot } from "@/services/macro/macro-service";
-import { alignmentLine } from "@/services/macro/macro-alignment";
+import { alignmentLine, profileForMiSymbol } from "@/services/macro/macro-alignment";
 import { formatEventLines, formatPriceLine, type DeliveryExtras } from "./brief-extras";
 import type { DeliveryDeps } from "./delivery";
 
-async function enrichGold(): Promise<DeliveryExtras> {
+async function enrichMacro(symbol: string): Promise<DeliveryExtras> {
+  const profile = profileForMiSymbol(symbol);
+  if (!profile) return {};
   const now = new Date();
   const [macro, calendar] = await Promise.allSettled([
-    getMacroAlignmentSnapshot(),
-    getEconomicCalendar({ week: "this", currencies: ["USD"], impacts: ["high"] }),
+    getMacroAlignmentSnapshot(profile.id),
+    getEconomicCalendar({ week: "this", currencies: profile.calendarCurrencies, impacts: ["high"] }),
   ]);
   const extras: DeliveryExtras = {};
   if (macro.status === "fulfilled") {
-    extras.priceLine = formatPriceLine(macro.value.gold);
+    extras.priceLine = formatPriceLine(macro.value.price);
     if (macro.value.alignment.score !== null) extras.macroLine = alignmentLine(macro.value.alignment);
   }
   if (calendar.status === "fulfilled") {
@@ -47,6 +49,6 @@ export function productionDeliveryDeps(): DeliveryDeps {
     notify: createNotification,
     telegram: (userId, text) => sendTelegramToUser(userId, "alerts", text),
     push: (userId, msg) => sendPushToUser(userId, "alerts", msg),
-    enrich: enrichGold,
+    enrich: enrichMacro,
   };
 }

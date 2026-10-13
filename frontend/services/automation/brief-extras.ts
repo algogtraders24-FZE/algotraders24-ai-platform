@@ -56,8 +56,9 @@ export function formatEventLines(events: readonly CalendarEventLike[], now: Date
     });
 }
 
-export function formatPriceLine(gold: { price: number; changePct: number } | null | undefined): string | undefined {
-  if (!gold) return undefined;
-  const sign = gold.changePct >= 0 ? "+" : "";
-  return `Gold $${gold.price.toLocaleString("en-US", { maximumFractionDigits: 2 })} (${sign}${gold.changePct.toFixed(2)}% today)`;
+/** "Gold $4,166.15 (+0.40% today)" from a ready-made price (label + formatted text). */
+export function formatPriceLine(price: { label: string; text: string; changePct: number } | null | undefined): string | undefined {
+  if (!price) return undefined;
+  const sign = price.changePct >= 0 ? "+" : "";
+  return `${price.label} ${price.text} (${sign}${price.changePct.toFixed(2)}% today)`;
 }

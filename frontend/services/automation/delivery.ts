@@ -21,6 +21,7 @@
 import type { AutomationDeliveryChannel, AutomationWorkflowDefinition } from "@/types/automation";
 import { composeAgentBrief, type AgentBrief } from "./brief";
 import type { DeliveryExtras } from "./brief-extras";
+import { profileForMiSymbol } from "@/services/macro/macro-alignment";
 import { escapeHtml } from "@/services/telegram/client";
 
 export const DELIVERY_NOTIFICATION_KIND = "automation_result";
@@ -82,8 +83,8 @@ export interface DeliveryDeps {
   telegram?: (userId: string, text: string) => Promise<boolean>;
   push?: (userId: string, msg: { title: string; body: string; url: string; tag: string }) => Promise<number>;
   siteUrl?: string;
-  /** Optional Brief v2 extras (price, macro alignment, today's events). Called only for a gold Market Intelligence brief; a failure just drops the extras. */
-  enrich?: () => Promise<DeliveryExtras | null>;
+  /** Optional Brief v2 extras (price, macro alignment, today's events) for the Market Intelligence symbol (e.g. "XAUUSD"). Called only for a symbol with a macro profile; a failure just drops the extras. */
+  enrich?: (symbol: string) => Promise<DeliveryExtras | null>;
 }
 
 export interface DeliveryReport {
@@ -104,11 +105,15 @@ export interface DeliveryInput {
   previousOutputs?: readonly unknown[];
 }
 
-const isGoldMarketIntelligence = (o: unknown): boolean => {
-  if (typeof o !== "object" || o === null) return false;
-  const r = o as Record<string, unknown>;
-  return r.kind === "market-intelligence-conclusion" && r.symbol === "XAUUSD" && r.resolved !== false;
-};
+/** The symbol of the first resolved Market Intelligence output that has a macro profile (gold, EUR/USD, USD/JPY, Bitcoin), or null. */
+function macroSymbolOf(outputs: readonly unknown[]): string | null {
+  for (const o of outputs) {
+    if (typeof o !== "object" || o === null) continue;
+    const r = o as Record<string, unknown>;
+    if (r.kind === "market-intelligence-conclusion" && r.resolved !== false && typeof r.symbol === "string" && profileForMiSymbol(r.symbol)) return r.symbol;
+  }
+  return null;
+}
 
 export async function deliverRunResult(input: DeliveryInput, deps: DeliveryDeps = {}): Promise<DeliveryReport> {
   const channels = resolveDeliveryChannels(input.definition);
@@ -128,9 +133,10 @@ export async function deliverRunResult(input: DeliveryInput, deps: DeliveryDeps 
   }
 
   let extras: DeliveryExtras | null = null;
-  if (deps.enrich && input.agentOutputs.some(isGoldMarketIntelligence)) {
+  const macroSymbol = deps.enrich ? macroSymbolOf(input.agentOutputs) : null;
+  if (deps.enrich && macroSymbol) {
     try {
-      extras = await deps.enrich();
+      extras = await deps.enrich(macroSymbol);
     } catch {
       extras = null;
     }
