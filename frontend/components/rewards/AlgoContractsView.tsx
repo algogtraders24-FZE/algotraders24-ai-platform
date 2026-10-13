@@ -276,7 +276,7 @@ function ReferralEarnings({ vm }: { vm: AlgoContractsVM }) {
   return (
     <Card className="space-y-3">
       <div className="flex items-center gap-2"><Users size={18} className="text-gold" aria-hidden="true" /><h3 className="text-base font-semibold text-text">What you earn per sale</h3></div>
-      <p className="text-xs text-text-3">Fixed amounts, shown before anyone buys. Paid after a 7-day hold once the buyer&apos;s payment is confirmed.</p>
+      <p className="text-xs text-text-3">Fixed amounts, shown before anyone buys. {vm.referral.commissionHoldDays === 0 ? "Credited as soon as the buyer's payment is confirmed." : `Credited ${vm.referral.commissionHoldDays} days after the buyer's payment is confirmed.`}</p>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -302,7 +302,7 @@ function ReferralEarnings({ vm }: { vm: AlgoContractsVM }) {
           <p className="text-sm font-medium text-text">Every other purchase</p>
           <p className="text-xs text-text-3">
             Any product or Pro payment (every renewal) by someone you brought: <span className="text-text">2%</span> of the price paid on a direct sale
-            {multi ? ", and 1% on each of levels 2 to 4" : ""}. Rounded down to the cent, paid after the same 7-day hold once the payment is confirmed.
+            {multi ? ", and 1% on each of levels 2 to 4" : ""}. Rounded down to the cent. {vm.referral.commissionHoldDays === 0 ? "Credited as soon as the payment is confirmed." : `Credited ${vm.referral.commissionHoldDays} days after the payment is confirmed.`}
           </p>
         </div>
       )}

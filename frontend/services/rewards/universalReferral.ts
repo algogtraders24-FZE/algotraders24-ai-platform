@@ -6,8 +6,9 @@
 import { cookies } from "next/headers";
 import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { holdDays, referralAllProductsEnabled } from "@/lib/rewards/config";
-import { addDays, computePercentShares } from "@/lib/rewards/money";
+import { referralAllProductsEnabled } from "@/lib/rewards/config";
+import { computePercentShares } from "@/lib/rewards/money";
+import { createCommission } from "@/services/rewards/commissionCredit";
 import { REF_COOKIE, normalizeReferralCode } from "@/lib/rewards/referral";
 import { resolveUpline } from "@/services/rewards/upline";
 
@@ -58,8 +59,8 @@ export async function creditReferralForPayment(input: { buyerId: string; amountC
   let credited = 0;
   for (const s of shares) {
     try {
-      await prisma.referralCommission.create({
-        data: { purchaseId: input.saleRef, partnerId: s.partnerId, level: s.level, amountCents: s.amountCents, buyerId: input.buyerId, source: input.source, status: "PENDING", availableAt: addDays(input.paidAt, holdDays()) },
+      await prisma.$transaction(async (tx) => {
+        await createCommission(tx, { purchaseRef: input.saleRef, partnerId: s.partnerId, level: s.level, amountCents: s.amountCents, buyerId: input.buyerId, source: input.source, paidAt: input.paidAt });
       });
       credited++;
     } catch (e) {

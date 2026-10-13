@@ -321,13 +321,18 @@ const wt = summarizeBySource(we);
 check("wallet: totals by source ignore cancelled and reversed", wt.rebates === 150 && wt.referralDirect === 158 && wt.referralTeam === 20 && wt.byType.products === 158 && wt.byType.subscriptions === 20 && wt.byType.contracts === 0 && wt.withdrawn === 100, JSON.stringify(wt));
 check("wallet: a withdrawal is negative and every row names its source", we.find((e) => e.kind === "WITHDRAWAL")?.amountCents === -100 && we.find((e) => e.id === "commission:k1")?.detail === "Product: Some EA - R*** K." && we.find((e) => e.id === "rebate:i1")?.detail === "Test Contract - instalment 1 of 4");
 
+// --- commission hold
+import { commissionHoldDays } from "../lib/rewards/config";
+check("commission hold defaults to 0 days (credited at once) and can be set 0-30", commissionHoldDays(undefined) === 0 && commissionHoldDays("") === 0 && commissionHoldDays("7") === 7 && commissionHoldDays("31") === 0 && commissionHoldDays("-1") === 0 && commissionHoldDays("x") === 0);
+
 // --- saved USDT withdrawal address
-import { addressCoolingHours, maskAddress, activeFromFor, isAddressActive, addressStatusText } from "../lib/rewards/payoutAddress";
-check("cooling defaults to 24h and can only be shortened", addressCoolingHours(undefined) === 24 && addressCoolingHours("0") === 0 && addressCoolingHours("6") === 6 && addressCoolingHours("48") === 24 && addressCoolingHours("-1") === 24 && addressCoolingHours("abc") === 24);
+import { addressCoolingHours, maskAddress, activeFromFor, isAddressActive, addressStatusText, effectiveActiveFrom } from "../lib/rewards/payoutAddress";
+check("cooling defaults to ZERO and an owner can add a wait back (0-168h)", addressCoolingHours(undefined) === 0 && addressCoolingHours("0") === 0 && addressCoolingHours("6") === 6 && addressCoolingHours("168") === 168 && addressCoolingHours("169") === 0 && addressCoolingHours("-1") === 0 && addressCoolingHours("abc") === 0);
 check("an address is masked in the middle", maskAddress("TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE") === "TQn9Y2...cbLSE" && maskAddress("short") === "short");
 const t0 = new Date("2026-10-14T00:00:00Z");
-check("a new address is usable only after the cooling period", !isAddressActive(activeFromFor(t0, 24), new Date(t0.getTime() + 23 * 3_600_000)) && isAddressActive(activeFromFor(t0, 24), new Date(t0.getTime() + 24 * 3_600_000)) && isAddressActive(activeFromFor(t0, 0), t0));
-check("the member is told when it becomes usable", addressStatusText(activeFromFor(t0, 24), t0).startsWith("Usable in about 24 hours") && addressStatusText(activeFromFor(t0, 0), t0) === "Active");
+check("with a wait, a new address is usable only after it", !isAddressActive(activeFromFor(t0, 24), new Date(t0.getTime() + 23 * 3_600_000)) && isAddressActive(activeFromFor(t0, 24), new Date(t0.getTime() + 24 * 3_600_000)) && isAddressActive(activeFromFor(t0, 0), t0));
+check("lowering the wait frees an address saved under the old wait", isAddressActive(effectiveActiveFrom(activeFromFor(t0, 24), t0, 0), t0) && !isAddressActive(effectiveActiveFrom(activeFromFor(t0, 24), t0, 24), t0) && effectiveActiveFrom(activeFromFor(t0, 0), t0, 24).getTime() === t0.getTime());
+check("the member is told when it becomes usable", addressStatusText(activeFromFor(t0, 24), t0) === "Usable in about 24 hours" && addressStatusText(activeFromFor(t0, 0), t0) === "Active");
 
 // --- copy guard on the strings this program shows
 const copy = REWARD_PRODUCT_KEYS.map((k) => REWARD_PRODUCTS[k].name).join(" ").toLowerCase();

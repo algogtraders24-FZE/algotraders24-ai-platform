@@ -22,7 +22,7 @@ export interface Balances {
   reversed: number; // cancelled / reversed (not owed)
 }
 
-export function bucketOf(i: BalanceItem, now: Date = new Date()): keyof Balances {
+export function bucketOf(i: BalanceItem & { noHold?: boolean }, now: Date = new Date()): keyof Balances {
   if (i.status === "CANCELLED" || i.status === "REVERSED") return "reversed";
   if (i.status === "PAID") return "paid";
   if (i.status === "SCHEDULED") return "scheduled";
@@ -30,10 +30,12 @@ export function bucketOf(i: BalanceItem, now: Date = new Date()): keyof Balances
   // RELEASED
   if (i.payoutId) return "requested";
   if (!i.releasedAt) return "holding";
+  // A commission carries its own wait inside releasedAt already (see commissionHoldDays), so it is never held a second time.
+  if (i.noHold) return i.releasedAt.getTime() <= now.getTime() ? "available" : "holding";
   return addDays(i.releasedAt, holdDays()).getTime() <= now.getTime() ? "available" : "holding";
 }
 
-export function summarizeBalances(items: BalanceItem[], now: Date = new Date()): Balances {
+export function summarizeBalances(items: Array<BalanceItem & { noHold?: boolean }>, now: Date = new Date()): Balances {
   const s: Balances = { scheduled: 0, frozen: 0, holding: 0, available: 0, requested: 0, paid: 0, reversed: 0 };
   for (const i of items) s[bucketOf(i, now)] += i.amountCents;
   return s;

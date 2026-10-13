@@ -11,6 +11,7 @@ if (!/@(localhost|127\.0\.0\.1)[:/]/.test(process.env.DATABASE_URL ?? "")) {
 }
 process.env.REWARDS_PROGRAM_MODE = "public";
 process.env.REWARDS_WITHDRAWALS = "true";
+process.env.REWARDS_COMMISSION_HOLD_DAYS = "7"; // the older checks below test the hold; instant credit (the default 0) is covered in e2e-referral-webhook.ts
 
 import { prisma } from "../lib/prisma";
 import { REWARD_PRODUCTS } from "../lib/rewards/config";
@@ -304,6 +305,7 @@ async function main() {
 
   // ---- the owner-only $15 TEST contract, end to end: kharid -> contract -> 4 daily instalments -> commission -> withdrawal
   process.env.REWARDS_HOLD_DAYS = "0";
+  process.env.REWARDS_COMMISSION_HOLD_DAYS = "1";
   process.env.REWARDS_MIN_PAYOUT_USD = "1";
   await mkUser("tbuyer");
   await mkUser("tpartner");
@@ -338,6 +340,7 @@ async function main() {
   const tr = await runRewardsSweep(addDays(later(5), 0.05));
   check("test run leaves the reserve balanced", tr.errors.length === 0 && tr.reserveOutstandingCents === tr.owedCents, JSON.stringify(tr.errors));
   delete process.env.REWARDS_HOLD_DAYS;
+  process.env.REWARDS_COMMISSION_HOLD_DAYS = "7";
   delete process.env.REWARDS_MIN_PAYOUT_USD;
 
   // ---- universal referral: percent commission on any other payment (a product, a Pro subscription renewal), 4 levels, flag-gated
@@ -383,6 +386,7 @@ async function main() {
   await mkUser("addr1");
   process.env.REWARDS_ADDRESS_COOLING_HOURS = "24";
   const A1 = "TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE";
+  await prisma.emailLog.deleteMany({ where: { type: "payout_address_changed" } }); // scratch DB: start the email count clean on every run
   const bad = await saveAddress({ userId: "addr1", network: "TRC20", address: "not-an-address" });
   check("a bad address is refused and nothing is saved", !bad.ok && (await getSavedAddress("addr1")) === null);
   const ads1 = await saveAddress({ userId: "addr1", network: "TRC20", address: A1, now: T0 });
@@ -391,7 +395,7 @@ async function main() {
   check("saving the same address again changes nothing (the wait does not restart)", ads2.ok && ads2.unchanged && ads2.activeFrom.getTime() === addDays(T0, 1).getTime());
   const ads3 = await saveAddress({ userId: "addr1", network: "TRC20", address: "TXYZ" + A1.slice(4), now: addDays(T0, 2) });
   const saved3 = await getSavedAddress("addr1");
-  check("changing it replaces the single row and restarts the wait", ads3.ok && !ads3.unchanged && saved3?.address.startsWith("TXYZ") === true && (await prisma.rewardPayoutAddress.count({ where: { userId: "addr1" } })) === 1 && saved3.activeFrom.getTime() === addDays(T0, 3).getTime());
+  check("changing it replaces the single row and restarts the wait", ads3.ok && !ads3.unchanged && saved3?.address.startsWith("TXYZ") === true && (await prisma.rewardPayoutAddress.count({ where: { userId: "addr1" } })) === 1 && (await prisma.rewardPayoutAddress.findUnique({ where: { userId: "addr1" } }))?.activeFrom.getTime() === addDays(T0, 3).getTime());
   const aud = await prisma.rewardAuditEvent.findMany({ where: { subjectType: "RewardPayoutAddress" }, orderBy: { createdAt: "asc" } });
   check("save and change are both audited, with the address masked", aud.map((a) => a.action).join() === "payout_address.saved,payout_address.changed" && aud.every((a) => !JSON.stringify(a.data).includes(A1)));
   const mails = await prisma.emailLog.findMany({ where: { type: "payout_address_changed", recipientUserId: "addr1" }, orderBy: { sentAt: "asc" } });

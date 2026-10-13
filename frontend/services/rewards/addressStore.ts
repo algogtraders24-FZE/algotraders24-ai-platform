@@ -3,13 +3,14 @@
 // is only ever sent to the saved address once that period is over (see lib/rewards/payoutAddress.ts).
 import { prisma } from "@/lib/prisma";
 import { validatePayoutAddress } from "@/lib/marketplace/earnings";
-import { activeFromFor, addressStatusText, isAddressActive, maskAddress } from "@/lib/rewards/payoutAddress";
+import { activeFromFor, addressStatusText, effectiveActiveFrom, isAddressActive, maskAddress } from "@/lib/rewards/payoutAddress";
 
 export interface SavedAddress { network: string; address: string; activeFrom: Date }
 
 export async function getSavedAddress(userId: string): Promise<SavedAddress | null> {
   const row = await prisma.rewardPayoutAddress.findUnique({ where: { userId } }).catch(() => null);
-  return row ? { network: row.network, address: row.address, activeFrom: row.activeFrom } : null;
+  // The wait is judged by today's rule, so lowering it also frees an address that was saved under a longer wait.
+  return row ? { network: row.network, address: row.address, activeFrom: effectiveActiveFrom(row.activeFrom, row.updatedAt) } : null;
 }
 
 export type SaveResult = { ok: true; activeFrom: Date; unchanged: boolean } | { ok: false; code: string; message: string };

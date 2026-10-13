@@ -16,12 +16,14 @@ process.env.NOWPAYMENTS_IPN_SECRET = "test-ipn-secret";
 process.env.REWARDS_MULTI_LEVEL = "true";
 process.env.REFERRAL_ALL_PRODUCTS = "true";
 delete process.env.REWARDS_HOLD_DAYS;
+process.env.REWARDS_COMMISSION_HOLD_DAYS = "7"; // the first half tests the hold; the instant-credit half below switches it to 0
 
 import { prisma } from "../lib/prisma";
 import { attachSignupFromCode } from "../services/rewards/universalReferral";
 import { ensureReferralCode } from "../services/rewards/referralStore";
 import { runRewardsSweep } from "../services/rewards/releaseService";
 import { loadWallet } from "../services/rewards/walletStore";
+import { getBalances } from "../services/rewards/payoutStore";
 import { POST } from "../app/api/webhooks/nowpayments/route";
 
 let failed = 0;
@@ -115,6 +117,28 @@ async function main() {
   delete process.env.REFERRAL_ALL_PRODUCTS;
   await ipn(sub(6));
   check("flag OFF: a renewal creates no commission", (await comm("sub:7100006")).length === 0);
+
+  // ---- instant credit (the default, REWARDS_COMMISSION_HOLD_DAYS = 0): released the moment the payment is confirmed, withdrawable at once
+  process.env.REFERRAL_ALL_PRODUCTS = "true";
+  process.env.REWARDS_COMMISSION_HOLD_DAYS = "0";
+  await prisma.marketplacePurchaseIntent.create({ data: { id: "int3", buyerId: "buyer", marketplaceListingId: "lst", tradingSystemId: "ts", versionId: "v1", platform: "MT5", releaseId: rel.id, amount: 100, currency: "USD" } });
+  await ipn({ payment_status: "finished", order_id: "mkt_int3", payment_id: 7000003, price_amount: 100, created_at: new Date().toISOString() });
+  const p3 = await prisma.purchase.findUnique({ where: { providerRef: "7000003" } });
+  const i3 = p3 ? await comm(p3.id) : [];
+  check("hold 0: the product commissions are RELEASED at once (200c / 100c / 100c / 100c)", i3.length === 4 && i3.every((r) => r.status === "RELEASED" && r.releasedAt !== null) && i3.map((r) => r.amountCents).join() === "200,100,100,100", JSON.stringify(i3.map((r) => [r.status, r.amountCents])));
+  const bal1 = await getBalances("p1");
+  check("hold 0: the partner can withdraw it straight away (no second wait)", bal1.available >= 200, JSON.stringify(bal1));
+  const led = p3 ? await prisma.rewardLedgerEntry.count({ where: { idempotencyKey: { startsWith: `commission:${p3.id}:` } } }) : 0;
+  check("hold 0: each release is in the ledger once", led === 4, String(led));
+  await ipn({ payment_status: "finished", order_id: "mkt_int3", payment_id: 7000003, price_amount: 100, created_at: new Date().toISOString() });
+  check("hold 0: a replayed payment credits nothing twice", p3 !== null && (await comm(p3.id)).length === 4 && (await prisma.rewardLedgerEntry.count({ where: { idempotencyKey: { startsWith: `commission:${p3.id}:` } } })) === 4);
+  await ipn(sub(8));
+  check("hold 0: a Pro renewal is RELEASED at once too", (await comm("sub:7100008")).every((r) => r.status === "RELEASED") && (await comm("sub:7100008")).length === 4);
+  if (p3) await prisma.purchase.update({ where: { id: p3.id }, data: { status: "REFUNDED" } });
+  await runRewardsSweep(new Date(Date.now() + 86_400_000));
+  check("hold 0: a refunded product takes its not-yet-requested commission back", p3 !== null && (await comm(p3.id)).every((r) => r.status === "REVERSED"));
+  process.env.REWARDS_COMMISSION_HOLD_DAYS = "7";
+  delete process.env.REFERRAL_ALL_PRODUCTS;
 
   // ---- the wallet shows where each commission came from, with the buyer masked
   process.env.REFERRAL_ALL_PRODUCTS = "true";
