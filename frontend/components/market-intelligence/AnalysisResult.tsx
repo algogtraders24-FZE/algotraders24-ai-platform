@@ -14,6 +14,7 @@
 // tabular-figure class. The AI Summary panel keeps its own rounded-panel
 // treatment - a genuine hero-emphasis radius Card doesn't offer. No field,
 // data shape, or rendering logic changed.
+import RichText from "@/components/ui/RichText";
 import type { MarketAnalysisResult } from "@/types/market-analysis-orchestration";
 import type { ExplanationLine } from "@/types/explainable-analysis";
 import type { RiskLevel } from "@/types/risk";
@@ -182,7 +183,7 @@ export default function AnalysisResult({ result }: { result: MarketAnalysisResul
     <div className="space-y-8">
       <div className="rounded-panel border border-border bg-ink-2 p-6">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold">AI Summary</p>
-        <p className="mt-3 text-base leading-7 text-text">{summary}</p>
+        <RichText text={summary} className="mt-3 text-base leading-7 text-text" />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

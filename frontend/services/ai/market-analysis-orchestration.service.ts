@@ -210,6 +210,17 @@ export class MarketAnalysisOrchestrationService {
     lines.push(`Recommendation basis: ${explainable.recommendationBasis}`);
 
     lines.push(`Respond using this structure: ${routing.schema.sections.join(", ")}.`);
+    if (routing.schema.id === "market-analysis") {
+      lines.push(
+        "Write it as a concise, professional market brief in Markdown, at most about 200 words, with each section title in bold on its own line: " +
+          "**Summary** - two or three sentences: what the evidence shows and the confidence level. " +
+          "**Key evidence** - 3 to 5 short bullets covering only what is present above (price, market structure / technical, macro and scheduled events, cross-asset drivers, relevant news). " +
+          "**Risks and gaps** - 2 to 4 short bullets: the main risks and what is not covered. " +
+          "**What to watch** - 1 or 2 bullets (upcoming events, nearest liquidity levels) only if present above, otherwise omit this section. " +
+          "Use plain, precise language. Do not repeat the same point across sections, do not use framework labels such as Observe / Analyze / Explain, " +
+          "and do not mention entry, stop loss, take profit, targets or BUY / SELL.",
+      );
+    }
     lines.push(
       "Restate the analysis above naturally and completely - never perform new reasoning, " +
         "never invent a price, direction, headline, or conclusion not already stated above.",
