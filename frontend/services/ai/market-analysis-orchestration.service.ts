@@ -32,7 +32,8 @@
 // reaches the provider-unavailable outcome, exactly the same behavior (and
 // the same locked rule against fabricated/unexpectedly-live market data in
 // a default code path) this file already had before this sprint.
-import { createAIService, AIProviderError, type AIService } from "@/lib/ai";
+import { createAIService, AIProviderError, ClaudeProvider, type AIService } from "@/lib/ai";
+import { completeWithResilience, friendlyAiMessage } from "./ai-resilience";
 import { AI_COMMUNICATION_POLICY } from "@/lib/ai/response-policy";
 import { resolvePromptRouting, type ResolvedPromptRouting } from "./prompts/resolve-routing.service";
 import { MarketIntelligencePipelineService } from "./market-intelligence-pipeline.service";
@@ -73,6 +74,17 @@ export class MarketAnalysisOrchestrationService {
 
   private getAI(): Pick<AIService, "complete"> {
     return this.ai ?? createAIService();
+  }
+
+  /** Production: retry once on a transient provider failure, then a second provider (Claude) when configured. An injected AI is called exactly once, unchanged. */
+  private async completePrompt(prompt: string) {
+    if (this.ai) return this.ai.complete(prompt);
+    return completeWithResilience({
+      primary: () => createAIService().complete(prompt),
+      fallback: process.env.ANTHROPIC_API_KEY?.trim()
+        ? () => new ClaudeProvider().complete({ messages: [{ role: "user", content: prompt }] })
+        : null,
+    });
   }
 
   private assertValidRequest(request: MarketAnalysisRequest): MarketAnalysisRequest {
@@ -135,7 +147,7 @@ export class MarketAnalysisOrchestrationService {
     const prompt = this.buildPrompt(validated, routing, explainable);
 
     try {
-      const completion = await this.getAI().complete(prompt);
+      const completion = await this.completePrompt(prompt);
       if (completion.content.trim().length === 0) {
         // An empty response is not a completed analysis - do not hide it
         // as a success with a blank summary.
@@ -159,7 +171,8 @@ export class MarketAnalysisOrchestrationService {
       const updated = await this.analysisRuns.completeRun(run.id, validated.userId, legacyContext, completion.content);
       return { status: "completed", run: updated ?? run, result };
     } catch (error) {
-      const message = error instanceof AIProviderError ? error.message : "The AI analysis could not be completed.";
+      // An injected AI (tests) keeps the exact typed message; production gets plain words for a busy provider.
+      const message = this.ai ? (error instanceof AIProviderError ? error.message : "The AI analysis could not be completed.") : friendlyAiMessage(error);
       const updated = await this.analysisRuns.markFailed(run.id, validated.userId, message);
       return { status: "ai-failed", run: updated ?? run, message };
     }
