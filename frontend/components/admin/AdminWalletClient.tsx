@@ -1,14 +1,15 @@
 "use client";
 // components/admin/AdminWalletClient.tsx
 // Admin Wallet: today's and yesterday's numbers, a day-by-day summary (money in / out, commissions, rebate credits), every withdrawal
-// (members and sellers) with its address and tx reference, payments received, and referral commissions. Read-only; paying or rejecting a
-// member withdrawal is still done on the Algo Contracts tab. Days are India time (IST).
+// (members and sellers) with its address and tx reference, payments received, and referral commissions. Paying or rejecting a
+// withdrawal is done here too (Mark paid with the USDT transaction reference, or Reject). The platform never sends money itself: Mark paid
+// only records that you sent it. Days are India time (IST).
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Alert from "@/components/ui/Alert";
 import Badge from "@/components/ui/Badge";
+import Input from "@/components/ui/Input";
 
 interface Daily {
   day: string;
@@ -90,6 +91,9 @@ export default function AdminWalletClient() {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("daily");
   const [filter, setFilter] = useState<"ALL" | "REQUESTED" | "PAID" | "REJECTED">("ALL");
+  const [tx, setTx] = useState<Record<string, string>>({});
+  const [notice, setNotice] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async (n: number) => {
     setError(null);
@@ -103,6 +107,32 @@ export default function AdminWalletClient() {
     }
   }, []);
   useEffect(() => { void load(days); }, [load, days]);
+
+  async function decide(w: Withdrawal, decision: "PAID" | "REJECTED") {
+    setError(null);
+    setNotice(null);
+    let note = "";
+    if (decision === "REJECTED") {
+      note = window.prompt(w.kind === "Member" ? "Reason for rejecting (the amount returns to the member's balance):" : "Reason for rejecting (the earnings return to the seller):") ?? "";
+      if (!note.trim()) return;
+    } else if (!window.confirm(`Confirm: you already sent ${usd(w.amountCents)} USDT (${w.network}) to ${w.address} and the transaction reference is correct?`)) {
+      return;
+    }
+    setBusy(w.id);
+    try {
+      const res = w.kind === "Member"
+        ? await fetch("/api/private/admin/rewards/payouts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ payoutId: w.id, decision, txRef: tx[w.id], note }) })
+        : await fetch("/api/private/admin/seller-payouts", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: w.id, action: decision === "PAID" ? "paid" : "reject", txRef: tx[w.id], note }) });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || json?.status !== "ok") throw new Error(json?.error?.message ?? `Request failed (${res.status})`);
+      setNotice(decision === "PAID" ? "Marked as paid." : "Rejected; the amount went back to the balance.");
+      await load(days);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Action failed.");
+    } finally {
+      setBusy(null);
+    }
+  }
 
   function download() {
     if (!data) return;
@@ -123,6 +153,7 @@ export default function AdminWalletClient() {
   return (
     <div className="space-y-6">
       {error && <Alert tone="danger">{error}</Alert>}
+      {notice && <Alert tone="success">{notice}</Alert>}
 
       <Card className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -138,7 +169,11 @@ export default function AdminWalletClient() {
         </div>
         {r.balanced ? <Badge tone="success">Reserve matches what is owed</Badge> : <Alert tone="danger">Reserve does not match what is owed. Shortfall {usd(r.shortfallCents)}.</Alert>}
         {data.open.count > 0 && (
-          <p className="text-xs text-text-3">Member withdrawals are paid or rejected on the <Link href="/dashboard/admin/rewards" className="text-gold underline">Algo Contracts</Link> tab; seller payouts on <Link href="/dashboard/admin/seller-payouts" className="text-gold underline">Seller Payouts</Link>.</p>
+          <p className="text-xs text-text-3">
+            Open requests are in the{" "}
+            <button type="button" onClick={() => { setTab("withdrawals"); setFilter("REQUESTED"); }} className="text-gold underline">Withdrawals tab</button>
+            : send the USDT yourself, paste the transaction reference, then Mark paid. The platform never sends money itself.
+          </p>
         )}
       </Card>
 
@@ -207,7 +242,7 @@ export default function AdminWalletClient() {
           <Card padding="none" className="overflow-x-auto">
             <table className="w-full min-w-[900px] text-left text-xs">
               <thead className="border-b border-border text-text-3">
-                <tr>{["Requested", "Type", "Who", "Amount", "Network / address", "Status", "Tx reference"].map((h) => <th key={h} className="px-3 py-2 font-medium">{h}</th>)}</tr>
+                <tr>{["Requested", "Type", "Who", "Amount", "Network / address", "Status", "Tx reference / action"].map((h) => <th key={h} className="px-3 py-2 font-medium">{h}</th>)}</tr>
               </thead>
               <tbody>
                 {withdrawals.length === 0 && <tr><td colSpan={7} className="px-3 py-4 text-text-3">Nothing here.</td></tr>}
@@ -219,7 +254,19 @@ export default function AdminWalletClient() {
                     <td className="px-3 py-2 font-medium text-text">{usd(w.amountCents)}</td>
                     <td className="px-3 py-2 text-text-2"><span className="text-text-3">{w.network}</span> <span className="break-all font-mono">{w.address}</span></td>
                     <td className="px-3 py-2"><Badge tone={w.status === "PAID" ? "success" : w.status === "REJECTED" ? "danger" : "warning"}>{w.status}</Badge></td>
-                    <td className="px-3 py-2 break-all font-mono text-text-2">{w.txRef ?? "-"}</td>
+                    <td className="px-3 py-2 text-text-2">
+                      {w.status === "REQUESTED" ? (
+                        <div className="flex min-w-[260px] flex-col gap-2">
+                          <Input value={tx[w.id] ?? ""} onChange={(e) => setTx({ ...tx, [w.id]: e.target.value })} placeholder="USDT transaction reference" aria-label="Transaction reference" />
+                          <div className="flex gap-2">
+                            <Button size="sm" disabled={busy === w.id || (tx[w.id] ?? "").trim().length < 6} onClick={() => void decide(w, "PAID")}>Mark paid</Button>
+                            <Button size="sm" variant="secondary" disabled={busy === w.id} onClick={() => void decide(w, "REJECTED")}>Reject</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="break-all font-mono">{w.txRef ?? "-"}</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
