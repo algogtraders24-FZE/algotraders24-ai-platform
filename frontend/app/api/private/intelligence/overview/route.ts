@@ -12,6 +12,7 @@ import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { ResearchSnapshotService } from "@/services/intelligence/chat/research-snapshot.service";
 import { riskDriverOf } from "@/services/intelligence/overview/risk-driver";
+import { presentEvidenceTypes } from "@/services/intelligence/overview/evidence-coverage";
 import type { MarketRegimeOverviewItem } from "@/types/market-regime-overview";
 
 const researchSnapshotService = new ResearchSnapshotService();
@@ -50,6 +51,7 @@ async function buildOverviewItem(userId: string, requestId: string, market: { sy
         riskLevel: verifiedAnswer.riskContext.overallLevel,
         regimeConfidence: verifiedAnswer.marketContext.regimeConfidence,
         riskDriver: riskDriverOf(verifiedAnswer.riskContext),
+        evidenceTypes: presentEvidenceTypes(verifiedAnswer),
         basis: verifiedAnswer.currentState.basis[0],
         generatedAt: verifiedAnswer.generatedAt,
       };

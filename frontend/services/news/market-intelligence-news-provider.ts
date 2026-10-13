@@ -28,6 +28,9 @@ const MAX_HEADLINES = 5;
 export class SharedNewsCacheProvider implements NewsProvider {
   readonly name = PROVIDER_NAME;
 
+  /** `refresh: false` = read the stored articles only and never trigger a live Alpha Vantage refresh (used by the real-time path, which can analyse several symbols at once; the daily ingest-news cron keeps the store fresh). Default true: unchanged behaviour. */
+  constructor(private readonly options: { refresh?: boolean } = {}) {}
+
   isConfigured(): boolean {
     return loadAlphaVantageEnv() !== null;
   }
@@ -40,7 +43,7 @@ export class SharedNewsCacheProvider implements NewsProvider {
     const latestCall = await getLatestSuccessfulCallAt(ALPHA_VANTAGE_PROVIDER);
     const isFresh = latestCall !== null && Date.now() - latestCall.getTime() <= staleThresholdMs();
 
-    if (!isFresh) {
+    if (!isFresh && this.options.refresh !== false) {
       // Best-effort quota-reserved refresh - ingestAlphaVantage never
       // throws (it catches internally and returns a result object), so a
       // failed/quota-exhausted refresh just falls through to whatever is

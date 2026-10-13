@@ -92,6 +92,11 @@ export default function RegimeOverviewCard({ item, macro }: Props) {
             Data quality <span className="font-mono text-text-2">{formatScore(item.intelligenceScore)}</span>
           </span>
         </div>
+        {item.evidenceTypes && (
+          <p className="text-text-3" title="Evidence types that reached this reading: price, technical, news, macro (economic calendar), cross-asset (macro drivers), sentiment, historical-pattern, provider-meta.">
+            Evidence: {item.evidenceTypes.length > 0 ? item.evidenceTypes.join(" · ") : "none"} ({item.evidenceTypes.length} of 8 types)
+          </p>
+        )}
         {item.riskDriver && item.riskDriver.reason && (
           <p className="text-text-3">
             Risk is {item.riskLevel}: {item.riskDriver.categories.join(", ")} - {item.riskDriver.reason}

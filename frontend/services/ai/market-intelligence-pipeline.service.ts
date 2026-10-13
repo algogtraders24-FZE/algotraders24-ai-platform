@@ -57,7 +57,7 @@ import { EvidenceFusionService } from "./evidence-fusion.service";
 import { ReasoningEngineService } from "./reasoning/reasoning-engine.service";
 import { RiskEngineService } from "./risk/risk-engine.service";
 import { ConfidenceEngineService } from "./confidence/confidence-engine.service";
-import type { EvidenceSourceGroup, NewsProvider } from "@/types/evidence-fusion";
+import type { EvidenceExtraSource, EvidenceSourceGroup, NewsProvider } from "@/types/evidence-fusion";
 import type { EvidenceItem } from "@/types/evidence";
 import type {
   MarketIntelligenceRequest,
@@ -69,6 +69,9 @@ import type {
 // stage is added/reordered) - not tied to any individual engine's version.
 // Bumped for Sprint 15D.12's optional news-source insertion.
 export const MARKET_INTELLIGENCE_PIPELINE_VERSION = "15D.12.0";
+
+/** An extra evidence source that has not answered by now is skipped - it must never slow an analysis. */
+export const EXTRA_SOURCE_TIMEOUT_MS = 4000;
 
 // Recursively freezes an object graph in place. Applied once, at the very
 // end, to the assembled MarketIntelligenceResult - this freezes the
@@ -98,6 +101,9 @@ export class MarketIntelligencePipelineService {
     private readonly clock: Clock = systemClock,
     private readonly evidenceFusion: EvidenceFusionService = new EvidenceFusionService(),
     private readonly newsProvider: NewsProvider | null = null,
+    // Optional extra evidence sources (economic calendar, macro drivers, ...). Appended last, like
+    // `newsProvider`, so existing positional call sites are unaffected; empty = behaviour unchanged.
+    private readonly extraSources: readonly EvidenceExtraSource[] = [],
   ) {}
 
   /**
@@ -147,8 +153,10 @@ export class MarketIntelligencePipelineService {
     // the exact same pattern: fetch, wrap in an EvidenceSourceGroup, push
     // onto this array. No other line in this method needs to change.
     const groups: EvidenceSourceGroup[] = [{ sourceType: "market-data", items: collected }];
-    const newsItems = await this.fetchNewsEvidence(request);
+    // News and the extra sources are independent, best-effort and run side by side.
+    const [newsItems, extraGroups] = await Promise.all([this.fetchNewsEvidence(request), this.fetchExtraEvidence(request)]);
     if (newsItems.length > 0) groups.push({ sourceType: "news", items: newsItems });
+    groups.push(...extraGroups);
 
     const fused = this.evidenceFusion.fuse(groups);
     const fusedItems = this.evidenceFusion.toEvidenceItems(request.symbol, fused, generatedAt);
@@ -174,6 +182,40 @@ export class MarketIntelligencePipelineService {
     });
 
     return { status: "completed", result };
+  }
+
+  // Extra sources: same contract as news - optional enrichment, never fatal. A source that is
+  // unconfigured, throws or takes longer than EXTRA_SOURCE_TIMEOUT_MS contributes nothing; the
+  // others are unaffected. Every source tags its own evidence type and uses ONE source name, so
+  // the ranking stage's same-type/different-source conflict check never compares two unrelated
+  // quantities (see EvidenceRankingService.detectConflicts).
+  private async fetchExtraEvidence(request: MarketIntelligenceRequest): Promise<EvidenceSourceGroup[]> {
+    const active = this.extraSources.filter((s) => {
+      try {
+        return s.isConfigured();
+      } catch {
+        return false;
+      }
+    });
+    const results = await Promise.all(
+      active.map(async (source): Promise<EvidenceSourceGroup | null> => {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+          const items = await Promise.race([
+            source.collect({ symbol: request.symbol, asOf: request.asOf }),
+            new Promise<never>((_, reject) => {
+              timer = setTimeout(() => reject(new Error("evidence source timed out")), EXTRA_SOURCE_TIMEOUT_MS);
+            }),
+          ]);
+          return items.length > 0 ? { sourceType: source.sourceType, items } : null;
+        } catch {
+          return null;
+        } finally {
+          if (timer) clearTimeout(timer);
+        }
+      }),
+    );
+    return results.filter((g): g is EvidenceSourceGroup => g !== null);
   }
 
   // Best-effort: news is an optional enrichment, never a requirement.

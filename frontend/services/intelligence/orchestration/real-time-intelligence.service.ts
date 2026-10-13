@@ -45,6 +45,8 @@ import { HistoricalValidationService } from "@/services/intelligence/memory/hist
 import { IntelligenceEnvelopeService } from "@/services/intelligence/envelope/intelligence-envelope.service";
 import { IntelligenceAnalysisRunService } from "@/services/intelligence/memory/analysis-run.service";
 import { MarketIntelligencePipelineService } from "@/services/ai/market-intelligence-pipeline.service";
+import { StoredNewsEvidenceProvider } from "@/services/evidence-sources/stored-news-provider";
+import { productionExtraEvidenceSources } from "@/services/evidence-sources/production-sources";
 import { assessFreshness } from "@/services/market-data/freshness-policy.service";
 import { validateSnapshotIntegrity } from "@/services/market-data/market-snapshot-integrity.service";
 import { compareSnapshots, summarizeConflicts } from "@/services/market-data/cross-provider-validation.service";
@@ -200,7 +202,23 @@ export class RealTimeIntelligenceService {
     this.historicalValidationService = deps.historicalValidationService ?? new HistoricalValidationService();
     this.envelopeService = deps.envelopeService ?? new IntelligenceEnvelopeService();
     this.analysisRunService = deps.analysisRunService ?? new IntelligenceAnalysisRunService();
-    this.pipeline = deps.pipeline ?? new MarketIntelligencePipelineService(this.marketData);
+    // Beyond market data, the production path also gathers real macro (economic calendar), cross-asset (macro
+    // drivers) and news (stored headlines) evidence - all best-effort, none ever required. Before this the
+    // pipeline here ran on market data alone, so 7 of 8 evidence types were always missing.
+    this.pipeline =
+      deps.pipeline ??
+      new MarketIntelligencePipelineService(
+        this.marketData,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        new StoredNewsEvidenceProvider(),
+        productionExtraEvidenceSources(),
+      );
     this.providerRegistry = deps.providerRegistry ?? REAL_PROVIDER_REGISTRY;
     this.microstructureProvider = deps.microstructureProvider ?? binanceMicrostructureProvider;
     this.microstructureService = deps.microstructureService ?? microstructureSnapshots;
