@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { EconomicCalendarEvidenceSource, endOfFetchedWeek, CALENDAR_EVIDENCE_SOURCE, type CalendarRow } from "../services/evidence-sources/calendar-evidence-source";
 import { MacroDriverEvidenceSource, MACRO_DRIVER_EVIDENCE_SOURCE } from "../services/evidence-sources/macro-driver-evidence-source";
 import { currenciesForSymbol } from "../services/evidence-sources/symbol-currencies";
-import { StoredNewsEvidenceProvider } from "../services/evidence-sources/stored-news-provider";
+import { StoredNewsEvidenceProvider, STORED_NEWS_SOURCE } from "../services/evidence-sources/stored-news-provider";
 import { MarketIntelligencePipelineService, EXTRA_SOURCE_TIMEOUT_MS } from "../services/ai/market-intelligence-pipeline.service";
 import { EvidenceRankingService } from "../services/ai/evidence/evidence-ranking.service";
 import { computeMacroAlignment, ASSET_PROFILES, type MacroInputs } from "../services/macro/macro-alignment";
@@ -172,6 +172,24 @@ async function main(): Promise<void> {
   const build = (extra: EvidenceExtraSource[], news = false) =>
     new MarketIntelligencePipelineService(fakeProvider(), undefined, undefined, undefined, undefined, undefined, undefined, undefined, news ? newsProvider : null, extra);
 
+  await test("stored news: headlines from several publishers share ONE source name (publisher kept in the claim) -> ZERO conflicts (was N(N-1)/2)", async () => {
+    const heads = [["Gold steady ahead of CPI", "Reuters"], ["Dollar slips as yields ease", "Bloomberg"], ["Fed speakers in focus", "FXStreet"], ["Gold eyes 4200", "Kitco"], ["Oil edges up", "CNBC"]];
+    const many = new StoredNewsEvidenceProvider(async () => ({
+      name: "fake-news",
+      isConfigured: () => true,
+      getNewsEvidence: async (r) => heads.map(([h, p]) => ({ type: "news" as const, symbol: r.symbol, claim: h, source: p, asOf: NOW.toISOString(), retrievedAt: NOW.toISOString() })),
+    }));
+    const items = await many.getNewsEvidence({ symbol: "XAUUSD" });
+    assert.equal(items.length, 5);
+    assert.ok(items.every((i) => i.source === STORED_NEWS_SOURCE));
+    assert.match(items[0].claim, /^Gold steady ahead of CPI \(Reuters\)$/);
+    const bundle = new EvidenceRankingService().buildBundle("XAUUSD", items, NOW.toISOString());
+    assert.equal(bundle.conflicts.length, 0);
+    // contrast: the raw per-publisher items WOULD conflict pairwise
+    const raw = await (await Promise.resolve({ getNewsEvidence: async () => heads.map(([h, p]) => ({ type: "news" as const, symbol: "XAUUSD" as const, claim: h, source: p, asOf: NOW.toISOString(), retrievedAt: NOW.toISOString() })) })).getNewsEvidence();
+    assert.equal(new EvidenceRankingService().buildBundle("XAUUSD", raw, NOW.toISOString()).conflicts.length, 10);
+  });
+
   await test("pipeline: with no extra sources behaviour is unchanged (price only)", async () => {
     const out = await build([]).run({ symbol: "XAUUSD" });
     assert.equal(out.status, "completed");
@@ -221,15 +239,11 @@ async function main(): Promise<void> {
     });
   });
 
-  await test("evidence coverage for the Signals cards: types present in supporting/opposing/conflict items, in canonical order", () => {
+  await test("evidence coverage for the Signals cards: types present in the whole bundle, in canonical order", () => {
     const mk = (type: EvidenceItem["type"]): EvidenceItem => ({ type, symbol: "XAUUSD", claim: "c", source: "s", asOf: "a", retrievedAt: "r" });
-    const types = presentEvidenceTypes({
-      supportingEvidence: [mk("cross-asset"), mk("price")],
-      opposingEvidence: [mk("news")],
-      unresolvedConflicts: [{ type: "macro", symbol: "XAUUSD", itemA: mk("macro"), itemB: mk("macro"), resolution: "unresolved", reason: "r" }],
-    });
+    const types = presentEvidenceTypes([mk("cross-asset"), mk("price"), mk("news"), mk("macro"), mk("price")]);
     assert.deepEqual(types, ["price", "news", "macro", "cross-asset"]);
-    assert.deepEqual(presentEvidenceTypes({ supportingEvidence: [], opposingEvidence: [], unresolvedConflicts: [] }), []);
+    assert.deepEqual(presentEvidenceTypes([]), []);
     assert.equal(ALL_EVIDENCE_TYPES.length, 8);
   });
 

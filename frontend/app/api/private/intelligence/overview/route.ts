@@ -51,7 +51,7 @@ async function buildOverviewItem(userId: string, requestId: string, market: { sy
         riskLevel: verifiedAnswer.riskContext.overallLevel,
         regimeConfidence: verifiedAnswer.marketContext.regimeConfidence,
         riskDriver: riskDriverOf(verifiedAnswer.riskContext),
-        evidenceTypes: presentEvidenceTypes(verifiedAnswer),
+        evidenceTypes: presentEvidenceTypes(context.envelope?.evidence?.items ?? []),
         basis: verifiedAnswer.currentState.basis[0],
         generatedAt: verifiedAnswer.generatedAt,
       };
