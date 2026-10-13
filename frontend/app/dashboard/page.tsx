@@ -11,9 +11,7 @@
 // QuickActions already used). No data, query or behavior change - same
 // overview/activity from dashboardService, same new-user branch, same
 // email-verification notice.
-import { MessageSquare, FileText, Database, Search } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
-import StatCard from "@/components/ui/StatCard";
 import ButtonLink from "@/components/ui/ButtonLink";
 import QuickActions from "@/components/dashboard/QuickActions";
 import { MarketSnapshot } from "@/components/dashboard/MarketSnapshot";
@@ -45,33 +43,6 @@ export default async function DashboardHome() {
   // snapshot, activity, quick actions) with the "where to start" block on top -
   // not a separate, emptier page that hides the rest of the product.
   const isNewUser = overview.totalConversations === 0 && overview.totalDocuments === 0;
-
-  const stats = [
-    {
-      label: "Conversations",
-      value: overview.totalConversations,
-      icon: MessageSquare,
-      hint: "AI Assistant conversations you've started.",
-    },
-    {
-      label: "Documents",
-      value: overview.totalDocuments,
-      icon: FileText,
-      hint: "Documents you've uploaded to your Knowledge Base.",
-    },
-    {
-      label: "Indexed chunks",
-      value: overview.totalChunks,
-      icon: Database,
-      hint: "Passages your documents were split into so the AI Assistant can search and cite them.",
-    },
-    {
-      label: "Knowledge retrievals",
-      value: overview.totalRetrievals,
-      icon: Search,
-      hint: "Times the AI Assistant pulled a passage from your documents to answer a question.",
-    },
-  ];
 
   const planLabel = PLAN_LABELS[user.planId as PlanId] ?? user.planId;
   const joinedDate = new Date(user.createdAt).toLocaleDateString("en-US", {
@@ -128,12 +99,6 @@ export default async function DashboardHome() {
           <p className="mt-1 text-sm font-semibold text-text">{joinedDate}</p>
         </div>
       </Card>
-
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <StatCard key={stat.label} label={stat.label} value={stat.value} icon={stat.icon} hint={stat.hint} />
-        ))}
-      </div>
 
       <MarketSnapshot />
 
