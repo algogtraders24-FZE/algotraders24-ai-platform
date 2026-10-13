@@ -81,8 +81,8 @@ async function main(): Promise<void> {
   });
 
   await test("missing data is never guessed: unavailable drivers drop out and are labelled", () => {
-    const a = computeMacroAlignment(mk({ dollar: -0.5, yields: 0.4, momentum: 0.9 }));
-    assert.equal(a.availableDrivers, 3);
+    const a = computeMacroAlignment(mk({ dollar: -0.5, yields: 0.4, riskSentiment: 3, momentum: 0.9 }));
+    assert.equal(a.availableDrivers, 4);
     assert.equal(a.score, 100);
     const ry = a.drivers.find((d) => d.id === "realYield")!;
     assert.equal(ry.available, false);
@@ -269,6 +269,20 @@ async function main(): Promise<void> {
     const text = a.drivers.filter((d) => d.available).map((d) => d.detail).join(" | ");
     assert.ok(!/bid|sold|stronger|weaker|rising|falling| up | down /.test(text), text);
     assert.equal((text.match(/little changed/g) ?? []).length, 4);
+  });
+
+  await test("coverage rule: a verdict needs >= 70% of the asset's weight; oil without its own price gets no score", () => {
+    // oil: dollar 25 + stocks 25 + vol 10 = 60% of the weight, momentum (40) missing
+    const oil = computeMacroAlignment(mk({ dollar: 0.4, riskAppetite: -1, riskSentiment: 0 }), ASSET_PROFILES.oil);
+    assert.equal(oil.lean, "insufficient");
+    assert.equal(oil.score, null);
+    // gold without real yield (30%) is exactly 70% -> still scored
+    const gold = computeMacroAlignment(mk({ dollar: -0.5, yields: 0.4, riskSentiment: 3, momentum: 0.9 }), ASSET_PROFILES.gold);
+    assert.equal(gold.lean, "supportive");
+    // gold missing real yield AND momentum (55%) -> no score
+    assert.equal(computeMacroAlignment(mk({ dollar: -0.5, yields: 0.4, riskSentiment: 3 }), ASSET_PROFILES.gold).lean, "insufficient");
+    // USD/JPY without the FRED 10Y (30%) -> 70%, scored
+    assert.notEqual(computeMacroAlignment(mk({ yields: -0.4, riskAppetite: 0.8, riskSentiment: 0, momentum: 0.4 }), ASSET_PROFILES.usdjpy).lean, "insufficient");
   });
 
   await test("asset id validation + MI symbol lookup", () => {

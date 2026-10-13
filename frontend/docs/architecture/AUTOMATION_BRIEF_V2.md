@@ -69,3 +69,7 @@ asset; each asset has its own drivers, weights and thresholds, and lists what it
 * Brief v2 extras (price, macro line, today's events in IST) now run for any Market Intelligence symbol that has a profile
   (XAUUSD, EURUSD, USDJPY, BTCUSD); events use that asset's currencies. Oil has no Market Intelligence agent, so it appears on the card only.
 * Weights/thresholds are a research-based choice, not backtested. The card shows the formula, the caveat and "not covered".
+
+* **Coverage rule (2026-10-13):** a score needs at least 3 drivers AND the drivers with data must carry >= 70% of the asset's
+  total weight. Found on the live dashboard: oil showed "83% headwind" with its own price missing (weight 40). Now it reads
+  "Not enough data" until the quote is back. Mini cards show "n/m drivers".

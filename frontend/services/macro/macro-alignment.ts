@@ -66,6 +66,8 @@ export const CAVEAT =
 
 /** Fewer available drivers than this give no score. */
 export const MIN_DRIVERS = 3;
+/** The drivers that have data must carry at least this share of the profile's total weight, otherwise no score: a verdict built from a minority of the weight (e.g. oil without its own price, weight 40) would mislead. */
+export const MIN_COVERAGE = 0.7;
 
 interface DriverSpec {
   id: DriverId;
@@ -231,11 +233,12 @@ export function computeMacroAlignment(inputs: MacroInputs, profile: AssetProfile
 
   const live = drivers.filter((d) => d.available);
   const base = { asset: profile.id, drivers, availableDrivers: live.length, totalDrivers: drivers.length, formula: FORMULA, caveat: CAVEAT, notCovered: profile.notCovered };
-  if (live.length < MIN_DRIVERS) {
+  const liveWeight = live.reduce((a, d) => a + d.weight, 0);
+  const totalWeight = drivers.reduce((a, d) => a + d.weight, 0);
+  if (live.length < MIN_DRIVERS || liveWeight < MIN_COVERAGE * totalWeight) {
     return { ...base, lean: "insufficient", score: null, label: "Not enough data" };
   }
 
-  const liveWeight = live.reduce((a, d) => a + d.weight, 0);
   const net = live.reduce((a, d) => a + d.weight * d.sign, 0);
   const lean: AlignmentLean = net > 0 ? "supportive" : net < 0 ? "headwind" : "mixed";
   if (lean === "mixed") {
