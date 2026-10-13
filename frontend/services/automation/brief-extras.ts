@@ -27,6 +27,7 @@ export function countdown(ms: number): string {
   if (mins <= 0) return "now";
   const h = Math.floor(mins / 60);
   const m = mins % 60;
+  if (h >= 24) return `in ${Math.floor(h / 24)}d ${h % 24}h`;
   return h > 0 ? `in ${h}h ${m}m` : `in ${m}m`;
 }
 
