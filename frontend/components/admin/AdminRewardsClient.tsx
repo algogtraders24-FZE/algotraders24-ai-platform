@@ -128,7 +128,7 @@ export default function AdminRewardsClient() {
             <Button variant="secondary" size="sm" onClick={() => load(month)}>Load month</Button>
           </div>
         </div>
-        <p className="text-xs text-text-3">A month can hold at most 10 contracts in total across all products. Closing a month does not affect contracts already sold.</p>
+        <p className="text-xs text-text-3">You decide how many contracts each product can sell in a month. Closing a month does not affect contracts already sold.</p>
         <ul className="divide-y divide-border">
           {data.products.map((p) => (
             <li key={p.key} className="flex flex-wrap items-center justify-between gap-3 py-3">
@@ -140,7 +140,7 @@ export default function AdminRewardsClient() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <Input type="number" min={0} max={10} value={limits[p.key] ?? 0} onChange={(e) => setLimits({ ...limits, [p.key]: Number(e.target.value) })} aria-label={`${p.name} limit`} className="w-20" />
+                <Input type="number" min={0} value={limits[p.key] ?? 0} onChange={(e) => setLimits({ ...limits, [p.key]: Number(e.target.value) })} aria-label={`${p.name} limit`} className="w-20" />
                 <Button size="sm" onClick={() => act(() => call("/api/private/admin/rewards/slots", "POST", { month, productKey: p.key, limit: limits[p.key] ?? 0, opened: true }), `${p.name}: open with ${limits[p.key] ?? 0} slots.`)}>Open</Button>
                 <Button size="sm" variant="secondary" onClick={() => act(() => call("/api/private/admin/rewards/slots", "POST", { month, productKey: p.key, limit: limits[p.key] ?? 0, opened: false }), `${p.name}: closed.`)}>Close</Button>
               </div>

@@ -108,9 +108,9 @@ async function main() {
 
   // ---- slots
   const month = monthKey(T0);
-  check("admin: a month cannot exceed 10 in total", !(await adminSetSlot({ month, productKey: "BTC_AI_ALGO", limit: 11, opened: true })).ok);
+  check("admin: no monthly cap (11 in one product is accepted)", (await adminSetSlot({ month, productKey: "BTC_AI_ALGO", limit: 11, opened: true })).ok);
   check("admin opens BTC with 2 slots", (await adminSetSlot({ month, productKey: "BTC_AI_ALGO", limit: 2, opened: true })).ok);
-  check("admin: other products cannot push the month over 10", !(await adminSetSlot({ month, productKey: "GOLD_AI_ALGO", limit: 9, opened: true })).ok);
+  check("admin: other products can add more (no total cap)", (await adminSetSlot({ month, productKey: "GOLD_AI_ALGO", limit: 9, opened: false })).ok);
   const closed = await reserveSlot({ userId: "buyer", productKey: "GOLD_AI_ALGO" });
   check("closed product: no slot", !closed.ok && closed.reason === "CLOSED");
   const s1 = await reserveSlot({ userId: "u1", productKey: "BTC_AI_ALGO" });

@@ -72,7 +72,8 @@ export function commissionHoldDays(raw: string | undefined | null = process.env.
 }
 /** How long a checkout keeps a slot reserved. */
 export const SLOT_HOLD_MINUTES = 30;
-export const DEFAULT_SLOTS_PER_MONTH = 10;
+/** Owner decision 2026-10-14: no cap on contracts per month. The admin sets each product's slots by hand. */
+export const DEFAULT_SLOTS_PER_MONTH = Number.POSITIVE_INFINITY;
 export const REFERRAL_WINDOW_DAYS = 30;
 /** Version of the contract wording stamped on every issued contract (bumped when the template changes). */
 export const CONTRACT_TERMS_VERSION = "2026-10-draft-2";
