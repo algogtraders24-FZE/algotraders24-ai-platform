@@ -4,8 +4,6 @@
 import { useState } from "react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
-import Select from "@/components/ui/Select";
 import Alert from "@/components/ui/Alert";
 import Badge from "@/components/ui/Badge";
 
@@ -23,11 +21,11 @@ function Stat({ label, value, strong = false }: { label: string; value: string; 
   );
 }
 
-export default function WithdrawCard({ balances, payouts, minCents, holdDays, withdrawalsOpen, blockedReason }: {
+export default function WithdrawCard({ balances, payouts, minCents, holdDays, withdrawalsOpen, blockedReason, address }: {
   balances: BalanceView; payouts: PayoutView[]; minCents: number; holdDays: number; withdrawalsOpen: boolean; blockedReason: string | null;
+  /** The saved withdrawal address (masked), or null when none is saved yet. Saved and changed in the wallet. */
+  address: { network: string; masked: string; status: string } | null;
 }) {
-  const [network, setNetwork] = useState("TRC20");
-  const [address, setAddress] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -37,11 +35,10 @@ export default function WithdrawCard({ balances, payouts, minCents, holdDays, wi
     setError(null);
     setNotice(null);
     try {
-      const res = await fetch("/api/private/rewards/withdraw", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ network, address }) });
+      const res = await fetch("/api/private/rewards/withdraw", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
       const body = await res.json().catch(() => null);
       if (!res.ok || body?.status !== "ok") throw new Error(body?.error?.message ?? `Request failed (${res.status})`);
       setNotice(`Withdrawal of ${usd(body.data.amountCents)} requested. It is paid by hand after a quick check.`);
-      setAddress("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not request the withdrawal.");
     } finally {
@@ -49,7 +46,8 @@ export default function WithdrawCard({ balances, payouts, minCents, holdDays, wi
     }
   }
 
-  const canTry = withdrawalsOpen && !blockedReason && balances.available >= minCents;
+  const addressReady = address !== null && address.status === "Active";
+  const canTry = withdrawalsOpen && !blockedReason && balances.available >= minCents && addressReady;
   return (
     <Card className="space-y-4">
       <h2 className="text-lg font-semibold text-text">Your balance</h2>
@@ -72,16 +70,15 @@ export default function WithdrawCard({ balances, payouts, minCents, holdDays, wi
           <p className="text-sm text-text-3">{blockedReason}</p>
         ) : balances.available < minCents ? (
           <p className="text-sm text-text-3">The minimum withdrawal is {usd(minCents)}. You have {usd(balances.available)} available.</p>
+        ) : address === null ? (
+          <p className="text-sm text-text-3">Save your USDT address first. <a className="text-gold underline" href="/dashboard/wallet">Open your wallet</a> to add it.</p>
+        ) : !addressReady ? (
+          <p className="text-sm text-text-3">Your address: {address.status}.</p>
         ) : null}
-        {canTry && (
-          <div className="grid gap-3 sm:grid-cols-[160px_1fr_auto]">
-            <Select value={network} onChange={(e) => setNetwork(e.target.value)} aria-label="Network">
-              <option value="TRC20">TRC20 (Tron)</option>
-              <option value="ERC20">ERC20 (Ethereum)</option>
-              <option value="BEP20">BEP20 (BNB Chain)</option>
-            </Select>
-            <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Your USDT address" aria-label="USDT address" />
-            <Button onClick={submit} disabled={busy || address.trim().length < 10}>{busy ? "Sending..." : `Withdraw ${usd(balances.available)}`}</Button>
+        {canTry && address && (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-text-2">Sent to {address.network} <code className="text-xs">{address.masked}</code>. <a className="text-gold underline" href="/dashboard/wallet">Change</a></p>
+            <Button onClick={submit} disabled={busy}>{busy ? "Sending..." : `Withdraw ${usd(balances.available)}`}</Button>
           </div>
         )}
       </div>

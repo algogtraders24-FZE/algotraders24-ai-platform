@@ -46,3 +46,6 @@ A merge to main normally starts a production build in 1-2 minutes. On 2026-10-12
 
 ## Second platform (MT4 next to MT5)
 A contract product can carry a second listing for the other platform (admin -> Products, "MT4 listing id (optional)"). The buyer then gets BOTH licences from the one payment (the second is free, same 12-month expiry), and both show under My Licenses. Each EA must be compiled with its own listing's system id (`SELF-<listingId>`), otherwise the licence guard answers "this key is for another product". Verified live on 2026-10-12 with the test contract.
+
+## Saved USDT address (wallet)
+Withdrawals go ONLY to the address saved in the wallet (Wallet -> Your USDT withdrawal address). A new or changed address waits 24 hours before it can be used (the member sees "Usable in about N hours"). For testing set `REWARDS_ADDRESS_COOLING_HOURS=0` (0-24, can only shorten) and redeploy, or save the address a day earlier. Remove it after the test.
