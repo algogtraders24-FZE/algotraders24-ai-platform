@@ -22,7 +22,7 @@ const SYMBOL_TERMS: Record<string, { own: RegExp; usdMacro: boolean }> = {
 };
 
 /** Company / stock-pick headlines: about a listed company or a stock tip, not the instrument. */
-const COMPANY_NEWS = /\((NYSE|NASDAQ|TSX|TSXV|ASX|LSE|NSE|BSE|OTC)[:\s]|\bstock picks?\b|\bstock sits\b|\bshare price\b|\bbrokerages?'? radar\b|\bquarterly (earnings|results|market expectations)\b/i;
+const COMPANY_NEWS = /\((NYSE|NASDAQ|TSX|TSXV|ASX|LSE|NSE|BSE|OTC)[:\s]|\bstock picks?\b|\bstock sits\b|\bshare price\b|\bbrokerages?'? radar\b|\bquarterly (earnings|results|market expectations)\b|\b(gold|silver|copper) (mines|mining|corp|resources|royalt(y|ies)|miners?)\b|\b\d+-baggers?\b/i;
 
 export function isRelevantHeadline(symbol: string, headline: string): boolean {
   const terms = SYMBOL_TERMS[symbol.toUpperCase()];
