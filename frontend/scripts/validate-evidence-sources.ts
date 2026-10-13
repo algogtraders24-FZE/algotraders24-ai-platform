@@ -8,6 +8,8 @@ import { EconomicCalendarEvidenceSource, endOfFetchedWeek, CALENDAR_EVIDENCE_SOU
 import { MacroDriverEvidenceSource, MACRO_DRIVER_EVIDENCE_SOURCE } from "../services/evidence-sources/macro-driver-evidence-source";
 import { currenciesForSymbol } from "../services/evidence-sources/symbol-currencies";
 import { StoredNewsEvidenceProvider, STORED_NEWS_SOURCE } from "../services/evidence-sources/stored-news-provider";
+import { isRelevantHeadline } from "../services/evidence-sources/news-relevance";
+import { parseRichText } from "../components/ui/RichText";
 import { MarketIntelligencePipelineService, EXTRA_SOURCE_TIMEOUT_MS } from "../services/ai/market-intelligence-pipeline.service";
 import { EvidenceRankingService } from "../services/ai/evidence/evidence-ranking.service";
 import { computeMacroAlignment, ASSET_PROFILES, type MacroInputs } from "../services/macro/macro-alignment";
@@ -173,7 +175,7 @@ async function main(): Promise<void> {
     new MarketIntelligencePipelineService(fakeProvider(), undefined, undefined, undefined, undefined, undefined, undefined, undefined, news ? newsProvider : null, extra);
 
   await test("stored news: headlines from several publishers share ONE source name (publisher kept in the claim) -> ZERO conflicts (was N(N-1)/2)", async () => {
-    const heads = [["Gold steady ahead of CPI", "Reuters"], ["Dollar slips as yields ease", "Bloomberg"], ["Fed speakers in focus", "FXStreet"], ["Gold eyes 4200", "Kitco"], ["Oil edges up", "CNBC"]];
+    const heads = [["Gold steady ahead of CPI", "Reuters"], ["Dollar index slips as Treasury yields ease", "Bloomberg"], ["Fed speakers in focus after FOMC minutes", "FXStreet"], ["Gold eyes 4200", "Kitco"], ["Bullion holds near record as dollar weakens", "CNBC"]];
     const many = new StoredNewsEvidenceProvider(async () => ({
       name: "fake-news",
       isConfigured: () => true,
@@ -188,6 +190,53 @@ async function main(): Promise<void> {
     // contrast: the raw per-publisher items WOULD conflict pairwise
     const raw = await (await Promise.resolve({ getNewsEvidence: async () => heads.map(([h, p]) => ({ type: "news" as const, symbol: "XAUUSD" as const, claim: h, source: p, asOf: NOW.toISOString(), retrievedAt: NOW.toISOString() })) })).getNewsEvidence();
     assert.equal(new EvidenceRankingService().buildBundle("XAUUSD", raw, NOW.toISOString()).conflicts.length, 10);
+  });
+
+  await test("news relevance: names the instrument or is USD macro; company / stock-pick headlines and unrelated stories are dropped", () => {
+    const keep: [string, string][] = [
+      ["XAUUSD", "Gold prices rise as the dollar index slips"],
+      ["XAUUSD", "Bullion holds near record ahead of Fed decision"],
+      ["XAGUSD", "Silver rallies with precious metals"],
+      ["EURUSD", "ECB's Lagarde signals patience on rate cuts"],
+      ["EURUSD", "Euro steadies as the dollar index edges lower"],
+      ["GBPUSD", "Sterling slips after Bank of England minutes"],
+      ["USDJPY", "Citi Strategist Says JGBs Becoming Appealing as Yields Near Peak"],
+      ["USDJPY", "Yen weakens as Bank of Japan holds"],
+      ["BTCUSD", "Spot Bitcoin ETF inflows reach a monthly high"],
+      ["ETHUSD", "Ethereum staking demand rises"],
+    ];
+    for (const [sym, h] of keep) assert.equal(isRelevantHeadline(sym, h), true, `${sym}: ${h}`);
+    const drop: [string, string][] = [
+      ["EURUSD", "Waste Management (WM): Is Its Landfill Moat the Best in the Market?"],
+      ["EURUSD", "Will New Rewards Card Change Kroger (KR) Narrative"],
+      ["EURUSD", "Great Southern Bancorp stock sits 4.15 percent below its high"],
+      ["EURUSD", "Citi Strategist Says JGBs Becoming Appealing as Yields Near Peak"],
+      ["XAUUSD", "Is Franco-Nevada (NYSE:FNV) stock swinging with gold royalties today?"],
+      ["XAUUSD", "Can Agnico Eagle Mines (TSX:AEM) Beat Quarterly Market Expectations?"],
+      ["XAUUSD", "Eldorado Gold (TSX:ELD): Is Skouries Production Finally Near?"],
+      ["XAUUSD", "Stock Picks Today: Axis Bank, HDFC Bank, Trent, Marico And More On Brokerages' Radar"],
+      ["BTCUSD", "Fed signals patience on rates"], // dollar macro does not count for crypto
+      ["SOLUSD", "Oil edges higher"],
+      ["NOSUCH", "Gold prices rise"], // no rule for the symbol: keep nothing rather than guess
+    ];
+    for (const [sym, h] of drop) assert.equal(isRelevantHeadline(sym, h), false, `${sym}: ${h}`);
+  });
+
+  await test("stored news: irrelevant headlines never become evidence (all dropped -> no news evidence at all)", async () => {
+    const junk = new StoredNewsEvidenceProvider(async () => ({
+      name: "fake-news",
+      isConfigured: () => true,
+      getNewsEvidence: async (r) => ["Waste Management (WM): Is Its Landfill Moat the Best in the Market?", "Will New Rewards Card Change Kroger (KR) Narrative"].map((h) => ({ type: "news" as const, symbol: r.symbol, claim: h, source: "Yahoo", asOf: NOW.toISOString(), retrievedAt: NOW.toISOString() })),
+    }));
+    assert.deepEqual(await junk.getNewsEvidence({ symbol: "EURUSD" }), []);
+  });
+
+  await test("rich text: bold, bullets, standalone-bold headings and paragraphs are parsed; nothing is injected as HTML", () => {
+    const blocks = parseRichText(["**Summary**", "Gold is firm.", "Confidence is medium.", "", "**Key evidence**", "- Price 4150", "* 4h bias bullish", "", "1. first", "2. second", "<script>alert(1)</script>"].join("\n"));
+    assert.deepEqual(blocks.map((b) => b.kind), ["h", "p", "h", "ul", "ol", "p"]);
+    assert.equal((blocks[1] as { text: string }).text, "Gold is firm. Confidence is medium.");
+    assert.deepEqual((blocks[3] as { items: string[] }).items, ["Price 4150", "4h bias bullish"]);
+    assert.equal((blocks[5] as { text: string }).text, "<script>alert(1)</script>"); // stays plain text; React escapes it
   });
 
   await test("pipeline: with no extra sources behaviour is unchanged (price only)", async () => {

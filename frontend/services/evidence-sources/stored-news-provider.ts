@@ -12,6 +12,7 @@
 import type { EvidenceItem } from "@/types/evidence";
 import type { EvidenceProviderRequest, NewsProvider } from "@/types/evidence-fusion";
 import { loadAlphaVantageEnv } from "@/lib/market-data/env";
+import { isRelevantHeadline } from "./news-relevance";
 
 /** One source name for every stored headline (the publisher moves into the claim). The ranking stage flags two same-type items from DIFFERENT sources with different text as a conflict; distinct headlines from distinct publishers are not competing claims, so under per-publisher source names N headlines produced N(N-1)/2 spurious "conflicts" (10 for 5 headlines) and pushed every symbol's risk to High. */
 export const STORED_NEWS_SOURCE = "AT24 stored news";
@@ -26,7 +27,7 @@ export class StoredNewsEvidenceProvider implements NewsProvider {
   }
 
   async getNewsEvidence(request: EvidenceProviderRequest): Promise<EvidenceItem[]> {
-    const items = await (await this.load()).getNewsEvidence(request);
+    const items = (await (await this.load()).getNewsEvidence(request)).filter((i) => isRelevantHeadline(request.symbol, i.claim));
     return items.map((i) => ({ ...i, claim: i.source && i.source !== STORED_NEWS_SOURCE ? `${i.claim} (${i.source})` : i.claim, source: STORED_NEWS_SOURCE }));
   }
 }

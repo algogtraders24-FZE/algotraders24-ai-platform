@@ -7,12 +7,15 @@
 // byte-identical to before.
 import { parseMessageSegments } from "@/lib/chat/parse-code-blocks";
 import CodeBlock from "./CodeBlock";
+import RichText from "@/components/ui/RichText";
 
 interface Props {
   content: string;
+  /** Render **bold**, bullet lists and headings (assistant replies). User messages stay as typed. */
+  rich?: boolean;
 }
 
-export default function MessageContent({ content }: Props) {
+export default function MessageContent({ content, rich = false }: Props) {
   const segments = parseMessageSegments(content);
   return (
     <>
@@ -20,9 +23,13 @@ export default function MessageContent({ content }: Props) {
         segment.type === "code" ? (
           <CodeBlock key={i} language={segment.language} code={segment.code} />
         ) : (
-          <span key={i} className="whitespace-pre-wrap">
-            {segment.content}
-          </span>
+          rich ? (
+            <RichText key={i} text={segment.content} />
+          ) : (
+            <span key={i} className="whitespace-pre-wrap">
+              {segment.content}
+            </span>
+          )
         ),
       )}
     </>

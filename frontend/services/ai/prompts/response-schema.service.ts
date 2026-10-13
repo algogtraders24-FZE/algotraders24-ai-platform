@@ -5,7 +5,9 @@ const schemas: Record<string, ResponseSchema> = {
   "market-analysis": {
     id: "market-analysis",
     label: "Market Analysis",
-    sections: ["Market Bias", "Confidence", "Trend", "Liquidity", "Entry", "Stop Loss", "Take Profit", "Risk/Reward", "Reasoning", "News Impact", "Warnings"],
+    // A concise professional brief. (The old 11-section schema included Entry / Stop Loss / Take Profit /
+    // Risk-Reward, which AT24 never provides, and made the model repeat Observe / Analyze / Explain in every section.)
+    sections: ["Summary", "Key evidence", "Risks and gaps", "What to watch"],
   },
   "strategy-output": {
     id: "strategy-output",
