@@ -8,9 +8,10 @@ process.env.FRED_API_KEY = "test-fred";
 import assert from "node:assert/strict";
 import { pickNextHighImpactEvent } from "../services/calendar/next-event";
 import { countdown } from "../services/automation/brief-extras";
-import { getMacroOverview, toOverviewItem, OVERVIEW_ORDER } from "../services/macro/macro-overview";
+import { getMacroOverview, toOverviewItem, OVERVIEW_ORDER, SIGNALS_ORDER } from "../services/macro/macro-overview";
 import { resetMacroCacheForTests, type FetchLike } from "../services/macro/macro-data";
-import { ASSET_IDS } from "../services/macro/macro-alignment";
+import { riskDriverOf } from "../services/intelligence/overview/risk-driver";
+import { ASSET_PROFILES, profileForMiSymbol } from "../services/macro/macro-alignment";
 
 let passed = 0;
 let failed = 0;
@@ -27,7 +28,7 @@ async function test(name: string, fn: () => Promise<void> | void): Promise<void>
 }
 
 const json = (body: unknown) => ({ ok: true, status: 200, json: async () => body });
-const PCT: Record<string, string> = { "XAU/USD": "0.40", UUP: "-0.30", IEF: "0.20", VIXY: "-1.50", QQQ: "0.80", "EUR/USD": "0.25", "USD/JPY": "0.35", "BTC/USD": "2.50", USO: "1.90" };
+const PCT: Record<string, string> = { "XAU/USD": "0.40", UUP: "-0.30", IEF: "0.20", VIXY: "-1.50", QQQ: "0.80", "EUR/USD": "0.25", "USD/JPY": "0.35", "BTC/USD": "2.50", USO: "1.90", "GBP/USD": "0.15", "ETH/USD": "3.40", SLV: "-0.80" };
 const goodFetch: FetchLike = async (url) => {
   if (url.includes("stlouisfed")) {
     const vals = [2.87, 2.9, 2.92, 2.95, 2.98, 3.02, 3, 3, 3, 3];
@@ -83,8 +84,7 @@ async function main(): Promise<void> {
       return goodFetch(u);
     };
     const items = await getMacroOverview(spy);
-    assert.deepEqual(items.map((i) => i.asset), ASSET_IDS);
-    assert.deepEqual([...OVERVIEW_ORDER].sort(), [...ASSET_IDS].sort());
+    assert.deepEqual(items.map((i) => i.asset), [...OVERVIEW_ORDER]);
     assert.ok(items.every((i) => i.totalDrivers >= 4 && i.price !== null));
     // gold's quotes come before bitcoin's, which come before the oil ETF
     assert.ok(order.indexOf("XAU/USD") < order.indexOf("BTC/USD"));
@@ -105,6 +105,14 @@ async function main(): Promise<void> {
     resetMacroCacheForTests();
   });
 
+  await test("signals set: the seven AI Signals instruments, in the page's order, all scored", async () => {
+    resetMacroCacheForTests();
+    const items = await getMacroOverview(goodFetch, SIGNALS_ORDER);
+    assert.deepEqual(items.map((i) => i.asset), ["eurusd", "gbpusd", "usdjpy", "gold", "silver", "btcusd", "ethusd"]);
+    assert.ok(items.every((i) => i.score !== null && i.price !== null));
+    resetMacroCacheForTests();
+  });
+
   await test("overview: a failing source degrades that asset only; the others still score", async () => {
     resetMacroCacheForTests();
     const noOil: FetchLike = async (u) => (u.includes("symbol=USO") ? json({ code: 429, status: "error" }) : goodFetch(u));
@@ -122,6 +130,30 @@ async function main(): Promise<void> {
       alignment: { asset: "gold", lean: "supportive", score: 75, label: "Supports gold", drivers: [], availableDrivers: 4, totalDrivers: 5, formula: "", caveat: "", notCovered: [] },
     });
     assert.deepEqual([item.score, item.lean, item.label, item.availableDrivers, item.totalDrivers], [75, "supportive", "Supports gold", 4, 5]);
+  });
+
+  // ── AI Signals page ──
+  await test("risk driver: names the categories AT the overall level and the engine's own first reason", () => {
+    const d = riskDriverOf({
+      overallLevel: "high",
+      categories: [
+        { category: "market", level: "low", rationale: ["1 price item"] },
+        { category: "data-quality", level: "high", rationale: ["7 of 8 evidence types missing", "Freshest evidence is 700 minute(s) old"] },
+        { category: "uncertainty", level: "medium", rationale: ["x"] },
+      ],
+    });
+    assert.deepEqual(d, { categories: ["data-quality"], reason: "7 of 8 evidence types missing" });
+  });
+
+  await test("risk driver: no overall level / no category at that level -> undefined, never invented", () => {
+    assert.equal(riskDriverOf({ categories: [] }), undefined);
+    assert.equal(riskDriverOf({ overallLevel: "high", categories: [{ category: "market", level: "low", rationale: [] }] }), undefined);
+  });
+
+  await test("every AI Signals symbol maps to a macro profile (silver via the SLV proxy, ETH, GBP)", () => {
+    for (const sym of ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "XAGUSD", "BTCUSD", "ETHUSD"]) assert.ok(profileForMiSymbol(sym), sym);
+    assert.match(ASSET_PROFILES.silver.ownQuote.source, /proxy/i);
+    assert.ok(ASSET_PROFILES.silver.notCovered.some((n) => /proxy/i.test(n)));
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);

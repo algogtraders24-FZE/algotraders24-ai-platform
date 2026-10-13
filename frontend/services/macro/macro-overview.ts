@@ -7,7 +7,7 @@
 // Basic allows 8 requests/minute. An asset whose quote could not be fetched in
 // time shows "not enough data" - it is never estimated.
 
-import { ASSET_IDS, type AlignmentLean, type AssetId } from "./macro-alignment";
+import type { AlignmentLean, AssetId } from "./macro-alignment";
 import { getMacroAlignmentSnapshot, type MacroAlignmentSnapshot, type MacroPrice } from "./macro-service";
 import type { FetchLike } from "./macro-data";
 
@@ -22,8 +22,10 @@ export interface MacroOverviewItem {
   price: MacroPrice | null;
 }
 
-/** Most useful first: if the minute's quota runs out, the last ones degrade. */
+/** Dashboard mini cards. Most useful first: if the minute's quota runs out, the last ones degrade. */
 export const OVERVIEW_ORDER: readonly AssetId[] = ["gold", "btcusd", "eurusd", "usdjpy", "oil"];
+/** The AI Signals page's instruments (same set as /api/private/intelligence/overview), in its display order. */
+export const SIGNALS_ORDER: readonly AssetId[] = ["eurusd", "gbpusd", "usdjpy", "gold", "silver", "btcusd", "ethusd"];
 
 export function toOverviewItem(s: MacroAlignmentSnapshot): MacroOverviewItem {
   return {
@@ -38,15 +40,15 @@ export function toOverviewItem(s: MacroAlignmentSnapshot): MacroOverviewItem {
   };
 }
 
-export async function getMacroOverview(f?: FetchLike): Promise<MacroOverviewItem[]> {
+export async function getMacroOverview(f?: FetchLike, order: readonly AssetId[] = OVERVIEW_ORDER): Promise<MacroOverviewItem[]> {
   const items: MacroOverviewItem[] = [];
-  for (const asset of OVERVIEW_ORDER) {
+  for (const asset of order) {
     try {
       items.push(toOverviewItem(await getMacroAlignmentSnapshot(asset, f)));
     } catch {
       // one asset failing must not blank the others
     }
   }
-  // keep the display order stable even if one was skipped
-  return ASSET_IDS.map((id) => items.find((i) => i.asset === id)).filter((i): i is MacroOverviewItem => i !== undefined);
+  // keep the requested display order even if one was skipped
+  return order.map((id) => items.find((i) => i.asset === id)).filter((i): i is MacroOverviewItem => i !== undefined);
 }

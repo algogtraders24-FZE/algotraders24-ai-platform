@@ -13,7 +13,7 @@
 // "Supports" always means "favours a higher price of the asset".
 
 export type DriverId = "realYield" | "nominalYield" | "dollar" | "yields" | "riskAppetite" | "riskSentiment" | "momentum";
-export type AssetId = "gold" | "eurusd" | "usdjpy" | "btcusd" | "oil";
+export type AssetId = "gold" | "silver" | "eurusd" | "gbpusd" | "usdjpy" | "btcusd" | "ethusd" | "oil";
 /** +1 supports the asset, -1 is a headwind, 0 neutral. */
 export type DriverSign = -1 | 0 | 1;
 export type AlignmentLean = "supportive" | "headwind" | "mixed" | "insufficient";
@@ -114,6 +114,20 @@ export const ASSET_PROFILES: Record<AssetId, AssetProfile> = {
     ],
     notCovered: ["central-bank buying", "geopolitical headlines"],
   },
+  silver: {
+    id: "silver", name: "silver", title: "Silver", supportLabel: "Supports silver", headwindLabel: "Headwind for silver",
+    ownQuote: { symbol: "SLV", source: "SLV (silver ETF proxy)" },
+    price: { label: "SLV silver ETF", prefix: "$", decimals: 2 },
+    miSymbol: "XAGUSD", calendarCurrencies: ["USD"],
+    drivers: [
+      { id: "realYield", label: "Real yield (10Y TIPS)", weight: 25, threshold: 0.05, direction: -1 },
+      { id: "dollar", label: "US dollar", weight: 20, threshold: 0.15, direction: -1 },
+      { id: "riskAppetite", label: "Risk appetite (stocks)", weight: 10, threshold: 0.4, direction: 1 },
+      { id: "yields", label: "Treasury yields", weight: 10, threshold: 0.15, direction: 1 },
+      { id: "momentum", label: "Silver momentum (SLV)", weight: 35, threshold: 0.5, direction: 1 },
+    ],
+    notCovered: ["industrial demand", "the gold/silver ratio", "SLV is an ETF proxy for silver, not the spot price"],
+  },
   eurusd: {
     id: "eurusd", name: "EUR/USD", title: "EUR/USD", supportLabel: "Supports EUR/USD", headwindLabel: "Headwind for EUR/USD",
     ownQuote: { symbol: "EUR/USD", source: "EUR/USD" },
@@ -127,6 +141,20 @@ export const ASSET_PROFILES: Record<AssetId, AssetProfile> = {
       { id: "momentum", label: "EUR/USD momentum", weight: 30, threshold: 0.2, direction: 1 },
     ],
     notCovered: ["euro-area data and ECB policy", "the dollar driver largely mirrors EUR/USD itself (EUR is most of the dollar basket), so dollar and momentum overlap"],
+  },
+  gbpusd: {
+    id: "gbpusd", name: "GBP/USD", title: "GBP/USD", supportLabel: "Supports GBP/USD", headwindLabel: "Headwind for GBP/USD",
+    ownQuote: { symbol: "GBP/USD", source: "GBP/USD" },
+    price: { label: "GBP/USD", prefix: "", decimals: 4 },
+    miSymbol: "GBPUSD", calendarCurrencies: ["USD", "GBP"],
+    drivers: [
+      { id: "dollar", label: "US dollar", weight: 30, threshold: 0.15, direction: -1 },
+      { id: "yields", label: "Treasury yields", weight: 15, threshold: 0.15, direction: 1 },
+      { id: "riskAppetite", label: "Risk appetite (stocks)", weight: 15, threshold: 0.4, direction: 1 },
+      { id: "riskSentiment", label: "Risk sentiment", weight: 10, threshold: 2, direction: 1, spike: "headwind" },
+      { id: "momentum", label: "GBP/USD momentum", weight: 30, threshold: 0.2, direction: 1 },
+    ],
+    notCovered: ["UK data and Bank of England policy", "the dollar driver largely mirrors GBP/USD itself, so dollar and momentum overlap"],
   },
   usdjpy: {
     id: "usdjpy", name: "USD/JPY", title: "USD/JPY", supportLabel: "Supports USD/JPY", headwindLabel: "Headwind for USD/JPY",
@@ -155,6 +183,20 @@ export const ASSET_PROFILES: Record<AssetId, AssetProfile> = {
       { id: "momentum", label: "Bitcoin momentum", weight: 30, threshold: 1, direction: 1 },
     ],
     notCovered: ["on-chain flows and ETF flows", "exchange or regulatory news"],
+  },
+  ethusd: {
+    id: "ethusd", name: "Ethereum", title: "Ethereum", supportLabel: "Supports Ethereum", headwindLabel: "Headwind for Ethereum",
+    ownQuote: { symbol: "ETH/USD", source: "ETH/USD" },
+    price: { label: "Ethereum", prefix: "$", decimals: 0 },
+    miSymbol: "ETHUSD", calendarCurrencies: ["USD"],
+    drivers: [
+      { id: "riskAppetite", label: "Risk appetite (stocks)", weight: 25, threshold: 0.4, direction: 1 },
+      { id: "dollar", label: "US dollar", weight: 15, threshold: 0.15, direction: -1 },
+      { id: "realYield", label: "Real yield (10Y TIPS)", weight: 20, threshold: 0.05, direction: -1 },
+      { id: "riskSentiment", label: "Risk sentiment", weight: 10, threshold: 2, direction: 1, spike: "headwind" },
+      { id: "momentum", label: "Ethereum momentum", weight: 30, threshold: 1.2, direction: 1 },
+    ],
+    notCovered: ["on-chain and ETF flows", "network activity and staking", "exchange or regulatory news"],
   },
   oil: {
     id: "oil", name: "crude oil", title: "Crude oil (WTI)", supportLabel: "Supports crude oil", headwindLabel: "Headwind for crude oil",

@@ -16,9 +16,12 @@ type Lean = MacroAlignmentSnapshot["alignment"]["lean"];
 
 const ASSET_TABS: { id: string; label: string }[] = [
   { id: "gold", label: "Gold" },
+  { id: "silver", label: "Silver" },
   { id: "eurusd", label: "EUR/USD" },
+  { id: "gbpusd", label: "GBP/USD" },
   { id: "usdjpy", label: "USD/JPY" },
   { id: "btcusd", label: "Bitcoin" },
+  { id: "ethusd", label: "Ethereum" },
   { id: "oil", label: "Crude oil" },
 ];
 
