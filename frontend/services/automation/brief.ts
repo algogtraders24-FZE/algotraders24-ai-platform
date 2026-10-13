@@ -48,7 +48,7 @@ const REGIME_PLAIN: Record<string, string> = {
   "insufficient-data": "not enough data",
 };
 const plainBias = (b: string | null): string => (b ? (BIAS_PLAIN[b] ?? b.replace(/-/g, " ")) : "unclear");
-const plainRegime = (r: string): string => REGIME_PLAIN[r] ?? r.replace(/-/g, " ");
+export const plainRegime = (r: string): string => REGIME_PLAIN[r] ?? r.replace(/-/g, " ");
 
 /** What changed vs the previous Market Intelligence result. Absent fields = no previous result to compare. */
 function compareMarketIntelligence(current: Record<string, unknown>, previous: unknown): Pick<AgentBrief, "changed" | "changeNote"> {

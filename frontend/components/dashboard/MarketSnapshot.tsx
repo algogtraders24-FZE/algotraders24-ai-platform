@@ -10,35 +10,17 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Card from "@/components/ui/Card";
 import Skeleton from "@/components/ui/Skeleton";
+import { MiniGauge, LEAN_TEXT } from "@/components/macro/MiniGauge";
 import { AutomationApi, type ResultItem } from "@/services/api/AutomationApi";
 import { countdown } from "@/services/automation/brief-extras";
 import type { MacroOverviewItem } from "@/services/macro/macro-overview";
 import type { NextEvent } from "@/services/calendar/next-event";
-
-const LEAN_TEXT: Record<MacroOverviewItem["lean"], string> = {
-  supportive: "text-success",
-  headwind: "text-danger",
-  mixed: "text-warning",
-  insufficient: "text-text-2",
-};
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
   const json = (await res.json().catch(() => null)) as { status: "ok"; data: T } | { status: "error"; error: { message: string } } | null;
   if (!json || json.status !== "ok") throw new Error(json && json.status === "error" ? json.error.message : `Request failed (${res.status})`);
   return json.data;
-}
-
-function MiniGauge({ score, lean }: { score: number | null; lean: MacroOverviewItem["lean"] }) {
-  return (
-    <div className={`relative mx-auto w-24 ${LEAN_TEXT[lean]}`} role="img" aria-label={score === null ? "not enough data" : `${score} percent`}>
-      <svg viewBox="0 0 120 70" className="w-full">
-        <path d="M10 62 A50 50 0 0 1 110 62" fill="none" stroke="currentColor" strokeOpacity="0.15" strokeWidth="12" strokeLinecap="round" pathLength={100} />
-        {score !== null && <path d="M10 62 A50 50 0 0 1 110 62" fill="none" stroke="currentColor" strokeWidth="12" strokeLinecap="round" pathLength={100} strokeDasharray={`${score} 100`} />}
-      </svg>
-      <div className="absolute inset-x-0 bottom-0 text-center text-lg font-semibold leading-none">{score === null ? "—" : `${score}%`}</div>
-    </div>
-  );
 }
 
 function MacroMiniCards() {

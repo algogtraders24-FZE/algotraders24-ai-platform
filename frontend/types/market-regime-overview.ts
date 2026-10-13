@@ -29,6 +29,10 @@ export interface MarketRegimeOverviewItem {
   /** The real, unmodified Intelligence Score - undefined only in the genuine total-blackout case, never a fabricated placeholder. */
   intelligenceScore?: number;
   riskLevel?: RiskLevel;
+  /** The regime's own deterministic confidence (0-100) - unlike the data-quality score below, this one differs per market. */
+  regimeConfidence?: number;
+  /** Which risk categories sit at the overall level, and the engine's own first reason for the worst one (e.g. "7 of 8 evidence types unavailable"). The overall risk is the WORST of eight categories, so this says what is driving it. */
+  riskDriver?: { categories: string[]; reason: string };
   /** One real, engine-produced evidence/basis line - never invented commentary. */
   basis?: string;
   generatedAt?: string;
