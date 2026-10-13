@@ -48,6 +48,8 @@ import { RiskEngineService } from "@/services/ai/risk/risk-engine.service";
 import { ConfidenceEngineService } from "@/services/ai/confidence/confidence-engine.service";
 import { marketData } from "@/services/market-data/shared-instance";
 import { SharedNewsCacheProvider } from "@/services/news/market-intelligence-news-provider";
+import { StoredNewsEvidenceProvider } from "@/services/evidence-sources/stored-news-provider";
+import { productionExtraEvidenceSources } from "@/services/evidence-sources/production-sources";
 import { systemClock } from "@/lib/market-data/cache";
 import { analyticsEventService } from "@/services/analytics/AnalyticsEventService";
 import { checkAndRecordAiRateLimit, AI_RATE_LIMIT_MESSAGE } from "@/lib/security/aiRateLimit";
@@ -84,7 +86,15 @@ const pipeline = new MarketIntelligencePipelineService(
   // on every analysis request. See services/news/market-intelligence-news-
   // provider.ts's header for why this is a new class rather than a rewrite
   // of the pre-existing, still-tested AlphaVantageNewsProvider.
-  new SharedNewsCacheProvider(),
+  //
+  // Wrapped so every headline carries ONE source name (publisher kept in the claim): the ranking
+  // stage flags same-type items from different sources with different text as conflicts, so
+  // per-publisher names produced N(N-1)/2 spurious "conflicts" (6 for 4 headlines) and pushed this
+  // page's risk to High. This page keeps the live (quota-reserved) refresh fallback.
+  new StoredNewsEvidenceProvider(async () => new SharedNewsCacheProvider()),
+  // Same extra evidence the real-time path uses: macro (economic calendar), cross-asset (macro
+  // drivers) and technical (SMC structure). Before this the page ran on price + news only.
+  productionExtraEvidenceSources(),
 );
 const orchestrator = new MarketAnalysisOrchestrationService(pipeline);
 
