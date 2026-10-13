@@ -83,7 +83,7 @@ function HowItWorks({ hasMoney }: { hasMoney: boolean }) {
   const steps = [
     { icon: ShieldCheck, href: "#choose-contract", title: "Choose a contract", text: "35, 30 or 25 months depending on the product, one AI Algo for MetaTrader 5 and MetaTrader 4." },
     { icon: Download, href: "#your-contracts", title: "Get your files", text: "The EA, a signed licence and your contract PDF, right after payment." },
-    { icon: CalendarClock, href: "#your-contracts", title: "Rebate every quarter", text: "A fixed amount, written in your contract, credited in 4 instalments." },
+    { icon: CalendarClock, href: "#your-contracts", title: "Rebate every quarter", text: "A fixed amount, written in your contract, credited every 3 months as set out in your contract." },
     { icon: Wallet, href: hasMoney ? "#balance" : "/dashboard/algo-contracts/guide", title: "Withdraw in USDT", text: "Credited amounts can be withdrawn after a short hold." },
   ];
   return (
