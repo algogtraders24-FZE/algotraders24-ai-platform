@@ -16,6 +16,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import ButtonLink from "@/components/ui/ButtonLink";
 import QuickActions from "@/components/dashboard/QuickActions";
+import { MarketSnapshot } from "@/components/dashboard/MarketSnapshot";
 import RecentActivity from "@/components/dashboard/RecentActivity";
 import NewUserOnboarding from "@/components/dashboard/NewUserOnboarding";
 import { dashboardService } from "@/services/dashboard.service";
@@ -132,6 +133,8 @@ export default async function DashboardHome() {
           <StatCard key={stat.label} label={stat.label} value={stat.value} icon={stat.icon} hint={stat.hint} />
         ))}
       </div>
+
+      <MarketSnapshot />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <RecentActivity items={activity} />
