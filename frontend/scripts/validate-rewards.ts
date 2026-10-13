@@ -373,3 +373,26 @@ pdfChecks().then(() => {
   console.log(failed === 0 ? "\nALL PASS" : `\n${failed} FAILED`);
   process.exit(failed === 0 ? 0 : 1);
 });
+
+// --- admin wallet (daily summary maths, IST days)
+import { buildDaily, dollarsToCents, istDay, istDayStart, lastDays, sumDaily } from "../lib/rewards/adminWallet";
+{
+  check("IST day: 18:29 UTC is still the same IST day, 18:30 UTC is the next", istDay(new Date("2026-10-13T18:29:00Z")) === "2026-10-13" && istDay(new Date("2026-10-13T18:30:00Z")) === "2026-10-14");
+  check("IST day start is 18:30 UTC the evening before", istDayStart("2026-10-14").toISOString() === "2026-10-13T18:30:00.000Z");
+  const ld = lastDays(3, new Date("2026-10-14T03:00:00Z"));
+  check("lastDays: three days ending today, oldest first", ld.join() === "2026-10-12,2026-10-13,2026-10-14", ld.join());
+  const d = buildDaily(ld, {
+    deposits: [{ at: new Date("2026-10-13T20:00:00Z"), amountCents: 499_900 }, { at: new Date("2026-10-14T01:00:00Z"), amountCents: 1_500 }],
+    refunds: [{ at: new Date("2026-10-14T02:00:00Z"), amountCents: 1_500 }],
+    withdrawals: [{ requestedAt: new Date("2026-10-13T02:00:00Z"), paidAt: new Date("2026-10-14T02:00:00Z"), amountCents: 10_000 }, { requestedAt: new Date("2026-10-14T02:00:00Z"), paidAt: null, amountCents: 5_000 }],
+    commissions: [{ at: new Date("2026-10-14T02:00:00Z"), amountCents: 10_000 }],
+    rebates: [{ at: new Date("2026-10-12T05:00:00Z"), amountCents: 60_000 }],
+  });
+  check("deposit at 20:00 UTC on the 13th lands on IST 14th with the 01:00 UTC one", d[2].depositsCents === 501_400 && d[2].depositCount === 2 && d[1].depositsCents === 0);
+  check("withdrawal requested one day, paid the next", d[1].withdrawalsRequestedCents === 10_000 && d[1].withdrawalsPaidCents === 0 && d[2].withdrawalsPaidCents === 10_000 && d[2].withdrawalsRequestedCents === 5_000);
+  check("net = money in - refunds - paid out", d[2].netCents === 501_400 - 1_500 - 10_000);
+  const t = sumDaily(d);
+  check("totals add up", t.depositsCents === 501_400 && t.commissionsCents === 10_000 && t.rebatesCents === 60_000 && t.withdrawalsPaidCount === 1);
+  check("events outside the window are ignored", buildDaily(ld, { deposits: [{ at: new Date("2026-09-01T00:00:00Z"), amountCents: 100 }], refunds: [], withdrawals: [], commissions: [], rebates: [] }).every((r) => r.depositsCents === 0));
+  check("dollars to cents rounds", dollarsToCents(4999) === 499_900 && dollarsToCents(10.1) === 1_010 && dollarsToCents(0.29) === 29);
+}
