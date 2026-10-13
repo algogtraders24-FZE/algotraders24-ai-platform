@@ -49,7 +49,12 @@ import type {
 } from "@/types/market-analysis-orchestration";
 import { RepositoryError } from "@/types/repository";
 
-const MAX_PROMPT_CHARS = 6000;
+// Raised from 6000: with macro, SMC structure, calendar and news evidence a single analysis is ~18 items (~4-5k
+// characters of evidence alone), and anything over the limit is cut from the END of the prompt.
+const MAX_PROMPT_CHARS = 14000;
+
+/** Response schemas written as the concise professional market brief (see buildPrompt). */
+const BRIEF_SCHEMAS = new Set(["market-analysis", "general-output"]);
 
 export class MarketAnalysisOrchestrationService {
   // `ai` defaults to null, not createAIService(): a default *parameter*
@@ -182,6 +187,22 @@ export class MarketAnalysisOrchestrationService {
         "Do not change the stated risk level, confidence level, or any evidence claim. " +
         "If a section below states that something is unavailable or could not be determined, say so plainly - never invent a substitute or perform new analysis to fill the gap.",
     );
+    // The output format goes at the TOP, ahead of the (long) evidence lists: when the prompt hits MAX_PROMPT_CHARS
+    // it is the tail that is cut, and the format instructions used to sit there, so a big evidence bundle made the
+    // model fall back to echoing the input sections instead of writing a brief.
+    if (BRIEF_SCHEMAS.has(routing.schema.id)) {
+      lines.push(
+        "Write the answer as a concise, professional market brief in Markdown, at most about 200 words, with each section title in bold on its own line: " +
+          "**Summary** - two or three sentences: what the evidence shows and the confidence level. " +
+          "**Key evidence** - 3 to 5 short bullets covering only what is present below (price, market structure / technical, macro and scheduled events, cross-asset drivers, relevant news); merge related facts instead of listing every item. " +
+          "**Risks and gaps** - 2 to 4 short bullets: the main risks and what is not covered. " +
+          "**What to watch** - 1 or 2 bullets (upcoming events, nearest liquidity levels) only if present below, otherwise omit this section. " +
+          "Use plain, precise language. Do not repeat the same point across sections, do not echo the input section names (Executive summary, Market thesis, Assumptions, Limitations, Recommendation basis), " +
+          "do not use framework labels such as Observe / Analyze / Explain, and do not mention entry, stop loss, take profit, targets or BUY / SELL.",
+      );
+    } else {
+      lines.push(`Respond using this structure: ${routing.schema.sections.join(", ")}.`);
+    }
     lines.push(`User question: ${request.question}`);
     lines.push(`Symbol: ${explainable.symbol}`);
     lines.push(`Executive summary: ${explainable.executiveSummary}`);
@@ -209,18 +230,6 @@ export class MarketAnalysisOrchestrationService {
     lines.push(`Risk summary: ${explainable.riskSummary}`);
     lines.push(`Recommendation basis: ${explainable.recommendationBasis}`);
 
-    lines.push(`Respond using this structure: ${routing.schema.sections.join(", ")}.`);
-    if (routing.schema.id === "market-analysis") {
-      lines.push(
-        "Write it as a concise, professional market brief in Markdown, at most about 200 words, with each section title in bold on its own line: " +
-          "**Summary** - two or three sentences: what the evidence shows and the confidence level. " +
-          "**Key evidence** - 3 to 5 short bullets covering only what is present above (price, market structure / technical, macro and scheduled events, cross-asset drivers, relevant news). " +
-          "**Risks and gaps** - 2 to 4 short bullets: the main risks and what is not covered. " +
-          "**What to watch** - 1 or 2 bullets (upcoming events, nearest liquidity levels) only if present above, otherwise omit this section. " +
-          "Use plain, precise language. Do not repeat the same point across sections, do not use framework labels such as Observe / Analyze / Explain, " +
-          "and do not mention entry, stop loss, take profit, targets or BUY / SELL.",
-      );
-    }
     lines.push(
       "Restate the analysis above naturally and completely - never perform new reasoning, " +
         "never invent a price, direction, headline, or conclusion not already stated above.",

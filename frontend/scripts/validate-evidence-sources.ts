@@ -214,6 +214,8 @@ async function main(): Promise<void> {
       ["XAUUSD", "Is Franco-Nevada (NYSE:FNV) stock swinging with gold royalties today?"],
       ["XAUUSD", "Can Agnico Eagle Mines (TSX:AEM) Beat Quarterly Market Expectations?"],
       ["XAUUSD", "Eldorado Gold (TSX:ELD): Is Skouries Production Finally Near?"],
+      ["XAUUSD", "The Gold M&A Wave Will Create 10-Baggers | Tim Clark - Fury Gold Mines (the deep dive)"],
+      ["XAUUSD", "Gold mining stocks surge as quarterly results beat"],
       ["XAUUSD", "Stock Picks Today: Axis Bank, HDFC Bank, Trent, Marico And More On Brokerages' Radar"],
       ["BTCUSD", "Fed signals patience on rates"], // dollar macro does not count for crypto
       ["SOLUSD", "Oil edges higher"],
