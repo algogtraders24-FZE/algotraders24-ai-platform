@@ -127,7 +127,7 @@ async function main(): Promise<void> {
     assert.ok(Math.abs((r.inputs.realYield?.value ?? 0) - (2.87 - 3.02)) < 1e-9);
     assert.equal(r.inputs.dollar?.value, -0.3);
     assert.equal(r.inputs.momentum?.value, 0.4);
-    assert.deepEqual(r.own, { price: 4166.14, changePct: 0.4 });
+    assert.deepEqual(r.own, { price: 4166.14, changePct: 0.4, provider: "twelve-data" });
     const a = computeMacroAlignment(r.inputs);
     assert.equal(a.availableDrivers, 5);
     assert.equal(a.lean, "supportive");
@@ -298,6 +298,146 @@ async function main(): Promise<void> {
     assert.equal(formatMacroPrice("eurusd", 1.11784), "1.1178");
     assert.equal(formatMacroPrice("usdjpy", 158.257), "158.26");
     assert.equal(formatMacroPrice("btcusd", 83706.41), "$83,706");
+  });
+
+  // ── MT5 (Exness) first, Twelve Data fallback ──
+  const MT5 = { bridgeUrl: "https://bridge.test", secret: "bridge-secret" };
+  // previous daily close -> forming day's price; pct = (last - prev) / prev * 100
+  const CANDLES: Record<string, [number, number]> = {
+    XAUUSD: [4000, 4040], // +1.00%
+    XAGUSD: [60, 60.6], // +1.00%
+    EURUSD: [1.1, 1.1022], // +0.20%
+    GBPUSD: [1.3, 1.3026],
+    USDJPY: [158, 158.316],
+    BTCUSD: [80000, 81600], // +2.00%
+    ETHUSD: [2500, 2550],
+    DXY: [100, 99.7], // -0.30%
+    USTEC: [20000, 20160], // +0.80%
+    USOIL: [90, 91.8], // +2.00%
+  };
+  const bridgeCalls: { url: string; auth: string | undefined }[] = [];
+  const mt5Fetch =
+    (opts: { missing?: string[]; down?: boolean; oneCandle?: string[] } = {}): FetchLike =>
+    async (url, init) => {
+      if (!url.startsWith(MT5.bridgeUrl)) return goodFetch(url);
+      bridgeCalls.push({ url, auth: init?.headers?.Authorization });
+      if (opts.down) throw new Error("bridge down");
+      const sym = new URL(url).searchParams.get("symbol") ?? "";
+      if (opts.missing?.includes(sym) || !CANDLES[sym]) return { ok: false, status: 404, json: async () => ({}) };
+      const [prev, last] = CANDLES[sym];
+      const candles = opts.oneCandle?.includes(sym)
+        ? [{ datetime: "2026-10-13T00:00:00+00:00", close: last }]
+        : [{ datetime: "2026-10-12T00:00:00+00:00", close: prev }, { datetime: "2026-10-13T00:00:00+00:00", close: last }];
+      return json({ symbol: sym, interval: "1d", candles });
+    };
+  const tdSymbols = (urls: string[]) => urls.filter((u) => u.includes("twelvedata")).map((u) => decodeURIComponent(new URL(u).searchParams.get("symbol") ?? "")).sort();
+
+  await test("MT5 first: gold's own price + day change come from the Exness candles; DXY replaces UUP; Twelve Data only for IEF and VIXY", async () => {
+    resetMacroCacheForTests();
+    const urls: string[] = [];
+    const f: FetchLike = async (u, i) => (urls.push(u), mt5Fetch()(u, i));
+    const r = await fetchMacroInputs({ twelveDataKey: "k", fredKey: "f", mt5: MT5 }, f, ASSET_PROFILES.gold, { noCache: true });
+    assert.equal(r.inputs.momentum?.value, 1);
+    assert.equal(r.inputs.momentum?.source, "XAUUSD (Exness)");
+    assert.deepEqual(r.own, { price: 4040, changePct: 1, provider: "mt5" });
+    assert.equal(r.inputs.dollar?.source, "DXY (US dollar index, Exness)");
+    assert.ok(Math.abs((r.inputs.dollar?.value ?? 0) - -0.3) < 1e-9);
+    assert.deepEqual(tdSymbols(urls), ["IEF", "VIXY"]);
+  });
+
+  await test("MT5 first: EUR/USD takes DXY (dollar) and USTEC (stocks) from Exness; Twelve Data only IEF + VIXY", async () => {
+    resetMacroCacheForTests();
+    const urls: string[] = [];
+    const f: FetchLike = async (u, i) => (urls.push(u), mt5Fetch()(u, i));
+    const r = await fetchMacroInputs({ twelveDataKey: "k", fredKey: null, mt5: MT5 }, f, ASSET_PROFILES.eurusd, { noCache: true });
+    assert.equal(r.inputs.riskAppetite?.source, "USTEC (Nasdaq-100, Exness)");
+    assert.ok(Math.abs((r.inputs.riskAppetite?.value ?? 0) - 0.8) < 1e-9);
+    assert.equal(r.inputs.dollar?.source, "DXY (US dollar index, Exness)");
+    assert.deepEqual(tdSymbols(urls), ["IEF", "VIXY"]);
+  });
+
+  await test("MT5 first: real silver (XAGUSD) and real WTI (USOIL) replace the SLV / USO proxies", async () => {
+    resetMacroCacheForTests();
+    const silver = await fetchMacroInputs({ twelveDataKey: "k", fredKey: "f", mt5: MT5 }, mt5Fetch(), ASSET_PROFILES.silver, { noCache: true });
+    assert.equal(silver.inputs.momentum?.source, "XAGUSD (Exness)");
+    assert.equal(silver.own?.provider, "mt5");
+    const oil = await fetchMacroInputs({ twelveDataKey: "k", fredKey: "f", mt5: MT5 }, mt5Fetch(), ASSET_PROFILES.oil, { noCache: true });
+    assert.equal(oil.inputs.momentum?.source, "USOIL (Exness)");
+    assert.ok(Math.abs((oil.inputs.momentum?.value ?? 0) - 2) < 1e-9);
+  });
+
+  await test("fallback: a symbol the bridge does not map yet (404) falls back to the Twelve Data proxy, labelled as such", async () => {
+    resetMacroCacheForTests();
+    const r = await fetchMacroInputs({ twelveDataKey: "k", fredKey: "f", mt5: MT5 }, mt5Fetch({ missing: ["DXY"] }), ASSET_PROFILES.gold, { noCache: true });
+    assert.equal(r.inputs.dollar?.source, "UUP (dollar proxy)");
+    assert.equal(r.inputs.dollar?.value, -0.3);
+    assert.equal(r.inputs.momentum?.source, "XAUUSD (Exness)"); // the rest still comes from MT5
+  });
+
+  await test("fallback: bridge down -> everything from Twelve Data, nothing throws", async () => {
+    resetMacroCacheForTests();
+    const r = await fetchMacroInputs({ twelveDataKey: "k", fredKey: "f", mt5: MT5 }, mt5Fetch({ down: true }), ASSET_PROFILES.gold, { noCache: true });
+    assert.equal(r.own?.provider, "twelve-data");
+    assert.equal(r.inputs.momentum?.source, "XAU/USD");
+    assert.equal(computeMacroAlignment(r.inputs, ASSET_PROFILES.gold).availableDrivers, 5);
+  });
+
+  await test("a single daily candle has no previous close -> no day change from MT5, falls back (never a fake 0%)", async () => {
+    resetMacroCacheForTests();
+    const r = await fetchMacroInputs({ twelveDataKey: "k", fredKey: "f", mt5: MT5 }, mt5Fetch({ oneCandle: ["XAUUSD"] }), ASSET_PROFILES.gold, { noCache: true });
+    assert.equal(r.own?.provider, "twelve-data");
+  });
+
+  await test("no Twelve Data key and the bridge missing a symbol -> that driver is unavailable, not guessed", async () => {
+    resetMacroCacheForTests();
+    const r = await fetchMacroInputs({ twelveDataKey: null, fredKey: null, mt5: MT5 }, mt5Fetch({ missing: ["DXY"] }), ASSET_PROFILES.gold, { noCache: true });
+    assert.equal(r.inputs.dollar?.value, null);
+    assert.equal(r.inputs.momentum?.value, 1);
+  });
+
+  await test("the bridge is called read-only: GET /candles with the Bearer secret and the 1d interval", async () => {
+    resetMacroCacheForTests();
+    bridgeCalls.length = 0;
+    await fetchMacroInputs({ twelveDataKey: "k", fredKey: null, mt5: MT5 }, mt5Fetch(), ASSET_PROFILES.gold, { noCache: true });
+    assert.ok(bridgeCalls.length >= 2);
+    for (const c of bridgeCalls) {
+      assert.match(c.url, /\/candles\?symbol=[A-Z]+&interval=1d&count=2$/);
+      assert.equal(c.auth, "Bearer bridge-secret");
+    }
+  });
+
+  await test("MT5 quotes are cached (second fetch hits the bridge zero times)", async () => {
+    resetMacroCacheForTests();
+    bridgeCalls.length = 0;
+    await fetchMacroInputs({ twelveDataKey: "k", fredKey: null, mt5: MT5 }, mt5Fetch(), ASSET_PROFILES.gold);
+    const first = bridgeCalls.length;
+    await fetchMacroInputs({ twelveDataKey: "k", fredKey: null, mt5: MT5 }, mt5Fetch(), ASSET_PROFILES.gold);
+    assert.equal(bridgeCalls.length, first);
+    resetMacroCacheForTests();
+  });
+
+  await test("price label: real instrument keeps its name, a proxy says so (silver / oil)", async () => {
+    const { getMacroAlignmentSnapshot } = await import("../services/macro/macro-service");
+    const saved = { u: process.env.MT5_BRIDGE_URL, s: process.env.MT5_BRIDGE_SECRET, t: process.env.TWELVEDATA_API_KEY, f: process.env.FRED_API_KEY };
+    try {
+      process.env.TWELVEDATA_API_KEY = "k";
+      process.env.FRED_API_KEY = "f";
+      process.env.MT5_BRIDGE_URL = MT5.bridgeUrl;
+      process.env.MT5_BRIDGE_SECRET = MT5.secret;
+      resetMacroCacheForTests();
+      const real = await getMacroAlignmentSnapshot("silver", mt5Fetch());
+      assert.equal(real.price?.label, "Silver");
+      assert.equal(real.price?.text, "$60.60");
+      resetMacroCacheForTests();
+      const proxy = await getMacroAlignmentSnapshot("oil", mt5Fetch({ down: true }));
+      assert.equal(proxy.price?.label, "USO oil ETF");
+    } finally {
+      for (const [k, v] of [["MT5_BRIDGE_URL", saved.u], ["MT5_BRIDGE_SECRET", saved.s], ["TWELVEDATA_API_KEY", saved.t], ["FRED_API_KEY", saved.f]] as const) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+      resetMacroCacheForTests();
+    }
   });
 
   // ── brief extras ──

@@ -73,3 +73,25 @@ asset; each asset has its own drivers, weights and thresholds, and lists what it
 * **Coverage rule (2026-10-13):** a score needs at least 3 drivers AND the drivers with data must carry >= 70% of the asset's
   total weight. Found on the live dashboard: oil showed "83% headwind" with its own price missing (weight 40). Now it reads
   "Not enough data" until the quote is back. Mini cards show "n/m drivers".
+
+## Update 2026-10-13: MT5 (Exness) first, Twelve Data as fallback
+
+Verified with the admin diagnostic `/api/private/admin/mt5/symbols` (313 symbols on the Exness terminal): **DXY** (dollar
+index), **USTEC / US500 / US30** (indices), **USOIL / UKOIL** (WTI / Brent) exist; **VIX and bond yields do not**.
+
+`services/macro/macro-data.ts` now resolves each reading MT5-first:
+
+| Reading | Exness (bridge `/candles?interval=1d&count=2`) | Fallback |
+|---|---|---|
+| Asset own price + day change | XAUUSD, XAGUSD (real silver), EURUSD, GBPUSD, USDJPY, BTCUSD, ETHUSD, USOIL | Twelve Data (XAU/USD, SLV, ..., USO) |
+| US dollar | DXY | UUP |
+| Stocks | USTEC | QQQ |
+| Treasuries / volatility / real yield | - | IEF, VIXY (Twelve Data), FRED DFII10 / DGS10 |
+
+Day change = forming daily candle vs the previous close (broker day). A symbol the bridge does not map yet (404), a bridge
+outage or a single-candle answer falls back to Twelve Data automatically; every reading's source is shown on the card, and a
+price that came from a proxy keeps the proxy's label. Twelve Data is now only 2 quotes per asset (IEF, VIXY), so the
+8 req/min limit no longer bites the Signals/dashboard pages.
+
+**VPS step:** the bridge's `SYMBOL_MAP` (mt5-bridge/bridge.py) gained DXY, USTEC, US500, US30, USOIL, UKOIL. Copy bridge.py
+to the VPS and restart the bridge task; until then DXY/USTEC/USOIL fall back to UUP/QQQ/USO. Own-asset quotes work without it.

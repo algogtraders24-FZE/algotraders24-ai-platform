@@ -89,8 +89,10 @@ export interface AssetProfile {
   supportLabel: string;
   headwindLabel: string;
   /** Twelve Data symbol of the asset's own quote (momentum + price). */
-  ownQuote: { symbol: string; source: string };
-  price: { label: string; prefix: string; decimals: number };
+  /** `symbol`/`source` = the Twelve Data quote (fallback); `mt5` = the Exness symbol tried first, when the bridge has it. */
+  ownQuote: { symbol: string; source: string; mt5?: string };
+  /** `fallbackLabel` is used when the price came from the proxy instead of the real instrument. */
+  price: { label: string; prefix: string; decimals: number; fallbackLabel?: string };
   /** Symbol the Market Intelligence agent uses for this asset, when it supports it. */
   miSymbol: string | null;
   /** Calendar currencies whose high-impact events matter. */
@@ -102,7 +104,7 @@ export interface AssetProfile {
 export const ASSET_PROFILES: Record<AssetId, AssetProfile> = {
   gold: {
     id: "gold", name: "gold", title: "Gold", supportLabel: "Supports gold", headwindLabel: "Headwind for gold",
-    ownQuote: { symbol: "XAU/USD", source: "XAU/USD" },
+    ownQuote: { symbol: "XAU/USD", source: "XAU/USD", mt5: "XAUUSD" },
     price: { label: "Gold", prefix: "$", decimals: 2 },
     miSymbol: "XAUUSD", calendarCurrencies: ["USD"],
     drivers: [
@@ -116,8 +118,8 @@ export const ASSET_PROFILES: Record<AssetId, AssetProfile> = {
   },
   silver: {
     id: "silver", name: "silver", title: "Silver", supportLabel: "Supports silver", headwindLabel: "Headwind for silver",
-    ownQuote: { symbol: "SLV", source: "SLV (silver ETF proxy)" },
-    price: { label: "SLV silver ETF", prefix: "$", decimals: 2 },
+    ownQuote: { symbol: "SLV", source: "SLV (silver ETF proxy)", mt5: "XAGUSD" },
+    price: { label: "Silver", prefix: "$", decimals: 2, fallbackLabel: "SLV silver ETF" },
     miSymbol: "XAGUSD", calendarCurrencies: ["USD"],
     drivers: [
       { id: "realYield", label: "Real yield (10Y TIPS)", weight: 25, threshold: 0.05, direction: -1 },
@@ -126,11 +128,11 @@ export const ASSET_PROFILES: Record<AssetId, AssetProfile> = {
       { id: "yields", label: "Treasury yields", weight: 10, threshold: 0.15, direction: 1 },
       { id: "momentum", label: "Silver momentum (SLV)", weight: 35, threshold: 0.5, direction: 1 },
     ],
-    notCovered: ["industrial demand", "the gold/silver ratio", "SLV is an ETF proxy for silver, not the spot price"],
+    notCovered: ["industrial demand", "the gold/silver ratio", "if the Exness silver quote is unavailable an ETF proxy (SLV) is used and labelled on the card"],
   },
   eurusd: {
     id: "eurusd", name: "EUR/USD", title: "EUR/USD", supportLabel: "Supports EUR/USD", headwindLabel: "Headwind for EUR/USD",
-    ownQuote: { symbol: "EUR/USD", source: "EUR/USD" },
+    ownQuote: { symbol: "EUR/USD", source: "EUR/USD", mt5: "EURUSD" },
     price: { label: "EUR/USD", prefix: "", decimals: 4 },
     miSymbol: "EURUSD", calendarCurrencies: ["USD", "EUR"],
     drivers: [
@@ -144,7 +146,7 @@ export const ASSET_PROFILES: Record<AssetId, AssetProfile> = {
   },
   gbpusd: {
     id: "gbpusd", name: "GBP/USD", title: "GBP/USD", supportLabel: "Supports GBP/USD", headwindLabel: "Headwind for GBP/USD",
-    ownQuote: { symbol: "GBP/USD", source: "GBP/USD" },
+    ownQuote: { symbol: "GBP/USD", source: "GBP/USD", mt5: "GBPUSD" },
     price: { label: "GBP/USD", prefix: "", decimals: 4 },
     miSymbol: "GBPUSD", calendarCurrencies: ["USD", "GBP"],
     drivers: [
@@ -158,7 +160,7 @@ export const ASSET_PROFILES: Record<AssetId, AssetProfile> = {
   },
   usdjpy: {
     id: "usdjpy", name: "USD/JPY", title: "USD/JPY", supportLabel: "Supports USD/JPY", headwindLabel: "Headwind for USD/JPY",
-    ownQuote: { symbol: "USD/JPY", source: "USD/JPY" },
+    ownQuote: { symbol: "USD/JPY", source: "USD/JPY", mt5: "USDJPY" },
     price: { label: "USD/JPY", prefix: "", decimals: 2 },
     miSymbol: "USDJPY", calendarCurrencies: ["USD", "JPY"],
     drivers: [
@@ -172,7 +174,7 @@ export const ASSET_PROFILES: Record<AssetId, AssetProfile> = {
   },
   btcusd: {
     id: "btcusd", name: "Bitcoin", title: "Bitcoin", supportLabel: "Supports Bitcoin", headwindLabel: "Headwind for Bitcoin",
-    ownQuote: { symbol: "BTC/USD", source: "BTC/USD" },
+    ownQuote: { symbol: "BTC/USD", source: "BTC/USD", mt5: "BTCUSD" },
     price: { label: "Bitcoin", prefix: "$", decimals: 0 },
     miSymbol: "BTCUSD", calendarCurrencies: ["USD"],
     drivers: [
@@ -186,7 +188,7 @@ export const ASSET_PROFILES: Record<AssetId, AssetProfile> = {
   },
   ethusd: {
     id: "ethusd", name: "Ethereum", title: "Ethereum", supportLabel: "Supports Ethereum", headwindLabel: "Headwind for Ethereum",
-    ownQuote: { symbol: "ETH/USD", source: "ETH/USD" },
+    ownQuote: { symbol: "ETH/USD", source: "ETH/USD", mt5: "ETHUSD" },
     price: { label: "Ethereum", prefix: "$", decimals: 0 },
     miSymbol: "ETHUSD", calendarCurrencies: ["USD"],
     drivers: [
@@ -200,8 +202,8 @@ export const ASSET_PROFILES: Record<AssetId, AssetProfile> = {
   },
   oil: {
     id: "oil", name: "crude oil", title: "Crude oil (WTI)", supportLabel: "Supports crude oil", headwindLabel: "Headwind for crude oil",
-    ownQuote: { symbol: "USO", source: "USO (WTI oil ETF proxy)" },
-    price: { label: "USO oil ETF", prefix: "$", decimals: 2 },
+    ownQuote: { symbol: "USO", source: "USO (WTI oil ETF proxy)", mt5: "USOIL" },
+    price: { label: "Crude oil (WTI)", prefix: "$", decimals: 2, fallbackLabel: "USO oil ETF" },
     miSymbol: null, calendarCurrencies: ["USD"],
     drivers: [
       { id: "dollar", label: "US dollar", weight: 25, threshold: 0.15, direction: -1 },
@@ -209,7 +211,7 @@ export const ASSET_PROFILES: Record<AssetId, AssetProfile> = {
       { id: "riskSentiment", label: "Risk sentiment", weight: 10, threshold: 2, direction: 1, spike: "headwind" },
       { id: "momentum", label: "Oil momentum (USO)", weight: 40, threshold: 0.8, direction: 1 },
     ],
-    notCovered: ["inventories and OPEC+ supply decisions", "geopolitical supply risk", "USO is an ETF proxy for WTI, not the spot price"],
+    notCovered: ["inventories and OPEC+ supply decisions", "geopolitical supply risk", "if the Exness WTI quote is unavailable an ETF proxy (USO) is used and labelled on the card"],
   },
 };
 

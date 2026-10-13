@@ -2,27 +2,37 @@
 // Fetches the raw readings behind the Macro Alignment score (macro-alignment.ts)
 // for one asset profile.
 //
-//  - Asset price/momentum and the dollar / Treasury / equity / volatility
-//    drivers: Twelve Data `quote` (percent_change). The dollar, Treasury, stock
-//    and VIX drivers use ETFs as proxies (UUP, IEF, QQQ, VIXY) because the plan's
-//    index symbols are not served - the card names the proxy, it never presents
-//    it as the index itself. VIXY decays, so only its DAY CHANGE is used, never
-//    its level. Crude oil uses USO (a WTI futures ETF) - a proxy, not spot WTI.
-//  - Real yield / US 10Y yield: FRED series DFII10 / DGS10 (Board of Governors
-//    H.15, public domain, citation requested). Needs FRED_API_KEY; without it
-//    those drivers are simply reported as unavailable - never estimated.
+// Source order, per reading:
+//  1. The Exness MT5 terminal via our own read-only bridge (mt5-bridge): the
+//     asset's own price + day change (daily candles: now vs the previous close),
+//     the US dollar index (DXY), the Nasdaq-100 (USTEC) and WTI crude (USOIL).
+//     Real instruments, no rate limit, and the same feed the Signals page shows.
+//  2. Twelve Data `quote` as the fallback when the bridge is not configured, the
+//     symbol is not mapped on it yet, or it is down - using ETF proxies (UUP,
+//     QQQ, USO, SLV) where the plan has no index/spot symbol. The card names the
+//     source of every reading, so a proxy is never presented as the real thing.
+//  3. Always Twelve Data (no MT5 equivalent on the account): IEF (Treasuries) and
+//     VIXY (volatility, DAY CHANGE only - it decays, so never its level).
+//  4. FRED series DFII10 / DGS10 (Board of Governors H.15, public domain,
+//     citation requested) for real yield / US 10Y. Needs FRED_API_KEY.
 //
-// Every fetch is best-effort: a failed source yields value=null for that driver.
-// Quotes are cached in-process 5 minutes per symbol and FRED series 30 minutes
-// (Twelve Data Basic = 8 req/min; switching asset reuses the shared quotes).
+// Every fetch is best-effort: a failed source yields value=null for that driver -
+// never an estimate. Quotes are cached in-process (MT5 60s, Twelve Data 5 min),
+// FRED 30 min; a failed fetch is remembered 60s. Twelve Data Basic = 8 req/min,
+// which is why the MT5 feed carries everything it can.
 
 import type { AssetProfile, DriverId, DriverInput, MacroInputs } from "./macro-alignment";
 
-export type FetchLike = (url: string) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
+export type FetchLike = (
+  url: string,
+  init?: { headers?: Record<string, string> },
+) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
 
 export interface MacroDataEnv {
   twelveDataKey: string | null;
   fredKey: string | null;
+  /** The MT5 bridge, when configured. */
+  mt5?: { bridgeUrl: string; secret: string } | null;
 }
 
 export const FRED_ATTRIBUTION =
@@ -31,11 +41,20 @@ export const FRED_ATTRIBUTION =
 export function loadMacroDataEnv(): MacroDataEnv {
   const td = process.env.TWELVEDATA_API_KEY?.trim();
   const fred = process.env.FRED_API_KEY?.trim();
-  return { twelveDataKey: td ? td : null, fredKey: fred ? fred : null };
+  const url = process.env.MT5_BRIDGE_URL?.trim();
+  const secret = process.env.MT5_BRIDGE_SECRET?.trim();
+  return {
+    twelveDataKey: td ? td : null,
+    fredKey: fred ? fred : null,
+    mt5: url && secret ? { bridgeUrl: url.replace(/\/+$/, ""), secret } : null,
+  };
 }
 
-const QUOTE_TTL_MS = 5 * 60 * 1000;
+const MT5_TTL_MS = 60 * 1000;
+const TD_TTL_MS = 5 * 60 * 1000;
 const FRED_TTL_MS = 30 * 60 * 1000;
+/** A failed fetch is remembered only briefly so an outage heals quickly but a rate-limited key is not hammered. */
+const FAILURE_TTL_MS = 60 * 1000;
 
 interface Quote {
   price: number | null;
@@ -47,24 +66,24 @@ interface FredChange {
   asOf: string;
 }
 
-/** A failed fetch is remembered only briefly so an outage heals quickly but a rate-limited key is not hammered. */
-const FAILURE_TTL_MS = 60 * 1000;
 const quoteCache = new Map<string, { at: number; ttl: number; value: Quote | null }>();
 const fredCache = new Map<string, { at: number; ttl: number; value: FredChange | null }>();
 
+export type QuoteProvider = "mt5" | "twelve-data";
+
 export interface MacroFetchResult {
   inputs: MacroInputs;
-  /** The asset's own latest quote, for the price line. */
-  own: { price: number; changePct: number } | null;
+  /** The asset's own latest quote, for the price line, and which feed it came from. */
+  own: { price: number; changePct: number; provider: QuoteProvider } | null;
   fetchedAt: string;
 }
 
-/** Twelve Data symbol behind each quote-based driver (momentum uses the profile's own quote). */
-const QUOTE_DRIVERS: Partial<Record<DriverId, { symbol: string; source: string }>> = {
-  dollar: { symbol: "UUP", source: "UUP (dollar proxy)" },
-  yields: { symbol: "IEF", source: "IEF (Treasury proxy)" },
-  riskAppetite: { symbol: "QQQ", source: "QQQ (stock-market proxy)" },
-  riskSentiment: { symbol: "VIXY", source: "VIXY (volatility proxy)" },
+/** Drivers fed by a quote. `mt5` = the Exness symbol tried first; `td` = Twelve Data symbol (fallback, or the only source). */
+const QUOTE_DRIVERS: Partial<Record<DriverId, { td: { symbol: string; source: string }; mt5?: { symbol: string; source: string } }>> = {
+  dollar: { td: { symbol: "UUP", source: "UUP (dollar proxy)" }, mt5: { symbol: "DXY", source: "DXY (US dollar index, Exness)" } },
+  yields: { td: { symbol: "IEF", source: "IEF (Treasury proxy)" } },
+  riskAppetite: { td: { symbol: "QQQ", source: "QQQ (stock-market proxy)" }, mt5: { symbol: "USTEC", source: "USTEC (Nasdaq-100, Exness)" } },
+  riskSentiment: { td: { symbol: "VIXY", source: "VIXY (volatility proxy)" } },
 };
 const FRED_DRIVERS: Partial<Record<DriverId, { series: string; source: string }>> = {
   realYield: { series: "DFII10", source: "FRED DFII10" },
@@ -72,7 +91,8 @@ const FRED_DRIVERS: Partial<Record<DriverId, { series: string; source: string }>
 };
 
 async function tdQuote(f: FetchLike, key: string, symbol: string, noCache: boolean): Promise<Quote | null> {
-  const hit = quoteCache.get(symbol);
+  const ck = `td:${symbol}`;
+  const hit = quoteCache.get(ck);
   if (!noCache && hit && Date.now() - hit.at < hit.ttl) return hit.value;
   let value: Quote | null = null;
   try {
@@ -93,8 +113,54 @@ async function tdQuote(f: FetchLike, key: string, symbol: string, noCache: boole
   } catch {
     value = null;
   }
-  if (!noCache) quoteCache.set(symbol, { at: Date.now(), ttl: value ? QUOTE_TTL_MS : FAILURE_TTL_MS, value });
+  if (!noCache) quoteCache.set(ck, { at: Date.now(), ttl: value ? TD_TTL_MS : FAILURE_TTL_MS, value });
   return value;
+}
+
+/** Price now + change vs the previous daily close, from the bridge's 1d candles (the last candle is the forming day). */
+async function mt5Quote(f: FetchLike, mt5: { bridgeUrl: string; secret: string }, symbol: string, noCache: boolean): Promise<Quote | null> {
+  const ck = `mt5:${symbol}`;
+  const hit = quoteCache.get(ck);
+  if (!noCache && hit && Date.now() - hit.at < hit.ttl) return hit.value;
+  let value: Quote | null = null;
+  try {
+    const r = await f(`${mt5.bridgeUrl}/candles?symbol=${encodeURIComponent(symbol)}&interval=1d&count=2`, {
+      headers: { Authorization: `Bearer ${mt5.secret}` },
+    });
+    if (r.ok) {
+      const j = (await r.json()) as { candles?: { datetime?: string; close?: number }[] };
+      const rows = (j.candles ?? []).filter((c) => typeof c.close === "number" && Number.isFinite(c.close));
+      const last = rows[rows.length - 1];
+      const prev = rows.length >= 2 ? rows[rows.length - 2] : undefined;
+      if (last && typeof last.close === "number") {
+        const pct = prev && typeof prev.close === "number" && prev.close !== 0 ? ((last.close - prev.close) / prev.close) * 100 : null;
+        const t = last.datetime ? new Date(last.datetime).getTime() : NaN;
+        value = { price: last.close, pct, asOf: Number.isFinite(t) ? new Date(t).toISOString() : null };
+      }
+    }
+  } catch {
+    value = null;
+  }
+  if (!noCache) quoteCache.set(ck, { at: Date.now(), ttl: value ? MT5_TTL_MS : FAILURE_TTL_MS, value });
+  return value;
+}
+
+/** MT5 first (when a symbol and the bridge are available and it gave a day change), Twelve Data otherwise. */
+async function resolveQuote(
+  f: FetchLike,
+  env: MacroDataEnv,
+  want: { mt5?: { symbol: string; source: string }; td?: { symbol: string; source: string } },
+  noCache: boolean,
+): Promise<{ q: Quote | null; source: string; provider: QuoteProvider } | null> {
+  if (want.mt5 && env.mt5) {
+    const q = await mt5Quote(f, env.mt5, want.mt5.symbol, noCache);
+    if (q && q.pct !== null) return { q, source: want.mt5.source, provider: "mt5" };
+  }
+  if (want.td && env.twelveDataKey) {
+    const q = await tdQuote(f, env.twelveDataKey, want.td.symbol, noCache);
+    return { q, source: want.td.source, provider: "twelve-data" };
+  }
+  return want.td ? { q: null, source: want.td.source, provider: "twelve-data" } : null;
 }
 
 /** Change in the latest FRED observation vs 5 observations earlier, in percentage points. */
@@ -123,26 +189,35 @@ const NA = (unit: string, source: string): DriverInput => ({ value: null, unit, 
 export async function fetchMacroInputs(env: MacroDataEnv, f: FetchLike, profile: AssetProfile, opts: { noCache?: boolean } = {}): Promise<MacroFetchResult> {
   const noCache = opts.noCache === true;
   const ids = new Set<DriverId>(profile.drivers.map((d) => d.id));
-  const td = env.twelveDataKey;
 
   const need: Promise<void>[] = [];
   const inputs: MacroInputs = {};
-  let own: Quote | null = null;
+  let own: { q: Quote | null; provider: QuoteProvider } | null = null;
 
-  const needsOwn = ids.has("momentum");
-  if (needsOwn) {
+  if (ids.has("momentum")) {
+    const oq = profile.ownQuote;
     need.push(
-      (td ? tdQuote(f, td, profile.ownQuote.symbol, noCache) : Promise.resolve(null)).then((q) => {
-        own = q;
-        inputs.momentum = q?.pct != null ? { value: q.pct, unit: "% day change", source: profile.ownQuote.source, asOf: q.asOf } : NA("% day change", profile.ownQuote.source);
+      resolveQuote(
+        f,
+        env,
+        {
+          mt5: oq.mt5 ? { symbol: oq.mt5, source: `${oq.mt5} (Exness)` } : undefined,
+          td: { symbol: oq.symbol, source: oq.source },
+        },
+        noCache,
+      ).then((r) => {
+        own = r ? { q: r.q, provider: r.provider } : null;
+        const src = r?.source ?? oq.source;
+        inputs.momentum = r?.q?.pct != null ? { value: r.q.pct, unit: "% day change", source: src, asOf: r.q.asOf } : NA("% day change", src);
       }),
     );
   }
-  for (const [id, cfg] of Object.entries(QUOTE_DRIVERS) as [DriverId, { symbol: string; source: string }][]) {
+  for (const [id, cfg] of Object.entries(QUOTE_DRIVERS) as [DriverId, NonNullable<(typeof QUOTE_DRIVERS)[DriverId]>][]) {
     if (!ids.has(id)) continue;
     need.push(
-      (td ? tdQuote(f, td, cfg.symbol, noCache) : Promise.resolve(null)).then((q) => {
-        inputs[id] = q?.pct != null ? { value: q.pct, unit: "% day change", source: cfg.source, asOf: q.asOf } : NA("% day change", cfg.source);
+      resolveQuote(f, env, { mt5: cfg.mt5, td: cfg.td }, noCache).then((r) => {
+        const src = r?.source ?? cfg.td.source;
+        inputs[id] = r?.q?.pct != null ? { value: r.q.pct, unit: "% day change", source: src, asOf: r.q.asOf } : NA("% day change", src);
       }),
     );
   }
@@ -156,10 +231,10 @@ export async function fetchMacroInputs(env: MacroDataEnv, f: FetchLike, profile:
   }
   await Promise.all(need);
 
-  const ownQuote = own as Quote | null;
+  const o = own as { q: Quote | null; provider: QuoteProvider } | null;
   return {
     inputs,
-    own: ownQuote && ownQuote.price != null && ownQuote.pct != null ? { price: ownQuote.price, changePct: ownQuote.pct } : null,
+    own: o?.q && o.q.price != null && o.q.pct != null ? { price: o.q.price, changePct: o.q.pct, provider: o.provider } : null,
     fetchedAt: new Date().toISOString(),
   };
 }
