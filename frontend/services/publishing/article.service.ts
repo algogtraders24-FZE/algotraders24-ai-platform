@@ -49,6 +49,12 @@ export interface CreateDraftInput {
    * Omitted = unchanged behaviour.
    */
   slugSuffix?: string;
+  /**
+   * Fully-formed content (daily auto-publisher): replaces the skeleton's title,
+   * summary and ALL sections, so no generic filler body ever reaches /blog.
+   * Every section body still goes through the same usable-content checks.
+   */
+  custom?: { title: string; summary: string; sections: ArticleSection[] };
 }
 
 export interface UpdateArticleInput {
@@ -146,10 +152,19 @@ export class ArticleService {
       assertUsableAiContent(input.aiOverviewText);
     }
 
-    const skeleton = generateArticle(input.category, input.keywords);
-    const sections: ArticleSection[] = input.aiOverviewText
-      ? skeleton.sections.map((s, i) => (i === 0 ? { ...s, body: input.aiOverviewText! } : s))
-      : skeleton.sections;
+    if (input.custom) {
+      for (const section of input.custom.sections) assertUsableAiContent(section.body);
+    }
+
+    const generated = generateArticle(input.category, input.keywords);
+    const skeleton = input.custom
+      ? { ...generated, title: input.custom.title, summary: input.custom.summary }
+      : generated;
+    const sections: ArticleSection[] = input.custom
+      ? input.custom.sections
+      : input.aiOverviewText
+        ? skeleton.sections.map((s, i) => (i === 0 ? { ...s, body: input.aiOverviewText! } : s))
+        : skeleton.sections;
 
     // Minimum structure: every section must have real content, not an
     // empty body - a skeleton section that was never filled in shouldn't
@@ -159,7 +174,7 @@ export class ArticleService {
     }
 
     const seo = withSlugSuffix(buildSeo(skeleton.title, input.keywords), input.slugSuffix ?? "");
-    const sourceType: ArticleSourceType = input.aiOverviewText ? "ai" : "manual";
+    const sourceType: ArticleSourceType = input.aiOverviewText || input.custom ? "ai" : "manual";
 
     const row = await prisma.article.create({
       data: {
