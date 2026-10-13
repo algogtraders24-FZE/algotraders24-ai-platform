@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { computeMacroAlignment, alignmentLine, ASSET_PROFILES, ASSET_IDS, MIN_DRIVERS, isAssetId, profileForMiSymbol, profileTotalWeight, type MacroInputs, type DriverId } from "../services/macro/macro-alignment";
 import { formatMacroPrice } from "../services/macro/macro-service";
 import { fetchMacroInputs, resetMacroCacheForTests, type FetchLike } from "../services/macro/macro-data";
-import { formatEventLines, formatPriceLine, istDateKey, countdown } from "../services/automation/brief-extras";
+import { formatEventLines, formatPriceLine, istDateKey, countdown, smcBriefLine } from "../services/automation/brief-extras";
 
 let passed = 0;
 let failed = 0;
@@ -523,6 +523,12 @@ async function main(): Promise<void> {
     assert.equal(lines.length, 2);
     assert.equal(lines[0], "14:30 IST (in 6h 30m) - USD Fed Speaks");
     assert.equal(lines[1], "18:00 IST (in 10h 0m) - USD CPI [forecast 3.1%, previous 3.0%]");
+  });
+
+  await test("smc brief line: only when there is a lean; carries strength, score, 4h bias and the not-a-signal label", () => {
+    assert.equal(smcBriefLine({ lean: "none", strength: "weak", score: 40, htfBias: "Neutral" }), null);
+    const line = smcBriefLine({ lean: "bullish-leaning", strength: "developing", score: 62, htfBias: "Bullish" });
+    assert.ok(line && line.includes("bullish-leaning (developing)") && line.includes("62/100") && line.includes("4h bullish") && line.includes("not a signal"));
   });
 
   await test("price line", () => {

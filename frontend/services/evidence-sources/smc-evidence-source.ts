@@ -10,7 +10,7 @@
 // the summary says so. All items share ONE source name (the ranking stage flags
 // same-type items from different sources with different text as conflicts).
 
-import type { EvidenceItem } from "@/types/evidence";
+import { ATR_RATIO_UNIT, type EvidenceItem } from "@/types/evidence";
 import type { EvidenceExtraSource, EvidenceProviderRequest } from "@/types/evidence-fusion";
 import type { SmcAnalysis, SmcZone } from "@/services/smc/smc-engine";
 
@@ -98,6 +98,8 @@ export class SmcStructureEvidenceSource implements EvidenceExtraSource {
       source: SMC_EVIDENCE_SOURCE,
       asOf: a.lastClosedTime,
       retrievedAt,
+      // The volatility line carries its measured ATR ratio so the risk engine can use it.
+      ...(a.volatilityRatio !== null && claim.startsWith("Volatility regime:") ? { magnitude: a.volatilityRatio, unit: ATR_RATIO_UNIT } : {}),
     }));
   }
 }

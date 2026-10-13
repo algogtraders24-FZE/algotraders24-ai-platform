@@ -12,7 +12,7 @@
 // defaulted to "low", which would be a fabricated reassurance. Every
 // category's rationale says explicitly whether it was computed from real
 // evidence or is an honest "unmeasured" default.
-import type { EvidenceItem } from "@/types/evidence";
+import { ATR_RATIO_UNIT, type EvidenceItem } from "@/types/evidence";
 import type { ReasoningResult } from "@/types/reasoning";
 import type { RiskCategoryScore, RiskProfile } from "@/types/risk-intelligence";
 import type { RiskLevel } from "@/types/risk";
@@ -126,10 +126,9 @@ export class RiskEngineService {
     };
   }
 
-  // No dedicated volatility evidence exists either (AlphaVantageProvider
-  // never populates it); `technical`-type disagreement is the closest
-  // available signal that interpretation is unstable, so it elevates this
-  // category - otherwise it stays an honest "unmeasured" medium.
+  // Volatility is measured when the SMC engine contributed its ATR-ratio reading;
+  // `technical`-type disagreement still elevates it (unstable interpretation).
+  // With neither, it stays an honest "unmeasured" medium.
   private assessVolatilityRisk(reasoning: ReasoningResult): RiskCategoryScore {
     const technicalEvidence = this.allItems(reasoning).filter((item) => item.type === "technical");
     const technicalConflicts = reasoning.conflicts.filter((c) => c.type === "technical");
@@ -142,10 +141,23 @@ export class RiskEngineService {
         basis: technicalEvidence,
       };
     }
+    // Measured volatility: the SMC engine's ATR / recent-average ATR reading, when that
+    // evidence exists. Same 1.3x "High" threshold the engine itself uses for its regime.
+    const reading = technicalEvidence.find((item) => item.unit === ATR_RATIO_UNIT && typeof item.magnitude === "number");
+    if (reading && typeof reading.magnitude === "number") {
+      const ratio = reading.magnitude;
+      const level: RiskLevel = ratio >= 1.3 ? "high" : ratio >= 1.0 ? "medium" : "low";
+      return {
+        category: "volatility",
+        level,
+        rationale: [`ATR is ${ratio.toFixed(2)}x its recent average (${level === "high" ? "elevated" : level === "medium" ? "normal to slightly above average" : "below average"} volatility)`],
+        basis: [reading],
+      };
+    }
     return {
       category: "volatility",
       level: "medium",
-      rationale: ["No dedicated volatility evidence exists in this system - defaulting to medium (unmeasured)"],
+      rationale: ["No volatility measurement was available for this symbol - defaulting to medium (unmeasured)"],
       basis: technicalEvidence,
     };
   }

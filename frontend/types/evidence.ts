@@ -17,6 +17,9 @@ export type EvidenceType =
   | "cross-asset"
   | "provider-meta";
 
+/** `unit` of an evidence item whose `magnitude` is the current ATR divided by its recent average (the SMC engine's volatility reading); the risk engine measures volatility from it. */
+export const ATR_RATIO_UNIT = "x ATR vs recent average";
+
 export interface EvidenceItem {
   type: EvidenceType;
   symbol: MarketSymbol;

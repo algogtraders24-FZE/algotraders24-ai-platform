@@ -9,6 +9,7 @@ import { getSmcAnalysis, splitClosed, resetSmcCacheForTests, summariseSmc } from
 import { SmcStructureEvidenceSource, smcClaims, fmtPrice, SMC_EVIDENCE_SOURCE } from "../services/evidence-sources/smc-evidence-source";
 import { MarketIntelligencePipelineService } from "../services/ai/market-intelligence-pipeline.service";
 import { EvidenceRankingService } from "../services/ai/evidence/evidence-ranking.service";
+import { ATR_RATIO_UNIT } from "../types/evidence";
 import type { Candle } from "../types/market-candle";
 import type { MarketDataProvider, MarketContextResult } from "../types/market-data-provider";
 
@@ -253,6 +254,9 @@ async function main(): Promise<void> {
     assert.ok(items.every((i) => i.type === "technical" && i.source === SMC_EVIDENCE_SOURCE && i.asOf === analysisE.lastClosedTime));
     const price = { type: "price" as const, symbol: "XAUUSD", claim: "last 119.2", source: "fake", asOf: NOW.toISOString(), retrievedAt: NOW.toISOString(), magnitude: 119.2 };
     assert.equal(new EvidenceRankingService().buildBundle("XAUUSD", [price, ...items], NOW.toISOString()).conflicts.length, 0);
+    const volItem = items.find((i) => i.claim.startsWith("Volatility regime:"));
+    assert.ok(volItem && volItem.magnitude === analysisE.volatilityRatio && volItem.unit === ATR_RATIO_UNIT, "volatility line carries the measured ATR ratio");
+    assert.ok(items.filter((i) => i !== volItem).every((i) => i.magnitude === undefined));
     assert.deepEqual(await new SmcStructureEvidenceSource({ getAnalysis: async () => null }).collect({ symbol: "XAUUSD" }), []);
   });
 
@@ -268,6 +272,8 @@ async function main(): Promise<void> {
     if (out.status !== "completed") return;
     assert.deepEqual([...new Set(out.result.evidence.items.map((i) => i.type))].sort(), ["price", "technical"]);
     assert.equal(out.result.evidence.conflicts.length, 0);
+    const vol = out.result.risk.categories.find((c) => c.category === "volatility");
+    assert.ok(vol && !vol.rationale[0].includes("unmeasured"), "volatility risk is measured from the SMC ATR ratio, not the unmeasured default");
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);
