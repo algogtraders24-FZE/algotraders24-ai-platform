@@ -16,7 +16,9 @@ import { articleService } from "@/services/publishing/article.service";
 import { publishingService } from "@/services/publishing/publishing.service";
 import { productionAnalysisOrchestrator } from "@/services/ai/production-analysis-orchestrator";
 import { getEconomicCalendar } from "@/services/calendar/calendar.service";
-import { DailyAutoPublisherService } from "@/services/publishing/daily-auto-publisher.service";
+import { sendTelegramToUser } from "@/services/telegram/deliver";
+import { telegramConfig } from "@/services/telegram/config";
+import { DailyAutoPublisherService, dailyRunTelegramMessage } from "@/services/publishing/daily-auto-publisher.service";
 
 // Up to ~6 sequential live-data + AI analyses (Sunday weekly review = 3, plus the daily crypto report).
 export const maxDuration = 300;
@@ -40,7 +42,13 @@ async function runDaily(): Promise<Awaited<ReturnType<DailyAutoPublisherService[
     },
     getCalendarEvents: async () => (await getEconomicCalendar({ week: "this" })).events,
   });
-  return service.run();
+  const report = await service.run();
+  // Owner-only summary to the Telegram chat linked on /dashboard/live-sync (best effort: never throws, never blocks).
+  // No public channel post - that stays a separate, owner-approved step.
+  if (report.results.length > 0) {
+    await sendTelegramToUser(ownerId, "alerts", dailyRunTelegramMessage(report.results, telegramConfig().siteUrl));
+  }
+  return report;
 }
 
 async function handleAutoDaily(req: Request, ctx: { requestId: string; startedAt: number }) {
