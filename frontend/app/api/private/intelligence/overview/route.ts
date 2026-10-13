@@ -13,6 +13,7 @@ import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { ResearchSnapshotService } from "@/services/intelligence/chat/research-snapshot.service";
 import { riskDriverOf } from "@/services/intelligence/overview/risk-driver";
 import { presentEvidenceTypes } from "@/services/intelligence/overview/evidence-coverage";
+import { getSmcAnalysis, summariseSmc } from "@/services/smc/smc-service";
 import type { MarketRegimeOverviewItem } from "@/types/market-regime-overview";
 
 const researchSnapshotService = new ResearchSnapshotService();
@@ -40,6 +41,8 @@ async function buildOverviewItem(userId: string, requestId: string, market: { sy
     });
 
     if (context.status === "resolved" && verifiedAnswer) {
+      // SMC structure summary: best-effort, never blocks the card (cached per symbol for a minute).
+      const smcAnalysis = await getSmcAnalysis(market.symbol).catch(() => null);
       return {
         symbol: market.symbol,
         name: market.name,
@@ -52,6 +55,7 @@ async function buildOverviewItem(userId: string, requestId: string, market: { sy
         regimeConfidence: verifiedAnswer.marketContext.regimeConfidence,
         riskDriver: riskDriverOf(verifiedAnswer.riskContext),
         evidenceTypes: presentEvidenceTypes(context.envelope?.evidence?.items ?? []),
+        ...(smcAnalysis ? { smc: summariseSmc(smcAnalysis) } : {}),
         basis: verifiedAnswer.currentState.basis[0],
         generatedAt: verifiedAnswer.generatedAt,
       };
