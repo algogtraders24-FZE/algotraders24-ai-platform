@@ -13,6 +13,7 @@ import { automationRepository } from "./automation-repository";
 import { automationService } from "./automation-service";
 import { dispatchAutomationRun } from "./dispatcher";
 import { isDueForSlot } from "./scheduler";
+import { runWithConcurrency } from "./concurrency";
 import { getSlot } from "@/config/automation-slots";
 
 const log = logger.child("automation-run-dispatch");
@@ -21,6 +22,15 @@ const log = logger.child("automation-run-dispatch");
  *  by the next slot's catch-up pass before new dispatch. */
 const RESUME_AFTER_MS = 2 * 60 * 1000;
 const DISPATCH_BATCH = 25;
+/** Runs driven at the same time within one cron invocation. Each run spends
+ *  most of its time waiting on the agent (~20-40s), so they overlap well. The
+ *  cron used to dispatch them one after another inside a 60s function, which
+ *  fits two runs: the third was killed mid-way and its child agent later timed
+ *  out (found 2026-10-13). */
+export const DISPATCH_CONCURRENCY = 5;
+/** Stop STARTING new runs after this long (cron maxDuration is 300s); runs left
+ *  QUEUED are picked up by the next catch-up pass. */
+const SLOT_START_BUDGET_MS = 200_000;
 
 // Same non-blocking pg_try_advisory_xact_lock + bounded retry design as
 // lib/security/checkoutRateLimit.ts.
@@ -144,13 +154,16 @@ export async function dispatchSlot(slotId: string, now: Date = new Date()): Prom
 
   // ── catch-up: resume stalled runs ──
   let resumed = 0;
+  const overBudget = () => Date.now() - startedAt > SLOT_START_BUDGET_MS;
   const stalled = await automationRepository.listResumableRuns(RESUME_AFTER_MS, DISPATCH_BATCH);
-  for (const r of stalled) {
+  await runWithConcurrency(stalled, DISPATCH_CONCURRENCY, async (r) => {
     if (await safeDispatch(r.id)) resumed += 1;
-  }
+  }, overBudget);
 
   // ── new dispatch ──
-  let dispatched = 0;
+  // Create every due run first (cheap, sequential - the (automationId,
+  // scheduledFor) unique index dedups), then drive them concurrently.
+  const newRunIds: string[] = [];
   const candidates = await automationRepository.activeAutomationsForSlot(slotId);
   for (const automation of candidates.slice(0, DISPATCH_BATCH)) {
     const version = automation.activeVersion;
@@ -181,8 +194,12 @@ export async function dispatchSlot(slotId: string, now: Date = new Date()): Prom
       skipped.push({ automationId: automation.id, reason: "already dispatched this slot" });
       continue;
     }
-    if (await safeDispatch(created.id)) dispatched += 1;
+    newRunIds.push(created.id);
   }
+  let dispatched = 0;
+  await runWithConcurrency(newRunIds, DISPATCH_CONCURRENCY, async (id) => {
+    if (await safeDispatch(id)) dispatched += 1;
+  }, overBudget);
 
   return {
     slot: slotId,

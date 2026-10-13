@@ -3,7 +3,7 @@
 // see frontend/vercel.json + CRON_SECRET_EXEMPT_PATHS in frontend/proxy.ts.
 import { slotDispatchRoute } from "@/services/automation/cron-route";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const routes = slotDispatchRoute("morning_ist");
 export const GET = routes.GET;

@@ -13,6 +13,15 @@ function slugify(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
+/** Returns `seo` with `-<suffix>` appended to the slug (and the URLs derived from it). The suffix is slugified; an empty one changes nothing. */
+export function withSlugSuffix(seo: SeoMetadata, suffix: string): SeoMetadata {
+  const tail = slugify(suffix);
+  if (!tail) return seo;
+  const slug = `${seo.slug}-${tail}`;
+  const url = `https://algotraders24.ai/blog/${slug}`;
+  return { ...seo, slug, canonicalUrl: url, openGraph: { ...seo.openGraph, url } };
+}
+
 export function buildSeo(title: string, keywords: string[]): SeoMetadata {
   const slug = slugify(title);
   const url = `https://algotraders24.ai/blog/${slug}`;
