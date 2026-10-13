@@ -13,7 +13,7 @@ export default function TermsOfServicePage() {
       eyebrow="Company / Legal"
       title="Terms of Service"
       lastUpdated="19 September 2026"
-      intro="These terms govern your use of algotraders24.ai, operated by Algotraders24 AI, registered in Ajman Free Zone, UAE. By creating an account or using the platform, you agree to them."
+      intro="These terms govern your use of algotraders24.ai, operated by Algotraders24, Saint Vincent and the Grenadines. By creating an account or using the platform, you agree to them."
       sections={[
         {
           heading: "The platform",

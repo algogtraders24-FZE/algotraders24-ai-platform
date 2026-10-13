@@ -3,7 +3,7 @@
 // the platform's own positioning (FAQ.tsx's first two answers, root
 // layout.tsx's description, TrustStrip.tsx's five pillars) and the real
 // company/registration fact from the company's existing algotraders24.com
-// site (UAE-based, Ajman Free Zone) - no new claims invented for this page.
+// site (Saint Vincent and the Grenadines) - no new claims invented for this page.
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Eye, Link2 as LinkIcon, ShieldAlert, Repeat2, Boxes } from "lucide-react";
@@ -68,7 +68,7 @@ export default function AboutPage() {
       <section className="px-6 py-8">
         <div className="mx-auto max-w-3xl rounded-card border border-border bg-ink-2 p-6 text-center">
           <p className="text-sm leading-6 text-text-2">
-            Algotraders24 AI is built by a UAE-based FinTech team, registered in Ajman Free Zone, UAE.
+            Algotraders24 is built by a FinTech team based in Saint Vincent and the Grenadines.
           </p>
         </div>
       </section>
