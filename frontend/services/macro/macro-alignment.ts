@@ -305,6 +305,9 @@ export function computeMacroAlignment(inputs: MacroInputs, profile: AssetProfile
   if (lean === "mixed") {
     // exact tie in weight: every available driver neutral or perfectly offsetting
     const neutralShare = live.filter((d) => d.sign === 0).reduce((a, d) => a + d.weight, 0);
+    // Every driver neutral: nothing leans either way, so the gauge is empty and the label says so
+    // (a "100%" next to "Mixed" read as a contradiction).
+    if (neutralShare === liveWeight) return { ...base, lean, score: 0, label: "Neutral" };
     return { ...base, lean, score: Math.round((neutralShare / liveWeight) * 100), label: "Mixed" };
   }
   const dominant: DriverSign = lean === "supportive" ? 1 : -1;
@@ -318,5 +321,6 @@ export function computeMacroAlignment(inputs: MacroInputs, profile: AssetProfile
 /** One plain line for Telegram / push / brief. */
 export function alignmentLine(a: MacroAlignment): string {
   if (a.score === null) return "Macro alignment: not enough data right now";
+  if (a.label === "Neutral") return `Macro alignment: neutral - no driver leans either way (${a.availableDrivers}/${a.totalDrivers} drivers)`;
   return `Macro alignment ${a.score}% - ${a.label} (${a.availableDrivers}/${a.totalDrivers} drivers)`;
 }

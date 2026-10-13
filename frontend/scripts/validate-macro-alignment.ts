@@ -69,6 +69,10 @@ async function main(): Promise<void> {
     const a = computeMacroAlignment(mk({ realYield: 0.01, dollar: 0.05, yields: -0.05, riskBarometer: 0.1, momentum: 0.1 }));
     assert.ok(a.drivers.every((d) => d.sign === 0));
     assert.equal(a.lean, "mixed");
+    // all neutral: an empty gauge labelled Neutral, never "100% Mixed"
+    assert.equal(a.label, "Neutral");
+    assert.equal(a.score, 0);
+    assert.match(alignmentLine(a), /neutral - no driver leans either way/);
   });
 
   await test("a lean backed by under half the weight is reported Mixed, not a conviction", () => {
