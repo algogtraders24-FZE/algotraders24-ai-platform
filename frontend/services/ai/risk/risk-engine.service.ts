@@ -195,7 +195,10 @@ export class RiskEngineService {
     const dataGap = reasoning.riskDrivers.find((d) => d.factor === "data-gap");
     const staleness = reasoning.riskDrivers.find((d) => d.factor === "staleness");
     const levels = [dataGap?.level, staleness?.level].filter((level): level is RiskLevel => level !== undefined);
-    const rationale = [dataGap?.detail, staleness?.detail].filter((detail): detail is string => detail !== undefined);
+    // Freshness is only worth a line when it is a problem ("0 minute(s) old" tells the reader nothing).
+    const rationale = [dataGap?.detail, staleness && staleness.level !== "low" ? staleness.detail : undefined].filter(
+      (detail): detail is string => detail !== undefined,
+    );
 
     return {
       category: "data-quality",

@@ -16,6 +16,7 @@
 // end (via a fake MarketDataProvider) to prove ExplainableAnalysisService
 // genuinely accepts its real, frozen output.
 import assert from "node:assert/strict";
+import { splitEvidenceColumns } from "../components/market-intelligence/evidence-columns";
 import { readFileSync } from "node:fs";
 import type { EvidenceItem } from "../types/evidence";
 import type { MarketIntelligenceResult } from "../types/market-intelligence-result";
@@ -204,24 +205,25 @@ async function main(): Promise<void> {
     const input = buildResult(FULL_COVERAGE_ITEMS);
     const analysis = explainer.explain(input);
     assert.deepEqual(analysis.assumptions, [
-      "No assumptions were required; every evidence type was represented in the collected evidence.",
+      "No assumptions were required; every market evidence type was represented in the collected evidence.",
     ]);
   });
 
-  await test("assumptions: a totally empty bundle lists all 8 of the reasoning engine's own assumption statements verbatim", () => {
+  await test("assumptions: a totally empty bundle lists the reasoning engine's own assumption statements verbatim, except provider-meta (data-feed bookkeeping, not a market factor)", () => {
     const input = buildResult([]);
     const analysis = explainer.explain(input);
-    assert.equal(analysis.assumptions.length, 8);
-    assert.deepEqual(analysis.assumptions, input.reasoning.assumptions.map((a) => a.statement));
+    assert.equal(analysis.assumptions.length, 7);
+    assert.deepEqual(analysis.assumptions, input.reasoning.assumptions.filter((a) => a.type !== "provider-meta").map((a) => a.statement));
+    assert.ok(!analysis.assumptions.some((t) => t.includes("provider-meta")));
   });
 
   // ---------------------------------------------------------------------
   // Missing-data handling: Unknown Factors
   // ---------------------------------------------------------------------
-  await test("unknown factors: no unresolved items and no conflicts states that explicitly", () => {
+  await test("unknown factors: no unresolved items and no conflicts gives an empty list (the report hides the section)", () => {
     const input = buildResult([]);
     const analysis = explainer.explain(input);
-    assert.deepEqual(analysis.unknownFactors, ["No unresolved items or conflicts were found."]);
+    assert.deepEqual(analysis.unknownFactors, []);
   });
 
   await test("unknown factors: unresolved items and conflicts are both reported, never silently dropped", () => {
@@ -394,6 +396,28 @@ async function main(): Promise<void> {
   await test("structural: the frozen Sprint 15C chat route has zero coupling to the explainable analysis engine", () => {
     const source = readFileSync(new URL("../app/api/private/knowledge/chat/route.ts", import.meta.url), "utf8");
     assert.ok(!source.includes("explainable"), "chat route must not reference the explainable analysis engine");
+  });
+
+  await test("report columns: opposing kept; else calendar events move out of Supporting into 'Events to watch'; else measured medium/high risks; else no column", () => {
+    const line = (text: string, source?: string) => ({ text, basis: source ? [{ type: "macro", symbol: "XAUUSD", claim: text, source, asOf: "", retrievedAt: "" } as never] : [] });
+    const cal = line("CPI in 3h", "FairEconomy economic calendar");
+    const px = line("Spot 4150", "mt5");
+    const risks = [
+      { category: "volatility", level: "high", rationale: ["ATR is 1.6x its recent average"], basis: [{}] },
+      { category: "liquidity", level: "medium", rationale: ["unmeasured"], basis: [] },
+      { category: "market", level: "low", rationale: ["fine"], basis: [{}] },
+    ];
+    const opp = splitEvidenceColumns([px, cal], [line("conflict")], risks);
+    assert.equal(opp.rightColumn?.title, "Opposing Evidence");
+    assert.equal(opp.leftLines.length, 2);
+    const ev = splitEvidenceColumns([px, cal], [], risks);
+    assert.equal(ev.rightColumn?.title, "Events to watch");
+    assert.deepEqual(ev.leftLines.map((l) => l.text), ["Spot 4150"]);
+    assert.deepEqual(ev.rightColumn?.lines.map((l) => l.text), ["CPI in 3h"]);
+    const rk = splitEvidenceColumns([px], [], risks);
+    assert.equal(rk.rightColumn?.title, "Risks to watch");
+    assert.deepEqual(rk.rightColumn?.lines.map((l) => l.text), ["volatility risk is high: ATR is 1.6x its recent average"]);
+    assert.equal(splitEvidenceColumns([px], [], [risks[1], risks[2]]).rightColumn, null);
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);

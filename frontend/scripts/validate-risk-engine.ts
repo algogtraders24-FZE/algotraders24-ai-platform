@@ -296,6 +296,15 @@ function main(): void {
     assert.ok(!source.includes("risk-engine") && !source.includes("risk-intelligence"));
   });
 
+  test("data-quality rationale: a calm freshness reading adds no line; a stale one does", () => {
+    const fresh = reasoningFrom([item({ type: "price", asOf: T1 })]);
+    const freshText = categoryOf(riskEngine.assess(fresh).categories, "data-quality").rationale.join(" ");
+    assert.ok(!/Freshest evidence/.test(freshText), freshText);
+    const stale = reasoningFrom([item({ type: "price", asOf: STALE_HEAVY })]);
+    const staleText = categoryOf(riskEngine.assess(stale).categories, "data-quality").rationale.join(" ");
+    assert.ok(/Freshest evidence is 120 minute/.test(staleText), staleText);
+  });
+
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed > 0) process.exitCode = 1;
 }

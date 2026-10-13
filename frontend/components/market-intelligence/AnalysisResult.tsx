@@ -21,6 +21,7 @@ import type { RiskLevel } from "@/types/risk";
 import type { ConfidenceLevel } from "@/types/confidence-intelligence";
 import InfoTooltip from "@/components/ui/InfoTooltip";
 import Disclaimer from "@/components/ui/Disclaimer";
+import { splitEvidenceColumns } from "./evidence-columns";
 import Card from "@/components/ui/Card";
 
 const GUIDANCE = {
@@ -94,10 +95,10 @@ function EvidenceColumn({
 }: {
   title: string;
   lines: ExplanationLine[];
-  tone: "gold" | "down";
+  tone: "gold" | "down" | "neutral";
 }) {
-  const borderColor = tone === "gold" ? "var(--gold)" : "rgba(209, 89, 74, 0.6)"; // border-signal-down/60
-  const label = tone === "gold" ? "text-gold" : "text-signal-down";
+  const borderColor = tone === "gold" ? "var(--gold)" : tone === "down" ? "rgba(209, 89, 74, 0.6)" : "rgba(148, 163, 184, 0.45)"; // border-signal-down/60
+  const label = tone === "gold" ? "text-gold" : tone === "down" ? "text-signal-down" : "text-text-2";
   return (
     // Inline style (not a border-l-* utility) for the 2px accent: guarantees
     // it wins over Card's own all-sides `border` shorthand regardless of
@@ -178,6 +179,7 @@ function ListSection({ title, items }: { title: string; items: string[] }) {
 
 export default function AnalysisResult({ result }: { result: MarketAnalysisResult }) {
   const { explainable, risk, confidence, summary } = result;
+  const { leftLines, rightColumn } = splitEvidenceColumns(explainable.supportingEvidence, explainable.opposingEvidence, risk.categories);
 
   return (
     <div className="space-y-8">
@@ -194,9 +196,9 @@ export default function AnalysisResult({ result }: { result: MarketAnalysisResul
       <Section title="Executive Summary" text={explainable.executiveSummary} tooltip={GUIDANCE.explainable} />
       <Section title="Market Thesis" text={explainable.marketThesis} />
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <EvidenceColumn title="Supporting Evidence" lines={explainable.supportingEvidence} tone="gold" />
-        <EvidenceColumn title="Opposing Evidence" lines={explainable.opposingEvidence} tone="down" />
+      <div className={`grid gap-4 ${rightColumn ? "sm:grid-cols-2" : ""}`}>
+        <EvidenceColumn title="Supporting Evidence" lines={leftLines} tone="gold" />
+        {rightColumn && <EvidenceColumn title={rightColumn.title} lines={rightColumn.lines} tone={rightColumn.tone} />}
       </div>
 
       <CategoryGrid
@@ -219,7 +221,7 @@ export default function AnalysisResult({ result }: { result: MarketAnalysisResul
         }))}
       />
 
-      <div className="grid gap-6 sm:grid-cols-3">
+      <div className={`grid gap-6 ${explainable.unknownFactors.length > 0 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
         <ListSection title="Assumptions" items={explainable.assumptions} />
         <ListSection title="Limitations" items={explainable.limitations} />
         <ListSection title="Unknown Factors" items={explainable.unknownFactors} />
