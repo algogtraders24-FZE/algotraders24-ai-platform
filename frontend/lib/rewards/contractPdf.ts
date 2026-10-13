@@ -61,7 +61,7 @@ export function contractClauses(i: ContractPdfInput): Array<{ title: string; bod
     },
     {
       title: "3. Price",
-      body: `Price: ${formatUsd(i.listPriceCents)}. Rebate: ${formatUsd(i.rebateTotalCents)} in total, credited as set out in clause 4. Net price after the rebate: ${formatUsd(i.netPriceCents)}.`,
+      body: `Price: ${formatUsd(i.listPriceCents)}. Rebate: ${formatUsd(i.rebateTotalCents)} in total, credited as set out in clause 4. ${i.netPriceCents >= 0 ? `Net price after the rebate: ${formatUsd(i.netPriceCents)}.` : `The total rebate is larger than the price, so once all instalments are credited you have received ${formatUsd(-i.netPriceCents)} more than the price you paid.`}`,
     },
     {
       title: "4. Rebate schedule",

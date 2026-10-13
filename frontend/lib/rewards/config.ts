@@ -75,7 +75,7 @@ export const SLOT_HOLD_MINUTES = 30;
 export const DEFAULT_SLOTS_PER_MONTH = 10;
 export const REFERRAL_WINDOW_DAYS = 30;
 /** Version of the contract wording stamped on every issued contract (bumped when the template changes). */
-export const CONTRACT_TERMS_VERSION = "2026-10-draft-1";
+export const CONTRACT_TERMS_VERSION = "2026-10-draft-2";
 
 /** Rollout: off (default) | allowlist | public. The platform owner accounts are always allowed. */
 export function rewardsMode(raw: string | undefined | null = process.env.REWARDS_PROGRAM_MODE): SelfServeMode {
