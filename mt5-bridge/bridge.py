@@ -53,6 +53,15 @@ SYMBOL_MAP: dict[str, str] = {
     "USDJPY": "USDJPY",
     "BTCUSD": "BTCUSD",
     "ETHUSD": "ETHUSD",
+    # Macro drivers (verified present on the Exness terminal, 2026-10-13, via the
+    # admin /api/private/admin/mt5/symbols diagnostic): dollar index, Nasdaq-100,
+    # S&P 500, Dow, WTI and Brent crude. Not present on this account: VIX, bond yields.
+    "DXY": "DXY",
+    "USTEC": "USTEC",
+    "US500": "US500",
+    "US30": "US30",
+    "USOIL": "USOIL",
+    "UKOIL": "UKOIL",
 }
 
 

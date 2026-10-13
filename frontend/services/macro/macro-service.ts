@@ -23,7 +23,7 @@ export interface MacroAlignmentSnapshot {
   attribution: string | null;
 }
 
-const liveFetch: FetchLike = (url) => fetch(url, { cache: "no-store" });
+const liveFetch: FetchLike = (url, init) => fetch(url, { cache: "no-store", ...init });
 
 export function formatMacroPrice(asset: AssetId, price: number): string {
   const p = ASSET_PROFILES[asset].price;
@@ -39,7 +39,14 @@ export async function getMacroAlignmentSnapshot(asset: AssetId = "gold", f: Fetc
     asset,
     title: profile.title,
     alignment,
-    price: data.own ? { label: profile.price.label, text: formatMacroPrice(asset, data.own.price), changePct: data.own.changePct } : null,
+    price: data.own
+      ? {
+          // a price that came from the proxy says so (e.g. "USO oil ETF"), never "Crude oil (WTI)"
+          label: data.own.provider === "mt5" ? profile.price.label : (profile.price.fallbackLabel ?? profile.price.label),
+          text: formatMacroPrice(asset, data.own.price),
+          changePct: data.own.changePct,
+        }
+      : null,
     fetchedAt: data.fetchedAt,
     attribution: usedFred ? FRED_ATTRIBUTION : null,
   };
