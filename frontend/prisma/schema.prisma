@@ -3573,3 +3573,22 @@ model RewardCheckout {
   @@index([status, createdAt])
   @@map("reward_checkouts")
 }
+
+/// One row per verified subscription payment (any plan, any cycle) - the admin Wallet's "money in" for subscriptions. providerRef is the
+/// provider's payment id, so a replayed webhook cannot add a second row.
+model SubscriptionPayment {
+  id          String   @id @default(cuid())
+  userId      String
+  planId      String
+  cycle       String?
+  amountCents Int
+  currency    String   @default("USD")
+  provider    String
+  providerRef String   @unique
+  paidAt      DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([paidAt])
+  @@index([userId])
+  @@map("subscription_payments")
+}

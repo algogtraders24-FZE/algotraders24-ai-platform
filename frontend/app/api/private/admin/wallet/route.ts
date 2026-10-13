@@ -15,7 +15,7 @@ export const GET = withContext(async (req, ctx) => {
   const days = lastDays(Number.isInteger(raw) && raw >= 1 && raw <= 90 ? raw : 30);
   const since = istDayStart(days[0]);
 
-  const [purchases, memberPayouts, sellerPayouts, commissions, rebates, reserveRows, owed] = await Promise.all([
+  const [purchases, memberPayouts, sellerPayouts, commissions, rebates, reserveRows, owed, subPayments] = await Promise.all([
     prisma.purchase.findMany({ where: { deletedAt: null, updatedAt: { gte: since }, status: { in: ["COMPLETED", "REFUNDED", "REVERSED"] } }, orderBy: { purchasedAt: "desc" }, take: 1000 }),
     prisma.rewardPayout.findMany({ where: { OR: [{ status: "REQUESTED" }, { createdAt: { gte: since } }] }, orderBy: { createdAt: "desc" }, take: 500 }),
     prisma.sellerPayout.findMany({ where: { OR: [{ status: "REQUESTED" }, { createdAt: { gte: since } }] }, orderBy: { createdAt: "desc" }, take: 500 }),
@@ -23,6 +23,8 @@ export const GET = withContext(async (req, ctx) => {
     prisma.rebateInstallment.findMany({ where: { status: { in: ["RELEASED", "PAID"] }, releasedAt: { gte: since } }, select: { releasedAt: true, amountCents: true } }),
     prisma.rewardReserveEntry.findMany({ select: { type: true, amountCents: true } }),
     prisma.rebateInstallment.aggregate({ where: { status: { in: ["SCHEDULED", "FROZEN"] } }, _sum: { amountCents: true } }),
+    // The table may not be applied yet (or may be empty): the page still works, subscriptions just show nothing.
+    prisma.subscriptionPayment.findMany({ where: { paidAt: { gte: since } }, orderBy: { paidAt: "desc" }, take: 1000 }).catch(() => []),
   ]);
 
   const paidPurchases = purchases.filter((p) => p.status === "COMPLETED" && p.amount > 0 && p.purchasedAt >= since);
@@ -34,14 +36,17 @@ export const GET = withContext(async (req, ctx) => {
   ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
   const daily = buildDaily(days, {
-    deposits: paidPurchases.map((p) => ({ at: p.purchasedAt, amountCents: dollarsToCents(p.amount) })),
+    deposits: [
+      ...paidPurchases.map((p) => ({ at: p.purchasedAt, amountCents: dollarsToCents(p.amount) })),
+      ...subPayments.map((p) => ({ at: p.paidAt, amountCents: p.amountCents })),
+    ],
     refunds: gone.map((p) => ({ at: p.updatedAt, amountCents: dollarsToCents(p.amount) })),
     withdrawals: withdrawals.map((w) => ({ requestedAt: w.createdAt, paidAt: w.status === "PAID" ? w.decidedAt : null, amountCents: w.amountCents })),
     commissions: liveCommissions.map((c) => ({ at: c.createdAt, amountCents: c.amountCents })),
     rebates: rebates.filter((r) => r.releasedAt).map((r) => ({ at: r.releasedAt as Date, amountCents: r.amountCents })),
   });
 
-  const userIds = [...new Set([...withdrawals.map((w) => w.userId), ...paidPurchases.map((p) => p.buyerId), ...liveCommissions.flatMap((c) => [c.partnerId, c.buyerId ?? ""]).filter(Boolean)])];
+  const userIds = [...new Set([...withdrawals.map((w) => w.userId), ...paidPurchases.map((p) => p.buyerId), ...subPayments.map((p) => p.userId), ...liveCommissions.flatMap((c) => [c.partnerId, c.buyerId ?? ""]).filter(Boolean)])];
   const [users, contracts, listings] = await Promise.all([
     prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, email: true } }),
     prisma.rewardContract.findMany({ where: { purchaseId: { in: paidPurchases.map((p) => p.id) } }, select: { purchaseId: true, productKey: true } }),
@@ -71,10 +76,13 @@ export const GET = withContext(async (req, ctx) => {
       open: { count: open.length, cents: open.reduce((s, w) => s + w.amountCents, 0) },
       reserve: { ...reserve, owedCents, shortfallCents: reserveShortfall(owedCents, reserve.outstanding), balanced: reserve.outstanding === owedCents },
       withdrawals: withdrawals.slice(0, 200).map((w) => ({ ...w, email: email.get(w.userId) ?? w.userId })),
-      deposits: paidPurchases.slice(0, 200).map((p) => ({ id: p.id, at: p.purchasedAt, email: email.get(p.buyerId) ?? p.buyerId, amountCents: dollarsToCents(p.amount), provider: p.provider, providerRef: p.providerRef, what: contractOf.has(p.id) ? `Algo Contract (${contractOf.get(p.id)})` : title.get(p.marketplaceListingId) ?? "Marketplace purchase" })),
+      deposits: [
+        ...paidPurchases.map((p) => ({ id: p.id, at: p.purchasedAt, email: email.get(p.buyerId) ?? p.buyerId, amountCents: dollarsToCents(p.amount), provider: p.provider, providerRef: p.providerRef, what: contractOf.has(p.id) ? `Algo Contract (${contractOf.get(p.id)})` : title.get(p.marketplaceListingId) ?? "Marketplace purchase" })),
+        ...subPayments.map((p) => ({ id: p.id, at: p.paidAt, email: email.get(p.userId) ?? p.userId, amountCents: p.amountCents, provider: p.provider, providerRef: p.providerRef, what: `Subscription: ${p.planId}${p.cycle ? ` (${p.cycle})` : ""}` })),
+      ].sort((a, b) => b.at.getTime() - a.at.getTime()).slice(0, 300),
       commissions: liveCommissions.slice(0, 200).map((c) => ({ id: c.id, at: c.createdAt, partner: email.get(c.partnerId) ?? c.partnerId, buyer: c.buyerId ? email.get(c.buyerId) ?? c.buyerId : null, level: c.level, source: c.source, status: c.status, amountCents: c.amountCents })),
       topPartners: [...byPartner.entries()].sort((a, b) => b[1].cents - a[1].cents).slice(0, 10).map(([id, v]) => ({ partner: email.get(id) ?? id, cents: v.cents, count: v.count })),
-      notes: ["Pro subscription payments are not stored as payment rows, so they are not in money in. Only completed marketplace and Algo Contract purchases are."],
+      notes: ["Money in = completed marketplace and Algo Contract purchases plus subscription payments (every plan, monthly or yearly). Subscription payments are recorded from the day the subscription_payments table was applied; earlier ones were never stored with an amount."],
     },
     ctx.requestId,
     200,
