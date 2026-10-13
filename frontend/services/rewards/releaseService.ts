@@ -131,7 +131,8 @@ export async function runRewardsSweep(now: Date = new Date()): Promise<SweepRepo
     const purchases = new Map((await prisma.purchase.findMany({ where: { id: { in: [...new Set(pending.map((c) => c.purchaseId))] } }, select: { id: true, status: true } })).map((p) => [p.id, p.status]));
     for (const c of pending) {
       try {
-        const voided = purchaseVoided(purchases.get(c.purchaseId) ?? "REVERSED");
+        // A "sub:<paymentId>" reference (a Pro subscription payment) has no purchase row; it is only created on a confirmed payment, so it is never voided here.
+        const voided = c.purchaseId.startsWith("sub:") ? false : purchaseVoided(purchases.get(c.purchaseId) ?? "REVERSED");
         const upd = await prisma.referralCommission.updateMany({
           where: { id: c.id, status: "PENDING" },
           // availableAt already includes the hold period, so the released commission is withdrawable straight away.

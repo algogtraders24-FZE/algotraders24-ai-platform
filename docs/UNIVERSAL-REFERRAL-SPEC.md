@@ -1,6 +1,6 @@
 # Universal referral (same plan as Algo Contracts, on every product) - design v0.1
 
-Status: DRAFT for the owner. Nothing is built. Everything below is behind one new flag, `REFERRAL_ALL_PRODUCTS` (default OFF). Counsel has not
+Status: BUILT behind `REFERRAL_ALL_PRODUCTS` (default OFF), owner decisions below applied. Not live. Everything below is behind one new flag, `REFERRAL_ALL_PRODUCTS` (default OFF). Counsel has not
 answered on the multi-level plan (see REWARDS-PARTNER-PROGRAM-SPEC.md s.15); this must not go live before that.
 
 ## The plan (owner's decision, 2026-10-13)
@@ -62,3 +62,17 @@ New:
 4. Extend the Algo Contracts page "Refer and earn" card and admin overview with the new commission source.
 5. Scratch-DB e2e: product sale, subscription sale, 4 levels, ineligible level skipped, refund reversed, replayed webhook pays once.
 6. Live test with the owner accounts at $15, like the contract test.
+
+
+## Owner decisions (2026-10-13) and how they were built
+- d1 other sellers' products: INCLUDED. (The commission is paid from the platform's side; seller earnings are not reduced.) Watch the margin: max 5% payout vs the 10% platform cut.
+- d2 subscriptions: EVERY paid renewal pays (reference `sub:<paymentId>`, so a replayed IPN pays once).
+- d3 refunds: no refund option for subscriptions; a commission is only ever created from a CONFIRMED payment, so a failed payment creates none. Product refunds still
+  reverse the commission through the purchase status (unchanged). Subscription commissions are never marked refunded by the sweep.
+- d4 attachment: NO time limit (first touch at signup, never re-attached).
+- d5 amounts: percent of the price paid, 2/1/1/1, rounded down to the cent.
+Built: `computePercentShares` (lib/rewards/money.ts), `services/rewards/universalReferral.ts` (signup attribution + credit), `services/rewards/upline.ts` (shared),
+hooks in `SessionService` (signup, cookie-gated, new accounts only), the NOWPayments webhook (products and subscription payments). Tests: validate-rewards (+8) and the
+scratch-DB e2e (+9: flag off, direct only, 4 levels, replay, renewal, ineligible level, no partner, hold, sweep).
+Before going live: counsel, the "Refer and earn" copy on the Algo Contracts page still says "buys a contract" (update when the flag is switched on),
+and a live test at a small price like the contract test.

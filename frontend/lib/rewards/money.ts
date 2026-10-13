@@ -1,6 +1,6 @@
 // lib/rewards/money.ts
 // (Pure - no I/O.) The contract money maths. Everything is integer cents so a schedule always adds up exactly.
-import { multiLevelReferralEnabled, type RewardProductConfig } from "./config";
+import { multiLevelReferralEnabled, REFERRAL_PERCENT_BPS, type RewardProductConfig } from "./config";
 
 /** Basis points of an amount, rounded to the nearest cent (helper for display and checks). */
 export function bps(amountCents: number, rateBps: number): number {
@@ -107,6 +107,32 @@ export function computeReferralShares(
     seen.add(partnerId);
     const amountCents = p.referralCents[level];
     if (amountCents > 0) out.push({ level, partnerId, amountCents });
+  }
+  return out;
+}
+
+/**
+ * Percent commission for one verified payment on a NON-contract sale (any product, or a Pro subscription payment). `upline` is
+ * [direct partner, level1, level2, level3]. Same rules as computeReferralShares: only the direct level unless multi-level is on,
+ * self-referral skipped, nobody paid twice. Each amount is rounded DOWN to the cent and fixed at the moment of the sale.
+ */
+export function computePercentShares(
+  amountCents: number,
+  buyerId: string,
+  upline: Array<string | null | undefined>,
+  multiLevel: boolean = multiLevelReferralEnabled(),
+  rates: readonly number[] = REFERRAL_PERCENT_BPS,
+): ReferralShare[] {
+  if (!Number.isInteger(amountCents) || amountCents <= 0) return [];
+  const maxLevels = multiLevel ? rates.length : 1;
+  const seen = new Set<string>([buyerId]);
+  const out: ReferralShare[] = [];
+  for (let level = 0; level < maxLevels; level++) {
+    const partnerId = upline[level];
+    if (!partnerId || seen.has(partnerId)) continue;
+    seen.add(partnerId);
+    const share = Math.floor((amountCents * rates[level]) / 10_000);
+    if (share > 0) out.push({ level, partnerId, amountCents: share });
   }
   return out;
 }

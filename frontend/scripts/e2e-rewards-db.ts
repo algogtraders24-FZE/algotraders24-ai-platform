@@ -25,6 +25,7 @@ import { isProgramListing } from "../services/rewards/listingGuard";
 import { findKycReminderTargets, runKycReminders } from "../services/rewards/kycReminder";
 import { loadUserFacts } from "../lib/rewards/access";
 import { isProActive } from "../lib/rewards/eligibility";
+import { creditReferralForPayment } from "../services/rewards/universalReferral";
 
 let failed = 0;
 function check(name: string, ok: boolean, detail = "") {
@@ -337,6 +338,45 @@ async function main() {
   check("test run leaves the reserve balanced", tr.errors.length === 0 && tr.reserveOutstandingCents === tr.owedCents, JSON.stringify(tr.errors));
   delete process.env.REWARDS_HOLD_DAYS;
   delete process.env.REWARDS_MIN_PAYOUT_USD;
+
+  // ---- universal referral: percent commission on any other payment (a product, a Pro subscription renewal), 4 levels, flag-gated
+  await mkUser("ubuyer"); await mkUser("upart"); await mkUser("upar2"); await mkUser("ugrand"); await mkUser("ugreat");
+  await mkUser("ulapsed", { pro: false, kyc: false });
+  const att = (partnerId: string, buyerId: string) => prisma.referralAttribution.create({ data: { partnerId, buyerId, codeId: "code_" + partnerId } });
+  await att("upart", "ubuyer"); await att("upar2", "upart"); await att("ugrand", "upar2"); await att("ugreat", "ugrand");
+  const PAID = later(10);
+  delete process.env.REFERRAL_ALL_PRODUCTS;
+  const off = await creditReferralForPayment({ buyerId: "ubuyer", amountCents: 2000, saleRef: "sub:off", paidAt: PAID });
+  check("universal referral OFF: nothing is credited", off.credited === 0 && off.reason === "OFF" && (await prisma.referralCommission.count({ where: { purchaseId: "sub:off" } })) === 0);
+  process.env.REFERRAL_ALL_PRODUCTS = "true";
+  delete process.env.REWARDS_MULTI_LEVEL;
+  const d1 = await creditReferralForPayment({ buyerId: "ubuyer", amountCents: 2000, saleRef: "sub:p1", paidAt: PAID });
+  const d1rows = await prisma.referralCommission.findMany({ where: { purchaseId: "sub:p1" } });
+  check("flag on, multi-level off: only the direct partner gets 2% (40c)", d1.credited === 1 && d1rows.length === 1 && d1rows[0].partnerId === "upart" && d1rows[0].amountCents === 40 && d1rows[0].level === 0);
+  process.env.REWARDS_MULTI_LEVEL = "true";
+  const d2 = await creditReferralForPayment({ buyerId: "ubuyer", amountCents: 2000, saleRef: "sub:p2", paidAt: PAID });
+  const d2rows = (await prisma.referralCommission.findMany({ where: { purchaseId: "sub:p2" }, orderBy: { level: "asc" } }));
+  check("multi-level on: 40c / 20c / 20c / 20c to the four levels", d2.credited === 4 && d2rows.map((r) => r.amountCents).join() === "40,20,20,20" && d2rows.map((r) => r.partnerId).join() === "upart,upar2,ugrand,ugreat", JSON.stringify(d2rows.map((r) => [r.level, r.partnerId, r.amountCents])));
+  const d2again = await creditReferralForPayment({ buyerId: "ubuyer", amountCents: 2000, saleRef: "sub:p2", paidAt: PAID });
+  check("a replayed payment pays nothing twice", d2again.credited === 0 && (await prisma.referralCommission.count({ where: { purchaseId: "sub:p2" } })) === 4);
+  const d3 = await creditReferralForPayment({ buyerId: "ubuyer", amountCents: 2000, saleRef: "sub:p3", paidAt: PAID });
+  check("every renewal pays again (a new payment id)", d3.credited === 4);
+  await prisma.subscription.updateMany({ where: { userId: "upar2" }, data: { provider: null } }); // upar2 is now admin-granted Pro -> not paid
+  const d4 = await creditReferralForPayment({ buyerId: "ubuyer", amountCents: 2000, saleRef: "sub:p4", paidAt: PAID });
+  const d4rows = await prisma.referralCommission.findMany({ where: { purchaseId: "sub:p4" }, orderBy: { level: "asc" } });
+  check("an ineligible level earns nothing and the others are still paid", d4rows.map((r) => r.partnerId).join() === "upart,ugrand,ugreat", d4rows.map((r) => r.partnerId).join());
+  await prisma.subscription.updateMany({ where: { userId: "upar2" }, data: { provider: "nowpayments" } });
+  const none = await creditReferralForPayment({ buyerId: "unattached", amountCents: 2000, saleRef: "sub:none", paidAt: PAID });
+  check("a buyer nobody brought pays nobody", none.credited === 0 && none.reason === "NO_PARTNER");
+  const pend = await prisma.referralCommission.findMany({ where: { purchaseId: "sub:p2" } });
+  check("held for the hold period like any commission", pend.every((r) => r.status === "PENDING" && r.availableAt.getTime() === addDays(PAID, 7).getTime()));
+  // the daily check releases a subscription commission (it has no purchase row, which must NOT read as "refunded")
+  const us = await runRewardsSweep(addDays(PAID, 8));
+  const released = await prisma.referralCommission.count({ where: { purchaseId: { startsWith: "sub:p" }, status: "RELEASED" } });
+  const reversed = await prisma.referralCommission.count({ where: { purchaseId: { startsWith: "sub:" }, status: "REVERSED" } });
+  check("sweep releases subscription commissions and never reverses them as refunded", released === 12 && reversed === 0 && us.errors.length === 0, JSON.stringify({ released, reversed, errs: us.errors }));
+  delete process.env.REFERRAL_ALL_PRODUCTS;
+  delete process.env.REWARDS_MULTI_LEVEL;
 
   // ---- reserve identity across the whole run
   const r5 = await runRewardsSweep(later(185));

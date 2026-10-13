@@ -5,7 +5,7 @@ import {
   REWARD_PRODUCTS, REWARD_PRODUCT_KEYS, HOLD_DAYS, MIN_PAYOUT_CENTS, BANNED_COPY_WORDS,
   rewardsMode, multiLevelReferralEnabled, withdrawalsEnabled, isRewardProductKey, ALL_REWARD_PRODUCT_KEYS, REWARD_TEST_KEY, holdDays, minPayoutCents, ownerAsProEnabled,
 } from "../lib/rewards/config";
-import { bps, formatUsd, addMonths, computeContractMoney, computeReferralShares, assertProductSane, maxOutflowCents } from "../lib/rewards/money";
+import { bps, formatUsd, addMonths, computeContractMoney, computeReferralShares, computePercentShares, assertProductSane, maxOutflowCents } from "../lib/rewards/money";
 import { isProActive, programOpenFor, canBuyContract, decideInstalment, canWithdraw, canEarnReferral, type UserFacts } from "../lib/rewards/eligibility";
 import { bucketOf, summarizeBalances, summarizeReserve, reserveShortfall, ledgerKey } from "../lib/rewards/ledger";
 import { badgeFor, displayNameWithBadge, BADGE_TIERS } from "../lib/rewards/badge";
@@ -287,6 +287,18 @@ const tCard = buildProductVM(REWARD_TEST_KEY, { slot: null, blockedReason: null 
 check("test card shows the day rhythm", tCard.intervalDays === 1 && tCard.perQuarterCents === 150 && tCard.netPriceCents === 900);
 
 check("owner test switch defaults OFF and only the literal true turns it on", !ownerAsProEnabled(undefined) && !ownerAsProEnabled("1") && !ownerAsProEnabled("yes") && ownerAsProEnabled("true") && ownerAsProEnabled(" TRUE "));
+
+// --- universal referral: percent commission on every other payment
+import { referralAllProductsEnabled, REFERRAL_PERCENT_BPS } from "../lib/rewards/config";
+const pp = computePercentShares(2_000, "buyer", ["a", "b", "c", "d"], true);
+check("percent plan: $20 pays 40c / 20c / 20c / 20c across 4 levels", pp.map((x) => x.amountCents).join() === "40,20,20,20" && pp.map((x) => x.level).join() === "0,1,2,3", JSON.stringify(pp));
+check("percent plan: only the direct level while multi-level is off", computePercentShares(2_000, "buyer", ["a", "b", "c", "d"], false).length === 1);
+check("percent plan: rounded DOWN to the cent ($0.99 -> 1c direct, nothing above)", computePercentShares(99, "buyer", ["a", "b"], true).map((x) => x.amountCents).join() === "1");
+check("percent plan: self-referral and double pay are skipped", computePercentShares(10_000, "buyer", ["buyer", "a", "a", "b"], true).map((x) => x.partnerId).join() === "a,b");
+check("percent plan: a gap in the chain does not shift the levels", computePercentShares(10_000, "buyer", ["a", null, "c"], true).map((x) => x.level).join() === "0,2");
+check("percent plan: zero or negative or fractional amounts pay nothing", computePercentShares(0, "b", ["a"], true).length === 0 && computePercentShares(-5, "b", ["a"], true).length === 0 && computePercentShares(10.5, "b", ["a"], true).length === 0);
+check("percent plan: the rates are 2/1/1/1 percent", REFERRAL_PERCENT_BPS.join() === "200,100,100,100");
+check("universal referral flag defaults OFF and only the literal true turns it on", !referralAllProductsEnabled(undefined) && !referralAllProductsEnabled("1") && referralAllProductsEnabled("true"));
 
 // --- copy guard on the strings this program shows
 const copy = REWARD_PRODUCT_KEYS.map((k) => REWARD_PRODUCTS[k].name).join(" ").toLowerCase();

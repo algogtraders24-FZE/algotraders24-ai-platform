@@ -22,6 +22,7 @@ import {
   sendSubscriptionActivationFailureAlert,
   sendWebhookMetadataMissingAlert,
 } from "@/services/notifications/EmailService";
+import { creditReferralForPayment } from "@/services/rewards/universalReferral";
 import { notifySubscriptionActive } from "@/services/billing/subscriptionNotifications";
 import type { PlatformName } from "@/types/marketplace-factory";
 
@@ -69,7 +70,7 @@ export const POST = withContext(async (req, ctx) => {
     return ApiResponse.error({ code: "INVALID_SIGNATURE", message: "NOWPayments IPN signature verification failed" }, ctx.requestId, 400, ctx.startedAt);
   }
 
-  const body = payload as { payment_status?: string; order_id?: string; payment_id?: string | number; created_at?: string; updated_at?: string };
+  const body = payload as { payment_status?: string; order_id?: string; payment_id?: string | number; price_amount?: number | string; created_at?: string; updated_at?: string };
 
   // Payment Verification/Hardening - unlike Stripe (whose SDK enforces a
   // 5-minute signature-timestamp tolerance by default), NOWPayments' HMAC
@@ -167,6 +168,16 @@ export const POST = withContext(async (req, ctx) => {
             }
           }
 
+          // Universal referral: every other payment (not an Algo Contract, which keeps its own fixed-dollar commission). Best effort.
+          if (!rewardCheckout && !result.duplicate) {
+            try {
+              const purchaseRow = await prisma.purchase.findUnique({ where: { providerRef: paymentId }, select: { id: true } });
+              if (purchaseRow) await creditReferralForPayment({ buyerId: intent.buyerId, amountCents: Math.round(intent.amount * 100), saleRef: purchaseRow.id, paidAt: new Date() });
+            } catch (referralError) {
+              console.error("[webhook:nowpayments] referral credit failed (non-fatal):", referralError);
+            }
+          }
+
           if (!result.duplicate) {
             try {
               const [buyer, listing] = await Promise.all([
@@ -247,6 +258,15 @@ export const POST = withContext(async (req, ctx) => {
         // the buyer their subscription was active. Best-effort, never fails
         // the webhook - activation above has already succeeded.
         await notifySubscriptionActive(parsed.userId, parsed.planId, currentPeriodEnd);
+        // Universal referral: every paid renewal earns the commission too. The reference is the payment id, so a replayed IPN cannot pay twice.
+        const paidUsd = Number(body.price_amount);
+        if (body.payment_id !== undefined && Number.isFinite(paidUsd) && paidUsd > 0) {
+          try {
+            await creditReferralForPayment({ buyerId: parsed.userId, amountCents: Math.round(paidUsd * 100), saleRef: `sub:${body.payment_id}`, paidAt: now });
+          } catch (referralError) {
+            console.error("[webhook:nowpayments] referral credit failed (non-fatal):", referralError);
+          }
+        }
       } else {
         // Payment Verification/Hardening - same silent-skip class again: a
         // finished/confirmed payment whose order_id doesn't parse into a

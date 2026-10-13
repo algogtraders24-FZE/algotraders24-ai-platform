@@ -42,6 +42,12 @@ export class SessionService {
       emailVerified,
     });
 
+    // Universal referral: attach a brand-new account to the member whose link it came through. Off unless REFERRAL_ALL_PRODUCTS=true.
+    if (process.env.REFERRAL_ALL_PRODUCTS === "true" && profile.createdAt) {
+      const { recordSignupAttribution } = await import("@/services/rewards/universalReferral");
+      await recordSignupAttribution(profile.id, new Date(profile.createdAt));
+    }
+
     return { authId: authUser.id, profile };
   }
 
