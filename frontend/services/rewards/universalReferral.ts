@@ -21,16 +21,25 @@ export async function recordSignupAttribution(userId: string, accountCreatedAt: 
   try {
     if (!referralAllProductsEnabled()) return;
     if (Date.now() - accountCreatedAt.getTime() > NEW_ACCOUNT_WINDOW_MS) return;
-    const code = normalizeReferralCode((await cookies()).get(REF_COOKIE)?.value);
-    if (!code) return;
-    const ref = await prisma.referralCode.findUnique({ where: { code } });
-    if (!ref || ref.userId === userId) return;
-    const already = await prisma.referralAttribution.findFirst({ where: { buyerId: userId }, select: { id: true } });
-    if (already) return;
-    await prisma.referralAttribution.create({ data: { partnerId: ref.userId, buyerId: userId, codeId: ref.id } });
+    const raw = (await cookies()).get(REF_COOKIE)?.value;
+    if (!raw) return;
+    await attachSignupFromCode(userId, raw);
   } catch (e) {
     console.error("[referral] signup attribution failed (non-fatal):", e);
   }
+}
+
+/** The part that needs no request: attaches `userId` to the owner of `rawCode` (first touch, never self, never twice). Returns whether a link was recorded. */
+export async function attachSignupFromCode(userId: string, rawCode: string): Promise<boolean> {
+  if (!referralAllProductsEnabled()) return false;
+  const code = normalizeReferralCode(rawCode);
+  if (!code) return false;
+  const ref = await prisma.referralCode.findUnique({ where: { code } });
+  if (!ref || ref.userId === userId) return false;
+  const already = await prisma.referralAttribution.findFirst({ where: { buyerId: userId }, select: { id: true } });
+  if (already) return false;
+  await prisma.referralAttribution.create({ data: { partnerId: ref.userId, buyerId: userId, codeId: ref.id } });
+  return true;
 }
 
 export interface CreditResult { credited: number; reason?: "OFF" | "NO_PARTNER" | "NOTHING_TO_PAY" }
