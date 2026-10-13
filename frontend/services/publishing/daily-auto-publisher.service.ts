@@ -14,6 +14,7 @@ import type { ContentCategory } from "@/types/content-category";
 import type { MarketAnalysisOutcome } from "@/types/market-analysis-orchestration";
 import type { EconomicEvent } from "@/types/economic-calendar";
 import { buildSeo } from "@/services/ai/publishing/seo.service";
+import { escapeHtml } from "@/services/telegram/client";
 
 /** analysis = daily instrument report; fundamental = macro-driver focus; calendar = deterministic weekly event preview; weekly = multi-asset review. */
 export type ReportKind = "analysis" | "fundamental" | "calendar" | "weekly";
@@ -357,4 +358,28 @@ export class DailyAutoPublisherService {
     const content = buildReportContent(spec, date, outcome);
     return content ? { content } : { skip: "analysis had no usable content" };
   }
+}
+
+/**
+ * The owner's Telegram summary of one run (HTML, every dynamic value escaped). Doubles as the monitor:
+ * a skipped or failed report is otherwise visible only in Vercel logs.
+ */
+export function dailyRunTelegramMessage(results: readonly DailyReportResult[], siteUrl: string): string {
+  const icon: Record<DailyReportStatus, string> = { published: "OK", "already-exists": "SAME", skipped: "SKIPPED", failed: "FAILED" };
+  const lines = results.map((r) => {
+    const url = `${siteUrl}/blog/${buildSeo(r.title, []).slug}`;
+    const head = r.status === "published" || r.status === "already-exists" ? `<a href="${escapeHtml(url)}">${escapeHtml(r.title)}</a>` : escapeHtml(r.title);
+    return `${icon[r.status]} - ${head}${r.reason ? ` (${escapeHtml(r.reason.slice(0, 120))})` : ""}`;
+  });
+  const bad = results.filter((r) => r.status === "skipped" || r.status === "failed").length;
+  return `<b>AT24 daily blog run</b>${bad > 0 ? ` - ${bad} need attention` : ""}\n${lines.join("\n")}`;
+}
+
+/** One neutral line per published report for the AT24 Telegram group: title, link, no performance claim, no instruction. */
+export function blogGroupMessage(title: string, siteUrl: string): string {
+  const url = `${siteUrl}/blog/${buildSeo(title, []).slug}`;
+  return `<b>${escapeHtml(title)}</b>
+<a href="${escapeHtml(url)}">Read the report</a>
+
+<i>Automated, evidence-based analysis. Not investment advice.</i>`;
 }
