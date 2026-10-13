@@ -195,6 +195,7 @@
     "validate:dashboard-snapshot": "tsx scripts/validate-dashboard-snapshot.ts",
     "validate:evidence-sources": "tsx scripts/validate-evidence-sources.ts",
     "validate:smc-engine": "tsx scripts/validate-smc-engine.ts",
+    "validate:ai-resilience": "tsx scripts/validate-ai-resilience.ts",
     "validate:automation-cron-capacity": "tsx scripts/validate-automation-cron-capacity.ts",
     "validate:automation-resume-cron": "node --conditions=react-server -r tsx/cjs --env-file=.env --env-file=.env.local scripts/validate-automation-resume-cron.ts",
     "validate:automation-delivery": "tsx scripts/validate-automation-delivery.ts",
