@@ -24,6 +24,7 @@ import {
 } from "@/services/notifications/EmailService";
 import { creditReferralForPayment } from "@/services/rewards/universalReferral";
 import { notifySubscriptionActive } from "@/services/billing/subscriptionNotifications";
+import { recordSubscriptionPayment } from "@/services/billing/subscriptionPaymentLedger";
 import type { PlatformName } from "@/types/marketplace-factory";
 
 const FINAL_SUCCESS_STATUSES = new Set(["finished", "confirmed"]);
@@ -260,6 +261,7 @@ export const POST = withContext(async (req, ctx) => {
         await notifySubscriptionActive(parsed.userId, parsed.planId, currentPeriodEnd);
         // Universal referral: every paid renewal earns the commission too. The reference is the payment id, so a replayed IPN cannot pay twice.
         const paidUsd = Number(body.price_amount);
+        if (body.payment_id !== undefined) await recordSubscriptionPayment({ userId: parsed.userId, planId: parsed.planId, cycle: parsed.cycle, amountUsd: paidUsd, provider: "nowpayments", providerRef: `sub:${body.payment_id}`, paidAt: now });
         if (body.payment_id !== undefined && Number.isFinite(paidUsd) && paidUsd > 0) {
           try {
             await creditReferralForPayment({ buyerId: parsed.userId, amountCents: Math.round(paidUsd * 100), saleRef: `sub:${body.payment_id}`, paidAt: now, source: "SUBSCRIPTION" });
