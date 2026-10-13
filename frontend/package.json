@@ -191,6 +191,7 @@
     "validate:automation-condition-eval": "tsx scripts/validate-automation-condition-eval.ts",
     "validate:automation-scheduler": "tsx scripts/validate-automation-scheduler.ts",
     "validate:automation-brief": "tsx scripts/validate-automation-brief.ts",
+    "validate:macro-alignment": "tsx scripts/validate-macro-alignment.ts",
     "validate:automation-delivery": "tsx scripts/validate-automation-delivery.ts",
     "validate:automation-p2-smoke": "node --conditions=react-server -r tsx/cjs --env-file=.env --env-file=.env.local scripts/validate-automation-p2-delivery-smoke.ts",
     "validate:automation-lifecycle": "node --conditions=react-server -r tsx/cjs --env-file=.env --env-file=.env.local scripts/validate-automation-lifecycle.ts",

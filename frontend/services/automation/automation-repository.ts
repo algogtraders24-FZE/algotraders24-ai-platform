@@ -289,6 +289,15 @@ export const automationRepository = {
     });
   },
 
+  /** The most recent SUCCEEDED run of this automation created before `before` (Brief v2 "what changed" comparison). */
+  async previousSucceededRun(automationId: string, userId: string, before: Date) {
+    return prisma.automationRun.findFirst({
+      where: { automationId, userId, status: "SUCCEEDED", createdAt: { lt: before } },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+  },
+
   async hasActiveRun(automationId: string): Promise<boolean> {
     const n = await prisma.automationRun.count({
       where: { automationId, status: { in: ["QUEUED", "RUNNING"] } },

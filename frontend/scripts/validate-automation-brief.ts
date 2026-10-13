@@ -69,8 +69,10 @@ async function main(): Promise<void> {
   test("real Market Intelligence output -> headline with symbol, bias, regime", () => {
     const b = composeAgentBrief(REAL_MI)!;
     assert.equal(b.empty, false);
-    assert.equal(b.headline, "XAUUSD 1h: bullish-leaning · regime trending-bullish (confidence 100)");
-    assert.equal(b.lines.length, 5);
+    assert.equal(b.headline, "Gold (XAUUSD 1h): leaning bullish - trending up");
+    assert.equal(b.lines.length, 2); // jargon lines (regime:/hypotheses:/Direction classified) are dropped
+    assert.ok(b.lines.every((l) => !/^(regime|hypotheses):/i.test(l)));
+    assert.equal(b.changed, undefined); // no previous run supplied
     assert.ok(b.disclaimer && b.disclaimer.includes("Decision support only"));
   });
 
@@ -118,10 +120,48 @@ async function main(): Promise<void> {
 
   test("combineBriefsText drops empty briefs and joins the rest", () => {
     const text = combineBriefsText([composeAgentBrief(REAL_MI), composeAgentBrief(REAL_RESEARCH_EMPTY), null]);
-    assert.ok(text.startsWith("XAUUSD 1h: bullish-leaning"));
+    assert.ok(text.startsWith("Gold (XAUUSD 1h): leaning bullish"));
     assert.ok(!text.includes("Research"));
     assert.equal(combineBriefsText([composeAgentBrief(REAL_RESEARCH_EMPTY)]), "");
-    assert.ok(briefToText(composeAgentBrief(REAL_MI)!).includes("• regime: trending-bullish"));
+    assert.ok(briefToText(composeAgentBrief(REAL_MI)!).includes("• EMA20"));
+  });
+
+  // ── Brief v2: what changed since the last run ──
+  test("no previous run -> no change claim", () => {
+    const b = composeAgentBrief(REAL_MI)!;
+    assert.equal(b.changed, undefined);
+    assert.equal(b.changeNote, undefined);
+  });
+
+  test("same bias + regime as last run -> changed=false", () => {
+    const b = composeAgentBrief(REAL_MI, { ...REAL_MI, regimeConfidence: 80 })!;
+    assert.equal(b.changed, false);
+    assert.equal(b.changeNote, "No change since the last brief.");
+  });
+
+  test("bias flipped since last run -> changed=true with a plain note", () => {
+    const b = composeAgentBrief(REAL_MI, { ...REAL_MI, bias: "neutral" })!;
+    assert.equal(b.changed, true);
+    assert.equal(b.changeNote, "Changed since the last brief: was no clear direction, now leaning bullish.");
+    assert.ok(briefToText(b).includes("Changed since the last brief"));
+  });
+
+  test("regime changed (same bias) -> changed=true", () => {
+    const b = composeAgentBrief(REAL_MI, { ...REAL_MI, regimeType: "ranging" })!;
+    assert.equal(b.changed, true);
+    assert.match(b.changeNote ?? "", /was moving sideways, now trending up/);
+  });
+
+  test("an unresolved or foreign previous result is ignored, never invented against", () => {
+    assert.equal(composeAgentBrief(REAL_MI, { kind: "market-intelligence-conclusion", resolved: false })!.changed, undefined);
+    assert.equal(composeAgentBrief(REAL_MI, { kind: "research-brief" })!.changed, undefined);
+    assert.equal(composeAgentBrief(REAL_MI, "text")!.changed, undefined);
+  });
+
+  test("plain-language headline: no raw enum or confidence number leaks", () => {
+    const h = composeAgentBrief({ ...REAL_MI, bias: "neutral", regimeType: "low-volatility" })!.headline;
+    assert.equal(h, "Gold (XAUUSD 1h): no clear direction - quiet");
+    assert.ok(!/confidence|regime|low-volatility/.test(h));
   });
 
   // ── the shipped templates ──
@@ -130,6 +170,13 @@ async function main(): Promise<void> {
       const r = validateWorkflowDefinition(t.definition);
       assert.equal(r.ok, true, `${t.id}: ${JSON.stringify(r.issues)}`);
     }
+  });
+
+  test("recurring-signal templates deliver on_change; the daily digest always delivers", () => {
+    const mode = (id: string) => AUTOMATION_TEMPLATES.find((t) => t.id === id)!.definition.delivery?.mode;
+    assert.equal(mode("gold-morning-intelligence"), "on_change");
+    assert.equal(mode("research-publication-monitor"), "on_change");
+    assert.equal(mode("daily-market-brief"), undefined);
   });
 
   test("every template carries a delivery block, and results go to a real step", () => {

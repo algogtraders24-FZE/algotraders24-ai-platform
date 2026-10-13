@@ -28,8 +28,49 @@ function stringList(v: unknown): string[] {
   return v.filter((x): x is string => typeof x === "string" && x.trim().length > 0).map((x) => clip(x.trim()));
 }
 
-/** Returns null only when `output` is not an object at all. */
-export function composeAgentBrief(output: unknown): AgentBrief | null {
+const INSTRUMENT_NAMES: Record<string, string> = { XAUUSD: "Gold", XAGUSD: "Silver" };
+
+const BIAS_PLAIN: Record<string, string> = {
+  "bullish-leaning": "leaning bullish",
+  "bearish-leaning": "leaning bearish",
+  neutral: "no clear direction",
+};
+const REGIME_PLAIN: Record<string, string> = {
+  "trending-bullish": "trending up",
+  "trending-bearish": "trending down",
+  ranging: "moving sideways",
+  breakout: "breaking out",
+  breakdown: "breaking down",
+  "high-volatility": "volatile",
+  "low-volatility": "quiet",
+  "low-liquidity": "thin liquidity",
+  transition: "in transition",
+  "insufficient-data": "not enough data",
+};
+const plainBias = (b: string | null): string => (b ? (BIAS_PLAIN[b] ?? b.replace(/-/g, " ")) : "unclear");
+const plainRegime = (r: string): string => REGIME_PLAIN[r] ?? r.replace(/-/g, " ");
+
+/** What changed vs the previous Market Intelligence result. Absent fields = no previous result to compare. */
+function compareMarketIntelligence(current: Record<string, unknown>, previous: unknown): Pick<AgentBrief, "changed" | "changeNote"> {
+  if (!isRecord(previous) || str(previous.kind) !== "market-intelligence-conclusion" || previous.resolved === false) return {};
+  const biasNow = str(current.bias);
+  const biasBefore = str(previous.bias);
+  const regimeNow = str(current.regimeType);
+  const regimeBefore = str(previous.regimeType);
+  if (biasNow !== biasBefore) {
+    return { changed: true, changeNote: `Changed since the last brief: was ${plainBias(biasBefore)}, now ${plainBias(biasNow)}.` };
+  }
+  if (regimeNow !== regimeBefore) {
+    return {
+      changed: true,
+      changeNote: `Market state changed since the last brief: was ${regimeBefore ? plainRegime(regimeBefore) : "unknown"}, now ${regimeNow ? plainRegime(regimeNow) : "unknown"}.`,
+    };
+  }
+  return { changed: false, changeNote: "No change since the last brief." };
+}
+
+/** Returns null only when `output` is not an object at all. `previous` is the same agent's output from the last run, when known. */
+export function composeAgentBrief(output: unknown, previous?: unknown): AgentBrief | null {
   if (!isRecord(output)) return null;
   const kind = str(output.kind) ?? "result";
   const disclaimer = str(output.disclaimer);
@@ -41,11 +82,16 @@ export function composeAgentBrief(output: unknown): AgentBrief | null {
     if (output.resolved === false) {
       return { kind, headline: `Market intelligence for ${label} was not available`, lines: [], disclaimer, empty: true };
     }
-    const bias = str(output.bias) ?? "unclear";
+    const bias = str(output.bias);
     const regime = str(output.regimeType);
-    const conf = num(output.regimeConfidence);
-    const head = `${label}: ${bias}${regime ? ` · regime ${regime}${conf !== null ? ` (confidence ${conf})` : ""}` : ""}`;
-    return { kind, headline: head, lines: stringList(output.basis).slice(0, MAX_LINES), disclaimer, empty: false };
+    const name = INSTRUMENT_NAMES[symbol] ? `${INSTRUMENT_NAMES[symbol]} (${label})` : label;
+    const head = `${name}: ${plainBias(bias)}${regime ? ` - ${plainRegime(regime)}` : ""}`;
+    // The regime / hypothesis lines just restate the headline in internal jargon.
+    const lines = stringList(output.basis)
+      .filter((l) => !/^(regime|hypotheses):/i.test(l) && !/^Direction classified as/i.test(l))
+      .slice(0, MAX_LINES);
+    const change = compareMarketIntelligence(output, previous);
+    return { kind, headline: head, lines, disclaimer, empty: false, ...change };
   }
 
   if (kind === "research-brief") {
@@ -80,7 +126,7 @@ export function composeAgentBrief(output: unknown): AgentBrief | null {
 
 /** Plain-text rendering of one brief (headline + bullet lines). */
 export function briefToText(b: AgentBrief): string {
-  return [b.headline, ...b.lines.map((l) => `• ${l}`)].join("\n");
+  return [b.headline, ...(b.changeNote ? [b.changeNote] : []), ...b.lines.map((l) => `• ${l}`)].join("\n");
 }
 
 /** A single combined text for several briefs, empty ones dropped. "" if none. */

@@ -8,12 +8,38 @@
 // alerts on/off switch silences automation results too, exactly like every
 // other AT24 alert. Both are best-effort and return false/0 for a user who
 // never connected them.
+//
+// Brief v2: `enrich` adds the gold price, the macro-alignment line and today's
+// high-impact USD events (IST). Each part is independent and best-effort - a
+// source that is down is left out, never estimated.
 
 import { createNotification } from "@/services/notifications/NotificationService";
 import { sendTelegramToUser } from "@/services/telegram/deliver";
 import { sendPushToUser } from "@/services/push/deliver";
 import { telegramConfig } from "@/services/telegram/config";
+import { getEconomicCalendar } from "@/services/calendar/calendar.service";
+import { getMacroAlignmentSnapshot } from "@/services/macro/macro-service";
+import { alignmentLine } from "@/services/macro/macro-alignment";
+import { formatEventLines, formatPriceLine, type DeliveryExtras } from "./brief-extras";
 import type { DeliveryDeps } from "./delivery";
+
+async function enrichGold(): Promise<DeliveryExtras> {
+  const now = new Date();
+  const [macro, calendar] = await Promise.allSettled([
+    getMacroAlignmentSnapshot(),
+    getEconomicCalendar({ week: "this", currencies: ["USD"], impacts: ["high"] }),
+  ]);
+  const extras: DeliveryExtras = {};
+  if (macro.status === "fulfilled") {
+    extras.priceLine = formatPriceLine(macro.value.gold);
+    if (macro.value.alignment.score !== null) extras.macroLine = alignmentLine(macro.value.alignment);
+  }
+  if (calendar.status === "fulfilled") {
+    const lines = formatEventLines(calendar.value.events, now);
+    if (lines.length > 0) extras.eventLines = lines;
+  }
+  return extras;
+}
 
 export function productionDeliveryDeps(): DeliveryDeps {
   return {
@@ -21,5 +47,6 @@ export function productionDeliveryDeps(): DeliveryDeps {
     notify: createNotification,
     telegram: (userId, text) => sendTelegramToUser(userId, "alerts", text),
     push: (userId, msg) => sendPushToUser(userId, "alerts", msg),
+    enrich: enrichGold,
   };
 }

@@ -457,6 +457,14 @@ async function finalize(
   if (status === "SUCCEEDED" && deliveryCtx) {
     try {
       const agentOutputs = await collectAgentOutputs(automationRunId, run.userId);
+      // Brief v2: the previous successful run's outputs, for "what changed".
+      let previousOutputs: unknown[] | undefined;
+      try {
+        const prev = await automationRepository.previousSucceededRun(run.automationId, run.userId, run.createdAt);
+        if (prev) previousOutputs = await collectAgentOutputs(prev.id, run.userId);
+      } catch (prevError) {
+        log.warn("previous run lookup failed", { automationRunId, err: String(prevError) });
+      }
       const report = await deliverRunResult({
         userId: run.userId,
         automationId: deliveryCtx.automationId,
@@ -464,6 +472,7 @@ async function finalize(
         runId: automationRunId,
         definition: deliveryCtx.definition,
         agentOutputs,
+        previousOutputs,
       }, productionDeliveryDeps());
       await automationRepository.patchRun(automationRunId, {
         contextSnapshot: { trigger: ctx?.trigger, steps: ctx?.steps, delivery: report },

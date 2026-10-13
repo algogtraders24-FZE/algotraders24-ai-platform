@@ -18,6 +18,7 @@ import type {
   AutomationAgentType,
   AutomationConditionOp,
   AutomationDeliveryChannel,
+  AutomationDeliveryMode,
   AutomationStep,
   AutomationTriggerType,
   AutomationWeekday,
@@ -95,6 +96,7 @@ export interface Draft {
   runAt: string;
   steps: AutomationStep[];
   channels: AutomationDeliveryChannel[];
+  deliveryMode: AutomationDeliveryMode;
 }
 
 export const emptyDraft: Draft = {
@@ -106,6 +108,7 @@ export const emptyDraft: Draft = {
   runAt: "",
   steps: [],
   channels: ["bell"],
+  deliveryMode: "always",
 };
 
 /** Server definition -> editable draft (edit mode). */
@@ -119,6 +122,7 @@ export function definitionToDraft(name: string, description: string, def: Automa
     runAt: def.trigger.runAt ? def.trigger.runAt.slice(0, 10) : "",
     steps: def.steps,
     channels: def.delivery ? def.delivery.channels : ["bell"],
+    deliveryMode: def.delivery?.mode ?? "always",
   };
 }
 
@@ -128,7 +132,7 @@ export function buildDefinition(d: Draft): AutomationWorkflowDefinition {
   if (d.triggerType !== "manual") trigger.slot = d.slot;
   if (d.triggerType === "weekly") trigger.daysOfWeek = d.daysOfWeek;
   if (d.triggerType === "once" && d.runAt) trigger.runAt = new Date(d.runAt + "T00:00:00.000Z").toISOString();
-  return { schemaVersion: 1, trigger, steps: d.steps, delivery: { channels: d.channels } };
+  return { schemaVersion: 1, trigger, steps: d.steps, delivery: { channels: d.channels, ...(d.deliveryMode === "on_change" ? { mode: "on_change" as const } : {}) } };
 }
 
 type AgentStep = Extract<AutomationStep, { kind: "agent_run" }>;
@@ -310,6 +314,10 @@ export function AutomationBuilder({
         <p className="text-xs text-text-3">
           When a run completes and has something to report, it is sent here. A run that stops on your condition, or has nothing useful to say, sends nothing.
         </p>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={draft.deliveryMode === "on_change"} onChange={(e) => set("deliveryMode", e.target.checked ? "on_change" : "always")} />
+          Only notify me when something changed since the last run
+        </label>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={draft.channels.includes("bell")} onChange={() => toggleChannel("bell")} />
           In-app notification (the bell)

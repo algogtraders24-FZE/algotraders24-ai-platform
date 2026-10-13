@@ -10,6 +10,7 @@
 import {
   AUTOMATION_AGENT_TYPES,
   AUTOMATION_DELIVERY_CHANNELS,
+  AUTOMATION_DELIVERY_MODES,
   AUTOMATION_CONDITION_OPS,
   AUTOMATION_TRIGGER_TYPES,
   AUTOMATION_WEEKDAYS,
@@ -124,6 +125,9 @@ export function validateWorkflowDefinition(
       const bad = d.channels.filter((c) => !(AUTOMATION_DELIVERY_CHANNELS as readonly string[]).includes(c as string));
       if (bad.length) add("$.delivery.channels", `channels must be a subset of: ${AUTOMATION_DELIVERY_CHANNELS.join(", ")}`);
       if (new Set(d.channels).size !== d.channels.length) add("$.delivery.channels", "duplicate delivery channels");
+      if (d.mode !== undefined && !(AUTOMATION_DELIVERY_MODES as readonly string[]).includes(d.mode as string)) {
+        add("$.delivery.mode", `mode must be one of: ${AUTOMATION_DELIVERY_MODES.join(", ")}`);
+      }
     }
   }
 
