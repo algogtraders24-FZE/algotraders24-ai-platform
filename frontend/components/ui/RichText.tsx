@@ -26,13 +26,13 @@ function inline(text: string): ReactNode[] {
 
 type Block = { kind: "h"; text: string } | { kind: "p"; text: string } | { kind: "ul"; items: string[] } | { kind: "ol"; items: string[] };
 
-export function parseRichText(text: string): Block[] {
+export function parseRichText(text: string, keepLines = false): Block[] {
   const lines = text.replace(/\r\n/g, "\n").split("\n");
   const blocks: Block[] = [];
   let para: string[] = [];
   const flush = () => {
     if (para.length > 0) {
-      blocks.push({ kind: "p", text: para.join(" ") });
+      blocks.push({ kind: "p", text: para.join(keepLines ? "\n" : " ") });
       para = [];
     }
   };
@@ -70,8 +70,9 @@ export function parseRichText(text: string): Block[] {
   return blocks;
 }
 
-export default function RichText({ text, className = "" }: { text: string; className?: string }) {
-  const blocks = parseRichText(text);
+/** `keepLines`: single line breaks inside a paragraph are kept (for line-oriented text such as "Label: value" rows). */
+export default function RichText({ text, className = "", keepLines = false }: { text: string; className?: string; keepLines?: boolean }) {
+  const blocks = parseRichText(text, keepLines);
   return (
     <div className={`space-y-2 ${className}`}>
       {blocks.map((b, i) => {
@@ -99,7 +100,7 @@ export default function RichText({ text, className = "" }: { text: string; class
               </ol>
             );
           default:
-            return <p key={i}>{inline(b.text)}</p>;
+            return <p key={i} className={keepLines ? "whitespace-pre-line" : undefined}>{inline(b.text)}</p>;
         }
       })}
     </div>

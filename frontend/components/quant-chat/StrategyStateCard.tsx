@@ -6,6 +6,7 @@
 // deliberately not folded into the shared components/ai/* layer, which
 // has no equivalent concept.
 import { FIN_LABEL, FIN_TERTIARY } from "@/components/ui/financial-typography";
+import RichText from "@/components/ui/RichText";
 import Badge, { type BadgeTone } from "@/components/ui/Badge";
 import type { QuantChatMessageStrategyState } from "@/types/quant-chat";
 
@@ -42,7 +43,7 @@ export default function StrategyStateCard({ strategyState }: { strategyState: Qu
 
       {compileResult.compiledSpec ? (
         explanation && (
-          <p className={`${FIN_TERTIARY} mt-3 whitespace-pre-wrap`}>{explanation}</p>
+          <RichText text={explanation} keepLines className={`${FIN_TERTIARY} mt-3`} />
         )
       ) : (
         <p className={`${FIN_LABEL} mt-3 text-danger`}>{failedStage ? failedStage.detail : "Compilation did not complete."}</p>

@@ -241,6 +241,13 @@ async function main(): Promise<void> {
     assert.equal((blocks[5] as { text: string }).text, "<script>alert(1)</script>"); // stays plain text; React escapes it
   });
 
+  await test("rich text keepLines: line-oriented rows stay on separate lines", () => {
+    const blocks = parseRichText(["**Name**", "Timeframe(s): 1h", "Instrument(s): XAUUSD"].join("
+"), true);
+    assert.equal((blocks[1] as { text: string }).text, "Timeframe(s): 1h
+Instrument(s): XAUUSD");
+  });
+
   await test("pipeline: with no extra sources behaviour is unchanged (price only)", async () => {
     const out = await build([]).run({ symbol: "XAUUSD" });
     assert.equal(out.status, "completed");
