@@ -185,7 +185,7 @@ test("proxy.ts exempts the publishing dispatch cron path (else the session gate 
   const src = readFileSync(join(FRONTEND, "proxy.ts"), "utf8");
   // the exempt set must literally carry the dispatcher path...
   assert.ok(
-    /CRON_SECRET_EXEMPT_PATHS\s*=\s*new Set\(\[[^\]]*"\/api\/private\/publishing\/dispatch"[^\]]*\]\)/.test(src),
+    /CRON_SECRET_EXEMPT_PATHS\s*=\s*new Set\(\[[\s\S]*?"\/api\/private\/publishing\/dispatch"/.test(src),
     "'/api/private/publishing/dispatch' must be in CRON_SECRET_EXEMPT_PATHS",
   );
   // ...and the exemption must still be gated by a valid cron secret, not a blanket bypass

@@ -10,6 +10,10 @@
       "schedule": "0 6 * * *"
     },
     {
+      "path": "/api/private/publishing/auto-daily",
+      "schedule": "15 6 * * *"
+    },
+    {
       "path": "/api/private/publishing/dispatch",
       "schedule": "0 7 * * *"
     },
