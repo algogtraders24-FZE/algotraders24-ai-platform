@@ -323,7 +323,7 @@ async function main(): Promise<void> {
   };
   const bridgeCalls: { url: string; auth: string | undefined }[] = [];
   const mt5Fetch =
-    (opts: { missing?: string[]; down?: boolean; oneCandle?: string[] } = {}): FetchLike =>
+    (opts: { missing?: string[]; down?: boolean; oneCandle?: string[]; stale?: string[] } = {}): FetchLike =>
     async (url, init) => {
       if (!url.startsWith(MT5.bridgeUrl)) return goodFetch(url);
       bridgeCalls.push({ url, auth: init?.headers?.Authorization });
@@ -331,9 +331,12 @@ async function main(): Promise<void> {
       const sym = new URL(url).searchParams.get("symbol") ?? "";
       if (opts.missing?.includes(sym) || !CANDLES[sym]) return { ok: false, status: 404, json: async () => ({}) };
       const [prev, last] = CANDLES[sym];
+      // candle times are relative to "now" so the test never ages out; a stale symbol answers with a year-old candle
+      const day = 24 * 3600 * 1000;
+      const lastAt = opts.stale?.includes(sym) ? Date.now() - 365 * day : Date.now() - 3600 * 1000;
       const candles = opts.oneCandle?.includes(sym)
-        ? [{ datetime: "2026-10-13T00:00:00+00:00", close: last }]
-        : [{ datetime: "2026-10-12T00:00:00+00:00", close: prev }, { datetime: "2026-10-13T00:00:00+00:00", close: last }];
+        ? [{ datetime: new Date(lastAt).toISOString(), close: last }]
+        : [{ datetime: new Date(lastAt - day).toISOString(), close: prev }, { datetime: new Date(lastAt).toISOString(), close: last }];
       return json({ symbol: sym, interval: "1d", candles });
     };
   const tdSymbols = (urls: string[]) => urls.filter((u) => u.includes("twelvedata")).map((u) => decodeURIComponent(new URL(u).searchParams.get("symbol") ?? "")).sort();
@@ -381,6 +384,25 @@ async function main(): Promise<void> {
     assert.ok(Math.abs((jpy.inputs.riskAppetite?.value ?? 0) - -1) < 1e-9);
     const gbp = await fetchMacroInputs({ twelveDataKey: "k", fredKey: null, mt5: MT5 }, mt5Fetch(), ASSET_PROFILES.gbpusd, { noCache: true });
     assert.equal(gbp.inputs.riskAppetite?.source, "USTEC (Nasdaq-100, Exness)");
+  });
+
+  await test("a stale MT5 reading (last candle a year old, as AUDJPY showed) is treated as unavailable, never used as today's move", async () => {
+    resetMacroCacheForTests();
+    // barometer is MT5-only: stale -> driver unavailable
+    const g = await fetchMacroInputs({ twelveDataKey: "k", fredKey: "f", mt5: MT5 }, mt5Fetch({ stale: ["AUDJPY"] }), ASSET_PROFILES.gold, { noCache: true });
+    assert.equal(g.inputs.riskBarometer?.value, null);
+    // a stale DXY falls back to the UUP proxy (labelled), not to the old candle
+    resetMacroCacheForTests();
+    const d = await fetchMacroInputs({ twelveDataKey: "k", fredKey: "f", mt5: MT5 }, mt5Fetch({ stale: ["DXY"] }), ASSET_PROFILES.gold, { noCache: true });
+    assert.equal(d.inputs.dollar?.source, "UUP (dollar proxy)");
+    // a stale own quote falls back to Twelve Data
+    resetMacroCacheForTests();
+    const o = await fetchMacroInputs({ twelveDataKey: "k", fredKey: "f", mt5: MT5 }, mt5Fetch({ stale: ["XAUUSD"] }), ASSET_PROFILES.gold, { noCache: true });
+    assert.equal(o.own?.provider, "twelve-data");
+    // a weekend-old candle (3 days) is still current
+    resetMacroCacheForTests();
+    const fresh = await fetchMacroInputs({ twelveDataKey: "k", fredKey: "f", mt5: MT5 }, mt5Fetch(), ASSET_PROFILES.gold, { noCache: true });
+    assert.equal(fresh.own?.provider, "mt5");
   });
 
   await test("risk barometer is MT5-only: when the bridge lacks AUDJPY the driver is unavailable (no ETF substitute is invented)", async () => {
