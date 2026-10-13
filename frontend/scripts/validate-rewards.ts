@@ -2,7 +2,7 @@
 // Rewards & Partner Program, Phase 1: the pure rules (money schedule, eligibility, freeze, balances, reserve, slots, flags, copy).
 // No database, no network. Run: npx tsx scripts/validate-rewards.ts
 import {
-  REWARD_PRODUCTS, REWARD_PRODUCT_KEYS, HOLD_DAYS, MIN_PAYOUT_CENTS, BANNED_COPY_WORDS,
+  REWARD_PRODUCTS, REWARD_PRODUCT_KEYS, DEFAULT_SLOTS_PER_MONTH, HOLD_DAYS, MIN_PAYOUT_CENTS, BANNED_COPY_WORDS,
   rewardsMode, multiLevelReferralEnabled, withdrawalsEnabled, isRewardProductKey, ALL_REWARD_PRODUCT_KEYS, REWARD_TEST_KEY, holdDays, minPayoutCents, ownerAsProEnabled,
 } from "../lib/rewards/config";
 import { bps, formatUsd, addMonths, computeContractMoney, computeReferralShares, computePercentShares, assertProductSane, maxOutflowCents } from "../lib/rewards/money";
@@ -160,7 +160,8 @@ check("cookie lasts 30 days", REF_COOKIE_MAX_AGE_SECONDS === 30 * 86_400 && REF_
 check("landing path is a fixed internal path", REFERRAL_LANDING_PATH.startsWith("/") && !REFERRAL_LANDING_PATH.startsWith("//"));
 
 // --- admin slot limits
-check("limits within 10 are fine", validateSlotLimits({ BTC_AI_ALGO: 5, GOLD_AI_ALGO: 3, INDEX_AI_ALGO: 2 }, 10) === null);
+check("limits within a cap are fine", validateSlotLimits({ BTC_AI_ALGO: 5, GOLD_AI_ALGO: 3, INDEX_AI_ALGO: 2 }, 10) === null);
+check("no cap by default: 12 in total is accepted", DEFAULT_SLOTS_PER_MONTH === Infinity && validateSlotLimits({ BTC_AI_ALGO: 4, GOLD_AI_ALGO: 4, INDEX_AI_ALGO: 4 }, DEFAULT_SLOTS_PER_MONTH) === null);
 check("limits above 10 in total are refused", validateSlotLimits({ BTC_AI_ALGO: 6, GOLD_AI_ALGO: 3, INDEX_AI_ALGO: 2 }, 10) !== null);
 check("negative / fractional limits are refused", validateSlotLimits({ BTC_AI_ALGO: -1 }, 10) !== null && validateSlotLimits({ BTC_AI_ALGO: 1.5 }, 10) !== null);
 check("month keys", isMonthKey("2026-11") && isMonthKey("2026-01") && !isMonthKey("2026-13") && !isMonthKey("2026-1") && !isMonthKey("26-11") && !isMonthKey(null));
