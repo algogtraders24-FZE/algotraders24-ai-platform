@@ -16,7 +16,7 @@ import { prisma } from "@/lib/prisma";
 import { Errors } from "@/services/backend/ErrorHandler";
 import { auditLogService } from "@/services/admin/AuditLogService";
 import { generateArticle } from "@/services/ai/publishing/content-generator.service";
-import { buildSeo } from "@/services/ai/publishing/seo.service";
+import { buildSeo, withSlugSuffix } from "@/services/ai/publishing/seo.service";
 import { validateArticle, type ValidationResult } from "@/services/ai/publishing/article-validator.service";
 import type { Article, ArticleHistoryEntry, ArticleSection, ArticleSourceType, ArticleStatus } from "@/types/article";
 import type { ContentCategory } from "@/types/content-category";
@@ -41,6 +41,14 @@ export interface CreateDraftInput {
    * bare skeleton can still be created (and edited) without an AI call.
    */
   aiOverviewText?: string;
+  /**
+   * Optional. The slug is derived from the generated title, so two drafts with
+   * the same category + keywords for the same user collide on the unique
+   * (userId, slug) index. A caller that creates drafts repeatedly (the
+   * Automation scheduler) passes a per-draft suffix, appended to the slug.
+   * Omitted = unchanged behaviour.
+   */
+  slugSuffix?: string;
 }
 
 export interface UpdateArticleInput {
@@ -150,7 +158,7 @@ export class ArticleService {
       throw Errors.validation("Generated article has an empty section - try again.");
     }
 
-    const seo = buildSeo(skeleton.title, input.keywords);
+    const seo = withSlugSuffix(buildSeo(skeleton.title, input.keywords), input.slugSuffix ?? "");
     const sourceType: ArticleSourceType = input.aiOverviewText ? "ai" : "manual";
 
     const row = await prisma.article.create({

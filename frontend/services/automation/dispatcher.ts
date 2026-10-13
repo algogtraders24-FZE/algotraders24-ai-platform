@@ -36,6 +36,7 @@ import { emptyRunContext, resolveContextPath, type AutomationRunContext } from "
 import { computeNextRunAt } from "./scheduler";
 import { composeAgentBrief, briefToText } from "./brief";
 import { deliverRunResult } from "./delivery";
+import { istDateKey } from "./brief-extras";
 import { productionDeliveryDeps } from "./delivery-deps";
 import { prisma } from "@/lib/prisma";
 
@@ -307,6 +308,10 @@ async function executeStep(step: AutomationStep, x: StepExecCtx): Promise<StepEx
         category: step.action.category as ContentCategory,
         keywords: keywords.length ? keywords : ["market", "analysis"],
         aiOverviewText,
+        // The slug comes from the title, which is the same for every run of the
+        // same template - without a per-run suffix the second draft for a user
+        // fails on the unique (userId, slug) index. IST date + run id tail.
+        slugSuffix: `${istDateKey(new Date())}-${x.automationRunId.slice(-6)}`,
       });
       x.ctx.steps[step.id] = { articleId: article.id };
       return {
