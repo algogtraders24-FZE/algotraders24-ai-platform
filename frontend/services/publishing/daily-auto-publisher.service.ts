@@ -69,6 +69,30 @@ export function reportTitle(spec: DailyReportSpec, date: Date): string {
   return `${spec.label} ${kind} - ${formatReportDate(date)}`;
 }
 
+/**
+ * The /blog renders article text as PLAIN text (never HTML), so the AI's markdown would show as raw
+ * asterisks. Strip bold/italic/heading markers, turn "* item" bullets into "- item", and drop a
+ * leading "Here is ...:" chat preamble.
+ */
+export function toPlainText(text: string): string {
+  const lines = text
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((l) =>
+      l
+        .replace(/^\s{0,3}#{1,6}\s+/, "")
+        .replace(/^\s*[*+]\s+/, "- ")
+        .replace(/\*\*(.+?)\*\*/g, "$1")
+        .replace(/__(.+?)__/g, "$1")
+        .replace(/(^|[\s(])\*(?!\s)([^*\n]+?)\*(?=[\s).,;:!?]|$)/g, "$1$2")
+        .replace(/`+/g, "")
+        .trimEnd(),
+    );
+  while (lines.length > 0 && lines[0].trim() === "") lines.shift();
+  if (lines.length > 1 && /^here('s| is| are)\b.*:$/i.test(lines[0].trim())) lines.shift();
+  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 type CompletedOutcome = Extract<MarketAnalysisOutcome, { status: "completed" }>;
 
 /** Builds the 3 sections of a report from a completed analysis. Returns null if there is no real content. */
@@ -79,7 +103,7 @@ export function buildReportContent(
 ): { title: string; summary: string; sections: ArticleSection[] } | null {
   const { result } = outcome;
   const ex = result.explainable;
-  const overview = result.summary.trim();
+  const overview = toPlainText(result.summary);
   if (overview.length === 0) return null;
 
   const lines = (items: { text: string }[]): string => items.map((i) => `- ${i.text}`).join("\n");
@@ -95,7 +119,7 @@ export function buildReportContent(
 
   return {
     title: reportTitle(spec, date),
-    summary: (ex.executiveSummary && ex.executiveSummary.trim().length >= 20 ? ex.executiveSummary : overview).slice(0, 300),
+    summary: toPlainText(ex.executiveSummary && ex.executiveSummary.trim().length >= 20 ? ex.executiveSummary : overview).slice(0, 300),
     sections: [
       { heading: "Market Overview", body: overview },
       { heading: "Evidence Behind This Reading", body: evidenceParts.join("\n\n") },

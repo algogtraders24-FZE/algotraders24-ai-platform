@@ -6,6 +6,7 @@ import { join } from "node:path";
 import {
   DailyAutoPublisherService,
   buildReportContent,
+  toPlainText,
   planDailyReports,
   reportTitle,
   type DailyAutoPublisherDeps,
@@ -180,6 +181,16 @@ async function main(): Promise<void> {
     const out = await new DailyAutoPublisherService(deps).run();
     assert.deepEqual(out.results.map((r) => r.status), ["failed", "published", "published"]);
     assert.match(out.results[0].reason ?? "", /exploded/);
+  });
+
+  await test("toPlainText removes markdown markers and the chat preamble, keeps the words and bullets", () => {
+    const md = "Here is today's market report for XAUUSD:\n\n**Summary**\nPrice is *near* 4161.99 USD.\n\n**Key evidence**\n*   The spot price is 4161.991.\n*   A bearish FVG (4173.36-4177.60) sits above.\n## Outlook\nMixed.";
+    const out = toPlainText(md);
+    assert.ok(!out.includes("*") && !out.includes("#"), out);
+    assert.ok(!/^Here is/i.test(out), out);
+    assert.ok(out.includes("Summary\nPrice is near 4161.99 USD."), out);
+    assert.ok(out.includes("- The spot price is 4161.991.") && out.includes("- A bearish FVG (4173.36-4177.60) sits above."), out);
+    assert.ok(out.includes("Outlook\nMixed."), out);
   });
 
   // ---- cron wiring (drift guards) ---------------------------------
