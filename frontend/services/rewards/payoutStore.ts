@@ -16,7 +16,7 @@ export async function getBalances(userId: string, now: Date = new Date()): Promi
     prisma.rebateInstallment.findMany({ where: { userId }, select: { amountCents: true, status: true, releasedAt: true, payoutId: true } }),
     prisma.referralCommission.findMany({ where: { partnerId: userId }, select: { amountCents: true, status: true, releasedAt: true, payoutId: true } }),
   ]);
-  const items: BalanceItem[] = [...inst, ...comm.filter((c) => c.status !== "PENDING")];
+  const items = [...inst, ...comm.filter((c) => c.status !== "PENDING").map((c) => ({ ...c, noHold: true }))];
   const b = summarizeBalances(items, now);
   // A commission still inside its hold has not been released by the sweep yet: it counts as holding, not as owed-later.
   b.holding += comm.filter((c) => c.status === "PENDING").reduce((s, c) => s + c.amountCents, 0);

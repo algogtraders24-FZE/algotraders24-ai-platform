@@ -190,7 +190,7 @@ export async function sendPayoutAddressChangedEmail(params: { to: string; recipi
         ["Address", `<span style="font-family: monospace; font-size: 12px;">${escapeHtml(params.maskedAddress)}</span>`],
         ["Can receive a withdrawal from", escapeHtml(usable)],
       ])}
-      <p style="color: #666; font-size: 13px;">For your safety a new address waits before it can be used. <strong>If this was not you</strong>, change your password now and contact support before that time.</p>
+      <p style="color: #666; font-size: 13px;">${new Date(params.usableFromIso).getTime() > Date.now() ? "For your safety a new address waits before it can be used. " : ""}<strong>If this was not you</strong>, change your password now and contact support right away - every withdrawal is checked before it is paid.</p>
     `,
     cta: { text: "Open your wallet", url: `${siteUrl}/dashboard/wallet` },
   });

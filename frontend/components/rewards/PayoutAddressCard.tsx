@@ -34,7 +34,7 @@ export default function PayoutAddressCard({ initial }: { initial: SavedAddressVi
       setSaved(body.data.address);
       setAddress("");
       setEditing(false);
-      setNotice(body.data.unchanged ? "That is already your saved address." : "Address saved. A new address waits a short while before it can receive a withdrawal.");
+      setNotice(body.data.unchanged ? "That is already your saved address." : body.data.address?.status === "Active" ? "Address saved. Your withdrawals will be sent to it." : `Address saved. ${body.data.address?.status ?? ""}`);
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save the address.");

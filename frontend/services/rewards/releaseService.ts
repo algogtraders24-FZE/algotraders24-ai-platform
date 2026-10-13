@@ -125,6 +125,20 @@ export async function runRewardsSweep(now: Date = new Date()): Promise<SweepRepo
     }
   }
 
+  // 2b. A commission released at once (no hold) whose purchase is refunded or reversed before the partner asked for it is taken back.
+  const liveComm = await prisma.referralCommission.findMany({ where: { status: "RELEASED", payoutId: null, NOT: { purchaseId: { startsWith: "sub:" } } }, select: { id: true, purchaseId: true, partnerId: true, amountCents: true }, take: BATCH });
+  if (liveComm.length) {
+    const st = new Map((await prisma.purchase.findMany({ where: { id: { in: [...new Set(liveComm.map((c) => c.purchaseId))] } }, select: { id: true, status: true } })).map((p) => [p.id, p.status]));
+    for (const c of liveComm.filter((x) => purchaseVoided(st.get(x.purchaseId) ?? "COMPLETED"))) {
+      try {
+        const upd = await prisma.referralCommission.updateMany({ where: { id: c.id, status: "RELEASED", payoutId: null }, data: { status: "REVERSED" } });
+        if (upd.count) report.commissionsReversed++;
+      } catch (e) {
+        report.errors.push(`commission reverse ${c.id}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+  }
+
   // 3. Referral commissions past the hold.
   const pending = await prisma.referralCommission.findMany({ where: { status: "PENDING", availableAt: { lte: now } }, take: BATCH });
   if (pending.length) {

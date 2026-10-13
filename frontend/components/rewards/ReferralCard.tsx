@@ -43,8 +43,8 @@ export default function ReferralCard({ initialLink, blockedReason, allProducts =
       <h2 className="text-lg font-semibold text-text">Your referral link</h2>
       <p className="text-sm text-text-2">
         {allProducts
-          ? "Share this link. When someone joins through it, you earn a referral commission on what they pay for: a fixed amount on a contract, and a percentage on any other product or Pro payment, including every renewal. It is paid once the payment is confirmed and the hold period has passed."
-          : "Share this link. When someone you bring buys a contract and the payment is confirmed, you earn a fixed commission after the hold period."}{" "}
+          ? "Share this link. When someone joins through it, you earn a referral commission on what they pay for: a fixed amount on a contract, and a percentage on any other product or Pro payment, including every renewal. It is credited as soon as the payment is confirmed."
+          : "Share this link. When someone you bring buys a contract and the payment is confirmed, you earn a fixed commission, credited as soon as the payment is confirmed."}{" "}
         The link uses a random code, never your name or username. You cannot earn from your own purchases.
       </p>
       {error && <Alert tone="danger">{error}</Alert>}

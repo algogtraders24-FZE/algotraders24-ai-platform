@@ -57,6 +57,14 @@ export function minPayoutCents(raw: string | undefined | null = process.env.REWA
   const v = raw === undefined || raw === null || raw.trim() === "" ? NaN : Number(raw);
   return Number.isInteger(v) && v >= 1 && v <= 50 ? v * 100 : MIN_PAYOUT_CENTS;
 }
+/**
+ * Days a referral commission waits after the buyer's payment is confirmed before it can be withdrawn. Default 0: the commission is credited
+ * the moment the payment is confirmed. REWARDS_COMMISSION_HOLD_DAYS (0-30, whole days) can add a wait. (Contract rebates keep holdDays().)
+ */
+export function commissionHoldDays(raw: string | undefined | null = process.env.REWARDS_COMMISSION_HOLD_DAYS): number {
+  const v = raw === undefined || raw === null || raw.trim() === "" ? NaN : Number(raw);
+  return Number.isInteger(v) && v >= 0 && v <= 30 ? v : 0;
+}
 /** How long a checkout keeps a slot reserved. */
 export const SLOT_HOLD_MINUTES = 30;
 export const DEFAULT_SLOTS_PER_MONTH = 10;
