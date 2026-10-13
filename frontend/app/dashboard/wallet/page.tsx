@@ -62,7 +62,9 @@ export default async function WalletPage() {
     getAddressView(user.id).catch(() => null),
   ]);
   const { entries, totals } = wallet;
-  const earned = totals.rebates + totals.referralDirect + totals.referralTeam;
+  // "Credited" = already released or paid out to the member; "coming" = still scheduled, on hold or paused.
+  const credited = entries.filter((e) => e.counts && e.kind !== "WITHDRAWAL" && ["Released", "Paid out"].includes(e.statusLabel)).reduce((s, e) => s + e.amountCents, 0);
+  const coming = entries.filter((e) => e.counts && e.kind !== "WITHDRAWAL" && !["Released", "Paid out"].includes(e.statusLabel)).reduce((s, e) => s + e.amountCents, 0);
 
   return (
     <div className="max-w-4xl space-y-8">
@@ -101,7 +103,7 @@ export default async function WalletPage() {
             <Tile label="Products" value={formatUsd(totals.byType.products)} />
             <Tile label="Pro plan payments" value={formatUsd(totals.byType.subscriptions)} />
           </div>
-          <p className="pt-2 text-xs text-text-3">Total earned so far {formatUsd(earned)}. Withdrawn or requested {formatUsd(totals.withdrawn)}. Cancelled and reversed amounts are not counted.</p>
+          <p className="pt-2 text-xs text-text-3">Credited to you so far {formatUsd(credited)}. Still coming (scheduled or on hold) {formatUsd(coming)}. Withdrawn or requested {formatUsd(totals.withdrawn)}. Cancelled and reversed amounts are not counted.</p>
         </Card>
       </section>
 
