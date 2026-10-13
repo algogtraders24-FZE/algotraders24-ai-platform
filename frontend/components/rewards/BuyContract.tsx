@@ -38,7 +38,7 @@ export default function BuyContract({ productKey, productName, blockedReason }: 
     <div className="space-y-3">
       <label className="flex items-start gap-2 text-xs text-text-2">
         <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} className="mt-0.5" />
-        <span>I have read the 12-month contract terms for {productName}, including the fixed rebate schedule and the net price.</span>
+        <span>I have read the contract terms for {productName}, including the fixed rebate schedule and the net price.</span>
       </label>
       <label className="flex items-start gap-2 text-xs text-text-2">
         <input type="checkbox" checked={refund} onChange={(e) => setRefund(e.target.checked)} className="mt-0.5" />

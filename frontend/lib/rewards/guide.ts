@@ -16,9 +16,9 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     id: "what-you-bought",
     title: "What you bought",
     body: [
-      "A 12-month licence to one AT24 AI Algo (BTC, Gold or Index) for MetaTrader, with the product files and a signed licence.",
+      "A licence for the contract term (35, 30 or 25 months) to one AT24 AI Algo (BTC, Gold or Index) for MetaTrader, with the product files and a signed licence.",
       "To buy any contract you need an active paid Pro plan and a verified identity (KYC). Do the identity check first, in Settings.",
-      "The price you paid is fixed in your contract. A fixed rebate on that price is credited in 4 quarterly instalments, shown in your contract and on the Algo Contracts page with the exact dates.",
+      "The price you paid is fixed in your contract. A fixed rebate on that price is accrued monthly and credited every 3 months, shown in your contract and on the Algo Contracts page with the exact dates.",
       "The rebate is a price adjustment. It does not depend on trading results, on AT24 revenue, or on any other customer.",
     ],
   },

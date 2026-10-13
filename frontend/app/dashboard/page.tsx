@@ -109,7 +109,7 @@ export default async function DashboardHome() {
             <Gem size={20} className="text-gold" aria-hidden="true" />
             <div>
               <p className="text-sm font-semibold text-text">Algo Contracts</p>
-              <p className="text-xs text-text-3">12-month AI Algo contracts with a fixed quarterly rebate, for Pro members.</p>
+              <p className="text-xs text-text-3">AI Algo contracts with a fixed rebate credited every 3 months, for Pro members.</p>
             </div>
           </div>
           <ButtonLink href="/dashboard/algo-contracts" variant="secondary" size="sm">Open Algo Contracts</ButtonLink>
