@@ -15,8 +15,24 @@ import { ApiResponse } from "@/services/backend/ApiResponse";
 import { Errors } from "@/services/backend/ErrorHandler";
 import { requireAdmin } from "@/lib/auth/adminRoute";
 import { isValidCronSecret } from "@/lib/intelligence/cron-auth";
-import { dispatchSlot } from "./run-dispatch";
+import { dispatchSlot, resumeStalledRuns } from "./run-dispatch";
 import { getSlot } from "@/config/automation-slots";
+
+/** The every-2-minutes safety net: resumes runs that stopped making progress.
+ *  Same auth as the slot crons (valid CRON_SECRET, or an authenticated admin). */
+export function resumeStalledRoute() {
+  const handler = withContext(async (req: Request, ctx: { requestId: string; startedAt: number }) => {
+    if (isValidCronSecret(req)) {
+      const result = await resumeStalledRuns();
+      return ApiResponse.success({ trigger: "cron", ...result }, ctx.requestId, 200, ctx.startedAt);
+    }
+    const gate = await requireAdmin(ctx.requestId, ctx.startedAt);
+    if (!gate.ok) return gate.response;
+    const result = await resumeStalledRuns();
+    return ApiResponse.success({ trigger: "admin-manual", ...result }, ctx.requestId, 200, ctx.startedAt);
+  });
+  return { GET: handler, POST: handler };
+}
 
 export function slotDispatchRoute(slotId: string) {
   const handler = withContext(async (req: Request, ctx: { requestId: string; startedAt: number }) => {

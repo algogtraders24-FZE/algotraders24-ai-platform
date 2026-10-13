@@ -95,6 +95,8 @@ const CRON_SECRET_EXEMPT_PATHS = new Set([
   // frontend/vercel.json. Same terms: valid cron secret only.
   "/api/private/automations/cron/dispatch/morning-ist",
   "/api/private/automations/cron/dispatch/evening-ist",
+  // Every-2-minutes safety net that resumes stalled automation runs.
+  "/api/private/automations/cron/resume",
   // Algo Contracts daily sweep (rewards). Valid cron secret only; not yet in vercel.json.
   "/api/private/rewards/cron/sweep",
 ]);
