@@ -72,11 +72,20 @@ const DOCS: SeedDoc[] = [
     category: "policies",
     canonicalQuestion: "Can I get a refund on my subscription or a marketplace purchase?",
     body:
-      "Subscription payments are billed in advance and are non-refundable for the current period; you can " +
-      "cancel at any time to stop future charges, and you keep access until the end of the paid period. " +
-      "Marketplace product purchases may be refunded within 14 days of purchase if the product has not been " +
-      "activated on a live account and is materially not as described. Refund requests are reviewed by a human " +
-      "and are not automatic - contact support with your purchase reference.",
+      "Marketplace products are digital goods delivered as a signed, device-bound license, so all marketplace " +
+      "sales are final once your license has been issued, except in these cases: you were charged more than " +
+      "once for the same purchase (the duplicate charge is refunded in full); payment succeeded but no license " +
+      "was issued to your account because of a technical fault on our side that we could not resolve; or the " +
+      "product you received is genuinely and materially different from its listing (for example the wrong " +
+      "platform entirely, or an unusable file the seller cannot replace within a reasonable time). We do not " +
+      "refund because a strategy did not perform as you expected, because you changed your mind, or because you " +
+      "did not read the listing's Trust State, Evidence or Risk Analysis before buying. A refund request must be " +
+      "raised within 14 days of purchase with your order or session reference. Platform subscription plans can " +
+      "be cancelled at any time: cancelling stops future billing, but the already-paid current billing period is " +
+      "not refunded and you keep full access until it ends. Refund requests are reviewed by a human and are not " +
+      "automatic. To request one, use the WhatsApp or Telegram links on the Contact page, or email " +
+      "billing@algotraders24.ai, with your order reference and the reason. Approved refunds go back to the " +
+      "original payment method; timing depends on your card issuer or payment method.",
   },
   {
     title: "Marketplace purchases and licenses",
@@ -249,6 +258,97 @@ const DOCS: SeedDoc[] = [
       "in this chat, which is always available if you'd rather skip straight to a person. This assistant also " +
       "hands off automatically when it doesn't have a confident, evidence-backed answer to your question, so " +
       "you don't need to ask for a human every time something is outside what it can help with.",
+  },
+
+  // --- Product-coverage batch (2026-10-14) - owner-approved. Every claim
+  // below is sourced from shipped code/config (plan-limits.ts, the in-app
+  // Edge Analyzer guide, lib/marketplace/earnings.ts), not from marketing.
+  // Deliberately omitted: anything whose rollout state is not verifiable
+  // from the repo (seller-wizard availability, saved-analysis storage).
+  {
+    title: "Live Sync - connect your MetaTrader account",
+    knowledgeType: "product",
+    visibility: "public",
+    category: "products",
+    canonicalQuestion: "What is Live Sync and how do I connect my MetaTrader account?",
+    body:
+      "Live Sync connects a MetaTrader 5 or MetaTrader 4 account to your AT24 dashboard through a small " +
+      "read-only Expert Advisor that you attach to a chart. It sends your closed deals and account snapshots to " +
+      "AT24 so you can see the account's live status and run the Edge analysis on your own synced history. It " +
+      "is read-only: it cannot place, modify or close trades. Open the Live Sync page in your dashboard, create " +
+      "a device token (you must accept the consent box first), download the Expert Advisor for your platform, " +
+      "and paste the token into its settings. The token is shown once when you create it, so copy it right " +
+      "away; you can revoke a token at any time and the connection stops. On MetaTrader 4, set the terminal's " +
+      "Account History to 'All History' before attaching, or older trades will not be sent. Results shown " +
+      "are reported by your own terminal and are not independently verified by a broker. If it does not show " +
+      "as connected, check that WebRequest is allowed for https://www.algotraders24.ai under Tools, Options, " +
+      "Expert Advisors, attach the Expert Advisor to only one chart, and allow algo trading; contact support " +
+      "if it still does not connect.",
+  },
+  {
+    title: "Trader Edge Analyzer - analyse your MT5 trade history",
+    knowledgeType: "product",
+    visibility: "public",
+    category: "products",
+    canonicalQuestion: "What is the Edge Analyzer and what file do I upload?",
+    body:
+      "The Edge Analyzer reads a MetaTrader 5 Trade History Report and returns a deterministic analysis of how " +
+      "you trade: a verdict on whether your results show a statistically detectable edge, key figures checked " +
+      "against the terminal's own results, breakdowns of where you win and lose, and a risk simulation. To use " +
+      "it, in MetaTrader 5 open the History tab, right-click, choose Report, then HTML, save the file, and " +
+      "upload it on the Edge Analyzer page. It must be the English MT5 HTML report - not CSV, PDF or a " +
+      "screenshot. Only the English report from a hedging account has been verified; netting accounts, MT4 and " +
+      "other platforms are not supported yet. Your file is analysed in memory; account number, name and broker " +
+      "details are never read. Free accounts get the summary, the terminal-match check and three breakdowns " +
+      "(strategy tag, symbol, weekday). Paid plans unlock the full analysis and a PDF export created in your " +
+      "browser. The analysis is informational only and is not investment advice. If the upload says the report " +
+      "layout is not recognised, re-export it with the terminal set to English.",
+  },
+  {
+    title: "Quant Pro - build, backtest and optimise strategies",
+    knowledgeType: "product",
+    visibility: "public",
+    category: "products",
+    canonicalQuestion: "What is Quant Pro and which plans include it?",
+    body:
+      "Quant Pro is AT24's strategy testing suite. In Quant Chat you describe a trading idea in plain language " +
+      "and it is compiled into a structured strategy you can preview on a chart and run through a real " +
+      "backtest. The Algo Testing tools add run history, a strategy library, parameter optimisation and " +
+      "walk-forward testing. Quant Pro is included with every paid plan (Pro, Elite and Enterprise); the Free " +
+      "plan does not include it. Backtest results describe how a strategy would have behaved on historical " +
+      "data; they are not a prediction and not a guarantee of future performance, and nothing in Quant Pro is " +
+      "trading advice.",
+  },
+  {
+    title: "Selling your own product on the AT24 marketplace",
+    knowledgeType: "faq",
+    visibility: "public",
+    category: "marketplace",
+    canonicalQuestion: "Can I sell my own Expert Advisor or strategy on AT24, and how does listing work?",
+    body:
+      "Where self-serve selling is enabled for your account, you list a product from the Sell page without an " +
+      "admin approval step: upload the product file, add a name, price and images, and optionally attach a " +
+      "backtest report and a connected live account for proof. A self-serve listing is labelled 'Not checked' " +
+      "until evidence exists. If you attach a report it is checked automatically and shown as 'Checked from the " +
+      "seller's report', which is deliberately weaker than AT24's own Validated trust state, and a seller can " +
+      "never self-assign Validated. Buyers receive a signed, device-bound license for each purchase. Selling " +
+      "is being rolled out in stages, so if you do not see the Sell option on your account, contact support " +
+      "to ask about access.",
+  },
+  {
+    title: "Seller earnings, commission and payouts",
+    knowledgeType: "policy",
+    visibility: "public",
+    category: "marketplace",
+    canonicalQuestion: "How much commission does AT24 take and how do seller payouts work?",
+    body:
+      "On a seller's marketplace sale AT24 keeps a 10% platform commission, and an estimated payment-gateway " +
+      "fee (0.5% of the sale price by default) is also deducted; the seller receives the rest. Each sale's " +
+      "earnings are held for 7 days before they become available. Available earnings can be paid out in USDT on " +
+      "request, on the TRC20, ERC20 or BEP20 network, with a minimum payout of 50 USD. You can see holding, " +
+      "available, requested and paid amounts on the Earnings page of your dashboard. If a sale is refunded, " +
+      "its earning stops being owed to the seller, unless it was already paid out. Payout requests are " +
+      "reviewed and marked paid or rejected by a human on the AT24 team.",
   },
 ];
 
