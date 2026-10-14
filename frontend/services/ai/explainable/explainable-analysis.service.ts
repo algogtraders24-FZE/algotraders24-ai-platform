@@ -149,7 +149,8 @@ export class ExplainableAnalysisService {
   // judgment is made here about what counts as a "limitation".
   private buildLimitations(risk: RiskProfile, confidence: ConfidenceProfile): string[] {
     const structural = risk.categories
-      .filter((c: RiskCategoryScore) => c.basis.length === 0)
+      // A category that came out low is not a limitation (e.g. "0 unresolved conflicts"); only unmeasured / by-design gaps are.
+      .filter((c: RiskCategoryScore) => c.basis.length === 0 && c.level !== "low")
       .map((c) => `${c.category} risk: ${c.rationale.join(" ")}`);
     const weakConfidence = confidence.categories
       .filter((c: ConfidenceCategoryScore) => c.score < 34)

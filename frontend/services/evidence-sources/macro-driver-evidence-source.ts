@@ -54,6 +54,8 @@ export class MacroDriverEvidenceSource implements EvidenceExtraSource {
         source: MACRO_DRIVER_EVIDENCE_SOURCE,
         asOf: d.asOf ?? retrievedAt,
         retrievedAt,
+        // The driver's measured reading (e.g. dollar +0.05 %): numeric backing for the claim.
+        ...(d.value !== null ? { magnitude: d.value, unit: d.unit } : {}),
       }));
 
     if (items.length > 0 && snap.alignment.score !== null) {
