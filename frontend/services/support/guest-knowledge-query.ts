@@ -29,12 +29,12 @@ import {
 // coded here, never derived from the request.
 const GUEST_VISIBILITIES = ["public"] as const;
 
-// A citation snippet is bounded to keep the guest response small and to
-// mirror the existing evidence-claim truncation convention
-// (support-knowledge-search.tool.ts's toEvidence, 280 chars) - slightly
-// larger here since this IS the visible answer text for a guest (there is no
-// persisted AgentEvidence row to look the full passage up from afterwards).
-const CITATION_SNIPPET_MAX = 400;
+// This IS the visible answer text for a guest (no persisted AgentEvidence row
+// to look the passage up from afterwards), so it must hold a whole knowledge
+// chunk: services/knowledge/TextChunker.ts cuts chunks at ~1000 chars, and a
+// smaller cap here truncated real answers mid-sentence. The cap only bounds
+// pathological input.
+const CITATION_SNIPPET_MAX = 1200;
 
 export type GuestCoverage = "kb-answered" | "no-coverage";
 
