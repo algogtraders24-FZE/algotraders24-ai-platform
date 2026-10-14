@@ -156,7 +156,7 @@
     "validate:support-p1": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-support-p1.ts",
     "validate:support-phase-a": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-support-phase-a.ts",
     "validate:support-phase-b": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-support-phase-b.ts",
-    "validate:support-handoff": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-support-handoff.ts",
+    "validate:support-handoff": "tsx --conditions=react-server --env-file=.env.local --env-file=.env scripts/validate-support-handoff.ts",
     "validate:support-ticket-received-email": "tsx --conditions=react-server --env-file=.env.local --env-file=.env scripts/validate-support-ticket-received-email.ts",
     "seed:support-kb": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/seed-support-kb.ts",
     "validate:agent-hardening": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-hardening.ts",

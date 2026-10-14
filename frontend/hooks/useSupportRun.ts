@@ -164,6 +164,23 @@ export function useSupportRun() {
     }
   }, [conversationId, refreshHandoff]);
 
+  /** Rehydrate an existing case by id (email deep link
+   *  /dashboard/support?handoff=<id>). Ownership is enforced server-side; a
+   *  foreign or unknown id surfaces as handoffError, never as someone
+   *  else's thread. */
+  const loadHandoff = useCallback(async (id: string) => {
+    setHandoffError(null);
+    setHandoffBusy(true);
+    try {
+      const { handoff: detail } = await api<{ handoff: SupportHandoff }>(`/api/private/support/handoff/${encodeURIComponent(id)}`);
+      setHandoff(detail);
+    } catch {
+      setHandoffError("We couldn't find that support case. It may belong to a different account.");
+    } finally {
+      setHandoffBusy(false);
+    }
+  }, []);
+
   /** "Talk to a human" (D2 USER_REQUEST). Creates or reuses the
    *  conversation's active handoff - a no-op-looking call if one already
    *  exists (D1), never a duplicate ticket. */
@@ -272,6 +289,7 @@ export function useSupportRun() {
     handoff,
     handoffBusy,
     handoffError,
+    loadHandoff,
     requestHuman,
     sendHandoffMessage,
     reopenHandoff,

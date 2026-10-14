@@ -534,7 +534,7 @@ export async function sendSupportTicketOpenedAlert(params: {
   triggerSource: "AI_ESCALATION" | "USER_REQUEST";
   reason: string;
 }): Promise<void> {
-  const queueUrl = `${getSiteUrl()}/admin/support-handoffs/${params.handoffId}`;
+  const queueUrl = `${getSiteUrl()}/dashboard/admin/support-handoffs/${params.handoffId}`;
   const source = params.triggerSource === "AI_ESCALATION" ? "the AI Assistant escalated this" : "the user asked for a human";
 
   const html = renderLayout({

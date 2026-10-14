@@ -27,7 +27,7 @@
 // the top-level error banner -> Alert. Same useSupportRun hook, same
 // ask/handoff/requestHuman/sendHandoffMessage/reopenHandoff calls, same
 // SUPPORT-agent-only routing (CS1.2 D1) - no behavior touched.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSupportRun, isHandoffActive } from "@/hooks/useSupportRun";
 import type { SupportOutput } from "@/hooks/useSupportRun";
 import PageHeader from "@/components/ui/PageHeader";
@@ -40,7 +40,15 @@ import Textarea from "@/components/ui/Textarea";
 export default function SupportAssistantPage() {
   const [question, setQuestion] = useState("");
   const [handoffReply, setHandoffReply] = useState("");
-  const { obs, busy, error, ask, handoff, handoffBusy, handoffError, requestHuman, sendHandoffMessage, reopenHandoff } = useSupportRun();
+  const { obs, busy, error, ask, handoff, handoffBusy, handoffError, loadHandoff, requestHuman, sendHandoffMessage, reopenHandoff } = useSupportRun();
+
+  // Email deep link (/dashboard/support?handoff=<id>): rehydrate the case so
+  // a user returning from a "support replied" email sees the thread.
+  // window.location (not useSearchParams) avoids a Suspense boundary.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("handoff");
+    if (id) void loadHandoff(id);
+  }, [loadHandoff]);
 
   const out = (obs?.run?.output ?? null) as SupportOutput | null;
   const evById = new Map((obs?.evidence ?? []).map((e) => [e.id, e]));
@@ -60,6 +68,29 @@ export default function SupportAssistantPage() {
       />
 
       {error && <Alert tone="danger">{error}</Alert>}
+      {handoffError && !isHandoffActive(handoff?.status) && <Alert tone="danger">{handoffError}</Alert>}
+
+      {/* A closed case opened via email link: show the thread read-only so
+          the resolution reply is visible; the question card below still
+          offers "This isn't resolved" (RESOLVED only). */}
+      {handoff && !isHandoffActive(handoff.status) && handoff.messages.length > 0 && (
+        <Card className="space-y-3">
+          <p className="text-sm font-medium text-text-2">
+            {handoff.status === "RESOLVED" ? "This support case was marked resolved." : "This support case was closed."}
+          </p>
+          <ul className="space-y-2">
+            {handoff.messages.map((m) => (
+              <li
+                key={m.id}
+                className={`rounded-control p-3 text-sm ${m.authorType === "HUMAN" ? "border border-border bg-ink text-text-2" : "bg-ink-3 text-text"}`}
+              >
+                {m.content}
+                <div className="mt-1 text-[11px] text-text-3">{m.authorType === "HUMAN" ? "Support team" : "You"}</div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
         {/* Support Human Handoff MVP - while a case is active, this page's
             input sends to the human thread, never a new AgentRun (D11) -

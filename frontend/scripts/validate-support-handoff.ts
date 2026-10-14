@@ -14,7 +14,7 @@
 
 process.env.AGENT_CREDIT_INMEMORY = "1"; // A9: harness ledger, no real rows
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -222,6 +222,28 @@ async function main(): Promise<void> {
       }
       assert.ok(!src.includes("prisma.supportHandoff"), `${name} must go through handoffRepository, never prisma.supportHandoff directly`);
     }
+  });
+
+  // ----------------------------------------------------------------
+  // Email deep links must land on real pages
+  // ----------------------------------------------------------------
+
+  await test("email links: every support-handoff page path in EmailService.ts resolves to a real app/**/page.tsx", () => {
+    const src = readFileSync(join(ROOT, "services", "notifications", "EmailService.ts"), "utf8");
+    const paths = [...src.matchAll(/getSiteUrl\(\)\}(\/[a-z/-]*support[a-z/-]*)/g)].map((m) => m[1]);
+    assert.ok(paths.length >= 3, "expected the ops alert + buyer support email links to be found");
+    for (const p of paths) {
+      const clean = p.replace(/\/$/, "");
+      const direct = join(ROOT, "app", ...clean.split("/").filter(Boolean), "page.tsx");
+      const dynamic = join(ROOT, "app", ...clean.split("/").filter(Boolean).slice(0, -1), "[id]", "page.tsx");
+      assert.ok(existsSync(direct) || existsSync(dynamic), `${p} has no matching page - the email CTA would 404`);
+    }
+  });
+
+  await test("email links: the support page reads ?handoff= and rehydrates via loadHandoff", () => {
+    const src = readFileSync(join(ROOT, "app", "dashboard", "support", "page.tsx"), "utf8");
+    assert.match(src, /get\("handoff"\)/);
+    assert.match(src, /loadHandoff\(/);
   });
 
   // ----------------------------------------------------------------
