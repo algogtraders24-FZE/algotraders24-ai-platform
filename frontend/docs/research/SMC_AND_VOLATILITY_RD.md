@@ -67,3 +67,24 @@ so they were NOT adopted; one pooled multiplier is used: 12h x0.90, 24h x0.95 (8
   FX majors, oil and Bitcoin futures - needs the same out-of-sample test before it is shown.
 * Historical-pattern evidence should be empirical base rates from data like this (for example the size distribution above),
   never a claim of directional edge, since none was found.
+
+## 6. Follow-up (2026-10-14): CFTC positioning (COT) - also no detectable directional edge
+Script `scripts/research/cot-validation.ts`. Legacy COT, non-commercial net position as a share of open interest, 2017-2026;
+published Friday, entry at the next Monday open (no look-ahead), forward return at +1/+2/+4 weeks, trailing-156-week
+percentile (never uses later data), 8-week block bootstrap, out-of-sample from 2022. Markets: Gold (COMEX) vs PAXG, Euro FX
+(CME) vs EURUSDT, Bitcoin (CME) vs BTCUSDT (spot proxies for the futures; FX/oil/indices not testable with free data on hand).
+
+* Contrarian (crowded-long minus crowded-short, percentile >= 90 vs <= 10) and trend (4-week change up vs down): of 36 tests
+  (3 markets x 3 horizons x 2 hypotheses x all/OOS) only 2 reached significance (Euro, out-of-sample, 1-2 weeks, contrarian),
+  built on 12 crowded-long weeks - with 36 tests that is what noise produces. Gold and Bitcoin: nothing.
+* Power is low: weekly data gives 12-80 extreme observations per market, with confidence intervals of several percent. This can
+  rule out large effects, not small ones.
+
+Conclusion: do not present COT positioning as a predictive signal. If it is ever shown, show it as descriptive context
+("speculators are net long X% of open interest, Nth percentile of 3 years") with the same disclosure as SMC.
+
+## 7. What the three studies add up to
+Free, public data gave no reliable direction signal (SMC structure, COT positioning). It does give a validated size-of-move
+forecast (volatility). The product's defensible value is therefore context, risk, volatility and honest labelling - not
+direction. Further research should target things that are forecastable (volatility models, event-window volatility around
+scheduled releases) rather than more direction hunting.
