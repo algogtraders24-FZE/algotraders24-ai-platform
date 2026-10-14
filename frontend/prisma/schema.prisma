@@ -3114,6 +3114,31 @@ model MarketAlertRule {
   @@map("market_alert_rules")
 }
 
+/// Calibration scoreboard: every 4 hours the platform states a volatility range per instrument (12h / 24h, about 80% of past
+/// moves stay inside). Each statement is recorded here and settled when its time has passed, so the public page can show the
+/// honest hit rate. A horizon is "settled" once checked; inside stays null when it was voided (no outcome candle).
+model RangeForecast {
+  id        String   @id @default(cuid())
+  symbol    String
+  issuedAt  DateTime
+  price     Float
+  atr       Float
+  /// half-widths in price units
+  band12    Float
+  band24    Float
+  priceLater12 Float?
+  priceLater24 Float?
+  inside12  Boolean?
+  inside24  Boolean?
+  settled12 Boolean  @default(false)
+  settled24 Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([symbol, issuedAt])
+  @@index([issuedAt])
+  @@map("range_forecasts")
+}
+
 /// Generic in-app notification feed (the header bell). First user: Live Sync alerts.
 model UserNotification {
   id        String    @id @default(cuid())

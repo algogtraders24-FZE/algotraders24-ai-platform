@@ -68,7 +68,8 @@ export default function MethodologyPage() {
 
           <p className="text-sm text-text-3">
             Read the full <Link href="/company/disclaimer" className="text-gold hover:underline">disclaimer</Link>, or
-            see <Link href="/company/about" className="text-gold hover:underline">what we build on</Link>. Browse all
+            see <Link href="/company/about" className="text-gold hover:underline">what we build on</Link>. See how often our
+            volatility ranges hold up on the <Link href="/calibration" className="text-gold hover:underline">calibration scoreboard</Link>. Browse all
             reports on the <Link href="/blog" className="text-gold hover:underline">blog</Link>.
           </p>
         </div>
