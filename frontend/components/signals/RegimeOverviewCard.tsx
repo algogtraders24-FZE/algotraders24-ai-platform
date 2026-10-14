@@ -93,7 +93,7 @@ export default function RegimeOverviewCard({ item, macro }: Props) {
           </span>
         </div>
         {item.smc && (
-          <p className="text-text-3" title="Market-structure lean from the AT24 SMC engine (swings, BOS/MSS, higher-timeframe bias, liquidity sweeps, order blocks, fair value gaps, premium/discount). Rule-based with unvalidated weights - a structure summary, not a trade signal.">
+          <p className="text-text-3" title="Market-structure lean from the AT24 SMC engine (swings, BOS/MSS, higher-timeframe bias, liquidity sweeps, order blocks, fair value gaps, premium/discount). Rule-based; backtests on Gold and Bitcoin found no reliable directional edge - a structure summary, not a trade signal.">
             SMC structure:{" "}
             <span className={item.smc.lean === "bullish-leaning" ? "text-success" : item.smc.lean === "bearish-leaning" ? "text-danger" : "text-text-2"}>
               {item.smc.lean === "none" ? "no clear lean" : `${item.smc.lean} (${item.smc.strength})`}

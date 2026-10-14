@@ -240,7 +240,12 @@ async function main(): Promise<void> {
     assert.ok(claims.some((c) => /^Active bullish order block 114\.500-116\.500 \(fresh\)/.test(c)) || claims.some((c) => /order block/.test(c)));
     const last = claims[claims.length - 1];
     assert.match(last, /^SMC structure lean: (bullish-leaning|none)/);
-    assert.match(last, /rule-based structure with unvalidated weights, not a trade signal$/);
+    assert.match(last, /descriptive only, not a trade signal$/);
+    const range = claims.find((c) => c.startsWith("Typical move size"));
+    assert.ok(range && /12h \+\/-[\d.]+ \([\d.]+%\) and 24h \+\/-[\d.]+ \([\d.]+%\)/.test(range) && /not a direction or target/.test(range), String(range));
+    // 12h band = ATR * sqrt(12) * 0.90
+    const expected12 = (analysisE.atr * Math.sqrt(12) * 0.9).toFixed(Math.abs(analysisE.price) >= 100 ? 2 : 5);
+    assert.ok(range.includes("12h +/-" + expected12), range + " vs " + expected12);
     for (const c of claims) assert.ok(!/(buy|sell)(?!-side)|(entry|stop[- ]?loss|take[- ]?profit)/i.test(c), `trade wording in: ${c}`);
     assert.equal(fmtPrice(4170.05), "4170.05");
     assert.equal(fmtPrice(158.372), "158.372");

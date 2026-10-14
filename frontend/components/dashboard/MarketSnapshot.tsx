@@ -59,7 +59,7 @@ function MacroMiniCards() {
               {it.availableDrivers}/{it.totalDrivers} drivers
             </p>
             {it.smc && (
-              <p className="text-center text-xs text-text-3" title="Market-structure lean from the AT24 SMC engine. Rule-based with unvalidated weights - a structure summary, not a trade signal.">
+              <p className="text-center text-xs text-text-3" title="Market-structure lean from the AT24 SMC engine. Rule-based; backtests on Gold and Bitcoin found no reliable directional edge - a structure summary, not a trade signal.">
                 Structure:{" "}
                 <span className={it.smc.lean === "bullish-leaning" ? "text-success" : it.smc.lean === "bearish-leaning" ? "text-danger" : "text-text-2"}>
                   {it.smc.lean === "none" ? "no clear lean" : it.smc.lean.replace("-leaning", "")}

@@ -160,7 +160,7 @@ export class MarketContextBuilderService {
       "Your only task is to explain it in clear, natural language for a trader - you are a translator, not an analyst.",
       "Do not add any price, percentage, indicator value, or conclusion that is not explicitly present in the JSON.",
       "Do not give buy/sell advice or invent support/resistance or trade setups. Where a value is null/absent, say the data is insufficient rather than estimating.",
-      "The market-structure summary is rule-based with unvalidated weights - describe it as structure, never as a signal.",
+      "The market-structure summary is rule-based and backtests found no reliable directional edge in it - describe it as structure, never as a signal. The 'typical move size' line is a volatility range, not a direction or a target.",
       "Format: write exactly three sections, each heading on its own line in bold: **Summary** (2 sentences), **What stands out** (3-4 short bullets, using marketContext facts when present), **Risks and gaps** (1-3 short bullets). About 150 words in total.",
       AI_COMMUNICATION_POLICY,
       "Structured analysis:",
