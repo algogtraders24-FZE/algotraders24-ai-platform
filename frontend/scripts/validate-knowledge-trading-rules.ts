@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { dropUnansweredUserTurns, priorTurnsForModel } from "../services/ai/conversation-history";
 import { extractText, FileParseError } from "../lib/knowledge/extractText";
 import { buildMessages, escapeRulesBlock } from "../services/knowledge-loop/orchestrator/providers";
 import { PERSONAL_RULES_SYSTEM_INSTRUCTION } from "../services/knowledge-loop/orchestrator/knowledge-answer-orchestrator";
@@ -10,6 +11,7 @@ import {
   EMPTY_TRADING_RULES,
   TRADING_RULES_TITLE,
   buildTradingRulesMarkdown,
+  rulesReminder,
   validateTradingRules,
   type TradingRulesForm,
 } from "../lib/knowledge/trading-rules";
@@ -160,7 +162,7 @@ test("joinRuleChunks keeps order, drops blanks and caps the length", () => {
 
 test("the chat route loads the caller's own rules (session userId) and the orchestrator adds the instruction only when rules exist", () => {
   const route = readFileSync(join(root, "app/api/private/knowledge/chat/route.ts"), "utf8");
-  assert.ok(route.includes("personalRules: await loadPersonalRules(userId)"));
+  assert.ok(route.includes("const personalRules = await loadPersonalRules(userId)") && route.includes("      personalRules,"));
   const loader = readFileSync(join(root, "services/knowledge/personal-rules.ts"), "utf8");
   assert.ok(loader.includes("where: { userId, title: TRADING_RULES_TITLE, deletedAt: null") && loader.includes("knowledgeId: doc.id, userId"));
   const orch = readFileSync(join(root, "services/knowledge-loop/orchestrator/knowledge-answer-orchestrator.ts"), "utf8");
@@ -179,6 +181,40 @@ test("extractText: md and txt are read without touching any PDF code; a broken D
   assert.equal(await extractText(Buffer.from("# Rules\n\nRisk 1%"), "r.md", "md"), "# Rules\n\nRisk 1%");
   assert.equal(await extractText(Buffer.from("plain"), "r.txt", "txt"), "plain");
   await assert.rejects(() => extractText(Buffer.from("not a docx"), "bad.docx", "docx"), (e: unknown) => e instanceof FileParseError && /bad\.docx/.test((e as Error).message));
+});
+
+test("history: a user message directly followed by another user message (never answered) is dropped; normal turns are untouched", () => {
+  const u = (c: string) => ({ role: "user", c });
+  const a = (c: string) => ({ role: "assistant", c });
+  assert.deepEqual(dropUnansweredUserTurns([u("old"), u("new")]).map((m) => m.c), ["new"]);
+  assert.deepEqual(dropUnansweredUserTurns([u("q1"), a("r1"), u("q2")]).map((m) => m.c), ["q1", "r1", "q2"]);
+  assert.deepEqual(dropUnansweredUserTurns([u("a"), u("b"), u("c")]).map((m) => m.c), ["c"]);
+  assert.deepEqual(dropUnansweredUserTurns([]), []);
+});
+
+test("history before the CURRENT question: a trailing unanswered user message is dropped, answered ones stay", () => {
+  const u = (c: string) => ({ role: "user", c });
+  const a = (c: string) => ({ role: "assistant", c });
+  // the live bug: [old unanswered question] then the current question
+  assert.deepEqual(priorTurnsForModel([u("latest gold news?")]).map((m) => m.c), []);
+  assert.deepEqual(priorTurnsForModel([u("q1"), a("r1")]).map((m) => m.c), ["q1", "r1"]);
+  assert.deepEqual(priorTurnsForModel([u("q1"), a("r1"), u("unanswered")]).map((m) => m.c), ["q1", "r1"]);
+});
+
+test("rules reminder: the user's own text, says plainly nothing was checked against it, capped, empty when no rules", () => {
+  const r = rulesReminder(buildTradingRulesMarkdown(full));
+  assert.ok(r.startsWith("Your saved trading rules (shown for reference - this analysis did not check anything against them):"));
+  assert.ok(r.includes("- Risk per trade: 1% of the account") && r.includes("Stop after two losses in a row."));
+  assert.ok(!r.includes("These are the trader's own written rules") && !r.includes("# My Trading Rules"));
+  assert.equal(rulesReminder(""), "");
+  assert.ok(rulesReminder(buildTradingRulesMarkdown({ ...EMPTY_TRADING_RULES, otherRules: "x".repeat(3000) })).length < 900);
+});
+
+test("chat route: rules loaded once, appended ONLY to a resolved market analysis (not to errors/clarifications), history cleaned", () => {
+  const route = readFileSync(join(root, "app/api/private/knowledge/chat/route.ts"), "utf8");
+  assert.equal((route.match(/loadPersonalRules\(userId\)/g) ?? []).length, 1);
+  assert.ok(route.includes('intelligenceContext.status === "resolved" ? rulesReminder(personalRules) : ""'));
+  assert.ok(route.includes("priorTurnsForModel(history.slice(0, -1))"));
 });
 
 void Promise.all(pending).then(() => {

@@ -58,6 +58,8 @@
 // stage, nor any lower-level persistence boundary, directly.
 import { NextResponse } from "next/server";
 import { loadPersonalRules } from "@/services/knowledge/personal-rules";
+import { rulesReminder } from "@/lib/knowledge/trading-rules";
+import { priorTurnsForModel } from "@/services/ai/conversation-history";
 import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
@@ -303,7 +305,11 @@ export const POST = withContext(async (req, ctx) => {
   }
 
   const currentMessage = history[history.length - 1];
-  const recentMessages = history.slice(0, -1);
+  // An earlier user message that never got an answer is not sent to the model as a prior turn (see
+  // services/ai/conversation-history.ts) - otherwise the model answers the OLD question.
+  const recentMessages = priorTurnsForModel(history.slice(0, -1));
+  // The user's saved "My Trading Rules" (or ""), loaded once for both answer paths below.
+  const personalRules = await loadPersonalRules(userId);
 
   // --- Sprint D2.6.5 - Real-Time Intelligence Context + Trader Chat
   // Integration. Gated deterministically by the D2.6.5 chat-context layer
@@ -366,7 +372,10 @@ export const POST = withContext(async (req, ctx) => {
   // flow below, completely unchanged.
 
   if (intelligenceAnswer !== undefined) {
-    const finalAnswer = intelligenceAnswer;
+    // Market-analysis answers are verified, template-checked text, so the rules are not given to a model here.
+    // For a resolved analysis the user's own rules are appended as a plain reminder (never as a check result).
+    const reminder = intelligenceContext.status === "resolved" ? rulesReminder(personalRules) : "";
+    const finalAnswer = reminder ? `${intelligenceAnswer}\n\n${reminder}` : intelligenceAnswer;
     try {
       await messageService.addAssistantMessage(conversationId, userId, finalAnswer);
     } catch {
@@ -423,7 +432,7 @@ export const POST = withContext(async (req, ctx) => {
       symbol: requestedSymbol,
       knowledgeId,
       images,
-      personalRules: await loadPersonalRules(userId),
+      personalRules,
     });
   } catch {
     // Defensive only - the orchestrator does not throw. The persisted user
