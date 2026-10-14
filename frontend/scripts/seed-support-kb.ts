@@ -55,7 +55,7 @@ const DOCS: SeedDoc[] = [
   {
     title: "How AI credits work",
     knowledgeType: "faq",
-    visibility: "customer",
+    visibility: "public",
     category: "credits",
     canonicalQuestion: "What are AI credits and how are they consumed?",
     body:
@@ -68,15 +68,24 @@ const DOCS: SeedDoc[] = [
   {
     title: "Refund policy",
     knowledgeType: "policy",
-    visibility: "customer",
+    visibility: "public",
     category: "policies",
     canonicalQuestion: "Can I get a refund on my subscription or a marketplace purchase?",
     body:
-      "Subscription payments are billed in advance and are non-refundable for the current period; you can " +
-      "cancel at any time to stop future charges, and you keep access until the end of the paid period. " +
-      "Marketplace product purchases may be refunded within 14 days of purchase if the product has not been " +
-      "activated on a live account and is materially not as described. Refund requests are reviewed by a human " +
-      "and are not automatic - contact support with your purchase reference.",
+      "Marketplace products are digital goods delivered as a signed, device-bound license, so all marketplace " +
+      "sales are final once your license has been issued, except in these cases: you were charged more than " +
+      "once for the same purchase (the duplicate charge is refunded in full); payment succeeded but no license " +
+      "was issued to your account because of a technical fault on our side that we could not resolve; or the " +
+      "product you received is genuinely and materially different from its listing (for example the wrong " +
+      "platform entirely, or an unusable file the seller cannot replace within a reasonable time). We do not " +
+      "refund because a strategy did not perform as you expected, because you changed your mind, or because you " +
+      "did not read the listing's Trust State, Evidence or Risk Analysis before buying. A refund request must be " +
+      "raised within 14 days of purchase with your order or session reference. Platform subscription plans can " +
+      "be cancelled at any time: cancelling stops future billing, but the already-paid current billing period is " +
+      "not refunded and you keep full access until it ends. Refund requests are reviewed by a human and are not " +
+      "automatic. To request one, use the WhatsApp or Telegram links on the Contact page, or email " +
+      "billing@algotraders24.ai, with your order reference and the reason. Approved refunds go back to the " +
+      "original payment method; timing depends on your card issuer or payment method.",
   },
   {
     title: "Marketplace purchases and licenses",
@@ -249,6 +258,218 @@ const DOCS: SeedDoc[] = [
       "in this chat, which is always available if you'd rather skip straight to a person. This assistant also " +
       "hands off automatically when it doesn't have a confident, evidence-backed answer to your question, so " +
       "you don't need to ask for a human every time something is outside what it can help with.",
+  },
+
+  // --- Product-coverage batch (2026-10-14) - owner-approved. Every claim
+  // below is sourced from shipped code/config (plan-limits.ts, the in-app
+  // Edge Analyzer guide, lib/marketplace/earnings.ts), not from marketing.
+  // Deliberately omitted: anything whose rollout state is not verifiable
+  // from the repo (seller-wizard availability, saved-analysis storage).
+  {
+    title: "Live Sync - connect your MetaTrader account",
+    knowledgeType: "product",
+    visibility: "public",
+    category: "products",
+    canonicalQuestion: "What is Live Sync and how do I connect my MetaTrader account?",
+    body:
+      "Live Sync connects a MetaTrader 5 or MetaTrader 4 account to your AT24 dashboard through a small " +
+      "read-only Expert Advisor that you attach to a chart. It sends your closed deals and account snapshots to " +
+      "AT24 so you can see the account's live status and run the Edge analysis on your own synced history. It " +
+      "is read-only: it cannot place, modify or close trades. Open the Live Sync page in your dashboard, create " +
+      "a device token (you must accept the consent box first), download the Expert Advisor for your platform, " +
+      "and paste the token into its settings. The token is shown once when you create it, so copy it right " +
+      "away; you can revoke a token at any time and the connection stops. On MetaTrader 4, set the terminal's " +
+      "Account History to 'All History' before attaching, or older trades will not be sent. Results shown " +
+      "are reported by your own terminal and are not independently verified by a broker. If it does not show " +
+      "as connected, check that WebRequest is allowed for https://www.algotraders24.ai under Tools, Options, " +
+      "Expert Advisors, attach the Expert Advisor to only one chart, and allow algo trading; contact support " +
+      "if it still does not connect.",
+  },
+  {
+    title: "Trader Edge Analyzer - analyse your MT5 trade history",
+    knowledgeType: "product",
+    visibility: "public",
+    category: "products",
+    canonicalQuestion: "What is the Edge Analyzer and what file do I upload?",
+    body:
+      "The Edge Analyzer reads a MetaTrader 5 Trade History Report and returns a deterministic analysis of how " +
+      "you trade: a verdict on whether your results show a statistically detectable edge, key figures checked " +
+      "against the terminal's own results, breakdowns of where you win and lose, and a risk simulation. To use " +
+      "it, in MetaTrader 5 open the History tab, right-click, choose Report, then HTML, save the file, and " +
+      "upload it on the Edge Analyzer page. It must be the English MT5 HTML report - not CSV, PDF or a " +
+      "screenshot. Only the English report from a hedging account has been verified; netting accounts, MT4 and " +
+      "other platforms are not supported yet. Your file is analysed in memory; account number, name and broker " +
+      "details are never read. Free accounts get the summary, the terminal-match check and three breakdowns " +
+      "(strategy tag, symbol, weekday). Paid plans unlock the full analysis and a PDF export created in your " +
+      "browser. The analysis is informational only and is not investment advice. If the upload says the report " +
+      "layout is not recognised, re-export it with the terminal set to English.",
+  },
+  {
+    title: "Quant Pro - build, backtest and optimise strategies",
+    knowledgeType: "product",
+    visibility: "public",
+    category: "products",
+    canonicalQuestion: "What is Quant Pro and which plans include it?",
+    body:
+      "Quant Pro is AT24's strategy testing suite. In Quant Chat you describe a trading idea in plain language " +
+      "and it is compiled into a structured strategy you can preview on a chart and run through a real " +
+      "backtest. The Algo Testing tools add run history, a strategy library, parameter optimisation and " +
+      "walk-forward testing. Quant Pro is included with every paid plan (Pro, Elite and Enterprise); the Free " +
+      "plan does not include it. Backtest results describe how a strategy would have behaved on historical " +
+      "data; they are not a prediction and not a guarantee of future performance, and nothing in Quant Pro is " +
+      "trading advice.",
+  },
+  {
+    title: "Selling your own product on the AT24 marketplace",
+    knowledgeType: "faq",
+    visibility: "public",
+    category: "marketplace",
+    canonicalQuestion: "Can I sell my own Expert Advisor or strategy on AT24, and how does listing work?",
+    body:
+      "Where self-serve selling is enabled for your account, you list a product from the Sell page without an " +
+      "admin approval step: upload the product file, add a name, price and images, and optionally attach a " +
+      "backtest report and a connected live account for proof. A self-serve listing is labelled 'Not checked' " +
+      "until evidence exists. If you attach a report it is checked automatically and shown as 'Checked from the " +
+      "seller's report', which is deliberately weaker than AT24's own Validated trust state, and a seller can " +
+      "never self-assign Validated. Buyers receive a signed, device-bound license for each purchase. Selling " +
+      "is being rolled out in stages, so if you do not see the Sell option on your account, contact support " +
+      "to ask about access.",
+  },
+  {
+    title: "Seller earnings, commission and payouts",
+    knowledgeType: "policy",
+    visibility: "public",
+    category: "marketplace",
+    canonicalQuestion: "How much commission does AT24 take and how do seller payouts work?",
+    body:
+      "On a seller's marketplace sale AT24 keeps a 10% platform commission, and an estimated payment-gateway " +
+      "fee (0.5% of the sale price by default) is also deducted; the seller receives the rest. Each sale's " +
+      "earnings are held for 7 days before they become available. Available earnings can be paid out in USDT on " +
+      "request, on the TRC20, ERC20 or BEP20 network, with a minimum payout of 50 USD. You can see holding, " +
+      "available, requested and paid amounts on the Earnings page of your dashboard. If a sale is refunded, " +
+      "its earning stops being owed to the seller, unless it was already paid out. Payout requests are " +
+      "reviewed and marked paid or rejected by a human on the AT24 team.",
+  },
+
+  // --- New-features batch (2026-10-14) - same sourcing rule as above.
+  // Deliberately NOT covered (rollout state or terms not verifiable from the
+  // repo, or still awaiting legal review): the Algo Contracts / rewards
+  // program, the member Wallet and referral commissions, seller identity
+  // verification, and KYC requirements.
+  {
+    title: "Using your product license key in an Expert Advisor",
+    knowledgeType: "support",
+    visibility: "customer",
+    category: "licenses",
+    canonicalQuestion: "Where do I find my license key and how do I enter it in the Expert Advisor?",
+    body:
+      "After a marketplace purchase you get one license key string that looks like AT24-<license id>.<key>. " +
+      "It is shown on your purchase page (use the reveal option there); copy the whole string. Paste it into " +
+      "the Expert Advisor's license key input (InpLicenseKey) on MetaTrader 5 or MetaTrader 4. The Expert " +
+      "Advisor checks it against AT24 and by default binds the license to the trading account number and " +
+      "server it first runs on, with one account slot. Running the same license on a second account is " +
+      "refused with an account-limit message; to move it to a different account, contact support. Some older " +
+      "products use four separate license values instead of the single key; the product's setup guide says " +
+      "which one applies. If the Expert Advisor reports an invalid license, check that you copied the full " +
+      "string with no spaces, that WebRequest is allowed for https://www.algotraders24.ai in the terminal's " +
+      "Expert Advisor options, and that the license shows as ACTIVE on your Licenses page.",
+  },
+  {
+    title: "Two-factor authentication and verification emails",
+    knowledgeType: "support",
+    visibility: "public",
+    category: "troubleshooting",
+    canonicalQuestion: "How do I turn on two-factor authentication, or get a new verification email?",
+    body:
+      "You can protect your account with two-factor authentication from the Settings page: choose to set it " +
+      "up, scan the QR code with an authenticator app (or type in the key shown if you cannot scan), then enter " +
+      "the 6-digit code the app shows. From then on, signing in asks for a code from your authenticator app. " +
+      "You can turn it off again in Settings; if you are locked out of your authenticator app, contact human " +
+      "support - an assistant cannot disable it for you. If the setup page says two-factor authentication is " +
+      "not available yet, it has not been switched on for the platform. If your verification email never " +
+      "arrived, use the resend option on the login page (no sign-in needed) and check your spam folder.",
+  },
+  {
+    title: "Reporting a marketplace listing",
+    knowledgeType: "policy",
+    visibility: "customer",
+    category: "marketplace",
+    canonicalQuestion: "How do I report a listing that is fake, broken or not as described?",
+    body:
+      "Only a buyer who has paid for a listing can report it, and each buyer can report a listing once. Choose " +
+      "a reason - it contains malware or does something harmful, the results or claims are fake or misleading, " +
+      "it is not what the listing describes, it does not work at all, it copies someone else's product, or " +
+      "something else - and describe the problem in at least 10 characters. When three different buyers have " +
+      "an open report on the same listing it is suspended automatically. A report " +
+      "is not a refund request: for a refund, follow the refund policy and contact human support within 14 " +
+      "days of purchase.",
+  },
+  {
+    title: "Live Results - public live account pages",
+    knowledgeType: "product",
+    visibility: "public",
+    category: "products",
+    canonicalQuestion: "What is Live Results and how reliable are the numbers?",
+    body:
+      "Live Results shows the real-time results of trading accounts as reported by the account owners' own " +
+      "MetaTrader terminals through Live Sync. You can browse the directory, compare accounts, and watch a " +
+      "page so it updates in your dashboard by itself, which lets you see how an Expert Advisor behaves on a " +
+      "live feed before choosing one. Some pages are linked from marketplace listings. The numbers are " +
+      "reported by the terminal and are not independently verified by a broker, so treat them as evidence to " +
+      "weigh, not a guarantee. Account owners control what is public: a broker name is shown only if the " +
+      "owner opts in, and an owner can hide the account. Past results do not guarantee future results.",
+  },
+  {
+    title: "Alerts, Telegram and installing AT24 as an app",
+    knowledgeType: "product",
+    visibility: "public",
+    category: "products",
+    canonicalQuestion: "How do I get alerts on my phone, in Telegram, or install AT24 as an app?",
+    body:
+      "AT24 can send alerts in three ways. The in-app bell shows alerts such as Live Sync account alerts. The " +
+      "Alerts page lets you set market alerts - for example when a market is near yesterday's high or low, " +
+      "when volatility is high, or when an important economic event is coming up - and each alert is sent " +
+      "once when it triggers, then waits before it can fire again, to the bell, Telegram and push where you " +
+      "have enabled them. You " +
+      "can link your own Telegram chat to receive personal alerts from the AT24 bot: use the link option, open " +
+      "the bot and press Start, then send /status to check or /stop to turn it off. You can also install AT24 " +
+      "as an app: in your browser menu choose Install or Add to Home Screen (on iPhone or iPad open the site " +
+      "in Safari first), and allow notifications when asked so alerts can arrive as push notifications. If " +
+      "notifications are blocked, allow them for this site in your browser settings. Alerts are informational " +
+      "and are not trading advice.",
+  },
+  {
+    title: "Market Intelligence, Signals and the Trading Copilot",
+    knowledgeType: "product",
+    visibility: "public",
+    category: "products",
+    canonicalQuestion: "What do Market Intelligence, AI Signals and the Trading Copilot show, and are they trade signals?",
+    body:
+      "Market Intelligence runs an evidence-backed analysis of a market using live data: technical evidence, " +
+      "macro and cross-asset drivers, the economic calendar, news and market structure, passed through a " +
+      "deterministic reasoning, risk and confidence pipeline. The AI Signals page summarises the real market " +
+      "regime, macro alignment and data quality for the core markets. The Trading Copilot lets you pick a " +
+      "market and get an indicator-based analysis in a brief format. None of them is a BUY or SELL call or a " +
+      "trade recommendation, and when data for a market is missing they say 'not available' rather than " +
+      "invent a number. Smart-money-concept structure shown in these tools is descriptive context, not a " +
+      "predictor of direction. Everything is informational and is not financial advice.",
+  },
+  {
+    title: "My Trading Rules and the Knowledge page",
+    knowledgeType: "product",
+    visibility: "customer",
+    category: "products",
+    canonicalQuestion: "Can I give the AI Assistant my own trading rules or documents?",
+    body:
+      "On the Knowledge page, My Trading Rules is a short guided form where you write down your own rules - " +
+      "maximum risk per trade, maximum daily loss, maximum drawdown, the instruments and sessions you trade, " +
+      "when you will not trade, and optionally your prop firm's own rules. It is saved as one document in your " +
+      "Knowledge Base, and saving again replaces the previous one. The AI Assistant then answers with those " +
+      "rules in mind and can cite them; it only restates what you typed and never adds to or changes your " +
+      "rules. You can also upload your own documents as text, Markdown or Word (DOCX) files; if a PDF cannot " +
+      "be read you will be asked to upload it as DOCX, text or Markdown instead. Your rules and documents " +
+      "belong to your account and you can delete them at any time. Answers are informational, not financial " +
+      "advice.",
   },
 ];
 
