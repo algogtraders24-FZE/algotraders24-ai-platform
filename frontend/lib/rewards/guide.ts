@@ -128,7 +128,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       "Create your link on the Algo Contracts page. It uses a random code, never your name or username.",
       "When someone you bring buys a contract and the payment is confirmed, you earn a fixed commission shown on your referral card. It is credited as soon as the payment is confirmed and is withdrawn the same way as your rebate.",
       "You cannot earn from your own purchases. Commission is reversed if a purchase is cancelled or refunded as the law requires.",
-      "You need an active, paid Pro plan and a verified identity to earn commission.",
+      "Everyone can create a link. To earn commission you need an active, paid Pro plan when the buyer pays. A verified identity is needed only to withdraw.",
     ],
   },
   {
