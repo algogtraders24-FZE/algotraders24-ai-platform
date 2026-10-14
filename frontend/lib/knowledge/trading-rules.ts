@@ -73,6 +73,26 @@ function pct(raw: string): string {
   return `${clean(raw).replace(/%$/, "")}%`;
 }
 
+const REMINDER_MAX_CHARS = 700;
+
+/**
+ * A short, deterministic reminder of the user's own saved rules, appended under a market-analysis answer.
+ * That path is a verified, template-checked answer, so the rules are NOT fed to a model there; they are shown
+ * as the user's own text and the note says plainly that the analysis did not check against them.
+ * Returns "" when there is nothing to show.
+ */
+export function rulesReminder(rulesDoc: string): string {
+  const lines = rulesDoc
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0 && !l.startsWith("# ") && !l.startsWith("These are the trader's own written rules"))
+    .map((l) => (l.startsWith("## ") ? `${l.slice(3)}:` : l));
+  if (lines.length === 0) return "";
+  let body = lines.join("\n");
+  if (body.length > REMINDER_MAX_CHARS) body = `${body.slice(0, REMINDER_MAX_CHARS).trimEnd()}...`;
+  return `Your saved trading rules (shown for reference - this analysis did not check anything against them):\n${body}`;
+}
+
 /** The markdown document that gets indexed. Only filled fields appear. */
 export function buildTradingRulesMarkdown(form: TradingRulesForm): string {
   const out: string[] = [
