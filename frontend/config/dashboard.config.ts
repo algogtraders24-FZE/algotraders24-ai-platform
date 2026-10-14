@@ -58,6 +58,7 @@ import {
   Radio,
   Wallet,
   Gem,
+  BellRing,
   type LucideIcon,
 } from "lucide-react";
 
@@ -209,6 +210,7 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
         ],
       },
       { label: "AI Signals", href: "/dashboard/signals", icon: Signal },
+      { label: "Market Alerts", href: "/dashboard/alerts", icon: BellRing },
       { label: "Market Intelligence", href: "/dashboard/market-intelligence", icon: Globe },
       { label: "AI News", href: "/dashboard/news", icon: Newspaper },
       // AN2 - the Economic Calendar AN1.7 deferred (it removed the old mock

@@ -13,6 +13,7 @@
 import { ATR_RATIO_UNIT, type EvidenceItem } from "@/types/evidence";
 import type { EvidenceExtraSource, EvidenceProviderRequest } from "@/types/evidence-fusion";
 import type { SmcAnalysis, SmcZone } from "@/services/smc/smc-engine";
+import { fmtPrice, fmtDist, RANGE_MULT_80 } from "@/services/smc/expected-range";
 
 export const SMC_EVIDENCE_SOURCE = "AT24 SMC structure";
 
@@ -26,22 +27,12 @@ async function defaultGetAnalysis(symbol: string): Promise<SmcAnalysis | null> {
   return getSmcAnalysis(symbol);
 }
 
-/** Price with a sensible number of decimals for any instrument (4170.05, 158.372, 1.11916). */
-export function fmtPrice(p: number): string {
-  const d = Math.abs(p) >= 1000 ? 2 : Math.abs(p) >= 100 ? 3 : 5;
-  return p.toFixed(d);
-}
-
-/** A price distance with the precision of the instrument (11.98 on gold, 0.00123 on EURUSD). */
-export const fmtDist = (d: number, price: number): string => d.toFixed(Math.abs(price) >= 100 ? 2 : 5);
+export { fmtPrice, fmtDist, RANGE_MULT_80 };
 
 const zoneText = (z: SmcZone, price: number): string => {
   const side = z.top < price ? "below" : z.bot > price ? "above" : "around";
   return `${z.dir === 1 ? "bullish" : "bearish"} ${z.kind === "OB" ? "order block" : "fair value gap"} ${fmtPrice(z.bot)}-${fmtPrice(z.top)} (${z.status}), ${side} price`;
 };
-
-/** 80% band multipliers on ATR*sqrt(hours), fitted in-sample and verified out-of-sample (docs/research/SMC_AND_VOLATILITY_RD.md). */
-export const RANGE_MULT_80 = { 12: 0.9, 24: 0.95 } as const;
 
 export function smcClaims(a: SmcAnalysis): string[] {
   const out: string[] = [];

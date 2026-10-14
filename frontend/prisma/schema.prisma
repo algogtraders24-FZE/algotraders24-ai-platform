@@ -3091,6 +3091,29 @@ model LiveSyncAlertRule {
   @@map("live_sync_alert_rules")
 }
 
+/// AT24 market alerts: one rule per user, symbol and kind. Edge-triggered with a cooldown (same state machine as Live Sync alerts).
+/// kind: level_near (price within `threshold` ATR of yesterday's high / low) | vol_high (ATR above `threshold` x its average)
+///       | event_soon (a high-impact release for the symbol's currencies within `threshold` minutes)
+model MarketAlertRule {
+  id          String    @id @default(cuid())
+  userId      String
+  symbol      String
+  kind        String
+  threshold   Float
+  enabled     Boolean   @default(true)
+  cooldownMin Int       @default(120)
+  /// ok | firing (a condition is announced once, then reminded after the cooldown)
+  state       String    @default("ok")
+  lastFiredAt DateTime?
+  lastValue   Float?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, symbol, kind])
+  @@index([enabled, symbol])
+  @@map("market_alert_rules")
+}
+
 /// Generic in-app notification feed (the header bell). First user: Live Sync alerts.
 model UserNotification {
   id        String    @id @default(cuid())
