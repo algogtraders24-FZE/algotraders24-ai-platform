@@ -471,6 +471,83 @@ const DOCS: SeedDoc[] = [
       "belong to your account and you can delete them at any time. Answers are informational, not financial " +
       "advice.",
   },
+
+  // --- Program batch (2026-10-14) - owner-requested. Mirrors the in-app copy
+  // of the Algo Contracts, Wallet and Referral screens. DELIBERATELY contains
+  // no prices, rebate amounts, commission rates or return figures: those are
+  // fixed per member in their own contract / shown on the page, may change, and
+  // are still under legal review, so the assistant must point to them and never
+  // quote or promise them. All `customer` visibility (logged-in only).
+  {
+    title: "Algo Contracts - how they work",
+    knowledgeType: "faq",
+    visibility: "customer",
+    category: "programs",
+    canonicalQuestion: "What are Algo Contracts and how does the rebate work?",
+    body:
+      "Algo Contracts are AI algo products offered to Pro members. A contract gives you the Expert Advisor, a " +
+      "signed license and your contract PDF right after payment, plus a fixed rebate on the price you paid, " +
+      "credited in instalments every 3 months as set out in your contract. The price, the rebate and the net " +
+      "price are fixed in your own contract and shown on the Algo Contracts page; the assistant cannot quote, " +
+      "change or waive them. The rebate is a fixed part of the price you paid: it does not depend on trading " +
+      "results, on AT24 revenue or on any other customer. To buy one you need an active paid Pro plan (a plan " +
+      "granted without a payment does not qualify) and a completed identity check; slots are limited each " +
+      "month, and availability depends on the identity verification service being switched on. If your Pro " +
+      "plan or identity check lapses, instalments are paused and kept for you, not removed, and are credited " +
+      "once both are back. Credited amounts can be withdrawn from your Wallet after a short hold. The product " +
+      "is software: AT24 makes no promise about trading results and trading involves a risk of loss. Sales are " +
+      "final once your license is issued, with the exceptions in the refund policy. The step-by-step install " +
+      "guide is on the Algo Contracts page.",
+  },
+  {
+    title: "Wallet, USDT address and withdrawals",
+    knowledgeType: "faq",
+    visibility: "customer",
+    category: "programs",
+    canonicalQuestion: "How do I save my USDT address and withdraw from my Wallet?",
+    body:
+      "Your Wallet shows your balance, where each amount came from, your withdrawals and your history. To " +
+      "withdraw, first save a USDT withdrawal address and choose its network. Withdrawals are sent to that " +
+      "saved address only, so use an address you own on the network you choose: a payment sent to the wrong " +
+      "network cannot be recovered. A newly saved or changed address goes through a 24-hour cooling period " +
+      "before it can be used, and you are emailed when the address is saved or changed. Every withdrawal " +
+      "needs a fresh 6-digit confirmation code, from your authenticator app if you have set one up, or by a " +
+      "one-time code emailed to you. Amounts are available to withdraw only after their hold period, and " +
+      "rebate that is paused because your Pro plan or identity check is not in good standing is kept for you " +
+      "until both are restored. Withdrawals are reviewed and paid or rejected by a human on the AT24 team. " +
+      "The assistant cannot make, speed up or cancel a withdrawal.",
+  },
+  {
+    title: "Your referral link and referral commission",
+    knowledgeType: "faq",
+    visibility: "customer",
+    category: "programs",
+    canonicalQuestion: "How does the referral link work and when is the commission credited?",
+    body:
+      "You have one referral link, shown on your Profile page and on the Algo Contracts page. When someone joins through it and " +
+      "buys, you earn a referral commission, credited to your Wallet as soon as their payment is confirmed. " +
+      "On an Algo Contract the commission is a fixed amount; where universal referral is switched on, you " +
+      "also earn a percentage on other products and on Pro payments, including renewals. The amounts and " +
+      "which products qualify are shown on the Referral card and may change; the assistant cannot quote them. " +
+      "Referral earnings are withdrawn the same way as any other Wallet balance, with the same address, hold " +
+      "and confirmation-code rules.",
+  },
+  {
+    title: "Identity verification (KYC)",
+    knowledgeType: "faq",
+    visibility: "customer",
+    category: "programs",
+    canonicalQuestion: "Why do I need identity verification and how does it work?",
+    body:
+      "Some features require a one-time identity check: an ID and selfie check done by an external verification " +
+      "service. AT24 never stores your identity document. It is required to buy an Algo Contract and to " +
+      "receive its rebate instalments; if it is not in good standing, instalments are paused and kept for you " +
+      "and credited once it is restored. It may also be requested for paid plans or for sellers, depending on " +
+      "what is switched on for the platform; sellers who list products must at least have a confirmed email. " +
+      "The check usually takes a few minutes. If the verification service is not available yet, features that " +
+      "depend on it open once it is switched on. If your check fails or you cannot complete it, contact human " +
+      "support - an assistant cannot verify, override or reset it.",
+  },
 ];
 
 async function resolveActor(): Promise<{ id: string; email: string }> {
