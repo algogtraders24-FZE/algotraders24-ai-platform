@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { extractText, FileParseError } from "../lib/knowledge/extractText";
 import { buildMessages, escapeRulesBlock } from "../services/knowledge-loop/orchestrator/providers";
 import { PERSONAL_RULES_SYSTEM_INSTRUCTION } from "../services/knowledge-loop/orchestrator/knowledge-answer-orchestrator";
 import { joinRuleChunks, MAX_PERSONAL_RULES_CHARS } from "../services/knowledge/personal-rules";
@@ -15,16 +16,21 @@ import {
 
 let passed = 0;
 let failed = 0;
-function test(name: string, fn: () => void): void {
-  try {
-    fn();
-    passed += 1;
-    console.log(`  ok - ${name}`);
-  } catch (err) {
-    failed += 1;
-    console.error(`  FAIL - ${name}`);
-    console.error(err instanceof Error ? `    ${err.message}` : `    ${String(err)}`);
-  }
+const pending: Promise<void>[] = [];
+function test(name: string, fn: () => void | Promise<void>): void {
+  pending.push(
+    (async () => {
+      try {
+        await fn();
+        passed += 1;
+        console.log(`  ok - ${name}`);
+      } catch (err) {
+        failed += 1;
+        console.error(`  FAIL - ${name}`);
+        console.error(err instanceof Error ? `    ${err.message}` : `    ${String(err)}`);
+      }
+    })(),
+  );
 }
 
 const full: TradingRulesForm = {
@@ -161,5 +167,22 @@ test("the chat route loads the caller's own rules (session userId) and the orche
   assert.ok(orch.includes('(turn.personalRules ?? "").trim() ?') && orch.includes("personalRules: turn.personalRules"));
 });
 
-console.log(`\n${passed} passed, ${failed} failed`);
-if (failed > 0) process.exit(1);
+test("extractText: no top-level pdf-parse/mammoth import (it crashed EVERY upload on Vercel: DOMMatrix is not defined), and next.config externalises them", () => {
+  const src = readFileSync(join(root, "lib/knowledge/extractText.ts"), "utf8");
+  assert.ok(!/^import .*from "pdf-parse"/m.test(src) && !/^import .*from "mammoth"/m.test(src));
+  assert.ok(src.includes('await import("pdf-parse")') && src.includes('await import("mammoth")'));
+  const cfg = readFileSync(join(root, "next.config.ts"), "utf8");
+  assert.ok(/serverExternalPackages:\s*\[[^\]]*"pdf-parse"[^\]]*"@napi-rs\/canvas"/.test(cfg));
+});
+
+test("extractText: md and txt are read without touching any PDF code; a broken DOCX is a readable FileParseError, not a crash", async () => {
+  assert.equal(await extractText(Buffer.from("# Rules\n\nRisk 1%"), "r.md", "md"), "# Rules\n\nRisk 1%");
+  assert.equal(await extractText(Buffer.from("plain"), "r.txt", "txt"), "plain");
+  await assert.rejects(() => extractText(Buffer.from("not a docx"), "bad.docx", "docx"), (e: unknown) => e instanceof FileParseError && /bad\.docx/.test((e as Error).message));
+});
+
+void Promise.all(pending).then(() => {
+  console.log(`
+${passed} passed, ${failed} failed`);
+  if (failed > 0) process.exit(1);
+});
