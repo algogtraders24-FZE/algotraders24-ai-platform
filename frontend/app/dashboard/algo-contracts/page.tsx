@@ -10,7 +10,7 @@ import { requireUser } from "@/lib/auth/protectedRoute";
 import { prisma } from "@/lib/prisma";
 import { loadUserFacts, rewardsOpenFor } from "@/lib/rewards/access";
 import { badgeFor } from "@/lib/rewards/badge";
-import { REWARD_PRODUCTS, REWARD_PRODUCT_KEYS, REWARD_TEST_KEY, holdDays, isRewardProductKey, minPayoutCents, multiLevelReferralEnabled, referralAllProductsEnabled, commissionHoldDays, withdrawalsEnabled } from "@/lib/rewards/config";
+import { REWARD_PRODUCTS, REWARD_PRODUCT_KEYS, holdDays, isRewardProductKey, minPayoutCents, multiLevelReferralEnabled, referralAllProductsEnabled, commissionHoldDays, withdrawalsEnabled } from "@/lib/rewards/config";
 import { isPlatformOwner } from "@/lib/marketplace/selfServe";
 import { canEarnReferral, isIdentityVerified, isProActive } from "@/lib/rewards/eligibility";
 import { referralLink } from "@/lib/rewards/referral";
@@ -62,7 +62,7 @@ export default async function AlgoContractsPage() {
   const vm: AlgoContractsVM = {
     nowIso: now.toISOString(),
     eligibility: { proOk, kycOk, kycAvailable: identityProvider() !== null },
-    products: (isPlatformOwner(user.email) ? [...REWARD_PRODUCT_KEYS, REWARD_TEST_KEY] : REWARD_PRODUCT_KEYS).map((key) => {
+    products: REWARD_PRODUCT_KEYS.map((key) => {
       const slot = slots.byProduct[key] ?? null;
       const blockedReason = !enabled.has(key) ? "Opens soon" : !proOk ? "Active paid Pro plan needed" : !kycOk ? "Identity verification needed" : !slot?.opened ? "Closed this month" : slot.remaining <= 0 ? "All slots taken this month" : null;
       return buildProductVM(key, { slot, blockedReason });
