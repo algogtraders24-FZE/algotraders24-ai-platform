@@ -30,6 +30,10 @@
       "schedule": "*/2 * * * *"
     },
     {
+      "path": "/api/private/calibration/cron/run",
+      "schedule": "7 */4 * * *"
+    },
+    {
       "path": "/api/private/market-alerts/cron/run",
       "schedule": "*/5 * * * *"
     },

@@ -26,3 +26,14 @@ Per user, per instrument (7), three optional alerts - information only, never a 
 * Table `market_alert_rules` (additive migration `20261015200000_add_market_alert_rules`). The runner and the API tolerate the
   table being absent (runner returns zeros, API answers 503 "not available yet"), so the migration can be applied after deploy.
 * Test: `npm run validate:market-alerts` (13).
+
+## Calibration scoreboard (public: /calibration)
+Every 4 hours (cron `7 */4 * * *`, `/api/private/calibration/cron/run`) the platform records the volatility range it states for each of
+the 7 instruments (12h and 24h, the validated 80% band) in `range_forecasts`, one row per symbol per 4-hour slot (unique key =
+idempotent). When 12h / 24h have passed the row is settled against the close of the hourly candle that ends at the horizon:
+inside = |close - price then| <= half-width. A missing outcome candle (market closed, feed gap) VOIDS that horizon after 6h - it is
+never counted as a success; a forecast is not issued at all when the last candle is stale (market closed). Every forecast counts, none
+is deleted. The public page shows, per market and pooled: checked, share inside, Wilson 95% interval and a verdict
+("Collecting data" below 30 checked; "On target" when the 80% target is inside the interval; above / below otherwise), next to the
+backtest numbers that justified shipping it. Code: `services/calibration/{forecast,runner,production}.ts`. Test: `npm run validate:calibration` (10).
+Additive migration `20261015300000_add_range_forecasts`; the runner and the page tolerate the table being absent.
