@@ -255,7 +255,7 @@ test("PDF: with @napi-rs/canvas unresolvable (as on Vercel) extractText still re
   const tsxCli = require.resolve("tsx/cli");
   const res = spawnSync(process.execPath, [tsxCli, probe], { env: { ...process.env, NODE_OPTIONS: `--require ${block}` }, encoding: "utf8", cwd: root, timeout: 60_000 });
   const out = `${res.stdout}${res.stderr}`;
-  assert.ok(/TEXT:.*Risk per trade is one percent\./s.test(out), out.slice(0, 600));
+  assert.ok(/TEXT:[\s\S]*Risk per trade is one percent\./.test(out), out.slice(0, 600));
 });
 
 void Promise.all(pending).then(() => {
