@@ -55,7 +55,7 @@ const DOCS: SeedDoc[] = [
   {
     title: "How AI credits work",
     knowledgeType: "faq",
-    visibility: "customer",
+    visibility: "public",
     category: "credits",
     canonicalQuestion: "What are AI credits and how are they consumed?",
     body:
@@ -68,7 +68,7 @@ const DOCS: SeedDoc[] = [
   {
     title: "Refund policy",
     knowledgeType: "policy",
-    visibility: "customer",
+    visibility: "public",
     category: "policies",
     canonicalQuestion: "Can I get a refund on my subscription or a marketplace purchase?",
     body:
@@ -349,6 +349,127 @@ const DOCS: SeedDoc[] = [
       "available, requested and paid amounts on the Earnings page of your dashboard. If a sale is refunded, " +
       "its earning stops being owed to the seller, unless it was already paid out. Payout requests are " +
       "reviewed and marked paid or rejected by a human on the AT24 team.",
+  },
+
+  // --- New-features batch (2026-10-14) - same sourcing rule as above.
+  // Deliberately NOT covered (rollout state or terms not verifiable from the
+  // repo, or still awaiting legal review): the Algo Contracts / rewards
+  // program, the member Wallet and referral commissions, seller identity
+  // verification, and KYC requirements.
+  {
+    title: "Using your product license key in an Expert Advisor",
+    knowledgeType: "support",
+    visibility: "customer",
+    category: "licenses",
+    canonicalQuestion: "Where do I find my license key and how do I enter it in the Expert Advisor?",
+    body:
+      "After a marketplace purchase you get one license key string that looks like AT24-<license id>.<key>. " +
+      "It is shown on your purchase page (use the reveal option there); copy the whole string. Paste it into " +
+      "the Expert Advisor's license key input (InpLicenseKey) on MetaTrader 5 or MetaTrader 4. The Expert " +
+      "Advisor checks it against AT24 and by default binds the license to the trading account number and " +
+      "server it first runs on, with one account slot. Running the same license on a second account is " +
+      "refused with an account-limit message; to move it to a different account, contact support. Some older " +
+      "products use four separate license values instead of the single key; the product's setup guide says " +
+      "which one applies. If the Expert Advisor reports an invalid license, check that you copied the full " +
+      "string with no spaces, that WebRequest is allowed for https://www.algotraders24.ai in the terminal's " +
+      "Expert Advisor options, and that the license shows as ACTIVE on your Licenses page.",
+  },
+  {
+    title: "Two-factor authentication and verification emails",
+    knowledgeType: "support",
+    visibility: "public",
+    category: "troubleshooting",
+    canonicalQuestion: "How do I turn on two-factor authentication, or get a new verification email?",
+    body:
+      "You can protect your account with two-factor authentication from the Settings page: choose to set it " +
+      "up, scan the QR code with an authenticator app (or type in the key shown if you cannot scan), then enter " +
+      "the 6-digit code the app shows. From then on, signing in asks for a code from your authenticator app. " +
+      "You can turn it off again in Settings; if you are locked out of your authenticator app, contact human " +
+      "support - an assistant cannot disable it for you. If the setup page says two-factor authentication is " +
+      "not available yet, it has not been switched on for the platform. If your verification email never " +
+      "arrived, use the resend option on the login page (no sign-in needed) and check your spam folder.",
+  },
+  {
+    title: "Reporting a marketplace listing",
+    knowledgeType: "policy",
+    visibility: "customer",
+    category: "marketplace",
+    canonicalQuestion: "How do I report a listing that is fake, broken or not as described?",
+    body:
+      "Only a buyer who has paid for a listing can report it, and each buyer can report a listing once. Choose " +
+      "a reason - it contains malware or does something harmful, the results or claims are fake or misleading, " +
+      "it is not what the listing describes, it does not work at all, it copies someone else's product, or " +
+      "something else - and describe the problem in at least 10 characters. When three different buyers have " +
+      "an open report on the same listing it is suspended automatically. A report " +
+      "is not a refund request: for a refund, follow the refund policy and contact human support within 14 " +
+      "days of purchase.",
+  },
+  {
+    title: "Live Results - public live account pages",
+    knowledgeType: "product",
+    visibility: "public",
+    category: "products",
+    canonicalQuestion: "What is Live Results and how reliable are the numbers?",
+    body:
+      "Live Results shows the real-time results of trading accounts as reported by the account owners' own " +
+      "MetaTrader terminals through Live Sync. You can browse the directory, compare accounts, and watch a " +
+      "page so it updates in your dashboard by itself, which lets you see how an Expert Advisor behaves on a " +
+      "live feed before choosing one. Some pages are linked from marketplace listings. The numbers are " +
+      "reported by the terminal and are not independently verified by a broker, so treat them as evidence to " +
+      "weigh, not a guarantee. Account owners control what is public: a broker name is shown only if the " +
+      "owner opts in, and an owner can hide the account. Past results do not guarantee future results.",
+  },
+  {
+    title: "Alerts, Telegram and installing AT24 as an app",
+    knowledgeType: "product",
+    visibility: "public",
+    category: "products",
+    canonicalQuestion: "How do I get alerts on my phone, in Telegram, or install AT24 as an app?",
+    body:
+      "AT24 can send alerts in three ways. The in-app bell shows alerts such as Live Sync account alerts. The " +
+      "Alerts page lets you set market alerts - for example when a market is near yesterday's high or low, " +
+      "when volatility is high, or when an important economic event is coming up - and each alert is sent " +
+      "once when it triggers, then waits before it can fire again, to the bell, Telegram and push where you " +
+      "have enabled them. You " +
+      "can link your own Telegram chat to receive personal alerts from the AT24 bot: use the link option, open " +
+      "the bot and press Start, then send /status to check or /stop to turn it off. You can also install AT24 " +
+      "as an app: in your browser menu choose Install or Add to Home Screen (on iPhone or iPad open the site " +
+      "in Safari first), and allow notifications when asked so alerts can arrive as push notifications. If " +
+      "notifications are blocked, allow them for this site in your browser settings. Alerts are informational " +
+      "and are not trading advice.",
+  },
+  {
+    title: "Market Intelligence, Signals and the Trading Copilot",
+    knowledgeType: "product",
+    visibility: "public",
+    category: "products",
+    canonicalQuestion: "What do Market Intelligence, AI Signals and the Trading Copilot show, and are they trade signals?",
+    body:
+      "Market Intelligence runs an evidence-backed analysis of a market using live data: technical evidence, " +
+      "macro and cross-asset drivers, the economic calendar, news and market structure, passed through a " +
+      "deterministic reasoning, risk and confidence pipeline. The AI Signals page summarises the real market " +
+      "regime, macro alignment and data quality for the core markets. The Trading Copilot lets you pick a " +
+      "market and get an indicator-based analysis in a brief format. None of them is a BUY or SELL call or a " +
+      "trade recommendation, and when data for a market is missing they say 'not available' rather than " +
+      "invent a number. Smart-money-concept structure shown in these tools is descriptive context, not a " +
+      "predictor of direction. Everything is informational and is not financial advice.",
+  },
+  {
+    title: "My Trading Rules and the Knowledge page",
+    knowledgeType: "product",
+    visibility: "customer",
+    category: "products",
+    canonicalQuestion: "Can I give the AI Assistant my own trading rules or documents?",
+    body:
+      "On the Knowledge page, My Trading Rules is a short guided form where you write down your own rules - " +
+      "maximum risk per trade, maximum daily loss, maximum drawdown, the instruments and sessions you trade, " +
+      "when you will not trade, and optionally your prop firm's own rules. It is saved as one document in your " +
+      "Knowledge Base, and saving again replaces the previous one. The AI Assistant then answers with those " +
+      "rules in mind and can cite them; it only restates what you typed and never adds to or changes your " +
+      "rules. You can also upload your own documents as text, Markdown or Word (DOCX) files; if a PDF cannot " +
+      "be read you will be asked to upload it as DOCX, text or Markdown instead. Your rules and documents " +
+      "belong to your account and you can delete them at any time. Answers are informational, not financial " +
+      "advice.",
   },
 ];
 
