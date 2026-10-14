@@ -10,6 +10,29 @@
 // serverless bundle) - which crashed EVERY upload, TXT/MD/DOCX included, with an empty 500. Now only PDFs are affected,
 // and they fail with a readable message instead of a crash. mammoth is lazy for the same reason.
 
+/**
+ * pdfjs (inside pdf-parse) expects the browser globals DOMMatrix / Path2D / ImageData and normally gets them from
+ * @napi-rs/canvas. That native package is missing from the Vercel serverless bundle ("Cannot find module
+ * '@napi-rs/canvas'"), and without the globals pdfjs throws "DOMMatrix is not defined" while LOADING. Text extraction
+ * never draws anything, so inert stand-ins are enough. They are only installed when the globals are absent and are
+ * never used for rendering. Verified: a missing canvas reproduces the crash, the stand-ins read the PDF's text.
+ */
+function ensurePdfjsGlobals(): void {
+  const g = globalThis as Record<string, unknown>;
+  if (typeof g.DOMMatrix === "undefined") {
+    g.DOMMatrix = class DOMMatrix {
+      a = 1;
+      b = 0;
+      c = 0;
+      d = 1;
+      e = 0;
+      f = 0;
+    };
+  }
+  if (typeof g.Path2D === "undefined") g.Path2D = class Path2D {};
+  if (typeof g.ImageData === "undefined") g.ImageData = class ImageData {};
+}
+
 export type SupportedExtension = "pdf" | "docx" | "txt" | "md";
 
 const EXTENSION_BY_MIME: Record<string, SupportedExtension> = {
@@ -58,6 +81,7 @@ export async function extractText(buffer: Buffer, filename: string, extension: S
       case "pdf": {
         let PDFParse: typeof import("pdf-parse").PDFParse;
         try {
+          ensurePdfjsGlobals();
           ({ PDFParse } = await import("pdf-parse"));
         } catch (importError) {
           throw new FileParseError(
