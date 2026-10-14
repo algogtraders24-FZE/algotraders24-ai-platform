@@ -90,6 +90,15 @@ export async function extractText(buffer: Buffer, filename: string, extension: S
             `PDF reading is temporarily unavailable on the server. Upload "${filename}" as DOCX, TXT or Markdown instead.`,
           );
         }
+        // pdfjs loads its "worker" from a file next to its own code; that file is not in the serverless bundle, which showed up
+        // live as "Could not read ... corrupted" for a valid PDF. pdf-parse ships the worker embedded as a data: URL for exactly
+        // this case. ("pdf-parse/worker" imports only node:path/url - not the canvas.) Falls back to the default if unavailable.
+        try {
+          const { getData } = await import("pdf-parse/worker");
+          PDFParse.setWorker(getData());
+        } catch {
+          /* default worker resolution */
+        }
         const parser = new PDFParse({ data: buffer });
         try {
           const result = await parser.getText();
@@ -107,6 +116,7 @@ export async function extractText(buffer: Buffer, filename: string, extension: S
     }
   } catch (error) {
     if (error instanceof FileParseError) throw error;
+    console.error(`[extractText] ${extension} parse failed: ${error instanceof Error ? error.message : String(error)}`);
     throw new FileParseError(filename, error);
   }
 }
