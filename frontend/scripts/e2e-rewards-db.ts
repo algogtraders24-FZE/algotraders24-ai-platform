@@ -139,14 +139,14 @@ async function main() {
   const contract = await prisma.rewardContract.findUnique({ where: { id: contractId } });
   const insts = await prisma.rebateInstallment.findMany({ where: { contractId }, orderBy: { seq: "asc" } });
   check("contract waits for its document (no storage here): PENDING_DOCUMENT", contract?.status === "PENDING_DOCUMENT");
-  check("12 quarterly credits (11 x $600 + $400) add to the $7,000 rebate", insts.length === 12 && insts.slice(0, 11).every((i) => i.amountCents === 60_000) && insts[11].amountCents === 40_000 && insts.reduce((s, i) => s + i.amountCents, 0) === btc.rebateCents);
+  check("8 quarterly credits of $999 add to the $7,992 rebate", insts.length === 8 && insts.every((i) => i.amountCents === 99_900) && insts.reduce((s, i) => s + i.amountCents, 0) === btc.rebateCents);
   const reserve1 = await prisma.rewardReserveEntry.findMany({ where: { contractId } });
   check("the whole rebate is reserved on the day of sale", reserve1.length === 1 && reserve1[0].type === "RESERVED" && reserve1[0].amountCents === btc.rebateCents);
   const comm = await prisma.referralCommission.findMany({ where: { purchaseId: purchase.id } });
   check("partner earns the direct commission ($100), pending", comm.length === 1 && comm[0].partnerId === "partner" && comm[0].amountCents === 10_000 && comm[0].status === "PENDING");
   const f1b = await fulfilRewardCheckout({ intentId: "intent_1", providerRef: "pay_1" });
   check("a replayed webhook returns the same contract", f1b.handled && f1b.duplicate && f1b.contractId === contractId);
-  check("replay did not create more instalments or commission", (await prisma.rebateInstallment.count({ where: { contractId } })) === 12 && (await prisma.referralCommission.count({ where: { purchaseId: purchase.id } })) === 1);
+  check("replay did not create more instalments or commission", (await prisma.rebateInstallment.count({ where: { contractId } })) === 8 && (await prisma.referralCommission.count({ where: { purchaseId: purchase.id } })) === 1);
   check("slot hold became CONVERTED", (await prisma.rewardSlotHold.count({ where: { status: "CONVERTED" } })) === 1);
 
   // self-referral and ineligible partner earn nothing
@@ -254,7 +254,7 @@ async function main() {
   const r2 = await runRewardsSweep(later(190));
   const c2 = await prisma.rewardContract.findUnique({ where: { id: contractId } });
   check("day 190, Pro lapsed: instalment 2 FROZEN (kept), contract FROZEN", r2.frozen === 1 && r2.released === 0 && c2?.status === "FROZEN");
-  check("frozen amount is still in the balance as paused", (await getBalances("buyer", later(190))).frozen === 60_000);
+  check("frozen amount is still in the balance as paused", (await getBalances("buyer", later(190))).frozen === 99_900);
   await prisma.subscription.updateMany({ where: { userId: "buyer" }, data: { currentPeriodEnd: later(900) } });
   const r3 = await runRewardsSweep(later(191));
   const c3 = await prisma.rewardContract.findUnique({ where: { id: contractId } });
@@ -262,7 +262,7 @@ async function main() {
 
   // ---- balances and withdrawal
   const b1 = await getBalances("buyer", later(191));
-  check("buyer: instalment 2 is on hold, instalment 1 available", b1.available === 60_000 && b1.holding === 60_000 && b1.scheduled === 580_000, JSON.stringify(b1));
+  check("buyer: instalment 2 is on hold, instalment 1 available", b1.available === 99_900 && b1.holding === 99_900 && b1.scheduled === 599_400, JSON.stringify(b1));
   const bp = await getBalances("partner", later(191));
   check("partner: $100 commission available (no double hold)", bp.available === 10_000, JSON.stringify(bp));
   const wBelow = await requestWithdrawal({ userId: "partner", email: "partner@example.com", network: "TRC20", address: TRC20, now: later(191) });
@@ -274,10 +274,10 @@ async function main() {
   check("no KYC: withdrawal refused", !w2.ok && w2.code === "NOT_ELIGIBLE");
   await prisma.sellerIdentity.updateMany({ where: { userId: "buyer" }, data: { status: "VERIFIED" } });
   const w3 = await requestWithdrawal({ userId: "buyer", email: "buyer@example.com", network: "TRC20", address: TRC20, now: later(191) });
-  check("eligible: whole available balance requested ($600)", w3.ok && w3.amountCents === 60_000);
+  check("eligible: whole available balance requested ($999)", w3.ok && w3.amountCents === 99_900);
   const w4 = await requestWithdrawal({ userId: "buyer", email: "buyer@example.com", network: "TRC20", address: TRC20, now: later(191) });
   check("a second request while one is open is refused", !w4.ok && w4.code === "OPEN_REQUEST");
-  check("balance moves to requested", (await getBalances("buyer", later(191))).requested === 60_000);
+  check("balance moves to requested", (await getBalances("buyer", later(191))).requested === 99_900);
   if (w3.ok) {
     const noTx = await decideWithdrawal({ payoutId: w3.payoutId, decision: "PAID", adminId: "admin", now: later(192) });
     check("PAID needs a transaction reference", !noTx.ok && noTx.code === "TX_REQUIRED");
@@ -287,7 +287,7 @@ async function main() {
     await prisma.subscription.updateMany({ where: { userId: "buyer" }, data: { currentPeriodEnd: later(900) } });
     const paid = await decideWithdrawal({ payoutId: w3.payoutId, decision: "PAID", txRef: "0xabc123def", adminId: "admin", now: later(192) });
     const bAfter = await getBalances("buyer", later(192));
-    check("admin pays: balance shows paid $600, nothing left requested", paid.ok && bAfter.paid === 60_000 && bAfter.requested === 0, JSON.stringify(bAfter));
+    check("admin pays: balance shows paid $999, nothing left requested", paid.ok && bAfter.paid === 99_900 && bAfter.requested === 0, JSON.stringify(bAfter));
     const again = await decideWithdrawal({ payoutId: w3.payoutId, decision: "PAID", txRef: "0xabc123def", adminId: "admin", now: later(192) });
     check("deciding the same request twice is refused", !again.ok);
   }
@@ -379,7 +379,7 @@ async function main() {
   const us = await runRewardsSweep(addDays(PAID, 8));
   const released = await prisma.referralCommission.count({ where: { purchaseId: { startsWith: "sub:p" }, status: "RELEASED" } });
   const reversed = await prisma.referralCommission.count({ where: { purchaseId: { startsWith: "sub:" }, status: "REVERSED" } });
-  check("sweep releases subscription commissions and never reverses them as refunded", released === 12 && reversed === 0 && us.errors.length === 0, JSON.stringify({ released, reversed, errs: us.errors }));
+  check("sweep releases subscription commissions and never reverses them as refunded", released === 8 && reversed === 0 && us.errors.length === 0, JSON.stringify({ released, reversed, errs: us.errors }));
   delete process.env.REFERRAL_ALL_PRODUCTS;
   delete process.env.REWARDS_MULTI_LEVEL;
 
