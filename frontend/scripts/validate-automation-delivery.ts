@@ -195,12 +195,16 @@ async function main(): Promise<void> {
   });
 
   await test("enrich: price, macro line and today's events appear for gold MI; a throwing enrich is harmless", async () => {
-    const extras = { priceLine: "Gold $4,166.15 (+0.40% today)", macroLine: "Macro alignment 75% - Supports gold (4/5 drivers)", smcLine: "Structure: bullish-leaning (developing), 62/100, 4h bullish - rule-based, not a signal", eventLines: ["19:30 IST (in 3h 20m) - USD CPI"] };
+    const extras = { priceLine: "Gold $4,166.15 (+0.40% today)", macroLine: "Macro alignment 75% - Supports gold (4/5 drivers)", smcLine: "Structure: bullish-leaning (developing), 62/100, 4h bullish - rule-based, not a signal", rangeLine: "Expected range (80% of past moves): 12h +/-18.69 (0.45%), 24h +/-27.00 (0.65%) - volatility, not a direction", levelsLine: "Key levels: PDH 4200.55 (56.50 above), PDL 4141.66 (2.30 below)", eventLines: ["19:30 IST (in 3h 20m) - USD CPI"] };
     const s = spy({ enrich: async () => extras });
     await deliverRunResult(input({ definition: { delivery: { channels: ["bell", "telegram"] } }, agentOutputs: [MI] }), s.deps);
     assert.ok(s.notified[0].body.includes("Gold $4,166.15"));
     assert.ok(s.notified[0].body.includes("Macro alignment 75%"));
     assert.ok(s.notified[0].body.includes("Structure: bullish-leaning"));
+    assert.ok(s.notified[0].body.includes("Expected range (80% of past moves)") && s.notified[0].body.includes("Key levels: PDH"), "Brief 2.0 range and levels reach the bell");
+    assert.ok(s.telegram[0].text.includes("Expected range (80% of past moves)") && s.telegram[0].text.includes("Key levels: PDH"));
+    const order = ["Gold $4,166.15", "Expected range", "Key levels", "Macro alignment 75%", "Structure: bullish"].map((t) => s.telegram[0].text.indexOf(t));
+    assert.ok(order.every((v, i) => v >= 0 && (i === 0 || v > order[i - 1])), "lines appear in order: price, range, levels, macro, structure");
     assert.ok(s.telegram[0].text.includes("Structure: bullish-leaning"));
     assert.ok(s.telegram[0].text.includes("high-impact events"));
     assert.ok(s.telegram[0].text.includes("USD CPI"));

@@ -21,6 +21,7 @@ import { getEconomicCalendar } from "@/services/calendar/calendar.service";
 import { getMacroAlignmentSnapshot } from "@/services/macro/macro-service";
 import { alignmentLine, profileForMiSymbol } from "@/services/macro/macro-alignment";
 import { getSmcAnalysis, summariseSmc } from "@/services/smc/smc-service";
+import { keyLevelsLine, rangeBriefLine } from "@/services/smc/expected-range";
 import { formatEventLines, formatPriceLine, smcBriefLine, type DeliveryExtras } from "./brief-extras";
 import type { DeliveryDeps } from "./delivery";
 
@@ -41,6 +42,10 @@ async function enrichMacro(symbol: string): Promise<DeliveryExtras> {
   if (smc.status === "fulfilled" && smc.value) {
     const line = smcBriefLine(summariseSmc(smc.value));
     if (line) extras.smcLine = line;
+    const range = rangeBriefLine(smc.value);
+    if (range) extras.rangeLine = range;
+    const levels = keyLevelsLine(smc.value);
+    if (levels) extras.levelsLine = levels;
   }
   if (calendar.status === "fulfilled") {
     const lines = formatEventLines(calendar.value.events, now);

@@ -56,14 +56,16 @@ export function buildDeliveryMessage(args: {
 
   const name = args.automationName.trim() || "Automation";
   const x = args.extras ?? {};
-  const shortParts = [useful[0].headline, useful[0].changeNote, x.priceLine, x.macroLine, x.smcLine, ...useful.slice(1).map((b) => b.headline)];
-  const short = shortParts.filter((p): p is string => !!p).join("\n").slice(0, 560);
+  const shortParts = [useful[0].headline, useful[0].changeNote, x.priceLine, x.rangeLine, x.levelsLine, x.macroLine, x.smcLine, ...useful.slice(1).map((b) => b.headline)];
+  const short = shortParts.filter((p): p is string => !!p).join("\n").slice(0, 600);
 
   const blocks = useful.map((b, i) =>
     [
       `<b>${escapeHtml(b.headline)}</b>`,
       ...(i === 0 && x.priceLine ? [escapeHtml(x.priceLine)] : []),
       ...(b.changeNote ? [`<i>${escapeHtml(b.changeNote)}</i>`] : []),
+      ...(i === 0 && x.rangeLine ? [escapeHtml(x.rangeLine)] : []),
+      ...(i === 0 && x.levelsLine ? [escapeHtml(x.levelsLine)] : []),
       ...(i === 0 && x.macroLine ? [escapeHtml(x.macroLine)] : []),
       ...(i === 0 && x.smcLine ? [escapeHtml(x.smcLine)] : []),
       ...b.lines.map((l) => `• ${escapeHtml(l)}`),

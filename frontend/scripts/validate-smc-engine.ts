@@ -10,6 +10,7 @@ import { SmcStructureEvidenceSource, smcClaims, fmtPrice, SMC_EVIDENCE_SOURCE } 
 import { MarketIntelligencePipelineService } from "../services/ai/market-intelligence-pipeline.service";
 import { EvidenceRankingService } from "../services/ai/evidence/evidence-ranking.service";
 import { ATR_RATIO_UNIT } from "../types/evidence";
+import { rangeBriefLine, keyLevelsLine } from "../services/smc/expected-range";
 import type { Candle } from "../types/market-candle";
 import type { MarketDataProvider, MarketContextResult } from "../types/market-data-provider";
 
@@ -279,6 +280,20 @@ async function main(): Promise<void> {
     assert.equal(out.result.evidence.conflicts.length, 0);
     const vol = out.result.risk.categories.find((c) => c.category === "volatility");
     assert.ok(vol && !vol.rationale[0].includes("unmeasured"), "volatility risk is measured from the SMC ATR ratio, not the unmeasured default");
+  });
+
+  await test("expected range + key levels (Brief 2.0 / alerts helpers): validated band maths, price formatting, swept status, absent pools", () => {
+    assert.equal(rangeBriefLine({ atr: 6, price: 4150 }), "Expected range (80% of past moves): 12h +/-18.71 (0.45%), 24h +/-27.92 (0.67%) - volatility, not a direction");
+    assert.equal(rangeBriefLine({ atr: 0, price: 4150 }), null);
+    const pools = [
+      { kind: "PDH" as const, price: 4200.55, status: "untouched" as const, formedIdx: 1 },
+      { kind: "PDL" as const, price: 4141.66, status: "swept" as const, formedIdx: 1 },
+      { kind: "EQH" as const, price: 4300, status: "untouched" as const, formedIdx: 1 },
+    ];
+    assert.equal(keyLevelsLine({ pools, price: 4144 }), "Key levels: PDH 4200.55 (56.55 above), PDL 4141.66 (2.34 below, swept)");
+    assert.equal(keyLevelsLine({ pools: [pools[2]], price: 4144 }), null);
+    const eurPools = [{ kind: "PDH" as const, price: 1.12, status: "untouched" as const, formedIdx: 1 }];
+    assert.equal(keyLevelsLine({ pools: eurPools, price: 1.1192 }), "Key levels: PDH 1.12000 (0.00080 above)");
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);

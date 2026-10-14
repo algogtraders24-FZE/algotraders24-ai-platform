@@ -9,6 +9,10 @@ export interface DeliveryExtras {
   priceLine?: string;
   macroLine?: string;
   smcLine?: string;
+  /** Brief 2.0: "Expected range (80% of past moves): 12h +/-X ..." - a volatility range, never a direction. */
+  rangeLine?: string;
+  /** Brief 2.0: yesterday's high / low relative to price. */
+  levelsLine?: string;
   eventLines?: string[];
 }
 
