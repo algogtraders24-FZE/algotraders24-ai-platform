@@ -8,11 +8,14 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { SessionService } from "@/services/auth/SessionService";
 import { prisma } from "@/lib/prisma";
 import { analyticsEventService } from "@/services/analytics/AnalyticsEventService";
+import { safeNext } from "@/lib/auth/mfa";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const redirectTo = searchParams.get("redirectTo") ?? "/dashboard";
+  // Same-origin relative path only: `${origin}${redirectTo}` with a value like "@evil.example"
+  // would otherwise produce https://<our-host>@evil.example (an open redirect).
+  const redirectTo = safeNext(searchParams.get("redirectTo"));
 
   if (code) {
     const supabase = await createSupabaseServerClient();
