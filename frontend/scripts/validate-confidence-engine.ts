@@ -191,6 +191,12 @@ function main(): void {
     assert.equal(categoryOf(confidence, "data-freshness").score, 100);
   });
 
+  test("data-freshness: a current reading says so instead of '0 minute(s) old'", () => {
+    const { confidence } = pipeline([item({ type: "price", asOf: T1 })]);
+    const text = categoryOf(confidence, "data-freshness").rationale.join(" ");
+    assert.ok(!/minute\(s\) old/.test(text) && /current/.test(text), text);
+  });
+
   test("data-freshness: moderately stale (30 min) evidence -> score 60", () => {
     const { confidence } = pipeline([item({ source: "a", asOf: STALE_30 })]);
     assert.equal(categoryOf(confidence, "data-freshness").score, 60);

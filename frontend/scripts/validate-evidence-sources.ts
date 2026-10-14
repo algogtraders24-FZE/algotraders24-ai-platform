@@ -128,6 +128,11 @@ async function main(): Promise<void> {
     assert.ok(items.some((i) => /Dollar weaker .* \[DXY \(US dollar index, Exness\)\]/.test(i.claim)));
     assert.ok(items.some((i) => /\[FRED DFII10\]/.test(i.claim)));
     assert.ok(!items.some((i) => /AUDJPY/.test(i.claim)), "the unavailable barometer must not appear");
+    // each driver item carries its measured reading as numeric backing; the summary line does not
+    const drivers = items.slice(0, -1);
+    assert.ok(drivers.every((i) => typeof i.magnitude === "number" && typeof i.unit === "string"));
+    assert.equal(items[items.length - 1].magnitude, undefined);
+    assert.equal(drivers.find((i) => /DXY/.test(i.claim))?.magnitude, GOLD_INPUTS.dollar?.value);
     const summary = items[items.length - 1].claim;
     assert.match(summary, /^Macro alignment \d+% - .* \(4\/5 drivers\) - a rule-based agreement of drivers, not a forecast$/);
   });

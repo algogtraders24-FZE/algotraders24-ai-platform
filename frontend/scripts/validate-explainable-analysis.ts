@@ -243,16 +243,17 @@ async function main(): Promise<void> {
   // Limitations (structural + weak-confidence, both dynamically verified
   // against the real engine outputs rather than a hardcoded count)
   // ---------------------------------------------------------------------
-  await test("limitations: exactly one line per structurally-unmeasurable risk category plus per weak confidence category", () => {
+  await test("limitations: one line per structurally-unmeasurable risk category that is not low, plus per weak confidence category (a low category is not a limitation)", () => {
     const input = buildResult(FULL_COVERAGE_ITEMS);
     const analysis = explainer.explain(input);
     const expectedCount =
-      input.risk.categories.filter((c) => c.basis.length === 0).length +
+      input.risk.categories.filter((c) => c.basis.length === 0 && c.level !== "low").length +
       input.confidence.categories.filter((c) => c.score < 34).length;
     assert.ok(expectedCount > 0, "sanity check on the fixture this test depends on");
     assert.equal(analysis.limitations.length, expectedCount);
     assert.ok(analysis.limitations.some((l) => l.includes("liquidity")));
     assert.ok(analysis.limitations.some((l) => l.includes("execution")));
+    assert.ok(!analysis.limitations.some((l) => l.startsWith("evidence-conflict risk") || l.startsWith("data-quality risk")), "low categories are not listed as limitations");
   });
 
   await test("limitations: a hand-built profile with no flagged categories falls back to an explicit 'none identified' statement", () => {

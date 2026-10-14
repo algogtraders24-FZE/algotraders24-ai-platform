@@ -206,7 +206,7 @@ export class ConfidenceEngineService {
     return {
       category: "data-freshness",
       score,
-      rationale: [`Freshest evidence is ${ageMinutes} minute(s) old`],
+      rationale: [ageMinutes <= 1 ? "Evidence is current (under a minute old)" : `Freshest evidence is ${ageMinutes} minute(s) old`],
       basis: [freshest],
     };
   }
