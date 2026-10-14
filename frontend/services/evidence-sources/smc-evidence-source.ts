@@ -40,6 +40,9 @@ const zoneText = (z: SmcZone, price: number): string => {
   return `${z.dir === 1 ? "bullish" : "bearish"} ${z.kind === "OB" ? "order block" : "fair value gap"} ${fmtPrice(z.bot)}-${fmtPrice(z.top)} (${z.status}), ${side} price`;
 };
 
+/** 80% band multipliers on ATR*sqrt(hours), fitted in-sample and verified out-of-sample (docs/research/SMC_AND_VOLATILITY_RD.md). */
+export const RANGE_MULT_80 = { 12: 0.9, 24: 0.95 } as const;
+
 export function smcClaims(a: SmcAnalysis): string[] {
   const out: string[] = [];
 
@@ -65,9 +68,18 @@ export function smcClaims(a: SmcAnalysis): string[] {
     out.push(`Volatility regime: ${a.volatility} (ATR ${a.volatilityRatio.toFixed(2)}x its recent average)`);
   }
 
+  // Typical size of the next move (volatility clusters, so this is forecastable; direction is not).
+  if (a.atr > 0 && a.price > 0) {
+    const band = (h: 12 | 24) => {
+      const d = a.atr * Math.sqrt(h) * RANGE_MULT_80[h];
+      return `${h}h +/-${fmtDist(d, a.price)} (${((d / a.price) * 100).toFixed(2)}%)`;
+    };
+    out.push(`Typical move size (volatility range, not a direction or target): about 80% of past moves stayed within ${band(12)} and ${band(24)} - checked out-of-sample on 3.7 years of Gold and Bitcoin hourly data`);
+  }
+
   const parts = a.factors.filter((f) => f.points !== 0).map((f) => `${f.label} ${f.points > 0 ? "+" : ""}${f.points}`);
   out.push(
-    `SMC structure lean: ${a.lean}${a.lean === "none" ? "" : ` (${a.strength})`}, score ${a.score}/100${parts.length ? ` [${parts.join(", ")}]` : ""} - rule-based structure with unvalidated weights, not a trade signal`,
+    `SMC structure lean: ${a.lean}${a.lean === "none" ? "" : ` (${a.strength})`}, score ${a.score}/100${parts.length ? ` [${parts.join(", ")}]` : ""} - rule-based structure; backtested on 3.7 years of Gold and Bitcoin hourly data it showed no reliable directional edge, so it is descriptive only, not a trade signal`,
   );
   return out;
 }

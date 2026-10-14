@@ -201,7 +201,7 @@ function Result({ analysis }: { analysis: CopilotAnalysis }) {
         <section className="rounded-panel border border-border bg-ink-2 p-6">
           <h2 className="text-lg font-semibold">Market Context</h2>
           <p className="mt-1 text-xs text-text-3">
-            Economic calendar, cross-asset macro drivers and rule-based market structure (unvalidated weights; not a trade signal).
+            Economic calendar, cross-asset macro drivers and rule-based market structure (descriptive only; backtests found no reliable directional edge).
           </p>
           <ul className="mt-4 space-y-2 text-sm text-text-2">
             {context.map((c) => (
