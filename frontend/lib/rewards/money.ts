@@ -69,7 +69,7 @@ export function computeContractMoney(p: RewardProductConfig, purchasedAt: Date):
   assertProductSane(p);
   const rebateTotalCents = p.rebateCents;
   if (p.monthlyRebateCents !== undefined) {
-    // Accrues monthly, credited every N months; the last credit carries whatever months remain (e.g. 35 months = 11 x 3 + 2).
+    // Accrues monthly, credited every N months; the last credit carries whatever months remain (e.g. 35 months = 11 x 3 + 2; 24 months = 8 x 3, no remainder).
     const every = p.payoutEveryMonths ?? 3;
     const schedule: InstallmentPlan[] = [];
     for (let i = 1; i <= p.installments; i++) {
