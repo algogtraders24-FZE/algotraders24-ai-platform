@@ -156,9 +156,13 @@ export async function proxy(request: NextRequest) {
     );
   }
   if (!user && isProtectedPage) {
+    // Keep the query string (e.g. /dashboard/support?handoff=<id> from a support email) so the
+    // user lands back on the exact page after signing in, not just its path.
+    const returnTo = `${pathname}${request.nextUrl.search}`;
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
-    loginUrl.searchParams.set("redirectTo", pathname);
+    loginUrl.search = "";
+    loginUrl.searchParams.set("redirectTo", returnTo);
     return NextResponse.redirect(loginUrl);
   }
   // Two-factor authentication (authenticator app): a user who enrolled a TOTP factor must also pass the code check in THIS session.
@@ -172,7 +176,7 @@ export async function proxy(request: NextRequest) {
       const challengeUrl = request.nextUrl.clone();
       challengeUrl.pathname = "/login/2fa";
       challengeUrl.search = "";
-      challengeUrl.searchParams.set("redirectTo", pathname);
+      challengeUrl.searchParams.set("redirectTo", `${pathname}${request.nextUrl.search}`);
       return NextResponse.redirect(challengeUrl);
     }
   }
