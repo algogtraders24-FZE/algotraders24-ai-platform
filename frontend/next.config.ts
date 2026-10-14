@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // pdf-parse -> pdfjs-dist needs @napi-rs/canvas at runtime. Bundling them breaks module resolution on Vercel
+  // (production log: "Cannot find module '@napi-rs/canvas'" then "DOMMatrix is not defined"), so they are loaded
+  // from node_modules as-is. See lib/knowledge/extractText.ts (lazy import).
+  serverExternalPackages: ["pdf-parse", "pdfjs-dist", "@napi-rs/canvas"],
+
   // Sprint M12 branding follow-on - MarketplaceCatalogue.ts and
   // mt5EvidenceAdapter.ts both read data/marketplace-evidence/*.json via a
   // runtime-computed filename (readFileSync(join(dir, `${id}.json`))).
