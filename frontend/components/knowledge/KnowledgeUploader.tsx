@@ -50,7 +50,8 @@ export default function KnowledgeUploader({ collections, uploading, error, onUpl
 
   return (
     <Card padding="sm">
-      <p className="mb-3 text-sm font-semibold text-text-2">Upload Document</p>
+      <p className="text-sm font-semibold text-text-2">Upload a document</p>
+      <p className="mb-3 mt-1 text-xs text-text-3">Good things to add: your prop firm's rulebook, an EA's manual or settings guide, your strategy notes. Ask AI can then answer from them.</p>
       <div className="space-y-2">
         <input
           type="file"
