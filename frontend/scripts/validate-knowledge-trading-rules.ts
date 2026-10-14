@@ -1,6 +1,8 @@
 // scripts/validate-knowledge-trading-rules.ts - "My Trading Rules" document builder + validation + the delete route's guards. Pure. `npm run validate:knowledge-trading-rules`.
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { dropUnansweredUserTurns, priorTurnsForModel } from "../services/ai/conversation-history";
 import { extractText, FileParseError } from "../lib/knowledge/extractText";
@@ -215,6 +217,45 @@ test("chat route: rules loaded once, appended ONLY to a resolved market analysis
   assert.equal((route.match(/loadPersonalRules\(userId\)/g) ?? []).length, 1);
   assert.ok(route.includes('intelligenceContext.status === "resolved" ? rulesReminder(personalRules) : ""'));
   assert.ok(route.includes("priorTurnsForModel(history.slice(0, -1))"));
+});
+
+test("PDF: with @napi-rs/canvas unresolvable (as on Vercel) extractText still reads a PDF's text instead of crashing (DOMMatrix)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "at24-pdf-"));
+  const block = join(dir, "block-canvas.cjs");
+  writeFileSync(
+    block,
+    "const M=require('module');const o=M._resolveFilename;M._resolveFilename=function(r,...a){if(r.startsWith('@napi-rs/canvas')){const e=new Error('Cannot find module '+r);e.code='MODULE_NOT_FOUND';throw e;}return o.call(this,r,...a);};",
+  );
+  // a minimal valid one-page PDF
+  const objs = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+    "",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+  ];
+  const stream = "BT /F1 14 Tf 72 700 Td (Risk per trade is one percent.) Tj ET";
+  objs[3] = `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
+  let pdf = "%PDF-1.4\n";
+  const offs: number[] = [];
+  objs.forEach((o, i) => {
+    offs.push(pdf.length);
+    pdf += `${i + 1} 0 obj\n${o}\nendobj\n`;
+  });
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n${offs.map((o) => `${String(o).padStart(10, "0")} 00000 n \n`).join("")}trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  const pdfPath = join(dir, "probe.pdf");
+  writeFileSync(pdfPath, pdf);
+  const probe = join(dir, "probe.ts");
+  const extractPath = join(root, "lib/knowledge/extractText").replace(/\\/g, "/");
+  writeFileSync(
+    probe,
+    `import { readFileSync } from "node:fs";\nimport { extractText } from "${extractPath}";\nextractText(readFileSync(${JSON.stringify(pdfPath)}), "probe.pdf", "pdf").then((t) => console.log("TEXT:" + t.trim()), (e) => { console.log("ERR:" + e.message); process.exit(2); });\n`,
+  );
+  const tsxCli = require.resolve("tsx/cli");
+  const res = spawnSync(process.execPath, [tsxCli, probe], { env: { ...process.env, NODE_OPTIONS: `--require ${block}` }, encoding: "utf8", cwd: root, timeout: 60_000 });
+  const out = `${res.stdout}${res.stderr}`;
+  assert.ok(/TEXT:.*Risk per trade is one percent\./s.test(out), out.slice(0, 600));
 });
 
 void Promise.all(pending).then(() => {
