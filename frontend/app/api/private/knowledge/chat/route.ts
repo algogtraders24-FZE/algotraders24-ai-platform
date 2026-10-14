@@ -57,6 +57,7 @@
 // This route still never imports any individual Sprint 15D/D2.5 internal
 // stage, nor any lower-level persistence boundary, directly.
 import { NextResponse } from "next/server";
+import { loadPersonalRules } from "@/services/knowledge/personal-rules";
 import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
@@ -422,6 +423,7 @@ export const POST = withContext(async (req, ctx) => {
       symbol: requestedSymbol,
       knowledgeId,
       images,
+      personalRules: await loadPersonalRules(userId),
     });
   } catch {
     // Defensive only - the orchestrator does not throw. The persisted user

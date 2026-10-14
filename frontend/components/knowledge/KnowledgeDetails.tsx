@@ -16,9 +16,10 @@ interface Props {
   related: KnowledgeDocument[];
   retrievals: RetrievalRecord[];
   onReindex: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
-export default function KnowledgeDetails({ doc, related, retrievals, onReindex }: Props) {
+export default function KnowledgeDetails({ doc, related, retrievals, onReindex, onDelete }: Props) {
   if (!doc) {
     return <Card className="text-sm text-text-3">Select a document to view details.</Card>;
   }
@@ -51,7 +52,20 @@ export default function KnowledgeDetails({ doc, related, retrievals, onReindex }
         </div>
       )}
 
-      <Button size="sm" variant="secondary" onClick={() => onReindex(doc.id)} className="mt-4">Re-index</Button>
+      <div className="mt-4 flex gap-2">
+        <Button size="sm" variant="secondary" onClick={() => onReindex(doc.id)}>Re-index</Button>
+        {onDelete && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              if (window.confirm(`Delete "${doc.title}"? Ask AI will stop using it.`)) onDelete(doc.id);
+            }}
+          >
+            Delete
+          </Button>
+        )}
+      </div>
 
       {related.length > 0 && (
         <div className="mt-5">

@@ -34,6 +34,8 @@ export interface AnswerGenInput {
   /** prior turns, chronological, already trimmed to the history window. */
   history: Array<{ role: "user" | "assistant"; content: string }>;
   userMessage: string;
+  /** the user's own written trading rules, or "" / absent when they have none. */
+  personalRules?: string;
   /** the orchestrator's web-search gate result — a slot that supports web
    *  search acts on it; others ignore it. */
   webSearchEnabled: boolean;

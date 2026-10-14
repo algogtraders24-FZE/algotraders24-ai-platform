@@ -171,6 +171,7 @@
     "validate:publishing-persistence": "tsx scripts/validate-publishing-persistence.ts",
     "validate:publishing-schedule": "tsx scripts/validate-publishing-schedule.ts",
     "validate:publishing-daily-auto": "tsx scripts/validate-publishing-daily-auto.ts",
+    "validate:knowledge-trading-rules": "tsx scripts/validate-knowledge-trading-rules.ts",
     "validate:publishing-blog-reader": "tsx scripts/validate-publishing-blog-reader.ts",
     "validate:publishing-e2e": "node --env-file=.env --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/validate-publishing-e2e.ts",
     "validate:knowledge-loop-schema": "tsx scripts/validate-knowledge-loop-schema.ts",

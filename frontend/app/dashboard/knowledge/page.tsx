@@ -41,7 +41,13 @@ import KnowledgeDetails from "@/components/knowledge/KnowledgeDetails";
 import KnowledgeCollections from "@/components/knowledge/KnowledgeCollections";
 import KnowledgeHistory from "@/components/knowledge/KnowledgeHistory";
 import KnowledgeUploader from "@/components/knowledge/KnowledgeUploader";
-import KnowledgeSources from "@/components/knowledge/KnowledgeSources";
+import TradingRulesCard from "@/components/knowledge/TradingRulesCard";
+import {
+  TRADING_RULES_CATEGORY,
+  TRADING_RULES_TITLE,
+  buildTradingRulesMarkdown,
+  type TradingRulesForm,
+} from "@/lib/knowledge/trading-rules";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
 import Skeleton from "@/components/ui/Skeleton";
@@ -59,6 +65,8 @@ export default function KnowledgePage() {
 
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [savingRules, setSavingRules] = useState(false);
+  const [rulesError, setRulesError] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -152,6 +160,49 @@ export default function KnowledgePage() {
     [],
   );
 
+  // "My Trading Rules": index the new rules document first; only when that worked, remove the previous
+  // rules document(s), so a failed save never leaves the user with no rules.
+  const onSaveRules = useCallback(async (form: TradingRulesForm): Promise<boolean> => {
+    setSavingRules(true);
+    setRulesError(null);
+    try {
+      const previous = listDocuments().filter((d) => d.title === TRADING_RULES_TITLE).map((d) => d.id);
+      const file = new File([buildTradingRulesMarkdown(form)], `${TRADING_RULES_TITLE}.md`, { type: "text/markdown" });
+      const result = await KnowledgeApi.uploadDocument({ file, title: TRADING_RULES_TITLE, category: TRADING_RULES_CATEGORY });
+      if (result.document.status === "failed") {
+        await KnowledgeApi.deleteDocument(result.document.id).catch(() => undefined);
+        setRulesError("Your rules were saved but could not be indexed (the embedding service may be busy). Please try again in a minute.");
+        await loadKnowledge({ force: true });
+        setDocs([...listDocuments()]);
+        return false;
+      }
+      await Promise.all(previous.map((id) => KnowledgeApi.deleteDocument(id).catch(() => undefined)));
+      await loadKnowledge({ force: true });
+      setDocs([...listDocuments()]);
+      setActiveId(result.document.id);
+      setTick((t) => t + 1);
+      return true;
+    } catch (err) {
+      setRulesError(err instanceof Error ? err.message : "Could not save your rules");
+      return false;
+    } finally {
+      setSavingRules(false);
+    }
+  }, []);
+
+  const onDelete = useCallback(async (id: string) => {
+    try {
+      await KnowledgeApi.deleteDocument(id);
+      await loadKnowledge({ force: true });
+      const next = [...listDocuments()];
+      setDocs(next);
+      setActiveId(next[0]?.id ?? null);
+      setTick((t) => t + 1);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Could not delete this document");
+    }
+  }, []);
+
   const onReindex = useCallback(
     async (id: string) => {
       await reindex(id);
@@ -177,7 +228,7 @@ export default function KnowledgePage() {
   if (!ready || !metrics) {
     return (
       <div className="space-y-6">
-        <PageHeader eyebrow="Intelligence" title="AI Knowledge Base" description="Retrieval-augmented knowledge foundation" />
+        <PageHeader eyebrow="Intelligence" title="My Rules & Documents" description="Give Ask AI your own context: your trading rules, your prop firm's rules, an EA's manual. It answers from them and shows which document it used." />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-24" />
@@ -194,7 +245,14 @@ export default function KnowledgePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader eyebrow="Intelligence" title="AI Knowledge Base" description="Retrieval-augmented knowledge foundation" />
+      <PageHeader eyebrow="Intelligence" title="My Rules & Documents" description="Give Ask AI your own context: your trading rules, your prop firm's rules, an EA's manual. It answers from them and shows which document it used." />
+
+      <TradingRulesCard
+        saving={savingRules}
+        error={rulesError}
+        hasSaved={docs.some((d) => d.title === TRADING_RULES_TITLE)}
+        onSave={onSaveRules}
+      />
 
       <KnowledgeMetrics metrics={metrics} />
       <KnowledgeSearch onSearch={onSearch} onOpen={setActiveId} />
@@ -217,22 +275,22 @@ export default function KnowledgePage() {
             related={related}
             retrievals={history}
             onReindex={onReindex}
+            onDelete={onDelete}
           />
           <KnowledgeUploader collections={collections} uploading={uploading} error={uploadError} onUpload={onUpload} />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <KnowledgeCollections collections={collections} />
-        <KnowledgeSources />
-      </div>
-
-      <section>
-        <h2 className="mb-3 text-sm font-semibold text-text-2">
-          Retrieval History
-        </h2>
-        <KnowledgeHistory records={history} />
-      </section>
+      <details className="rounded-card border border-border bg-ink-2 p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-text-2">Advanced: collections and search history</summary>
+        <div className="mt-4 space-y-6">
+          <KnowledgeCollections collections={collections} />
+          <section>
+            <h2 className="mb-3 text-sm font-semibold text-text-2">Retrieval History</h2>
+            <KnowledgeHistory records={history} />
+          </section>
+        </div>
+      </details>
     </div>
   );
 }

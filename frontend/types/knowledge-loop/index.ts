@@ -286,6 +286,9 @@ export interface AnswerTurn {
   /** Quant Chat "Ask AI Anything" image attachments — validated server-side
    *  (app/api/private/knowledge/chat/route.ts) before this is set. */
   images?: AIImageInput[];
+  /** The user's own written trading rules (services/knowledge/personal-rules.ts), provided on every turn
+   *  regardless of retrieval similarity. Empty/absent = the user has none. */
+  personalRules?: string;
 }
 
 export interface AnswerSourceRef {

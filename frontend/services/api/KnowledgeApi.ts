@@ -93,4 +93,10 @@ export class KnowledgeApi {
     this.invalidate();
     return data;
   }
+
+  /** Soft-deletes one of the caller's own documents; it stops being retrievable at once. */
+  static async deleteDocument(knowledgeId: string): Promise<void> {
+    await ApiClient.delete<{ deleted: boolean }>(`/api/private/knowledge/${encodeURIComponent(knowledgeId)}`);
+    this.invalidate();
+  }
 }
