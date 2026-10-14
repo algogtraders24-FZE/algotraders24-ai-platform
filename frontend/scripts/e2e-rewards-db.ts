@@ -231,9 +231,9 @@ async function main() {
   };
   await demo(11, "everyone active", ["active", "active", "active", "active"], [10_000, 5_000, 5_000, 5_000]);
   await demo(12, "level 3 (rb) Pro lapsed", ["active", "active", "lapsed", "active"], [10_000, 5_000, 0, 5_000]);
-  await demo(13, "level 2 (rc) admin-granted Pro, level 4 (ra) no KYC", ["active", "adminGranted", "active", "noKyc"], [10_000, 0, 5_000, 0]);
+  await demo(13, "level 2 (rc) admin-granted Pro, level 4 (ra) no KYC still earns (Pro only)", ["active", "adminGranted", "active", "noKyc"], [10_000, 0, 5_000, 5_000]);
   await demo(14, "direct (rd) on the free plan", ["free", "active", "active", "active"], [0, 5_000, 5_000, 5_000]);
-  await demo(15, "nobody qualifies", ["lapsed", "free", "noKyc", "adminGranted"], [0, 0, 0, 0]);
+  await demo(15, "only the no-KYC Pro level qualifies", ["lapsed", "free", "noKyc", "adminGranted"], [0, 0, 5_000, 0]);
   console.log("\nDEMO - BTC AI Algo sold through a 4-level chain (2/1/1/1, fixed dollars):");
   console.table(demoRows);
   delete process.env.REWARDS_MULTI_LEVEL;

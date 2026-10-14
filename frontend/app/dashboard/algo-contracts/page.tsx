@@ -12,11 +12,11 @@ import { loadUserFacts, rewardsOpenFor } from "@/lib/rewards/access";
 import { badgeFor } from "@/lib/rewards/badge";
 import { REWARD_PRODUCTS, REWARD_PRODUCT_KEYS, holdDays, isRewardProductKey, minPayoutCents, multiLevelReferralEnabled, referralAllProductsEnabled, commissionHoldDays, withdrawalsEnabled } from "@/lib/rewards/config";
 import { isPlatformOwner } from "@/lib/marketplace/selfServe";
-import { canEarnReferral, isIdentityVerified, isProActive } from "@/lib/rewards/eligibility";
+import { isIdentityVerified, isProActive } from "@/lib/rewards/eligibility";
 import { referralLink } from "@/lib/rewards/referral";
 import { buildProductVM, type AlgoContractsVM } from "@/lib/rewards/viewModel";
 import { getBalances, listPayouts } from "@/services/rewards/payoutStore";
-import { getReferralCode } from "@/services/rewards/referralStore";
+import { ensureReferralCode } from "@/services/rewards/referralStore";
 import { getAddressView } from "@/services/rewards/addressStore";
 import { slotSummary } from "@/services/rewards/slotStore";
 import { identityProvider } from "@/services/marketplace/identityStore";
@@ -48,7 +48,7 @@ export default async function AlgoContractsPage() {
     slotSummary().catch(() => ({ month: "", byProduct: {} as Record<string, { limit: number; opened: boolean; remaining: number }> })),
     prisma.rewardProduct.findMany({ select: { key: true, enabled: true } }).catch(() => []),
     prisma.rewardContract.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" } }).catch(() => []),
-    getReferralCode(user.id),
+    ensureReferralCode(user.id).catch(() => null), // every account gets its link automatically
     getBalances(user.id).catch(() => EMPTY_BALANCES),
     listPayouts(user.id).catch(() => []),
     getAddressView(user.id).catch(() => null),
@@ -94,7 +94,7 @@ export default async function AlgoContractsPage() {
     },
     referral: {
       link: refCode ? referralLink(refCode, process.env.NEXT_PUBLIC_SITE_URL || undefined) : null,
-      blockedReason: canEarnReferral(facts, now) || isPlatformOwner(user.email) ? null : "An active paid Pro plan and a verified identity are needed to get a referral link.",
+      blockedReason: null, // anyone can have a link; earning needs an active paid Pro plan (checked when a sale is verified)
       multiLevel: multiLevelReferralEnabled(),
       allProducts: referralAllProductsEnabled(),
       commissionHoldDays: commissionHoldDays(),

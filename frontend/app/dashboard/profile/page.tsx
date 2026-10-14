@@ -15,13 +15,11 @@ import type { PlanId } from "@/types/billing";
 import { loadUserFacts, rewardsOpenFor } from "@/lib/rewards/access";
 import { badgeFor } from "@/lib/rewards/badge";
 import { isRewardProductKey, referralAllProductsEnabled } from "@/lib/rewards/config";
-import { canEarnReferral } from "@/lib/rewards/eligibility";
-import { isPlatformOwner } from "@/lib/marketplace/selfServe";
 import { isIdentityVerified, isProActive } from "@/lib/rewards/eligibility";
 import { formatUsd } from "@/lib/rewards/money";
 import { referralLink } from "@/lib/rewards/referral";
 import { getBalances } from "@/services/rewards/payoutStore";
-import { getReferralCode } from "@/services/rewards/referralStore";
+import { ensureReferralCode } from "@/services/rewards/referralStore";
 
 export const dynamic = "force-dynamic";
 
@@ -47,13 +45,14 @@ export default async function ProfilePage() {
 
   // Algo Contracts details only for accounts the program is open for. Every read falls back to "nothing yet" if the tables are missing.
   const rewardsOpen = rewardsOpenFor(user.email);
-  const [contracts, refCode, balances] = rewardsOpen
+  // Every account gets its own referral link automatically (earning on it needs an active paid Pro plan when the buyer pays).
+  const refCode = await ensureReferralCode(user.id).catch(() => null);
+  const [contracts, balances] = rewardsOpen
     ? await Promise.all([
         prisma.rewardContract.findMany({ where: { userId: user.id }, select: { productKey: true, status: true } }).catch(() => []),
-        getReferralCode(user.id).catch(() => null),
         getBalances(user.id).catch(() => null),
       ])
-    : [[], null, null];
+    : [[], null];
   const badge = badgeFor(contracts.filter((c) => isRewardProductKey(c.productKey)).map((c) => ({ productKey: c.productKey as never, status: c.status as never })));
   const link = refCode ? referralLink(refCode, process.env.NEXT_PUBLIC_SITE_URL || undefined) : null;
 
@@ -100,13 +99,10 @@ export default async function ProfilePage() {
             </div>
             <p className="text-xs text-text-3">The wallet shows where every amount came from: contract rebates and referral commission, by level and by what was bought.</p>
           </Card>
-          <ReferralCard
-            initialLink={link}
-            blockedReason={(facts ? canEarnReferral(facts, now) : false) || isPlatformOwner(user.email) ? null : "An active paid Pro plan and a verified identity are needed to get a referral link."}
-            allProducts={referralAllProductsEnabled()}
-          />
         </>
       )}
+
+      <ReferralCard initialLink={link} blockedReason={null} allProducts={referralAllProductsEnabled()} />
 
       <Card padding="lg">
         <h2 className="text-base font-semibold text-text">Shortcuts</h2>

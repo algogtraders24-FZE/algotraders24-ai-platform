@@ -119,7 +119,7 @@ check("below minimum", !canWithdraw(u(), { ...wOpts, amountCents: MIN_PAYOUT_CEN
 check("more than available", !canWithdraw(u(), { ...wOpts, amountCents: 100_001 }).ok);
 check("bad amounts", !canWithdraw(u(), { ...wOpts, amountCents: 0 }).ok && !canWithdraw(u(), { ...wOpts, amountCents: -5 }).ok && !canWithdraw(u(), { ...wOpts, amountCents: 10.5 }).ok);
 check("withdrawals default to OFF", !withdrawalsEnabled(undefined) && !withdrawalsEnabled("1") && withdrawalsEnabled("true"));
-check("referral needs Pro + KYC", canEarnReferral(u(), NOW) && !canEarnReferral(u({ identity: "NONE" }), NOW) && !canEarnReferral(u({ subscription: null }), NOW));
+check("referral commission needs an active paid Pro plan, not KYC", canEarnReferral(u(), NOW) && canEarnReferral(u({ identity: "NONE" }), NOW) && !canEarnReferral(u({ subscription: null }), NOW));
 
 // --- balances
 const rel = new Date("2026-10-20T00:00:00Z");

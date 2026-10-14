@@ -45,7 +45,7 @@ export default function ReferralCard({ initialLink, blockedReason, allProducts =
         {allProducts
           ? "Share this link. When someone joins through it, you earn a referral commission on what they pay for: a fixed amount on a contract, and a percentage on any other product or Pro payment, including every renewal. It is credited as soon as the payment is confirmed."
           : "Share this link. When someone you bring buys a contract and the payment is confirmed, you earn a fixed commission, credited as soon as the payment is confirmed."}{" "}
-        The link uses a random code, never your name or username. You cannot earn from your own purchases.
+        The link uses a random code, never your name or username. You cannot earn from your own purchases. Your link is created automatically; to be paid commission you need an active paid Pro plan when your buyer pays, and a verified identity to withdraw.
       </p>
       {error && <Alert tone="danger">{error}</Alert>}
       {blockedReason ? (

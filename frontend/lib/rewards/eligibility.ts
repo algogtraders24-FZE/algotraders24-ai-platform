@@ -108,7 +108,10 @@ export function canWithdraw(
   return reasons.length ? { ok: false, reasons } : ok();
 }
 
-/** A partner earns referral commission only if they are themselves Pro + verified when the sale is verified. */
+/**
+ * A partner earns referral commission only if they have an active paid Pro plan when the sale is verified. Anyone can HAVE a link; a verified
+ * identity is not needed to earn, only to withdraw (see canWithdraw).
+ */
 export function canEarnReferral(user: UserFacts, now: Date = new Date()): boolean {
-  return isProActive(user.subscription, now) && isIdentityVerified(user.identity);
+  return isProActive(user.subscription, now);
 }
