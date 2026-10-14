@@ -72,8 +72,9 @@ export default function TradingRulesCard({ saving, error, hasSaved, onSave }: Pr
       <div>
         <h2 className="text-lg font-semibold text-text">My Trading Rules</h2>
         <p className="mt-1 text-sm text-text-2">
-          Write your rules once. Ask AI will keep them in mind and tell you when it used them. Only what you type
-          here is saved - nothing is added or changed.
+          Write your rules once. Ask AI sees them with every question and uses them when they apply (for example, to
+          point out when something conflicts with your daily loss limit). Only what you type here is saved - nothing
+          is added or changed.
         </p>
       </div>
 

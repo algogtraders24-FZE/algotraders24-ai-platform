@@ -47,6 +47,14 @@ export function escapeKnowledgeBlock(text: string): string {
   );
 }
 
+const RULES_TAG_OPEN = "<user_trading_rules>";
+const RULES_TAG_CLOSE = "</user_trading_rules>";
+
+/** Same wrapper hardening as the knowledge block: the user's own text can never close its own tag. */
+export function escapeRulesBlock(text: string): string {
+  return text.replace(/<\/?user_trading_rules>/gi, (m) => m.replace("<", "&lt;").replace(">", "&gt;"));
+}
+
 /** assemble the `AIMessage[]` every slot sends (identical across providers). */
 export function buildMessages(input: AnswerGenInput): AIMessage[] {
   const msgs: AIMessage[] = [{ role: "system", content: input.system }];
@@ -54,6 +62,12 @@ export function buildMessages(input: AnswerGenInput): AIMessage[] {
     msgs.push({ role: h.role, content: h.content });
   }
   const userParts: string[] = [];
+  const rules = (input.personalRules ?? "").trim();
+  if (rules.length > 0) {
+    userParts.push(`${RULES_TAG_OPEN}
+${escapeRulesBlock(rules)}
+${RULES_TAG_CLOSE}`);
+  }
   const knowledgeBlock = input.knowledgeBlock.trim();
   if (knowledgeBlock.length > 0) {
     userParts.push(
