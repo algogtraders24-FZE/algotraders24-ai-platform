@@ -20,10 +20,10 @@ const good = (s: Record<string, unknown>) => { const r = validateIngestBody(body
 const bad = (s: Record<string, unknown>) => { const r = validateIngestBody(body(s)); assert.ok(!r.ok, "should be rejected"); checks++; return r.ok ? "" : r.message; };
 
 // ---- broker symbol suffixes (a "+" suffix used to be refused, so the whole batch got 422 forever)
-for (const sym of ["XAUUSD+", "EURUSD.m", "GOLD#", "US30!", "BTCUSD.", "XAUUSDm", "EURUSD-ECN", "US30.cash"]) {
+for (const sym of ["XAUUSD+", "EURUSD.m", "GOLD#", "US30!", "BTCUSD.", "XAUUSDm", "EURUSD-ECN", "US30.cash", "#AAPL", "BTC/USD", "Volatility 75 Index", "+XAU", "_x", "SAP.DE", "日経225", "EURUSD%", "BRK.B(1)"]) {
   eq(good(snap({ positions: [pos({ symbol: sym })], orders: [order({ symbol: sym })] }))!.snapshot!.positions[0]!.symbol, sym, `symbol ${sym} accepted in positions and orders`);
 }
-for (const sym of ["US 30", "X;DROP", "<b>", "A\"B", "A'B", "A/B"]) bad(snap({ positions: [pos({ symbol: sym })] }));
+for (const sym of ["US30 ", " US30", "X;DROP", "<b>", 'A"B', "A'B", "=cmd", String.raw`A\B`, "A`B", String.fromCharCode(65, 0, 66), "A" + String.fromCharCode(10) + "B"]) bad(snap({ positions: [pos({ symbol: sym })] }));
 
 // ---- old EAs (no new fields) still pass unchanged
 eq(good(snap())!.snapshot!.positions[0], pos(), "a v1.1 snapshot is accepted exactly as before");

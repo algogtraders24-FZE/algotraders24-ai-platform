@@ -12,8 +12,11 @@ import {
 export type ValidationResult = { ok: true; body: IngestBody } | { ok: false; message: string };
 
 const HEX64 = /^[0-9a-f]{64}$/;
-// Broker symbol names, including the usual suffixes ("XAUUSD+", "EURUSD.m", "GOLD#", "US30!"). No spaces, quotes, angle brackets or semicolons.
-const SYMBOL = /^[A-Za-z0-9._#@$+!&~-]*$/;
+// Broker symbol names are free-form: any prefix or suffix and any asset class ("XAUUSD+", "EURUSD.m", "#AAPL", "US30.cash",
+// "BTC/USD", "Volatility 75 Index", Unicode letters). Only what could be abused downstream is refused: control characters,
+// quotes, angle brackets, backslash, semicolon, backtick and "=" (CSV formulas), and leading/trailing spaces.
+const SYMBOL_BAD = /[<>"'`\\;=\p{Cc}]/u;
+const SYMBOL = { test: (s: string): boolean => s === s.trim() && !SYMBOL_BAD.test(s) };
 const MIN_MSC = 946_684_800_000; // 2000-01-01
 const MAX_MSC = 4_102_444_800_000; // 2100-01-01
 const DEAL_TYPES: readonly DealType[] = ["buy", "sell", "balance", "other"];
