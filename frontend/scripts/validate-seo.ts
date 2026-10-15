@@ -3,6 +3,7 @@
 // were found in the audit stay fixed (global canonical, redirect URLs in the sitemap, indexable login pages).
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { INDEXNOW_KEY, buildIndexNowRequest, pingIndexNow, selectIndexNowUrls } from "../services/seo/indexnow";
 import { absoluteUrl, breadcrumbJsonLd, faqJsonLd, jsonLdString, metaDescription, productJsonLd, type ListingForSeo } from "../lib/seo/seo";
 
 let passed = 0;
@@ -136,5 +137,59 @@ test("regression: pricing and FAQ pages render their section heading as the page
   assert.match(read("sections/FAQ.tsx"), /asPageHeading \? "h1" : "h2"/);
 });
 
-console.log(`\n${passed} passed, ${failed} failed`);
-if (failed > 0) process.exitCode = 1;
+const SITE_IN = "https://www.algotraders24.ai";
+const NOW_IN = Date.parse("2026-10-15T08:00:00Z");
+
+test("indexnow: always-fresh pages + posts published and listings updated in the last 30h; older ones, future ones and duplicates are left out", () => {
+  const urls = selectIndexNowUrls(
+    {
+      alwaysFresh: ["/markets", "/markets/gold", "/markets/gold"],
+      posts: [{ slug: "new", publishedAt: "2026-10-15T06:00:00Z" }, { slug: "old", publishedAt: "2026-10-10T06:00:00Z" }, { slug: "none", publishedAt: null }, { slug: "future", publishedAt: "2026-10-20T00:00:00Z" }],
+      listings: [{ slug: "fresh", updatedAt: new Date("2026-10-14T20:00:00Z") }, { slug: "stale", updatedAt: "2026-09-01T00:00:00Z" }],
+    },
+    SITE_IN,
+    NOW_IN,
+  );
+  assert.deepEqual(urls, [`${SITE_IN}/markets`, `${SITE_IN}/markets/gold`, `${SITE_IN}/blog/new`, `${SITE_IN}/marketplace/fresh`]);
+});
+
+test("indexnow: request carries host, the public key and where it is served from; at most 200 URLs", () => {
+  const req = buildIndexNowRequest(SITE_IN, [`${SITE_IN}/a`]);
+  const body = JSON.parse(req.init.body as string);
+  assert.equal(body.host, "www.algotraders24.ai");
+  assert.equal(body.key, INDEXNOW_KEY);
+  assert.equal(body.keyLocation, `${SITE_IN}/${INDEXNOW_KEY}.txt`);
+  const many = selectIndexNowUrls({ alwaysFresh: Array.from({ length: 500 }, (_, i) => `/p${i}`), posts: [], listings: [] }, SITE_IN, NOW_IN);
+  assert.equal(many.length, 200);
+});
+
+test("indexnow: the key file is served from public/ with exactly the key; the cron path is exempt in proxy and scheduled", () => {
+  assert.equal(read(`public/${INDEXNOW_KEY}.txt`), INDEXNOW_KEY);
+  assert.ok(read("proxy.ts").includes("/api/private/seo/indexnow"));
+  assert.ok(read("vercel.json").includes("/api/private/seo/indexnow"));
+});
+
+(async () => {
+  let calls = 0;
+  const ok = async () => (calls++, new Response(null, { status: 202 }));
+  const empty = { alwaysFresh: [], posts: [], listings: [] };
+  const one = { alwaysFresh: ["/markets"], posts: [], listings: [] };
+  try {
+    assert.deepEqual(await pingIndexNow(SITE_IN, empty, { fetchImpl: ok as never, now: () => NOW_IN }), { submitted: 0, status: null });
+    assert.equal(calls, 0);
+    assert.deepEqual(await pingIndexNow(SITE_IN, one, { fetchImpl: ok as never, now: () => NOW_IN }), { submitted: 1, status: 202 });
+    const boom = async () => {
+      throw new Error("down");
+    };
+    assert.deepEqual(await pingIndexNow(SITE_IN, one, { fetchImpl: boom as never, now: () => NOW_IN }), { submitted: 1, status: null });
+    passed++;
+    console.log("  ok - indexnow: nothing to send sends nothing; a failed call is reported, never thrown");
+  } catch (e) {
+    failed++;
+    console.log(`  FAIL - indexnow ping
+    ${(e as Error).message}`);
+  }
+  console.log(`
+${passed} passed, ${failed} failed`);
+  if (failed > 0) process.exitCode = 1;
+})();

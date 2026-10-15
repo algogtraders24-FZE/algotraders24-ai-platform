@@ -98,6 +98,8 @@ const CRON_SECRET_EXEMPT_PATHS = new Set([
   "/api/private/automations/cron/dispatch/evening-ist",
   // Every-2-minutes safety net that resumes stalled automation runs.
   "/api/private/automations/cron/resume",
+  // Daily IndexNow ping (new / changed URLs for Bing and others). Valid cron secret only.
+  "/api/private/seo/indexnow",
   // Calibration scoreboard: issues the 4-hour range forecasts and settles due ones. Valid cron secret only.
   "/api/private/calibration/cron/run",
   // Market alerts evaluator (every 5 minutes). Valid cron secret only.
