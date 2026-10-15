@@ -118,6 +118,8 @@ function toEvidence(query: string, hits: SupportHit[]): AgentEvidenceDraft[] {
       title: h.title,
       similarity: h.similarity,
       query,
+      // full passage (the claim above is cut at 280 chars): composed answers are grounded on this
+      content: h.content,
     },
     relevance: Math.max(0, Math.min(1, h.similarity)),
     confidence: Math.max(0, Math.min(1, h.similarity)),

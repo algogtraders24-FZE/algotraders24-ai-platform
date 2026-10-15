@@ -107,7 +107,7 @@ import {
 // retune later without touching the charging mechanism itself).
 export const SUPPORT_GENERATION_CREDIT_COST = 5;
 
-const MAX_GROUNDING_HITS = 5;
+export const MAX_GROUNDING_HITS = 5;
 const GENERATION_MAX_TOKENS = 400;
 
 function hasEnv(name: string): boolean {
@@ -125,7 +125,7 @@ export interface GenerationSlot {
   complete(req: AICompletionRequest): Promise<string>;
 }
 
-async function buildSlots(): Promise<GenerationSlot[]> {
+export async function buildSlots(): Promise<GenerationSlot[]> {
   const { ClaudeProvider, GeminiProvider, OpenAIProvider } = await import("@/lib/ai");
   const wrap = (name: string, envKey: string, make: () => AIProvider): GenerationSlot => ({
     name,
@@ -209,6 +209,15 @@ export async function attemptGeneration(
   history: ConversationTurnSummary[] = [],
 ): Promise<{ text: string; provider: string } | null> {
   const req = buildPrompt(question, hits.slice(0, MAX_GROUNDING_HITS), history);
+  return completeWithChain(req, slotsOverride);
+}
+
+/** The provider chain shared by the generative fallback and composed answers: first clean
+ *  (non-empty, compliance-clean) candidate wins; never throws. */
+export async function completeWithChain(
+  req: AICompletionRequest,
+  slotsOverride?: GenerationSlot[],
+): Promise<{ text: string; provider: string } | null> {
   const slots = slotsOverride ?? (await buildSlots());
   for (const slot of slots) {
     if (!slot.isAvailable()) continue;
@@ -242,7 +251,7 @@ export function isEligibleForGeneration(output: unknown): boolean {
  *  userId-scoped repository query - a run with no conversation metadata
  *  (pre-Phase-B runs, or a non-conversational start) returns `[]`,
  *  identical to Phase A's original no-history behavior. */
-async function loadConversationHistory(
+export async function loadConversationHistory(
   run: NonNullable<Awaited<ReturnType<typeof agentRunRepository.getRunForUser>>>,
   userId: string,
 ): Promise<ConversationTurnSummary[]> {

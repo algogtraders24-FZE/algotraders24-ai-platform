@@ -367,6 +367,7 @@ export async function getSupportHandoffDetailForAdmin(id: string): Promise<Admin
         coverage?: string;
         escalate?: boolean;
         generatedAnswer?: string;
+        composedAnswer?: string;
         citations?: { evidenceId: string; topic?: string }[];
         accountFindings?: { evidenceId: string; domain?: string }[];
       };
@@ -383,7 +384,12 @@ export async function getSupportHandoffDetailForAdmin(id: string): Promise<Admin
         question: typeof input.question === "string" ? input.question : "",
         coverage: output.coverage ?? null,
         escalate: output.escalate === true,
-        generatedAnswer: typeof output.generatedAnswer === "string" ? output.generatedAnswer : null,
+        generatedAnswer:
+          typeof output.generatedAnswer === "string"
+            ? output.generatedAnswer
+            : typeof output.composedAnswer === "string"
+              ? output.composedAnswer
+              : null,
         citations,
         accountFindings,
         createdAt: r.createdAt.toISOString(),

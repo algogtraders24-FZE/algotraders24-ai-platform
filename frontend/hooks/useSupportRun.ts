@@ -27,6 +27,9 @@ export type SupportOutput = {
    *  construction - see services/support/generate-answer.ts. */
   generatedAnswer?: string;
   generatedProvider?: string;
+  /** AT24 Copilot Phase 3.2: a short answer written from the cited passages (coverage stays kb-answered). */
+  composedAnswer?: string;
+  composedProvider?: string;
 };
 
 export type ResolutionConfirmation = { confirmed: boolean; confirmedAt: string };
