@@ -62,7 +62,7 @@ test("productJsonLd: name/url/images/category; offer with price, currency and av
   const p = productJsonLd(listing(), SITE) as Record<string, any>;
   assert.equal(p["@type"], "Product");
   assert.equal(p.url, `${SITE}/marketplace/at24-gold-range-breaker`);
-  assert.deepEqual(p.image, [`${SITE}/marketplace/x/icon.png`, "https://cdn.example.com/hero.png"]);
+  assert.deepEqual(p.image, [`${SITE}/marketplace/at24-gold-range-breaker/opengraph-image`, `${SITE}/marketplace/x/icon.png`, "https://cdn.example.com/hero.png"]);
   assert.equal(p.category, "MT5 - Gold");
   assert.equal(p.brand.name, "Algotraders24 AI");
   assert.equal(p.offers.price, "299.00");
@@ -79,6 +79,11 @@ test("productJsonLd: NO offer without a price or without a real release; free li
   assert.equal(sub.priceSpecification.unitText, "MONTH");
   const all = JSON.stringify(productJsonLd(listing(), SITE));
   assert.ok(!/aggregateRating|review|ratingValue/i.test(all), "no fabricated rating or review");
+});
+
+test("productJsonLd: SVG media is left out of the image list (bitmap share card first); always at least that one image", () => {
+  const p = productJsonLd(listing({ media: ["/m/icon.svg", "/m/banner.svg"] }), SITE) as Record<string, any>;
+  assert.deepEqual(p.image, [`${SITE}/marketplace/at24-gold-range-breaker/opengraph-image`]);
 });
 
 test("productJsonLd: seller name becomes the brand when known", () => {

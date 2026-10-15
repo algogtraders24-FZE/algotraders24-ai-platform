@@ -72,7 +72,8 @@ export function productJsonLd(l: ListingForSeo, site: string = SITE_URL) {
     name: l.title,
     description: metaDescription(l.description, `${l.title} - a trading system on the AT24 Marketplace.`, 500),
     url,
-    ...(l.media.length > 0 ? { image: l.media.map((m) => absoluteUrl(m, site)) } : {}),
+    // The generated share card (PNG) first - Product rich results want a bitmap, and the seller icons / banners are often SVG.
+    image: [`${url}/opengraph-image`, ...l.media.filter((m) => !/\.svg(\?|$)/i.test(m)).map((m) => absoluteUrl(m, site))],
     ...(category ? { category } : {}),
     brand: { "@type": "Brand", name: l.sellerName || "Algotraders24 AI" },
   };
