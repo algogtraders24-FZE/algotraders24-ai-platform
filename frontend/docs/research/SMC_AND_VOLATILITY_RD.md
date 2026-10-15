@@ -88,3 +88,39 @@ Free, public data gave no reliable direction signal (SMC structure, COT position
 forecast (volatility). The product's defensible value is therefore context, risk, volatility and honest labelling - not
 direction. Further research should target things that are forecastable (volatility models, event-window volatility around
 scheduled releases) rather than more direction hunting.
+
+## 8. Follow-up (2026-10-15): the band is too narrow around scheduled US releases - fitted and shipped
+Script `scripts/research/event-vol.ts`. The live scoreboard's first day showed 6 of 7 forecasts issued 30 minutes before the US CPI
+falling outside their 12h band. Question: is that a one-off, and does a fixed widening factor fix it out-of-sample?
+
+Events (105-107 usable): US CPI 2023 to 2025-09 (BLS dates), Non-Farm Payrolls (first Friday, known exceptions, the cancelled
+October 2025 release excluded), FOMC decision days 2023 to 2026-09 (Federal Reserve calendar). Dates were checked against the price
+data rather than trusted: the release-hour bar ranged a median of 3.5-4.9 x ATR (Gold) and 2.4-3.5 x ATR (Bitcoin), 87-100% of events
+above 1.5 x ATR, and no date showed an absent reaction. 2026 CPI dates were not available and are left out. Forecasts are issued at the
+4-hour slots exactly as the live job does (entry at the next bar open, band = the shipped ATR formula).
+
+| 80% band coverage | Gold 12h | Gold 24h | Bitcoin 12h | Bitcoin 24h |
+|---|---|---|---|---|
+| windows with NO release | 82% (OOS 82%) | 82% (OOS 82%) | 81% (OOS 81%) | 80% (OOS 81%) |
+| windows containing a release, all | **52-53%** (IS 43%, OOS 65-68%) | 69-71% (IS 62%, OOS 79%) | 72-76% (IS 69%, OOS 77-81%) | 83-84% |
+| windows just AFTER a release | 81% | 77% | 87% | 90% |
+
+* The plain band is calibrated in ordinary windows (as before) and clearly too narrow when CPI / payrolls / a Fed decision falls inside the
+  window - badly on Gold 12h, mildly on Bitcoin. By kind (Gold 12h): CPI 60%, payrolls 50%, Fed decision 49%.
+* After a release the band is fine (the ATR has already jumped), so no change there.
+* The size of the effect differs between periods (Gold 12h: 43% in 2023-24, 68% in 2025-26 - releases moved Gold less recently), so a factor
+  fitted on 2023-24 over-corrects 2025-26 (it reached 91-94% there). The factors shipped are therefore chosen on the whole sample so that
+  pooled coverage sits near 80-85% in both halves rather than at the in-sample optimum:
+
+| window contains a release | widening factor | Gold coverage ALL / IS / OOS | Bitcoin coverage ALL / IS / OOS |
+|---|---|---|---|
+| 12h | gold-like x2.0, crypto x1.3 | 80% / 73% / 91% | 78-86% (x1.25-1.5) |
+| 24h | gold-like x1.4, crypto x1.0 | about 82% / 77% / 90% | 83% unchanged |
+
+Limits: only Gold and Bitcoin were tested. Silver and the forex majors use the gold-like factors and ETH the crypto factors WITHOUT their own test;
+the live scoreboard now reports release windows separately, which is how that assumption gets checked. Only US CPI, payrolls and Fed decisions are
+recognised by title; other high-impact releases (ECB, BoE, ISM, GDP, Powell speeches) were not studied and do not widen the band. About 105 events means
+the interval around each coverage figure is wide (roughly +/-8 points); treat the factors as a first calibration, not a constant of nature.
+
+Shipped: `EVENT_WIDEN` in `services/smc/expected-range.ts`; the evidence line, Brief 2.0 and the scoreboard forecasts widen the band when such a release is
+inside the window and say so ("Widened (12h x2, 24h x1.4) because US CPI (12:30 UTC) falls inside the window"). Forecasts store `event12` / `event24`.

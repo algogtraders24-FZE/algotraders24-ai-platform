@@ -42,7 +42,7 @@ async function enrichMacro(symbol: string): Promise<DeliveryExtras> {
   if (smc.status === "fulfilled" && smc.value) {
     const line = smcBriefLine(summariseSmc(smc.value));
     if (line) extras.smcLine = line;
-    const range = rangeBriefLine(smc.value);
+    const range = rangeBriefLine(smc.value, { symbol, nowMs: now.getTime(), events: calendar.status === "fulfilled" ? calendar.value.events : null });
     if (range) extras.rangeLine = range;
     const levels = keyLevelsLine(smc.value);
     if (levels) extras.levelsLine = levels;

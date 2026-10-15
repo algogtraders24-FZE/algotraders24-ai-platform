@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getSmcAnalysis } from "@/services/smc/smc-service";
 import { SYMBOL_LABEL } from "@/services/market-alerts/alerts";
 import { runCalibrationWith, type CalibrationDeps, type CalibrationRunResult } from "./runner";
-import { pooled, summarise, type CalibrationRow } from "./forecast";
+import { pooled, pooledByWindow, summarise, type CalibrationRow } from "./forecast";
 
 export const CALIBRATION_SYMBOLS: readonly string[] = Object.keys(SYMBOL_LABEL);
 const MAX_UNSETTLED = 40;
@@ -20,6 +20,14 @@ function openMs(dt: string): number {
 export function productionDeps(): CalibrationDeps {
   return {
     symbols: CALIBRATION_SYMBOLS,
+    getEvents: async () => {
+      try {
+        const { getEconomicCalendar } = await import("@/services/calendar/calendar.service");
+        return (await getEconomicCalendar({ week: "this", currencies: ["USD"], impacts: ["high"] })).events;
+      } catch {
+        return null;
+      }
+    },
     getAnalysis: async (symbol, fresh) => {
       // The SMC service caches a failure for 60 s; passing getCandles bypasses that cache for the retry.
       const a = await getSmcAnalysis(
@@ -37,7 +45,7 @@ export function productionDeps(): CalibrationDeps {
     },
     insertForecast: async (f) => {
       try {
-        await prisma.rangeForecast.create({ data: { symbol: f.symbol, issuedAt: f.issuedAt, price: f.price, atr: f.atr, band12: f.band12, band24: f.band24 } });
+        await prisma.rangeForecast.create({ data: { symbol: f.symbol, issuedAt: f.issuedAt, price: f.price, atr: f.atr, band12: f.band12, band24: f.band24, event12: f.event12, event24: f.event24 } });
         return true;
       } catch (e) {
         if ((e as { code?: string }).code === "P2002") return false; // this slot already has its forecast
@@ -78,18 +86,20 @@ export interface Scoreboard {
   issued: number;
   bySymbol: CalibrationRow[];
   all: CalibrationRow[];
+  /** All markets pooled, split by whether a scheduled US release (CPI, payrolls, Fed decision) was inside the window. */
+  byWindow: { normal: CalibrationRow[]; event: CalibrationRow[] };
 }
 
 /** Read side for the public page. Never throws: a missing table gives an empty, honest scoreboard. */
 export async function readScoreboard(): Promise<Scoreboard> {
   try {
     const [rows, first, issued] = await Promise.all([
-      prisma.rangeForecast.findMany({ where: { OR: [{ settled12: true }, { settled24: true }] }, select: { symbol: true, inside12: true, inside24: true } }),
+      prisma.rangeForecast.findMany({ where: { OR: [{ settled12: true }, { settled24: true }] }, select: { symbol: true, inside12: true, inside24: true, event12: true, event24: true } }),
       prisma.rangeForecast.findFirst({ orderBy: { issuedAt: "asc" }, select: { issuedAt: true } }),
       prisma.rangeForecast.count(),
     ]);
-    return { available: true, since: first ? first.issuedAt.toISOString() : null, issued, bySymbol: summarise(rows, CALIBRATION_SYMBOLS), all: pooled(rows) };
+    return { available: true, since: first ? first.issuedAt.toISOString() : null, issued, bySymbol: summarise(rows, CALIBRATION_SYMBOLS), all: pooled(rows), byWindow: pooledByWindow(rows) };
   } catch {
-    return { available: false, since: null, issued: 0, bySymbol: summarise([], CALIBRATION_SYMBOLS), all: pooled([]) };
+    return { available: false, since: null, issued: 0, bySymbol: summarise([], CALIBRATION_SYMBOLS), all: pooled([]), byWindow: pooledByWindow([]) };
   }
 }

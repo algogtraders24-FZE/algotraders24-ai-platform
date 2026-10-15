@@ -2,8 +2,9 @@
 // (idempotent), settled only after it is due, voided (never counted) when the outcome candle is missing, and summarised
 // with an honest interval and a "collecting" status for small samples. Offline: fake store / data.
 import assert from "node:assert/strict";
-import { buildForecast, settle, slotStart, summarise, pooled, wilson, MIN_SAMPLE, type StoredForecast, type NewForecast, type Settlement } from "../services/calibration/forecast";
+import { buildForecast, settle, slotStart, summarise, pooled, pooledByWindow, wilson, MIN_SAMPLE, type StoredForecast, type NewForecast, type Settlement } from "../services/calibration/forecast";
 import { runCalibrationWith, type CalibrationDeps } from "../services/calibration/runner";
+import { rangesFor, rangeBriefLine, validatedEventsInWindow, EVENT_WIDEN, rangeClassFor } from "../services/smc/expected-range";
 
 let passed = 0;
 let failed = 0;
@@ -39,6 +40,65 @@ async function main() {
   });
 
   const stored = (over: Partial<StoredForecast> = {}): StoredForecast => ({ id: "f1", symbol: "XAUUSD", issuedAt: at(T0), price: 4150, band12: 20, band24: 30, settled12: false, settled24: false, ...over });
+
+  const cpi = (hoursAhead: number, title = "CPI m/m", currency = "USD") => ({ title, currency, eventTime: new Date(T0 + 7 * 60_000 + hoursAhead * H).toISOString(), impact: "high" });
+  const NOWX = T0 + 7 * 60_000;
+
+  await test("event widening: only USD CPI / payrolls / Fed decisions inside the window count; other releases, other currencies, holidays and past events are ignored", () => {
+    const ev = [cpi(3), cpi(5, "Non-Farm Employment Change"), cpi(8, "Federal Funds Rate"), cpi(2, "Retail Sales m/m"), cpi(2, "CPI y/y", "EUR"), cpi(-1), { ...cpi(4), isHoliday: true }, cpi(30)];
+    const got = validatedEventsInWindow(ev, NOWX, 12).map((e) => e.label);
+    assert.deepEqual(got, ["US CPI", "US payrolls", "Fed decision"]);
+    assert.deepEqual(validatedEventsInWindow(ev, NOWX, 24).length, 3); // the one at +30h is outside 24h
+    assert.deepEqual(validatedEventsInWindow(null, NOWX, 12), []);
+  });
+
+  await test("event widening: factors per class and horizon exactly as fitted; a release only widens the horizons whose window contains it", () => {
+    assert.equal(rangeClassFor("XAUUSD"), "metals-fx");
+    assert.equal(rangeClassFor("EURUSD"), "metals-fx");
+    assert.equal(rangeClassFor("BTCUSD"), "crypto");
+    assert.equal(rangeClassFor("ETHUSD"), "crypto");
+    const a = { atr: 6, price: 4150 };
+    const plain = rangesFor(a, { symbol: "XAUUSD", nowMs: NOWX, events: [] })!;
+    const inWin = rangesFor(a, { symbol: "XAUUSD", nowMs: NOWX, events: [cpi(3)] })!;
+    assert.equal(inWin.r12.factor, EVENT_WIDEN["metals-fx"][12]);
+    assert.equal(inWin.r24.factor, EVENT_WIDEN["metals-fx"][24]);
+    assert.ok(Math.abs(inWin.r12.dist - plain.r12.dist * 2.0) < 1e-9 && Math.abs(inWin.r24.dist - plain.r24.dist * 1.4) < 1e-9);
+    const late = rangesFor(a, { symbol: "XAUUSD", nowMs: NOWX, events: [cpi(18)] })!; // only inside the 24h window
+    assert.equal(late.r12.factor, 1);
+    assert.equal(late.r24.factor, 1.4);
+    const btc = rangesFor(a, { symbol: "BTCUSD", nowMs: NOWX, events: [cpi(3)] })!;
+    assert.deepEqual([btc.r12.factor, btc.r24.factor], [1.3, 1]);
+    assert.equal(rangesFor({ atr: 0, price: 1 }), null);
+  });
+
+  await test("event widening: the brief says so and by how much; with no release the line is the plain one", () => {
+    const plain = rangeBriefLine({ atr: 6, price: 4150 }, { symbol: "XAUUSD", nowMs: NOWX, events: [] })!;
+    assert.ok(!/Widened/.test(plain));
+    const w = rangeBriefLine({ atr: 6, price: 4150 }, { symbol: "XAUUSD", nowMs: NOWX, events: [cpi(3)] })!;
+    assert.match(w, /12h \+\/-37\.41 \(0\.90%\), 24h \+\/-39\.09 \(0\.94%\)/);
+    assert.match(w, /Widened \(12h x2, 24h x1\.4\) because US CPI \(\d\d:\d\d UTC\) falls inside the window/);
+    assert.equal(rangeBriefLine({ atr: 6, price: 4150 }), plain); // no context: plain
+  });
+
+  await test("buildForecast: stores the widened band and flags exactly the horizons that contain a release", () => {
+    const f = buildForecast("XAUUSD", analysis(), at(NOWX), [cpi(18)])!;
+    assert.deepEqual([f.event12, f.event24], [false, true]);
+    assert.ok(Math.abs(f.band24 - 6 * Math.sqrt(24) * 0.95 * 1.4) < 1e-9);
+    assert.ok(Math.abs(f.band12 - 6 * Math.sqrt(12) * 0.9) < 1e-9);
+    const g = buildForecast("XAUUSD", analysis(), at(NOWX), null)!;
+    assert.deepEqual([g.event12, g.event24], [false, false]);
+  });
+
+  await test("pooledByWindow: each horizon splits on its own flag; voided rows excluded", () => {
+    const r = (e12: boolean, e24: boolean, i12: boolean | null, i24: boolean | null) => ({ symbol: "XAUUSD", event12: e12, event24: e24, inside12: i12, inside24: i24 });
+    const rows = [r(true, true, true, false), r(true, true, false, true), r(false, true, true, null), r(false, false, true, true), r(false, false, null, false)];
+    const s = pooledByWindow(rows);
+    const get = (arr: ReturnType<typeof pooledByWindow>["normal"], h: number) => arr.find((x) => x.horizon === h)!;
+    assert.deepEqual([get(s.event, 12).n, get(s.event, 12).inside], [2, 1]);
+    assert.deepEqual([get(s.normal, 12).n, get(s.normal, 12).inside], [2, 2]); // the voided row is excluded
+    assert.deepEqual([get(s.event, 24).n, get(s.event, 24).inside], [2, 1]); // the null (voided) 24h of the third row is excluded
+    assert.deepEqual([get(s.normal, 24).n, get(s.normal, 24).inside], [2, 1]);
+  });
 
   await test("settle: not due yet -> nothing; due -> inside/outside by |close - price| <= band, with the price recorded", () => {
     const close = (v: number | null) => () => v;

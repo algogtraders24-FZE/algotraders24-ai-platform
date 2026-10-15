@@ -3,11 +3,14 @@
 // loop is testable offline; production wiring is production.ts. Never throws to the cron: a failed symbol is skipped.
 
 import { buildForecast, settle, type NewForecast, type Settlement, type StoredForecast } from "./forecast";
+import type { RangeEvent } from "@/services/smc/expected-range";
 
 export interface CalibrationDeps {
   symbols: readonly string[];
   /** Latest analysis for a symbol, or null when there is no data. `fresh` bypasses any short-lived "no data" cache (used for the one retry after a transient failure). */
   getAnalysis: (symbol: string, fresh?: boolean) => Promise<{ price: number; atr: number; lastClosedTime: string } | null>;
+  /** USD high-impact calendar events (the whole feed week); null when unavailable (the plain band is then used). Called once per run. */
+  getEvents?: () => Promise<readonly RangeEvent[] | null>;
   /** Pause before the single retry (ms); default 2500, tests pass 0. */
   retryDelayMs?: number;
   /** Inserts when (symbol, issuedAt) is new; returns false when it already existed. */
@@ -29,6 +32,7 @@ export interface CalibrationRunResult {
 
 export async function runCalibrationWith(deps: CalibrationDeps, now: Date = new Date()): Promise<CalibrationRunResult> {
   const res: CalibrationRunResult = { issued: 0, duplicates: 0, noData: 0, settled: 0, voided: 0 };
+  const events = deps.getEvents ? await deps.getEvents().catch(() => null) : null;
   await Promise.all(
     deps.symbols.map(async (symbol) => {
       try {
@@ -39,7 +43,7 @@ export async function runCalibrationWith(deps: CalibrationDeps, now: Date = new 
           await new Promise((r) => setTimeout(r, deps.retryDelayMs ?? 2500));
           a = await deps.getAnalysis(symbol, true).catch(() => null);
         }
-        const f = a ? buildForecast(symbol, a, now) : null;
+        const f = a ? buildForecast(symbol, a, now, events) : null;
         if (!f) res.noData++;
         else if (await deps.insertForecast(f)) res.issued++;
         else res.duplicates++;

@@ -242,6 +242,10 @@ async function main(): Promise<void> {
     const last = claims[claims.length - 1];
     assert.match(last, /^SMC structure lean: (bullish-leaning|none)/);
     assert.match(last, /descriptive only, not a trade signal$/);
+    // with a validated release inside the window the evidence line widens the band and says why
+    const rel = { title: "CPI m/m", currency: "USD", eventTime: new Date(Date.parse(NOW.toISOString()) + 3 * 3600_000).toISOString(), impact: "high" };
+    const widenedClaim = smcClaims(analysisE, { symbol: "XAUUSD", nowMs: NOW.getTime(), events: [rel] }).find((c) => c.startsWith("Typical move size"));
+    assert.ok(widenedClaim && /Widened \(12h x2, 24h x1\.4\) because US CPI falls inside the window/.test(widenedClaim), String(widenedClaim));
     const range = claims.find((c) => c.startsWith("Typical move size"));
     assert.ok(range && /12h \+\/-[\d.]+ \([\d.]+%\) and 24h \+\/-[\d.]+ \([\d.]+%\)/.test(range) && /not a direction or target/.test(range), String(range));
     // 12h band = ATR * sqrt(12) * 0.90
