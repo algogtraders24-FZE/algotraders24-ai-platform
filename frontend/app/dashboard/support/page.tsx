@@ -63,7 +63,7 @@ export default function SupportAssistantPage() {
     <div className="max-w-3xl space-y-6">
       <PageHeader
         eyebrow="Account"
-        title="Support Assistant"
+        title="AT24 Copilot"
         description="Answers from AT24's own support knowledge base and the read-only status of your own account. It cannot change your account, billing, credits or licenses - when it can't resolve a question it hands off to a human. Separate from the main AI Assistant."
       />
 
@@ -140,7 +140,7 @@ export default function SupportAssistantPage() {
               placeholder="e.g. How do I upgrade my plan, and what is my subscription status?"
             />
             <Button onClick={() => ask(question)} loading={busy} disabled={!question.trim()}>
-              Ask Support
+              Ask Copilot
             </Button>
             {handoff?.status === "RESOLVED" && (
               <Button variant="secondary" onClick={reopenHandoff} disabled={handoffBusy} className="ml-2">

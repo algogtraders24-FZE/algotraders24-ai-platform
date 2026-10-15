@@ -111,7 +111,7 @@ export default async function ProfilePage() {
           <li><Link href="/dashboard/licenses" className="text-gold hover:underline">My licenses</Link></li>
           <li><Link href="/dashboard/purchases" className="text-gold hover:underline">My purchases</Link></li>
           <li><Link href="/dashboard/settings" className="text-gold hover:underline">Settings</Link></li>
-          <li><Link href="/dashboard/support" className="text-gold hover:underline">Support</Link></li>
+          <li><Link href="/dashboard/support" className="text-gold hover:underline">AT24 Copilot</Link></li>
         </ul>
       </Card>
     </div>

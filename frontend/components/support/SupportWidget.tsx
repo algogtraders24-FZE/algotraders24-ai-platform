@@ -421,10 +421,10 @@ export default function SupportWidget() {
           fixed chrome. */}
       <Button
         onClick={() => setOpen((v) => !v)}
-        aria-label={open ? "Close support chat" : "Open support chat"}
+        aria-label={open ? "Close AT24 Copilot" : "Open AT24 Copilot"}
         className="fixed bottom-24 right-6 z-[60] !rounded-full shadow-floating"
       >
-        {open ? "Close" : "Support"}
+        {open ? "Close" : "Copilot"}
       </Button>
 
       {open && (
@@ -432,12 +432,12 @@ export default function SupportWidget() {
           ref={panelRef}
           role="dialog"
           aria-modal="true"
-          aria-label="Support chat"
+          aria-label="AT24 Copilot"
           className="fixed inset-0 z-[60] flex flex-col bg-ink-2 sm:inset-auto sm:bottom-40 sm:right-6 sm:h-[32rem] sm:w-96 sm:rounded-panel sm:border sm:border-border sm:shadow-overlay"
         >
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <div>
-              <h2 className="text-sm font-semibold text-text">Support</h2>
+              <h2 className="text-sm font-semibold text-text">AT24 Copilot</h2>
               <p className="text-[11px] text-text-3">
                 {mode === "authenticated"
                   ? "Answers from AT24's support knowledge base and your account status."

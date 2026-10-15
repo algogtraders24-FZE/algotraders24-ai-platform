@@ -139,13 +139,13 @@ const DOCS: SeedDoc[] = [
       "major supported symbols work; the workspace lists which instruments are fully covered.",
   },
   {
-    title: "What the Support Assistant can and cannot do",
+    title: "What AT24 Copilot can and cannot do",
     knowledgeType: "policy",
     visibility: "customer",
     category: "policies",
-    canonicalQuestion: "Can the Support Assistant change my billing or cancel my subscription?",
+    canonicalQuestion: "Can AT24 Copilot change my billing or cancel my subscription?",
     body:
-      "The Support Assistant is read-only. It can look up published support articles and the status of your " +
+      "AT24 Copilot is read-only. It can look up published support articles and the status of your " +
       "own plan, subscription, purchases and licenses, and it cites everything it tells you. It cannot cancel " +
       "or change a subscription, issue a refund, move a license activation, reset a password, or change any " +
       "account setting. When you ask for one of those, or when it has no answer, it hands the request to human " +

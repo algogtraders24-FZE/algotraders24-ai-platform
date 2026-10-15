@@ -146,8 +146,8 @@ export function useSupportRun() {
         },
       );
       if (nextConversationId) setConversationId(nextConversationId);
-      const first = await api<{ run: Observability }>(`/api/private/agents/framework/runs/${runId}`);
-      setObs(first.run);
+      // No separate GET of the new run here: every advance returns the run state, and the extra
+      // read cost a full round trip (~2 s measured on production) before any work started.
       for (let i = 0; i < MAX_ADVANCES; i++) {
         const data = await api<{ run: Observability; terminal: boolean }>(
           `/api/private/agents/framework/runs/${runId}/advance`,
