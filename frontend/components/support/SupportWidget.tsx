@@ -31,6 +31,8 @@ import {
   type SupportHandoff,
 } from "@/hooks/useSupportRun";
 import type { GuestAnswer, GuestCitation } from "@/services/support/guest-knowledge-query";
+import AnswerFeedback from "@/components/support/AnswerFeedback";
+import QuickReplies from "@/components/support/QuickReplies";
 
 type Mode = "unknown" | "guest" | "authenticated";
 type GuestTurn = { question: string; answer: GuestAnswer };
@@ -284,6 +286,9 @@ function AuthTurnView({
               ))}
             </ul>
           )}
+          {out.coverage !== "no-coverage" && obs.run?.id && (
+            <AnswerFeedback key={obs.run.id} runId={obs.run.id} initial={obs.run.metadata?.feedback?.value} />
+          )}
           {out.escalate && (
             <EscalationNotice reason={out.escalationReason} onRequestHuman={live ? onRequestHuman : undefined} requestBusy={requestHumanBusy} />
           )}
@@ -398,8 +403,8 @@ export default function SupportWidget() {
     }
   }, []);
 
-  const send = useCallback(async () => {
-    const text = input.trim();
+  const send = useCallback(async (override?: string) => {
+    const text = (override ?? input).trim();
     if (!text) return;
     setInput("");
     if (mode === "authenticated") {
@@ -481,9 +486,12 @@ export default function SupportWidget() {
 
           <div aria-live="polite" className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
             {!hasAnyTurn && (
-              <p className="text-xs text-text-3">
-                Ask a question about billing, licenses, your subscription, or how the platform works.
-              </p>
+              <>
+                <p className="text-xs text-text-3">
+                  Ask a question about billing, licenses, your subscription, or how the platform works.
+                </p>
+                <QuickReplies onPick={(q) => void send(q)} disabled={busyNow} />
+              </>
             )}
 
             {/* MERGE-BLOCKER FIX 1 (P1 review, contract SS6/SS12): guestTurns
@@ -539,7 +547,7 @@ export default function SupportWidget() {
               disabled={busyNow}
               aria-label="Your question"
             />
-            <Button onClick={send} disabled={busyNow || !input.trim()} loading={busyNow} size="sm">
+            <Button onClick={() => void send()} disabled={busyNow || !input.trim()} loading={busyNow} size="sm">
               Send
             </Button>
           </div>
