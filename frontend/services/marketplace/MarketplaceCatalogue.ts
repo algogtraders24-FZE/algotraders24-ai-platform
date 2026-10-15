@@ -355,6 +355,19 @@ export class MarketplaceCatalogue {
     return rows.map((r) => r.slug);
   }
 
+  /** Public listings with their last-change time, for the sitemap. */
+  static async getAllForSitemap(): Promise<Array<{ slug: string; updatedAt: Date }>> {
+    return withTableFallback(
+      () =>
+        prisma.marketplaceListing.findMany({
+          where: { deletedAt: null, publicationState: { in: PUBLICLY_VISIBLE_STATES as string[] } },
+          select: { slug: true, updatedAt: true },
+          orderBy: { updatedAt: "desc" },
+        }),
+      [] as Array<{ slug: string; updatedAt: Date }>,
+    );
+  }
+
   static async getFilterFacets(): Promise<{ platforms: string[]; assets: string[]; strategies: string[] }> {
     const where = { deletedAt: null, publicationState: { in: PUBLICLY_VISIBLE_STATES as string[] } };
     const [platforms, assets, strategies] = await withTableFallback(

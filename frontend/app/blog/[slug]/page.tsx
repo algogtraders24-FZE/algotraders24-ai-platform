@@ -12,6 +12,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
 import Disclaimer from "@/components/ui/Disclaimer";
 import { blogReaderService } from "@/services/publishing/blog-reader.service";
+import { breadcrumbJsonLd, jsonLdString } from "@/lib/seo/seo";
 
 export const revalidate = 300;
 
@@ -89,6 +90,10 @@ export default async function BlogArticlePage({
       <Navbar />
       <article className="mx-auto max-w-3xl px-6 pb-16 pt-32 md:pt-40">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd }} />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd([{ name: "Home", path: "/" }, { name: "Blog", path: "/blog" }, { name: post.title, path: `/blog/${post.slug}` }])) }}
+        />
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
           {prettyCategory(post.category)}
         </p>

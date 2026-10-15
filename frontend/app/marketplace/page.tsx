@@ -17,11 +17,15 @@ export const metadata = {
   title: "Marketplace | AT24 — Independently Verified Trading Systems",
   description:
     "Browse trading systems with independently verified evidence, validation, and risk analysis. AT24 computes and discloses evidence-based Trust State for every listing - never a seller-authored claim.",
+  alternates: { canonical: "/marketplace" },
   openGraph: {
     title: "AT24 Marketplace",
     description: "Independently verified trading systems, with AT24-computed evidence and Trust State disclosed for every listing.",
     type: "website",
+    url: "/marketplace",
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "AT24 Marketplace - independently verified trading systems" }],
   },
+  twitter: { card: "summary_large_image", title: "AT24 Marketplace", images: ["/og-image.png"] },
 };
 
 export default async function MarketplacePage() {

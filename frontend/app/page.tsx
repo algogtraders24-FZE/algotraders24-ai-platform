@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Navbar from "@/components/layout/Navbar";
 import Hero from "@/sections/Hero";
 import TrustStrip from "@/sections/TrustStrip";
@@ -7,6 +8,8 @@ import PricingTeaser from "@/sections/PricingTeaser";
 import FAQ from "@/sections/FAQ";
 import CTA from "@/sections/CTA";
 import Footer from "@/sections/Footer";
+
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 // Sprint H1.4 - MarketRibbon, Markets, Technology, Stats, and Testimonials
 // are retired entirely (Phase 1: fabricated ticker data, fake metrics, and
