@@ -7,6 +7,8 @@ import type { PlanId } from "@/types/billing";
 
 export interface PlanLimits {
   description: string;
+  /** Monthly price in USD (display on the marketing pages; the amount actually charged comes from the Plan row in the database - keep them equal). */
+  priceMonthly: number;
   priceYearly: number;
   aiCredits: number;
   maxAgents: number;
@@ -31,6 +33,7 @@ export interface PlanLimits {
 export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
   free: {
     description: "Get started with core AI trading tools.",
+    priceMonthly: 0,
     priceYearly: 0,
     aiCredits: 500,
     maxAgents: 1,
@@ -46,7 +49,8 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
   },
   pro: {
     description: "For active traders scaling their AI workflows.",
-    priceYearly: 279,
+    priceMonthly: 20,
+    priceYearly: 192,
     aiCredits: 10000,
     maxAgents: 5,
     maxAutomations: 25,
@@ -61,7 +65,8 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
   },
   elite: {
     description: "Advanced multi-agent trading at full throttle.",
-    priceYearly: 949,
+    priceMonthly: 50,
+    priceYearly: 480,
     aiCredits: 50000,
     maxAgents: 20,
     maxAutomations: 100,
@@ -76,7 +81,8 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
   },
   enterprise: {
     description: "Custom limits, SLAs, and dedicated support.",
-    priceYearly: 4790,
+    priceMonthly: 200,
+    priceYearly: 1920,
     aiCredits: 500000,
     maxAgents: 100,
     maxAutomations: 1000,

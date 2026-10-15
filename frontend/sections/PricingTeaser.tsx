@@ -15,9 +15,9 @@ import Link from "next/link";
 import { PLAN_IDS, PLAN_LABELS, CURRENCY } from "@/config/billing.config";
 import { PLAN_LIMITS } from "@/config/plan-limits";
 
-function priceLabel(priceYearly: number): string {
-  if (priceYearly === 0) return `${CURRENCY.symbol}0`;
-  return `${CURRENCY.symbol}${priceYearly.toLocaleString(CURRENCY.locale)}/yr`;
+function priceLabel(priceMonthly: number): string {
+  if (priceMonthly === 0) return `${CURRENCY.symbol}0`;
+  return `${CURRENCY.symbol}${priceMonthly.toLocaleString(CURRENCY.locale)}/mo`;
 }
 
 export default function PricingTeaser() {
@@ -41,7 +41,7 @@ export default function PricingTeaser() {
                 }`}
               >
                 {PLAN_LABELS[id]}
-                <span className="font-mono text-text-3">{priceLabel(plan.priceYearly)}</span>
+                <span className="font-mono text-text-3">{priceLabel(plan.priceMonthly)}</span>
               </span>
             );
           })}
