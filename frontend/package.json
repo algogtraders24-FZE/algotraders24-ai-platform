@@ -156,7 +156,7 @@
     "validate:support-p1": "tsx --conditions=react-server --env-file=.env.local --env-file=.env scripts/validate-support-p1.ts",
     "validate:support-phase-a": "tsx --conditions=react-server --env-file=.env.local --env-file=.env scripts/validate-support-phase-a.ts",
     "validate:support-phase-b": "tsx --conditions=react-server --env-file=.env.local --env-file=.env scripts/validate-support-phase-b.ts",
-    "validate:support-feedback": "tsx --conditions=react-server --env-file=.env.local --env-file=.env scripts/validate-support-feedback.ts",
+    "validate:support-quickreplies": "tsx --conditions=react-server --env-file=.env.local --env-file=.env scripts/validate-support-quickreplies.ts",
     "validate:support-compose": "tsx --conditions=react-server --env-file=.env.local --env-file=.env scripts/validate-support-compose.ts",
     "validate:support-followup": "tsx --conditions=react-server --env-file=.env.local --env-file=.env scripts/validate-support-followup.ts",
     "validate:support-stream": "tsx --conditions=react-server --env-file=.env.local --env-file=.env scripts/validate-support-stream.ts",
