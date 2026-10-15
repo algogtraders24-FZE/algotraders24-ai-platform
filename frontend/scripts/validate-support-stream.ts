@@ -71,7 +71,8 @@ async function main(): Promise<void> {
   });
 
   await test("route: streams NDJSON events (accepted, stage, done, error) and bounds the question and the loop", () => {
-    for (const ev of ['"accepted"', '"stage"', '"done"', '"error"']) assert.ok(route.includes(ev), `missing ${ev} event`);
+    for (const ev of ['"open"', '"accepted"', '"stage"', '"done"', '"error"']) assert.ok(route.includes(ev), `missing ${ev} event`);
+    assert.ok(route.indexOf('type: "open"') < route.indexOf("startAgentRun({"), "the stream must open before startAgentRun runs");
     assert.match(route, /application\/x-ndjson/);
     assert.match(route, /MAX_QUESTION_CHARS/);
     assert.match(route, /MAX_ADVANCES/);

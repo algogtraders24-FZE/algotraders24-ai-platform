@@ -51,6 +51,9 @@ export const POST = withContext(async (req, ctx) => {
     async start(controller) {
       const send = (event: Record<string, unknown>) => controller.enqueue(ndjson(event));
       try {
+        // Flush something immediately so the response (and the first progress line) does not wait
+        // for startAgentRun's database writes.
+        send({ type: "open" });
         const started = await startAgentRun({
           userId,
           agentType: "SUPPORT",
@@ -58,6 +61,8 @@ export const POST = withContext(async (req, ctx) => {
           conversationId,
         });
         send({ type: "accepted", runId: started.runId, conversationId: started.conversationId });
+        // Every SUPPORT run begins with a knowledge search: say so BEFORE it runs, not after.
+        send({ type: "stage", label: "Searching the knowledge base…", index: -1, kind: "pre" });
 
         let announced = 0;
         for (let i = 0; i < MAX_ADVANCES; i++) {
