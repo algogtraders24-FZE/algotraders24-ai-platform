@@ -6,8 +6,10 @@ import { buildForecast, settle, type NewForecast, type Settlement, type StoredFo
 
 export interface CalibrationDeps {
   symbols: readonly string[];
-  /** Latest analysis for a symbol, or null when there is no data. */
-  getAnalysis: (symbol: string) => Promise<{ price: number; atr: number; lastClosedTime: string } | null>;
+  /** Latest analysis for a symbol, or null when there is no data. `fresh` bypasses any short-lived "no data" cache (used for the one retry after a transient failure). */
+  getAnalysis: (symbol: string, fresh?: boolean) => Promise<{ price: number; atr: number; lastClosedTime: string } | null>;
+  /** Pause before the single retry (ms); default 2500, tests pass 0. */
+  retryDelayMs?: number;
   /** Inserts when (symbol, issuedAt) is new; returns false when it already existed. */
   insertForecast: (f: NewForecast) => Promise<boolean>;
   /** Forecasts of the symbol with at least one unsettled horizon (oldest first, capped). */
@@ -31,7 +33,12 @@ export async function runCalibrationWith(deps: CalibrationDeps, now: Date = new 
     deps.symbols.map(async (symbol) => {
       try {
         // 1) issue
-        const a = await deps.getAnalysis(symbol).catch(() => null);
+        let a = await deps.getAnalysis(symbol).catch(() => null);
+        if (!a) {
+          // A transient provider hiccup must not leave a hole in the scoreboard: one fresh retry.
+          await new Promise((r) => setTimeout(r, deps.retryDelayMs ?? 2500));
+          a = await deps.getAnalysis(symbol, true).catch(() => null);
+        }
         const f = a ? buildForecast(symbol, a, now) : null;
         if (!f) res.noData++;
         else if (await deps.insertForecast(f)) res.issued++;

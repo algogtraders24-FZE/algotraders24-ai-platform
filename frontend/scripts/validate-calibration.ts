@@ -124,9 +124,23 @@ async function main() {
 
   await test("runner: no data / closed market issues nothing and counts noData", async () => {
     const h = harness({ analysis: null });
-    const r = await runCalibrationWith(h.deps, at(T0 + 7 * 60_000));
+    const r = await runCalibrationWith({ ...h.deps, retryDelayMs: 0 }, at(T0 + 7 * 60_000));
     assert.equal(r.issued, 0);
     assert.equal(r.noData, 1);
+  });
+
+  await test("runner: a transient failure is retried once with fresh data; a persistent one is not retried again", async () => {
+    const calls: Array<boolean | undefined> = [];
+    const h = harness();
+    const flaky: CalibrationDeps = { ...h.deps, retryDelayMs: 0, getAnalysis: async (_s, fresh) => (calls.push(fresh), fresh ? analysis() : null) };
+    const r = await runCalibrationWith(flaky, at(T0 + 7 * 60_000));
+    assert.deepEqual(calls, [undefined, true]);
+    assert.equal(r.issued, 1);
+    const dead: CalibrationDeps = { ...h.deps, retryDelayMs: 0, getAnalysis: async (_s, fresh) => (calls.push(fresh), null) };
+    calls.length = 0;
+    const r2 = await runCalibrationWith(dead, at(T0 + 4 * H + 7 * 60_000));
+    assert.deepEqual(calls, [undefined, true]);
+    assert.equal(r2.noData, 1);
   });
 
   await test("runner: settles from the hourly candle that ENDS at the horizon (opens one hour earlier); voids when it never appears", async () => {

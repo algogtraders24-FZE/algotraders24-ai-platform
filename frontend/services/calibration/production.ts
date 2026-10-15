@@ -20,8 +20,19 @@ function openMs(dt: string): number {
 export function productionDeps(): CalibrationDeps {
   return {
     symbols: CALIBRATION_SYMBOLS,
-    getAnalysis: async (symbol) => {
-      const a = await getSmcAnalysis(symbol);
+    getAnalysis: async (symbol, fresh) => {
+      // The SMC service caches a failure for 60 s; passing getCandles bypasses that cache for the retry.
+      const a = await getSmcAnalysis(
+        symbol,
+        fresh
+          ? {
+              getCandles: async (s, interval, size) => {
+                const { marketData } = await import("@/services/market-data/shared-instance");
+                return marketData.getTimeSeries({ symbol: s, interval, outputSize: size });
+              },
+            }
+          : {},
+      );
       return a ? { price: a.price, atr: a.atr, lastClosedTime: a.lastClosedTime } : null;
     },
     insertForecast: async (f) => {
