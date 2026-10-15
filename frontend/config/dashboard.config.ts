@@ -287,7 +287,7 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       // Support Agent is strictly separate - CS1.2 D1). Its own route
       // (app/dashboard/support/page.tsx), backed by the same framework
       // runs API with agentType SUPPORT.
-      { label: "Support", href: "/dashboard/support", icon: LifeBuoy },
+      { label: "AT24 Copilot", href: "/dashboard/support", icon: LifeBuoy },
       // In-app how-to guides (Edge Analyzer, AI Tools). Static pages under
       // app/dashboard/help/, linked from the feature pages themselves too.
       { label: "How-to guides", href: "/dashboard/help", icon: BookOpen },
