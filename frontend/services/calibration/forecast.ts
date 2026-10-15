@@ -4,7 +4,7 @@
 // time has passed it is checked against what price actually did. The scoreboard then shows the honest hit rate.
 // Direction is never forecast: a forecast is inside its band when |price later - price then| <= half-width.
 
-import { expectedRange } from "@/services/smc/expected-range";
+import { rangesFor, type RangeEvent } from "@/services/smc/expected-range";
 
 export const HORIZONS = [12, 24] as const;
 export type Horizon = (typeof HORIZONS)[number];
@@ -23,19 +23,22 @@ export interface NewForecast {
   atr: number;
   band12: number;
   band24: number;
+  /** A validated scheduled US release (CPI, payrolls, Fed decision) falls inside this horizon's window, so the band was widened. */
+  event12: boolean;
+  event24: boolean;
 }
 
 /** The 4-hour slot an instant belongs to (00, 04, 08 ... UTC): one forecast per symbol per slot, so a re-run is idempotent. */
 export const slotStart = (now: Date): Date => new Date(Math.floor(now.getTime() / SLOT_MS) * SLOT_MS);
 
-export function buildForecast(symbol: string, a: { price: number; atr: number; lastClosedTime: string }, now: Date): NewForecast | null {
-  const r12 = expectedRange(a.atr, a.price, 12);
-  const r24 = expectedRange(a.atr, a.price, 24);
-  if (!r12 || !r24) return null;
+export function buildForecast(symbol: string, a: { price: number; atr: number; lastClosedTime: string }, now: Date, events?: readonly RangeEvent[] | null): NewForecast | null {
+  const r = rangesFor(a, { symbol, nowMs: now.getTime(), events });
+  if (!r) return null;
+  const { r12, r24 } = r;
   // A stale last candle means the market is closed (weekend, holiday): a forecast then would be "inside" trivially.
   const lastMs = new Date(a.lastClosedTime).getTime();
   if (!Number.isFinite(lastMs) || now.getTime() - lastMs > 2 * HOUR + 5 * 60_000) return null;
-  return { symbol, issuedAt: slotStart(now), price: a.price, atr: a.atr, band12: r12.dist, band24: r24.dist };
+  return { symbol, issuedAt: slotStart(now), price: a.price, atr: a.atr, band12: r12.dist, band24: r24.dist, event12: r12.factor > 1, event24: r24.factor > 1 };
 }
 
 export interface StoredForecast {
@@ -121,4 +124,18 @@ export function summarise(rows: readonly Outcome[], symbols: readonly string[]):
 /** All instruments pooled, per horizon. */
 export function pooled(rows: readonly Outcome[]): CalibrationRow[] {
   return HORIZONS.map((h) => row("ALL", h, valuesFor(rows, h)));
+}
+
+type OutcomeWithEvent = Outcome & { event12: boolean; event24: boolean };
+
+/**
+ * Pooled rows split by whether a validated scheduled release fell inside that horizon's window: the plain band should hold in
+ * ordinary windows, and the widened one in release windows. Each horizon is split on its OWN flag.
+ */
+export function pooledByWindow(rows: readonly OutcomeWithEvent[]): { normal: CalibrationRow[]; event: CalibrationRow[] } {
+  const pick = (h: Horizon, ev: boolean) => rows.filter((r) => (h === 12 ? r.event12 : r.event24) === ev).map((r) => (h === 12 ? r.inside12 : r.inside24)).filter((v): v is boolean => v !== null);
+  return {
+    normal: HORIZONS.map((h) => row("ALL", h, pick(h, false))),
+    event: HORIZONS.map((h) => row("ALL", h, pick(h, true))),
+  };
 }

@@ -3132,6 +3132,9 @@ model RangeForecast {
   inside24  Boolean?
   settled12 Boolean  @default(false)
   settled24 Boolean  @default(false)
+  /// a validated scheduled US release (CPI / payrolls / Fed decision) fell inside this horizon's window, so the band was widened
+  event12   Boolean  @default(false)
+  event24   Boolean  @default(false)
   createdAt DateTime @default(now())
 
   @@unique([symbol, issuedAt])

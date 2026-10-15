@@ -95,6 +95,15 @@ export default async function CalibrationPage() {
             <div className="mt-4">
               <Table rows={board.all} label={() => "All markets"} />
             </div>
+            <h3 className="mt-6 text-sm font-semibold uppercase tracking-wider text-text-3">Ordinary windows vs windows with a scheduled US release</h3>
+            <p className="mt-1 text-xs text-text-3">
+              US CPI, Non-Farm Payrolls and Fed rate decisions move markets far more than usual. When one falls inside the window the band is widened (see below); this
+              shows whether it holds in both kinds of window.
+            </p>
+            <div className="mt-2">
+              <Table rows={board.byWindow.normal} label={() => "Ordinary windows"} />
+              <Table rows={board.byWindow.event} label={() => "Release windows (band widened)"} />
+            </div>
             <h3 className="mt-6 text-sm font-semibold uppercase tracking-wider text-text-3">By market</h3>
             <div className="mt-2">
               <Table rows={board.bySymbol} label={(r) => `${SYMBOL_LABEL[r.symbol] ?? r.symbol}`} />
@@ -107,6 +116,12 @@ export default async function CalibrationPage() {
               Before showing this to anyone we checked the same band on past data it had never seen: 3.7 years of hourly Gold and Bitcoin, fitted on 2023-2024 and tested on
               2025-2026. The 80% band held its stated coverage: Gold 82% (12h) and 81% (24h), Bitcoin 79% and 81%. It is not uniform across conditions - in quiet Gold markets
               the band covered about 67%, in busy ones about 90% - and two markets over one period is not a guarantee. The live table above is the real test.
+            </p>
+            <p className="mt-3 leading-7 text-text-2">
+              One weakness showed up and was fixed: around US CPI, payrolls and Fed decisions the plain band covered only about 53% of 12-hour windows on Gold (it cannot
+              know a release is coming). The band is now widened when such a release falls inside the window - 12h x2.0 and 24h x1.4 for gold-like markets, 12h x1.3 for
+              crypto - fitted on 2023-2024 and checked on 2025-2026. Silver and the forex pairs use the gold factors without having been tested on their own; the table
+              above will show whether that holds.
             </p>
             <p className="mt-3 text-sm text-text-3">
               We also tested whether our market-structure reading predicts direction. It does not do so reliably, so we do not present it as a signal. The full write-up is in our

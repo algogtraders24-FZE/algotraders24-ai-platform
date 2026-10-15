@@ -13,18 +13,29 @@
 import { ATR_RATIO_UNIT, type EvidenceItem } from "@/types/evidence";
 import type { EvidenceExtraSource, EvidenceProviderRequest } from "@/types/evidence-fusion";
 import type { SmcAnalysis, SmcZone } from "@/services/smc/smc-engine";
-import { fmtPrice, fmtDist, RANGE_MULT_80 } from "@/services/smc/expected-range";
+import { fmtPrice, fmtDist, RANGE_MULT_80, rangesFor, rangeText, type EventContext, type RangeEvent } from "@/services/smc/expected-range";
 
 export const SMC_EVIDENCE_SOURCE = "AT24 SMC structure";
 
 export interface SmcEvidenceDeps {
   getAnalysis?: (symbol: string) => Promise<SmcAnalysis | null>;
+  /** USD high-impact calendar events (this week); null when the feed is unavailable. Used to widen the typical-move band around releases. */
+  getEvents?: () => Promise<readonly RangeEvent[] | null>;
   now?: () => Date;
 }
 
 async function defaultGetAnalysis(symbol: string): Promise<SmcAnalysis | null> {
   const { getSmcAnalysis } = await import("@/services/smc/smc-service");
   return getSmcAnalysis(symbol);
+}
+
+async function defaultGetEvents(): Promise<readonly RangeEvent[] | null> {
+  try {
+    const { getEconomicCalendar } = await import("@/services/calendar/calendar.service");
+    return (await getEconomicCalendar({ week: "this", currencies: ["USD"], impacts: ["high"] })).events;
+  } catch {
+    return null; // no calendar: the plain band is used, never a guess
+  }
 }
 
 export { fmtPrice, fmtDist, RANGE_MULT_80 };
@@ -34,7 +45,7 @@ const zoneText = (z: SmcZone, price: number): string => {
   return `${z.dir === 1 ? "bullish" : "bearish"} ${z.kind === "OB" ? "order block" : "fair value gap"} ${fmtPrice(z.bot)}-${fmtPrice(z.top)} (${z.status}), ${side} price`;
 };
 
-export function smcClaims(a: SmcAnalysis): string[] {
+export function smcClaims(a: SmcAnalysis, ctx?: EventContext): string[] {
   const out: string[] = [];
 
   const ev = a.lastEvent;
@@ -59,13 +70,15 @@ export function smcClaims(a: SmcAnalysis): string[] {
     out.push(`Volatility regime: ${a.volatility} (ATR ${a.volatilityRatio.toFixed(2)}x its recent average)`);
   }
 
-  // Typical size of the next move (volatility clusters, so this is forecastable; direction is not).
-  if (a.atr > 0 && a.price > 0) {
-    const band = (h: 12 | 24) => {
-      const d = a.atr * Math.sqrt(h) * RANGE_MULT_80[h];
-      return `${h}h +/-${fmtDist(d, a.price)} (${((d / a.price) * 100).toFixed(2)}%)`;
-    };
-    out.push(`Typical move size (volatility range, not a direction or target): about 80% of past moves stayed within ${band(12)} and ${band(24)} - checked out-of-sample on 3.7 years of Gold and Bitcoin hourly data`);
+  // Typical size of the next move (volatility clusters, so this is forecastable; direction is not). Widened when a validated
+  // scheduled US release (CPI, payrolls, Fed decision) falls inside the window.
+  const rng = rangesFor(a, ctx);
+  if (rng) {
+    const widened = rng.r12.factor > 1 || rng.r24.factor > 1;
+    const note = widened
+      ? `. Widened (${[rng.r12.factor > 1 ? `12h x${rng.r12.factor}` : null, rng.r24.factor > 1 ? `24h x${rng.r24.factor}` : null].filter(Boolean).join(", ")}) because ${rng.events[0].label} falls inside the window - the plain band was too narrow on past release days`
+      : "";
+    out.push(`Typical move size (volatility range, not a direction or target): about 80% of past moves stayed within ${rangeText(rng.r12, a.price)} and ${rangeText(rng.r24, a.price)} - checked out-of-sample on 3.7 years of Gold and Bitcoin hourly data${note}`);
   }
 
   const parts = a.factors.filter((f) => f.points !== 0).map((f) => `${f.label} ${f.points > 0 ? "+" : ""}${f.points}`);
@@ -79,10 +92,12 @@ export class SmcStructureEvidenceSource implements EvidenceExtraSource {
   readonly name = "smc-structure-evidence";
   readonly sourceType = "smc-structure" as const;
   private readonly getAnalysis: (symbol: string) => Promise<SmcAnalysis | null>;
+  private readonly getEvents: () => Promise<readonly RangeEvent[] | null>;
   private readonly now: () => Date;
 
   constructor(deps: SmcEvidenceDeps = {}) {
     this.getAnalysis = deps.getAnalysis ?? defaultGetAnalysis;
+    this.getEvents = deps.getEvents ?? defaultGetEvents;
     this.now = deps.now ?? (() => new Date());
   }
 
@@ -94,7 +109,8 @@ export class SmcStructureEvidenceSource implements EvidenceExtraSource {
     const a = await this.getAnalysis(request.symbol);
     if (!a) return []; // not enough candles: absent, never estimated
     const retrievedAt = this.now().toISOString();
-    return smcClaims(a).map((claim) => ({
+    const events = await this.getEvents().catch(() => null);
+    return smcClaims(a, { symbol: request.symbol, nowMs: this.now().getTime(), events }).map((claim) => ({
       type: "technical" as const,
       symbol: request.symbol,
       claim,
