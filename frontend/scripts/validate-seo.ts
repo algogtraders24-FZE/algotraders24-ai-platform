@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- test inspects loosely typed JSON-LD objects */
 // SEO foundation: the meta description is one clean line, the listing structured data claims only what the system can back
 // (no rating, no offer without a price and a real release), the JSON-LD is safe inside a script tag, and the regressions that
 // were found in the audit stay fixed (global canonical, redirect URLs in the sitemap, indexable login pages).
