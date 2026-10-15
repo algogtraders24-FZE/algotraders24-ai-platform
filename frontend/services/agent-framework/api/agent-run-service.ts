@@ -28,6 +28,7 @@ import type { AgentDefinition } from "@/types/agent-framework";
 import { generateSupportAnswerForRun, isEligibleForGeneration } from "@/services/support/generate-answer";
 import { normalizeConversationId } from "@/services/support/conversation-context";
 import { ensureSupportHandoff, shouldAutoCreateHandoff } from "@/services/support/handoff-service";
+import { buildRetrievalQuery, looksLikeFollowUp } from "@/services/support/follow-up-query";
 import { randomUUID } from "node:crypto";
 
 /** The agent types that have a real, callable canonical definition today
@@ -114,6 +115,29 @@ export interface StartAgentRunResult {
   conversationId?: string;
 }
 
+/** SUPPORT only: when this turn continues a conversation and is a short follow-up ("and what
+ *  about the Pro plan?"), add `retrievalQuestion` so the knowledge search anchors on the previous
+ *  question. The user's own question is left exactly as typed. Best-effort: any failure leaves the
+ *  goal unchanged. */
+async function withFollowUpRetrievalQuery(input: StartAgentRunInput): Promise<unknown> {
+  const goal = input.goal ?? {};
+  if (input.agentType !== "SUPPORT") return goal;
+  const conversationId = normalizeConversationId(input.conversationId);
+  const question = typeof goal === "string" ? goal : (goal as { question?: unknown }).question;
+  if (!conversationId || typeof question !== "string" || !looksLikeFollowUp(question)) return goal;
+  try {
+    const prior = await agentRunRepository.listRunsForConversation(input.userId, conversationId, 3);
+    const previousQuestions = prior
+      .map((r) => (r.input as { question?: unknown } | null)?.question)
+      .filter((q): q is string => typeof q === "string" && q.trim().length > 0);
+    const retrievalQuestion = buildRetrievalQuery(question, previousQuestions);
+    if (retrievalQuestion === question.trim()) return goal;
+    return typeof goal === "string" ? { question: goal, retrievalQuestion } : { ...(goal as object), retrievalQuestion };
+  } catch {
+    return goal;
+  }
+}
+
 /** Create a queued run for `agentType` and return its id. No execution
  *  happens here (startRun persists a `queued` row and returns).
  *
@@ -125,9 +149,10 @@ export interface StartAgentRunResult {
 export async function startAgentRun(input: StartAgentRunInput): Promise<StartAgentRunResult> {
   if (!isRunnableAgentType(input.agentType)) throw new UnknownAgentTypeError(input.agentType);
   const definition = DEFINITION_FACTORIES[input.agentType]();
+  const goal = await withFollowUpRetrievalQuery(input);
   const { runId } = await agentRuntime.startRun({
     definition,
-    input: input.goal ?? {},
+    input: goal,
     userId: input.userId,
     trigger: input.trigger ?? "manual",
   });

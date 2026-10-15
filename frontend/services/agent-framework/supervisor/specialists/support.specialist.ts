@@ -34,7 +34,17 @@ const ACCOUNT_TOOL = "support.account_read";
 
 // The question is "about my account" when it mentions account-state nouns.
 const ACCOUNT_MARKERS =
-  /\b(bill(ing|ed)?|invoice|receipt|charge|credit|credits|subscription|subscribe[d]?|plan|renew(al|ed)?|purchase[d]?|order|licen[cs]e[d]?|activation|entitlement|refund)\b/i;
+  /\b(bill(ing|ed)?|invoice|receipt|charg(e|es|ed|ing)|credit|credits|subscription|subscribe[d]?|plan|renew(al|ed)?|purchase[d]?|order|licen[cs]e[d]?|activation|entitlement|refund)\b/i;
+
+// The question is about THEIR OWN account (first-person cue), not just a product noun. "How many
+// credits does the Pro plan have?" must not pull the requester's account in; "what is my plan?",
+// "why was I charged?" and "do I have a license?" must. (AT24 Copilot Phase 3.)
+const OWN_ACCOUNT_CUE = /\b(my|mine|me|i|i'm|i've|i'd|myself|am i|do i|did i|have i|was i|were i)\b/i;
+
+/** True only when the question mentions account state AND is about the asker's own account. */
+export function wantsAccountContext(question: string): boolean {
+  return ACCOUNT_MARKERS.test(question) && OWN_ACCOUNT_CUE.test(question);
+}
 
 // The question is a request for a CHANGE only a human/authorised flow can make.
 // Exported for reuse by the P1 guest path (services/support/guest-knowledge-
@@ -85,7 +95,7 @@ export const supportSpecialist: Specialist = {
   key: "SUPPORT",
 
   planTools(_definition: AgentDefinition, goal: ParsedGoal, boundToolIds: string[]): SpecialistPlan {
-    const wantsAccount = ACCOUNT_MARKERS.test(goal.question);
+    const wantsAccount = wantsAccountContext(goal.question);
     const ordered: string[] = [];
     if (boundToolIds.includes(KB_TOOL)) ordered.push(KB_TOOL);
     // support.account_read is invoked ONLY for an account-scoped question -
@@ -206,7 +216,12 @@ export const supportSpecialist: Specialist = {
 
 function shapeSupportInput(toolId: string, goal: ParsedGoal): unknown {
   if (toolId === KB_TOOL) {
+    // A short follow-up carries a retrievalQuestion (set when the run started, see
+    // services/support/follow-up-query.ts); the user's own question stays untouched.
+    const raw = goal.raw as { retrievalQuestion?: unknown } | null | undefined;
+    const retrieval = typeof raw?.retrievalQuestion === "string" ? raw.retrievalQuestion.trim() : "";
     const query =
+      retrieval ||
       goal.question ||
       (typeof goal.raw === "string" ? goal.raw : "") ||
       "support";
