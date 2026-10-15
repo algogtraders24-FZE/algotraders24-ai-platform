@@ -30,6 +30,10 @@
       "schedule": "*/2 * * * *"
     },
     {
+      "path": "/api/private/seo/indexnow",
+      "schedule": "30 7 * * *"
+    },
+    {
       "path": "/api/private/calibration/cron/run",
       "schedule": "7 */4 * * *"
     },
