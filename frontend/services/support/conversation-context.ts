@@ -72,11 +72,14 @@ export function summarizeTurnForContext(run: { input: unknown; output: unknown }
     escalationReason?: string | null;
     citations?: { topic?: unknown }[];
     generatedAnswer?: unknown;
+    composedAnswer?: unknown;
   };
 
   let answerSummary: string;
   if (out.coverage === "kb-generated" && typeof out.generatedAnswer === "string" && out.generatedAnswer.trim()) {
     answerSummary = out.generatedAnswer.trim();
+  } else if (out.coverage === "kb-answered" && typeof out.composedAnswer === "string" && out.composedAnswer.trim()) {
+    answerSummary = out.composedAnswer.trim();
   } else if (out.coverage === "kb-answered") {
     const topics = Array.from(
       new Set(

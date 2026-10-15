@@ -182,10 +182,16 @@ export default function SupportAssistantPage() {
                   </div>
                 )}
 
+                {out.composedAnswer && (
+                  <div className="whitespace-pre-line rounded-control border border-border bg-ink p-3 text-sm text-text">{out.composedAnswer}</div>
+                )}
+
                 {citedPassages.length > 0 && (
-                  <div>
-                    <h3 className="mb-1 text-xs font-semibold text-text-3">From the support knowledge base</h3>
-                    <ul className="space-y-2 text-sm">
+                  <details open={!out.composedAnswer}>
+                    <summary className="mb-1 cursor-pointer text-xs font-semibold text-text-3">
+                      {out.composedAnswer ? `Sources (${citedPassages.length})` : "From the support knowledge base"}
+                    </summary>
+                    <ul className="mt-1 space-y-2 text-sm">
                       {citedPassages.map((c) => (
                         <li key={c.evidenceId} className="rounded-control border border-border bg-ink p-3 text-text-2">
                           {c.evidence!.claim}
@@ -193,7 +199,7 @@ export default function SupportAssistantPage() {
                         </li>
                       ))}
                     </ul>
-                  </div>
+                  </details>
                 )}
 
                 {accountFacts.length > 0 && (
@@ -221,8 +227,12 @@ export default function SupportAssistantPage() {
                   </div>
                 )}
 
-                {out.disclaimer && (
-                  <p className="border-t border-border pt-3 text-[11px] text-text-3">{out.disclaimer}</p>
+                {(out.composedAnswer || out.generatedAnswer) ? (
+                  <p className="border-t border-border pt-3 text-[11px] text-text-3">
+                    Written by AT24 Copilot from AT24&apos;s support knowledge base; sources are listed so you can check it. It is read-only and cannot change your account, billing, credits or licenses. Not financial advice.
+                  </p>
+                ) : (
+                  out.disclaimer && <p className="border-t border-border pt-3 text-[11px] text-text-3">{out.disclaimer}</p>
                 )}
               </>
             )}

@@ -29,6 +29,7 @@ import { generateSupportAnswerForRun, isEligibleForGeneration } from "@/services
 import { normalizeConversationId } from "@/services/support/conversation-context";
 import { ensureSupportHandoff, shouldAutoCreateHandoff } from "@/services/support/handoff-service";
 import { buildRetrievalQuery, looksLikeFollowUp } from "@/services/support/follow-up-query";
+import { composeSupportAnswerForRun, isEligibleForComposition } from "@/services/support/compose-answer";
 import { randomUUID } from "node:crypto";
 
 /** The agent types that have a real, callable canonical definition today
@@ -235,6 +236,23 @@ export async function advanceAgentRun(userId: string, runId: string): Promise<Ad
       // output/evidence in the SAME response - no extra round trip needed.
       const refreshed = await getRunObservability(runId, observabilityDeps(userId));
       if (refreshed) observability = refreshed;
+    }
+  }
+
+  // AT24 Copilot Phase 3.2: a SUPPORT run the knowledge base already answered (kb-answered, with
+  // citations, not a mutation request) gets a short written answer grounded on exactly those cited
+  // passages. Runs after the Phase A fallback above (which only handles no-coverage) and before the
+  // handoff policy below. Best-effort: on any failure the raw cited passages render exactly as before.
+  if (
+    terminal &&
+    advanced &&
+    metadata.definition?.type === "SUPPORT" &&
+    isEligibleForComposition(observability.run!.output)
+  ) {
+    const composed = await composeSupportAnswerForRun(runId, userId).catch(() => false);
+    if (composed) {
+      const refreshedAfterCompose = await getRunObservability(runId, observabilityDeps(userId));
+      if (refreshedAfterCompose) observability = refreshedAfterCompose;
     }
   }
 

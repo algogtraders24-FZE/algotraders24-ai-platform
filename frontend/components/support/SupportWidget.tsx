@@ -248,15 +248,32 @@ function AuthTurnView({
               </div>
             </div>
           )}
+          {out.composedAnswer && (
+            <div className="whitespace-pre-line rounded-lg border border-border bg-ink p-3 text-sm text-text">{out.composedAnswer}</div>
+          )}
           {citations.length > 0 && (
-            <ul className="space-y-2 text-sm">
-              {citations.map((c) => (
-                <li key={c.evidenceId} className="rounded-lg border border-border bg-ink p-3 text-text-2">
-                  {c.evidence!.claim}
-                  <div className="mt-1 text-[11px] text-text-3">{c.source}</div>
-                </li>
-              ))}
-            </ul>
+            out.composedAnswer ? (
+              <details className="text-xs">
+                <summary className="cursor-pointer text-text-3">Sources ({citations.length})</summary>
+                <ul className="mt-2 space-y-2 text-sm">
+                  {citations.map((c) => (
+                    <li key={c.evidenceId} className="rounded-lg border border-border bg-ink p-3 text-text-2">
+                      {c.evidence!.claim}
+                      <div className="mt-1 text-[11px] text-text-3">{c.source}</div>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ) : (
+              <ul className="space-y-2 text-sm">
+                {citations.map((c) => (
+                  <li key={c.evidenceId} className="rounded-lg border border-border bg-ink p-3 text-text-2">
+                    {c.evidence!.claim}
+                    <div className="mt-1 text-[11px] text-text-3">{c.source}</div>
+                  </li>
+                ))}
+              </ul>
+            )
           )}
           {accountFacts.length > 0 && (
             <ul className="space-y-1 text-sm">
