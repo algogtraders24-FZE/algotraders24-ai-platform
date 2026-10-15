@@ -31,7 +31,6 @@ import {
   type SupportHandoff,
 } from "@/hooks/useSupportRun";
 import type { GuestAnswer, GuestCitation } from "@/services/support/guest-knowledge-query";
-import AnswerFeedback from "@/components/support/AnswerFeedback";
 import QuickReplies from "@/components/support/QuickReplies";
 
 type Mode = "unknown" | "guest" | "authenticated";
@@ -285,9 +284,6 @@ function AuthTurnView({
                 </li>
               ))}
             </ul>
-          )}
-          {out.coverage !== "no-coverage" && obs.run?.id && (
-            <AnswerFeedback key={obs.run.id} runId={obs.run.id} initial={obs.run.metadata?.feedback?.value} />
           )}
           {out.escalate && (
             <EscalationNotice reason={out.escalationReason} onRequestHuman={live ? onRequestHuman : undefined} requestBusy={requestHumanBusy} />
