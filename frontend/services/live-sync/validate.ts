@@ -12,7 +12,8 @@ import {
 export type ValidationResult = { ok: true; body: IngestBody } | { ok: false; message: string };
 
 const HEX64 = /^[0-9a-f]{64}$/;
-const SYMBOL = /^[A-Za-z0-9._#@$-]*$/;
+// Broker symbol names, including the usual suffixes ("XAUUSD+", "EURUSD.m", "GOLD#", "US30!"). No spaces, quotes, angle brackets or semicolons.
+const SYMBOL = /^[A-Za-z0-9._#@$+!&~-]*$/;
 const MIN_MSC = 946_684_800_000; // 2000-01-01
 const MAX_MSC = 4_102_444_800_000; // 2100-01-01
 const DEAL_TYPES: readonly DealType[] = ["buy", "sell", "balance", "other"];
