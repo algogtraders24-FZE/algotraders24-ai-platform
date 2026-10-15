@@ -91,7 +91,7 @@ export default function AdminSupportHandoffsPage() {
                   {h.assignedAdminUserId && <span className="text-xs text-text-3">Assigned</span>}
                 </div>
                 <p className="mt-3 text-sm text-text">{h.reason.replace(/-/g, " ")}</p>
-                <p className="mt-2 text-xs text-text-3">User: {h.userId}</p>
+                <p className="mt-2 text-xs text-text-3">User: {h.requester.name ? `${h.requester.name} · ` : ""}{h.requester.email ?? h.userId}</p>
               </Card>
             </Link>
           ))}

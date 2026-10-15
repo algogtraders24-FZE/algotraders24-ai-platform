@@ -30,10 +30,12 @@ import {
   replyAsSupportUser,
   reopenSupportHandoffAsUser,
   getSupportHandoffDetailForAdmin,
+  listSupportHandoffsForAdmin,
   assignSupportHandoff,
   transitionSupportHandoffAsAdmin,
   replyAsSupportAdmin,
   isHandoffActive,
+  shouldAutoCreateHandoff,
   HandoffNotFoundError,
   InvalidTransitionError,
   HandoffNotActiveError,
@@ -192,6 +194,32 @@ async function main(): Promise<void> {
   });
 
   // ----------------------------------------------------------------
+  // AI_ESCALATION policy: only an unresolved question creates a ticket on its own
+  // ----------------------------------------------------------------
+
+  await test("policy: unresolved (no-coverage) + escalate creates a ticket on its own", () => {
+    assert.equal(shouldAutoCreateHandoff({ escalate: true, coverage: "no-coverage" }), true);
+  });
+
+  await test("policy: an ANSWERED question that merely allows a human (kb-answered / account-context + escalate, e.g. 'how do I upgrade') creates NO ticket", () => {
+    assert.equal(shouldAutoCreateHandoff({ escalate: true, coverage: "kb-answered" }), false);
+    assert.equal(shouldAutoCreateHandoff({ escalate: true, coverage: "account-context" }), false);
+  });
+
+  await test("policy: no escalation, a generated answer, or no output never creates a ticket", () => {
+    assert.equal(shouldAutoCreateHandoff({ escalate: false, coverage: "no-coverage" }), false);
+    assert.equal(shouldAutoCreateHandoff({ escalate: false, coverage: "kb-generated" }), false);
+    assert.equal(shouldAutoCreateHandoff(null), false);
+    assert.equal(shouldAutoCreateHandoff(undefined), false);
+  });
+
+  await test("policy: the run hook uses shouldAutoCreateHandoff, not a bare escalate check", () => {
+    const src = readFileSync(join(ROOT, "services", "agent-framework", "api", "agent-run-service.ts"), "utf8");
+    assert.match(src, /shouldAutoCreateHandoff\(/);
+    assert.doesNotMatch(src, /\)\?\.escalate === true\s*\n\s*\)\s*\{\s*\n\s*const conversationId/);
+  });
+
+  // ----------------------------------------------------------------
   // Structural: no second escalation engine, no INV-1 violation
   // ----------------------------------------------------------------
 
@@ -266,6 +294,23 @@ async function main(): Promise<void> {
     assert.equal(handoff.reason, out.escalationReason);
     assert.equal(handoff.conversationId, "conv-ai-escalation");
     assert.equal(handoff.agentRunId, final.id);
+  });
+
+  await test("admin: queue and case carry a requester object (email/name, null when the user row is unknown) so staff can see who the ticket is from", async () => {
+    const final = await escalatedRun(TEST_USER, "requester identity test");
+    await tagConversation(final.id, "conv-requester");
+    const handoff = await ensureSupportHandoff({
+      userId: TEST_USER,
+      conversationId: "conv-requester",
+      triggerSource: "AI_ESCALATION",
+      reason: "requester-test",
+      agentRunId: final.id,
+    });
+    const detail = await getSupportHandoffDetailForAdmin(handoff.id);
+    assert.ok(detail.requester && "email" in detail.requester && "name" in detail.requester);
+    const queue = await listSupportHandoffsForAdmin({ page: 1, pageSize: 50 });
+    const entry = queue.items.find((i) => i.id === handoff.id);
+    assert.ok(entry && entry.requester && "email" in entry.requester, "queue entry must include requester");
   });
 
   await test("USER_REQUEST: creates a handoff anchored to the conversation's latest run, resolved server-side (never client-trusted)", async () => {
