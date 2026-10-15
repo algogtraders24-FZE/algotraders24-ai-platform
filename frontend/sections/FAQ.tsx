@@ -15,7 +15,7 @@
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 
-const FAQS = [
+export const FAQS = [
   {
     q: "What is Algotraders24 AI?",
     a: "An AI Trading Intelligence Platform. It runs market evidence through a deterministic pipeline — evidence, reasoning, risk, and confidence — and explains every conclusion in plain language. It's built for decision support, not for handing you a verdict to follow blindly.",
@@ -46,14 +46,15 @@ const FAQS = [
   },
 ] as const;
 
-export default function FAQ({ limit }: { limit?: number } = {}) {
+export default function FAQ({ limit, asPageHeading = false }: { limit?: number; asPageHeading?: boolean } = {}) {
+  const Heading = asPageHeading ? "h1" : "h2";
   const items = limit ? FAQS.slice(0, limit) : FAQS;
   return (
     <section className="bg-ink py-16 text-text md:py-24">
       <div className="mx-auto max-w-3xl px-6">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold">FAQ</p>
-          <h2 className="mt-4 font-display text-4xl font-medium md:text-5xl">Questions, answered plainly</h2>
+          <Heading className="mt-4 font-display text-4xl font-medium md:text-5xl">Questions, answered plainly</Heading>
           <p className="mt-5 text-lg text-text-2">No hedging — the same honesty the platform applies to every analysis.</p>
         </div>
 

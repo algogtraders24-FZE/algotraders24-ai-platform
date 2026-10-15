@@ -44,13 +44,14 @@ const CTA_LABEL: Record<string, string> = {
   enterprise: "Get started",
 };
 
-export default function Pricing() {
+export default function Pricing({ asPageHeading = false }: { asPageHeading?: boolean } = {}) {
+  const Heading = asPageHeading ? "h1" : "h2";
   return (
     <section className="bg-ink py-16 text-text md:py-24">
       <div className="mx-auto max-w-7xl px-6">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold">Pricing</p>
-          <h2 className="mt-4 font-display text-4xl font-medium md:text-5xl">Simple, transparent pricing</h2>
+          <Heading className="mt-4 font-display text-4xl font-medium md:text-5xl">Simple, transparent pricing</Heading>
           <p className="mt-5 text-lg text-text-2">
             Start free and upgrade when you&apos;re ready — every plan runs on the same explainable engine.
           </p>

@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { ProductCatalogue } from "@/services/products/ProductCatalogue";
+import { MarketplaceCatalogue } from "@/services/marketplace/MarketplaceCatalogue";
 import { blogReaderService } from "@/services/publishing/blog-reader.service";
 
 // Sprint H1.6 - real, derived routes only: static public pages plus every
@@ -17,15 +17,16 @@ import { blogReaderService } from "@/services/publishing/blog-reader.service";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://algotraders24.ai";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const slugs = await ProductCatalogue.getAllSlugs();
-  // Sprint P2.5 - real published blog posts (a SUCCEEDED INTERNAL_BLOG job),
-  // derived the same way /blog/[slug]#generateStaticParams derives them. No
-  // invented URLs: a post only appears here once it is genuinely live.
-  const blogSlugs = await blogReaderService.listSlugs().catch(() => [] as string[]);
+  // The real catalogue is /marketplace (the legacy /products and /products/<slug> URLs only redirect there, so listing them
+  // told crawlers to index redirects while the real pages were missing). One entry per public listing, with its last change.
+  const listings = await MarketplaceCatalogue.getAllForSitemap().catch(() => [] as Array<{ slug: string; updatedAt: Date }>);
+  // Sprint P2.5 - real published blog posts (a SUCCEEDED INTERNAL_BLOG job), derived the same way
+  // /blog/[slug]#generateStaticParams derives them. No invented URLs: a post only appears here once it is genuinely live.
+  const posts = await blogReaderService.listPosts().catch(() => [] as Awaited<ReturnType<typeof blogReaderService.listPosts>>);
 
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: `${SITE_URL}/`, changeFrequency: "weekly", priority: 1 },
-    { url: `${SITE_URL}/products`, changeFrequency: "daily", priority: 0.9 },
+    { url: `${SITE_URL}/marketplace`, changeFrequency: "daily", priority: 0.9 },
     { url: `${SITE_URL}/platform`, changeFrequency: "monthly", priority: 0.9 },
     { url: `${SITE_URL}/platform/assistant`, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE_URL}/platform/market-intelligence`, changeFrequency: "monthly", priority: 0.8 },
@@ -47,21 +48,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/company/vision`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${SITE_URL}/company/contact`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${SITE_URL}/company/disclaimer`, changeFrequency: "yearly", priority: 0.3 },
-    { url: `${SITE_URL}/login`, changeFrequency: "yearly", priority: 0.3 },
-    { url: `${SITE_URL}/signup`, changeFrequency: "yearly", priority: 0.3 },
+    // /login and /signup are deliberately NOT listed: they are noindex account screens, not search content.
   ];
 
-  const productRoutes: MetadataRoute.Sitemap = slugs.map((slug) => ({
-    url: `${SITE_URL}/products/${slug}`,
+  const listingRoutes: MetadataRoute.Sitemap = listings.map((l) => ({
+    url: `${SITE_URL}/marketplace/${l.slug}`,
+    lastModified: l.updatedAt,
     changeFrequency: "weekly",
-    priority: 0.7,
+    priority: 0.8,
   }));
 
-  const blogRoutes: MetadataRoute.Sitemap = blogSlugs.map((slug) => ({
-    url: `${SITE_URL}/blog/${slug}`,
+  const blogRoutes: MetadataRoute.Sitemap = posts.map((p) => ({
+    url: `${SITE_URL}/blog/${p.slug}`,
+    ...(p.publishedAt ? { lastModified: new Date(p.publishedAt) } : {}),
     changeFrequency: "monthly",
     priority: 0.6,
   }));
 
-  return [...staticRoutes, ...productRoutes, ...blogRoutes];
+  return [...staticRoutes, ...listingRoutes, ...blogRoutes];
 }

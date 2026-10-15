@@ -2,9 +2,13 @@
 // Sprint 14C - Shared layout for auth pages (centered card).
 // Brand Identity v1.0 - the official logo now crowns every auth screen
 // (login, signup, forgot/reset password) from this one place.
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import BrandLogo from "@/components/brand/BrandLogo";
+
+// Account screens are not search content: keep them out of the index (they are also left out of the sitemap).
+export const metadata: Metadata = { title: "Log in or create an account", robots: { index: false, follow: true } };
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (

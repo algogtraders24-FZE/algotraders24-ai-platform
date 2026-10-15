@@ -63,13 +63,12 @@ export const metadata: Metadata = {
     template: "%s — Algotraders24 AI",
   },
   description: DESCRIPTION,
-  alternates: {
-    canonical: "/",
-  },
+  // No site-wide canonical / og:url here on purpose: every page that did not set its own (all marketplace listings, login,
+  // signup) inherited "/" and told search engines it was a copy of the homepage. The homepage sets its own below in app/page.tsx;
+  // every other indexable page sets a self-referential canonical.
   openGraph: {
     title: TITLE,
     description: DESCRIPTION,
-    url: "/",
     siteName: "Algotraders24 AI",
     type: "website",
     locale: "en_US",
