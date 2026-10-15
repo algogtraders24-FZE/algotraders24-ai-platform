@@ -6,7 +6,7 @@ description, og:image, h1 count and structured data, then reading the code behin
 ## 1. Audit result (before this work)
 | # | Finding | Impact |
 |---|---|---|
-| 1 | The root layout set `canonical: "/"` for the whole site. Every page without its own canonical inherited it: **all 26 marketplace listing pages, /login, /signup** declared the homepage as their canonical (and og:url). | Listings (the money pages) were told to be copies of the homepage - effectively not indexable. |
+| 1 | The root layout set `canonical: "/"` for the whole site. Every page without its own canonical inherited it: **every marketplace listing page (43 public listings), /login, /signup** declared the homepage as their canonical (and og:url). | Listings (the money pages) were told to be copies of the homepage - effectively not indexable. |
 | 2 | The sitemap listed `/products` and 10 `/products/<slug>` URLs, which 307-redirect to `/marketplace`; the real `/marketplace` and `/marketplace/<slug>` pages were not in the sitemap. | Crawlers were handed redirects; the real pages were only discoverable by following links. |
 | 3 | Listing meta descriptions were empty or multi-line (descriptions are free text, sometimes with line breaks). | No snippet control in search results. |
 | 4 | Listings only had Organization/WebSite structured data - no Product / Offer. | No price / product rich results. |
@@ -53,5 +53,5 @@ on the marketing pages, Article JSON-LD on blog posts, a daily auto-published bl
 * Do not index account screens, previews or seller dashboards.
 
 ## 6. How to know it worked
-Within 1-2 weeks of deploy and a sitemap resubmission: Search Console shows the 26 listings as indexed with their own canonical, the sitemap reports
-~75 discovered URLs, and a site: search returns listing pages. Ranking for competitive head terms ("gold EA") is a months-long effort and is not promised here.
+Within 1-2 weeks of deploy and a sitemap resubmission: Search Console shows the 43 listings as indexed with their own canonical, the sitemap reports
+~79 discovered URLs, and a site: search returns listing pages. Ranking for competitive head terms ("gold EA") is a months-long effort and is not promised here.
