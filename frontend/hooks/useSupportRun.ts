@@ -7,6 +7,7 @@
 // site-wide SupportWidget so the run/poll/confirm sequence has exactly one
 // implementation instead of two that could drift.
 import { useCallback, useState } from "react";
+import { splitNdjson } from "@/services/support/stage-labels";
 
 export type Evidence = { id: string; type: string; claim: string; source: string };
 
@@ -93,10 +94,59 @@ export function isResolutionConfirmationEligible(obs: Observability | null): boo
   return true;
 }
 
+class StreamUnavailable extends Error {}
+
+type AskDone = { run: Observability; conversationId?: string; handoff: SupportHandoff | null };
+
+/** One request per question (AT24 Copilot Phase 2): the server runs the whole SUPPORT run and
+ *  streams progress as NDJSON. Throws StreamUnavailable when the stream cannot be used at all
+ *  (the caller then falls back to the older create/advance polling), and a plain Error when the
+ *  server reported a failure for this question. */
+async function askViaStream(question: string, conversationId: string | undefined, onStage: (label: string) => void): Promise<AskDone> {
+  let res: Response;
+  try {
+    res = await fetch("/api/private/support/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, conversationId }),
+    });
+  } catch {
+    throw new StreamUnavailable("network");
+  }
+  if (res.status === 401) throw new Error("Please sign in again to use AT24 Copilot.");
+  if (!res.ok || !res.body) throw new StreamUnavailable(`status ${res.status}`);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let done: AskDone | null = null;
+  for (;;) {
+    const { value, done: finished } = await reader.read();
+    if (value) buffer += decoder.decode(value, { stream: true });
+    const { lines, rest } = splitNdjson(buffer);
+    buffer = rest;
+    for (const line of lines) {
+      let event: { type?: string; label?: string; message?: string; run?: Observability; conversationId?: string; handoff?: SupportHandoff | null };
+      try {
+        event = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      if (event.type === "stage" && event.label) onStage(event.label);
+      else if (event.type === "error") throw new Error(event.message ?? "Something went wrong. Please try again.");
+      else if (event.type === "done" && event.run) done = { run: event.run, conversationId: event.conversationId, handoff: event.handoff ?? null };
+    }
+    if (finished) break;
+  }
+  if (!done) throw new StreamUnavailable("stream ended without a result");
+  return done;
+}
+
 export function useSupportRun() {
   const [obs, setObs] = useState<Observability | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stage, setStage] = useState<string | null>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   // Phase B (Support conversation continuity): remembered across ask() calls
@@ -137,7 +187,19 @@ export function useSupportRun() {
     setError(null);
     setBusy(true);
     setObs(null);
+    setStage("Thinking…");
     try {
+      try {
+        const done = await askViaStream(q, conversationId, setStage);
+        if (done.conversationId) setConversationId(done.conversationId);
+        setObs(done.run);
+        setHandoff(done.handoff);
+        return;
+      } catch (streamErr) {
+        if (!(streamErr instanceof StreamUnavailable)) throw streamErr;
+        // the stream could not be used at all - fall back to the older polling driver below
+      }
+
       const { runId, conversationId: nextConversationId } = await api<{ runId: string; conversationId?: string }>(
         "/api/private/agents/framework/runs",
         {
@@ -146,8 +208,6 @@ export function useSupportRun() {
         },
       );
       if (nextConversationId) setConversationId(nextConversationId);
-      // No separate GET of the new run here: every advance returns the run state, and the extra
-      // read cost a full round trip (~2 s measured on production) before any work started.
       for (let i = 0; i < MAX_ADVANCES; i++) {
         const data = await api<{ run: Observability; terminal: boolean }>(
           `/api/private/agents/framework/runs/${runId}/advance`,
@@ -161,6 +221,7 @@ export function useSupportRun() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
+      setStage(null);
     }
   }, [conversationId, refreshHandoff]);
 
@@ -279,6 +340,7 @@ export function useSupportRun() {
   return {
     obs,
     busy,
+    stage,
     error,
     ask,
     confirmResolution,
