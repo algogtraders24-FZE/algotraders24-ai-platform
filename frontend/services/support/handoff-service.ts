@@ -73,6 +73,16 @@ export function isHandoffActive(status: SupportHandoffStatus): boolean {
   return status === "OPEN" || status === "ASSIGNED" || status === "IN_PROGRESS";
 }
 
+/** AI_ESCALATION policy: a ticket is created on its own ONLY when the question is genuinely
+ *  unresolved (the specialist's own `coverage` is "no-coverage"). If the assistant already
+ *  answered from the knowledge base or the account status, `escalate:true` (for example a
+ *  "how do I upgrade" question) only means a human COULD act, so the user is offered the
+ *  "Connect me to the team" button instead of getting a ticket, an ops alert and a halted AI.
+ *  Reads the specialist's output only; never re-derives escalation (D3). */
+export function shouldAutoCreateHandoff(output: { escalate?: boolean; coverage?: string } | null | undefined): boolean {
+  return output?.escalate === true && output.coverage === "no-coverage";
+}
+
 async function gatherEvidenceIds(agentRunId: string): Promise<string[]> {
   const trace = await agentRunRepository.getRunTrace(agentRunId);
   return trace.evidence
@@ -249,9 +259,23 @@ export async function reopenSupportHandoffAsUser(id: string, userId: string): Pr
 // themselves (that would duplicate lib/auth/adminRoute.ts's own gate).
 // ---------------------------------------------------------------------
 
+/** Who the ticket is from, for staff only (the admin gate sits in front of every caller). */
+export interface Requester {
+  email: string | null;
+  name: string | null;
+}
+
+async function requestersById(userIds: string[]): Promise<Map<string, Requester>> {
+  const unique = [...new Set(userIds)];
+  if (unique.length === 0) return new Map();
+  const users = await prisma.user.findMany({ where: { id: { in: unique } }, select: { id: true, email: true, name: true } });
+  return new Map(users.map((u) => [u.id, { email: u.email ?? null, name: u.name ?? null }]));
+}
+
 export interface AdminQueueEntry {
   id: string;
   userId: string;
+  requester: Requester;
   conversationId: string;
   status: SupportHandoffStatus;
   triggerSource: SupportHandoffTriggerSource;
@@ -266,10 +290,12 @@ export async function listSupportHandoffsForAdmin(params: {
   pageSize: number;
 }): Promise<{ items: AdminQueueEntry[]; total: number }> {
   const { rows, total } = await handoffRepository.listForAdmin(params);
+  const requesters = await requestersById(rows.map((r) => r.userId));
   return {
     items: rows.map((r) => ({
       id: r.id,
       userId: r.userId,
+      requester: requesters.get(r.userId) ?? { email: null, name: null },
       conversationId: r.conversationId,
       status: r.status,
       triggerSource: r.triggerSource,
@@ -284,6 +310,7 @@ export async function listSupportHandoffsForAdmin(params: {
 export interface AdminHandoffDetail {
   id: string;
   userId: string;
+  requester: Requester;
   conversationId: string;
   agentRunId: string;
   status: SupportHandoffStatus;
@@ -359,9 +386,12 @@ export async function getSupportHandoffDetailForAdmin(id: string): Promise<Admin
     }),
   );
 
+  const requester = (await requestersById([row.userId])).get(row.userId) ?? { email: null, name: null };
+
   return {
     id: row.id,
     userId: row.userId,
+    requester,
     conversationId: row.conversationId,
     agentRunId: row.agentRunId,
     status: row.status,

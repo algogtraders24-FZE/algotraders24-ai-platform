@@ -27,7 +27,7 @@ import { supportAgentDefinition } from "../agents/support-agent";
 import type { AgentDefinition } from "@/types/agent-framework";
 import { generateSupportAnswerForRun, isEligibleForGeneration } from "@/services/support/generate-answer";
 import { normalizeConversationId } from "@/services/support/conversation-context";
-import { ensureSupportHandoff } from "@/services/support/handoff-service";
+import { ensureSupportHandoff, shouldAutoCreateHandoff } from "@/services/support/handoff-service";
 import { randomUUID } from "node:crypto";
 
 /** The agent types that have a real, callable canonical definition today
@@ -224,13 +224,16 @@ export async function advanceAgentRun(userId: string, runId: string): Promise<Ad
   // a handoff to. Best-effort (.catch), matching the same house pattern the
   // Phase A hook right above already uses - a handoff-creation failure must
   // never unwind an already-persisted escalation; the existing "Talk to a
-  // human" link still renders regardless.
+  // human" link still renders regardless. Only an UNRESOLVED question
+  // (coverage "no-coverage") creates a ticket on its own - an answered
+  // "how do I upgrade" keeps its answer and just offers the button
+  // (shouldAutoCreateHandoff).
   const metadataAfterGeneration = (observability.run!.metadata ?? {}) as { definition?: { type?: string }; conversation?: { id?: string } };
   if (
     terminal &&
     advanced &&
     metadataAfterGeneration.definition?.type === "SUPPORT" &&
-    (observability.run!.output as { escalate?: boolean } | null)?.escalate === true
+    shouldAutoCreateHandoff(observability.run!.output as { escalate?: boolean; coverage?: string } | null)
   ) {
     const conversationId = metadataAfterGeneration.conversation?.id;
     const escalationReason = (observability.run!.output as { escalationReason?: string | null } | null)?.escalationReason;

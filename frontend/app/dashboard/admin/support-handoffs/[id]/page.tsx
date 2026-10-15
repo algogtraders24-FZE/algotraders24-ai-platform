@@ -132,7 +132,7 @@ export default function AdminSupportHandoffDetailPage() {
           <dt className="text-text-3">Reason</dt>
           <dd>{detail.reason.replace(/-/g, " ")}</dd>
           <dt className="text-text-3">User</dt>
-          <dd>{detail.userId}</dd>
+          <dd>{detail.requester.name ? `${detail.requester.name} · ` : ""}{detail.requester.email ?? detail.userId}</dd>
           <dt className="text-text-3">Assigned to</dt>
           <dd>{detail.assignedAdminUserId ?? "Unassigned"}</dd>
           <dt className="text-text-3">Created</dt>
