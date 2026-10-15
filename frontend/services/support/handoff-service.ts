@@ -26,6 +26,7 @@ import {
 import { agentRunRepository } from "@/services/agent-framework/runtime/agent-run.repository";
 import { auditLogService } from "@/services/admin/AuditLogService";
 import { prisma } from "@/lib/prisma";
+import { runAfterResponse } from "./after-response";
 import {
   sendSupportTicketOpenedAlert,
   sendSupportTicketReceivedEmail,
@@ -143,30 +144,34 @@ export async function ensureSupportHandoff(params: {
     });
 
     // Best-effort ops alert (SP01) - a failed email must never fail ticket
-    // creation, which has already succeeded above.
-    try {
-      const requester = await prisma.user.findUnique({ where: { id: params.userId }, select: { email: true } });
-      if (requester) {
-        await sendSupportTicketOpenedAlert({
-          handoffId: created.id,
-          userEmail: requester.email,
-          triggerSource: params.triggerSource,
-          reason: params.reason,
-        });
-      }
-      // Email audit follow-up (2026-09-24) - the buyer's own confirmation,
-      // separate from the ops alert above. Independently caught so a
-      // failure in one never blocks the other.
-      if (requester) {
-        try {
-          await sendSupportTicketReceivedEmail({ to: requester.email, handoffId: created.id });
-        } catch (receivedErr) {
-          console.error("[support-handoff] failed to send ticket-received confirmation (non-fatal)", receivedErr);
+    // creation, which has already succeeded above. Sent AFTER the response
+    // (Phase 2: emails must not add to the time the user waits); inline when
+    // there is no request scope (scripts/tests).
+    await runAfterResponse(async () => {
+      try {
+        const requester = await prisma.user.findUnique({ where: { id: params.userId }, select: { email: true } });
+        if (requester) {
+          await sendSupportTicketOpenedAlert({
+            handoffId: created.id,
+            userEmail: requester.email,
+            triggerSource: params.triggerSource,
+            reason: params.reason,
+          });
         }
+        // Email audit follow-up (2026-09-24) - the buyer's own confirmation,
+        // separate from the ops alert above. Independently caught so a
+        // failure in one never blocks the other.
+        if (requester) {
+          try {
+            await sendSupportTicketReceivedEmail({ to: requester.email, handoffId: created.id });
+          } catch (receivedErr) {
+            console.error("[support-handoff] failed to send ticket-received confirmation (non-fatal)", receivedErr);
+          }
+        }
+      } catch (err) {
+        console.error("[support-handoff] failed to send ticket-opened alert (non-fatal)", err);
       }
-    } catch (err) {
-      console.error("[support-handoff] failed to send ticket-opened alert (non-fatal)", err);
-    }
+    });
 
     return created;
   } catch (err) {

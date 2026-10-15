@@ -307,6 +307,7 @@ export default function SupportWidget() {
   const {
     obs,
     busy,
+    stage,
     error,
     ask,
     confirmResolution,
@@ -503,7 +504,7 @@ export default function SupportWidget() {
               <HandoffPanel handoff={handoff} onSend={sendHandoffMessage} onReopen={reopenHandoff} busy={handoffBusy} error={handoffError} />
             )}
 
-            {busyNow && <p className="text-xs text-text-3">Working…</p>}
+            {busyNow && <p className="text-xs text-text-3" aria-live="polite">{(mode === "authenticated" ? stage : null) ?? "Working…"}</p>}
             {errorNow && <p className="text-xs text-danger">{errorNow}. Please try again.</p>}
           </div>
 

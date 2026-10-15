@@ -40,7 +40,7 @@ import Textarea from "@/components/ui/Textarea";
 export default function SupportAssistantPage() {
   const [question, setQuestion] = useState("");
   const [handoffReply, setHandoffReply] = useState("");
-  const { obs, busy, error, ask, handoff, handoffBusy, handoffError, loadHandoff, requestHuman, sendHandoffMessage, reopenHandoff } = useSupportRun();
+  const { obs, busy, stage, error, ask, handoff, handoffBusy, handoffError, loadHandoff, requestHuman, sendHandoffMessage, reopenHandoff } = useSupportRun();
 
   // Email deep link (/dashboard/support?handoff=<id>): rehydrate the case so
   // a user returning from a "support replied" email sees the thread.
@@ -142,6 +142,7 @@ export default function SupportAssistantPage() {
             <Button onClick={() => ask(question)} loading={busy} disabled={!question.trim()}>
               Ask Copilot
             </Button>
+            {busy && stage && <p className="text-xs text-text-3" aria-live="polite">{stage}</p>}
             {handoff?.status === "RESOLVED" && (
               <Button variant="secondary" onClick={reopenHandoff} disabled={handoffBusy} className="ml-2">
                 This isn&rsquo;t resolved
