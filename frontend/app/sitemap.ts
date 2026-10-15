@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { MARKETS } from "@/services/markets/hub";
 import { MarketplaceCatalogue } from "@/services/marketplace/MarketplaceCatalogue";
 import { blogReaderService } from "@/services/publishing/blog-reader.service";
 
@@ -37,6 +38,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/blog`, changeFrequency: "daily", priority: 0.7 },
     { url: `${SITE_URL}/methodology`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${SITE_URL}/calibration`, changeFrequency: "daily", priority: 0.6 },
+    { url: `${SITE_URL}/markets`, changeFrequency: "daily", priority: 0.8 },
+    ...MARKETS.map((m) => ({ url: `${SITE_URL}/markets/${m.slug}`, changeFrequency: "hourly" as const, priority: 0.8 })),
     { url: `${SITE_URL}/resources`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${SITE_URL}/resources/faq`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${SITE_URL}/solutions`, changeFrequency: "monthly", priority: 0.5 },

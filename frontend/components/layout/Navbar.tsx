@@ -42,6 +42,21 @@ const NAV_ITEMS: NavItem[] = [
   // MarketplaceListing and /products became a redirect into /marketplace -
   // one catalogue, one nav entry, not two pointing at the same content.
   { label: "Marketplace", href: "/marketplace" },
+  // Public market hubs (live range, key levels, drivers per instrument) - also the main internal-link path to them for search engines.
+  {
+    label: "Markets",
+    href: "/markets",
+    children: [
+      { label: "Gold (XAU/USD)", href: "/markets/gold" },
+      { label: "Silver (XAG/USD)", href: "/markets/silver" },
+      { label: "EUR/USD", href: "/markets/eur-usd" },
+      { label: "GBP/USD", href: "/markets/gbp-usd" },
+      { label: "USD/JPY", href: "/markets/usd-jpy" },
+      { label: "Bitcoin", href: "/markets/bitcoin" },
+      { label: "Ethereum", href: "/markets/ethereum" },
+      { label: "Calibration scoreboard", href: "/calibration" },
+    ],
+  },
   // Sprint Q1.6 - same gap as Marketplace above had before M12: Quant Lite
   // (app/quant-lite/**, built out across Q0.7-Q1.5) had zero entry point
   // anywhere in site navigation - reachable only if you already knew the

@@ -197,6 +197,7 @@
     "validate:macro-alignment": "tsx scripts/validate-macro-alignment.ts",
     "validate:dashboard-snapshot": "tsx scripts/validate-dashboard-snapshot.ts",
     "validate:evidence-sources": "tsx scripts/validate-evidence-sources.ts",
+    "validate:markets": "tsx scripts/validate-markets.ts",
     "validate:seo": "tsx scripts/validate-seo.ts",
     "validate:calibration": "tsx scripts/validate-calibration.ts",
     "validate:market-alerts": "tsx scripts/validate-market-alerts.ts",

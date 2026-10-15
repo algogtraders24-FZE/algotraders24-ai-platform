@@ -13,6 +13,7 @@ import Footer from "@/sections/Footer";
 import Disclaimer from "@/components/ui/Disclaimer";
 import { blogReaderService } from "@/services/publishing/blog-reader.service";
 import { breadcrumbJsonLd, jsonLdString } from "@/lib/seo/seo";
+import { MARKETS } from "@/services/markets/hub";
 
 export const revalidate = 300;
 
@@ -65,6 +66,7 @@ export default async function BlogArticlePage({
   const post = await blogReaderService.getPostBySlug(slug);
   if (!post) notFound();
 
+  const market = MARKETS.find((m) => m.blogMatch.test(post.title));
   const related = (await blogReaderService.listPosts().catch(() => []))
     .filter((p) => p.slug !== post.slug && p.category === post.category)
     .slice(0, 3);
@@ -127,6 +129,15 @@ export default async function BlogArticlePage({
         <Disclaimer text={post.disclaimer} className="mt-10" />
 
         <nav aria-label="Related" className="mt-10 space-y-6 border-t border-border pt-8">
+          {market && (
+            <p className="text-sm leading-7 text-text-2">
+              Live {market.name} context:{" "}
+              <Link href={`/markets/${market.slug}`} className="text-gold hover:underline">
+                expected range, key levels and macro drivers
+              </Link>
+              .
+            </p>
+          )}
           {related.length > 0 && (
             <div>
               <h2 className="text-sm font-semibold uppercase tracking-wide text-text-3">More {prettyCategory(post.category)}</h2>

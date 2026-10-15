@@ -61,6 +61,9 @@ const COMPANY: FooterItem[] = [
 ];
 
 const RESOURCES: FooterItem[] = [
+  { label: "Live Markets", href: "/markets" },
+  { label: "Calibration Scoreboard", href: "/calibration" },
+  { label: "Methodology", href: "/methodology" },
   { label: "FAQ", href: "/resources/faq" },
   { label: "All Resources", href: "/resources" },
   { label: "Blog", href: "/blog" },
