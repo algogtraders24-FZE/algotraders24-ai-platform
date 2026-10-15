@@ -26,7 +26,9 @@ on the marketing pages, Article JSON-LD on blog posts, a daily auto-published bl
 5. Per-article OG image (title, category, date); h1 on /pricing and /resources/faq; login/signup noindex; robots keeps /marketplace/my-products and /marketplace/preview out.
 6. Regression tests: `npm run validate:seo` (13) - including source-level guards for the global canonical, sitemap contents, auth noindex.
 
-## 3. Phase 1 - content that can rank (next, in priority order)
+## 3. Phase 1 - content that can rank (in priority order)
+
+Status 2026-10-15: item 1 (market hubs) SHIPPED - `/markets` + 7 hub pages, linked from the navbar, footer, blog articles and the sitemap (87 URLs); blog articles link to their hub. IndexNow (Phase 2 item 2) SHIPPED - daily cron 07:30 UTC. Search Console verified (URL-prefix + Domain), sitemap read: Success, 79 pages (now 87).
 1. **Market hub pages, `/markets/<symbol>`** (gold, silver, EUR/USD, GBP/USD, USD/JPY, Bitcoin, Ethereum): one public, server-rendered page per instrument that
    shows live, unique data the site already computes - today's expected range and key levels, regime, macro alignment, upcoming high-impact events, the
    calibration hit rate for that market, and links to the latest analyses and the relevant marketplace listings. Fresh data + internal links + a real
