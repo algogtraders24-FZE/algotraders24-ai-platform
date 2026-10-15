@@ -44,9 +44,9 @@ function test(name: string, fn: () => void): void {
 // values backfilled by prisma/migrations/20260921090000_rename_plan_price_add_yearly).
 const PLANS = {
   free: { priceMonthly: 0, priceYearly: 0 },
-  pro: { priceMonthly: 29, priceYearly: 279 },
-  elite: { priceMonthly: 99, priceYearly: 949 },
-  enterprise: { priceMonthly: 499, priceYearly: 4790 },
+  pro: { priceMonthly: 20, priceYearly: 192 },
+  elite: { priceMonthly: 50, priceYearly: 480 },
+  enterprise: { priceMonthly: 200, priceYearly: 1920 },
 } as const;
 
 // Mirrors StripeProvider.createCheckoutSession's exact unitAmount formula
@@ -60,56 +60,56 @@ function main(): void {
   console.log("BILLING-03: cycle-aware pricing validation (no DB, no network)\n");
 
   // ---- Stripe: monthly (unchanged behavior - still plan.priceMonthly) ----
-  test("Stripe monthly - Pro: $29.00 -> 2900 cents", () => {
-    assert.equal(stripeUnitAmountCents(PLANS.pro, "monthly"), 2900);
+  test("Stripe monthly - Pro: $20.00 -> 2000 cents", () => {
+    assert.equal(stripeUnitAmountCents(PLANS.pro, "monthly"), 2000);
   });
-  test("Stripe monthly - Elite: $99.00 -> 9900 cents", () => {
-    assert.equal(stripeUnitAmountCents(PLANS.elite, "monthly"), 9900);
+  test("Stripe monthly - Elite: $50.00 -> 5000 cents", () => {
+    assert.equal(stripeUnitAmountCents(PLANS.elite, "monthly"), 5000);
   });
-  test("Stripe monthly - Enterprise: $499.00 -> 49900 cents", () => {
-    assert.equal(stripeUnitAmountCents(PLANS.enterprise, "monthly"), 49900);
+  test("Stripe monthly - Enterprise: $200.00 -> 20000 cents", () => {
+    assert.equal(stripeUnitAmountCents(PLANS.enterprise, "monthly"), 20000);
   });
 
   // ---- Stripe: yearly (the actual bug fix - was plan.price*100 = the
   // monthly amount charged annually forever; must now be priceYearly) ----
-  test("Stripe yearly - Pro: $279.00 -> 27900 cents (was 2900, the monthly bug)", () => {
+  test("Stripe yearly - Pro: $192.00 -> 19200 cents (was 2000, the monthly bug)", () => {
     const cents = stripeUnitAmountCents(PLANS.pro, "yearly");
-    assert.equal(cents, 27900);
+    assert.equal(cents, 19200);
     assert.notEqual(cents, stripeUnitAmountCents(PLANS.pro, "monthly"), "yearly must not silently equal monthly");
   });
-  test("Stripe yearly - Elite: $949.00 -> 94900 cents", () => {
-    assert.equal(stripeUnitAmountCents(PLANS.elite, "yearly"), 94900);
+  test("Stripe yearly - Elite: $480.00 -> 48000 cents", () => {
+    assert.equal(stripeUnitAmountCents(PLANS.elite, "yearly"), 48000);
   });
-  test("Stripe yearly - Enterprise: $4,790.00 -> 479000 cents", () => {
-    assert.equal(stripeUnitAmountCents(PLANS.enterprise, "yearly"), 479000);
+  test("Stripe yearly - Enterprise: $1,920.00 -> 192000 cents", () => {
+    assert.equal(stripeUnitAmountCents(PLANS.enterprise, "yearly"), 192000);
   });
 
   // ---- NOWPayments: monthly (unchanged behavior) ----
-  test("NOWPayments monthly - Pro: $29", () => {
-    assert.equal(getPlanCyclePrice(PLANS.pro, "monthly"), 29);
+  test("NOWPayments monthly - Pro: $20", () => {
+    assert.equal(getPlanCyclePrice(PLANS.pro, "monthly"), 20);
   });
-  test("NOWPayments monthly - Elite: $99", () => {
-    assert.equal(getPlanCyclePrice(PLANS.elite, "monthly"), 99);
+  test("NOWPayments monthly - Elite: $50", () => {
+    assert.equal(getPlanCyclePrice(PLANS.elite, "monthly"), 50);
   });
-  test("NOWPayments monthly - Enterprise: $499", () => {
-    assert.equal(getPlanCyclePrice(PLANS.enterprise, "monthly"), 499);
+  test("NOWPayments monthly - Enterprise: $200", () => {
+    assert.equal(getPlanCyclePrice(PLANS.enterprise, "monthly"), 200);
   });
 
-  // ---- NOWPayments: yearly (the other bug fix - was plan.price*12 = $348
-  // for Pro, not the owner-approved $279 discounted yearly price) ----
-  test("NOWPayments yearly - Pro: $279 (was $348 under the old plan.price*12 bug)", () => {
+  // ---- NOWPayments: yearly (the other bug fix - was plan.price*12 = $240
+  // for Pro, not the owner-approved $192 discounted yearly price) ----
+  test("NOWPayments yearly - Pro: $192 (was $240 under the old plan.price*12 bug)", () => {
     const price = getPlanCyclePrice(PLANS.pro, "yearly");
-    assert.equal(price, 279);
-    assert.notEqual(price, PLANS.pro.priceMonthly * 12, "must not be the old *12 computation ($348)");
+    assert.equal(price, 192);
+    assert.notEqual(price, PLANS.pro.priceMonthly * 12, "must not be the old *12 computation ($240)");
   });
-  test("NOWPayments yearly - Elite: $949 (was $1,188 under the old *12 bug)", () => {
+  test("NOWPayments yearly - Elite: $480 (was $600 under the old *12 bug)", () => {
     const price = getPlanCyclePrice(PLANS.elite, "yearly");
-    assert.equal(price, 949);
+    assert.equal(price, 480);
     assert.notEqual(price, PLANS.elite.priceMonthly * 12);
   });
-  test("NOWPayments yearly - Enterprise: $4,790 (was $5,988 under the old *12 bug)", () => {
+  test("NOWPayments yearly - Enterprise: $1,920 (was $2,400 under the old *12 bug)", () => {
     const price = getPlanCyclePrice(PLANS.enterprise, "yearly");
-    assert.equal(price, 4790);
+    assert.equal(price, 1920);
     assert.notEqual(price, PLANS.enterprise.priceMonthly * 12);
   });
 

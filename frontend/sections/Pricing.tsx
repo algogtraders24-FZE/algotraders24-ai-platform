@@ -17,9 +17,9 @@ import { Check } from "lucide-react";
 import { PLAN_IDS, PLAN_LABELS, CURRENCY } from "@/config/billing.config";
 import { PLAN_LIMITS } from "@/config/plan-limits";
 
-function priceLabel(priceYearly: number): { amount: string; period: string } {
-  if (priceYearly === 0) return { amount: `${CURRENCY.symbol}0`, period: "forever" };
-  return { amount: `${CURRENCY.symbol}${priceYearly.toLocaleString(CURRENCY.locale)}`, period: "per year" };
+function priceLabel(priceMonthly: number): { amount: string; period: string } {
+  if (priceMonthly === 0) return { amount: `${CURRENCY.symbol}0`, period: "forever" };
+  return { amount: `${CURRENCY.symbol}${priceMonthly.toLocaleString(CURRENCY.locale)}`, period: "per month" };
 }
 
 function featuresFor(id: (typeof PLAN_IDS)[number]): string[] {
@@ -60,7 +60,7 @@ export default function Pricing() {
           {PLAN_IDS.map((id) => {
             const plan = PLAN_LIMITS[id];
             const highlighted = plan.highlighted;
-            const { amount, period } = priceLabel(plan.priceYearly);
+            const { amount, period } = priceLabel(plan.priceMonthly);
             return (
               <div
                 key={id}
@@ -80,6 +80,11 @@ export default function Pricing() {
                   <span className="font-display text-4xl font-semibold">{amount}</span>
                   <span className="text-sm text-text-3">{period}</span>
                 </div>
+                {plan.priceYearly > 0 && (
+                  <p className="mt-1 text-xs text-text-3">
+                    or {CURRENCY.symbol}{plan.priceYearly.toLocaleString(CURRENCY.locale)} billed yearly
+                  </p>
+                )}
                 <p className="mt-3 min-h-[2.5rem] text-sm leading-6 text-text-2">{plan.description}</p>
 
                 <Link
