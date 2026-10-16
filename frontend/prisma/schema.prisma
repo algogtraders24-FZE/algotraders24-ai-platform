@@ -3142,6 +3142,34 @@ model RangeForecast {
   @@map("range_forecasts")
 }
 
+/// Social outbox: posts AT24 prepares for its own social accounts (Telegram channel, and Instagram / LinkedIn / X through a webhook
+/// automation). Created as DRAFT (or APPROVED when auto-approve is on), sent once, never twice (dedupeKey is unique).
+/// kind: daily_card | scoreboard | blog. status: DRAFT | APPROVED | SENT | FAILED | SKIPPED.
+model SocialPost {
+  id          String    @id @default(cuid())
+  kind        String
+  dedupeKey   String    @unique
+  title       String
+  /// full caption (Instagram / LinkedIn / webhook)
+  text        String
+  /// shorter caption for Telegram photo (<= 1000 chars)
+  shortText   String
+  /// absolute-or-site-relative path of the JPEG card
+  imagePath   String
+  linkUrl     String?
+  status      String    @default("DRAFT")
+  attempts    Int       @default(0)
+  /// JSON: { telegram?: "ok" | error, webhook?: "ok" | error }
+  results     Json?
+  error       String?
+  approvedAt  DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status, createdAt])
+  @@map("social_posts")
+}
+
 /// Generic in-app notification feed (the header bell). First user: Live Sync alerts.
 model UserNotification {
   id        String    @id @default(cuid())

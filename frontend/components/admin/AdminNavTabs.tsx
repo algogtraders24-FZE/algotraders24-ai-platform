@@ -17,6 +17,7 @@ const ADMIN_NAV = [
   { label: "Wallet", href: "/dashboard/admin/wallet" },
   { label: "Listing Reports", href: "/dashboard/admin/listing-reports" },
   { label: "Live Results", href: "/dashboard/admin/live-results" },
+  { label: "Social", href: "/dashboard/admin/social" },
   { label: "Knowledge", href: "/dashboard/admin/knowledge" },
   { label: "AI Usage Analytics", href: "/dashboard/admin/analytics" },
   { label: "System Health", href: "/dashboard/admin/health" },
