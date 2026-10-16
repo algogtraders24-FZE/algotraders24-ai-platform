@@ -356,10 +356,12 @@ const DOCS: SeedDoc[] = [
   // repo, or still awaiting legal review): the Algo Contracts / rewards
   // program, the member Wallet and referral commissions, seller identity
   // verification, and KYC requirements.
+  // Public on purpose: it only explains the generic steps (no account data), and a logged-out visitor asking
+  // where a license key goes otherwise got an unrelated Live Sync / marketplace answer.
   {
     title: "Using your product license key in an Expert Advisor",
     knowledgeType: "support",
-    visibility: "customer",
+    visibility: "public",
     category: "licenses",
     canonicalQuestion: "Where do I find my license key and how do I enter it in the Expert Advisor?",
     body:
