@@ -15,6 +15,7 @@
 //   G  safe failure: any failure (no provider, compliance rejection, no grounding) returns false and the
 //      run is untouched, so the raw cited passages render exactly as before.
 import type { AICompletionRequest } from "@/lib/ai/types";
+import { scanForForbiddenLanguage } from "@/lib/ai/compliance";
 import { agentRunRepository } from "@/services/agent-framework/runtime/agent-run.repository";
 import { createCreditLedger } from "@/services/agent-framework/credits/index";
 import { MUTATION_ESCALATION_REASON } from "@/services/agent-framework/supervisor/specialists/support.specialist";
@@ -108,30 +109,37 @@ export function citedHitsFromTrace(trace: RunTrace, citedEvidenceIds: string[]):
     });
 }
 
-/** Compose and persist a grounded answer for an eligible terminal SUPPORT run. Returns true when a
- *  composed answer was stored; false for any reason (the run is then unchanged). Idempotent per run. */
-export async function composeSupportAnswerForRun(
-  runId: string,
-  userId: string,
-  slotsOverride?: GenerationSlot[],
-): Promise<boolean> {
+type RunRow = NonNullable<Awaited<ReturnType<typeof agentRunRepository.getRunForUser>>>;
+
+interface ComposePrep {
+  run: RunRow;
+  question: string;
+  hits: ComposeHit[];
+  req: AICompletionRequest;
+}
+
+/** Everything composition needs, or null when the run is not eligible or has nothing to ground on. */
+async function prepareCompose(runId: string, userId: string): Promise<ComposePrep | null> {
   const run = await agentRunRepository.getRunForUser(runId, userId);
-  if (!run) return false;
-  if (!isEligibleForComposition(run.output)) return false;
+  if (!run) return null;
+  if (!isEligibleForComposition(run.output)) return null;
 
   const question = ((run.input as { question?: unknown } | null)?.question ?? "").toString().trim();
-  if (!question) return false;
+  if (!question) return null;
 
   const output = (run.output ?? {}) as { citations?: { evidenceId?: unknown }[] };
   const citedIds = (output.citations ?? []).map((c) => c.evidenceId).filter((id): id is string => typeof id === "string");
   const trace = await agentRunRepository.getRunTrace(runId);
   const hits = citedHitsFromTrace(trace, citedIds);
-  if (hits.length === 0) return false;
+  if (hits.length === 0) return null;
 
   const history = await loadConversationHistory(run, userId);
-  const result = await completeWithChain(buildComposePrompt(question, hits, history), slotsOverride);
-  if (!result) return false;
+  return { run, question, hits, req: buildComposePrompt(question, hits, history) };
+}
 
+/** Store a composed answer: model_call step, evidence row, output patch and the credit charge. */
+async function persistComposed(runId: string, userId: string, prep: ComposePrep, result: { text: string; provider: string }): Promise<void> {
+  const { run, question, hits } = prep;
   const now = new Date();
   const step = await agentRunRepository.appendStep({
     runId,
@@ -185,6 +193,125 @@ export async function composeSupportAnswerForRun(
     .catch(() => {
       // best-effort, same house pattern as the Phase A generation: never unwind a delivered answer
     });
+}
 
+/** Compose and persist a grounded answer for an eligible terminal SUPPORT run. Returns true when a
+ *  composed answer was stored; false for any reason (the run is then unchanged). Idempotent per run. */
+export async function composeSupportAnswerForRun(
+  runId: string,
+  userId: string,
+  slotsOverride?: GenerationSlot[],
+): Promise<boolean> {
+  const prep = await prepareCompose(runId, userId);
+  if (!prep) return false;
+  const result = await completeWithChain(prep.req, slotsOverride);
+  if (!result) return false;
+  await persistComposed(runId, userId, prep, result);
+  return true;
+}
+
+// ── streaming (AT24 Copilot Phase 3.3) ──────────────────────────────────────────────────────────
+
+export interface SentenceGate {
+  /** Add model text; returns the whole sentences that are now safe to show, or blocked:true. */
+  push(text: string): { release: string; blocked: boolean };
+  /** End of stream: the unfinished tail, or blocked:true. */
+  flush(): { release: string; blocked: boolean };
+}
+
+const SENTENCE_END = /[.!?\u0964]["')\]]*\s|\n/;
+
+/** Compliance gate for streamed text: text is only shown one COMPLETE sentence at a time, and every
+ *  sentence is scanned before it is shown, so a forbidden phrase is never displayed. */
+export function createSentenceGate(scan: (text: string) => unknown[] = scanForForbiddenLanguage): SentenceGate {
+  let pending = "";
+  const drain = (final: boolean): { release: string; blocked: boolean } => {
+    let release = "";
+    for (;;) {
+      const m = SENTENCE_END.exec(pending);
+      if (!m) break;
+      const end = m.index + m[0].length;
+      const sentence = pending.slice(0, end);
+      if (scan(sentence).length > 0) return { release, blocked: true };
+      release += sentence;
+      pending = pending.slice(end);
+    }
+    if (final && pending.length > 0) {
+      if (scan(pending).length > 0) return { release, blocked: true };
+      release += pending;
+      pending = "";
+    }
+    return { release, blocked: false };
+  };
+  return {
+    push(text) {
+      pending += text;
+      return drain(false);
+    },
+    flush() {
+      return drain(true);
+    },
+  };
+}
+
+export type TextStreamer = (req: AICompletionRequest) => AsyncIterable<string>;
+
+async function defaultStreamer(): Promise<TextStreamer | null> {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (typeof key !== "string" || key.trim().length === 0) return null;
+  const { ClaudeProvider } = await import("@/lib/ai");
+  const provider = new ClaudeProvider();
+  return (req) => provider.streamText(req);
+}
+
+/** Like composeSupportAnswerForRun, but shows the answer to the user as it is written: onToken
+ *  receives whole, compliance-scanned sentences. Falls back to the normal (non-streaming) provider
+ *  chain when streaming is unavailable or fails before any text is shown. Returns false when nothing
+ *  was stored (the run is unchanged); the caller must then discard any text it already showed. */
+export async function composeSupportAnswerStreaming(
+  runId: string,
+  userId: string,
+  onToken: (text: string) => void,
+  deps: { streamer?: TextStreamer | null; slots?: GenerationSlot[] } = {},
+): Promise<boolean> {
+  const prep = await prepareCompose(runId, userId);
+  if (!prep) return false;
+
+  const streamer = deps.streamer === undefined ? await defaultStreamer() : deps.streamer;
+  let shown = false;
+
+  if (streamer) {
+    const gate = createSentenceGate();
+    let full = "";
+    try {
+      for await (const delta of streamer(prep.req)) {
+        full += delta;
+        const r = gate.push(delta);
+        if (r.release) {
+          onToken(r.release);
+          shown = true;
+        }
+        if (r.blocked) return false;
+      }
+      const tail = gate.flush();
+      if (tail.release) {
+        onToken(tail.release);
+        shown = true;
+      }
+      if (tail.blocked) return false;
+      const text = full.trim();
+      if (!text || scanForForbiddenLanguage(text).length > 0) return false;
+      await persistComposed(runId, userId, prep, { text, provider: "claude" });
+      return true;
+    } catch {
+      if (shown) return false; // text is already on screen: the caller discards it
+      // nothing shown yet: fall through to the non-streaming chain
+    }
+  }
+
+  const result = await completeWithChain(prep.req, deps.slots);
+  if (!result) return false;
+  onToken(result.text);
+  await persistComposed(runId, userId, prep, result);
   return true;
 }

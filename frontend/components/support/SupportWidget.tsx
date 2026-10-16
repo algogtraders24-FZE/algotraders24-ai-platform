@@ -330,6 +330,7 @@ export default function SupportWidget() {
     obs,
     busy,
     stage,
+    streamingText,
     error,
     ask,
     confirmResolution,
@@ -527,6 +528,9 @@ export default function SupportWidget() {
               <HandoffPanel handoff={handoff} onSend={sendHandoffMessage} onReopen={reopenHandoff} busy={handoffBusy} error={handoffError} />
             )}
 
+            {mode === "authenticated" && busy && streamingText && (
+              <div className="whitespace-pre-line rounded-lg border border-border bg-ink p-3 text-sm text-text">{streamingText}</div>
+            )}
             {busyNow && <p className="text-xs text-text-3" aria-live="polite">{(mode === "authenticated" ? stage : null) ?? "Working…"}</p>}
             {errorNow && <p className="text-xs text-danger">{errorNow}. Please try again.</p>}
           </div>

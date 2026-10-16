@@ -12,7 +12,8 @@ import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { Errors } from "@/services/backend/ErrorHandler";
-import { startAgentRun, advanceAgentRun } from "@/services/agent-framework/api/agent-run-service";
+import { startAgentRun, advanceAgentRun, getAgentRun } from "@/services/agent-framework/api/agent-run-service";
+import { composeSupportAnswerStreaming, isEligibleForComposition } from "@/services/support/compose-answer";
 import { getActiveHandoffForUserConversation } from "@/services/support/handoff-service";
 import { supportStageLabel } from "@/services/support/stage-labels";
 
@@ -66,7 +67,7 @@ export const POST = withContext(async (req, ctx) => {
 
         let announced = 0;
         for (let i = 0; i < MAX_ADVANCES; i++) {
-          const result = await advanceAgentRun(userId, started.runId);
+          const result = await advanceAgentRun(userId, started.runId, { skipComposition: true });
           if (!result) throw new Error("run not found");
 
           const timeline = result.observability.timeline;
@@ -78,10 +79,24 @@ export const POST = withContext(async (req, ctx) => {
           }
 
           if (result.terminal) {
+            // AT24 Copilot Phase 3.3: write the answer to the user as it is composed (whole, compliance-
+            // scanned sentences). If nothing was stored the client discards any text it showed ("reset")
+            // and the raw cited passages render exactly as before.
+            let observability = result.observability;
+            if (isEligibleForComposition(observability.run?.output)) {
+              send({ type: "stage", label: "Writing the answer…", index: -2, kind: "compose" });
+              const composed = await composeSupportAnswerStreaming(started.runId, userId, (text) => send({ type: "token", text })).catch(() => false);
+              if (composed) {
+                const refreshed = await getAgentRun(userId, started.runId);
+                if (refreshed) observability = refreshed;
+              } else {
+                send({ type: "reset" });
+              }
+            }
             const handoff = started.conversationId
               ? await getActiveHandoffForUserConversation(userId, started.conversationId).catch(() => null)
               : null;
-            send({ type: "done", run: result.observability, runId: started.runId, conversationId: started.conversationId, handoff });
+            send({ type: "done", run: observability, runId: started.runId, conversationId: started.conversationId, handoff });
             return;
           }
         }

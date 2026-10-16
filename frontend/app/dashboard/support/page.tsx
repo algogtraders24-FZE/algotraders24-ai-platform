@@ -42,7 +42,7 @@ import QuickReplies from "@/components/support/QuickReplies";
 export default function SupportAssistantPage() {
   const [question, setQuestion] = useState("");
   const [handoffReply, setHandoffReply] = useState("");
-  const { obs, busy, stage, error, ask, reset, conversations, pastTurns, historyBusy, historyError, loadConversations, openConversation, handoff, handoffBusy, handoffError, loadHandoff, requestHuman, sendHandoffMessage, reopenHandoff } = useSupportRun();
+  const { obs, busy, stage, streamingText, error, ask, reset, conversations, pastTurns, historyBusy, historyError, loadConversations, openConversation, handoff, handoffBusy, handoffError, loadHandoff, requestHuman, sendHandoffMessage, reopenHandoff } = useSupportRun();
 
   // Email deep link (/dashboard/support?handoff=<id>): rehydrate the case so
   // a user returning from a "support replied" email sees the thread.
@@ -197,6 +197,9 @@ export default function SupportAssistantPage() {
             <Button onClick={() => ask(question)} loading={busy} disabled={!question.trim()}>
               Ask Copilot
             </Button>
+            {busy && streamingText && (
+              <div className="whitespace-pre-line rounded-control border border-border bg-ink p-3 text-sm text-text">{streamingText}</div>
+            )}
             {busy && stage && <p className="text-xs text-text-3" aria-live="polite">{stage}</p>}
             {!obs?.run && !busy && !handoff && (
               <QuickReplies onPick={(q) => { setQuestion(q); void ask(q); }} />
