@@ -25,6 +25,11 @@ export interface TelegramClient {
   sendMessage(chatId: string, text: string, opts?: SendOptions): Promise<SendResult>;
 }
 
+export interface TelegramPhotoClient extends TelegramClient {
+  /** A photo (public https URL) with a caption (HTML-escaped here, cut at Telegram's 1024-character limit). */
+  sendPhoto(chatId: string, photoUrl: string, caption: string): Promise<SendResult>;
+}
+
 export const MAX_MESSAGE_CHARS = 3800;
 
 /** Telegram HTML mode needs only & < > escaped. */
@@ -32,8 +37,27 @@ export function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-export function createTelegramClient(token: string, fetchImpl: FetchLike = fetch as unknown as FetchLike, timeoutMs = 5000): TelegramClient {
+export function createTelegramClient(token: string, fetchImpl: FetchLike = fetch as unknown as FetchLike, timeoutMs = 5000): TelegramPhotoClient {
+  async function post(method: string, payload: Record<string, unknown>): Promise<SendResult> {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetchImpl(`https://api.telegram.org/bot${token}/${method}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload), signal: ctrl.signal });
+      const body = (await res.json().catch(() => null)) as { ok?: boolean; description?: string; result?: { message_id?: number }; parameters?: { retry_after?: number } } | null;
+      const description = typeof body?.description === "string" ? body.description : undefined;
+      if (res.status === 200 && body?.ok === true) return { ok: true, status: 200, messageId: body.result?.message_id !== undefined ? String(body.result.message_id) : undefined, gone: false };
+      return { ok: false, status: res.status, retryAfter: body?.parameters?.retry_after, gone: res.status === 403, description };
+    } catch {
+      return { ok: false, status: 0, gone: false, description: "network error" };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   return {
+    sendPhoto(chatId, photoUrl, caption) {
+      return post("sendPhoto", { chat_id: chatId, photo: photoUrl, caption: escapeHtml(caption).slice(0, 1024), parse_mode: "HTML" });
+    },
     async sendMessage(chatId, text, opts) {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), timeoutMs);
