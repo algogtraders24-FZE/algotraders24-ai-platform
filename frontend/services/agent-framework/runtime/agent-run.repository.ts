@@ -117,6 +117,17 @@ export const agentRunRepository = {
     });
   },
 
+  /** AT24 Copilot history: the caller's own SUPPORT runs, newest first, WITHOUT the (large) output
+   *  column - just enough (id, time, question, conversation tag) to build a conversation list. */
+  async listSupportRunsForUser(userId: string, limit = 200) {
+    return prisma.agentRun.findMany({
+      where: { userId, metadata: { path: ["definition", "type"], equals: "SUPPORT" } },
+      orderBy: { createdAt: "desc" },
+      take: Math.min(Math.max(limit, 1), 300),
+      select: { id: true, createdAt: true, input: true, metadata: true },
+    });
+  },
+
   /** Phase B (Support conversation continuity) - the `limit` MOST RECENT
    *  runs tagged with `metadata.conversation.id === conversationId`,
    *  returned oldest-first (chronological), SCOPED TO `userId` (never a
