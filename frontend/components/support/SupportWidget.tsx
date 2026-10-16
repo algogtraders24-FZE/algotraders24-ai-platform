@@ -433,10 +433,8 @@ export default function SupportWidget() {
 
   return (
     <>
-      {/* bottom-24 (not bottom-6): app/dashboard/layout.tsx's FeedbackWidget
-          already occupies bottom-6 right-6 on every dashboard page - this
-          widget is root-mounted (SS6) so it renders alongside it there.
-          Stacking above it, not overlapping, is the only change this needed.
+      {/* bottom-24 (not bottom-6): toasts render at bottom-6 right-6 (components/
+          ui/Toast.tsx), so the launcher sits above them instead of under them.
           z-[60] (not z-40): the site's own fixed header (components/layout/
           Navbar.tsx) is z-50 - on mobile, where the panel is fixed inset-0
           (full-screen), z-40 let the header/logo paint on top of it. z-[60]

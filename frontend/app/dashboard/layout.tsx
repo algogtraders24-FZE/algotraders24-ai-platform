@@ -5,7 +5,6 @@
 // shared <AppShell> (components/shell/AppShell.tsx). This file now only does
 // the auth guard + user context; AppShell owns all shell geometry.
 import AppShell from "@/components/shell/AppShell";
-import FeedbackWidget from "@/components/dashboard/FeedbackWidget";
 import PwaProvider from "@/components/pwa/PwaProvider";
 import { requireUser } from "@/lib/auth/protectedRoute";
 import { rewardsOpenFor } from "@/lib/rewards/access";
@@ -35,7 +34,6 @@ export default async function DashboardLayout({
   return (
     <UserProvider initialUser={currentUser}>
       <AppShell userName={currentUser.name}>{children}</AppShell>
-      <FeedbackWidget />
       <PwaProvider />
     </UserProvider>
   );
