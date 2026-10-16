@@ -217,7 +217,7 @@ export default function Footer() {
         <div className="mt-8 space-y-1 border-t border-border pt-8 text-center md:text-left">
           <p className="text-sm text-text-3">© 2026 Algotraders24. All rights reserved.</p>
           <p className="text-xs text-text-3">
-            Algotraders24 · FinTech &amp; Software Development
+            Algotraders24 AI · FinTech technology and software development company
           </p>
           <p className="text-xs text-text-3">Saint Vincent and the Grenadines, Queens Drive, Park Industrial Site, Kingstown, VC0100</p>
         </div>
