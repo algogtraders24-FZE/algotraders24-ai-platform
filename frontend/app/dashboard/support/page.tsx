@@ -42,11 +42,15 @@ import QuickReplies from "@/components/support/QuickReplies";
 export default function SupportAssistantPage() {
   const [question, setQuestion] = useState("");
   const [handoffReply, setHandoffReply] = useState("");
-  const { obs, busy, stage, error, ask, handoff, handoffBusy, handoffError, loadHandoff, requestHuman, sendHandoffMessage, reopenHandoff } = useSupportRun();
+  const { obs, busy, stage, error, ask, reset, conversations, pastTurns, historyBusy, historyError, loadConversations, openConversation, handoff, handoffBusy, handoffError, loadHandoff, requestHuman, sendHandoffMessage, reopenHandoff } = useSupportRun();
 
   // Email deep link (/dashboard/support?handoff=<id>): rehydrate the case so
   // a user returning from a "support replied" email sees the thread.
   // window.location (not useSearchParams) avoids a Suspense boundary.
+  useEffect(() => {
+    void loadConversations();
+  }, [loadConversations]);
+
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("handoff");
     if (id) void loadHandoff(id);
@@ -93,6 +97,55 @@ export default function SupportAssistantPage() {
           </ul>
         </Card>
       )}
+
+        {/* AT24 Copilot history: earlier conversations of THIS user (server-scoped); opening one shows
+            its turns and continues it. */}
+        {conversations.length > 0 && (
+          <Card className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-text-2">Recent conversations</h2>
+              <Button size="sm" variant="secondary" onClick={reset} disabled={busy}>
+                New conversation
+              </Button>
+            </div>
+            <ul className="space-y-1">
+              {conversations.slice(0, 5).map((c) => (
+                <li key={c.conversationId}>
+                  <button
+                    type="button"
+                    onClick={() => void openConversation(c.conversationId)}
+                    disabled={historyBusy || busy}
+                    className="flex w-full items-center justify-between gap-3 rounded-control px-2 py-1.5 text-left text-sm text-text-2 hover:bg-ink-3 disabled:opacity-50"
+                  >
+                    <span className="truncate">{c.title}</span>
+                    <span className="shrink-0 text-[11px] text-text-3">
+                      {c.turns} {c.turns === 1 ? "message" : "messages"} · {new Date(c.lastActivityAt).toLocaleDateString()}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {historyError && <p className="text-xs text-danger">{historyError}</p>}
+          </Card>
+        )}
+
+        {pastTurns.length > 0 && (
+          <Card className="space-y-3">
+            <h2 className="text-sm font-semibold text-text-2">Earlier in this conversation</h2>
+            <ul className="space-y-3">
+              {pastTurns.map((t) => (
+                <li key={t.runId} className="space-y-1 text-sm">
+                  <p className="rounded-control bg-ink-3 px-3 py-2 text-text">{t.question}</p>
+                  {t.answer ? (
+                    <p className="whitespace-pre-line rounded-control border border-border bg-ink px-3 py-2 text-text-2">{t.answer}</p>
+                  ) : (
+                    <p className="px-1 text-xs text-text-3">{t.escalate ? "This was handed to our team." : "No written answer was saved for this turn."}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
 
         {/* Support Human Handoff MVP - while a case is active, this page's
             input sends to the human thread, never a new AgentRun (D11) -

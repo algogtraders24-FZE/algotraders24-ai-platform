@@ -20,3 +20,8 @@ export function handoffIdFromPath(path: string): string | undefined {
 export function adminHandoffIdFromPath(path: string): string | undefined {
   return idAfterSegment(path, "support-handoffs");
 }
+
+/** For /api/private/support/conversations/[id] */
+export function conversationIdFromPath(path: string): string | undefined {
+  return idAfterSegment(path, "conversations");
+}

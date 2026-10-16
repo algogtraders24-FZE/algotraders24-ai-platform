@@ -8,6 +8,9 @@
 // implementation instead of two that could drift.
 import { useCallback, useState } from "react";
 import { splitNdjson } from "@/services/support/stage-labels";
+import type { ConversationListItem, ConversationTurn } from "@/services/support/conversation-history";
+
+export type { ConversationListItem, ConversationTurn };
 
 export type Evidence = { id: string; type: string; claim: string; source: string };
 
@@ -150,6 +153,10 @@ export function useSupportRun() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stage, setStage] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<ConversationListItem[]>([]);
+  const [pastTurns, setPastTurns] = useState<ConversationTurn[]>([]);
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   // Phase B (Support conversation continuity): remembered across ask() calls
@@ -227,6 +234,38 @@ export function useSupportRun() {
       setStage(null);
     }
   }, [conversationId, refreshHandoff]);
+
+  /** The caller's recent Copilot conversations (history list). */
+  const loadConversations = useCallback(async () => {
+    setHistoryError(null);
+    try {
+      const { conversations: list } = await api<{ conversations: ConversationListItem[] }>("/api/private/support/conversations");
+      setConversations(list);
+    } catch {
+      setHistoryError("Could not load your earlier conversations.");
+    }
+  }, []);
+
+  /** Open one of the caller's own earlier conversations: show its turns and continue it (the next
+   *  question carries its conversation id, so follow-ups and the ticket stay in the same thread). */
+  const openConversation = useCallback(async (id: string) => {
+    setHistoryError(null);
+    setHistoryBusy(true);
+    try {
+      const { conversation } = await api<{ conversation: { conversationId: string; turns: ConversationTurn[]; handoff: SupportHandoff | null } }>(
+        `/api/private/support/conversations/${encodeURIComponent(id)}`,
+      );
+      setObs(null);
+      setError(null);
+      setConversationId(conversation.conversationId);
+      setPastTurns(conversation.turns);
+      setHandoff(conversation.handoff);
+    } catch {
+      setHistoryError("Could not open that conversation.");
+    } finally {
+      setHistoryBusy(false);
+    }
+  }, []);
 
   /** Rehydrate an existing case by id (email deep link
    *  /dashboard/support?handoff=<id>). Ownership is enforced server-side; a
@@ -336,6 +375,7 @@ export function useSupportRun() {
     setError(null);
     setConfirmError(null);
     setConversationId(undefined); // start a genuinely new conversation, not a continued one
+    setPastTurns([]);
     setHandoff(null);
     setHandoffError(null);
   }, []);
@@ -344,6 +384,12 @@ export function useSupportRun() {
     obs,
     busy,
     stage,
+    conversations,
+    pastTurns,
+    historyBusy,
+    historyError,
+    loadConversations,
+    openConversation,
     error,
     ask,
     confirmResolution,
