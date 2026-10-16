@@ -197,7 +197,11 @@ export interface AdvanceResult {
 /** Drive ONE bounded slice of the run (one `tick()`), then return the
  *  ownership-scoped observability model. A no-op (advanced:false) if the run
  *  is already terminal. Returns null if the run is not the caller's. */
-export async function advanceAgentRun(userId: string, runId: string): Promise<AdvanceResult | null> {
+export async function advanceAgentRun(
+  userId: string,
+  runId: string,
+  options: { skipComposition?: boolean } = {},
+): Promise<AdvanceResult | null> {
   const owned = await agentRunRepository.getRunForUser(runId, userId);
   if (!owned) return null;
 
@@ -247,6 +251,7 @@ export async function advanceAgentRun(userId: string, runId: string): Promise<Ad
     terminal &&
     advanced &&
     metadata.definition?.type === "SUPPORT" &&
+    !options.skipComposition && // the streaming route composes itself so the user sees the text as it is written
     isEligibleForComposition(observability.run!.output)
   ) {
     const composed = await composeSupportAnswerForRun(runId, userId).catch(() => false);

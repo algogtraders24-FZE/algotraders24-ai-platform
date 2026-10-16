@@ -118,8 +118,15 @@ interface ClaudeResponseBody {
 
 type WireMessage = { role: "user" | "assistant"; content: string | unknown[] };
 
+/** Transport for streaming: needs the raw response body, which the JSON-only ClaudeFetch does not expose. */
+export type ClaudeStreamFetch = (
+  url: string,
+  init: { method: string; headers: Record<string, string>; body: string; signal?: AbortSignal },
+) => Promise<{ ok: boolean; status: number; body: ReadableStream<Uint8Array> | null }>;
+
 export interface ClaudeProviderOptions {
   fetchImpl?: ClaudeFetch;
+  streamFetchImpl?: ClaudeStreamFetch;
 }
 
 export class ClaudeProvider implements AIProvider {
@@ -127,12 +134,77 @@ export class ClaudeProvider implements AIProvider {
   private readonly apiKey: string;
   private readonly model: string;
   private readonly fetchImpl: ClaudeFetch;
+  private readonly streamFetchImpl: ClaudeStreamFetch;
 
   constructor(options: ClaudeProviderOptions = {}) {
     const env = loadAnthropicEnv();
     this.apiKey = env.apiKey;
     this.model = env.model;
     this.fetchImpl = options.fetchImpl ?? (fetch as unknown as ClaudeFetch);
+    this.streamFetchImpl = options.streamFetchImpl ?? (fetch as unknown as ClaudeStreamFetch);
+  }
+
+  /** Stream the model's text as it is produced (Anthropic Messages API with stream:true, plain REST,
+   *  no SDK). Yields text deltas only. Throws AIProviderError on a transport/HTTP/stream error; the
+   *  caller decides what to do with text it already received. No tools, no web search. */
+  async *streamText(req: AICompletionRequest, timeoutMs = DEFAULT_TIMEOUT_MS): AsyncGenerator<string> {
+    const { system, messages } = this.splitSystem(req.messages);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      let res: Awaited<ReturnType<ClaudeStreamFetch>>;
+      try {
+        res = await this.streamFetchImpl(BASE_URL, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-api-key": this.apiKey, "anthropic-version": ANTHROPIC_VERSION },
+          body: JSON.stringify({
+            model: req.model ?? this.model,
+            max_tokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
+            stream: true,
+            ...(system ? { system } : {}),
+            messages,
+          }),
+          signal: controller.signal,
+        });
+      } catch (err) {
+        throw new AIProviderError("network", `Failed to reach Claude: ${err instanceof Error ? err.message : String(err)}`, this.name, err);
+      }
+      if (!res.ok || !res.body) {
+        throw new AIProviderError(res.status === 401 || res.status === 403 ? "auth" : res.status === 429 ? "rate_limit" : "network", `Claude stream failed (HTTP ${res.status})`, this.name);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      for (;;) {
+        let chunk: ReadableStreamReadResult<Uint8Array>;
+        try {
+          chunk = await reader.read();
+        } catch (err) {
+          throw new AIProviderError(controller.signal.aborted ? "timeout" : "network", "Claude stream was interrupted", this.name, err);
+        }
+        if (chunk.value) buffer += decoder.decode(chunk.value, { stream: true });
+        const events = buffer.split("\n\n");
+        buffer = events.pop() ?? "";
+        for (const ev of events) {
+          const dataLine = ev.split("\n").find((l) => l.startsWith("data:"));
+          if (!dataLine) continue;
+          let data: { type?: string; delta?: { type?: string; text?: string }; error?: { message?: string } };
+          try {
+            data = JSON.parse(dataLine.slice(5).trim());
+          } catch {
+            continue;
+          }
+          if (data.type === "error") throw new AIProviderError("unknown", data.error?.message ?? "Claude stream error", this.name);
+          if (data.type === "content_block_delta" && data.delta?.type === "text_delta" && data.delta.text) yield data.delta.text;
+          if (data.type === "message_stop") return;
+        }
+        if (chunk.done) return;
+      }
+    } finally {
+      clearTimeout(timer);
+      controller.abort(); // a no-op after normal completion; stops the request if the consumer quit early
+    }
   }
 
   async complete(req: AICompletionRequest): Promise<AICompletionResponse> {

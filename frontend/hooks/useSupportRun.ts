@@ -108,7 +108,11 @@ type AskDone = { run: Observability; conversationId?: string; handoff: SupportHa
  *  streams progress as NDJSON. Throws StreamUnavailable when the stream cannot be used at all
  *  (the caller then falls back to the older create/advance polling), and a plain Error when the
  *  server reported a failure for this question. */
-async function askViaStream(question: string, conversationId: string | undefined, onStage: (label: string) => void): Promise<AskDone> {
+async function askViaStream(
+  question: string,
+  conversationId: string | undefined,
+  on: { stage: (label: string) => void; token: (text: string) => void; reset: () => void },
+): Promise<AskDone> {
   let res: Response;
   try {
     res = await fetch("/api/private/support/ask", {
@@ -132,13 +136,15 @@ async function askViaStream(question: string, conversationId: string | undefined
     const { lines, rest } = splitNdjson(buffer);
     buffer = rest;
     for (const line of lines) {
-      let event: { type?: string; label?: string; message?: string; run?: Observability; conversationId?: string; handoff?: SupportHandoff | null };
+      let event: { type?: string; label?: string; text?: string; message?: string; run?: Observability; conversationId?: string; handoff?: SupportHandoff | null };
       try {
         event = JSON.parse(line);
       } catch {
         continue;
       }
-      if (event.type === "stage" && event.label) onStage(event.label);
+      if (event.type === "stage" && event.label) on.stage(event.label);
+      else if (event.type === "token" && event.text) on.token(event.text);
+      else if (event.type === "reset") on.reset();
       else if (event.type === "error") throw new Error(event.message ?? "Something went wrong. Please try again.");
       else if (event.type === "done" && event.run) done = { run: event.run, conversationId: event.conversationId, handoff: event.handoff ?? null };
     }
@@ -153,6 +159,7 @@ export function useSupportRun() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stage, setStage] = useState<string | null>(null);
+  const [streamingText, setStreamingText] = useState("");
   const [conversations, setConversations] = useState<ConversationListItem[]>([]);
   const [pastTurns, setPastTurns] = useState<ConversationTurn[]>([]);
   const [historyBusy, setHistoryBusy] = useState(false);
@@ -198,9 +205,14 @@ export function useSupportRun() {
     setBusy(true);
     setObs(null);
     setStage("Thinking…");
+    setStreamingText("");
     try {
       try {
-        const done = await askViaStream(q, conversationId, setStage);
+        const done = await askViaStream(q, conversationId, {
+          stage: setStage,
+          token: (t) => setStreamingText((prev) => prev + t),
+          reset: () => setStreamingText(""),
+        });
         if (done.conversationId) setConversationId(done.conversationId);
         setObs(done.run);
         setHandoff(done.handoff);
@@ -232,6 +244,7 @@ export function useSupportRun() {
     } finally {
       setBusy(false);
       setStage(null);
+      setStreamingText("");
     }
   }, [conversationId, refreshHandoff]);
 
@@ -384,6 +397,7 @@ export function useSupportRun() {
     obs,
     busy,
     stage,
+    streamingText,
     conversations,
     pastTurns,
     historyBusy,
