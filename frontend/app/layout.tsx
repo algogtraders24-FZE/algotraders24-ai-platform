@@ -133,8 +133,8 @@ export default function RootLayout({
         <ToastProvider>{children}</ToastProvider>
         {/* AT24 Support - P1 (AUTONOMOUS_SUPPORT_P1_CONTRACT.md SS6/SS7):
             the ONLY place a widget can reach both public and dashboard pages
-            - not app/dashboard/layout.tsx, which is dashboard-only and where
-            FeedbackWidget lives. Not wrapped in UserProvider (it isn't
+            - not app/dashboard/layout.tsx, which is dashboard-only. Not wrapped
+            in UserProvider (it isn't
             available here) - the widget determines auth state itself via a
             non-authoritative session probe. */}
         <SupportWidget />
