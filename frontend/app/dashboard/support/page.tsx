@@ -36,6 +36,7 @@ import Button from "@/components/ui/Button";
 import Alert from "@/components/ui/Alert";
 import Badge from "@/components/ui/Badge";
 import Textarea from "@/components/ui/Textarea";
+import AnswerFeedback from "@/components/support/AnswerFeedback";
 import QuickReplies from "@/components/support/QuickReplies";
 
 export default function SupportAssistantPage() {
@@ -229,6 +230,10 @@ export default function SupportAssistantPage() {
                       Connect me to support
                     </Button>
                   </div>
+                )}
+
+                {out.coverage !== "no-coverage" && obs.run?.id && (
+                  <AnswerFeedback key={obs.run.id} runId={obs.run.id} initial={obs.run.metadata?.feedback?.value} />
                 )}
 
                 {(out.composedAnswer || out.generatedAnswer) ? (

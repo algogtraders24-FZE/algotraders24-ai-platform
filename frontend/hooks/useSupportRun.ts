@@ -61,7 +61,7 @@ export type Observability = {
     errorCode: string | null;
     errorMessage: string | null;
     output: unknown;
-    metadata?: { resolutionConfirmation?: ResolutionConfirmation } | null;
+    metadata?: { resolutionConfirmation?: ResolutionConfirmation; feedback?: { value: "up" | "down" } } | null;
   } | null;
   evidence: Evidence[];
   timeline: { index: number; kind: string; status: string; summary: string }[];
