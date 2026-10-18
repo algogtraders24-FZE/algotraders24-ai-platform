@@ -69,7 +69,7 @@ const RESOURCES: FooterItem[] = [
   { label: "Blog", href: "/blog" },
   { label: "Tutorials", href: "/resources/tutorials" },
   { label: "Release Notes", href: "/resources/release-notes" },
-  { label: "Roadmap" },
+  { label: "Roadmap", href: "/resources/roadmap" },
   { label: "Documentation", href: "/resources/documentation" },
   { label: "Research", href: "/resources/research" },
   { label: "Market Insights", href: "/resources/market-insights" },

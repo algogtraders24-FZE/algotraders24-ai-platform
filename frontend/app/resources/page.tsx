@@ -2,7 +2,7 @@
 // Sprint D2.4.A1 - the Resources nav dropdown's landing page. FAQ is the one
 // real destination. Phase 1 of the "Soon" items (Documentation, Tutorials,
 // Release Notes, Research, Market Insights, Blog) now has real pages and is
-// listed in LIVE below; only Roadmap is still named honestly as upcoming.
+// listed in LIVE below (Roadmap included).
 import type { Metadata } from "next";
 import Link from "next/link";
 import { HelpCircle, BookOpen, FileText, Map, ScrollText, GraduationCap, Newspaper, BarChart3 } from "lucide-react";
@@ -24,10 +24,9 @@ const LIVE: { title: string; description: string; href: string; icon: LucideIcon
   { title: "Market Insights", description: "Daily, weekly and fundamental market reports.", href: "/resources/market-insights", icon: BarChart3 },
   { title: "Research", description: "What we tested, including what failed.", href: "/resources/research", icon: FileText },
   { title: "Release Notes", description: "What is new, in plain language.", href: "/resources/release-notes", icon: ScrollText },
+  { title: "Roadmap", description: "Where we are going over the next five years.", href: "/resources/roadmap", icon: Map },
   { title: "Blog", description: "Evidence-backed market analysis.", href: "/blog", icon: Newspaper },
 ];
-
-const UPCOMING: { title: string; icon: LucideIcon }[] = [{ title: "Roadmap", icon: Map }];
 
 export default function ResourcesHubPage() {
   return (
@@ -52,21 +51,6 @@ export default function ResourcesHubPage() {
                   <p className="mt-1 text-sm leading-6 text-text-2">{item.description}</p>
                 </div>
               </Link>
-            ))}
-          </div>
-
-          <p className="mt-10 text-center text-xs font-semibold uppercase tracking-[0.2em] text-text-3">Coming soon</p>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {UPCOMING.map((item) => (
-              <div
-                key={item.title}
-                className="flex items-center gap-3 rounded-card border border-dashed border-border bg-ink-2/50 p-5 opacity-70"
-              >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control border border-border">
-                  <item.icon className="h-4 w-4 text-text-3" aria-hidden="true" />
-                </span>
-                <span className="text-sm font-medium text-text-2">{item.title}</span>
-              </div>
             ))}
           </div>
         </div>
