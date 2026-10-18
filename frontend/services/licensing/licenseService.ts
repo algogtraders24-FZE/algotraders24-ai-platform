@@ -407,7 +407,7 @@ export async function checkLicenseByKey(params: { key: unknown; account?: string
   const deviceBindingId = adapter ? adapter.deriveDeviceBindingId({ accountLogin: account, brokerServer: params.server ?? "" }) : `acct:${account}@${params.server ?? ""}`;
   const decision = decideActivation(license.licenseStatus as LicenseStatus, policy, rows.map((r) => ({ deviceBindingId: r.deviceBindingId, status: r.status as "ACTIVE" | "DEACTIVATED" })), deviceBindingId);
 
-  if (decision.action === "REJECT") return fail("ACCOUNT_LIMIT_REACHED", `${decision.detail} Free a slot from your purchase page or buy another licence.`, { activations });
+  if (decision.action === "REJECT") return fail("ACCOUNT_LIMIT_REACHED", `${decision.detail} Use \"Change trading account\" on your purchase page (Dashboard > Purchases) if you moved to a new account, or buy another licence.`, { activations });
 
   if (decision.action === "REACTIVATE_EXISTING") {
     await prisma.activation.update({ where: { licenseId_deviceBindingId: { licenseId: license.id, deviceBindingId } }, data: { status: "ACTIVE", deactivatedAt: null, lastValidatedAt: new Date() } });

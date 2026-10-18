@@ -9,6 +9,7 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth/protectedRoute";
 import { getMyLicenseDetail } from "@/services/licensing/myPurchases";
 import RevealApiKeyButton from "@/components/license/RevealApiKeyButton";
+import ChangeAccountPanel from "@/components/license/ChangeAccountPanel";
 import LicenseStatusBadge from "@/components/licensing/LicenseStatusBadge";
 import Card from "@/components/ui/Card";
 import PageHeader from "@/components/ui/PageHeader";
@@ -82,7 +83,18 @@ export default async function LicenseDetailPage({ params }: { params: Promise<{ 
       </Card>
 
       <Card>
-        <h2 className="text-sm font-semibold text-text">3. Activation History</h2>
+        <h2 className="text-sm font-semibold text-text">3. Trading account</h2>
+        <p className="mt-1 text-xs text-text-2">
+          Your key works on <b>one trading account at a time</b>, so it cannot be shared. If you move to another broker, account or VPS, free the old account here
+          (2 changes per 30 days) and run the EA on the new one.
+        </p>
+        <div className="mt-3">
+          <ChangeAccountPanel licenseId={license.licenseId} />
+        </div>
+      </Card>
+
+      <Card>
+        <h2 className="text-sm font-semibold text-text">4. Activation History</h2>
         {license.activations.length === 0 ? (
           <p className="mt-2 text-sm text-text-2">No activations yet - attach the EA with the values above to activate.</p>
         ) : (
