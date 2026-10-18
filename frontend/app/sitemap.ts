@@ -57,6 +57,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/company`, changeFrequency: "monthly", priority: 0.4 },
     { url: `${SITE_URL}/company/about`, changeFrequency: "monthly", priority: 0.6 },
     { url: `${SITE_URL}/company/vision`, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${SITE_URL}/company/careers`, changeFrequency: "weekly", priority: 0.4 },
     { url: `${SITE_URL}/company/contact`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${SITE_URL}/company/disclaimer`, changeFrequency: "yearly", priority: 0.3 },
     // /login and /signup are deliberately NOT listed: they are noindex account screens, not search content.
