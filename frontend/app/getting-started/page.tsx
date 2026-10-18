@@ -1,11 +1,11 @@
-// app/beta/page.tsx
-// Beta launch - "Your First 15 Minutes with AT24". A public, guided path for
-// a new beta tester: one real question, one real idea, one real test, then
+// app/getting-started/page.tsx
+// "Your First 15 Minutes with AT24". A public, guided path for
+// a new user: one real question, one real idea, one real test, then
 // feedback. Every step links to a route that already exists; nothing here is
 // a new feature, a metric or a claim about results. Self-composed Navbar/
 // Footer and session-aware CTA, matching app/quant-lite/page.tsx.
 // Step 3 deliberately points at Quant Lite (free, no sign-in needed to build)
-// because it is the one real "test a hypothesis" flow every beta user can
+// because it is the one real "test a hypothesis" flow every new user can
 // reach; Algo Testing Pro stays a follow-up for users on a Pro plan.
 import type { Metadata } from "next";
 import Navbar from "@/components/layout/Navbar";
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   title: "Your First 15 Minutes",
   description:
     "Not sure where to start? A 15-minute guided path through AT24: ask a market question, explore the research, test one trading idea, and tell us what you found.",
-  alternates: { canonical: "/beta" },
+  alternates: { canonical: "/getting-started" },
 };
 
 const STEPS = [
@@ -57,7 +57,7 @@ const STEPS = [
   },
 ] as const;
 
-export default async function BetaFirstFifteenMinutesPage() {
+export default async function GettingStartedPage() {
   const sessionUser = await SessionService.getSessionUser();
   const isAuthenticated = !!sessionUser;
 
@@ -65,7 +65,7 @@ export default async function BetaFirstFifteenMinutesPage() {
     <main className="min-h-screen bg-ink text-text">
       <Navbar isAuthenticated={isAuthenticated} />
       <PageHero
-        eyebrow="Beta"
+        eyebrow="Getting started"
         title="Your First 15 Minutes with AT24"
         subtitle="Don't know where to start? Try this."
       />

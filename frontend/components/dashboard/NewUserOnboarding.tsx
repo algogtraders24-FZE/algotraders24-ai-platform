@@ -43,20 +43,20 @@ const MODULES = [
   },
 ] as const;
 
-/** The "where to start" block: the Beta guided path + the three starter modules. Shown above the regular dashboard for a user who has not used the product yet. */
+/** The "where to start" block: the guided path + the three starter modules. Shown above the regular dashboard for a user who has not used the product yet. */
 export function GetStarted() {
   return (
     <div className="space-y-6">
       <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-gold">Beta</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-gold">Getting started</p>
           <h3 className="mt-1 text-title text-text">Not sure where to start?</h3>
           <p className="mt-1 text-sm text-text-2">
             Follow the 15-minute guided path: ask a question, explore the research, test one idea of your own,
             and tell us what you found.
           </p>
         </div>
-        <ButtonLink href="/beta" variant="secondary">
+        <ButtonLink href="/getting-started" variant="secondary">
           Your first 15 minutes
         </ButtonLink>
       </Card>
