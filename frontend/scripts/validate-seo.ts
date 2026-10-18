@@ -72,10 +72,10 @@ test("productJsonLd: name/url/images/category; offer with price, currency and av
   assert.equal(p.offers.availability, "https://schema.org/InStock");
 });
 
-test("productJsonLd: NO offer without a price or without a real release; free listing is price 0; subscription carries its unit; never a rating", () => {
-  assert.equal((productJsonLd(listing({ releaseId: null }), SITE) as any).offers, undefined);
-  assert.equal((productJsonLd(listing({ pricing: { model: "unavailable" } }), SITE) as any).offers, undefined);
-  assert.equal((productJsonLd(listing({ pricing: { model: "one_time" } }), SITE) as any).offers, undefined);
+test("productJsonLd: NO Product at all (null) without a price or without a real release; free listing is price 0; subscription carries its unit; never a rating", () => {
+  assert.equal(productJsonLd(listing({ releaseId: null }), SITE), null);
+  assert.equal(productJsonLd(listing({ pricing: { model: "unavailable" } }), SITE), null);
+  assert.equal(productJsonLd(listing({ pricing: { model: "one_time" } }), SITE), null);
   assert.equal((productJsonLd(listing({ pricing: { model: "free" } }), SITE) as any).offers.price, "0.00");
   const sub = (productJsonLd(listing({ pricing: { model: "subscription", amount: 29, currency: "USD", interval: "month" } }), SITE) as any).offers;
   assert.equal(sub.priceSpecification.unitText, "MONTH");
