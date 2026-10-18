@@ -56,8 +56,8 @@ const COMPANY: FooterItem[] = [
   { label: "Contact", href: "/company/contact" },
   { label: "Careers" },
   { label: "Partners" },
-  { label: "Media Kit" },
-  { label: "Brand Assets" },
+  { label: "Media Kit", href: "/company/media-kit" },
+  { label: "Brand Assets", href: "/company/brand-assets" },
 ];
 
 const RESOURCES: FooterItem[] = [
@@ -67,12 +67,12 @@ const RESOURCES: FooterItem[] = [
   { label: "FAQ", href: "/resources/faq" },
   { label: "All Resources", href: "/resources" },
   { label: "Blog", href: "/blog" },
-  { label: "Tutorials" },
-  { label: "Release Notes" },
+  { label: "Tutorials", href: "/resources/tutorials" },
+  { label: "Release Notes", href: "/resources/release-notes" },
   { label: "Roadmap" },
-  { label: "Documentation" },
-  { label: "Research" },
-  { label: "Market Insights" },
+  { label: "Documentation", href: "/resources/documentation" },
+  { label: "Research", href: "/resources/research" },
+  { label: "Market Insights", href: "/resources/market-insights" },
 ];
 
 const PLATFORM: FooterItem[] = [
