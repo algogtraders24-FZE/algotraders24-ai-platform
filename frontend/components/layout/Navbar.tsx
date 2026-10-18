@@ -247,10 +247,10 @@ export default function Navbar({ isAuthenticated: knownAuthenticated }: { isAuth
             </Link>
           )}
           <Link
-            href="/dashboard/assistant"
+            href={isAuthenticated ? "/dashboard/assistant" : "/signup"}
             className="inline-flex rounded-control bg-gold px-5 py-2 text-sm font-semibold text-ink transition hover:brightness-110"
           >
-            Ask the AI Assistant
+            {isAuthenticated ? "Ask the AI Assistant" : "Start Free"}
           </Link>
         </div>
 
@@ -284,11 +284,11 @@ export default function Navbar({ isAuthenticated: knownAuthenticated }: { isAuth
             </Link>
           )}
           <Link
-            href="/dashboard/assistant"
+            href={isAuthenticated ? "/dashboard/assistant" : "/signup"}
             className="rounded-control bg-gold px-5 py-2 text-center font-semibold text-ink"
             onClick={() => setOpen(false)}
           >
-            Ask the AI Assistant
+            {isAuthenticated ? "Ask the AI Assistant" : "Start Free"}
           </Link>
         </div>
       )}

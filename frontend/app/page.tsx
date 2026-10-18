@@ -63,8 +63,8 @@ export default function Home() {
       <Hero />
       <TrustStrip />
       <PlatformOverview />
-      <FeaturedMarketplace />
       <PricingTeaser />
+      <FeaturedMarketplace />
       <FAQ limit={5} />
       <CTA />
       <Footer />

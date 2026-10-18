@@ -18,7 +18,7 @@ import { ChevronDown } from "lucide-react";
 export const FAQS = [
   {
     q: "What is Algotraders24 AI?",
-    a: "An AI Trading Intelligence Platform. It runs market evidence through a deterministic pipeline — evidence, reasoning, risk, and confidence — and explains every conclusion in plain language. It's built for decision support, not for handing you a verdict to follow blindly.",
+    a: "An AI Trading Intelligence Platform. It checks market evidence step by step — evidence, reasoning, risk, and confidence — and explains every conclusion in plain language. It is a research and decision-support tool: it never places trades for you and does not tell you what to buy or sell.",
   },
   {
     q: "Is this a signal service?",

@@ -159,7 +159,7 @@ export default function Footer() {
         <div className="mt-12 max-w-sm">
           <BrandLogo variant="full" size="sm" withDescriptor={false} />
           <p className="mt-4 text-sm leading-6 text-text-2">
-            An AI Trading Intelligence Platform — deterministic, evidence-based market analysis, explained in plain
+            An AI Trading Intelligence Platform — evidence-based market analysis, explained in plain
             language.
           </p>
         </div>
