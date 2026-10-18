@@ -34,7 +34,7 @@ export const FAQS = [
   },
   {
     q: "Is there a free plan?",
-    a: "Yes. The Free plan is $0 and includes core tools — 500 AI credits a month, an AI agent, and automations — so you can try the platform before deciding to upgrade.",
+    a: "Yes. The Free plan is $0 and includes core tools — 500 AI credits a month (one credit is one AI chat message), an AI agent, and automations — so you can try the platform before deciding to upgrade.",
   },
   {
     q: "Can I upgrade later?",

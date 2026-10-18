@@ -25,7 +25,7 @@ function priceLabel(priceMonthly: number): { amount: string; period: string } {
 function featuresFor(id: (typeof PLAN_IDS)[number]): string[] {
   const p = PLAN_LIMITS[id];
   const feats = [
-    `${p.aiCredits.toLocaleString(CURRENCY.locale)} AI credits / month`,
+    `${p.aiCredits.toLocaleString(CURRENCY.locale)} AI credits / month (1 credit = 1 AI chat message)`,
     `${p.maxAgents.toLocaleString(CURRENCY.locale)} AI agent${p.maxAgents === 1 ? "" : "s"}`,
     `${p.maxAutomations.toLocaleString(CURRENCY.locale)} automations`,
     `${p.teamMembers} team member${p.teamMembers === 1 ? "" : "s"}`,
