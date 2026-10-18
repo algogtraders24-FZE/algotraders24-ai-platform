@@ -38,7 +38,15 @@ export type LicenseCheckReason =
   | "RELEASE_REVOKED"
   | "ACCOUNT_REQUIRED"
   | "ACCOUNT_LIMIT_REACHED"
+  | "WRONG_PRODUCT"
   | "BAD_REQUEST";
+
+/** The product id an EA announces (its tradingSystemId, e.g. XXXUS30). Short plain token or empty. */
+export function cleanProduct(v: unknown): string {
+  if (typeof v !== "string") return "";
+  const s = v.trim();
+  return /^[A-Za-z0-9._-]{1,80}$/.test(s) ? s : "";
+}
 
 /** Account numbers are kept as short plain strings (MT4/MT5 logins, cTrader ids, ...). */
 export function cleanAccount(v: unknown): string {

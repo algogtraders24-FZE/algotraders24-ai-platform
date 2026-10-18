@@ -11,6 +11,9 @@
 //|   listed URL" > add  https://www.algotraders24.ai                |
 //|                                                                  |
 //| USAGE in your EA:                                                |
+//|   #define AT24_PRODUCT_ID "YOUR-PRODUCT-ID"   (optional but advised:|
+//|     the product id shown on your listing page / purchase page;   |
+//|     a key bought for another product is then refused)            |
 //|   #include "AT24_License.mqh"                                    |
 //|   input string InpLicenseKey = "";                               |
 //|   int OnInit()                                                   |
@@ -40,7 +43,7 @@
 struct AT24LicenseResult
   {
    bool   valid;
-   string reason;     // e.g. INVALID_KEY, LICENSE_REVOKED, LICENSE_EXPIRED, ACCOUNT_LIMIT_REACHED, WEBREQUEST_FAILED
+   string reason;     // e.g. INVALID_KEY, LICENSE_REVOKED, LICENSE_EXPIRED, ACCOUNT_LIMIT_REACHED, WRONG_PRODUCT, WEBREQUEST_FAILED
    string detail;
    string buyerId;
    string expiresAt;  // "" = never
@@ -85,6 +88,10 @@ bool AT24_CheckLicense(const string key, AT24LicenseResult &res, const bool bind
       body += ",\"server\":\"" + AccountServer() + "\"";
 #endif
      }
+#ifdef AT24_PRODUCT_ID
+   // The EA announces which product it is, so a key bought for another (cheaper) product is refused.
+   body += ",\"product\":\"" + AT24_PRODUCT_ID + "\"";
+#endif
    body += "}";
 
    char data[], out[];

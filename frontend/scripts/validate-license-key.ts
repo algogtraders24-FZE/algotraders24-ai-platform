@@ -1,7 +1,7 @@
 // scripts/validate-license-key.ts - offline checks for the one-string licence key format:
 //   npx tsx scripts/validate-license-key.ts
 import assert from "node:assert/strict";
-import { composeLicenseKey, parseLicenseKey, cleanAccount, cleanServer, LICENSE_KEY_PREFIX } from "../services/licensing/licenseKey";
+import { composeLicenseKey, parseLicenseKey, cleanAccount, cleanServer, cleanProduct, LICENSE_KEY_PREFIX } from "../services/licensing/licenseKey";
 
 let pass = 0;
 function ok(name: string, fn: () => void) {
@@ -30,6 +30,15 @@ ok("anything malformed parses to null and never throws", () => {
 ok("injection-style characters are rejected", () => {
   assert.equal(parseLicenseKey(`AT24-${licenseId}.${apiKey}"}; DROP`), null);
   assert.equal(parseLicenseKey(`AT24-li/../cense.${apiKey}`), null);
+});
+ok("product id cleaning (an EA announces which product it is)", () => {
+  assert.equal(cleanProduct("XXXUS30"), "XXXUS30");
+  assert.equal(cleanProduct(" SELF-cmu1abc "), "SELF-cmu1abc");
+  assert.equal(cleanProduct("a b"), "");
+  assert.equal(cleanProduct('X"}'), "");
+  assert.equal(cleanProduct("x".repeat(81)), "");
+  assert.equal(cleanProduct(undefined), "");
+  assert.equal(cleanProduct(5), "");
 });
 ok("account and server cleaning", () => {
   assert.equal(cleanAccount(12345678), "12345678");

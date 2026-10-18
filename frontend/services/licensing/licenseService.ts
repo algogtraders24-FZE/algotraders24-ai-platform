@@ -363,7 +363,7 @@ export interface LicenseCheckResult {
   accountBound?: boolean;
 }
 
-export async function checkLicenseByKey(params: { key: unknown; account?: string; server?: string; requireAccount?: boolean }): Promise<LicenseCheckResult> {
+export async function checkLicenseByKey(params: { key: unknown; account?: string; server?: string; requireAccount?: boolean; product?: string }): Promise<LicenseCheckResult> {
   const parsed = parseLicenseKey(params.key);
   if (!parsed) return { valid: false, reason: "INVALID_KEY", detail: "The licence key is not in the form AT24-<id>.<secret>." };
 
@@ -387,6 +387,10 @@ export async function checkLicenseByKey(params: { key: unknown; account?: string
   if (license.licenseStatus === "SUSPENDED") return fail("LICENSE_SUSPENDED", "This licence is suspended.");
   if (license.licenseStatus !== "ISSUED" && license.licenseStatus !== "ACTIVE") return fail("LICENSE_NOT_USABLE", `Licence status is ${license.licenseStatus}.`);
   if (license.expiresAt && license.expiresAt.getTime() <= Date.now()) return fail("LICENSE_EXPIRED", "This licence has expired.");
+
+  // A key only runs the product it was bought for: a cheap product's key must not unlock an expensive EA. EAs announce their id
+  // (AT24_PRODUCT_ID in AT24_License.mqh); when it is sent and differs, refuse BEFORE any account is bound.
+  if (params.product && params.product !== license.tradingSystemId) return fail("WRONG_PRODUCT", "This licence key belongs to a different product.");
 
   // A superseded (DEPRECATED) build keeps working for the buyers who own it; only a REVOKED/removed build stops.
   const release = await prisma.releaseArtifact.findUnique({ where: { id: license.releaseId }, select: { releaseStatus: true, deletedAt: true } });
