@@ -40,7 +40,7 @@ export default function Hero() {
             className="hero-fade inline-block rounded-control border border-gold/30 bg-gold/10 px-4 py-2 text-sm font-medium text-gold"
             style={{ animationDelay: "0ms" }}
           >
-            AI Trading Intelligence Platform
+            AI market research for traders
           </span>
 
           <h1
@@ -51,27 +51,27 @@ export default function Hero() {
           </h1>
 
           <p className="hero-fade mt-6 max-w-xl text-lg leading-8 text-text-2" style={{ animationDelay: "160ms" }}>
-            Every conclusion traces to evidence you can see, a confidence score you can question, and a risk we
-            never hide.
+            AI market research and risk analysis for traders. Every conclusion shows the evidence behind it, how
+            confident it is, and the risk. It never places trades for you.
           </p>
 
           <div className="hero-fade mt-10 flex flex-wrap gap-4" style={{ animationDelay: "240ms" }}>
             <Link
-              href="/dashboard/assistant"
+              href="/signup"
               className="rounded-control bg-gold px-8 py-4 font-semibold text-ink transition hover:brightness-110"
             >
-              Ask the AI Assistant
+              Start Free
             </Link>
             <Link
-              href="/signup"
+              href="/markets"
               className="rounded-control border border-border px-8 py-4 font-semibold text-text transition hover:border-gold"
             >
-              Start Free
+              See a live example
             </Link>
           </div>
 
           <p className="hero-fade mt-4 text-sm text-text-3" style={{ animationDelay: "300ms" }}>
-            Free plan included — explainable analysis from day one.
+            Free plan, no card needed. A research and decision-support tool, not financial advice.
           </p>
         </div>
 
