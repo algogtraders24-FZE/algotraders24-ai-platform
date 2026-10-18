@@ -18,14 +18,19 @@
 //+------------------------------------------------------------------+
 #property copyright "AT24 - Algotraders24"
 #property link      "https://www.algotraders24.ai"
-#property version   "1.00"
+#property version   "1.01"
 #property strict
 #property description "AT24 Local Trade Copier - Receiver for MT4 (mirrors a local Master; no server, no DLL)."
 
 #include "..\Include\AT24_Copier_Proto.mqh"
 #include "..\Include\AT24_Copier_RxLock.mqh"
 
+//--- AT24 licence gate: one key = ONE receiving account (the account that copies the trades), only for this product
+#define AT24_PRODUCT_ID "AT24-LOCAL-COPIER"
+#include "..\Include\AT24_LicenseGate.mqh"
+
 //--- Channel
+input string InpLicenseKey = "";   // AT24 licence key (from your AT24 purchase page)
 input string ChannelId            = "default";            // Must match the Master's ChannelId
 input long   ExpectedMasterLogin  = 0;                    // 0 = accept any master on this channel
 input int    StaleSeconds         = 10;                   // Master silent longer than this = offline (nothing is done)
@@ -454,6 +459,8 @@ bool ClosePartialCopy(const int ticket, const long mid, const double vol, const 
 bool OpenCopy(const SCopyPos &p, const string sym, const int cmd, const double vol,
               double sl, double tp, const string why)
   {
+   if(!AT24Gate_Allowed())
+     { LogOnce("at24lic", "AT24 licence refused - no NEW copies: " + g_at24_message); return false; }
    if(MaxSpreadPoints > 0.0 && MarketInfo(sym, MODE_SPREAD) > MaxSpreadPoints)
      { LogOnce("spread" + (string)p.id, StringFormat("spread %.0f > max %.0f on %s - waiting", MarketInfo(sym, MODE_SPREAD), MaxSpreadPoints, sym)); return false; }
    string stopsWhy;
@@ -702,6 +709,8 @@ int OnInit()
       Print("[AT24-COPIER] The copier cannot run in the Strategy Tester - attach it to a live or demo chart.");
       return INIT_FAILED;
      }
+   if(!AT24Gate_Init(InpLicenseKey))
+      return INIT_FAILED;
    if(ReceiverMagic < 0 || LotMultiplier <= 0.0 || (LotMode == AT24C_LOT_FIXED && FixedLot <= 0.0))
      {
       Print("[AT24-COPIER] Invalid inputs (ReceiverMagic / LotMultiplier / FixedLot).");
@@ -725,6 +734,7 @@ void OnDeinit(const int reason)
 
 void OnTimer()
   {
+   AT24Gate_Timer(InpLicenseKey);
    if(!DryRun && !IsTradeAllowed())
      {
       g_status = "trading is disabled (enable the AutoTrading button and 'Allow live trading' in the EA properties)";

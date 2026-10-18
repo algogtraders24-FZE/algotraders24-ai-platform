@@ -77,6 +77,21 @@ bool AT24_CheckLicense(const string key, AT24LicenseResult &res, const bool bind
       return false;
      }
 
+   if(bindAccount)
+     {
+#ifdef __MQL5__
+      long login0 = (long)AccountInfoInteger(ACCOUNT_LOGIN);
+#else
+      long login0 = (long)AccountNumber();
+#endif
+      if(login0 <= 0)
+        {
+         res.reason = "NO_ACCOUNT";
+         res.detail = "The terminal is not connected to a trading account yet.";
+         return false;
+        }
+     }
+
    string body = "{\"key\":\"" + key + "\"";
    if(bindAccount)
      {

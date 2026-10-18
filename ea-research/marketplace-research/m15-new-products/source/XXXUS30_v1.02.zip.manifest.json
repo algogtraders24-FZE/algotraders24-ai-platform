@@ -1,9 +1,9 @@
 {
   "version": "1.02",
   "files": {
-    "XXXUS30.ex5": "b4f90df978f32ea3cebc5f3f670c1b20596be5feeadc66d8b8d0cf2ef495d024",
+    "XXXUS30.ex5": "74d54dcc0bbf705486599510103c201d22826fb2bb96e5e45b33ccd7628c9512",
     "XXXUS30_tested_settings.set": "8ad435fc57206eaa137ef2eab94f464716482950fa5a79b7630122aa67972beb",
     "README.txt": "839149ba3e3b299246e8b0bc75320e16b1727144b7557b7ca1c8d299ff939be6"
   },
-  "zipSha256": "7bfb2dcdc77270eaf8d3620dbcf2f63aad04a926cf681b904fa0c884651db1c0"
+  "zipSha256": "e3b24885cc4cd2b62789bfd09e247d279d7275a636383c8d61ec4d8803558921"
 }

@@ -50,10 +50,14 @@ export function cleanProduct(v: unknown): string {
 
 /** Account numbers are kept as short plain strings (MT4/MT5 logins, cTrader ids, ...). */
 export function cleanAccount(v: unknown): string {
-  if (typeof v === "number" && Number.isFinite(v)) return String(Math.trunc(v));
-  if (typeof v !== "string") return "";
-  const s = v.trim();
-  return /^[A-Za-z0-9._@-]{1,64}$/.test(s) ? s : "";
+  const out = ((): string => {
+    if (typeof v === "number" && Number.isFinite(v)) return String(Math.trunc(v));
+    if (typeof v !== "string") return "";
+    const s = v.trim();
+    return /^[A-Za-z0-9._@-]{1,64}$/.test(s) ? s : "";
+  })();
+  // "0" / "000" is what a terminal reports before its login completes - never an account (it would burn the buyer's slot).
+  return /^0+$/.test(out) ? "" : out;
 }
 
 export function cleanServer(v: unknown): string {

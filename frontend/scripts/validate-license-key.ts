@@ -44,6 +44,10 @@ ok("account and server cleaning", () => {
   assert.equal(cleanAccount(12345678), "12345678");
   assert.equal(cleanAccount(" 8765 "), "8765");
   assert.equal(cleanAccount("a;b"), "");
+  assert.equal(cleanAccount(0), "");
+  assert.equal(cleanAccount("0"), "");
+  assert.equal(cleanAccount("000"), "");
+  assert.equal(cleanAccount("10"), "10");
   assert.equal(cleanAccount(""), "");
   assert.equal(cleanAccount(undefined), "");
   assert.equal(cleanServer("Exness-MT5Trial8"), "Exness-MT5Trial8");

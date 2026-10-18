@@ -49,6 +49,28 @@ bool AT24Gate_IsTester()
 #endif
   }
 
+//--- the trading account number (0 while the terminal is not connected yet)
+long AT24Gate_Login()
+  {
+#ifdef __MQL5__
+   return (long)AccountInfoInteger(ACCOUNT_LOGIN);
+#else
+   return (long)AccountNumber();
+#endif
+  }
+
+//--- right after a terminal start the EA can load BEFORE the login completes; never send "account 0" to AT24
+bool AT24Gate_WaitForLogin(const int maxMs)
+  {
+   for(int waited = 0; waited <= maxMs; waited += 500)
+     {
+      if(AT24Gate_Login() > 0)
+         return true;
+      Sleep(500);
+     }
+   return false;
+  }
+
 //--- reasons that mean "this key may NOT run this EA" (as opposed to a network problem)
 bool AT24Gate_IsRefusal(const string reason)
   {
@@ -76,6 +98,14 @@ bool AT24Gate_Init(const string key)
    g_at24_allowed = true;
    if(AT24Gate_IsTester())
       return true;
+   if(!AT24Gate_WaitForLogin(15000))
+     {
+      g_at24_allowed = false;
+      g_at24_message = "The terminal is not connected to a trading account yet. Attach the EA again once the connection is up.";
+      Print("AT24 licence: ", g_at24_message);
+      Alert("AT24 licence: ", g_at24_message);
+      return false;
+     }
    AT24LicenseResult r;
    g_at24_lastTry = TimeLocal();
    if(AT24_CheckLicense(key, r))
@@ -101,6 +131,8 @@ void AT24Gate_Timer(const string key)
    datetime now = TimeLocal();
    if(now - g_at24_lastTry < AT24GATE_RECHECK_SECONDS)
       return;
+   if(AT24Gate_Login() <= 0)
+      return;   // connection lost: try again on the next timer, do not change state
    g_at24_lastTry = now;
    AT24LicenseResult r;
    if(AT24_CheckLicense(key, r))
