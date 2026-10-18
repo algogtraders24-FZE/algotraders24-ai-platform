@@ -40,7 +40,7 @@ export default function AdminBetaPage() {
   useEffect(() => {
     AdminApi.getBetaOverview()
       .then(setOverview)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load beta overview"))
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load users overview"))
       .finally(() => setLoading(false));
   }, []);
 
@@ -89,7 +89,7 @@ export default function AdminBetaPage() {
     <div className="space-y-8">
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard
-          label="Active Beta Users"
+          label="Active Users"
           value={overview.activeBetaUsers.count}
           sub={`Logged in within the last ${overview.activeBetaUsers.windowDays} days, of ${overview.totalUsers} total`}
         />

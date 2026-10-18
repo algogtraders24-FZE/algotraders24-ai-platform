@@ -25,6 +25,10 @@ const nextConfig: NextConfig = {
     "/*": ["data/marketplace-evidence/**/*", "private-releases/**/*"],
   },
 
+  async redirects() {
+    // The guided "first 15 minutes" page used to live at /beta.
+    return [{ source: "/beta", destination: "/getting-started", permanent: true }];
+  },
   // AT24 Security Hardening P1.2 - baseline security response headers.
   // Content-Security-Policy: script-src includes 'unsafe-inline' - NOT
   // the first choice. A per-request nonce (Next's own documented pattern,

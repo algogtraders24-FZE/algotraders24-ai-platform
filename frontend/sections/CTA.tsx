@@ -6,10 +6,7 @@
 // rules for the final CTA: one headline, one restrained panel, real links,
 // nothing invented. Server Component: static content, no interactivity
 // needed.
-// Sprint D2.1 (Phase 10) - beta-forward close. Both CTAs resolve to /signup,
-// the real entry point: while the platform is in beta, creating an account
-// IS beta access, so "Request Beta Access" points there honestly rather than
-// to an invented waitlist route that doesn't exist.
+// Sprint D2.1 (Phase 10) - the close points at the real entry points: /signup and a live example (/markets).
 import Link from "next/link";
 
 export default function CTA() {
@@ -28,10 +25,10 @@ export default function CTA() {
             Start Free
           </Link>
           <Link
-            href="/signup"
+            href="/markets"
             className="rounded-control border border-border px-8 py-4 font-semibold text-text transition hover:border-gold"
           >
-            Request Beta Access
+            See a live example
           </Link>
         </div>
       </div>

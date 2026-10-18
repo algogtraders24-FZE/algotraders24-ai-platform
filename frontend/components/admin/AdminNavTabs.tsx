@@ -22,7 +22,7 @@ const ADMIN_NAV = [
   { label: "AI Usage Analytics", href: "/dashboard/admin/analytics" },
   { label: "System Health", href: "/dashboard/admin/health" },
   { label: "Audit Logs", href: "/dashboard/admin/audit-logs" },
-  { label: "Beta Overview", href: "/dashboard/admin/beta" },
+  { label: "Users Overview", href: "/dashboard/admin/beta" },
   { label: "Feedback", href: "/dashboard/admin/feedback" },
   // Support Human Handoff MVP - AT24's first internal Support Ticket/Case
   // queue (SUPPORT_HUMAN_HANDOFF_ARCHITECTURE_LOCK.md D12).
