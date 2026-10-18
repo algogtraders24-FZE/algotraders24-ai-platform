@@ -62,8 +62,8 @@ export interface ListingForSeo {
   updatedAt: string;
 }
 
-/** schema.org Product for a public listing. Offer only when there is a price AND a real downloadable release; never a rating or review. */
-export function productJsonLd(l: ListingForSeo, site: string = SITE_URL) {
+/** schema.org Product for a public listing. Google requires offers/review/aggregateRating and we never claim a rating or review, so a Product is emitted ONLY when there is a price AND a real downloadable release; otherwise null (no Product markup). */
+export function productJsonLd(l: ListingForSeo, site: string = SITE_URL): Record<string, unknown> | null {
   const url = absoluteUrl(`/marketplace/${l.slug}`, site);
   const category = [l.platformTag, l.assetTag].filter(Boolean).join(" - ");
   const product: Record<string, unknown> = {
@@ -95,7 +95,7 @@ export function productJsonLd(l: ListingForSeo, site: string = SITE_URL) {
     }
     product.offers = offer;
   }
-  return product;
+  return product.offers ? product : null;
 }
 
 export function faqJsonLd(items: ReadonlyArray<{ q: string; a: string }>) {

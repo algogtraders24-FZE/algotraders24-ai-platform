@@ -56,10 +56,12 @@ export default async function MarketplaceListingPage({
   // The seller's own backtest report, if one was attached and AT24 finished reading it (otherwise nothing is shown).
   const reportCheck = await latestReportCheck(listing.id);
 
+  const productSchema = productJsonLd(listing);
+
   return (
     <main className="min-h-screen bg-ink text-text">
-      {/* Structured data: Product (+ Offer only when there is a price and a real release) and the breadcrumb. No rating or review is ever claimed. */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(productJsonLd(listing)) }} />
+      {/* Structured data: Product only when it has a real Offer (price + release), otherwise omitted; plus the breadcrumb. No rating or review is ever claimed. */}
+      {productSchema && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(productSchema) }} />}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd([{ name: "Home", path: "/" }, { name: "Marketplace", path: "/marketplace" }, { name: listing.title, path: `/marketplace/${listing.slug}` }])) }}
