@@ -14,13 +14,18 @@ const RATE_WINDOW_MS = 60_000;
 const RATE_MAX = 8;
 const SEEN_MAX = 2000;
 const ALERT_COOLDOWN_MS = 10 * 60_000;
+// When the owner types a reply from the WhatsApp Business app (coexistence mode delivers it as a "message echo"), the bot stays
+// quiet for that customer for a while so it never talks over a person.
+const HUMAN_MUTE_MS = 12 * 60 * 60_000;
 
 export interface WaGuards {
   seen: Set<string>;
   hits: Map<string, number[]>;
   alerted: Map<string, number>;
+  /** customer number -> epoch ms until which the bot stays silent (a human answered from the app). */
+  muted: Map<string, number>;
 }
-export const newGuards = (): WaGuards => ({ seen: new Set(), hits: new Map(), alerted: new Map() });
+export const newGuards = (): WaGuards => ({ seen: new Set(), hits: new Map(), alerted: new Map(), muted: new Map() });
 const processGuards = newGuards();
 
 export interface WaDeps {
@@ -63,6 +68,26 @@ function messagesOf(payload: unknown): WaMessage[] {
   return out;
 }
 
+/** Numbers the owner wrote to from the app (smb_message_echoes). Only the recipient is read. */
+function echoRecipients(payload: unknown): string[] {
+  const out: string[] = [];
+  const entries = (payload as { entry?: unknown })?.entry;
+  if (!Array.isArray(entries)) return out;
+  for (const e of entries) {
+    const changes = (e as { changes?: unknown })?.changes;
+    if (!Array.isArray(changes)) continue;
+    for (const c of changes) {
+      const echoes = (c as { value?: { message_echoes?: unknown } })?.value?.message_echoes;
+      if (!Array.isArray(echoes)) continue;
+      for (const echo of echoes) {
+        const to = (echo as { to?: unknown })?.to;
+        if (typeof to === "string" && /^\d{6,20}$/.test(to)) out.push(to);
+      }
+    }
+  }
+  return out;
+}
+
 function limited(g: WaGuards, from: string, nowMs: number): boolean {
   const recent = (g.hits.get(from) ?? []).filter((t) => nowMs - t < RATE_WINDOW_MS);
   recent.push(nowMs);
@@ -77,6 +102,11 @@ export async function handleWhatsAppPayload(payload: unknown, deps: WaDeps): Pro
   const answer = deps.answer ?? answerGuestQuestion;
   const summary: WaSummary = { received: 0, replied: 0, escalated: 0, ignored: 0 };
 
+  for (const to of echoRecipients(payload)) {
+    g.muted.set(to, nowMs + HUMAN_MUTE_MS);
+    if (g.muted.size > 2000) g.muted.clear();
+  }
+
   for (const m of messagesOf(payload)) {
     summary.received++;
     try {
@@ -87,6 +117,7 @@ export async function handleWhatsAppPayload(payload: unknown, deps: WaDeps): Pro
       if (g.seen.size > SEEN_MAX) { g.seen.clear(); g.seen.add(id); }
       const sentAt = Number(m.timestamp);
       if (Number.isFinite(sentAt) && sentAt > 0 && nowMs / 1000 - sentAt > MAX_AGE_SECONDS) { summary.ignored++; continue; }
+      if ((g.muted.get(from) ?? 0) > nowMs) { summary.ignored++; continue; }
       if (limited(g, from, nowMs)) { summary.ignored++; continue; }
 
       const send = async (text: string): Promise<void> => {

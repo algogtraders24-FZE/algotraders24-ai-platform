@@ -186,6 +186,20 @@ async function main(): Promise<void> {
   s = await handleWhatsAppPayload(payload([text("badnum", "hello", "not-a-number")]), t.deps);
   eq(s.ignored, 1, "a sender id that is not a phone number is ignored");
 
+  // ------------------------------------------------------------ human takeover (coexistence echoes)
+  const echo = (to: string) => ({ object: "whatsapp_business_account", entry: [{ changes: [{ field: "smb_message_echoes", value: { message_echoes: [{ from: "971567355276", to, id: "e1", type: "text", text: { body: "Hi, this is Pravin" } }] } }] }] });
+  t = rig(async () => kbAnswer());
+  eq(await handleWhatsAppPayload(echo("971500000009"), t.deps), { received: 0, replied: 0, escalated: 0, ignored: 0 }, "an echo is not a customer message");
+  s = await handleWhatsAppPayload(payload([text("after-echo", "how much is a credit", "971500000009")]), t.deps);
+  eq(s.ignored, 1, "after the owner wrote from the app, the bot stays silent for that customer");
+  eq(t.sent.length, 0, "…and sends nothing");
+  s = await handleWhatsAppPayload(payload([text("other-customer", "how much is a credit", "971500000010")]), t.deps);
+  eq(s.replied, 1, "other customers are still answered");
+  t.deps.now = () => 1_800_000_000_000 + 13 * 60 * 60_000;
+  s = await handleWhatsAppPayload(payload([text("later", "how much is a credit", "971500000009", NOW_S + 13 * 3600)]), t.deps);
+  eq(s.replied, 1, "the bot answers again 12+ hours after the human's last message");
+  eq(await handleWhatsAppPayload({ entry: [{ changes: [{ value: { message_echoes: [{ to: "bad" }, null, { to: 5 }] } }] }] }, t.deps), { received: 0, replied: 0, escalated: 0, ignored: 0 }, "malformed echoes are harmless");
+
   console.log(`validate-whatsapp: ${checks} checks passed`);
 }
 
