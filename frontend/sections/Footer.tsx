@@ -30,9 +30,9 @@
 //     two different pages.
 //   - Developers is entirely disabled: explicitly scoped "Future" with no
 //     real API/SDK/docs/GitHub today.
-//   - No Social column: no real social profiles are confirmed to exist
-//     (matching app/layout.tsx's own "no sameAs" discipline), same
-//     decision D2.4.A1 made when this was last asked.
+//   - Social links: the real, verified profiles now exist, so they are
+//     listed under the brand blurb from config/social.ts (the same source
+//     the contact page and the Organization sameAs use).
 //   - Platform's Automation/AI Agents/Trading Copilot link straight to
 //     their real /dashboard/* route (no dedicated marketing page yet),
 //     same pattern the /platform hub uses for the same three modules.
@@ -43,6 +43,7 @@
 import Link from "next/link";
 import BrandLogo from "@/components/brand/BrandLogo";
 import PoweredBy from "@/sections/PoweredBy";
+import { SOCIAL_PROFILES } from "@/config/social";
 
 interface FooterItem {
   label: string;
@@ -162,6 +163,21 @@ export default function Footer() {
             An AI Trading Intelligence Platform — evidence-based market analysis, explained in plain
             language.
           </p>
+          <ul className="mt-5 flex flex-wrap gap-2" aria-label="Algotraders24 on social media">
+            {SOCIAL_PROFILES.map((p) => (
+              <li key={p.id}>
+                <a
+                  href={p.href}
+                  target="_blank"
+                  rel="me noopener noreferrer"
+                  aria-label={`${p.label}: ${p.handle}`}
+                  className="inline-flex rounded-control border border-border px-3 py-1.5 text-xs font-medium text-text-2 transition-colors hover:border-gold hover:text-gold"
+                >
+                  {p.label}
+                </a>
+              </li>
+            ))}
+          </ul>
         </div>
 
         <div className="mt-12 grid gap-10 sm:grid-cols-2 lg:grid-cols-4">

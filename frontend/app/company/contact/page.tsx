@@ -9,6 +9,7 @@ import { MessageCircle, Send, Mail } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
 import PageHero from "@/components/marketing/PageHero";
+import { SOCIAL_PROFILES } from "@/config/social";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -62,6 +63,24 @@ export default function ContactPage() {
               </div>
             </a>
           ))}
+        </div>
+        <div className="mx-auto mt-10 max-w-xl text-center">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-gold">Follow us</h2>
+          <ul className="mt-4 flex flex-wrap justify-center gap-3">
+            {SOCIAL_PROFILES.map((p) => (
+              <li key={p.id}>
+                <a
+                  href={p.href}
+                  target="_blank"
+                  rel="me noopener noreferrer"
+                  className="inline-flex flex-col rounded-control border border-border px-4 py-2 text-sm text-text-2 transition-colors hover:border-gold hover:text-gold"
+                >
+                  <span className="font-semibold">{p.label}</span>
+                  <span className="text-xs text-text-3">{p.handle}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
         </div>
         <p className="mx-auto mt-8 max-w-xl text-center text-xs text-text-3">Algotraders24 · Kingstown, Saint Vincent and the Grenadines</p>
       </section>
