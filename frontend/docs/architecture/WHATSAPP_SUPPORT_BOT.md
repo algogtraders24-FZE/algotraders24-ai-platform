@@ -48,7 +48,7 @@ Steps:
 7. WhatsApp -> Configuration -> Webhook: callback URL `https://www.algotraders24.ai/api/webhooks/whatsapp` and the verify token from step 5. Subscribe to **messages** and **smb_message_echoes** (the echo field is what lets the bot step back when you reply by hand).
 8. Test from another phone: `hi`, a pricing question, `HUMAN`, `should i buy gold`; then reply by hand from the Business app and check the bot stays quiet for that chat.
 
-Cost, to verify on Meta's official pricing page (third-party summaries disagree on numbers): Meta bills per delivered message. Several sources say that from **1 October 2026 free-form service replies inside the 24-hour window are also billable** (at the utility rate), with at most a small monthly free allowance. A support bot answering a few hundred questions a month is a small cost, but it is not free: set a Meta spending cap and watch the first month.
+Cost: there is no platform or subscription fee; Meta bills per delivered message. Meta's own pricing page (whatsappbusiness.com/products/platform-pricing, read 2026-10-19) says **replies inside the 24-hour customer-service window are free**, and marketing / out-of-window utility / authentication templates are charged by country. Several third-party articles claim that free-form service replies become billable from 1 October 2026; Meta's page lists no such change, so treat it as unconfirmed and check Meta's current rate card before go-live. Set a Meta spending cap either way. This bot sends only in-window replies (no templates), so it should fall in the free category.
 
 Without coexistence (fallback): register a **new** number on the API only; it then cannot be used in the normal Business app.
 
