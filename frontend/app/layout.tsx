@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Urbanist } from "next/font/google";
 import { ToastProvider } from "@/components/ui/Toast";
 import SupportWidget from "@/components/support/SupportWidget";
+import { SOCIAL_URLS } from "@/config/social";
 import "./globals.css";
 
 // Geist (sans/mono) power body + code. Urbanist is the official Brand
@@ -92,7 +93,7 @@ export const metadata: Metadata = {
 
 // Sprint H1.6 - minimal, honest structured data: only facts already true
 // elsewhere in the codebase (name, real domain, the same description used
-// in metadata above). No sameAs (no confirmed social profiles), no address/
+// in metadata above). sameAs lists the real, verified profiles from config/social.ts; no address/
 // founding date/SearchAction - all would be invented.
 // Sprint D2.1 (Phase 10) - the Organization logo is now populated: a real,
 // official Brand Identity v1.0 asset finally exists in public/, so the one
@@ -106,6 +107,7 @@ const structuredData = {
       url: SITE_URL,
       description: DESCRIPTION,
       logo: `${SITE_URL}${LOGO_URL}`,
+      sameAs: SOCIAL_URLS,
     },
     {
       "@type": "WebSite",
