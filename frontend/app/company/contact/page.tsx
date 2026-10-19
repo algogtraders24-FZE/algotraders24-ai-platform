@@ -10,6 +10,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
 import PageHero from "@/components/marketing/PageHero";
 import { SOCIAL_PROFILES } from "@/config/social";
+import SocialIcon from "@/components/brand/SocialIcon";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -73,10 +74,13 @@ export default function ContactPage() {
                   href={p.href}
                   target="_blank"
                   rel="me noopener noreferrer"
-                  className="inline-flex flex-col rounded-control border border-border px-4 py-2 text-sm text-text-2 transition-colors hover:border-gold hover:text-gold"
+                  className="inline-flex items-center gap-3 rounded-control border border-border px-4 py-2 text-left text-sm text-text-2 transition-colors hover:border-gold hover:text-gold"
                 >
-                  <span className="font-semibold">{p.label}</span>
-                  <span className="text-xs text-text-3">{p.handle}</span>
+                  <SocialIcon id={p.id} className="h-5 w-5" />
+                  <span className="flex flex-col">
+                    <span className="font-semibold">{p.label}</span>
+                    <span className="text-xs text-text-3">{p.handle}</span>
+                  </span>
                 </a>
               </li>
             ))}

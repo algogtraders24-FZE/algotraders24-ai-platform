@@ -44,6 +44,7 @@ import Link from "next/link";
 import BrandLogo from "@/components/brand/BrandLogo";
 import PoweredBy from "@/sections/PoweredBy";
 import { SOCIAL_PROFILES } from "@/config/social";
+import SocialIcon from "@/components/brand/SocialIcon";
 
 interface FooterItem {
   label: string;
@@ -171,8 +172,9 @@ export default function Footer() {
                   target="_blank"
                   rel="me noopener noreferrer"
                   aria-label={`${p.label}: ${p.handle}`}
-                  className="inline-flex rounded-control border border-border px-3 py-1.5 text-xs font-medium text-text-2 transition-colors hover:border-gold hover:text-gold"
+                  className="inline-flex items-center gap-1.5 rounded-control border border-border px-3 py-1.5 text-xs font-medium text-text-2 transition-colors hover:border-gold hover:text-gold"
                 >
+                  <SocialIcon id={p.id} />
                   {p.label}
                 </a>
               </li>
