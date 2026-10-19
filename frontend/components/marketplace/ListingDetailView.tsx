@@ -17,6 +17,7 @@ import RiskSection from "@/components/marketplace/sections/RiskSection";
 import HistorySection from "@/components/marketplace/sections/HistorySection";
 import VersionSection from "@/components/marketplace/sections/VersionSection";
 import PurchaseCTA from "@/components/marketplace/PurchaseCTA";
+import AskOnWhatsApp from "@/components/marketplace/AskOnWhatsApp";
 import RiskDisclosure from "@/components/marketplace/RiskDisclosure";
 import type { MarketplaceListingDetail } from "@/types/marketplace";
 
@@ -112,6 +113,7 @@ export default function ListingDetailView({
           </div>
           <div className="space-y-6">
             <PurchaseCTA listingId={listing.id} pricing={listing.pricing} releaseId={listing.releaseId} />
+            <AskOnWhatsApp title={listing.title} />
             <RiskDisclosure />
           </div>
         </div>
