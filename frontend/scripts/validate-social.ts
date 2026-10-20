@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { buildBlogPost, buildDailyPost, buildScoreboardPost, violatesPolicy, type DraftPost } from "../services/social/content";
 import { dispatchPost, makeWebhookSender, absoluteImage, type DispatchDeps } from "../services/social/dispatch";
-import { MAX_ATTEMPTS, runSocialWith, type SocialDeps, type StoredPost } from "../services/social/runner";
+import { MAX_ATTEMPTS, parseAutoApprove, runSocialWith, type SocialDeps, type StoredPost } from "../services/social/runner";
 import { MARKETS, buildHubView, marketBySlug, type HubView } from "../services/markets/hub";
 import { createTelegramClient, type FetchLike } from "../services/telegram/client";
 import type { CalibrationRow } from "../services/calibration/forecast";
@@ -109,7 +109,7 @@ async function main() {
   });
 
   // ---- runner ----
-  function harness(opts: { autoApprove?: boolean; dispatch?: Partial<DispatchDeps>; posts?: Array<{ slug: string; title: string; publishedAt: string | null }> } = {}) {
+  function harness(opts: { autoApprove?: boolean | "daily"; dispatch?: Partial<DispatchDeps>; posts?: Array<{ slug: string; title: string; publishedAt: string | null }> } = {}) {
     const rows = new Map<string, DraftPost & { id: string; status: string; attempts: number; results?: unknown }>();
     let n = 0;
     const d = dispatchDeps(opts.dispatch);
@@ -162,6 +162,24 @@ async function main() {
     const h = harness({ autoApprove: true });
     const r = await runSocialWith(h.deps, NOW_MON);
     assert.deepEqual([r.drafted, r.sent], [2, 2]);
+  });
+
+  await test("runner: SOCIAL_AUTO_APPROVE=daily sends only the daily card and the scoreboard; a new analysis stays a DRAFT", async () => {
+    const h = harness({ autoApprove: "daily", posts: [{ slug: "new", title: "Gold analysis", publishedAt: "2026-10-19T04:00:00Z" }] });
+    const r = await runSocialWith(h.deps, NOW_MON);
+    assert.deepEqual([r.drafted, r.sent], [3, 2]);
+    assert.equal(h.rows.get("blog:new")?.status, "DRAFT");
+    assert.ok([...h.rows.values()].filter((x) => x.kind !== "blog").every((x) => x.status === "SENT"));
+  });
+
+  await test("parseAutoApprove: off by default, daily and on recognised, anything else is off", () => {
+    assert.equal(parseAutoApprove(undefined), false);
+    assert.equal(parseAutoApprove(""), false);
+    assert.equal(parseAutoApprove("on"), true);
+    assert.equal(parseAutoApprove(" ON "), true);
+    assert.equal(parseAutoApprove("daily"), "daily");
+    assert.equal(parseAutoApprove("Daily"), "daily");
+    assert.equal(parseAutoApprove("yes"), false);
   });
 
   await test("runner: new blog analyses (published in the last 26h) become posts; older ones and unpublished ones do not", async () => {

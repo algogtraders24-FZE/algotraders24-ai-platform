@@ -16,7 +16,7 @@ guarantee wording (`violatesPolicy` is enforced when approving or editing). A po
 
 ## Approval
 Posts start as **DRAFT**. The admin page shows the real card and an editable caption; **Approve** sends it on the next pass (or press **Run now**).
-`SOCIAL_AUTO_APPROVE=on` skips the approval (set it only after a week of drafts you were happy with).
+`SOCIAL_AUTO_APPROVE=daily` auto-approves ONLY the daily range card (weekdays) and the Monday scoreboard, so about one post a day goes out on its own from the server, with the owner's computer off; new analyses stay drafts. `SOCIAL_AUTO_APPROVE=on` auto-approves everything (about 5 posts a day: more than Make's free operations allow), so prefer `daily`. Unset or anything else = approve each post by hand.
 
 ## Channels
 * **Telegram channel** - direct: `sendPhoto` to `TELEGRAM_CHANNEL_ID` (the bot must be an admin of the channel). Free.

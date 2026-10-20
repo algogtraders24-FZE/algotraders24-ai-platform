@@ -13,7 +13,7 @@ import { createTelegramClient } from "@/services/telegram/client";
 import { SITE_URL } from "@/lib/seo/seo";
 import type { ChannelResults, DispatchDeps } from "./dispatch";
 import { makeWebhookSender } from "./dispatch";
-import { runSocialWith, type SocialDeps, type SocialRunResult, type SocialStore } from "./runner";
+import { parseAutoApprove, runSocialWith, type SocialDeps, type SocialRunResult, type SocialStore } from "./runner";
 
 export const prismaSocialStore: SocialStore = {
   async createIfNew(d, status) {
@@ -54,7 +54,7 @@ export function productionDeps(): SocialDeps {
   return {
     store: prismaSocialStore,
     siteUrl: SITE_URL,
-    autoApprove: (process.env.SOCIAL_AUTO_APPROVE ?? "").trim().toLowerCase() === "on",
+    autoApprove: parseAutoApprove(process.env.SOCIAL_AUTO_APPROVE),
     dispatch: productionDispatchDeps(),
     sources: {
       hubs: () => Promise.all(MARKETS.map((m) => getMarketHub(m))),

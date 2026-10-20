@@ -3,7 +3,9 @@
 // that were approved. Dependencies are injected so the whole loop is tested offline. Never throws to the cron.
 //
 // Drafts are created once per dedupeKey (daily:<date>, scoreboard:<date>, blog:<slug>) and sent once: a re-run, an overlapping
-// run or a retry can never produce a second post. Posts start as DRAFT for the owner to approve; SOCIAL_AUTO_APPROVE=on skips that.
+// run or a retry can never produce a second post. Posts start as DRAFT for the owner to approve. SOCIAL_AUTO_APPROVE=daily
+// auto-approves ONLY the daily range card and the Monday scoreboard (about one post a day, runs on the server with the
+// owner's computer off); =on auto-approves everything, including every new analysis.
 
 import type { HubView } from "@/services/markets/hub";
 import type { CalibrationRow } from "@/services/calibration/forecast";
@@ -33,12 +35,21 @@ export interface SocialSources {
   recentPosts: () => Promise<Array<{ slug: string; title: string; excerpt?: string; publishedAt: string | null }>>;
 }
 
+/** false = the owner approves each post; "daily" = only the daily card and the scoreboard go out by themselves; true = everything does. */
+export type AutoApprove = boolean | "daily";
+
+export function parseAutoApprove(value: string | undefined): AutoApprove {
+  const v = (value ?? "").trim().toLowerCase();
+  if (v === "daily") return "daily";
+  return v === "on";
+}
+
 export interface SocialDeps {
   store: SocialStore;
   sources: SocialSources;
   dispatch: DispatchDeps;
   siteUrl: string;
-  autoApprove: boolean;
+  autoApprove: AutoApprove;
 }
 
 export interface SocialRunResult {
@@ -53,11 +64,12 @@ const afterUtc = (d: Date, h: number, m = 0) => d.getUTCHours() > h || (d.getUTC
 
 export async function runSocialWith(deps: SocialDeps, now: Date = new Date()): Promise<SocialRunResult> {
   const out: SocialRunResult = { drafted: 0, sent: 0, failed: 0, waiting: 0 };
-  const status = deps.autoApprove ? "APPROVED" : "DRAFT";
+  const statusFor = (draft: DraftPost): "DRAFT" | "APPROVED" =>
+    deps.autoApprove === true || (deps.autoApprove === "daily" && (draft.kind === "daily_card" || draft.kind === "scoreboard")) ? "APPROVED" : "DRAFT";
   const add = async (draft: DraftPost | null) => {
     if (!draft) return;
     try {
-      if (await deps.store.createIfNew(draft, status)) out.drafted++;
+      if (await deps.store.createIfNew(draft, statusFor(draft))) out.drafted++;
     } catch {
       /* table absent or a transient DB error: the next pass tries again */
     }

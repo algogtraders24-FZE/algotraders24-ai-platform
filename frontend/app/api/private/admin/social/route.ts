@@ -10,6 +10,7 @@ import { requireAdmin } from "@/lib/auth/adminRoute";
 import { prisma } from "@/lib/prisma";
 import { telegramConfig } from "@/services/telegram/config";
 import { violatesPolicy } from "@/services/social/content";
+import { parseAutoApprove } from "@/services/social/runner";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export const GET = withContext(async (_req, ctx) => {
   const channels = {
     telegram: tg.enabled && !!tg.channelId,
     webhook: !!(process.env.SOCIAL_WEBHOOK_URL ?? "").trim(),
-    autoApprove: (process.env.SOCIAL_AUTO_APPROVE ?? "").trim().toLowerCase() === "on",
+    autoApprove: parseAutoApprove(process.env.SOCIAL_AUTO_APPROVE),
   };
   try {
     const posts = await prisma.socialPost.findMany({ orderBy: { createdAt: "desc" }, take: 40 });
