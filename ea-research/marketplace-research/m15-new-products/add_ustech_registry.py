@@ -16,7 +16,7 @@ entry = {
         "just beyond the last 5 M1 bars' high/low (30 points buffer, expires after 3 minutes, one position or pending order at a time, 30 s cooldown) "
         "with a fixed pip stop loss / take profit; exits are break-even and trailing. Optional CVD-proxy, entropy/volatility regime and tick order-flow "
         "filters exist in the code but were switched OFF in the tested run. Real MT5 Strategy Tester .html export (Exness-MT5Trial8 build 6230, "
-        "CUSTOM symbol USTEC_x100, M1, 2025.01.01-2026.10.09, 100,000 USD deposit, 43% real-tick history quality; the first trade is on 2025-06-16; "
+        "Exness symbol USTEC_x100 (Zero account group Idx_Enlarge: contract size 100, maximum 20 lots), M1, 2025.01.01-2026.10.09, 100,000 USD deposit, 43% real-tick history quality; the symbol's data starts 2025-06-15 so the first trade is on 2025-06-16; "
         "the report was produced by the same code under its earlier file name XAU_M1_Pips_Dollar_SLTP_Trailing_Final - the seller states the logic is "
         "unchanged after the rename, which cannot be verified from the files) parsed by M2 (mt5-deals-table-v1), 14,893 trades, tested inputs: "
         "UseRiskLot=true with RiskPercent=2 (compounding lot size, 0.4 lot at the start and capped at 20 lots later), StopLossPips=5000 / "

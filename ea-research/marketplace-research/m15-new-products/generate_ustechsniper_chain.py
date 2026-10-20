@@ -1,7 +1,7 @@
 """
-Runs the real M3/M4/M5/M7 chain for USTECH Index Sniper on the trade-by-trade evidence package (equity = deposit + cumulative closed
-profit; the report's own 14,893 trades, no invented numbers). No bar-level curve: the report uses a CUSTOM symbol (USTEC_x100) that has
-no counterpart in market.db.
+Runs the real M3/M4/M5/M7 chain for USTECH Index Sniper on the REAL bar-level evidence package: the report's own 14,893 trades, real Exness 15m candles of USTEC_x100 pulled from the Exness demo
+terminal (market.db symbol USTEC_x100_EXNESS, reconstruct_equity_curve.py) and real ADX/ATR regime tags (tag_trades_with_regime.py).
+No invented numbers.
 
 Run: python generate_ustechsniper_chain.py
 """
@@ -23,7 +23,7 @@ from risk_analysis_engine import run_risk_analysis  # noqa: E402
 from history_engine import build_system_lifecycle_chain  # noqa: E402
 from trust_status_engine import run_trust_status  # noqa: E402
 
-EVIDENCE_PATH = HERE.parent / "m2-evidence-engine" / "real_evidence_output" / "evidence_USTECHSNIPER-v1.00-2025-2026-BASELINE_329e624451e42c1c.json"
+EVIDENCE_PATH = HERE.parent / "m2-evidence-engine" / "real_evidence_output" / "evidence_USTECHSNIPER-v1.00-2025-2026-BASELINE_9855bd6bf86bda39_with_curve.json"
 SOURCE_ARTIFACT = Path(r"C:\Users\om\OneDrive\Desktop\hedge\ReportTester-USTEC INDEX.html")
 REGISTRY = HERE.parent / "m3-evidence-verification" / "version_registry.json"
 EXPECTED_VERSION_ID = "USTECHSNIPER-v1.00-2025-2026-BASELINE"
@@ -47,9 +47,9 @@ def main() -> None:
 
     snapshot = {
         "_provenance": {
-            "generatedBy": "generate_ustechsniper_chain.py (trade-by-trade evidence)",
+            "generatedBy": "generate_ustechsniper_chain.py (real bar-level curve + regime tags)",
             "generatedAt": recorded_at,
-            "note": "Real, deterministic M3/M4/M5/M7 result on the trade-by-trade equity curve of the report's own 14,893 trades - not fabricated.",
+            "note": "Real, deterministic M3/M4/M5/M7 result on the real bar-level equity curve of the report's own 14,893 trades - not fabricated.",
         },
         "tradingSystemId": TRADING_SYSTEM_ID, "versionId": EXPECTED_VERSION_ID,
         "m3": {"status": m3_result.status, "evidenceId": m3_result.evidenceId, "warnings": m3_result.warnings},

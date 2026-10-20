@@ -1,14 +1,14 @@
 {
   "_provenance": {
-    "generatedBy": "generate_ustechsniper_chain.py (trade-by-trade evidence)",
-    "generatedAt": "2026-10-20T11:21:29.659334Z",
-    "note": "Real, deterministic M3/M4/M5/M7 result on the trade-by-trade equity curve of the report's own 14,893 trades - not fabricated."
+    "generatedBy": "generate_ustechsniper_chain.py (real bar-level curve + regime tags)",
+    "generatedAt": "2026-10-20T11:36:56.457918Z",
+    "note": "Real, deterministic M3/M4/M5/M7 result on the real bar-level equity curve of the report's own 14,893 trades - not fabricated."
   },
   "tradingSystemId": "USTECHSNIPER",
   "versionId": "USTECHSNIPER-v1.00-2025-2026-BASELINE",
   "m3": {
     "status": "VERIFIED",
-    "evidenceId": "329e624451e42c1c",
+    "evidenceId": "9855bd6bf86bda39",
     "warnings": [
       "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'spreadModel' is null",
       "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'commissionModel' is null",
@@ -18,70 +18,70 @@
   },
   "m4": {
     "overallStatus": "PASS",
-    "evidenceId": "329e624451e42c1c",
+    "evidenceId": "9855bd6bf86bda39",
     "recordStatuses": {
       "SAMPLE_SIZE": "PASS",
       "OUT_OF_SAMPLE": "PASS",
       "WALK_FORWARD": "PASS",
       "TEMPORAL_STABILITY": "PASS",
-      "REGIME_COVERAGE": "INCONCLUSIVE",
+      "REGIME_COVERAGE": "PASS",
       "PERFORMANCE_DISTRIBUTION": "PASS",
       "PARAMETER_SENSITIVITY": "INCONCLUSIVE"
     }
   },
   "m5": {
-    "status": "PARTIAL",
-    "riskAnalysisId": "b3dffd2336ab12aa",
-    "riskAnalysisHash": "b3dffd2336ab12aa",
+    "status": "COMPLETE",
+    "riskAnalysisId": "17dd777f4ae7c739",
+    "riskAnalysisHash": "17dd777f4ae7c739",
     "dataQuality": {
-      "drawdown": "LIMITED",
+      "drawdown": "AVAILABLE",
       "lossDistribution": "AVAILABLE",
       "winDistribution": "AVAILABLE",
       "expectancy": "AVAILABLE",
       "lossStreaks": "AVAILABLE",
-      "recovery": "LIMITED",
+      "recovery": "AVAILABLE",
       "tailRisk": "AVAILABLE",
       "concentration": "AVAILABLE",
       "temporalRisk": "AVAILABLE",
-      "regimeRisk": "UNAVAILABLE",
+      "regimeRisk": "AVAILABLE",
       "exposureRisk": "AVAILABLE",
       "costRisk": "AVAILABLE"
     }
   },
   "m7": {
-    "status": "LIMITED",
-    "reasonCode": "RISK_ANALYSIS_PARTIAL",
-    "explanation": "Evidence and Validation are sufficient, but RiskAnalysis (M5) is PARTIAL -- incomplete dimensions: drawdown, recovery, regimeRisk.",
-    "id": "6360823c83681d83",
-    "generatedAt": "2026-10-20T11:21:31.858965Z"
+    "status": "VALIDATED",
+    "reasonCode": "VALIDATION_COMPLETE",
+    "explanation": "Evidence integrity is verified, Validation (M4) supports it (overallStatus=PASS), RiskAnalysis (M5) is COMPLETE, and 1 independent historical observations have been recorded.",
+    "id": "f672b7d862184c6c",
+    "generatedAt": "2026-10-20T11:36:58.000088Z"
   },
-  "evidenceId": "329e624451e42c1c",
-  "evidenceHash": "329e624451e42c1c",
-  "validationId": "329e624451e42c1c",
-  "validationHash": "329e624451e42c1c",
-  "riskAnalysisId": "b3dffd2336ab12aa",
-  "riskAnalysisHash": "b3dffd2336ab12aa",
-  "trustStatusId": "6360823c83681d83",
+  "evidenceId": "9855bd6bf86bda39",
+  "evidenceHash": "9855bd6bf86bda39",
+  "validationId": "9855bd6bf86bda39",
+  "validationHash": "9855bd6bf86bda39",
+  "riskAnalysisId": "17dd777f4ae7c739",
+  "riskAnalysisHash": "17dd777f4ae7c739",
+  "trustStatusId": "f672b7d862184c6c",
   "lastEvidenceAt": "2026-09-10T13:53:28",
   "m4_full": {
-    "evidenceId": "329e624451e42c1c",
+    "evidenceId": "9855bd6bf86bda39",
     "versionId": "USTECHSNIPER-v1.00-2025-2026-BASELINE",
-    "datasetHash": "83bb58e930071962",
+    "datasetHash": "04980b1e45c06e6d",
     "engineVersion": "AT24-M4-Validation-Engine-v1.0",
     "methodologyVersion": "M4-methodology-v1",
     "overallStatus": "PASS",
     "records": [
       {
-        "validationId": "SAMPLE_SIZE:329e624451e42c1c",
+        "validationId": "SAMPLE_SIZE:9855bd6bf86bda39",
         "versionId": "USTECHSNIPER-v1.00-2025-2026-BASELINE",
-        "evidenceId": "329e624451e42c1c",
+        "evidenceId": "9855bd6bf86bda39",
         "validationType": "SAMPLE_SIZE",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
-        "datasetHash": "83bb58e930071962",
-        "inputEvidenceHash": "329e624451e42c1c",
-        "startedAt": "2026-10-20T11:21:13.521828Z",
-        "completedAt": "2026-10-20T11:21:14.044048Z",
+        "datasetHash": "04980b1e45c06e6d",
+        "inputEvidenceHash": "9855bd6bf86bda39",
+        "startedAt": "2026-10-20T11:36:42.522520Z",
+        "completedAt": "2026-10-20T11:36:43.573378Z",
         "methodology": "Direct count/duration measurement, no acceptance threshold applied.",
         "parameters": {},
         "metrics": {
@@ -104,16 +104,16 @@
         "createdBy": "AT24-M4-Validation-Engine-v1.0"
       },
       {
-        "validationId": "OUT_OF_SAMPLE:329e624451e42c1c",
+        "validationId": "OUT_OF_SAMPLE:9855bd6bf86bda39",
         "versionId": "USTECHSNIPER-v1.00-2025-2026-BASELINE",
-        "evidenceId": "329e624451e42c1c",
+        "evidenceId": "9855bd6bf86bda39",
         "validationType": "OUT_OF_SAMPLE",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
-        "datasetHash": "83bb58e930071962",
-        "inputEvidenceHash": "329e624451e42c1c",
-        "startedAt": "2026-10-20T11:21:14.045048Z",
-        "completedAt": "2026-10-20T11:21:18.110390Z",
+        "datasetHash": "04980b1e45c06e6d",
+        "inputEvidenceHash": "9855bd6bf86bda39",
+        "startedAt": "2026-10-20T11:36:43.573378Z",
+        "completedAt": "2026-10-20T11:36:45.530824Z",
         "methodology": "Time-based split at 80% of [first trade, last trade] duration (M4-methodology-v1).",
         "parameters": {
           "splitRatio": 0.8,
@@ -177,16 +177,16 @@
         "createdBy": "AT24-M4-Validation-Engine-v1.0"
       },
       {
-        "validationId": "WALK_FORWARD:329e624451e42c1c",
+        "validationId": "WALK_FORWARD:9855bd6bf86bda39",
         "versionId": "USTECHSNIPER-v1.00-2025-2026-BASELINE",
-        "evidenceId": "329e624451e42c1c",
+        "evidenceId": "9855bd6bf86bda39",
         "validationType": "WALK_FORWARD",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
-        "datasetHash": "83bb58e930071962",
-        "inputEvidenceHash": "329e624451e42c1c",
-        "startedAt": "2026-10-20T11:21:18.111390Z",
-        "completedAt": "2026-10-20T11:21:19.412220Z",
+        "datasetHash": "04980b1e45c06e6d",
+        "inputEvidenceHash": "9855bd6bf86bda39",
+        "startedAt": "2026-10-20T11:36:45.531826Z",
+        "completedAt": "2026-10-20T11:36:46.513260Z",
         "methodology": "Expanding-window, one test window per calendar year (M4-methodology-v1). Never collapsed into a single score.",
         "parameters": {
           "windowDefinition": "calendar-year",
@@ -259,16 +259,16 @@
         "createdBy": "AT24-M4-Validation-Engine-v1.0"
       },
       {
-        "validationId": "TEMPORAL_STABILITY:329e624451e42c1c",
+        "validationId": "TEMPORAL_STABILITY:9855bd6bf86bda39",
         "versionId": "USTECHSNIPER-v1.00-2025-2026-BASELINE",
-        "evidenceId": "329e624451e42c1c",
+        "evidenceId": "9855bd6bf86bda39",
         "validationType": "TEMPORAL_STABILITY",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
-        "datasetHash": "83bb58e930071962",
-        "inputEvidenceHash": "329e624451e42c1c",
-        "startedAt": "2026-10-20T11:21:19.414217Z",
-        "completedAt": "2026-10-20T11:21:20.228284Z",
+        "datasetHash": "04980b1e45c06e6d",
+        "inputEvidenceHash": "9855bd6bf86bda39",
+        "startedAt": "2026-10-20T11:36:46.516257Z",
+        "completedAt": "2026-10-20T11:36:47.118451Z",
         "methodology": "Calendar-period aggregation (month/quarter/year) plus inter-trade gap and best-single-period concentration.",
         "parameters": {},
         "metrics": {
@@ -390,40 +390,62 @@
         "createdBy": "AT24-M4-Validation-Engine-v1.0"
       },
       {
-        "validationId": "REGIME_COVERAGE:329e624451e42c1c",
+        "validationId": "REGIME_COVERAGE:9855bd6bf86bda39",
         "versionId": "USTECHSNIPER-v1.00-2025-2026-BASELINE",
-        "evidenceId": "329e624451e42c1c",
+        "evidenceId": "9855bd6bf86bda39",
         "validationType": "REGIME_COVERAGE",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
-        "datasetHash": "83bb58e930071962",
-        "inputEvidenceHash": "329e624451e42c1c",
-        "startedAt": "2026-10-20T11:21:20.231286Z",
-        "completedAt": "2026-10-20T11:21:20.252272Z",
-        "methodology": "Per-regime trade grouping using Trade.marketRegime, when present.",
+        "datasetHash": "04980b1e45c06e6d",
+        "inputEvidenceHash": "9855bd6bf86bda39",
+        "startedAt": "2026-10-20T11:36:47.121457Z",
+        "completedAt": "2026-10-20T11:36:47.138440Z",
+        "methodology": "Per-regime trade grouping using Trade.marketRegime.",
         "parameters": {},
         "metrics": {
-          "regimesRepresented": [],
-          "tradeCountByRegime": {}
+          "regimesRepresented": [
+            "RANGING_HIGH_VOL",
+            "RANGING_LOW_VOL",
+            "TRENDING_HIGH_VOL",
+            "TRENDING_LOW_VOL"
+          ],
+          "tradeCountByRegime": {
+            "RANGING_LOW_VOL": {
+              "tradeCount": 3786,
+              "netProfit": 6799546.56
+            },
+            "TRENDING_LOW_VOL": {
+              "tradeCount": 2756,
+              "netProfit": 5350679.58
+            },
+            "RANGING_HIGH_VOL": {
+              "tradeCount": 3981,
+              "netProfit": 11051205.83
+            },
+            "TRENDING_HIGH_VOL": {
+              "tradeCount": 4367,
+              "netProfit": 13478797.05
+            }
+          }
         },
         "findings": [
-          "No trades in this Evidence carry a marketRegime tag -- regime coverage cannot be computed for this Evidence. No regime classifier exists yet in this research program (see design doc section 11); this is reported honestly, not fabricated."
+          "4 regime(s) represented across 14890 tagged trades."
         ],
         "warnings": [],
-        "status": "INCONCLUSIVE",
+        "status": "PASS",
         "createdBy": "AT24-M4-Validation-Engine-v1.0"
       },
       {
-        "validationId": "PERFORMANCE_DISTRIBUTION:329e624451e42c1c",
+        "validationId": "PERFORMANCE_DISTRIBUTION:9855bd6bf86bda39",
         "versionId": "USTECHSNIPER-v1.00-2025-2026-BASELINE",
-        "evidenceId": "329e624451e42c1c",
+        "evidenceId": "9855bd6bf86bda39",
         "validationType": "PERFORMANCE_DISTRIBUTION",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "trades[]",
-        "datasetHash": "83bb58e930071962",
-        "inputEvidenceHash": "329e624451e42c1c",
-        "startedAt": "2026-10-20T11:21:20.252272Z",
-        "completedAt": "2026-10-20T11:21:20.491127Z",
+        "datasetHash": "04980b1e45c06e6d",
+        "inputEvidenceHash": "9855bd6bf86bda39",
+        "startedAt": "2026-10-20T11:36:47.139442Z",
+        "completedAt": "2026-10-20T11:36:47.305336Z",
         "methodology": "Distribution statistics beyond total return: median, expectancy, streaks, top-decile concentration.",
         "parameters": {},
         "metrics": {
@@ -451,16 +473,16 @@
         "createdBy": "AT24-M4-Validation-Engine-v1.0"
       },
       {
-        "validationId": "PARAMETER_SENSITIVITY:329e624451e42c1c",
+        "validationId": "PARAMETER_SENSITIVITY:9855bd6bf86bda39",
         "versionId": "USTECHSNIPER-v1.00-2025-2026-BASELINE",
-        "evidenceId": "329e624451e42c1c",
+        "evidenceId": "9855bd6bf86bda39",
         "validationType": "PARAMETER_SENSITIVITY",
         "rulesetVersion": "none-defined",
         "datasetIdentity": "n/a",
-        "datasetHash": "83bb58e930071962",
-        "inputEvidenceHash": "329e624451e42c1c",
-        "startedAt": "2026-10-20T11:21:20.491127Z",
-        "completedAt": "2026-10-20T11:21:20.491127Z",
+        "datasetHash": "04980b1e45c06e6d",
+        "inputEvidenceHash": "9855bd6bf86bda39",
+        "startedAt": "2026-10-20T11:36:47.305336Z",
+        "completedAt": "2026-10-20T11:36:47.305336Z",
         "methodology": "Baseline-vs-perturbed-configuration comparison (framework only -- see design doc section 12).",
         "parameters": {},
         "metrics": {},
@@ -474,29 +496,29 @@
     ]
   },
   "m5_full": {
-    "riskAnalysisId": "b3dffd2336ab12aa",
+    "riskAnalysisId": "17dd777f4ae7c739",
     "versionId": "USTECHSNIPER-v1.00-2025-2026-BASELINE",
-    "evidenceId": "329e624451e42c1c",
-    "validationId": "7043f10a406f2f1c",
+    "evidenceId": "9855bd6bf86bda39",
+    "validationId": "7512961fd5a6ab76",
     "rulesetVersion": "none-defined",
     "methodologyVersion": "M5-methodology-v1",
-    "inputEvidenceHash": "329e624451e42c1c",
-    "inputValidationHash": "7043f10a406f2f1c",
-    "generatedAt": "2026-10-20T11:21:29.334751Z",
+    "inputEvidenceHash": "9855bd6bf86bda39",
+    "inputValidationHash": "7512961fd5a6ab76",
+    "generatedAt": "2026-10-20T11:36:56.180568Z",
     "drawdown": {
-      "curveType": "balance (trade-close), NOT intraday equity -- see design doc section 8",
-      "equityDrawdownAvailable": false,
+      "curveType": "equity (real M15 mark-to-market, reconstructed from real price bars between each trade's own real entry/exit)",
+      "equityDrawdownAvailable": true,
       "balanceDrawdownAvailable": true,
-      "maxDrawdown": 4639750.0,
-      "maxDrawdownPercent": 0.1128,
+      "maxDrawdown": 4714680.0,
+      "maxDrawdownPercent": 0.1146,
       "maxDrawdownDurationDays": 250,
-      "averageDrawdown": 101266.03,
-      "medianDrawdown": 101310.0,
-      "drawdownFrequency": 136,
-      "episodeCount": 136,
+      "averageDrawdown": 45239.89,
+      "medianDrawdown": 11920.56,
+      "drawdownFrequency": 475,
+      "episodeCount": 475,
       "unrecoveredEpisodes": 1,
-      "dataQuality": "LIMITED",
-      "note": "DRAWDOWN_ANALYSIS_LIMITED: no intraday/tick equity series exists in this Evidence (Evidence.curves is empty) -- figures above are BALANCE drawdown (closed trades only), not EQUITY drawdown."
+      "dataQuality": "AVAILABLE",
+      "note": null
     },
     "lossDistribution": {
       "count": 807,
@@ -559,12 +581,12 @@
       "dataQuality": "AVAILABLE"
     },
     "recovery": {
-      "recoveryEpisodes": 135,
+      "recoveryEpisodes": 474,
       "unrecoveredEpisodesAtEndOfPeriod": 1,
-      "averageRecoveryDurationDays": 0.2,
-      "percentOfPeriodBelowPriorPeak": 0.6208,
-      "dataQuality": "LIMITED",
-      "note": "Recovery timing is reconstructed from the same balance-level (trade-close) equity curve as drawdown -- not intraday equity. See drawdown section."
+      "averageRecoveryDurationDays": 0.1,
+      "percentOfPeriodBelowPriorPeak": 0.6186,
+      "dataQuality": "AVAILABLE",
+      "note": "Recovery timing uses the real reconstructed M15 equity curve (see drawdown section's curveType)."
     },
     "tailRisk": {
       "worst1Trade": -731260.0,
@@ -575,7 +597,7 @@
       "worst10SharePctOfGrossLoss": 0.0666,
       "P95Loss": 103050.0,
       "P99Loss": 107710.0,
-      "largestDrawdown": 4639750.0,
+      "largestDrawdown": 4714680.0,
       "worstLossStreakCapitalImpact": -104330.0,
       "dataQuality": "AVAILABLE",
       "note": null
@@ -626,9 +648,29 @@
       "note": "Per-year drawdown/loss-streak computed fresh here (not in M4's TEMPORAL_STABILITY, which only tracked net profit/PF per period)."
     },
     "regimeRisk": {
-      "dataQuality": "UNAVAILABLE",
-      "note": "REGIME_DATA_UNAVAILABLE: no trades in this Evidence carry a marketRegime tag. No regime classifier exists yet in this research program -- not inferred.",
-      "riskByRegime": {}
+      "dataQuality": "AVAILABLE",
+      "riskByRegime": {
+        "RANGING_LOW_VOL": {
+          "tradeCount": 3786,
+          "netProfit": 6799546.56,
+          "largestLoss": -142580.0
+        },
+        "TRENDING_LOW_VOL": {
+          "tradeCount": 2756,
+          "netProfit": 5350679.58,
+          "largestLoss": -103730.0
+        },
+        "RANGING_HIGH_VOL": {
+          "tradeCount": 3981,
+          "netProfit": 11051205.83,
+          "largestLoss": -491030.0
+        },
+        "TRENDING_HIGH_VOL": {
+          "tradeCount": 4367,
+          "netProfit": 13478797.05,
+          "largestLoss": -731260.0
+        }
+      }
     },
     "exposureRisk": {
       "positionSize": {
@@ -662,32 +704,30 @@
       "note": "spreadModel is UNKNOWN (not zero) -- the source report doesn't expose it; commission/swap above are real measured values, independent of this gap."
     },
     "dataQuality": {
-      "drawdown": "LIMITED",
+      "drawdown": "AVAILABLE",
       "lossDistribution": "AVAILABLE",
       "winDistribution": "AVAILABLE",
       "expectancy": "AVAILABLE",
       "lossStreaks": "AVAILABLE",
-      "recovery": "LIMITED",
+      "recovery": "AVAILABLE",
       "tailRisk": "AVAILABLE",
       "concentration": "AVAILABLE",
       "temporalRisk": "AVAILABLE",
-      "regimeRisk": "UNAVAILABLE",
+      "regimeRisk": "AVAILABLE",
       "exposureRisk": "AVAILABLE",
       "costRisk": "AVAILABLE"
     },
     "findings": [
-      "Max drawdown (balance): 4639750.0 (0.1128), 136 drawdown episodes, 1 unrecovered at end of period.",
+      "Max drawdown (balance): 4714680.0 (0.1146), 475 drawdown episodes, 1 unrecovered at end of period.",
       "Expectancy per trade: 2462.9346. Max consecutive losses: 3."
     ],
     "warnings": [],
     "limitations": [
-      "DRAWDOWN_ANALYSIS_LIMITED: no intraday/tick equity series exists in this Evidence (Evidence.curves is empty) -- figures above are BALANCE drawdown (closed trades only), not EQUITY drawdown.",
-      "Recovery timing is reconstructed from the same balance-level (trade-close) equity curve as drawdown -- not intraday equity. See drawdown section.",
-      "REGIME_DATA_UNAVAILABLE: no trades in this Evidence carry a marketRegime tag. No regime classifier exists yet in this research program -- not inferred.",
+      "Recovery timing uses the real reconstructed M15 equity curve (see drawdown section's curveType).",
       "spreadModel is UNKNOWN (not zero) -- the source report doesn't expose it; commission/swap above are real measured values, independent of this gap."
     ],
-    "status": "PARTIAL",
-    "riskAnalysisHash": "b3dffd2336ab12aa",
+    "status": "COMPLETE",
+    "riskAnalysisHash": "17dd777f4ae7c739",
     "createdBy": "AT24-M5-Risk-Analysis-Engine-v1.0"
   },
   "m6_full": [
@@ -698,8 +738,8 @@
       "validationId": null,
       "riskAnalysisId": null,
       "eventType": "SYSTEM_CREATED",
-      "observedAt": "2026-10-20T11:21:29.659334Z",
-      "recordedAt": "2026-10-20T11:21:29.659334Z",
+      "observedAt": "2026-10-20T11:36:56.457918Z",
+      "recordedAt": "2026-10-20T11:36:56.457918Z",
       "source": "AT24-M6-History-Engine-v1.0",
       "sourceHash": null,
       "payload": {
@@ -710,8 +750,8 @@
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "049da78eb4c38383",
-      "contentHash": "049da78eb4c38383"
+      "historyEventId": "a714cb9f00da8733",
+      "contentHash": "a714cb9f00da8733"
     },
     {
       "tradingSystemId": "USTECHSNIPER",
@@ -720,55 +760,55 @@
       "validationId": null,
       "riskAnalysisId": null,
       "eventType": "VERSION_CREATED",
-      "observedAt": "2026-10-20T11:21:29.659334Z",
-      "recordedAt": "2026-10-20T11:21:29.659334Z",
+      "observedAt": "2026-10-20T11:36:56.457918Z",
+      "recordedAt": "2026-10-20T11:36:56.457918Z",
       "source": "AT24-M6-History-Engine-v1.0",
       "sourceHash": null,
       "payload": {
         "versionId": "USTECHSNIPER-v1.00-2025-2026-BASELINE"
       },
-      "previousEventId": "049da78eb4c38383",
-      "previousEventHash": "049da78eb4c38383",
+      "previousEventId": "a714cb9f00da8733",
+      "previousEventHash": "a714cb9f00da8733",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "7b4a7492dfec3379",
-      "contentHash": "7b4a7492dfec3379"
+      "historyEventId": "34992e3fd1f9e7ba",
+      "contentHash": "34992e3fd1f9e7ba"
     },
     {
       "tradingSystemId": "USTECHSNIPER",
       "versionId": "USTECHSNIPER-v1.00-2025-2026-BASELINE",
-      "evidenceId": "329e624451e42c1c",
+      "evidenceId": "9855bd6bf86bda39",
       "validationId": null,
       "riskAnalysisId": null,
       "eventType": "EVIDENCE_ADDED",
       "observedAt": "2026-09-10T13:53:28",
-      "recordedAt": "2026-10-20T11:21:29.659334Z",
+      "recordedAt": "2026-10-20T11:36:56.457918Z",
       "source": "AT24-M2-Evidence-Engine-v0.2",
-      "sourceHash": "329e624451e42c1c",
+      "sourceHash": "9855bd6bf86bda39",
       "payload": {
         "sourceAdapter": "mt5-deals-table-v1",
         "tradeCount": 14893
       },
-      "previousEventId": "7b4a7492dfec3379",
-      "previousEventHash": "7b4a7492dfec3379",
+      "previousEventId": "34992e3fd1f9e7ba",
+      "previousEventHash": "34992e3fd1f9e7ba",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "1be69259b5bca10b",
-      "contentHash": "1be69259b5bca10b"
+      "historyEventId": "280c840337de44d9",
+      "contentHash": "280c840337de44d9"
     },
     {
       "tradingSystemId": "USTECHSNIPER",
       "versionId": "USTECHSNIPER-v1.00-2025-2026-BASELINE",
-      "evidenceId": "329e624451e42c1c",
+      "evidenceId": "9855bd6bf86bda39",
       "validationId": null,
       "riskAnalysisId": null,
       "eventType": "EVIDENCE_VERIFIED",
-      "observedAt": "2026-10-20T11:21:29.659334Z",
-      "recordedAt": "2026-10-20T11:21:29.659334Z",
+      "observedAt": "2026-10-20T11:36:56.457918Z",
+      "recordedAt": "2026-10-20T11:36:56.457918Z",
       "source": "AT24-M3-Evidence-Verifier-v1.0",
-      "sourceHash": "329e624451e42c1c",
+      "sourceHash": "9855bd6bf86bda39",
       "payload": {
         "m3Status": "VERIFIED",
         "warnings": [
@@ -778,25 +818,25 @@
           "PROVENANCE_NOT_AVAILABLE (accepted, source doesn't expose it): 'tickDataQuality' is null"
         ]
       },
-      "previousEventId": "1be69259b5bca10b",
-      "previousEventHash": "1be69259b5bca10b",
+      "previousEventId": "280c840337de44d9",
+      "previousEventHash": "280c840337de44d9",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "89e5570bf7ed9e9d",
-      "contentHash": "89e5570bf7ed9e9d"
+      "historyEventId": "9e7306ad81f581fd",
+      "contentHash": "9e7306ad81f581fd"
     },
     {
       "tradingSystemId": "USTECHSNIPER",
       "versionId": "USTECHSNIPER-v1.00-2025-2026-BASELINE",
-      "evidenceId": "329e624451e42c1c",
-      "validationId": "329e624451e42c1c",
+      "evidenceId": "9855bd6bf86bda39",
+      "validationId": "9855bd6bf86bda39",
       "riskAnalysisId": null,
       "eventType": "VALIDATION_COMPLETED",
-      "observedAt": "2026-10-20T11:21:29.659334Z",
-      "recordedAt": "2026-10-20T11:21:29.659334Z",
+      "observedAt": "2026-10-20T11:36:56.457918Z",
+      "recordedAt": "2026-10-20T11:36:56.457918Z",
       "source": "AT24-M4-Validation-Engine-v1.0",
-      "sourceHash": "329e624451e42c1c",
+      "sourceHash": "9855bd6bf86bda39",
       "payload": {
         "overallStatus": "PASS",
         "recordStatuses": {
@@ -804,54 +844,54 @@
           "OUT_OF_SAMPLE": "PASS",
           "WALK_FORWARD": "PASS",
           "TEMPORAL_STABILITY": "PASS",
-          "REGIME_COVERAGE": "INCONCLUSIVE",
+          "REGIME_COVERAGE": "PASS",
           "PERFORMANCE_DISTRIBUTION": "PASS",
           "PARAMETER_SENSITIVITY": "INCONCLUSIVE"
         }
       },
-      "previousEventId": "89e5570bf7ed9e9d",
-      "previousEventHash": "89e5570bf7ed9e9d",
+      "previousEventId": "9e7306ad81f581fd",
+      "previousEventHash": "9e7306ad81f581fd",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "3d51237b233f6299",
-      "contentHash": "3d51237b233f6299"
+      "historyEventId": "cb507a3f4e446cdd",
+      "contentHash": "cb507a3f4e446cdd"
     },
     {
       "tradingSystemId": "USTECHSNIPER",
       "versionId": "USTECHSNIPER-v1.00-2025-2026-BASELINE",
-      "evidenceId": "329e624451e42c1c",
-      "validationId": "329e624451e42c1c",
-      "riskAnalysisId": "b3dffd2336ab12aa",
+      "evidenceId": "9855bd6bf86bda39",
+      "validationId": "9855bd6bf86bda39",
+      "riskAnalysisId": "17dd777f4ae7c739",
       "eventType": "RISK_ANALYSIS_COMPLETED",
-      "observedAt": "2026-10-20T11:21:29.659334Z",
-      "recordedAt": "2026-10-20T11:21:29.659334Z",
+      "observedAt": "2026-10-20T11:36:56.457918Z",
+      "recordedAt": "2026-10-20T11:36:56.457918Z",
       "source": "AT24-M5-Risk-Analysis-Engine-v1.0",
-      "sourceHash": "b3dffd2336ab12aa",
+      "sourceHash": "17dd777f4ae7c739",
       "payload": {
-        "status": "PARTIAL",
+        "status": "COMPLETE",
         "dataQuality": {
-          "drawdown": "LIMITED",
+          "drawdown": "AVAILABLE",
           "lossDistribution": "AVAILABLE",
           "winDistribution": "AVAILABLE",
           "expectancy": "AVAILABLE",
           "lossStreaks": "AVAILABLE",
-          "recovery": "LIMITED",
+          "recovery": "AVAILABLE",
           "tailRisk": "AVAILABLE",
           "concentration": "AVAILABLE",
           "temporalRisk": "AVAILABLE",
-          "regimeRisk": "UNAVAILABLE",
+          "regimeRisk": "AVAILABLE",
           "exposureRisk": "AVAILABLE",
           "costRisk": "AVAILABLE"
         }
       },
-      "previousEventId": "3d51237b233f6299",
-      "previousEventHash": "3d51237b233f6299",
+      "previousEventId": "cb507a3f4e446cdd",
+      "previousEventHash": "cb507a3f4e446cdd",
       "rulesetVersion": "none-defined",
       "methodologyVersion": "M6-methodology-v1",
       "createdBy": "AT24-M6-History-Engine-v1.0",
-      "historyEventId": "5832f99ebdb48e61",
-      "contentHash": "5832f99ebdb48e61"
+      "historyEventId": "215242a05ce4f26b",
+      "contentHash": "215242a05ce4f26b"
     }
   ]
 }

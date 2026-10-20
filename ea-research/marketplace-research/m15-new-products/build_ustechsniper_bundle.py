@@ -29,7 +29,7 @@ names = {k for k, _ in inputs}
 assert {"RiskPercent", "StopLossPips", "TakeProfitPips", "UsePipsForTrailing"} <= names
 
 set_txt = ("; USTECH Index Sniper v%s - EXACT inputs of the Strategy Tester run the marketplace evidence is based on\r\n"
-           "; (Exness demo server, CUSTOM symbol USTEC_x100, M1, 2025.01.01-2026.10.09, 100,000 USD deposit, risk-based lot 2%%).\r\n"
+           "; (Exness demo server, symbol USTEC_x100, M1, 2025.01.01-2026.10.09, 100,000 USD deposit, risk-based lot 2%%).\r\n"
            "; Load via the EA's Inputs tab > Load.\r\n"
            "; RISK: RiskPercent=2 per trade. This is the tested value - it is NOT a recommendation. Lower it (the EA default is 0.5) for live use.\r\n"
            "; PIPS: PipSize=0.01, so StopLossPips=5000 means a 50.00 price-unit move and TakeProfitPips=11000 a 110.00 move.\r\n"
@@ -80,18 +80,22 @@ IMPORTANT - READ BEFORE USING
    filters ON). Use the .set file to get the tested behaviour; other settings have NOT been backtested.
  * "PIPS" ARE 0.01 PRICE UNITS (PipSize=0.01): StopLossPips=5000 is a 50.00 price-unit move (50 index points) and TakeProfitPips=11000 a
    110.00 move. Check your broker's digits for the index symbol before relying on pip-based inputs.
- * THE TEST RAN ON A CUSTOM SYMBOL "USTEC_x100" on an Exness demo server (Exness-MT5Trial8), not on a standard broker index symbol. In that run one lot
-   earned or lost 100 USD per index point (checked on the first trade: 0.4 lot, +5.19 points = +207.60 USD), which is far more than a normal
-   index CFD. Lot sizes, profits and drawdowns in the report therefore cannot be copied to a real symbol; only the risk-based sizing (a % of equity per
-   trade) carries over, and spread, slippage, commission and lot limits on a real symbol will differ.
+ * THE TEST RAN ON THE EXNESS SYMBOL "USTEC_x100" (Exness demo server Exness-MT5Trial8, Zero-account index group "Idx_Enlarge"): a contract size of 100 and a
+   maximum of 20 lots. In that run one lot earned or lost 100 USD per index point (checked on the first trade: 0.4 lot, +5.19 points = +207.60 USD),
+   far more than a normal index CFD, and the deals show a commission instead of a spread. Other brokers and account types use different index contracts
+   (often 1 per point), so the lot sizes, profits and drawdowns in the report cannot be copied to them; only the risk-based sizing (a % of equity per
+   trade) carries over, and spread, slippage, commission and lot limits will differ.
  * COMPOUNDING: the tested lot size grew with the account, from 0.4 lot to 20.0 lots (the largest lot of the run). The headline tester profit
-   (+36.7 million on 100,000) is the result of that compounding on the custom symbol. It is NOT an expectation for a live account.
+   (+36.7 million on 100,000) is the result of that compounding on the USTEC_x100 symbol. It is NOT an expectation for a live account.
  * PROFIT TIMING: the test's profit came in June-December 2025 (+40.8 million); January-September 2026 was net NEGATIVE (-4.1 million) with
    6 losing months out of 9. Recent behaviour of the tested settings is weaker than the headline.
  * WIN/LOSS SHAPE: about 94.6 percent of trades were net winners (the report prints 97.4 percent before commission) but the average losing
    trade was about 8 times the average winner, and the largest single loss was about 731,000 USD. A few losers can erase many wins.
- * DRAWDOWN: the tester prints a balance drawdown of 11.28 percent but an EQUITY drawdown of 100 percent. AT24 could not rebuild an intraday
-   equity curve (no candle data for the custom symbol), so intraday drawdown is NOT independently verified; treat the 100 percent figure as unexplained.
+ * DRAWDOWN: the tester prints a balance drawdown of 11.28 percent but also an EQUITY drawdown of 100 percent, which AT24 could not reproduce or explain.
+   AT24 rebuilt the intraday equity curve from real Exness 15-minute candles of USTEC_x100 pulled from an Exness demo terminal (29,280 bars covering the whole
+   test period, the only gaps are market holidays): maximum drawdown 11.46 percent, the longest drawdown about 250 days (equity was below its late-2025 peak for
+   62 percent of the period and has not recovered it). A 15-minute curve cannot see price swings inside a trade shorter than one bar (the average trade lasts about
+   3 minutes), so real intratrade drawdown can be larger.
  * HISTORY QUALITY of the tested run was 43 percent real ticks; the spread model is not disclosed by the report.
  * SERVER TIME: session hours are BROKER SERVER time. Check your own broker's server-time offset and adjust the hours.
  * Start on a DEMO account with a small risk setting. Past performance is not a guarantee of future results. Trading leveraged
