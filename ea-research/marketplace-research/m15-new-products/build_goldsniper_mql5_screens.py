@@ -17,7 +17,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 out_dir = sys.argv[1]
 os.makedirs(out_dir, exist_ok=True)
 EV = os.path.join(HERE, "..", "m2-evidence-engine", "real_evidence_output",
-                  "evidence_GOLDSNIPER-v1.00-2025-2026-BASELINE_0d2eb16be8ff99ad.json")
+                  "evidence_GOLDSNIPER-v1.00-2025-2026-RISK2-BASELINE_73b4fd0cdca1b05e.json")
 d = json.load(open(EV))
 trades = d["trades"]
 ms = d["evidence"]["metricsSummary"]
@@ -34,7 +34,7 @@ def base(title, subtitle):
     fig = plt.figure(figsize=SIZE, dpi=DPI, facecolor=BG)
     fig.text(0.04, 0.925, title, color=GOLD, fontsize=26, fontweight="bold", va="center")
     fig.text(0.04, 0.865, subtitle, color=CREAM, fontsize=13, va="center")
-    fig.text(0.04, 0.03, "Gold Sniper v1.00  |  Strategy Tester, Exness XAUUSD, 2025-01 to 2026-10, fixed 1.0 lot, 100,000 USD deposit  |  Past results do not predict future results",
+    fig.text(0.04, 0.03, "Gold Sniper v1.00  |  Strategy Tester, Exness XAUUSD, 2025-01 to 2026-10, 2% risk lot (compounding), 100,000 USD deposit  |  Past results do not predict future results",
              color=MUTED, fontsize=9.5)
     return fig
 
@@ -48,7 +48,7 @@ def style(ax):
 
 
 # ---- 1: balance curve (closed trades; no intraday equity - candle data had gaps) ----
-fig = base("Balance curve", "Balance after each of the 539 closed trades  |  profit factor %.2f  |  win rate %.1f%%  |  max closed-trade drawdown %.1f%%" % (ms["profitFactor"], ms["winRate"] * 100, ms["maxDrawdown"]["percent"] * 100))
+fig = base("Balance curve", "Balance after each of the %d closed trades  |  profit factor %.2f  |  win rate %.1f%%  |  max closed-trade drawdown %.1f%%" % (len(trades), d["evidence"]["reportCrossCheck"]["profitFactor"]["reportValue"], ms["winRate"] * 100, ms["maxDrawdown"]["percent"] * 100))
 ax = fig.add_axes([0.07, 0.12, 0.89, 0.70])
 style(ax)
 tt = sorted(trades, key=lambda x: x["timestamp"])
@@ -58,9 +58,9 @@ for t in tt:
     xs.append(dt.datetime.strptime(t["timestamp"], "%Y.%m.%d %H:%M:%S"))
     ys.append(bal)
 ax.step(xs, ys, where="post", color=GOLD, linewidth=1.6)
-ax.fill_between(xs, ys, 60000, step="post", color=GOLD, alpha=0.10)
+ax.fill_between(xs, ys, min(ys) * 0.9, step="post", color=GOLD, alpha=0.10)
 ax.axhline(100000, color=MUTED, linewidth=0.8, linestyle="--")
-ax.set_ylim(60000, max(ys) * 1.05)
+ax.set_ylim(min(ys) * 0.9, max(ys) * 1.05)
 ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: "{:,.0f}".format(v)))
 ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %Y"))
 ax.set_ylabel("Balance (USD)", color=MUTED)
@@ -110,12 +110,12 @@ plt.close(fig)
 # ---- 4: settings ----
 fig = base("Default settings", "These defaults are the exact distances and filters of the tested run")
 rows = [
-    ("Stop loss", "5000 pips = 50.00 USD price move"), ("Take profit", "20000 pips = 200.00 USD price move"),
-    ("Break-even trigger / lock", "10000 / 9000 pips"), ("Trailing stop / step", "3000 / 1000 pips"),
+    ("Stop loss", "5000 pips = 50.00 USD price move"), ("Take profit", "11000 pips = 110.00 USD price move"),
+    ("Break-even trigger / lock", "100 / 20 points (points mode)"), ("Trailing stop / step", "fixed 10 pips behind price / 20 points"),
     ("Trend filter", "M5 EMA(50)"), ("Fair value gap minimum", "8 pips"),
     ("Entry", "Buy-stop / sell-stop beyond last 5 M1 bars, 30 points buffer, expires in 3 min"),
     ("Sessions (server time)", "London 7-16, New York 12-21"), ("Optional CVD / regime / order-flow filters", "OFF (as tested)"),
-    ("Lot size", "Risk-based, 0.5% per trade by default - choose your own"),
+    ("Lot size", "Risk-based, 0.5% per trade by default (test used 2%) - choose your own"),
 ]
 y = 0.77
 for k, v in rows:

@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright "Algotraders24 AI"
 #property strict
-#property version   "1.01"
+#property version   "1.02"
 #property description "Gold Sniper - XAUUSD M1 trend continuation, one precise pending order at a time"
 #property description "M5 EMA trend + fair value gap, buy-stop / sell-stop entry, break-even and trailing exit. Use on XAUUSD."
 #include <Trade/Trade.mqh>
@@ -41,10 +41,10 @@ input int    ExtraStopsBufferPoints   = 10;
 input group "=== Risk Management (Pips Base) ==="
 input bool   UsePipsForSLTP           = true;   // Use Pips for SL/TP (False = Use ATR/RR)
 input int    StopLossPips             = 5000;     // Stop Loss (Pips)
-input int    TakeProfitPips           = 20000;    // Take Profit (Pips)
+input int    TakeProfitPips           = 11000;    // Take Profit (Pips)
 
 input group "=== Exit: Break Even & Trailing (Pips Base) ==="
-input bool   UsePipsForTrailing       = true;   // Use Pips for BE/Trailing (False = Use Points/ATR)
+input bool   UsePipsForTrailing       = false;   // Use Pips for BE/Trailing (False = Use Points/ATR)
 input int    BreakEvenTriggerPips     = 10000;     // Break Even Trigger (Pips, 0=Disable)
 input int    BreakEvenLockPips        = 9000;      // Break Even Lock Profit (Pips)
 input int    TrailingStopPips         = 3000;     // Trailing Stop Distance (Pips, 0=Disable)
@@ -145,7 +145,7 @@ int OnInit()
       Print("Indicator handle creation failed. Error=", GetLastError());
       return INIT_FAILED;
    }
-   Print("=== Gold Sniper v1.01 initialized | symbol ", _Symbol, " | pip unit ", DoubleToString(g_pip, 8), " ===");
+   Print("=== Gold Sniper v1.02 initialized | symbol ", _Symbol, " | pip unit ", DoubleToString(g_pip, 8), " ===");
    return INIT_SUCCEEDED;
 }
 

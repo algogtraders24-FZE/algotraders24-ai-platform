@@ -1,4 +1,4 @@
-"""Market validator fix (v1.01) applied to the plain Gold Sniper source by build_goldsniper_mql5_market.py.
+"""Market validator fix (v1.02) applied to the plain Gold Sniper source by build_goldsniper_mql5_market.py.
 
 The MQL5 Market tests EURUSD / GBPUSD / XAUUSD on several timeframes with default inputs and rejects an EA that makes no trades.
 The gold-scaled distances (PipSize 0.01) never fire on forex, so on non-gold symbols the EA now scales every distance by
@@ -33,10 +33,10 @@ def apply(out):
     nl = "\r\n" if "\r\n" in out else "\n"
     out = out.replace("\r\n", "\n")
     must('#property version   "1.00"' in out, "version")
-    out = out.replace('#property version   "1.00"', '#property version   "1.01"')
+    out = out.replace('#property version   "1.00"', '#property version   "1.02"')
     old = 'Print("=== Gold Sniper v1.00 initialized ===");'
     must(old in out, "init print")
-    out = out.replace(old, 'Print("=== Gold Sniper v1.01 initialized | symbol ", _Symbol, " | pip unit ", DoubleToString(g_pip, 8), " ===");')
+    out = out.replace(old, 'Print("=== Gold Sniper v1.02 initialized | symbol ", _Symbol, " | pip unit ", DoubleToString(g_pip, 8), " ===");')
     res = []
     for ln in out.split("\n"):
         if ln.startswith("input double PipSize"):
