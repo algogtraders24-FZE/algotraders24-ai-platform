@@ -23,7 +23,7 @@ interface Post {
   sentAt: string | null;
 }
 interface Payload {
-  channels: { telegram: boolean; webhook: boolean; autoApprove: boolean };
+  channels: { telegram: boolean; webhook: boolean; autoApprove: boolean | "daily" };
   posts: Post[];
 }
 
@@ -99,7 +99,7 @@ export default function AdminSocialPage() {
         <Card padding="md" className="flex flex-wrap items-center gap-4 text-sm">
           <span>Telegram channel: <Badge tone={data.channels.telegram ? "success" : "neutral"}>{data.channels.telegram ? "connected" : "not set"}</Badge></span>
           <span>Automation webhook (Instagram / LinkedIn / X): <Badge tone={data.channels.webhook ? "success" : "neutral"}>{data.channels.webhook ? "connected" : "not set"}</Badge></span>
-          <span>Auto-approve: <Badge tone={data.channels.autoApprove ? "warning" : "neutral"}>{data.channels.autoApprove ? "ON" : "off (you approve each post)"}</Badge></span>
+          <span>Auto-approve: <Badge tone={data.channels.autoApprove ? "warning" : "neutral"}>{data.channels.autoApprove === "daily" ? "daily card + scoreboard only" : data.channels.autoApprove ? "ON (everything)" : "off (you approve each post)"}</Badge></span>
         </Card>
       )}
       {!data && !error && <p className="text-sm text-text-3">Loading...</p>}
