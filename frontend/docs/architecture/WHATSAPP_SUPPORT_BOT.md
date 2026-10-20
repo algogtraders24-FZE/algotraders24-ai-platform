@@ -4,7 +4,9 @@ Status: code merged but DORMANT until the owner finishes the Meta setup below an
 
 ## What it does
 
-The owner's WhatsApp Business number (+971 56 735 5276) answers inbound messages. Owner decision 2026-10-19: use the SAME number, through Meta's **coexistence** mode (the number keeps working in the WhatsApp Business app AND on the Cloud API). A separate bot number stays the fallback if coexistence is not offered for this number.
+The bot runs on a **separate number** that is not registered in any WhatsApp / WhatsApp Business app. The owner's main Business number (+971 56 735 5276) stays in the Business app for human chats, the catalog and the public contact links.
+
+Why not the same number: tried 2026-10-19 in Meta's own "Add phone number" flow (WhatsApp Manager, Meta app `AT24 Support Assistant`, business portfolio "Pravin Awari"). Meta refused: "This phone number is already registered to a WhatsApp account. To continue, migrate this phone number or disconnect it from the existing account." Migrating would remove the number from the app (chats, catalog, broadcasts). Coexistence (app + API on one number) is, per partner documentation, offered through Embedded Signup by Tech Providers, not in this direct flow; treat it as unavailable unless Meta shows a "connect your existing Business app" QR option. The code below still handles coexistence echoes (`smb_message_echoes`) harmlessly if that ever becomes available.
 
 | Message | Reply |
 |---|---|
@@ -29,18 +31,16 @@ Hard limits (by construction): it only **replies** inside the 24-hour customer-s
 
 ## Owner setup (the owner does all of this; secrets never go in chat or git)
 
-Same number (coexistence), as reported by Meta's partners (re-check Meta's own page, these come from third-party docs):
+The bot number:
 
-- The number must be on the **WhatsApp Business app** (not the normal WhatsApp), app updated (v2.24.17 or newer was quoted), and in active use. Eligibility depends on the account's age and quality; some countries/regions are not supported yet, so Meta's onboarding screen is the real test for the UAE number.
-- While connected, **open the Business app at least once every ~13 days** and do not uninstall it, or the link can drop.
-- Features that stop working in the app in this mode (as quoted by partners): broadcast lists, status, groups, disappearing messages, message edit/revoke, and others. Check what you use before connecting. Official Business Account (blue tick) is not supported in this mode.
-- Throughput is lower than a pure API number (partners quote 5-20 messages/second): irrelevant for a support bot.
-- You can disconnect later (Business app: Settings -> Account -> Business Platform); do it deliberately, history can be affected.
+- A new SIM / eSIM (UAE number preferred; Meta can also verify a landline or virtual number by a voice call) that has never been registered in WhatsApp or the Business app. Once it is on the Cloud API it can no longer be used in the normal apps.
+- It receives the verification code (SMS or voice) in the "Add number" step.
+- Meta business portfolio "Pravin Awari" is the one that owns the Facebook Page; the other portfolio "Algotraders24" is restricted ("can't use this business portfolio to advertise"), so do not use it. The portfolio is still "Unverified business": fine for this bot, Meta may ask for business verification to raise limits.
 
 Steps:
 
 1. developers.facebook.com -> create an app (type: Business) -> add the **WhatsApp** product, attach the Algotraders24 Meta Business portfolio.
-2. WhatsApp -> API Setup -> add the phone number through **Embedded Signup for Business App numbers (coexistence)**. Meta shows a **QR code**: scan it from the Business app on the phone. Let the contact/message-history sync finish (partners quote a 24-hour window).
+2. Use case "Connect with customers through WhatsApp" -> Customize -> Step 2 Production setup -> accept Meta's WhatsApp Business terms -> "Register your WhatsApp phone number" -> Add new number: business info, WhatsApp Business profile (display name, time zone Asia/Dubai, category Professional Services, description), then the **bot number** and its SMS/voice code. (Meta rejects app names that contain "WhatsApp".)
 3. Business settings -> System users -> create one, give it the app + the WhatsApp account, generate a **permanent token** with `whatsapp_business_messaging` and `whatsapp_business_management`.
 4. Note the **Phone number ID** (API Setup page; not the phone number) and the **App secret** (App settings -> Basic).
 5. Pick a random **verify token** (any long random string).
@@ -49,8 +49,6 @@ Steps:
 8. Test from another phone: `hi`, a pricing question, `HUMAN`, `should i buy gold`; then reply by hand from the Business app and check the bot stays quiet for that chat.
 
 Cost: there is no platform or subscription fee; Meta bills per delivered message. Meta's own pricing page (whatsappbusiness.com/products/platform-pricing, read 2026-10-19) says **replies inside the 24-hour customer-service window are free**, and marketing / out-of-window utility / authentication templates are charged by country. Several third-party articles claim that free-form service replies become billable from 1 October 2026; Meta's page lists no such change, so treat it as unconfirmed and check Meta's current rate card before go-live. Set a Meta spending cap either way. This bot sends only in-window replies (no templates), so it should fall in the free category.
-
-Without coexistence (fallback): register a **new** number on the API only; it then cannot be used in the normal Business app.
 
 ## Not in this phase
 
