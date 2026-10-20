@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright "Algotraders24 AI"
 #property strict
-#property version   "1.01"
+#property version   "1.03"
 #property description "USTECH Index Sniper - US Tech 100 M1 trend continuation, one precise pending order at a time"
 #property description "M5 EMA trend + fair value gap, buy-stop / sell-stop entry, break-even and trailing exit. Use on USTEC / NAS100 / US100."
 #include <Trade/Trade.mqh>
@@ -34,7 +34,7 @@ input int    DeviationPoints          = 30;
 
 input group "=== Broker / Index Point Definition ==="
 input double PipSize                  = 0.01; // 1 pip = 0.01 price units; verify your broker's digits for the index symbol
-input bool   AutoAdaptSymbol          = true;   // Non-index symbols: scale all distances by price / 21700 (tested on a US Tech index only)
+input bool   AutoAdaptSymbol          = true;   // Non-index symbols: scale all distances by price / 2500 (tested on a US Tech index only)
 input int    MaxSpreadPoints          = 80;
 input int    ExtraStopsBufferPoints   = 10;
 
@@ -128,7 +128,21 @@ void InitPipUnit()
    if(!AutoAdaptSymbol || IsIndexSymbol()) return;
    double px = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    if(px <= 0.0) px = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-   if(px > 0.0) { g_pip = PipSize * px / 21700.0; g_scaled = true; }
+   if(px > 0.0) { g_pip = PipSize * px / 2500.0; g_scaled = true; }
+}
+
+double SafeDistance()
+{
+   double fz = (double)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_FREEZE_LEVEL) * _Point;
+   double st = (double)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL) * _Point;
+   double d = MathMax(fz, st);
+   if(g_scaled)
+   {
+      double px = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+      if(px <= 0.0) px = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+      d = MathMax(d, px * 0.003);
+   }
+   return d;
 }
 
 int OnInit()
@@ -141,7 +155,7 @@ int OnInit()
    trade.SetDeviationInPoints(DeviationPoints);
    trade.SetTypeFillingBySymbol(_Symbol);
    
-   Print("=== USTECH Index Sniper v1.01 initialized | symbol ", _Symbol, " | pip unit ", DoubleToString(g_pip, 8), " ===");
+   Print("=== USTECH Index Sniper v1.03 initialized | symbol ", _Symbol, " | pip unit ", DoubleToString(g_pip, 8), " ===");
    g_atrHandle = iATR(_Symbol, PERIOD_M1, ATRPeriod);
    g_emaHandle = iMA(_Symbol, TrendTF, TrendEMAPeriod, 0, MODE_EMA, PRICE_CLOSE);
    
@@ -491,8 +505,8 @@ void ManageTrailingEveryTick()
                                              : (oldSL==0.0 || oldSL-candidate>=stepDist);
       if(improve)
       {
-         double fz=(double)SymbolInfoInteger(_Symbol,SYMBOL_TRADE_FREEZE_LEVEL)*_Point;
-         if(fz>0.0 && ((oldSL>0.0 && MathAbs(price-oldSL)<=fz) || (oldTP>0.0 && MathAbs(price-oldTP)<=fz))) continue;   // frozen: the server would refuse the change
+         double fz=SafeDistance();
+         if(fz>0.0 && ((oldSL>0.0 && MathAbs(price-oldSL)<=fz) || (oldTP>0.0 && MathAbs(price-oldTP)<=fz))) continue;   // too close to the market: the server would refuse the change
          if(!trade.PositionModify(ticket,candidate,oldTP))
             Print("Trailing modify failed ticket=",ticket," retcode=",trade.ResultRetcode()," ",trade.ResultRetcodeDescription());
          else Log(StringFormat("Trail modified ticket=%I64u profitPips=%.1f newSL=%.*f",ticket,profitPips,digits,candidate));
@@ -503,7 +517,7 @@ void ManageTrailingEveryTick()
 void MaintainPendingOrdersEveryTick()
 {
    bool outSession=EnableSessionFilter && !IsEntrySessionOpen();
-   double freeze=(double)SymbolInfoInteger(_Symbol,SYMBOL_TRADE_FREEZE_LEVEL)*_Point;
+   double freeze=SafeDistance();
    MqlTick tk; bool haveTick=SymbolInfoTick(_Symbol,tk);
    for(int i=OrdersTotal()-1;i>=0;i--)
    {
@@ -516,10 +530,13 @@ void MaintainPendingOrdersEveryTick()
          if(TimeCurrent()<g_nextCancelTry) continue;   // a cancel was refused a moment ago: wait before asking again
          if(haveTick && freeze>0.0)
          {
-            // the server refuses to cancel an order whose price is within the freeze level of the market
+            // the server refuses to cancel an order whose price is too close to the market: leave it until it fills or the price moves away
             ENUM_ORDER_TYPE ot=(ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
             double ref=(ot==ORDER_TYPE_BUY_STOP || ot==ORDER_TYPE_BUY_LIMIT) ? tk.ask : tk.bid;
             if(MathAbs(OrderGetDouble(ORDER_PRICE_OPEN)-ref)<=freeze) continue;
+            double osl=OrderGetDouble(ORDER_SL), otp=OrderGetDouble(ORDER_TP);
+            if(osl>0.0 && (MathAbs(osl-tk.bid)<=freeze || MathAbs(osl-tk.ask)<=freeze)) continue;   // the order's stop loss is near the market
+            if(otp>0.0 && (MathAbs(otp-tk.bid)<=freeze || MathAbs(otp-tk.ask)<=freeze)) continue;   // ... or its take profit
          }
          if(trade.OrderDelete(ticket)) g_lastAction=TimeCurrent();
          else g_nextCancelTry=TimeCurrent()+120;

@@ -1,4 +1,4 @@
-# USTECH Index Sniper - MQL5 Market submission kit (v1.01)
+# USTECH Index Sniper - MQL5 Market submission kit (v1.03)
 
 Everything below is copy-paste ready for the MQL5 Market "Add product" form.
 Files in this folder: `USTECHIndexSniper.mq5` (source to publish; compiled with MetaEditor: 0 errors, 0 warnings), `icon-200x200.png`,
@@ -10,7 +10,7 @@ Files in this folder: `USTECHIndexSniper.mq5` (source to publish; compiled with 
 |---|---|
 | Name | USTECH Index Sniper |
 | Type | Expert Advisor (MetaTrader 5) |
-| Version | 1.01 |
+| Version | 1.03 |
 | Symbol / timeframe | US Tech 100 index (USTEC / NAS100 / US100 ... the name depends on the broker). The EA works on M1 bars internally - attach it to a chart of the index. Other symbols: see AutoAdaptSymbol below |
 | Logo | `icon-200x200.png` |
 | Screenshots | `screenshots/01-balance-curve.png`, `02-profit-by-month.png`, `03-how-it-trades.png`, `04-default-settings.png` |
@@ -40,7 +40,7 @@ READ BEFORE USING
 - The test ran on an Exness index symbol with a contract size of 100 (one lot = 100 USD per index point, 20-lot maximum). Lot sizes, profits and drawdown amounts therefore do NOT transfer to other brokers, whose index contracts are usually much smaller; only the risk-based sizing (a percentage of equity per trade) carries over.
 - RISK: the test used 2% risk per trade with compounding. By default this build uses 0.5% risk. That is still a high-risk scalper: a few losing trades can erase many small wins. Results and drawdown scale with risk. Choose a size that is right for YOUR account, and start on a demo account.
 - A scalper with trades of a few minutes is very sensitive to spread, slippage, execution speed, commission and the broker's stop level. Live results can be very different from the backtest.
-- Designed and tested on a US Tech 100 index only. On other symbols the input AutoAdaptSymbol (default true) scales every distance by price / 21700 so the EA can run at all; those symbols are NOT backtested - leave it on the index for the tested behaviour, or set AutoAdaptSymbol = false to use the raw index distances.
+- Designed and tested on a US Tech 100 index only. On other symbols the input AutoAdaptSymbol (default true) scales every distance by price / 2500 (the same scaling as the Gold Sniper build) so the EA can run at all; those symbols are NOT backtested - leave it on the index for the tested behaviour, or set AutoAdaptSymbol = false to use the raw index distances.
 - Session hours (London 7-16, New York 12-21) are BROKER SERVER time, tested on Exness. Check your broker's server-time offset. Index symbols are named differently by brokers (USTEC, NAS100, US100 ...): check digits and PipSize (default 0.01).
 - Past performance is not a guarantee of future results. Trading leveraged products is risky; this is not financial advice.
 
@@ -49,11 +49,11 @@ SETUP
 2. Leave the defaults for the tested behaviour, or set your own risk (RiskPercent) / fixed lot (UseRiskLot = false, FixedLot).
 3. Check the session hours against your broker's server time.
 
-## What's new (version 1.01)
+## What's new (version 1.03)
 
-Fix for the Market validation report ("failed cancel order" on EURUSD H1): the EA now respects the broker's freeze level. Entry orders are placed at least max(stops level, freeze level) away from the market, a pending order is no longer cancelled while its price is inside the freeze zone (the server refuses that request), a refused cancel is retried only after two minutes, and trailing stops are not modified while a stop or take profit is inside the freeze zone. Trading rules, inputs and defaults are unchanged.
+Fix for the Market validation report ("failed cancel order ... order or position being close to market" on EURUSD H1). The cause was the stop loss / take profit of short-lived pending orders: with the index distances scaled to a forex symbol the stop was only about 24 pips away and the market often ran to it within the 3 minutes the order lives, which the tester treats as "too close to market" and refuses to cancel. On symbols other than the US Tech index the distances are now scaled like in the Gold Sniper build (price / 2500, a stop of about 2% of the price), and a pending order whose price, stop loss or take profit is close to the market is left alone until it fills or the market moves away. Trading rules, inputs and defaults are unchanged; on the US Tech index the behaviour is identical to the tested run.
 
-(1.00 - first release.)
+(1.02 - safe-distance check; 1.01 - freeze-level check; 1.00 - first release.)
 
 ## Pre-flight checklist (before pressing Publish)
 
@@ -61,8 +61,9 @@ Fix for the Market validation report ("failed cancel order" on EURUSD H1): the E
 2. MetaEditor > File > "Publish product" (or the Market tab) > fill the fields above, upload icon + screenshots, publish.
 3. The Market validator tests EURUSD / GBPUSD / XAUUSD on several timeframes with default inputs and rejects an EA that makes no
    trades or that has failed trade operations. This build scales distances to the symbol (AutoAdaptSymbol), uses a price-relative spread
-   limit on non-index symbols and (v1.01) respects the freeze level when cancelling / modifying. v1.00 returned 21 "failed cancel order"
-   errors on EURUSD H1; v1.01 was NOT run through the Market validator or the strategy tester locally - if the report still lists errors,
-   send the exact end of the message line (the part in square brackets after "failed ...").
+   limit on non-index symbols and (v1.03) uses the Gold Sniper scaling and never cancels / modifies an order or stop that is too close to the market. v1.00, v1.01 and v1.02
+   each returned 21 "failed cancel order ... Modification failed due to order or position being close to market" errors on EURUSD H1
+   (the cause was the order's stop loss / take profit being near the market, which v1.03 avoids). v1.03 was NOT
+   run through the Market validator or the strategy tester locally - if the report still lists errors, send the exact message again.
 4. Do not mention other websites, prices or contact details in the description (Market rules); the text above already avoids them.
-5. Version numbers must increase on every update; upload this as 1.01 (the earlier upload was 1.00) and fill "What's new".
+5. Version numbers must increase on every update; upload this as 1.03 (the earlier uploads were 1.00, 1.01 and 1.02) and fill "What's new".
