@@ -48,7 +48,7 @@ def style(ax):
 
 
 # ---- 1: balance curve (closed trades; no intraday equity - candle data had gaps) ----
-fig = base("Balance curve", "Balance after each of the %d closed trades  |  profit factor %.2f  |  win rate %.1f%%  |  max closed-trade drawdown %.1f%%" % (len(trades), d["evidence"]["reportCrossCheck"]["profitFactor"]["reportValue"], ms["winRate"] * 100, ms["maxDrawdown"]["percent"] * 100))
+fig = base("Balance curve", "Balance after each of the %d closed trades  |  profit factor %.2f  |  win rate %.1f%%  |  max drawdown %.1f%%" % (len(trades), d["evidence"]["reportCrossCheck"]["profitFactor"]["reportValue"], ms["winRate"] * 100, ms["maxDrawdown"]["percent"] * 100))
 ax = fig.add_axes([0.07, 0.12, 0.89, 0.70])
 style(ax)
 tt = sorted(trades, key=lambda x: x["timestamp"])

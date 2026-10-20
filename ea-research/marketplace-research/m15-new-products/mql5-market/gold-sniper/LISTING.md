@@ -30,7 +30,7 @@ After every closed M1 bar the EA looks for two things at once: an M5 EMA(50) tre
 
 BACKTEST RESULTS (Strategy Tester, Exness XAUUSD, M1, 2025-01-02 to 2026-10-08, 16,522 trades, 100,000 USD deposit, risk-based lot 2% per trade, seller's own report)
 - Net profit 678,177 (the lot grows with the balance, so profit compounds), profit factor 1.55, win rate 74.6%, average trade +41, largest loss -25,753, longest losing streak 11.
-- Maximum drawdown on closed trades (balance): 263,031 = 25.26%. The report also prints a 100% equity drawdown which could not be verified or explained - intraday drawdown is not independently verified.
+- Maximum equity drawdown 263,906 = 25.33% (balance drawdown 25.26%), longest drawdown about 189 days. The tester report also prints a 100% equity drawdown which could not be reproduced or explained.
 - The result FADED: 2025 +769,619, but 2026 up to 9 October LOST -91,442. 8 of 22 months were losing months (worst: April 2026, -57,445); the best month (October 2025) made 34.7% of the total profit.
 - The median trade lasted about 13 seconds. Only 43% of the test ticks were real ticks; the spread model is unknown. This is a backtest, not live trading: no live results are claimed.
 

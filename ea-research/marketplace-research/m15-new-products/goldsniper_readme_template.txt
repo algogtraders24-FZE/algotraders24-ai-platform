@@ -54,9 +54,9 @@ IMPORTANT - READ BEFORE USING
  * VERY SHORT TRADES: the median trade lasted about 13 seconds and there were 16,522 trades. Such a scalper depends heavily on spread,
    slippage, execution speed and the broker's stop level. The tested run used 43 percent real ticks; spread/commission/swap models are
    not disclosed by the report. Live results can be very different from the backtest.
- * THE TESTER'S EQUITY DRAWDOWN: the report prints a balance drawdown of 25.26 percent and an EQUITY drawdown of 100 percent.
-   AT24 could not rebuild an intraday equity curve for the whole test period, so intraday drawdown is NOT independently verified.
-   Treat the 100 percent figure as unexplained.
+ * DRAWDOWN: the report prints a balance drawdown of 25.26 percent and an EQUITY drawdown of 100 percent. AT24 rebuilt the equity curve
+   from real XAUUSD M15 candles between each trade's entry and exit: maximum equity drawdown 25.33 percent (263,906), longest drawdown
+   about 189 days. The 100 percent figure is NOT reproduced and stays unexplained; a tick-level low can still differ from the candle curve.
  * SERVER TIME: session hours are BROKER SERVER time. The test ran on Exness; check your own broker's server-time offset and adjust the hours.
  * SYMBOL: tested on Exness "XAUUSD". Other brokers name it XAUUSD.m / GOLD / XAUUSDm etc.; check PipSize and digits.
  * Start on a DEMO account. Past performance is not a guarantee of future results. Trading leveraged products is risky;
