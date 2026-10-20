@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright "Algotraders24 AI"
 #property strict
-#property version   "1.00"
+#property version   "1.02"
 #property description "Gold Sniper - XAUUSD M1 trend continuation, one precise pending order at a time"
 #property description "M5 EMA trend + fair value gap, buy-stop / sell-stop entry, break-even and trailing exit. Use on XAUUSD."
 #include <Trade/Trade.mqh>
@@ -34,16 +34,17 @@ input int    DeviationPoints          = 30;
 
 input group "=== Broker / Gold Pip Definition ==="
 input double PipSize                  = 0.01; // XAUUSD: verify broker convention
+input bool   AutoAdaptSymbol          = true;   // Non-gold symbols: scale all distances by price / 2500 (tested on XAUUSD only)
 input int    MaxSpreadPoints          = 80;
 input int    ExtraStopsBufferPoints   = 10;
 
 input group "=== Risk Management (Pips Base) ==="
 input bool   UsePipsForSLTP           = true;   // Use Pips for SL/TP (False = Use ATR/RR)
 input int    StopLossPips             = 5000;     // Stop Loss (Pips)
-input int    TakeProfitPips           = 20000;    // Take Profit (Pips)
+input int    TakeProfitPips           = 11000;    // Take Profit (Pips)
 
 input group "=== Exit: Break Even & Trailing (Pips Base) ==="
-input bool   UsePipsForTrailing       = true;   // Use Pips for BE/Trailing (False = Use Points/ATR)
+input bool   UsePipsForTrailing       = false;   // Use Pips for BE/Trailing (False = Use Points/ATR)
 input int    BreakEvenTriggerPips     = 10000;     // Break Even Trigger (Pips, 0=Disable)
 input int    BreakEvenLockPips        = 9000;      // Break Even Lock Profit (Pips)
 input int    TrailingStopPips         = 3000;     // Trailing Stop Distance (Pips, 0=Disable)
@@ -109,12 +110,29 @@ int g_atrHandle = INVALID_HANDLE;
 int g_emaHandle = INVALID_HANDLE;
 datetime g_lastBar = 0;
 datetime g_lastAction = 0;
+double g_pip = 0.01;
+
+bool IsGoldSymbol()
+{
+   string s = _Symbol; StringToUpper(s);
+   return (StringFind(s, "XAU") >= 0 || StringFind(s, "GOLD") >= 0);
+}
+
+void InitPipUnit()
+{
+   g_pip = PipSize;
+   if(!AutoAdaptSymbol || IsGoldSymbol()) return;
+   double px = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   if(px <= 0.0) px = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   if(px > 0.0) g_pip = PipSize * px / 2500.0;
+}
 
 int OnInit()
 {
    if(PipSize <= 0.0 || RiskPercent <= 0.0 || FixedLot <= 0.0 || ATRPeriod < 2 || EntropyPeriod < 5)
       return INIT_PARAMETERS_INCORRECT;
    
+   InitPipUnit();
    trade.SetExpertMagicNumber(MagicNumber);
    trade.SetDeviationInPoints(DeviationPoints);
    trade.SetTypeFillingBySymbol(_Symbol);
@@ -127,7 +145,7 @@ int OnInit()
       Print("Indicator handle creation failed. Error=", GetLastError());
       return INIT_FAILED;
    }
-   Print("=== Gold Sniper v1.00 initialized ===");
+   Print("=== Gold Sniper v1.02 initialized | symbol ", _Symbol, " | pip unit ", DoubleToString(g_pip, 8), " ===");
    return INIT_SUCCEEDED;
 }
 
@@ -210,7 +228,7 @@ int GetFreshFVGDirection()
 {
    MqlRates r[]; ArraySetAsSeries(r, true);
    if(CopyRates(_Symbol, PERIOD_M1, 1, 3, r) != 3) return 0;
-   double minGap = FVGMinPips * PipSize;
+   double minGap = FVGMinPips * g_pip;
    if(r[0].low > r[2].high && r[1].close > r[1].open && (r[0].low-r[2].high) >= minGap) return 1;
    if(r[0].high < r[2].low && r[1].close < r[1].open && (r[2].low-r[0].high) >= minGap) return -1;
    return 0;
@@ -339,8 +357,8 @@ void PlaceContinuationStop(const int direction)
       entry=MathMax(high+EntryBufferPoints*_Point,tick.ask+minDist);
       
       if(UsePipsForSLTP) {
-         sl = entry - StopLossPips * PipSize;
-         tp = entry + TakeProfitPips * PipSize;
+         sl = entry - StopLossPips * g_pip;
+         tp = entry + TakeProfitPips * g_pip;
       } else {
          sl = entry - atr * InitialSL_ATRMultiplier;
          if(EnableHardTakeProfit) tp = entry + (entry - sl) * TakeProfitRR;
@@ -358,8 +376,8 @@ void PlaceContinuationStop(const int direction)
       entry=MathMin(low-EntryBufferPoints*_Point,tick.bid-minDist);
       
       if(UsePipsForSLTP) {
-         sl = entry + StopLossPips * PipSize;
-         tp = entry - TakeProfitPips * PipSize;
+         sl = entry + StopLossPips * g_pip;
+         tp = entry - TakeProfitPips * g_pip;
       } else {
          sl = entry + atr * InitialSL_ATRMultiplier;
          if(EnableHardTakeProfit) tp = entry - (sl - entry) * TakeProfitRR;
@@ -413,20 +431,20 @@ void ManageTrailingEveryTick()
       double price=(type==POSITION_TYPE_BUY ? tick.bid : tick.ask);
       
       double profitPts=(type==POSITION_TYPE_BUY ? price-open : open-price)/_Point;
-      double profitPips=(type==POSITION_TYPE_BUY ? price-open : open-price)/PipSize;
+      double profitPips=(type==POSITION_TYPE_BUY ? price-open : open-price)/g_pip;
       double candidate=oldSL;
       
       if(UsePipsForTrailing)
       {
          if(BreakEvenTriggerPips > 0 && profitPips >= BreakEvenTriggerPips)
          {
-            double be=(type==POSITION_TYPE_BUY ? open+BreakEvenLockPips*PipSize : open-BreakEvenLockPips*PipSize);
+            double be=(type==POSITION_TYPE_BUY ? open+BreakEvenLockPips*g_pip : open-BreakEvenLockPips*g_pip);
             if(type==POSITION_TYPE_BUY && (candidate==0.0 || be>candidate)) candidate=be;
             if(type==POSITION_TYPE_SELL && (candidate==0.0 || be<candidate)) candidate=be;
          }
          if(TrailingStopPips > 0 && profitPips >= TrailingStopPips)
          {
-            double p=(type==POSITION_TYPE_BUY ? price-TrailingStopPips*PipSize : price+TrailingStopPips*PipSize);
+            double p=(type==POSITION_TYPE_BUY ? price-TrailingStopPips*g_pip : price+TrailingStopPips*g_pip);
             if(type==POSITION_TYPE_BUY && (candidate==0.0 || p>candidate)) candidate=p;
             if(type==POSITION_TYPE_SELL && (candidate==0.0 || p<candidate)) candidate=p;
          }
@@ -451,7 +469,7 @@ void ManageTrailingEveryTick()
          }
          if(EnableFixedPipsTrailing && profitPts>=FixedTrailStartPoints)
          {
-            double distance=FixedTrailPips*PipSize;
+            double distance=FixedTrailPips*g_pip;
             double p=(type==POSITION_TYPE_BUY ? price-distance : price+distance);
             if(type==POSITION_TYPE_BUY && (candidate==0.0 || p>candidate)) candidate=p;
             if(type==POSITION_TYPE_SELL && (candidate==0.0 || p<candidate)) candidate=p;
@@ -464,7 +482,7 @@ void ManageTrailingEveryTick()
       else candidate=MathMax(candidate,price+minDist);
       candidate=NormalizeDouble(candidate,digits);
       
-      double stepDist = UsePipsForTrailing ? TrailingStepPips * PipSize : MinTrailStepPoints * _Point;
+      double stepDist = UsePipsForTrailing ? TrailingStepPips * g_pip : MinTrailStepPoints * _Point;
       bool improve=(type==POSITION_TYPE_BUY) ? (oldSL==0.0 || candidate-oldSL>=stepDist)
                                              : (oldSL==0.0 || oldSL-candidate>=stepDist);
       if(improve)
@@ -501,7 +519,7 @@ double GetClosedATR()
 bool IsSpreadAcceptable()
 {
    MqlTick t; if(!SymbolInfoTick(_Symbol,t)) return false;
-   return (t.ask-t.bid)/_Point<=MaxSpreadPoints;
+   return (t.ask-t.bid)/g_pip<=MaxSpreadPoints;
 }
 
 bool IsHourInWindow(const int h,const int start,const int end)

@@ -47,6 +47,12 @@ out = out.replace('#property description "Gold Sniper - Powered by ALGOTRADERS24
 out = out.replace('#property description "XAUUSD M1 pending-stop trend continuation"',
                   '#property description "M5 EMA trend + fair value gap, buy-stop / sell-stop entry, break-even and trailing exit. Use on XAUUSD."')
 
+
+sys.path.insert(0, HERE)
+import goldsniper_market_patch  # noqa: E402
+
+out = goldsniper_market_patch.apply(out)
+
 target = os.path.join(out_dir, "GoldSniper.mq5")
 open(target, "w", encoding="utf-8", newline="\r\n").write(out)
 for c in changes:
