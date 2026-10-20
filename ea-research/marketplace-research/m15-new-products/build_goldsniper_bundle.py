@@ -90,10 +90,10 @@ IMPORTANT - READ BEFORE USING
    break-even trigger 10000 = 100.00 USD. On XAUUSD one lot is 100 ounces, so a 50.00 USD stop at 1.0 lot is about 5,000 USD of risk.
  * LOT SIZE: the backtest used a FIXED 1.0 lot on a 100,000 USD deposit (about 5 percent risk per stop-out). Results, drawdown and risk scale
    with lot size. For a 10,000 USD account the same risk is about 0.1 lot; for 1,000 USD about 0.01 lot. Choose your own size.
- * THE TESTER'S OWN EQUITY DRAWDOWN: the tester report prints an equity drawdown of 100 percent. AT24 rebuilt the equity curve from real
-   M15 XAUUSD candles and does not reproduce it (lowest equity about 71,000 on the 100,000 start, about 31 percent at the worst early
-   point, 11.8 percent at the worst point after the account had grown). The report's balance drawdown was 25.85 percent. Treat the
-   100 percent figure as unexplained.
+ * DRAWDOWN: the tester report prints a balance drawdown of 25.85 percent (66,245 on closed trades, 100,000 start) and an EQUITY
+   drawdown of 100 percent. AT24 could not rebuild an intraday equity curve for the whole test period (real candle data was missing
+   for about 7 of the 21 months), so intraday drawdown is NOT independently verified. Treat the 100 percent figure as unexplained and
+   expect intraday drawdowns of at least the closed-trade level.
  * HISTORY QUALITY of the tested run was 43 percent real ticks; spread model is not disclosed by the report. Pending-order EAs on gold are
    sensitive to spread, slippage and stop level around news; the largest single loss in the test (about 11,056 USD) was more than twice the
    5,000 USD that a 50.00 USD stop at 1.0 lot implies - the report does not say why (slippage or a price gap is the usual cause).
