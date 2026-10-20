@@ -1,4 +1,4 @@
-# Gold Sniper - MQL5 Market submission kit (v1.00)
+# Gold Sniper - MQL5 Market submission kit (v1.01)
 
 Everything below is copy-paste ready for the MQL5 Market "Add product" form.
 Files in this folder: `GoldSniper.mq5` (source to publish), `GoldSniper.ex5` (compiled, 0 errors / 0 warnings), `icon-200x200.png`,
@@ -10,8 +10,8 @@ Files in this folder: `GoldSniper.mq5` (source to publish), `GoldSniper.ex5` (co
 |---|---|
 | Name | Gold Sniper |
 | Type | Expert Advisor (MetaTrader 5) |
-| Version | 1.00 |
-| Symbol / timeframe | XAUUSD (the EA works on M1 bars internally - attach to any chart of XAUUSD) |
+| Version | 1.01 |
+| Symbol / timeframe | XAUUSD (the EA works on M1 bars internally - attach to any chart of XAUUSD). Other symbols: see AutoAdaptSymbol below |
 | Logo | `icon-200x200.png` |
 | Screenshots | `screenshots/01-balance-curve.png`, `02-profit-by-month.png`, `03-how-it-trades.png`, `04-default-settings.png` |
 | Price | your choice (the AT24 marketplace price is 999 USD; MQL5 Market sets its own fee/pricing rules) |
@@ -38,6 +38,7 @@ READ BEFORE USING
 - The default inputs reproduce the tested distances: stop loss 5000 pips, take profit 20000 pips, break-even 10000/9000, trailing 3000/1000. "Pips" in this EA are 0.01 price units, so 5000 pips = a 50.00 USD move and 20000 pips = 200.00 USD.
 - LOT SIZE: the test used a fixed 1.0 lot (100 oz). By default this build sizes the lot from risk (0.5% of equity per trade). At 1.0 lot a 50 USD stop risks about 5,000 USD, at 0.01 lot about 50 USD. Results and drawdown scale with lot size. Choose a size that is right for YOUR account, and start on a demo account.
 - The largest single loss in the test (-11,056) was more than twice what the stop implies; the report does not explain why (slippage or a price gap is the usual cause).
+- Designed and tested on XAUUSD only. On other symbols the input AutoAdaptSymbol (default true) scales every distance by price / 2500 so the EA can run at all; those symbols are NOT backtested - leave it on XAUUSD for the tested behaviour, or set AutoAdaptSymbol = false to use the raw gold distances.
 - Session hours (London 7-16, New York 12-21) are BROKER SERVER time, tested on Exness. Check your broker's server-time offset. Symbols are named differently by brokers (XAUUSD, XAUUSDm, GOLD ...): check digits and PipSize (default 0.01).
 - Pending-order EAs on gold are sensitive to spread, slippage and stop level around news. A VPS and a low-spread account are recommended.
 - Past performance is not a guarantee of future results. Trading leveraged products is risky; this is not financial advice.
@@ -47,16 +48,18 @@ SETUP
 2. Leave the defaults for the tested behaviour, or set your own risk (RiskPercent) / fixed lot (UseRiskLot = false, FixedLot).
 3. Check the session hours against your broker's server time.
 
-## What's new (version 1.00)
+## What's new (version 1.01)
 
-First release.
+Fix for the Market validation ("no trading operations" on EURUSD / GBPUSD / XAUUSD tests): the EA now adapts all distances and the spread limit to the symbol's price scale (new input AutoAdaptSymbol, default true; XAUUSD behaviour is unchanged), so it also places orders on non-gold symbols. Spread filter is now scale-independent.
+
+(Version 1.00 - first release.)
 
 ## Pre-flight checklist (before pressing Publish)
 
 1. Copy `GoldSniper.mq5` into `MQL5\Experts` of your MetaTrader 5 and compile in MetaEditor (expect 0 errors, 0 warnings).
 2. MetaEditor > File > "Publish product" (or the Market tab) > fill the fields above, upload icon + screenshots, publish.
-3. The Market validator tests the EA on several symbols with default inputs. Gold Sniper is gold-specific (PipSize 0.01, 50 USD stop),
-   so on forex symbols it may place no or invalid orders; this local kit did NOT run the Market validator. If it is rejected for
-   "no trades" or "invalid stops", tell me the exact message and I will adjust the build.
+3. v1.01 fixes the v1.00 validator result ("there are no trading operations" on EURUSD H1, XAUUSD D1, GBPUSD M30, EURUSD M1) by scaling
+   distances to the symbol on non-gold symbols. It was NOT run through the Market validator or the strategy tester locally - if the
+   report still lists a symbol with no trades, send me the exact message.
 4. Do not mention other websites, prices or contact details in the description (Market rules); the text above already avoids them.
 5. Version numbers must increase on every update (1.01, 1.10 ...); fill "What's new" each time.
