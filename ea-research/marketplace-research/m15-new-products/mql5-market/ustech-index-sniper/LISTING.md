@@ -1,4 +1,4 @@
-# USTECH Index Sniper - MQL5 Market submission kit (v1.00)
+# USTECH Index Sniper - MQL5 Market submission kit (v1.01)
 
 Everything below is copy-paste ready for the MQL5 Market "Add product" form.
 Files in this folder: `USTECHIndexSniper.mq5` (source to publish; compiled with MetaEditor: 0 errors, 0 warnings), `icon-200x200.png`,
@@ -10,7 +10,7 @@ Files in this folder: `USTECHIndexSniper.mq5` (source to publish; compiled with 
 |---|---|
 | Name | USTECH Index Sniper |
 | Type | Expert Advisor (MetaTrader 5) |
-| Version | 1.00 |
+| Version | 1.01 |
 | Symbol / timeframe | US Tech 100 index (USTEC / NAS100 / US100 ... the name depends on the broker). The EA works on M1 bars internally - attach it to a chart of the index. Other symbols: see AutoAdaptSymbol below |
 | Logo | `icon-200x200.png` |
 | Screenshots | `screenshots/01-balance-curve.png`, `02-profit-by-month.png`, `03-how-it-trades.png`, `04-default-settings.png` |
@@ -49,17 +49,20 @@ SETUP
 2. Leave the defaults for the tested behaviour, or set your own risk (RiskPercent) / fixed lot (UseRiskLot = false, FixedLot).
 3. Check the session hours against your broker's server time.
 
-## What's new (version 1.00)
+## What's new (version 1.01)
 
-First release.
+Fix for the Market validation report ("failed cancel order" on EURUSD H1): the EA now respects the broker's freeze level. Entry orders are placed at least max(stops level, freeze level) away from the market, a pending order is no longer cancelled while its price is inside the freeze zone (the server refuses that request), a refused cancel is retried only after two minutes, and trailing stops are not modified while a stop or take profit is inside the freeze zone. Trading rules, inputs and defaults are unchanged.
+
+(1.00 - first release.)
 
 ## Pre-flight checklist (before pressing Publish)
 
 1. Copy `USTECHIndexSniper.mq5` into `MQL5\Experts` of your MetaTrader 5 and compile in MetaEditor (expect 0 errors, 0 warnings).
 2. MetaEditor > File > "Publish product" (or the Market tab) > fill the fields above, upload icon + screenshots, publish.
 3. The Market validator tests EURUSD / GBPUSD / XAUUSD on several timeframes with default inputs and rejects an EA that makes no
-   trades. This build scales distances to the symbol (AutoAdaptSymbol) and uses a price-relative spread limit on non-index symbols to
-   avoid exactly that, but it was NOT run through the Market validator or the strategy tester locally - if the report still lists
-   a symbol with no trades, send the exact message.
+   trades or that has failed trade operations. This build scales distances to the symbol (AutoAdaptSymbol), uses a price-relative spread
+   limit on non-index symbols and (v1.01) respects the freeze level when cancelling / modifying. v1.00 returned 21 "failed cancel order"
+   errors on EURUSD H1; v1.01 was NOT run through the Market validator or the strategy tester locally - if the report still lists errors,
+   send the exact end of the message line (the part in square brackets after "failed ...").
 4. Do not mention other websites, prices or contact details in the description (Market rules); the text above already avoids them.
-5. Version numbers must increase on every update; fill "What's new" each time.
+5. Version numbers must increase on every update; upload this as 1.01 (the earlier upload was 1.00) and fill "What's new".
