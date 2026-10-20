@@ -9,7 +9,14 @@ nothing changes. The spread filter keeps its original rule on the index; on othe
 v1.01 (Market validator, "failed cancel order" errors): the broker's FREEZE level is now respected. Entries are placed at least
 max(stops level, freeze level) + buffer away from the market, a pending order is never cancelled while its price is inside the freeze
 zone (the server refuses that request), a refused cancel is retried only after 2 minutes, and trailing stops are not modified while the
-position's stop or take profit is inside the freeze zone."""
+position's stop or take profit is inside the freeze zone.
+
+v1.02 (the v1.01 report still showed "failed cancel order ... Modification failed due to order or position being close to market"
+although the freeze check passed, i.e. the validator's symbol reports a freeze level of 0 yet refuses the request): the "too close to
+market" guard no longer relies on the reported freeze level. SafeDistance() = max(freeze, stops level) and, on non-index symbols,
+at least 0.3 percent of the price (about 30 pips on EURUSD). A pending order or a stop/take profit that is closer to the market than
+that is simply left alone (it fills, or the price moves away, and then it is cancelled / modified normally) instead of being sent to a
+server that refuses it. The index behaviour is unchanged."""
 
 REF_PRICE = "21700.0"
 
@@ -33,13 +40,27 @@ void InitPipUnit()
    double px = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    if(px <= 0.0) px = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    if(px > 0.0) { g_pip = PipSize * px / REFPRICE; g_scaled = true; }
+}
+
+double SafeDistance()
+{
+   double fz = (double)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_FREEZE_LEVEL) * _Point;
+   double st = (double)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL) * _Point;
+   double d = MathMax(fz, st);
+   if(g_scaled)
+   {
+      double px = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+      if(px <= 0.0) px = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+      d = MathMax(d, px * 0.003);
+   }
+   return d;
 }"""
 
 MAINTAIN_OLD_START = "void MaintainPendingOrdersEveryTick()"
 MAINTAIN_NEW = """void MaintainPendingOrdersEveryTick()
 {
    bool outSession=EnableSessionFilter && !IsEntrySessionOpen();
-   double freeze=(double)SymbolInfoInteger(_Symbol,SYMBOL_TRADE_FREEZE_LEVEL)*_Point;
+   double freeze=SafeDistance();
    MqlTick tk; bool haveTick=SymbolInfoTick(_Symbol,tk);
    for(int i=OrdersTotal()-1;i>=0;i--)
    {
@@ -52,7 +73,7 @@ MAINTAIN_NEW = """void MaintainPendingOrdersEveryTick()
          if(TimeCurrent()<g_nextCancelTry) continue;   // a cancel was refused a moment ago: wait before asking again
          if(haveTick && freeze>0.0)
          {
-            // the server refuses to cancel an order whose price is within the freeze level of the market
+            // the server refuses to cancel an order whose price is too close to the market: leave it until it fills or the price moves away
             ENUM_ORDER_TYPE ot=(ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
             double ref=(ot==ORDER_TYPE_BUY_STOP || ot==ORDER_TYPE_BUY_LIMIT) ? tk.ask : tk.bid;
             if(MathAbs(OrderGetDouble(ORDER_PRICE_OPEN)-ref)<=freeze) continue;
@@ -79,10 +100,10 @@ def apply(out):
     nl = "\r\n" if "\r\n" in out else "\n"
     out = out.replace("\r\n", "\n")
     must('#property version   "1.00"' in out, "version")
-    out = out.replace('#property version   "1.00"', '#property version   "1.01"')
+    out = out.replace('#property version   "1.00"', '#property version   "1.02"')
     old = 'Print("=== USTECH Index Sniper v1.00 initialized ===");'
     must(old in out, "init print")
-    out = out.replace(old, 'Print("=== USTECH Index Sniper v1.01 initialized | symbol ", _Symbol, " | pip unit ", DoubleToString(g_pip, 8), " ===");')
+    out = out.replace(old, 'Print("=== USTECH Index Sniper v1.02 initialized | symbol ", _Symbol, " | pip unit ", DoubleToString(g_pip, 8), " ===");')
     res = []
     for ln in out.split("\n"):
         if ln.startswith("input double PipSize"):
@@ -107,8 +128,8 @@ def apply(out):
     mod_old = "      if(improve)\n      {\n         if(!trade.PositionModify(ticket,candidate,oldTP))"
     must(mod_old in out, "modify block")
     mod_new = ("      if(improve)\n      {\n"
-               "         double fz=(double)SymbolInfoInteger(_Symbol,SYMBOL_TRADE_FREEZE_LEVEL)*_Point;\n"
-               "         if(fz>0.0 && ((oldSL>0.0 && MathAbs(price-oldSL)<=fz) || (oldTP>0.0 && MathAbs(price-oldTP)<=fz))) continue;   // frozen: the server would refuse the change\n"
+               "         double fz=SafeDistance();\n"
+               "         if(fz>0.0 && ((oldSL>0.0 && MathAbs(price-oldSL)<=fz) || (oldTP>0.0 && MathAbs(price-oldTP)<=fz))) continue;   // too close to the market: the server would refuse the change\n"
                "         if(!trade.PositionModify(ticket,candidate,oldTP))")
     out = out.replace(mod_old, mod_new, 1)
     must(SPREAD_OLD in out, "spread")

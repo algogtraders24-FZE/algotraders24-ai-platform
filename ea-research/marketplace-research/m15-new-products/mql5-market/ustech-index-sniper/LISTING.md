@@ -1,4 +1,4 @@
-# USTECH Index Sniper - MQL5 Market submission kit (v1.01)
+# USTECH Index Sniper - MQL5 Market submission kit (v1.02)
 
 Everything below is copy-paste ready for the MQL5 Market "Add product" form.
 Files in this folder: `USTECHIndexSniper.mq5` (source to publish; compiled with MetaEditor: 0 errors, 0 warnings), `icon-200x200.png`,
@@ -10,7 +10,7 @@ Files in this folder: `USTECHIndexSniper.mq5` (source to publish; compiled with 
 |---|---|
 | Name | USTECH Index Sniper |
 | Type | Expert Advisor (MetaTrader 5) |
-| Version | 1.01 |
+| Version | 1.02 |
 | Symbol / timeframe | US Tech 100 index (USTEC / NAS100 / US100 ... the name depends on the broker). The EA works on M1 bars internally - attach it to a chart of the index. Other symbols: see AutoAdaptSymbol below |
 | Logo | `icon-200x200.png` |
 | Screenshots | `screenshots/01-balance-curve.png`, `02-profit-by-month.png`, `03-how-it-trades.png`, `04-default-settings.png` |
@@ -49,11 +49,11 @@ SETUP
 2. Leave the defaults for the tested behaviour, or set your own risk (RiskPercent) / fixed lot (UseRiskLot = false, FixedLot).
 3. Check the session hours against your broker's server time.
 
-## What's new (version 1.01)
+## What's new (version 1.02)
 
-Fix for the Market validation report ("failed cancel order" on EURUSD H1): the EA now respects the broker's freeze level. Entry orders are placed at least max(stops level, freeze level) away from the market, a pending order is no longer cancelled while its price is inside the freeze zone (the server refuses that request), a refused cancel is retried only after two minutes, and trailing stops are not modified while a stop or take profit is inside the freeze zone. Trading rules, inputs and defaults are unchanged.
+Second fix for the Market validation report ("failed cancel order ... order or position being close to market" on EURUSD H1). On symbols other than the US Tech index the EA now leaves a pending order alone while its price is closer to the market than a safe distance (the larger of the broker's stops / freeze level and 0.3% of the price) and cancels it normally once the price has moved away or it has filled. Trailing-stop changes follow the same rule, and a refused cancel is retried only after two minutes. Trading rules, inputs and defaults are unchanged; on the US Tech index the behaviour is identical to the tested run.
 
-(1.00 - first release.)
+(1.01 - respected the reported freeze level; 1.00 - first release.)
 
 ## Pre-flight checklist (before pressing Publish)
 
@@ -61,8 +61,9 @@ Fix for the Market validation report ("failed cancel order" on EURUSD H1): the E
 2. MetaEditor > File > "Publish product" (or the Market tab) > fill the fields above, upload icon + screenshots, publish.
 3. The Market validator tests EURUSD / GBPUSD / XAUUSD on several timeframes with default inputs and rejects an EA that makes no
    trades or that has failed trade operations. This build scales distances to the symbol (AutoAdaptSymbol), uses a price-relative spread
-   limit on non-index symbols and (v1.01) respects the freeze level when cancelling / modifying. v1.00 returned 21 "failed cancel order"
-   errors on EURUSD H1; v1.01 was NOT run through the Market validator or the strategy tester locally - if the report still lists errors,
-   send the exact end of the message line (the part in square brackets after "failed ...").
+   limit on non-index symbols and (v1.02) never cancels / modifies an order or stop that is too close to the market. v1.00 and v1.01
+   each returned 21 "failed cancel order ... Modification failed due to order or position being close to market" errors on EURUSD H1
+   (the validator's symbol reports a freeze level of 0 but still refuses the request, so v1.02 uses a wider safe distance). v1.02 was NOT
+   run through the Market validator or the strategy tester locally - if the report still lists errors, send the exact message again.
 4. Do not mention other websites, prices or contact details in the description (Market rules); the text above already avoids them.
-5. Version numbers must increase on every update; upload this as 1.01 (the earlier upload was 1.00) and fill "What's new".
+5. Version numbers must increase on every update; upload this as 1.02 (the earlier uploads were 1.00 and 1.01) and fill "What's new".
