@@ -1,0 +1,7 @@
+{
+  "subject": "New on the marketplace: Gold Sniper, an XAUUSD Expert Advisor",
+  "preheader": "One precise pending order at a time - with the evidence and its weak points shown.",
+  "bodyText": "Hi,\n\nWe just added a new Expert Advisor to the Algotraders24 marketplace: **Gold Sniper**, built for gold (XAUUSD) on MetaTrader 5.\n\n**How it trades**\n\n- Waits for an M5 EMA trend and a fresh fair value gap in the same direction\n- Places ONE pending order at a time - never a pile of positions\n- Manages the trade with break-even and a trailing stop\n- London and New York sessions only, and only when the spread is acceptable\n\n**What we show you**\n\nLike every listing, the page shows the full backtest evidence **and its weak points**. For Gold Sniper that includes a clearly weaker 2026, very short trades and a high-risk test setting (2% risk per trade, compounding). Please read them before you decide, and start on a demo account.\n\nYour licence key works on one trading account at a time, and you can move it to another account from your dashboard.\n\nQuestions? Just reply to this email - it goes straight to our support team.\n\nThe Algotraders24 team",
+  "ctaLabel": "View Gold Sniper",
+  "ctaUrl": "https://www.algotraders24.ai/marketplace/gold-sniper-xauusd-m1-pending-scalper"
+}
