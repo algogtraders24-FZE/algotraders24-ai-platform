@@ -3671,3 +3671,47 @@ model SubscriptionPayment {
   @@index([userId])
   @@map("subscription_payments")
 }
+
+// Product announcements: a one-off "what is new" email to the platform's users, written and sent from the admin dashboard (never
+// automatically). Every recipient gets one delivery row (unique per announcement + user, so a re-click can never double-send) and a
+// signed unsubscribe link; EmailOptOut rows are skipped for every future announcement. Additive tables only.
+model ProductAnnouncement {
+  id             String                 @id @default(cuid())
+  subject        String
+  preheader      String?
+  bodyText       String
+  ctaLabel       String?
+  ctaUrl         String?
+  status         String                 @default("DRAFT") // DRAFT | SENDING | SENT
+  recipientCount Int                    @default(0)
+  sentCount      Int                    @default(0)
+  failedCount    Int                    @default(0)
+  createdBy      String?
+  createdAt      DateTime               @default(now())
+  sentAt         DateTime?
+  deliveries     AnnouncementDelivery[]
+
+  @@index([status, createdAt])
+  @@map("product_announcements")
+}
+
+model AnnouncementDelivery {
+  id                String              @id @default(cuid())
+  announcementId    String
+  userId            String
+  status            String // SENT | FAILED
+  error             String?
+  providerMessageId String?
+  createdAt         DateTime            @default(now())
+  announcement      ProductAnnouncement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+  @@map("announcement_deliveries")
+}
+
+model EmailOptOut {
+  userId    String   @id
+  createdAt DateTime @default(now())
+
+  @@map("email_opt_outs")
+}
