@@ -1,11 +1,10 @@
 """
-Runs the real M3/M4/M5/M7 chain for Gold Sniper using the REAL,
-bar-level-curve-enriched evidence package (real M15 XAUUSD_EXNESS candles
-filling the intrabar path between each of the 539 real trades' own
-already-known entry/exit, via reconstruct_equity_curve.py - no invented
-numbers; market.db candles for 2026-06-01..2026-10-09 were appended from
-the Exness demo terminal on 2026-10-20 so the whole report period is
-covered).
+Runs the real M3/M4/M5/M7 chain for Gold Sniper on the trade-by-trade evidence package (equity = deposit + cumulative closed
+profit; the report's own 539 trades, no invented numbers).
+
+NOTE (2026-10-20): a bar-level equity curve was tried first but market.db has NO XAUUSD_EXNESS M15 candles for 2025-07-16..2026-01-01
+(95 trades), 2026-03-27..2026-05-01 (40 trades) and 2026-05-10..2026-05-31 (21 trades), so its drawdown was understated (11.8% vs the
+25.84% closed-trade drawdown) and is NOT used.
 
 Run: python generate_goldsniper_chain.py
 """
@@ -27,7 +26,7 @@ from risk_analysis_engine import run_risk_analysis  # noqa: E402
 from history_engine import build_system_lifecycle_chain  # noqa: E402
 from trust_status_engine import run_trust_status  # noqa: E402
 
-EVIDENCE_PATH = HERE.parent / "m2-evidence-engine" / "real_evidence_output" / "evidence_GOLDSNIPER-v1.00-2025-2026-BASELINE_0d2eb16be8ff99ad_with_curve.json"
+EVIDENCE_PATH = HERE.parent / "m2-evidence-engine" / "real_evidence_output" / "evidence_GOLDSNIPER-v1.00-2025-2026-BASELINE_0d2eb16be8ff99ad.json"
 SOURCE_ARTIFACT = Path(r"C:\Users\om\OneDrive\Desktop\hedge\ReportTester-279321674 gold sniper.xlsx")
 REGISTRY = HERE.parent / "m3-evidence-verification" / "version_registry.json"
 EXPECTED_VERSION_ID = "GOLDSNIPER-v1.00-2025-2026-BASELINE"
@@ -51,9 +50,9 @@ def main() -> None:
 
     snapshot = {
         "_provenance": {
-            "generatedBy": "generate_goldsniper_chain.py (real bar-level curve enrichment)",
+            "generatedBy": "generate_goldsniper_chain.py (trade-by-trade evidence)",
             "generatedAt": recorded_at,
-            "note": "Real, deterministic M3/M4/M5/M7 result using the real bar-level equity curve (real M15 XAUUSD_EXNESS candles (Exness MT5 demo history via the MetaTrader5 Python package), reconstruct_equity_curve.py) - not fabricated.",
+            "note": "Real, deterministic M3/M4/M5/M7 result on the trade-by-trade equity curve of the report's own 539 trades - not fabricated.",
         },
         "tradingSystemId": TRADING_SYSTEM_ID, "versionId": EXPECTED_VERSION_ID,
         "m3": {"status": m3_result.status, "evidenceId": m3_result.evidenceId, "warnings": m3_result.warnings},
