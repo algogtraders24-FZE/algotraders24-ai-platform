@@ -54,6 +54,6 @@ def logic(t: str) -> list:
 
 
 assert logic(plain) == logic(raw), "trading logic differs from the owner's file"
-(OUT / "USTECHIndexSniper.mq5").write_text(plain.replace("\n", "\r\n"), encoding="utf-8")
-(OUT / "USTECHIndexSniper_licensed.mq5").write_text(lic.replace("\n", "\r\n"), encoding="utf-8")
+(OUT / "USTECHIndexSniper.mq5").write_bytes(plain.replace("\n", "\r\n").encode("utf-8"))
+(OUT / "USTECHIndexSniper_licensed.mq5").write_bytes(lic.replace("\n", "\r\n").encode("utf-8"))
 print("written USTECHIndexSniper.mq5 and USTECHIndexSniper_licensed.mq5; logic identical to the owner's file")
