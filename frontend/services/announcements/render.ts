@@ -3,6 +3,8 @@
 // the admin box: blank line = new paragraph, "- " = bullet, **word** = bold. Everything is HTML-escaped first, so nothing typed there
 // can inject markup.
 
+import { COMPANY_FOOTER_LINE } from "@/lib/company";
+
 export interface AnnouncementContent {
   subject: string;
   preheader?: string | null;
@@ -83,6 +85,7 @@ ${pre}
     </td></tr>
     <tr><td style="background:#faf9f6;border-radius:0 0 14px 14px;padding:18px 28px;font-size:12px;line-height:1.6;color:#8a877e;">
       <div>${escapeHtml(RISK_LINE)}</div>
+      <div style="margin-top:10px;">${escapeHtml(COMPANY_FOOTER_LINE)}</div>
       <div style="margin-top:10px;">You receive product updates because you have an Algotraders24 AI account. <a href="${escapeHtml(unsubscribeUrl)}" style="color:#8a877e;text-decoration:underline;">Unsubscribe from product updates</a>.</div>
     </td></tr>
   </table>
@@ -99,6 +102,7 @@ ${pre}
     `Questions? Reply to this email (${SUPPORT_ADDRESS}).`,
     "",
     RISK_LINE,
+    COMPANY_FOOTER_LINE,
     `Unsubscribe from product updates: ${unsubscribeUrl}`,
   ]
     .filter((x, i, a) => !(x === "" && a[i - 1] === ""))
