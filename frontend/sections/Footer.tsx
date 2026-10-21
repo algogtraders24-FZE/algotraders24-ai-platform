@@ -238,7 +238,7 @@ export default function Footer() {
             Algotraders24 AI · FinTech technology and software development company · Registered in Ajman Free Zone, UAE ·
             Registration No. 47223
           </p>
-          <p className="text-xs text-text-3">Saint Vincent and the Grenadines, Queens Drive, Park Industrial Site, Kingstown, VC0100</p>
+          <p className="text-xs text-text-3">C1-1F-SF13159, Ajman Free Zone, Ajman, UAE</p>
         </div>
       </div>
     </footer>
