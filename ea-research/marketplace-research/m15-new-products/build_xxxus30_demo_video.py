@@ -84,6 +84,15 @@ RISK = ["DEMO ACCOUNTS ONLY  -  DEMO RESULTS DO NOT PREDICT LIVE RESULTS", "TRAD
 
 # (start, end) seconds per scene
 SCENES = [(0, 4.5), (4.5, 9.5), (9.5, 15.5), (15.5, 20.5), (20.5, 26), (26, 33), (33, 39)]
+_dp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "durations.json")
+if os.path.exists(_dp):
+    import json
+
+    _d = json.load(open(_dp))["promo"]
+    _acc, SCENES = 0.0, []
+    for _x in _d:
+        SCENES.append((_acc, _acc + _x))
+        _acc += _x
 TOTAL = SCENES[-1][1]
 
 

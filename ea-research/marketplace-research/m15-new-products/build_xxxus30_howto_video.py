@@ -154,6 +154,12 @@ SCENES = [
     (7.0, lambda t, d_: card_scene([("Open a US30 chart on a DEMO account", ICE), ("Drag the EA on, paste the key in InpLicenseKey", ICE), ("Start with a small lot", GOLD)], 5, t, d_, "Attach the EA")),
     (5.0, lambda t, d_: end_scene(t, d_)),
 ]
+_dp = os.path.join(SP, "durations.json")
+if os.path.exists(_dp):
+    import json
+
+    _d = json.load(open(_dp))["howto"]
+    SCENES = [(_d[i], fn) for i, (_, fn) in enumerate(SCENES)]
 TOTAL = sum(s[0] for s in SCENES)
 
 
