@@ -4,8 +4,8 @@
 // paste into chat or store it in a repository.
 // Usage: npx tsx scripts/print-model-key.ts XXXUS30
 import { config } from "dotenv";
-config({ path: ".env.local", quiet: true });
 config({ quiet: true });
+config({ path: ".env.local", quiet: true });
 import { modelKeyFor } from "../services/licensing/modelKey";
 
 const product = process.argv[2];
