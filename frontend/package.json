@@ -165,6 +165,7 @@
     "validate:support-stream": "tsx --conditions=react-server --env-file=.env.local --env-file=.env scripts/validate-support-stream.ts",
     "validate:support-handoff": "tsx --conditions=react-server --env-file=.env.local --env-file=.env scripts/validate-support-handoff.ts",
     "validate:support-ticket-received-email": "tsx --conditions=react-server --env-file=.env.local --env-file=.env scripts/validate-support-ticket-received-email.ts",
+    "validate:bonus-credits": "tsx scripts/validate-bonus-credits.ts",
     "seed:support-kb": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/seed-support-kb.ts",
     "validate:agent-hardening": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-hardening.ts",
     "validate:agent-api": "node --env-file=.env.local --env-file=.env node_modules/tsx/dist/cli.mjs scripts/validate-agent-api.ts",

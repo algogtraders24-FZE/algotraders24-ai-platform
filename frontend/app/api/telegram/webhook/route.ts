@@ -8,6 +8,7 @@ import { handleTelegramUpdate } from "@/services/telegram/webhook";
 import { telegramConfig } from "@/services/telegram/config";
 import { createTelegramClient } from "@/services/telegram/client";
 import { prismaTelegramStore, secretMatches } from "@/services/telegram/store";
+import { awardBonus } from "@/services/credits/bonusCredits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,7 +30,12 @@ export async function POST(request: Request): Promise<Response> {
   } catch {
     return Response.json({ ok: true });
   }
-  await handleTelegramUpdate(update, { store: prismaTelegramStore(), client: createTelegramClient(cfg.token), siteUrl: cfg.siteUrl });
+  await handleTelegramUpdate(update, {
+    store: prismaTelegramStore(),
+    client: createTelegramClient(cfg.token),
+    siteUrl: cfg.siteUrl,
+    onLinked: (userId) => awardBonus(userId, "TELEGRAM_LINKED"),
+  });
   return Response.json({ ok: true }, { headers: { "cache-control": "no-store" } });
 }
 

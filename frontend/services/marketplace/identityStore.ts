@@ -4,6 +4,7 @@
 //   startVerification  - asks Sumsub for a hosted verification link (valid 30 minutes) and marks the seller PENDING
 //   applyVerdict       - writes the verdict that arrived on the signed webhook
 //   sellerGate         - the ONE check every self-serve route uses: confirmed email, and (when enabled) verified identity
+import { awardBonus } from "@/services/credits/bonusCredits";
 import { prisma } from "@/lib/prisma";
 import { getSiteUrl } from "@/lib/payments/env";
 import { sellerVerificationBlocker, isPlatformOwner } from "@/lib/marketplace/selfServe";
@@ -126,6 +127,8 @@ export async function applyVerdict(v: ReviewVerdict): Promise<"APPLIED" | "UNKNO
     where: { userId: v.userId },
     data: { status: v.status, rejectType: v.rejectType, applicantId: v.applicantId ?? existing.applicantId, lastEventAt: now, verifiedAt: v.status === "VERIFIED" ? now : null },
   });
+  // Bonus AI credits for a verified identity (one time per account; never throws).
+  if (v.status === "VERIFIED") await awardBonus(v.userId, "KYC_VERIFIED");
   return "APPLIED";
 }
 

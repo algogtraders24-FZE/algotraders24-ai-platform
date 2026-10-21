@@ -23,6 +23,8 @@ export interface WebhookDeps {
   client: TelegramClient;
   siteUrl: string;
   now?: () => Date;
+  /** Called after a successful link (used for the bonus credits). Must not throw; its result is ignored. */
+  onLinked?: (userId: string) => Promise<unknown>;
 }
 
 const cleanUsername = (u: unknown): string | null => (typeof u === "string" && /^[A-Za-z0-9_]{1,32}$/.test(u) ? u : null);
@@ -51,6 +53,7 @@ export async function handleTelegramUpdate(update: unknown, deps: WebhookDeps): 
         return "expired_code";
       }
       await deps.store.link(userId, chatId, cleanUsername(msg.from?.username));
+      await deps.onLinked?.(userId).catch(() => {});
       await reply(linkedMessage());
       return "linked";
     }

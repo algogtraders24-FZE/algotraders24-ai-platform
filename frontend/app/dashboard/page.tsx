@@ -23,6 +23,8 @@ import { PLAN_LABELS } from "@/config/billing.config";
 import type { PlanId } from "@/types/billing";
 import ResendVerificationButton from "@/components/auth/ResendVerificationButton";
 import Card from "@/components/ui/Card";
+import BonusCreditsCard from "@/components/dashboard/BonusCreditsCard";
+import { getBonusSummary } from "@/services/credits/bonusCredits";
 import { Gem } from "lucide-react";
 import { rewardsOpenFor } from "@/lib/rewards/access";
 
@@ -30,9 +32,10 @@ export default async function DashboardHome() {
   const sessionUser = await requireUser();
   const user = sessionUser.profile;
 
-  const [overview, activity] = await Promise.all([
+  const [overview, activity, bonus] = await Promise.all([
     dashboardService.getOverview(user.id),
     dashboardService.getRecentActivity(user.id),
+    getBonusSummary(user.id),
   ]);
 
   // Best available real signal for "hasn't used the product yet" - no
@@ -88,6 +91,8 @@ export default async function DashboardHome() {
       )}
 
       {isNewUser && <GetStarted />}
+
+      <BonusCreditsCard summary={bonus} emailVerified={user.emailVerified} />
 
       <Card className="flex flex-wrap gap-6">
         <div>
