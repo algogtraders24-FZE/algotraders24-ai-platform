@@ -30,7 +30,7 @@ A free, skill-based demo-account contest run by AT24 (algotraders24.ai) for user
 ## 6. Ranking and prizes
 - Eligible entries are ranked by profit % (highest first). Tie-break: smaller maximum loss, then more trades.
 - Top 3 of each round each receive a 3-month licence for the full XXX US30 EA (Prize). Prizes have no cash value and are not transferable. One prize per person across both rounds.
-- Every participant who meets the rules in section 5 (or every entrant - [LAWYER/OWNER: decide]) can claim a personal 20% discount link on the full product. Single use, tied to the entrant's account, valid until 14 days after the round ends, not combinable with other offers.
+- Every entrant who takes part (owner decision 2026-10-22: all who enter and participate, no performance condition) can claim a personal 20% discount link on the full product. Single use, tied to the entrant's account, valid until 14 days after the round ends, not combinable with other offers.
 
 ## 7. Data and verification
 - Results are reported by the user's own trading terminal through AT24 Live Sync and are not verified by the broker. AT24 may exclude any entry it reasonably believes is manipulated, and its decision is final.
@@ -45,5 +45,5 @@ AT24 may change, suspend or cancel the contest for fraud, technical failure or l
 
 ## Open questions for counsel
 1. Is a skill-based free-entry demo contest with licence prizes permitted in India and in the target markets?
-2. Discount offer: to all entrants, or only to those who meet the rules?
+2. Discount offer goes to all entrants (decided by owner): any disclosure needed for a discount given to every participant?
 3. Do we need a separate consent checkbox for the public leaderboard?
