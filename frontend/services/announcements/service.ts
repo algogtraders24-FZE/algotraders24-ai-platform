@@ -85,6 +85,12 @@ async function deliver(resend: Resend, c: AnnouncementContent, to: string, userI
   });
 }
 
+/** One-off lifecycle email (e.g. trial welcome / reminders): same sender, unsubscribe link and headers as an announcement. Returns an error text or null. */
+export async function sendLifecycleEmail(userId: string, to: string, c: AnnouncementContent): Promise<string | null> {
+  const r = await deliver(client(), c, to, userId);
+  return r.error ? r.error.message : null;
+}
+
 /** Sends the announcement to ONE address (the admin's own) so the real email can be checked before the real send. */
 export async function sendTest(announcementId: string, to: string, forUserId: string): Promise<void> {
   const a = await prisma.productAnnouncement.findUnique({ where: { id: announcementId } });

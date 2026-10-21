@@ -43,7 +43,7 @@ new_head = """//+---------------------------------------------------------------
 s = new_head + src[head_end:]
 s = sub(s, '#resource "xxxus30_filter_embedded.onnx" as uchar g_EmbeddedModel[]', '#resource "xxxus30_filter.bin" as uchar g_EncModel[]')
 s = sub(s, "//--- AI model is built into this .ex5 (no model files to copy). See OnInit for the load order.", "//--- the model is built into this .ex5 in encrypted form (key comes from the AT24 licence check)")
-s = sub(s, '#define AT24_PRODUCT_ID "XXXUS30"\n#include "AT24_LicenseGate.mqh"', '#define AT24_PRODUCT_ID "XXXUS30"\n#define AT24_WANT_MODEL_KEY\n#include "AT24_LicenseGate.mqh"\n#include "AT24_ModelVault.mqh"')
+s = sub(s, '#define AT24_PRODUCT_ID "XXXUS30"\n#include "AT24_LicenseGate.mqh"', '#define AT24_PRODUCT_ID "XXXUS30"\n#define AT24_BUILD_ID "demo"\n#define AT24_WANT_MODEL_KEY\n#include "AT24_LicenseGate.mqh"\n#include "AT24_ModelVault.mqh"')
 
 # ---------------------------------------------------------------- inputs
 lines = s.split("\n")
@@ -137,6 +137,15 @@ for k, name in enumerate(["Nova", "Zenith", "Eclipse"], start=1):
 s = s.replace("XXX US30 v1.01 ONNX", "XXX US30 DEMO").replace("algotraders24.ai | US30 v1.01", "algotraders24.ai | demo build")
 s = s.replace("=== XXX US30 v1.02 Initialized ===", "=== XXX US30 demo Initialized ===")
 s = s.replace("XXX US30 v1.02", "XXX US30 demo")
+
+# the demo build runs on DEMO (or contest) accounts only: it refuses a real account BEFORE any licence slot is used
+_demo_only = """   if(!AT24Gate_IsTester() && AccountInfoInteger(ACCOUNT_TRADE_MODE) == ACCOUNT_TRADE_MODE_REAL) {
+      Print("This is the 30-day DEMO build - it runs on demo accounts only.");
+      Alert("XXX US30 demo: this build runs on demo accounts only. Open a demo account to use it.");
+      return INIT_FAILED;
+   }
+"""
+s = sub(s, "   if(!AT24Gate_Init(InpLicenseKey)) return INIT_FAILED;", _demo_only + "   if(!AT24Gate_Init(InpLicenseKey)) return INIT_FAILED;")
 
 # neutral log lines and panel text (no model / threshold / feature details)
 def _neutral(m):

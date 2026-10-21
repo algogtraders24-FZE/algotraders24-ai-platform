@@ -39,7 +39,13 @@ export type LicenseCheckReason =
   | "ACCOUNT_REQUIRED"
   | "ACCOUNT_LIMIT_REACHED"
   | "WRONG_PRODUCT"
+  | "TRIAL_DEMO_ONLY"
   | "BAD_REQUEST";
+
+/** The build an EA announces ("demo" for the 30-day demo build); anything else is ignored. */
+export function cleanBuild(v: unknown): string {
+  return v === "demo" ? "demo" : "";
+}
 
 /** The product id an EA announces (its tradingSystemId, e.g. XXXUS30). Short plain token or empty. */
 export function cleanProduct(v: unknown): string {

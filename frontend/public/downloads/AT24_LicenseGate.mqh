@@ -83,13 +83,15 @@ bool AT24Gate_IsRefusal(const string reason)
   {
    return (reason == "INVALID_KEY" || reason == "LICENSE_REVOKED" || reason == "LICENSE_SUSPENDED" || reason == "LICENSE_EXPIRED" ||
            reason == "LICENSE_NOT_USABLE" || reason == "RELEASE_REVOKED" || reason == "ACCOUNT_LIMIT_REACHED" || reason == "WRONG_PRODUCT" ||
-           reason == "ACCOUNT_REQUIRED");
+           reason == "ACCOUNT_REQUIRED" || reason == "TRIAL_DEMO_ONLY");
   }
 
 string AT24Gate_Explain(const AT24LicenseResult &r)
   {
    if(r.reason == "ACCOUNT_LIMIT_REACHED")
       return "This key is already used on another trading account. Change it on your AT24 purchase page (Dashboard > Purchases > Change trading account).";
+   if(r.reason == "TRIAL_DEMO_ONLY")
+      return "This free trial key works only with the 30-day DEMO build. Use the demo download from your AT24 dashboard.";
    if(r.reason == "WRONG_PRODUCT")
       return "This key belongs to a different product.";
    if(r.reason == "INVALID_KEY")

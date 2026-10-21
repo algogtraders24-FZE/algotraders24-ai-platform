@@ -11,6 +11,12 @@ import { prisma } from "@/lib/prisma";
 import { withTableFallback } from "@/services/marketplace/tableGuard";
 import { PUBLICLY_VISIBLE_STATES } from "@/types/marketplace";
 
+/** The price after a percent discount, rounded to cents; never below one cent, never above the list price. A bad percent means no discount. */
+export function discountedAmount(amount: number, percent: number | null | undefined): number {
+  if (!percent || !Number.isFinite(percent) || percent <= 0 || percent >= 100) return amount;
+  return Math.max(0.01, Math.round(amount * (100 - percent)) / 100);
+}
+
 function generateToken(): string {
   return `at24_pay_${randomBytes(24).toString("base64url")}`;
 }
@@ -20,6 +26,8 @@ export interface CreatePaymentLinkInput {
   createdByUserId: string;
   expiresAt?: Date;
   maxUses?: number;
+  /** 1-99: the link sells the listing this many percent cheaper (the demo-contest offer). */
+  discountPercent?: number;
 }
 
 export type PaymentLinkCreateError =
@@ -54,6 +62,7 @@ export async function createPaymentLink(
       createdByUserId: input.createdByUserId,
       expiresAt: input.expiresAt ?? null,
       maxUses: input.maxUses ?? null,
+      discountPercent: input.discountPercent && input.discountPercent > 0 && input.discountPercent < 100 ? Math.floor(input.discountPercent) : null,
     },
   });
   return { id: link.id, token: link.token };
@@ -124,8 +133,12 @@ export interface ResolvedPaymentLink {
     tradingSystemId: string | null;
     versionId: string | null;
     platformTag: string;
+    /** The price this link charges (already discounted when the link has a discount). */
     amount: number;
     currency: string;
+    /** Only for a discounted link: the normal price and the percent taken off. */
+    listAmount?: number;
+    discountPercent?: number;
   };
 }
 
@@ -173,8 +186,9 @@ export async function resolvePaymentLink(token: string): Promise<ResolvedPayment
       tradingSystemId: listing.tradingSystemId,
       versionId: listing.versionId,
       platformTag: listing.platformTag,
-      amount,
+      amount: discountedAmount(amount, link.discountPercent),
       currency,
+      ...(link.discountPercent ? { listAmount: amount, discountPercent: link.discountPercent } : {}),
     },
   };
 }

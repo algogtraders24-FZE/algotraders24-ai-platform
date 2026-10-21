@@ -1386,6 +1386,8 @@ model PaymentLink {
   expiresAt            DateTime?
   maxUses              Int?
   usageCount           Int       @default(0)
+  /// Percent taken off the listing price for THIS link (null = list price). Set only by the system for the demo-contest offer / admin.
+  discountPercent      Int?
   createdByUserId      String
   revokedAt            DateTime?
   createdAt            DateTime  @default(now())
@@ -3714,4 +3716,59 @@ model EmailOptOut {
   createdAt DateTime @default(now())
 
   @@map("email_opt_outs")
+}
+
+// ── 30-day free demo + demo contest ─────────────────────────────────────
+// TrialEmailLog: one row per (trial licence, email step) so the daily reminder job can never send a step twice.
+model TrialEmailLog {
+  id        String   @id @default(cuid())
+  licenseId String
+  step      String // WELCOME | D7 | D24 | D31
+  sentAt    DateTime @default(now())
+
+  @@unique([licenseId, step])
+  @@map("trial_email_logs")
+}
+
+// A fixed-window demo contest (e.g. 1-30 Nov). Ranking uses only the entrant's own Live Sync demo account, only trades of the EA's
+// magic number inside the window, and the Prop Mode rules (daily / max loss) - see services/contest/standings.ts.
+model Contest {
+  id              String    @id @default(cuid())
+  slug            String    @unique
+  title           String
+  tradingSystemId String
+  startsAt        DateTime
+  endsAt          DateTime
+  status          String    @default("DRAFT") // DRAFT | OPEN | CLOSED | FINALIZED
+  magic           String    @default("33302")
+  rules           Json      @default("{}") // { profitTargetPct, dailyLossPct, maxLossPct, minTradingDays, minTrades }
+  prizeMonths     Int       @default(3)
+  offerPercent    Int       @default(20)
+  offerValidDays  Int       @default(14)
+  winners         Json? // final snapshot written by finalize
+  finalizedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  entries ContestEntry[]
+
+  @@map("contests")
+}
+
+model ContestEntry {
+  id        String   @id @default(cuid())
+  contestId String
+  userId    String
+  accountId String // the entrant's Live Sync account
+  alias     String // public name on the leaderboard
+  /// Token of this entrant's personal discount payment link (created on first claim).
+  offerToken String?
+  createdAt DateTime @default(now())
+
+  contest Contest @relation(fields: [contestId], references: [id])
+
+  @@unique([contestId, userId])
+  @@unique([contestId, accountId])
+  @@index([contestId])
+  @@map("contest_entries")
 }

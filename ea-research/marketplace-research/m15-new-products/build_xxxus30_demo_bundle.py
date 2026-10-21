@@ -37,12 +37,18 @@ LOT SIZE - IMPORTANT
   US30 contracts differ between brokers: check how many US dollars one point is worth for one lot at YOUR broker before you choose a lot.
 
 WHAT TO EXPECT - READ THIS
- * Our own public demo record of this product (algotraders24.ai > Live Results, "XXXUS30") is a SHORT demo record of a few weeks, reported by the
-   terminal and not verified by a broker. It includes a deep drawdown (about 62 percent at its worst) and a low win rate (under 30 percent):
-   many small losses are normal, and a few larger winners make up the result. Long losing stretches happen.
+ * Results vary. Deep drawdowns and long losing stretches can happen, and the win rate is low: many small losses are normal, and a few larger
+   winners make up the result. Judge the demo over the whole 30 days, not by one good or bad day.
  * 30 days is a short sample. A good or a bad month does not prove anything about the next one.
- * Demo is not live: spread, slippage, commission and execution on a real account are different, so real results can be worse.
+ * Demo is not live: spread, slippage, commission and execution on a real account are different, so real results can be worse. This build refuses
+   real accounts on purpose.
  * Past results do not predict future results. Trading leveraged products is risky; this is not financial advice.
+
+DEMO CONTEST (optional)
+ * Keep InpMagicNumber at its default (33302): the contest counts only trades with that number.
+ * Connect your demo account to AT24 Live Sync (free) and enter on the contest page of the AT24 website: algotraders24.ai/contest
+ * Top 3 results win a 3-month licence; everyone who enters gets 20 percent off the full product. Ranking is by profit % inside daily-loss and
+   max-loss limits, not by lot size. Rules and the leaderboard are on the contest page.
 
 TIPS
  * Let it run for the whole 30 days without changing the settings, and keep your demo balance and lot constant so you can judge it fairly.

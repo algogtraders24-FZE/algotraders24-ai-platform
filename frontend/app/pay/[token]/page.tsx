@@ -35,7 +35,14 @@ export default async function PaymentLinkPage({ params }: { params: Promise<{ to
             <h1 className="text-3xl font-bold">{listing.title}</h1>
             {listing.description && <p className="mt-4 text-sm leading-6 text-text-2">{listing.description}</p>}
           </div>
-          <PaymentLinkPurchaseCTA token={token} amount={listing.amount} currency={listing.currency} isLoggedIn={!!sessionUser} />
+          <div className="space-y-3">
+            {listing.discountPercent && listing.listAmount ? (
+              <p className="rounded-card border border-gold/40 bg-ink-2 p-3 text-sm text-text-2">
+                Your offer: <b className="text-gold">{listing.discountPercent}% off</b> the normal price of {listing.listAmount} {listing.currency}.
+              </p>
+            ) : null}
+            <PaymentLinkPurchaseCTA token={token} amount={listing.amount} currency={listing.currency} isLoggedIn={!!sessionUser} />
+          </div>
         </div>
       </div>
       <Footer />

@@ -43,6 +43,7 @@ export type AuditAction =
   | "seller.payout_paid"
   | "seller.payout_rejected"
   | "marketplace.published"
+  | "contest.finalized"
   | "marketplace.unpublished"
   | "marketplace.rejected"
   // Sprint M11 - License & Product Protection audit trail (brief section

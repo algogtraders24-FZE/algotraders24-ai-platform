@@ -363,7 +363,7 @@ export interface LicenseCheckResult {
   accountBound?: boolean;
 }
 
-export async function checkLicenseByKey(params: { key: unknown; account?: string; server?: string; requireAccount?: boolean; product?: string }): Promise<LicenseCheckResult> {
+export async function checkLicenseByKey(params: { key: unknown; account?: string; server?: string; requireAccount?: boolean; product?: string; build?: string }): Promise<LicenseCheckResult> {
   const parsed = parseLicenseKey(params.key);
   if (!parsed) return { valid: false, reason: "INVALID_KEY", detail: "The licence key is not in the form AT24-<id>.<secret>." };
 
@@ -391,6 +391,11 @@ export async function checkLicenseByKey(params: { key: unknown; account?: string
   // A key only runs the product it was bought for: a cheap product's key must not unlock an expensive EA. EAs announce their id
   // (AT24_PRODUCT_ID in AT24_License.mqh); when it is sent and differs, refuse BEFORE any account is bound.
   if (params.product && params.product !== license.tradingSystemId) return fail("WRONG_PRODUCT", "This licence key belongs to a different product.");
+
+  // A free TRIAL licence only runs the DEMO build (which itself refuses real accounts): the paid build, or an EA that does not announce
+  // the demo build, is refused - so a trial key can never be used to run the full product on a live account.
+  const trialPurchase = await prisma.purchase.findFirst({ where: { entitlements: { some: { id: license.entitlementId } } }, select: { provider: true } });
+  if (trialPurchase?.provider === "TRIAL" && params.build !== "demo") return fail("TRIAL_DEMO_ONLY", "This free trial key works only with the 30-day DEMO build of the product.");
 
   // A superseded (DEPRECATED) build keeps working for the buyers who own it; only a REVOKED/removed build stops.
   const release = await prisma.releaseArtifact.findUnique({ where: { id: license.releaseId }, select: { releaseStatus: true, deletedAt: true } });

@@ -109,6 +109,10 @@ bool AT24_CheckLicense(const string key, AT24LicenseResult &res, const bool bind
    // The EA announces which product it is, so a key bought for another (cheaper) product is refused.
    body += ",\"product\":\"" + AT24_PRODUCT_ID + "\"";
 #endif
+#ifdef AT24_BUILD_ID
+   // The demo build announces itself, so a free trial key is accepted only by it.
+   body += ",\"build\":\"" + AT24_BUILD_ID + "\"";
+#endif
 #ifdef AT24_WANT_MODEL_KEY
    // The EA ships an encrypted model: ask for its key (given only to a valid licence of this product).
    body += ",\"wantModel\":true";

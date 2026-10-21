@@ -9,7 +9,7 @@
 import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { checkLicenseByKey } from "@/services/licensing/licenseService";
-import { cleanAccount, cleanProduct, cleanServer } from "@/services/licensing/licenseKey";
+import { cleanAccount, cleanBuild, cleanProduct, cleanServer } from "@/services/licensing/licenseKey";
 import { modelKeyFor } from "@/services/licensing/modelKey";
 
 export const POST = withContext(async (req, ctx) => {
@@ -25,7 +25,7 @@ export const POST = withContext(async (req, ctx) => {
   if (body.product !== undefined && body.product !== "" && body.product !== null && !product) {
     return ApiResponse.error({ code: "VALIDATION", message: '"product" must be a short plain product id.' }, ctx.requestId, 400, ctx.startedAt);
   }
-  const result = await checkLicenseByKey({ key: body.key, account, server: cleanServer(body.server), requireAccount: body.requireAccount === true, product });
+  const result = await checkLicenseByKey({ key: body.key, account, server: cleanServer(body.server), requireAccount: body.requireAccount === true, product, build: cleanBuild(body.build) });
   // An EA that ships an encrypted model asks for its key ("wantModel": true). Only a VALID check of the matching product gets it.
   if (result.valid && body.wantModel === true && result.product) {
     let modelKey: string | null = null;
