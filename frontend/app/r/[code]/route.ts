@@ -1,6 +1,6 @@
 // app/r/[code]/route.ts
 // Referral link: algotraders24.ai/r/<CODE>. Remembers who sent the visitor (a first-party cookie set by the server) and sends
-// them to the Algo Contracts page. Public on purpose. It does NOT credit anything: the sale is attributed server-side at
+// them to the home page. Public on purpose. It does NOT credit anything: the sale is attributed server-side at
 // checkout, where the code is looked up again and checked (real partner, Pro + KYC, not the buyer). A bad code is ignored
 // quietly and the visitor still lands on the page, so a code can never be used to probe which ones exist.
 import { NextResponse } from "next/server";

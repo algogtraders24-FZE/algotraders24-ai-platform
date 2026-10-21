@@ -367,7 +367,7 @@ export default function AlgoContractsView({ vm }: { vm: AlgoContractsVM }) {
       <section className="space-y-3">
         <SectionTitle icon={Users} title="Refer and earn" />
         <div className="grid gap-5 lg:grid-cols-2">
-          <ReferralCard initialLink={vm.referral.link} blockedReason={vm.referral.blockedReason} allProducts={vm.referral.allProducts} />
+          <ReferralCard initialLink={vm.referral.link} blockedReason={vm.referral.blockedReason} />
           <ReferralEarnings vm={vm} />
         </div>
       </section>

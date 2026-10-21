@@ -32,4 +32,4 @@ export function referralLink(code: string, origin: string = DEFAULT_SITE_ORIGIN)
 }
 
 /** The only place a visitor may be sent after a referral link: a fixed internal path, never a URL taken from the request. */
-export const REFERRAL_LANDING_PATH = "/dashboard/algo-contracts";
+export const REFERRAL_LANDING_PATH = "/";
