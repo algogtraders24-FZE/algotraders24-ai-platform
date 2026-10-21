@@ -55,7 +55,7 @@ export default function BrandLogo({ variant = "full", size = "md", className = "
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={MARK_SRC} alt="" aria-hidden="true" className={`${markH} w-auto shrink-0`} />
       <span
-        className={`${wordSize} font-bold leading-none tracking-tight text-text`}
+        className={`${wordSize} whitespace-nowrap font-bold leading-none tracking-tight text-text`}
         style={{ fontFamily: "var(--font-urbanist), 'Urbanist', system-ui, sans-serif" }}
       >
         ALGOTRADERS<span className="text-gold">24</span> AI

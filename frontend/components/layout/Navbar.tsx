@@ -217,8 +217,8 @@ export default function Navbar({ isAuthenticated: knownAuthenticated }: { isAuth
         scrolled ? "glass-surface" : "bg-transparent border-transparent"
       }`}
     >
-      <nav className="max-w-7xl mx-auto flex items-center justify-between h-20 px-6">
-        <Link href="/" aria-label="Algotraders24 AI home" className="flex items-center">
+      <nav className="max-w-7xl 2xl:max-w-[1480px] mx-auto flex items-center justify-between gap-4 h-20 px-6">
+        <Link href="/" aria-label="Algotraders24 AI home" className="flex shrink-0 items-center">
           <span className="hidden sm:inline-flex">
             <BrandLogo variant="full" size="sm" withDescriptor={false} />
           </span>
@@ -227,7 +227,7 @@ export default function Navbar({ isAuthenticated: knownAuthenticated }: { isAuth
           </span>
         </Link>
 
-        <div className="hidden lg:flex items-center gap-7 text-sm text-text-2">
+        <div className="hidden xl:flex items-center gap-4 2xl:gap-7 text-sm text-text-2">
           <Link href="/" className="transition-colors hover:text-text">
             Home
           </Link>
@@ -236,7 +236,7 @@ export default function Navbar({ isAuthenticated: knownAuthenticated }: { isAuth
           ))}
         </div>
 
-        <div className="hidden lg:flex items-center gap-5">
+        <div className="hidden xl:flex shrink-0 items-center gap-5">
           {isAuthenticated ? (
             <Link href="/dashboard" className="text-sm font-medium text-text-2 transition-colors hover:text-text">
               Dashboard
@@ -248,15 +248,22 @@ export default function Navbar({ isAuthenticated: knownAuthenticated }: { isAuth
           )}
           <Link
             href={isAuthenticated ? "/dashboard/assistant" : "/signup"}
-            className="inline-flex rounded-control bg-gold px-5 py-2 text-sm font-semibold text-ink transition hover:brightness-110"
+            className="inline-flex whitespace-nowrap rounded-control bg-gold px-5 py-2 text-sm font-semibold text-ink transition hover:brightness-110"
           >
-            {isAuthenticated ? "Ask the AI Assistant" : "Start Free"}
+            {isAuthenticated ? (
+              <>
+                <span className="2xl:hidden">AI Assistant</span>
+                <span className="hidden 2xl:inline">Ask the AI Assistant</span>
+              </>
+            ) : (
+              "Start Free"
+            )}
           </Link>
         </div>
 
         <button
           type="button"
-          className="text-text lg:hidden"
+          className="text-text xl:hidden"
           aria-expanded={open}
           aria-controls="mobile-menu"
           aria-label={open ? "Close menu" : "Open menu"}
@@ -267,7 +274,7 @@ export default function Navbar({ isAuthenticated: knownAuthenticated }: { isAuth
       </nav>
 
       {open && (
-        <div id="mobile-menu" className="flex max-h-[calc(100vh-5rem)] flex-col gap-5 overflow-y-auto border-t border-border bg-ink px-6 py-6 lg:hidden">
+        <div id="mobile-menu" className="flex max-h-[calc(100vh-5rem)] flex-col gap-5 overflow-y-auto border-t border-border bg-ink px-6 py-6 xl:hidden">
           <Link href="/" className="text-text-2 hover:text-text" onClick={() => setOpen(false)}>
             Home
           </Link>
