@@ -22,11 +22,28 @@ export async function awardBonus(userId: string, kind: BonusKind, opts: { store?
   }
 }
 
+/** Steps the user had already completed before bonus credits existed (identity verified, Telegram linked): paid once, on their first verified request. */
+async function alreadyCompleted(userId: string): Promise<BonusKind[]> {
+  const [ident, tg] = await Promise.all([
+    prisma.sellerIdentity.findUnique({ where: { userId }, select: { status: true } }).catch(() => null),
+    prisma.telegramLink.findUnique({ where: { userId }, select: { userId: true } }).catch(() => null),
+  ]);
+  const done: BonusKind[] = [];
+  if (ident?.status === "VERIFIED") done.push("KYC_VERIFIED");
+  if (tg) done.push("TELEGRAM_LINKED");
+  return done;
+}
+
 /**
- * Called after the session user is resolved. Once the email is verified: pays the email step, and the "joined through a friend" step when the
- * account was attached to a referral link. Cheap after the first verified request (a per-process memo), and a no-op while the email is unverified.
+ * Called after the session user is resolved. Once the email is verified: pays the email step, the "joined through a friend" step when the
+ * account was attached to a referral link, and any step the user had already completed before this existed (identity, Telegram), so the
+ * checklist and the balance always agree. Cheap after the first verified request (a per-process memo), and a no-op while the email is unverified.
  */
-export async function ensureSignupBonuses(userId: string, emailVerified: boolean, opts: { store?: BonusStore; referred?: () => Promise<boolean> } = {}): Promise<void> {
+export async function ensureSignupBonuses(
+  userId: string,
+  emailVerified: boolean,
+  opts: { store?: BonusStore; referred?: () => Promise<boolean>; existing?: () => Promise<BonusKind[]> } = {},
+): Promise<void> {
   if (!emailVerified || settled.has(userId)) return;
   try {
     await awardBonus(userId, "EMAIL_VERIFIED", { store: opts.store });
@@ -38,6 +55,7 @@ export async function ensureSignupBonuses(userId: string, emailVerified: boolean
         return a !== null;
       });
     if (await referred()) await awardBonus(userId, "REFERRED_SIGNUP", { store: opts.store });
+    for (const kind of await (opts.existing ?? (() => alreadyCompleted(userId)))()) await awardBonus(userId, kind, { store: opts.store });
     settled.add(userId);
   } catch (e) {
     console.error("[bonus] signup bonuses failed (non-fatal):", e instanceof Error ? e.message : e);
