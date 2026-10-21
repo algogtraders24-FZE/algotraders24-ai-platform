@@ -47,6 +47,7 @@ struct AT24LicenseResult
    string detail;
    string buyerId;
    string expiresAt;  // "" = never
+   string modelKey;   // only when the EA defined AT24_WANT_MODEL_KEY and the key is valid (see AT24_ModelVault.mqh)
   };
 
 //--- value of a simple JSON string field: "field":"value"  ("" if absent)
@@ -70,6 +71,7 @@ bool AT24_CheckLicense(const string key, AT24LicenseResult &res, const bool bind
    res.detail = "";
    res.buyerId = "";
    res.expiresAt = "";
+   res.modelKey = "";
    if(StringLen(key) < 20)
      {
       res.reason = "INVALID_KEY";
@@ -107,6 +109,10 @@ bool AT24_CheckLicense(const string key, AT24LicenseResult &res, const bool bind
    // The EA announces which product it is, so a key bought for another (cheaper) product is refused.
    body += ",\"product\":\"" + AT24_PRODUCT_ID + "\"";
 #endif
+#ifdef AT24_WANT_MODEL_KEY
+   // The EA ships an encrypted model: ask for its key (given only to a valid licence of this product).
+   body += ",\"wantModel\":true";
+#endif
    body += "}";
 
    char data[], out[];
@@ -133,6 +139,8 @@ bool AT24_CheckLicense(const string key, AT24LicenseResult &res, const bool bind
    res.detail    = AT24L_Str(text, "detail");
    res.buyerId   = AT24L_Str(text, "buyerId");
    res.expiresAt = AT24L_Str(text, "expiresAt");
+   if(res.valid)
+      res.modelKey = AT24L_Str(text, "modelKey");
    return res.valid;
   }
 

@@ -39,6 +39,13 @@ bool     g_at24_allowed   = true;
 datetime g_at24_lastTry   = 0;
 datetime g_at24_lastGood  = 0;
 string   g_at24_message   = "";
+string   g_at24_modelKey  = "";   // only filled when the EA defined AT24_WANT_MODEL_KEY (see AT24_ModelVault.mqh)
+
+//--- the model key from the last successful licence check ("" = none: tester, no key, or the product has no encrypted model)
+string AT24Gate_ModelKey()
+  {
+   return g_at24_modelKey;
+  }
 
 bool AT24Gate_IsTester()
   {
@@ -112,6 +119,8 @@ bool AT24Gate_Init(const string key)
      {
       g_at24_lastGood = TimeLocal();
       g_at24_message = "";
+      if(r.modelKey != "")
+         g_at24_modelKey = r.modelKey;
       Print("AT24 licence OK");
       return true;
      }
@@ -139,6 +148,8 @@ void AT24Gate_Timer(const string key)
      {
       g_at24_allowed = true;
       g_at24_lastGood = now;
+      if(r.modelKey != "")
+         g_at24_modelKey = r.modelKey;
       if(g_at24_message != "")
          Comment("");
       g_at24_message = "";
