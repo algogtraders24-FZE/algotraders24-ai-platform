@@ -70,6 +70,32 @@ async function main() {
     assert.equal(store.rows.filter((r) => r.userId === "unverified").length, 0);
   });
 
+  await test("a transient failure is retried on the next request instead of being remembered as done", async () => {
+    const store = memoryBonusStore();
+    let calls = 0;
+    const flaky = async () => {
+      calls++;
+      if (calls === 1) throw new Error("db hiccup");
+      return ["KYC_VERIFIED"] as const;
+    };
+    await ensureSignupBonuses("retry-user", true, { store, referred: async () => false, existing: flaky as never });
+    assert.equal(store.rows.filter((r) => r.userId === "retry-user" && r.kind === "KYC_VERIFIED").length, 0, "nothing paid yet");
+    await ensureSignupBonuses("retry-user", true, { store, referred: async () => false, existing: flaky as never });
+    assert.ok(store.rows.some((r) => r.userId === "retry-user" && r.kind === "KYC_VERIFIED"), "second request pays it");
+    const before = calls;
+    await ensureSignupBonuses("retry-user", true, { store, referred: async () => false, existing: flaky as never });
+    assert.equal(calls, before, "once it succeeded the user is settled and costs no more lookups");
+  });
+
+  await test("a failed GRANT also leaves the user unsettled", async () => {
+    let n = 0;
+    const store = { grant: async () => { n++; if (n === 1) throw new Error("write failed"); return true; }, consumeOne: async () => false, list: async () => [] };
+    await ensureSignupBonuses("grant-retry", true, { store, referred: async () => false, existing: async () => [] });
+    const after1 = n;
+    await ensureSignupBonuses("grant-retry", true, { store, referred: async () => false, existing: async () => [] });
+    assert.ok(n > after1, "retried after the failed grant");
+  });
+
   await test("credits are spent one at a time, soonest-expiring first, and stop at zero", async () => {
     const store = memoryBonusStore();
     await store.grant("u", "TELEGRAM_LINKED", 2, new Date("2026-12-01T00:00:00Z"));
