@@ -48,13 +48,26 @@ async function main() {
 
   await test("unverified email earns nothing; verified pays the email step; a friend's link adds the referred bonus", async () => {
     const store = memoryBonusStore();
-    await ensureSignupBonuses("a", false, { store, referred: async () => true });
+    await ensureSignupBonuses("a", false, { store, referred: async () => true, existing: async () => [] });
     assert.equal(store.rows.length, 0);
-    await ensureSignupBonuses("b", true, { store, referred: async () => false });
+    await ensureSignupBonuses("b", true, { store, referred: async () => false, existing: async () => [] });
     assert.deepEqual(store.rows.filter((r) => r.userId === "b").map((r) => r.kind), ["EMAIL_VERIFIED"]);
-    await ensureSignupBonuses("c", true, { store, referred: async () => true });
+    await ensureSignupBonuses("c", true, { store, referred: async () => true, existing: async () => [] });
     assert.deepEqual(store.rows.filter((r) => r.userId === "c").map((r) => r.kind).sort(), ["EMAIL_VERIFIED", "REFERRED_SIGNUP"]);
     assert.equal(activeRemaining(store.rows.filter((r) => r.userId === "c"), new Date()), 150);
+  });
+
+  await test("steps completed before bonus credits existed are paid once, on the first verified request", async () => {
+    const store = memoryBonusStore();
+    await ensureSignupBonuses("old-user", true, { store, referred: async () => false, existing: async () => ["KYC_VERIFIED", "TELEGRAM_LINKED"] });
+    assert.deepEqual(store.rows.filter((r) => r.userId === "old-user").map((r) => r.kind).sort(), ["EMAIL_VERIFIED", "KYC_VERIFIED", "TELEGRAM_LINKED"]);
+    assert.equal(activeRemaining(store.rows.filter((r) => r.userId === "old-user"), new Date()), 275);
+    // a later identical request (new process memo aside) can never pay a step twice
+    await awardBonus("old-user", "KYC_VERIFIED", { store });
+    assert.equal(store.rows.filter((r) => r.userId === "old-user").length, 3);
+    // and an unverified email still earns nothing, even when other steps are done
+    await ensureSignupBonuses("unverified", false, { store, existing: async () => ["KYC_VERIFIED"] });
+    assert.equal(store.rows.filter((r) => r.userId === "unverified").length, 0);
   });
 
   await test("credits are spent one at a time, soonest-expiring first, and stop at zero", async () => {
