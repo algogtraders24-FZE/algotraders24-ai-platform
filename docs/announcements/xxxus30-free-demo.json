@@ -1,0 +1,7 @@
+{
+  "subject": "Try XXX US30 free for 30 days on a demo account",
+  "preheader": "A free 30-day demo of our US30 breakout Expert Advisor - demo accounts only, no payment.",
+  "bodyText": "Hi,\n\nWe are opening **XXX US30**, our multi-module US30 (Dow Jones) breakout Expert Advisor for MetaTrader 5, as a **free 30-day demo**.\n\n**What you get**\n\n- The demo build of XXX US30 with three independent breakout modules\n- A built-in daily loss guard and a clean on-chart panel, so it is easy to follow what the EA is doing\n- One licence key for 30 days - no payment and no card needed\n\n**How it works**\n\n- Press the button below and start your demo from your account\n- Download the EA and paste your key into the EA's licence input\n- Attach it to a US30 chart on a **demo account** - the demo build does not run on real accounts\n\nA demo shows how the EA behaves; it does not predict live results, and nothing here is financial advice. Trading involves risk.\n\nQuestions? Just reply to this email - it goes straight to our support team.\n\nThe Algotraders24 team",
+  "ctaLabel": "Start my free demo",
+  "ctaUrl": "https://www.algotraders24.ai/demo"
+}
