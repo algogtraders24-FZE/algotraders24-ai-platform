@@ -56,7 +56,7 @@ const COMPANY: FooterItem[] = [
   { label: "About", href: "/company/about" },
   { label: "Vision", href: "/company/vision" },
   { label: "Contact", href: "/company/contact" },
-  { label: "Careers" },
+  { label: "Careers", href: "/company/careers" },
   { label: "Partners" },
   { label: "Media Kit", href: "/company/media-kit" },
   { label: "Brand Assets", href: "/company/brand-assets" },
