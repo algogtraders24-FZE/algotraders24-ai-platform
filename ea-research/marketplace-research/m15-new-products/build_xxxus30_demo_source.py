@@ -90,6 +90,8 @@ new_block += ['', '//--- fixed internal settings (not user inputs)']
 for t, n, v in decl:
     if n in VISIBLE:
         continue
+    if n in ("InpEnableApex", "InpEnablePulse"):
+        continue  # these two modules are not part of the demo build at all
     if n == "InpUseONNX":
         v = "true"
     if n == "InpONNXFile":
@@ -120,7 +122,16 @@ new_load = """      // The model is embedded ENCRYPTED; its key comes from the A
 s = sub(s, old_load, new_load)
 
 # ---------------------------------------------------------------- module names -> neutral, neutral log lines
-for k, name in enumerate(["Nova", "Apex", "Zenith", "Pulse", "Eclipse"], start=1):
+# the demo carries three modules only: Apex and Pulse are removed from the code, not just switched off
+for blk in ("InpEnableApex", "InpEnablePulse"):
+    s, n_removed = re.subn(r"\n   if\(" + blk + r"\) \{.*?\n   \}\n", "\n", s, count=1, flags=re.S)
+    assert n_removed == 1, blk
+s = re.sub(r'\n   CreateModuleRowCompact\("(?:Apex|Pulse)", InpEnable(?:Apex|Pulse), [^\n]*', "", s)
+s = s.replace('CreateModuleRowCompact("Zenith", InpEnableZenith, yModules+52, xLeft);', 'CreateModuleRowCompact("Zenith", InpEnableZenith, yModules+37, xLeft);')
+s = s.replace('CreateModuleRowCompact("Eclipse", InpEnableEclipse, yModules+82, xLeft);', 'CreateModuleRowCompact("Eclipse", InpEnableEclipse, yModules+52, xLeft);')
+s = s.replace('CreateRect(g_prefix+"ModulesBG", xLeft, yModules, wLeft, 95, clrBG, clrGrayBox);', 'CreateRect(g_prefix+"ModulesBG", xLeft, yModules, wLeft, 65, clrBG, clrGrayBox);')
+s = s.replace("int yShields = yModules + 105;", "int yShields = yModules + 75;")
+for k, name in enumerate(["Nova", "Zenith", "Eclipse"], start=1):
     s = s.replace(f'"{name}_Buy"', f'"M{k}_Buy"').replace(f'"{name}_Sell"', f'"M{k}_Sell"')
     s = s.replace(f'CreateModuleRowCompact("{name}"', f'CreateModuleRowCompact("Module {k}"')
 s = s.replace("XXX US30 v1.01 ONNX", "XXX US30 DEMO").replace("algotraders24.ai | US30 v1.01", "algotraders24.ai | demo build")
@@ -152,6 +163,8 @@ def _neutral(m):
 s = re.sub(r'Print\("[^;\n]*(?:ONNX|AI DISABLED)[^;\n]*\);', _neutral, s)
 s = s.replace('"AI: "+aiTxt+" ("+DoubleToString(InpAIScoreThreshold, 2)+")"', '"FILTER: "+aiTxt')
 
+for gone in ("Apex", "Pulse", "iHighest(_Symbol, InpTF, MODE_HIGH, 12", "atr_val*0.5"):
+    assert gone not in s, "removed module still present: " + gone
 open(out_dir / "XXXUS30_demo.mq5", "wb").write(s.replace("\n", "\r\n").encode("utf-8"))
 leaks = sorted(set(re.findall(r'"[^"\n]*(?:ONNX|onnx|AI |Nova|Apex|Zenith|Pulse|Eclipse|MoonLock|EMA|Fractal|RSI|ATR|breakout|Breakout)[^"\n]*"', s)))
 print("written", out_dir / "XXXUS30_demo.mq5", "| visible inputs:", len(VISIBLE), "| hidden consts:", len(decl) - len(VISIBLE))
