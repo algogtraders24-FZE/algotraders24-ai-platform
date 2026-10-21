@@ -233,11 +233,12 @@ export default function Footer() {
         </div>
 
         <div className="mt-8 space-y-1 border-t border-border pt-8 text-center md:text-left">
-          <p className="text-sm text-text-3">© 2026 Algotraders24. All rights reserved.</p>
+          <p className="text-sm text-text-3">© 2026 Algotraders24 A.F.Z. All rights reserved.</p>
           <p className="text-xs text-text-3">
-            Algotraders24 AI · FinTech technology and software development company
+            Algotraders24 AI · FinTech technology and software development company · Registered in Ajman Free Zone, UAE ·
+            Registration No. 47223
           </p>
-          <p className="text-xs text-text-3">Saint Vincent and the Grenadines, Queens Drive, Park Industrial Site, Kingstown, VC0100</p>
+          <p className="text-xs text-text-3">C1-1F-SF13159, Ajman Free Zone, Ajman, UAE</p>
         </div>
       </div>
     </footer>

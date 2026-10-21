@@ -13,7 +13,7 @@ export default function PrivacyPolicyPage() {
       eyebrow="Company / Legal"
       title="Privacy Policy"
       lastUpdated="19 September 2026"
-      intro="Algotraders24 (“we”, “us”), based in Saint Vincent and the Grenadines, operates algotraders24.ai. This policy explains what data we collect when you use the platform, why, and what control you have over it."
+      intro="Algotraders24 AI (“we”, “us”, “Algotraders24”), registered in Ajman Free Zone, UAE, operates algotraders24.ai. This policy explains what data we collect when you use the platform, why, and what control you have over it."
       sections={[
         {
           heading: "Data we collect",
