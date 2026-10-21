@@ -104,14 +104,14 @@ function SellerVerificationSection({ emailVerified }: { emailVerified: boolean }
   const tone = status === "VERIFIED" ? "success" : status === "REJECTED" ? "danger" : status === "PENDING" || status === "RETRY" ? "warning" : "neutral";
   const label = status === "VERIFIED" ? "Verified" : status === "PENDING" ? "In review" : status === "RETRY" ? "Try again" : status === "REJECTED" ? "Not verified" : "Not verified";
   return (
-    <SectionCard title="Identity verification (KYC)" description="Required for Algo Contracts (buying a contract, receiving rebates and withdrawing) and for selling on the AT24 Marketplace. Buyers see an Identity verified mark on verified sellers.">
+    <SectionCard title="Identity verification (KYC)" description="Required to withdraw referral earnings and to sell on the AT24 Marketplace. Buyers see an Identity verified mark on verified sellers.">
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm text-text-2">Email address</p>
           <Badge tone={emailVerified ? "success" : "warning"}>{emailVerified ? "Verified" : "Unverified - confirm the link we emailed you"}</Badge>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm text-text-2">Identity {view?.required ? "(required for Algo Contracts and to list)" : "(required for Algo Contracts)"}</p>
+          <p className="text-sm text-text-2">Identity {view?.required ? "(required to list and to withdraw)" : "(required to withdraw earnings)"}</p>
           <Badge tone={tone}>{label}</Badge>
         </div>
         {view && <p className="text-xs text-text-3">{view.message}</p>}

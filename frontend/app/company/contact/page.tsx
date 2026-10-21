@@ -86,7 +86,7 @@ export default function ContactPage() {
             ))}
           </ul>
         </div>
-        <p className="mx-auto mt-8 max-w-xl text-center text-xs text-text-3">Algotraders24 · Kingstown, Saint Vincent and the Grenadines</p>
+        <p className="mx-auto mt-8 max-w-xl text-center text-xs text-text-3">Algotraders24 AI · Ajman Free Zone, UAE</p>
       </section>
 
       <Footer />

@@ -2,6 +2,7 @@
 // Real transactional email via Resend. Every call is best-effort from the
 // caller's side (see the webhook route) - a failed email must never fail
 // the purchase/license issuance/domain action that already succeeded.
+import { COMPANY_ADDRESS } from "@/lib/company";
 import "server-only";
 import { Resend } from "resend";
 import { getSiteUrl } from "@/lib/payments/env";
@@ -30,7 +31,7 @@ function getClient(): Resend | null {
 // hand-copied into each template.
 // ---------------------------------------------------------------------
 
-const DEFAULT_FOOTER = `<p style="margin-top: 32px; font-size: 12px; color: #999;">Algotraders24 AI &middot; Need help? Reply to this email or reach us at support@algotraders24.ai</p>`;
+const DEFAULT_FOOTER = `<p style="margin-top: 32px; font-size: 12px; color: #999;">Algotraders24 AI &middot; ${COMPANY_ADDRESS} &middot; Need help? Reply to this email or reach us at support@algotraders24.ai</p>`;
 
 function renderLayout(params: {
   title: string;

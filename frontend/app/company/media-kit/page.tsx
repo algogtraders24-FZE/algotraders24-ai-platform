@@ -23,7 +23,7 @@ const LONG =
 const FACTS: { label: string; value: string }[] = [
   { label: "Name", value: "Algotraders24 AI (AT24)" },
   { label: "What we are", value: "FinTech technology and software development company" },
-  { label: "Registered address", value: "Saint Vincent and the Grenadines, Queens Drive, Park Industrial Site, Kingstown, VC0100" },
+  { label: "Registered address", value: "C1-1F-SF13159, Ajman Free Zone, Ajman, UAE (Registration No. 47223)" },
   { label: "Website", value: "algotraders24.ai" },
   { label: "Products", value: "AI Assistant, Market Intelligence, Trading Workspace, Quant Lite (free), Quant Pro, Marketplace, Live Sync, Live Results, Edge Analyzer" },
   { label: "Markets covered", value: "Gold, Silver, EUR/USD, GBP/USD, USD/JPY, Bitcoin, Ethereum" },

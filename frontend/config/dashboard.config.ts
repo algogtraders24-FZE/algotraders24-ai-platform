@@ -57,7 +57,6 @@ import {
   BookOpen,
   Radio,
   Wallet,
-  Gem,
   BellRing,
   type LucideIcon,
 } from "lucide-react";
@@ -227,8 +226,6 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       { label: "Live Results", href: "/dashboard/live-results", icon: LineChart },
       // Seller self-serve Phase 4: what the seller earned from marketplace sales + USDT payout requests.
       { label: "Earnings", href: "/dashboard/earnings", icon: Wallet },
-      // Algo Contracts (AT24 Diamond Members): 12-month contracts, rebate schedule, member badge. Hidden unless the program is open for the account.
-      { label: "Algo Contracts", href: "/dashboard/algo-contracts", icon: Gem, rewardsOnly: true },
       // No standalone Research page exists (Sprint D2.4.A1 deliberately
       // redirected the marketing /platform/research page into Assistant,
       // since Research wasn't distinct content there). Inside the

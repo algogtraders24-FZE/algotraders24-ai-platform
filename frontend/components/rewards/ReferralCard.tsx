@@ -6,7 +6,7 @@ import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Alert from "@/components/ui/Alert";
 
-export default function ReferralCard({ initialLink, blockedReason, allProducts = false }: { initialLink: string | null; blockedReason: string | null; allProducts?: boolean }) {
+export default function ReferralCard({ initialLink, blockedReason }: { initialLink: string | null; blockedReason: string | null }) {
   const [link, setLink] = useState<string | null>(initialLink);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -42,9 +42,7 @@ export default function ReferralCard({ initialLink, blockedReason, allProducts =
     <Card className="space-y-3">
       <h2 className="text-lg font-semibold text-text">Your referral link</h2>
       <p className="text-sm text-text-2">
-        {allProducts
-          ? "Share this link. When someone joins through it, you earn a referral commission on what they pay for: a fixed amount on a contract, and a percentage on any other product or Pro payment, including every renewal. It is credited as soon as the payment is confirmed."
-          : "Share this link. When someone you bring buys a contract and the payment is confirmed, you earn a fixed commission, credited as soon as the payment is confirmed."}{" "}
+        Share this link. When someone joins through it and pays for a product or a Pro plan, you earn 2% of what they pay, including every renewal. It is credited once the payment is confirmed.{" "}
         The link uses a random code, never your name or username. You cannot earn from your own purchases. Your link is created automatically; to be paid commission you need an active paid Pro plan when your buyer pays, and a verified identity to withdraw.
       </p>
       {error && <Alert tone="danger">{error}</Alert>}

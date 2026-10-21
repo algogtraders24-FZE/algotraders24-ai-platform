@@ -1,16 +1,15 @@
 // app/dashboard/wallet/page.tsx
-// The member's wallet: the balance and USDT withdrawal, where the money came from (contract rebates, referral commission by level and by
-// type of purchase) and a full history of every movement. Other people are only shown masked.
+// The member's wallet: the balance and USDT withdrawal, where the money came from (referral commission by type of purchase) and a full
+// history of every movement. Other people are only shown masked. Algo Contracts is no longer offered, so contract rebates are not shown.
 import PageHeader from "@/components/ui/PageHeader";
 import EmptyState from "@/components/ui/EmptyState";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
-import ButtonLink from "@/components/ui/ButtonLink";
 import WithdrawCard from "@/components/rewards/WithdrawCard";
 import PayoutAddressCard from "@/components/rewards/PayoutAddressCard";
 import { requireUser } from "@/lib/auth/protectedRoute";
 import { loadUserFacts, rewardsOpenFor } from "@/lib/rewards/access";
-import { holdDays, minPayoutCents, withdrawalsEnabled } from "@/lib/rewards/config";
+import { holdDays, minPayoutCents, referralAllProductsEnabled, withdrawalsEnabled } from "@/lib/rewards/config";
 import { isIdentityVerified, isProActive } from "@/lib/rewards/eligibility";
 import { formatUsd } from "@/lib/rewards/money";
 import { getBalances, listPayouts } from "@/services/rewards/payoutStore";
@@ -42,11 +41,11 @@ export default async function WalletPage() {
   const sessionUser = await requireUser();
   const user = sessionUser.profile;
 
-  if (!rewardsOpenFor(user.email)) {
+  if (!referralAllProductsEnabled() && !rewardsOpenFor(user.email)) {
     return (
       <div className="space-y-6">
         <PageHeader eyebrow="Account" title="Wallet" description="Your balance, where it came from, and your withdrawals." />
-        <EmptyState title="Not open for your account yet" description="Your wallet appears here once Algo Contracts and referrals are open for your account." />
+        <EmptyState title="Not open for your account yet" description="Your wallet appears here once referral earnings are open for your account." />
       </div>
     );
   }
@@ -72,7 +71,6 @@ export default async function WalletPage() {
         eyebrow="Account"
         title="Wallet"
         description="Your balance, where every amount came from, and your withdrawals."
-        action={<ButtonLink href="/dashboard/algo-contracts" variant="secondary" size="sm">Algo Contracts</ButtonLink>}
       />
 
       <section className="space-y-3">
@@ -91,15 +89,13 @@ export default async function WalletPage() {
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-text">Where your money came from</h2>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Tile label="Contract rebates" value={formatUsd(totals.rebates)} hint="Fixed instalments of your own contracts" />
-          <Tile label="Referral: your direct sales" value={formatUsd(totals.referralDirect)} hint="People you brought yourself" />
-          <Tile label="Referral: your team" value={formatUsd(totals.referralTeam)} hint="Levels 2 to 4 above you" />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Tile label="Referral: your direct sales" value={formatUsd(totals.referralDirect)} hint="People you brought yourself (2%)" />
+          <Tile label="Credited so far" value={formatUsd(credited)} hint="Released or paid out to you" />
         </div>
         <Card className="space-y-1">
           <p className="text-sm font-medium text-text">Referral commission by what was bought</p>
-          <div className="grid gap-3 pt-1 sm:grid-cols-3">
-            <Tile label="Algo Contracts" value={formatUsd(totals.byType.contracts)} />
+          <div className="grid gap-3 pt-1 sm:grid-cols-2">
             <Tile label="Products" value={formatUsd(totals.byType.products)} />
             <Tile label="Pro plan payments" value={formatUsd(totals.byType.subscriptions)} />
           </div>
@@ -110,7 +106,7 @@ export default async function WalletPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-text">History</h2>
         {entries.length === 0 ? (
-          <EmptyState title="Nothing here yet" description="Rebates from your contracts and referral commission appear here, each with its source." />
+          <EmptyState title="Nothing here yet" description="Your referral commission appears here, each with its source." />
         ) : (
           <Card padding="none" className="divide-y divide-border">
             {entries.map((e) => (
