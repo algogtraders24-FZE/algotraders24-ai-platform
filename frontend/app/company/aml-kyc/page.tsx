@@ -33,7 +33,7 @@ export default function AmlKycPage() {
         {
           heading: "Reporting obligations",
           body: [
-            "We comply with applicable law regarding suspicious activity reporting. If we become aware of activity on the platform that appears to be money laundering, terrorist financing, or other financial crime, we will report it to the relevant authority and may be required to freeze or restrict the associated account without prior notice.",
+            "We comply with applicable UAE law regarding suspicious activity reporting. If we become aware of activity on the platform that appears to be money laundering, terrorist financing, or other financial crime, we will report it to the relevant authority and may be required to freeze or restrict the associated account without prior notice.",
           ],
         },
         {
