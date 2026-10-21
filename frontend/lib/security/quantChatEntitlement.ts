@@ -16,6 +16,7 @@
 import { prisma } from "@/lib/prisma";
 import { PLAN_LIMITS, isPlanId } from "@/config/plan-limits";
 import { usageMeteringService } from "@/services/billing/UsageMeteringService";
+import { consumeBonusCredit } from "@/services/credits/bonusCredits";
 
 export interface QuantChatEntitlementResult {
   allowed: boolean;
@@ -45,7 +46,9 @@ export async function checkQuantChatMonthlyEntitlement(
   const planId = isPlanId(rawPlanId) ? rawPlanId : "free";
   const usage = await usageMeteringService.getUsage(userId, periodStart, periodEnd);
 
-  return { allowed: usage.aiMessages < PLAN_LIMITS[planId].aiCredits };
+  if (usage.aiMessages < PLAN_LIMITS[planId].aiCredits) return { allowed: true };
+  // The plan's monthly allowance is used up: spend one bonus credit (earned by verification steps) if the user has any left.
+  return { allowed: await consumeBonusCredit(userId) };
 }
 
 export const QUANT_CHAT_MONTHLY_LIMIT_MESSAGE =

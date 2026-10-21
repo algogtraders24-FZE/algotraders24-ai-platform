@@ -3772,3 +3772,20 @@ model ContestEntry {
   @@index([contestId])
   @@map("contest_entries")
 }
+
+/// One-time promotional AI credits (extra AI chat messages) earned by completing a verification step. One row per (user, kind), so a step
+/// can only ever pay once. `remaining` is spent one message at a time, only after the plan's monthly allowance is used up; the grant expires.
+/// Not cash, not transferable. Rules live in lib/credits/bonus.ts.
+model BonusCreditGrant {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      String // EMAIL_VERIFIED | KYC_VERIFIED | TELEGRAM_LINKED | REFERRED_SIGNUP
+  amount    Int
+  remaining Int
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([userId, kind])
+  @@index([userId, expiresAt])
+  @@map("bonus_credit_grants")
+}

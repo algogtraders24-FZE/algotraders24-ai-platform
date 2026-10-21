@@ -48,6 +48,10 @@ export class SessionService {
       await recordSignupAttribution(profile.id, new Date(profile.createdAt));
     }
 
+    // Bonus AI credits for a verified email (and for joining through a friend's link). A no-op until the email is verified; best effort.
+    const { ensureSignupBonuses } = await import("@/services/credits/bonusCredits");
+    await ensureSignupBonuses(profile.id, emailVerified);
+
     return { authId: authUser.id, profile };
   }
 

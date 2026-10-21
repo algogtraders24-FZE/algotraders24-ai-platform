@@ -46,6 +46,12 @@ export default function TermsOfServicePage() {
           ],
         },
         {
+          heading: "Promotional credits",
+          body: [
+            "We may give you bonus AI credits for completing steps such as verifying your email or identity. One credit is one AI message. Bonus credits are promotional: they have no cash value, cannot be transferred or exchanged for money, are used only after your plan's monthly allowance is used up, expire 90 days after they are granted, and each step pays once per account. We may change or end these offers at any time, and we may withdraw credits obtained through fake or duplicate accounts.",
+          ],
+        },
+        {
           heading: "Acceptable use",
           body: [
             "You agree not to: attempt to circumvent license checks or payment; reverse-engineer, redistribute, or resell any product or platform feature without authorization; use the platform for any unlawful purpose; or attempt to disrupt, overload, or gain unauthorized access to our systems.",
