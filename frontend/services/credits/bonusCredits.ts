@@ -11,22 +11,30 @@ const defaultStore = prismaBonusStore();
 /** Users whose sign-up bonuses are already settled in this server process, so a normal request costs no query. */
 const settled = new Set<string>();
 
-export async function awardBonus(userId: string, kind: BonusKind, opts: { store?: BonusStore; now?: Date } = {}): Promise<boolean> {
+type GrantOutcome = "created" | "exists" | "failed";
+
+async function grantOutcome(userId: string, kind: BonusKind, opts: { store?: BonusStore; now?: Date } = {}): Promise<GrantOutcome> {
   try {
     const store = opts.store ?? defaultStore;
     const now = opts.now ?? new Date();
-    return await store.grant(userId, kind, BONUS_RULES[kind].amount, bonusExpiry(now));
+    return (await store.grant(userId, kind, BONUS_RULES[kind].amount, bonusExpiry(now))) ? "created" : "exists";
   } catch (e) {
     console.error(`[bonus] grant ${kind} failed (non-fatal):`, e instanceof Error ? e.message : e);
-    return false;
+    return "failed";
   }
+}
+
+/** True only when this call created the grant. Never throws. */
+export async function awardBonus(userId: string, kind: BonusKind, opts: { store?: BonusStore; now?: Date } = {}): Promise<boolean> {
+  return (await grantOutcome(userId, kind, opts)) === "created";
 }
 
 /** Steps the user had already completed before bonus credits existed (identity verified, Telegram linked): paid once, on their first verified request. */
 async function alreadyCompleted(userId: string): Promise<BonusKind[]> {
+  // No .catch here on purpose: if a lookup fails, ensureSignupBonuses logs it and does NOT mark the user settled, so the next request retries.
   const [ident, tg] = await Promise.all([
-    prisma.sellerIdentity.findUnique({ where: { userId }, select: { status: true } }).catch(() => null),
-    prisma.telegramLink.findUnique({ where: { userId }, select: { userId: true } }).catch(() => null),
+    prisma.sellerIdentity.findUnique({ where: { userId }, select: { status: true } }),
+    prisma.telegramLink.findUnique({ where: { userId }, select: { userId: true } }),
   ]);
   const done: BonusKind[] = [];
   if (ident?.status === "VERIFIED") done.push("KYC_VERIFIED");
@@ -46,7 +54,7 @@ export async function ensureSignupBonuses(
 ): Promise<void> {
   if (!emailVerified || settled.has(userId)) return;
   try {
-    await awardBonus(userId, "EMAIL_VERIFIED", { store: opts.store });
+    let failed = (await grantOutcome(userId, "EMAIL_VERIFIED", { store: opts.store })) === "failed";
     const referred =
       opts.referred ??
       (async () => {
@@ -54,9 +62,11 @@ export async function ensureSignupBonuses(
         const a = await prisma.referralAttribution.findFirst({ where: { buyerId: userId }, select: { id: true } });
         return a !== null;
       });
-    if (await referred()) await awardBonus(userId, "REFERRED_SIGNUP", { store: opts.store });
-    for (const kind of await (opts.existing ?? (() => alreadyCompleted(userId)))()) await awardBonus(userId, kind, { store: opts.store });
-    settled.add(userId);
+    if (await referred()) failed = (await grantOutcome(userId, "REFERRED_SIGNUP", { store: opts.store })) === "failed" || failed;
+    for (const kind of await (opts.existing ?? (() => alreadyCompleted(userId)))()) {
+      failed = (await grantOutcome(userId, kind, { store: opts.store })) === "failed" || failed;
+    }
+    if (!failed) settled.add(userId); // a failure leaves the user unsettled so the next request tries again
   } catch (e) {
     console.error("[bonus] signup bonuses failed (non-fatal):", e instanceof Error ? e.message : e);
   }
