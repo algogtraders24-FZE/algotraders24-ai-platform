@@ -158,7 +158,7 @@ export default function AdminArenaPage() {
       x.setTransform(dpr, 0, 0, dpr, 0, 0);
       x.fillStyle = "#050912"; x.fillRect(0, 0, W, H);
       T += 0.016;
-      const cx = W / 2, cy = H / 2, R = Math.min(W, H) * 0.43, r2 = R * 0.5;
+      const cx = W / 2, cy = H / 2 - 14, R = Math.min(W, H - 70) * 0.43, r2 = R * 0.5;
       const g = x.createRadialGradient(cx, cy, 5, cx, cy, R); g.addColorStop(0, "#16305a55"); g.addColorStop(1, "#00000000");
       x.fillStyle = g; x.beginPath(); x.arc(cx, cy, R * 1.05, 0, 7); x.fill();
       x.strokeStyle = "#17304a"; x.lineWidth = 1;
