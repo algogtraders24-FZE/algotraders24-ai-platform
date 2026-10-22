@@ -9,9 +9,10 @@ import "server-only";
 import { tryReserveProviderCall, logProviderCall } from "./quota.service";
 import { fetchAlphaVantageNews, ALPHA_VANTAGE_PROVIDER } from "./providers/alpha-vantage.provider";
 import { fetchCryptoPanicNews, CRYPTOPANIC_PROVIDER } from "./providers/cryptopanic.provider";
-import { normalizeAlphaVantageArticle, normalizeCryptoPanicArticle } from "./normalize.service";
+import { fetchMarketauxNews, MARKETAUX_PROVIDER, MARKETAUX_SYMBOLS } from "./providers/marketaux.provider";
+import { normalizeAlphaVantageArticle, normalizeCryptoPanicArticle, normalizeMarketauxArticle } from "./normalize.service";
 import { persistArticles } from "./store.service";
-import { alphaVantageDailyLimit, cryptoPanicDailyLimit, loadCryptoPanicEnv } from "./config";
+import { alphaVantageDailyLimit, cryptoPanicDailyLimit, loadCryptoPanicEnv, loadMarketauxEnv, marketauxDailyLimit } from "./config";
 
 // AN1.5 - one topic-based call already returns general market news covering
 // everything; never query per-symbol (would multiply real quota usage for
@@ -76,9 +77,57 @@ export async function ingestCryptoPanic(purpose: IngestionPurpose): Promise<Inge
   }
 }
 
+/** How far back each Marketaux request looks. Wider than the cadence so a missed run still catches up; re-ingested articles dedupe. */
+const MARKETAUX_LOOKBACK_MS = 48 * 60 * 60 * 1000;
+
+/**
+ * Marketaux: one request per AT24 symbol it covers (Gold/Silver are not Marketaux entities). Each request reserves one call from the daily budget, so the
+ * free plan's 100/day can never be exceeded. A symbol that fails or runs out of budget does not stop the others; the run counts as a success when at least
+ * one symbol returned.
+ */
+export async function ingestMarketaux(purpose: IngestionPurpose): Promise<IngestionResult> {
+  if (!loadMarketauxEnv()) return skippedResult(MARKETAUX_PROVIDER, "not configured (missing MARKETAUX_API_TOKEN)");
+
+  const since = new Date(Date.now() - MARKETAUX_LOOKBACK_MS);
+  let attempted = false;
+  let reservedAny = false;
+  let articleCount = 0;
+  let created = 0;
+  let updated = 0;
+  let okCalls = 0;
+  const errors: string[] = [];
+
+  for (const symbol of MARKETAUX_SYMBOLS) {
+    const reserved = await tryReserveProviderCall(MARKETAUX_PROVIDER, marketauxDailyLimit());
+    if (!reserved) {
+      errors.push("daily quota exhausted");
+      break;
+    }
+    reservedAny = true;
+    attempted = true;
+    try {
+      const raw = await fetchMarketauxNews(symbol, since);
+      const normalized = raw.map(normalizeMarketauxArticle);
+      const result = await persistArticles(normalized);
+      articleCount += normalized.length;
+      created += result.created;
+      updated += result.updated;
+      okCalls += 1;
+    } catch (error) {
+      errors.push(`${symbol}: ${error instanceof Error ? error.message : "unknown error"}`);
+    }
+  }
+
+  const success = okCalls > 0;
+  if (attempted) await logProviderCall(MARKETAUX_PROVIDER, purpose, success, success ? undefined : errors.join("; ").slice(0, 500));
+  return { provider: MARKETAUX_PROVIDER, attempted, reserved: reservedAny, success, articleCount, created, updated, errorMessage: errors.length > 0 ? errors.join("; ").slice(0, 300) : undefined };
+}
+
 /** The cron entry point - runs both providers, one after another (never in parallel, so a burst never risks tripping either provider's per-second throttle). */
 export async function runScheduledIngestion(): Promise<IngestionResult[]> {
+  // Marketaux first: it is the provider that works on the free tier today (Alpha Vantage's news endpoint became premium-only on 2026-10-06).
+  const marketaux = await ingestMarketaux("scheduled-ingestion");
   const alphaVantage = await ingestAlphaVantage("scheduled-ingestion");
   const cryptoPanic = await ingestCryptoPanic("scheduled-ingestion");
-  return [alphaVantage, cryptoPanic];
+  return [marketaux, alphaVantage, cryptoPanic];
 }

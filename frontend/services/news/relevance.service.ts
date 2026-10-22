@@ -55,6 +55,14 @@ export function mapCryptoPanicCurrency(code: string): MarketSymbol | null {
   return CRYPTO_BASE_TO_SYMBOL[code.toUpperCase()] ?? null;
 }
 
+/** Marketaux entity symbols that are AT24 pairs (verified live 2026-10-22): forex and crypto pairs use AT24's own symbol; "CC:BTC" style crypto codes map to the crypto pair. Equities/indices are ignored (not in AT24's symbol universe). */
+export function mapMarketauxSymbol(symbol: string): MarketSymbol | null {
+  const upper = symbol.toUpperCase();
+  if (upper === "EURUSD" || upper === "GBPUSD" || upper === "USDJPY" || upper === "BTCUSD" || upper === "ETHUSD" || upper === "SOLUSD" || upper === "XRPUSD") return upper as MarketSymbol;
+  if (upper.startsWith("CC:")) return CRYPTO_BASE_TO_SYMBOL[upper.slice(3)] ?? null;
+  return null;
+}
+
 /** Alpha Vantage's `ticker_sentiment[].ticker` value, e.g. "FOREX:USD", "CRYPTO:BTC", or a bare equity ticker (ignored - not in AT24's symbol universe). */
 export function mapAlphaVantageTicker(ticker: string): MarketSymbol[] {
   const [prefix, code] = ticker.split(":");
@@ -134,7 +142,7 @@ export interface RelevanceInput {
   nativeTickers: string[];
   /** Alpha Vantage's `topics[].topic` values, when present. */
   topics: string[];
-  provider: "alpha-vantage" | "cryptopanic";
+  provider: "alpha-vantage" | "cryptopanic" | "marketaux";
 }
 
 /** Merges all four steps into final tags + provenance. When multiple steps tag the same symbol, the highest-confidence method wins (native ticker match beats a coarse topic guess for the same symbol). */
@@ -152,7 +160,9 @@ export function computeAssetTags(input: RelevanceInput): AssetTag[] {
   const nativeSymbols =
     input.provider === "alpha-vantage"
       ? input.nativeTickers.flatMap(mapAlphaVantageTicker)
-      : input.nativeTickers.map(mapCryptoPanicCurrency).filter((s): s is MarketSymbol => s !== null);
+      : input.provider === "marketaux"
+        ? input.nativeTickers.map(mapMarketauxSymbol).filter((s): s is MarketSymbol => s !== null)
+        : input.nativeTickers.map(mapCryptoPanicCurrency).filter((s): s is MarketSymbol => s !== null);
   nativeSymbols.forEach((s) => upsert(s, "native_ticker"));
 
   input.topics.flatMap((t) => TOPIC_TO_SYMBOLS[t] ?? []).forEach((s) => upsert(s, "topic_derived"));

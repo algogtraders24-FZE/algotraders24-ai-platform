@@ -124,6 +124,12 @@ export default function NewsPage() {
         ))}
       </div>
 
+      {(symbol === "XAUUSD" || symbol === "XAGUSD") && (
+        <p className="mb-4 text-sm text-text-3">
+          Gold and Silver headlines are not covered by the current news source. Their prices, signals and analysis are unaffected.
+        </p>
+      )}
+
       <div className="mb-6 flex flex-wrap gap-2">
         <Button size="sm" variant={category === null ? "primary" : "secondary"} className="capitalize" onClick={() => setCategory(null)}>
           All categories

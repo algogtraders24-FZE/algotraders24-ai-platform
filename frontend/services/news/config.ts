@@ -17,9 +17,24 @@ export function cryptoPanicDailyLimit(): number {
   return readPositiveInt("NEWS_CRYPTOPANIC_DAILY_LIMIT", 12);
 }
 
+/** Marketaux free plan is 100 requests/day and 30/minute (verified 2026-10-22); stay below it so a retry or an on-demand refresh never hits the hard limit. Configurable for a paid-plan upgrade. */
+export function marketauxDailyLimit(): number {
+  return readPositiveInt("NEWS_MARKETAUX_DAILY_LIMIT", 90);
+}
+
 /** Locked at AN1.6: with a few-times-per-day ingestion schedule, 12h tolerates one missed cycle without yesterday's news looking current. */
 export function staleThresholdMs(): number {
   return readPositiveInt("NEWS_STALE_THRESHOLD_HOURS", 12) * 60 * 60 * 1000;
+}
+
+export interface MarketauxEnv {
+  apiToken: string;
+}
+
+export function loadMarketauxEnv(): MarketauxEnv | null {
+  const apiToken = process.env.MARKETAUX_API_TOKEN;
+  if (!apiToken || apiToken.trim().length === 0) return null;
+  return { apiToken: apiToken.trim() };
 }
 
 export interface CryptoPanicEnv {

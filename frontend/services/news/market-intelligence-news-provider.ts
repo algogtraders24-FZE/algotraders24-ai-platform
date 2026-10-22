@@ -16,11 +16,10 @@ import type { EvidenceItem } from "@/types/evidence";
 import type { EvidenceProviderRequest, NewsProvider } from "@/types/evidence-fusion";
 import { MarketDataProviderError } from "@/lib/market-data/errors";
 import { loadAlphaVantageEnv } from "@/lib/market-data/env";
-import { ALPHA_VANTAGE_PROVIDER } from "./providers/alpha-vantage.provider";
 import { getLatestSuccessfulCallAt } from "./quota.service";
 import { getStoredArticlesBySymbol } from "./store.service";
-import { ingestAlphaVantage } from "./ingestion.service";
-import { staleThresholdMs } from "./config";
+import { ingestAlphaVantage, ingestMarketaux } from "./ingestion.service";
+import { loadMarketauxEnv, staleThresholdMs } from "./config";
 
 const PROVIDER_NAME = "shared-news-cache";
 const MAX_HEADLINES = 5;
@@ -32,15 +31,16 @@ export class SharedNewsCacheProvider implements NewsProvider {
   constructor(private readonly options: { refresh?: boolean } = {}) {}
 
   isConfigured(): boolean {
-    return loadAlphaVantageEnv() !== null;
+    return loadMarketauxEnv() !== null || loadAlphaVantageEnv() !== null;
   }
 
   async getNewsEvidence(request: EvidenceProviderRequest): Promise<EvidenceItem[]> {
     if (!this.isConfigured()) {
-      throw new MarketDataProviderError("unconfigured", `${PROVIDER_NAME} is not configured (missing ALPHA_VANTAGE_API_KEY)`, PROVIDER_NAME);
+      throw new MarketDataProviderError("unconfigured", `${PROVIDER_NAME} is not configured (missing MARKETAUX_API_TOKEN and ALPHA_VANTAGE_API_KEY)`, PROVIDER_NAME);
     }
 
-    const latestCall = await getLatestSuccessfulCallAt(ALPHA_VANTAGE_PROVIDER);
+    // Freshness is judged across ALL providers: whichever one is working keeps the store current.
+    const latestCall = await getLatestSuccessfulCallAt();
     const isFresh = latestCall !== null && Date.now() - latestCall.getTime() <= staleThresholdMs();
 
     if (!isFresh && this.options.refresh !== false) {
@@ -51,10 +51,11 @@ export class SharedNewsCacheProvider implements NewsProvider {
       // stale news evidence is real and honest; a hard failure here would
       // not be - matches the existing pipeline's "news is best-effort,
       // never fatal" contract (validated by the old suite's tests 19-21).
+      await ingestMarketaux("on-demand-fallback");
       await ingestAlphaVantage("on-demand-fallback");
     }
 
-    const articles = await getStoredArticlesBySymbol(ALPHA_VANTAGE_PROVIDER, request.symbol, MAX_HEADLINES);
+    const articles = await getStoredArticlesBySymbol(undefined, request.symbol, MAX_HEADLINES);
     const retrievedAt = new Date().toISOString();
 
     return articles.map((article) => ({

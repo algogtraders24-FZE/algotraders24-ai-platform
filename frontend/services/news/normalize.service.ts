@@ -6,9 +6,10 @@
 // derived fields, kept structurally separate.
 import "server-only";
 import { createHash } from "crypto";
-import { computeAssetTags, classifyPrimaryCategory, mapAlphaVantageTicker } from "./relevance.service";
+import { computeAssetTags, classifyPrimaryCategory, mapAlphaVantageTicker, mapMarketauxSymbol } from "./relevance.service";
 import { ALPHA_VANTAGE_PROVIDER, type RawAlphaVantageArticle } from "./providers/alpha-vantage.provider";
 import { CRYPTOPANIC_PROVIDER, type RawCryptoPanicArticle } from "./providers/cryptopanic.provider";
+import { MARKETAUX_PROVIDER, type RawMarketauxArticle } from "./providers/marketaux.provider";
 
 export interface NormalizedNewsArticle {
   provider: string;
@@ -77,6 +78,50 @@ export function normalizeAlphaVantageArticle(raw: RawAlphaVantageArticle): Norma
     sentimentLabel: raw.overallSentimentLabel,
     relevanceByAsset: Object.keys(relevanceByAsset).length > 0 ? relevanceByAsset : null,
     category,
+    assetTags,
+    tagProvenance,
+    rawPayload: raw,
+  };
+}
+
+/** Marketaux score is -1..+1 per entity. The label uses the same five bands Alpha Vantage documents for its own scale so the AI News page reads the same; it is AT24's mapping of Marketaux's number, not a label Marketaux returned. */
+export function labelFromMarketauxScore(score: number): string {
+  if (score <= -0.35) return "Bearish";
+  if (score <= -0.15) return "Somewhat-Bearish";
+  if (score < 0.15) return "Neutral";
+  if (score < 0.35) return "Somewhat-Bullish";
+  return "Bullish";
+}
+
+export function normalizeMarketauxArticle(raw: RawMarketauxArticle): NormalizedNewsArticle {
+  const tags = computeAssetTags({
+    headline: raw.title,
+    summary: raw.description,
+    nativeTickers: raw.entities.map((e) => e.symbol),
+    topics: [],
+    provider: "marketaux",
+  });
+  const { assetTags, tagProvenance } = toProvenanceAndAssetTags(tags);
+
+  // Sentiment only from the entities that are AT24 symbols - an article about a stock that mentions EUR/USD in passing must not inherit the stock's score.
+  const scores = raw.entities
+    .filter((e) => e.sentimentScore !== null && mapMarketauxSymbol(e.symbol) !== null)
+    .map((e) => e.sentimentScore as number);
+  const sentimentScore = scores.length > 0 ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10000) / 10000 : null;
+
+  return {
+    provider: MARKETAUX_PROVIDER,
+    providerArticleId: raw.id,
+    dedupeKey: computeDedupeKey(MARKETAUX_PROVIDER, raw.url, raw.title, raw.source, raw.publishedAt),
+    headline: raw.title,
+    summary: raw.description,
+    url: raw.url,
+    sourceName: raw.source,
+    publishedAt: raw.publishedAt,
+    sentimentScore,
+    sentimentLabel: sentimentScore === null ? null : labelFromMarketauxScore(sentimentScore),
+    relevanceByAsset: null, // Marketaux match_score is on a different scale from Alpha Vantage's 0-1 relevance; not force-mapped
+    category: null, // no topic taxonomy to classify from
     assetTags,
     tagProvenance,
     rawPayload: raw,

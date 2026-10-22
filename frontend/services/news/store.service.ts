@@ -91,9 +91,9 @@ export async function queryNewsArticles(filters: NewsQueryFilters, page: NewsQue
  * honest outcome, not a bug - matches the no-fabrication rule the rest of
  * this pipeline already follows.
  */
-export async function getStoredArticlesBySymbol(provider: string, symbol: MarketSymbol, limit: number) {
+export async function getStoredArticlesBySymbol(provider: string | undefined, symbol: MarketSymbol, limit: number) {
   return prisma.newsArticle.findMany({
-    where: { provider, deletedAt: null, assetTags: { has: symbol } },
+    where: { ...(provider ? { provider } : {}), deletedAt: null, assetTags: { has: symbol } },
     orderBy: [{ publishedAt: "desc" }, { fetchedAt: "desc" }],
     take: limit,
   });

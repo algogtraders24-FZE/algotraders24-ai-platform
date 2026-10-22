@@ -14,7 +14,7 @@ import { NEWS_CATEGORIES, type NewsCategory } from "@/types/news-category";
 import { isKnownMarket } from "@/lib/market-data/market-registry";
 import type { MarketSymbol } from "@/types/market";
 
-const KNOWN_PROVIDERS = ["alpha-vantage", "cryptopanic"];
+const KNOWN_PROVIDERS = ["marketaux", "alpha-vantage", "cryptopanic"];
 
 function isNewsCategory(value: string): value is NewsCategory {
   return (NEWS_CATEGORIES as readonly string[]).includes(value);
