@@ -2,7 +2,8 @@
 
   download                    download / refresh the 1h candles (public data, no key)
   backtest [--no-halt]        the deterministic rules strategy over history, with the random-entry baseline
-  desk [--once|--loop]        run the paper desk (Claude agents + rules arm + random arm) on live public data; PAPER ONLY
+  desk [--once|--loop]        run the paper desk (Claude agents + rules arm + random arm) on live public data; PAPER ONLY.
+                              --loop = a live tick every 15 s + a decision cycle after every closed 1h candle
   dashboard [--port 8800]     local read-only dashboard for the desk state
 """
 from __future__ import annotations
@@ -76,14 +77,37 @@ def cmd_desk(a):
         frames = load_universe(DEFAULT_UNIVERSE, "1h", "2021-01-01", verbose=False)
         desk.state["random_prob"] = matched_random_prob(frames, cfg)
     desk.random_prob = desk.state["random_prob"]
+    from .desk.dashboard import build_payload
+    from .desk.live import build_live, write_live
+    from .desk.push import ArenaPush
+    push = ArenaPush.from_env()
+    if push:
+        print("pushing paper results to", push.url)
+        if desk.state.get("last_bar"):
+            print("initial push:", "ok" if push.full(build_payload(desk.dir)) else push.last_error)
+    else:
+        print("AT24_ARENA_TOKEN not set: results stay local (dashboard on this machine only)")
+
+    def tick():
+        live = build_live(desk)
+        if live:
+            write_live(desk, live)
+            if push and not push.live(live):
+                print(datetime.now(timezone.utc).strftime("%H:%M:%S"), "live push failed:", push.last_error)
+
     while True:
-        res = desk.run_cycle()
-        print(datetime.now(timezone.utc).strftime("%H:%M:%S"), json.dumps(res, default=str)[:600], "| llm spend $%.4f" % llm.spent_today())
+        if desk.cycle_due() or not a.loop:
+            res = desk.run_cycle()
+            print(datetime.now(timezone.utc).strftime("%H:%M:%S"), json.dumps(res, default=str)[:600], "| llm spend $%.4f" % llm.spent_today())
+            if res.get("status") == "ok":
+                if push:
+                    print("push full:", "ok" if push.full(build_payload(desk.dir)) else push.last_error)
+            else:
+                desk.backoff(30)
+        tick()
         if not a.loop:
             break
-        now = datetime.now(timezone.utc)
-        nxt = (now + timedelta(hours=1)).replace(minute=0, second=20, microsecond=0)
-        time.sleep(max(5, (nxt - now).total_seconds()))
+        time.sleep(15)
 
 
 def cmd_dashboard(a):

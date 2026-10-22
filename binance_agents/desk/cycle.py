@@ -106,6 +106,18 @@ class Desk:
         r = f.iloc[i]
         return {k: (bool(r[k]) if k in ("breakout", "bullish", "trend_ok") else (r[k].isoformat() if k == "open_time" else float(r[k]))) for k in f.columns}
 
+    # ------------------------------------------------------------------ scheduling
+    def cycle_due(self) -> bool:
+        """A new decision cycle is due once the next 1h candle (last processed + 2h) has closed, with 20 s for the data to settle."""
+        now = pd.Timestamp.now(tz="UTC")
+        if now < getattr(self, "_retry_at", pd.Timestamp(0, tz="UTC")):
+            return False
+        lb = self.state.get("last_bar")
+        return True if not lb else now >= pd.Timestamp(lb) + pd.Timedelta(hours=2, seconds=20)
+
+    def backoff(self, seconds: int = 30) -> None:
+        self._retry_at = pd.Timestamp.now(tz="UTC") + pd.Timedelta(seconds=seconds)
+
     # ------------------------------------------------------------------ cycle
     def run_cycle(self) -> dict:
         raw, feats = self.refresh()
@@ -141,7 +153,8 @@ class Desk:
         regime = self._market_context(rows, feats)
         self.state["regime"] = regime
         self.state["radar"] = [{"symbol": s, "close": r4(r["close"], 6), "rel_volume": r4(r["rel_volume"], 2), "chg24": r4(regime["chg24"].get(s), 2), "breakout": r["breakout"],
-                                "trend_ok": r["trend_ok"], "bullish": r["bullish"], "liquid": s in liquid} for s, r in sorted(rows.items())]
+                                "trend_ok": r["trend_ok"], "bullish": r["bullish"], "liquid": s in liquid,
+                                "avg_qv48": r4(float(feats[s]["quote_volume"].iloc[-49:-1].mean()), 0)} for s, r in sorted(rows.items())]
         self.state["ticker"] = [{"symbol": s, "price": r4(rows[s]["close"], 4), "chg24": r4(regime["chg24"].get(s))} for s in ("BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT", "LINKUSDT", "AVAXUSDT") if s in rows]
         out = {"status": "ok", "bar": iso(latest)}
         out["rules"] = self._rules_arm(liquid, prices, iso(latest))

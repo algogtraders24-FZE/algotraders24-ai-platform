@@ -46,7 +46,32 @@ def arm_stats(a: dict) -> dict:
             "avg_r": round(sum(x["r"] for x in t) / len(t), 3) if t else None}
 
 
-def build_payload(state_dir: Path = STATE_DIR) -> dict:
+def merge_live(p: dict, live: dict | None) -> dict:
+    """Overlay the 15 s live tick (prices, marks, rolling volume) on the hourly snapshot; mirrors the website page's merge()."""
+    if not live:
+        return p
+    ts = datetime.fromisoformat(live["ts"].replace("Z", "+00:00"))
+    age = (datetime.now(timezone.utc) - ts).total_seconds()
+    p["live_age"] = round(age)
+    if age > 90:
+        return p
+    for k, a in p["arms"].items():
+        lv = live["arms"].get(k)
+        if lv:
+            a["stats"].update({"equity": lv["equity"], "return_pct": lv["return_pct"], "day_pnl": lv["day_pnl"], "open": lv["open"]})
+    pos = {x["symbol"]: x for x in live.get("positions", [])}
+    for x in p["positions"]:
+        if x["symbol"] in pos:
+            x["price"], x["pnl_pct"] = pos[x["symbol"]]["price"], pos[x["symbol"]]["pnl_pct"]
+    for r in p["radar"]:
+        r["rel_volume"] = live["rel_live"].get(r["symbol"], r["rel_volume"])
+        r["chg24"] = live["chg24"].get(r["symbol"], r["chg24"])
+    main = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT", "LINKUSDT", "AVAXUSDT"]
+    p["ticker"] = [{"symbol": s, "price": live["prices"][s], "chg24": live["chg24"].get(s)} for s in main if s in live["prices"]]
+    return p
+
+
+def build_payload(state_dir: Path = STATE_DIR, with_live: bool = True) -> dict:
     f = state_dir / "desk_state.json"
     if not f.exists():
         return {"ready": False}
@@ -65,6 +90,7 @@ def build_payload(state_dir: Path = STATE_DIR) -> dict:
         "activity": list(reversed(act)),
         "lessons": s.get("lessons", [])[-5:],
         "radar": s.get("radar", []),
+        "live_age": None,
     }
 
 
@@ -81,6 +107,13 @@ def create_app(state_dir: Path = STATE_DIR) -> FastAPI:
 
     @app.get("/api/state")
     def state():
-        return JSONResponse(build_payload(state_dir))
+        payload = build_payload(state_dir)
+        lf = state_dir / "live.json"
+        if payload.get("ready") and lf.exists():
+            try:
+                payload = merge_live(payload, json.loads(lf.read_text(encoding="utf-8")))
+            except (OSError, ValueError, KeyError):
+                pass
+        return JSONResponse(payload)
 
     return app

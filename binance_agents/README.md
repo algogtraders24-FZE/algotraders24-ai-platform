@@ -1,4 +1,4 @@
-# binance_agents - a paper-trading desk of six Claude agents (Binance Spot)
+# AT24 Arena Crypto Bot (binance_agents) - a paper-trading desk of six Claude agents (Binance Spot)
 
 **PAPER ONLY.** Nothing here sends an order to Binance. It reads *public* market data (no API key) and simulates fills with fees and slippage.
 The real-money broker (`agents/execution.py: BinanceBroker`) exists, is gated behind several explicit switches and has never been run against the
@@ -34,6 +34,15 @@ python -m binance_agents dashboard                 # http://127.0.0.1:8800 (stan
 python -m binance_agents desk --once --fake        # no Claude calls (rules + random arms only), for a free dry run
 python -m unittest discover -s binance_agents/tests -t .
 ```
+
+## Live on the AT24 website (optional, admin only)
+`desk --loop` does two things: a **live tick every 15 s** (prices, 24h change, rolling 1h volume, mark-to-market equity of the three arms, P&L of open positions) and a
+**decision cycle after every closed 1h candle**. If `AT24_ARENA_TOKEN` is set it also pushes both to the website (Admin > Arena, `/dashboard/admin/arena`), which shows
+the same mission-control view live. Only paper results are sent - never an exchange key. On the VPS (PowerShell, once):
+```
+setx AT24_ARENA_TOKEN "the-same-secret-as-ARENA_INGEST_SECRET-on-the-website"
+```
+then open a NEW window and start the bot. No token = nothing is sent and the dashboard stays local.
 
 ## What the numbers say so far (be honest with yourself)
 The deterministic rule (close above the previous 48-candle high, volume >= 2x average, above EMA200, up candle; ATR stop and trail; next-open fill; 0.10% fee + 5 bps
