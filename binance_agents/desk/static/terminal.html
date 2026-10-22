@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AT24 // PAPER DESK - mission control</title>
+<style>
+:root{--bg:#05070d;--p:#0a1020;--line:#17304a;--tx:#cfe3f5;--mut:#5d7a96;--g:#22f08a;--r:#ff4d6d;--c:#31d4ff;--y:#f6c744;--v:#a78bfa}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:12px ui-monospace,Consolas,Menlo,monospace;overflow:hidden}
+.top{display:flex;gap:22px;align-items:center;height:44px;padding:0 16px;border-bottom:1px solid var(--line);background:#070c17}
+.top b.t{color:var(--y);letter-spacing:.2em}.top .s{color:var(--mut)}.pill{border:1px solid #f6c74466;color:var(--y);padding:2px 8px;border-radius:99px;font-size:10px}
+.pos{color:var(--g)}.neg{color:var(--r)}
+.grid{display:grid;grid-template-columns:300px 1fr 310px;grid-template-rows:1fr 150px;gap:8px;height:calc(100% - 44px);padding:8px}
+.p{background:linear-gradient(180deg,#0b1424,#070d19);border:1px solid var(--line);border-radius:8px;padding:8px 10px;overflow:hidden;position:relative}
+.p h4{margin:0 0 6px;font-size:10px;letter-spacing:.22em;color:var(--c);font-weight:700}
+.big{font-size:26px;font-weight:800}.row{display:flex;justify-content:space-between;padding:2px 0}.mut{color:var(--mut)}
+#orb{width:100%;height:100%;display:block}
+.grid>.p:nth-child(1){grid-column:1;grid-row:1}.center{grid-column:2;grid-row:1}.grid>.p:nth-child(3){grid-column:3;grid-row:1}.bottom{grid-column:1/4;grid-row:2}
+.gauge{margin:6px 0}.gauge .bar{height:7px;background:#12233a;border-radius:4px;overflow:hidden;margin-top:3px}.gauge .bar i{display:block;height:100%;background:var(--g)}
+.radar{display:grid;grid-template-columns:repeat(6,1fr);gap:3px}.radar div{border-radius:4px;padding:3px 1px;text-align:center;font-size:9.5px;border:1px solid #ffffff14}
+.feed{height:100%;overflow:auto}.feed div{padding:2px 0;border-bottom:1px solid #ffffff0d}.feed .a{color:var(--v);margin:0 6px}
+.agents{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;height:100%}.ag{border:1px solid var(--line);border-radius:6px;padding:5px 6px;overflow:hidden}.ag b{font-size:10px;letter-spacing:.12em}.ag p{margin:3px 0 0;color:#9bb6cf;font-size:10.5px}
+.ag.good{border-color:#22f08a66}.ag.bad{border-color:#ff4d6d66}.ag.warn{border-color:#f6c74466}
+.note{position:absolute;left:14px;bottom:8px;color:var(--mut);font-size:10px;pointer-events:none}
+</style></head><body>
+<div class="top"><b class="t">AT24 // PAPER DESK</b><span class="pill">PAPER &middot; REAL DATA &middot; NO REAL MONEY</span>
+ <span class="s">UTC <b id="clock"></b></span><span class="s">LAST CANDLE <b id="bar">-</b></span><span class="s">BTC <b id="btc">-</b></span>
+ <span class="s">MARKET <b id="mood">-</b></span><span class="s" style="margin-left:auto"><a href="/" style="color:var(--c)">standard view</a></span></div>
+<div class="grid">
+ <div class="p"><h4>ARMS &mdash; SAME MARKET, SAME RULES</h4>
+  <div class="row"><span>CLAUDE DESK</span><span id="a_d" class="big">-</span></div><div class="row mut"><span id="a_dd"></span></div>
+  <div class="row"><span>RULES ONLY</span><b id="a_r">-</b></div><div class="row"><span>RANDOM ENTRIES</span><b id="a_x">-</b></div>
+  <h4 style="margin-top:14px">RISK GAUGES</h4>
+  <div class="gauge"><div class="row"><span>Drawdown vs 20% halt</span><b id="g1t"></b></div><div class="bar"><i id="g1"></i></div></div>
+  <div class="gauge"><div class="row"><span>Day P&amp;L vs -5% stop</span><b id="g2t"></b></div><div class="bar"><i id="g2"></i></div></div>
+  <div class="gauge"><div class="row"><span>Exposure</span><b id="g3t"></b></div><div class="bar"><i id="g3"></i></div></div>
+  <div class="gauge"><div class="row"><span>Claude budget today</span><b id="g4t"></b></div><div class="bar"><i id="g4"></i></div></div>
+  <h4 style="margin-top:14px">OPEN POSITIONS</h4><div id="pos" class="mut">flat</div></div>
+ <div class="p center"><h4>AGENT NETWORK &mdash; coins in, decisions out</h4><canvas id="orb"></canvas>
+  <div class="note">Outer ring = the 30 coins (size = relative volume, colour = 24h move). Inner ring = the 6 agents + Reviewer; they glow when they last acted. Particles flow only along real candidate &rarr; decision paths.</div></div>
+ <div class="p"><h4>SYMBOL RADAR &mdash; relative volume</h4><div id="radar" class="radar"></div>
+  <h4 style="margin-top:12px">DECISION FEED</h4><div class="feed" id="feed" style="height:210px"></div></div>
+ <div class="p bottom"><div class="agents" id="agents"></div></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);const f=(n,d=2)=>n==null?'-':Number(n).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d});
+const cls=n=>n>0?'pos':n<0?'neg':'';let D=null,nodes=[],parts=[],T=0;
+const AG=['scout','risk_checker','sentiment','strategy','execution','risk_manager','reviewer'],LBL={scout:'SCOUT',risk_checker:'RISK CHK',sentiment:'SENTIMENT',strategy:'STRATEGY',execution:'EXECUTION',risk_manager:'RISK MGR',reviewer:'REVIEWER'};
+setInterval(()=>$('clock').textContent=new Date().toISOString().slice(11,19),1000);
+function col(v){return v>0?`rgba(34,240,138,${Math.min(1,.35+Math.abs(v)/6)})`:`rgba(255,77,109,${Math.min(1,.35+Math.abs(v)/6)})`}
+async function load(){try{D=await (await fetch('/api/state',{cache:'no-store'})).json()}catch(e){return}
+ if(!D.ready)return;const a=D.arms,s=a.desk.stats;
+ $('bar').textContent=(D.last_bar||'').slice(5,16).replace('T',' ');const b=D.ticker.find(t=>t.symbol==='BTCUSDT');$('btc').innerHTML=b?f(b.price,0)+' <span class="'+cls(b.chg24)+'">'+f(b.chg24,1)+'%</span>':'-';
+ $('mood').textContent='breadth '+f(D.regime.breadth_above_ema200_pct,0)+'% above EMA200 | BTC 7d '+f(D.regime.btc_7d_pct,1)+'%';
+ const set=(id,t)=>{$(id).innerHTML=(t.return_pct>=0?'+':'')+f(t.return_pct)+'% <span class="mut" style="font-size:10px">('+t.trades+' trades)</span>';$(id).className=cls(t.return_pct)};
+ set('a_d',a.desk.stats);set('a_r',a.rules.stats);set('a_x',a.random.stats);$('a_dd').textContent='equity '+f(s.equity)+' | max DD '+f(s.max_dd_pct)+'% | win '+(s.win_pct==null?'-':f(s.win_pct,0)+'%')+' | PF '+(s.profit_factor==null?'-':f(s.profit_factor));
+ const dd=Math.abs(Math.min(0,s.max_dd_pct)),day=Math.max(0,-s.day_pnl/s.equity*100),exp=D.positions.reduce((x,p)=>x+p.qty*(p.price||p.entry),0)/s.equity*100,lm=D.llm;
+ const G=(i,v,max,t)=>{$('g'+i).style.width=Math.min(100,v/max*100)+'%';$('g'+i).style.background=v/max>.7?'#ff4d6d':v/max>.4?'#f6c744':'#22f08a';$('g'+i+'t').textContent=t};
+ G(1,dd,20,f(dd,1)+'% / 20%');G(2,day,5,f(day,1)+'% / 5%');G(3,exp,100,f(exp,0)+'% of equity');G(4,lm.spent_today_usd||0,lm.budget_usd||1,'$'+f(lm.spent_today_usd,3)+' / $'+f(lm.budget_usd,0));
+ $('pos').innerHTML=D.positions.length?D.positions.map(p=>`<div class="row"><span>${p.symbol}</span><span class="${cls(p.pnl_pct)}">${f(p.pnl_pct)}%</span></div>`).join(''):'flat';
+ $('radar').innerHTML=(D.radar||[]).slice().sort((x,y)=>(y.rel_volume||0)-(x.rel_volume||0)).map(r=>`<div style="background:${r.liquid?col(r.chg24||0).replace(/[\d.]+\)$/,'.18)'):'#ffffff05'};${r.breakout?'border-color:#f6c744;':''}" title="rel vol ${r.rel_volume}, 24h ${r.chg24}%"><b>${r.symbol.replace('USDT','')}</b><br>x${f(r.rel_volume,1)}</div>`).join('');
+ $('feed').innerHTML=D.activity.slice(0,40).map(x=>`<div class="${x.level==='good'?'pos':x.level==='bad'?'neg':''}"><span class="mut">${(x.ts||'').slice(11,16)}</span><span class="a">${x.agent.replace('_',' ')}</span>${(x.text||'').replace(/</g,'&lt;')}</div>`).join('');
+ $('agents').innerHTML=D.agents.map(x=>`<div class="ag ${x.level||''}"><b>${LBL[x.name]||x.name}</b><p>${(x.text||'idle').replace(/</g,'&lt;').slice(0,170)}</p></div>`).join('');
+ nodes=(D.radar||[]).map(r=>({s:r.symbol.replace('USDT',''),v:r.rel_volume||0,c:r.chg24||0,hot:(r.rel_volume||0)>=1.3&&r.bullish,bo:r.breakout}));}
+function frame(){const c=$('orb'),dpr=devicePixelRatio||1,W=c.clientWidth,H=c.clientHeight;if(c.width!==W*dpr||c.height!==H*dpr){c.width=W*dpr;c.height=H*dpr}
+ const x=c.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.fillStyle='#050912';x.fillRect(0,0,W,H);T+=.016;const cx=W/2,cy=H/2,R=Math.min(W,H)*.43,r2=R*.5;
+ const g=x.createRadialGradient(cx,cy,5,cx,cy,R);g.addColorStop(0,'#16305a55');g.addColorStop(1,'#00000000');x.fillStyle=g;x.beginPath();x.arc(cx,cy,R*1.05,0,7);x.fill();
+ x.strokeStyle='#17304a';x.lineWidth=1;[R,r2,r2*.45].forEach(r=>{x.beginPath();x.arc(cx,cy,r,0,7);x.stroke()});
+ const agents=AG.map((n,i)=>{const a=-Math.PI/2+i*2*Math.PI/AG.length;return{n,x:cx+Math.cos(a)*r2,y:cy+Math.sin(a)*r2}});
+ const now=Date.now(),act=D?Object.fromEntries(D.agents.map(a=>[a.name,a])):{};
+ // coins
+ const N=nodes.length||1,pts=nodes.map((n,i)=>{const a=-Math.PI/2+i*2*Math.PI/N+Math.sin(T*.3+i)*.01;return{...n,x:cx+Math.cos(a)*R,y:cy+Math.sin(a)*R}});
+ pts.forEach(p=>{if(p.hot){const sc=agents[0];x.strokeStyle='rgba(49,212,255,.35)';x.lineWidth=1;x.beginPath();x.moveTo(p.x,p.y);x.lineTo(sc.x,sc.y);x.stroke();
+   if(Math.random()<.04)parts.push({x1:p.x,y1:p.y,x2:sc.x,y2:sc.y,t:0,c:'#31d4ff'})}});
+ for(let i=0;i<agents.length;i++){const a=agents[i],b=agents[(i+1)%agents.length];x.strokeStyle='#1f4466';x.lineWidth=1;x.beginPath();x.moveTo(a.x,a.y);x.lineTo(b.x,b.y);x.stroke();
+   x.strokeStyle='#1f446655';x.beginPath();x.moveTo(a.x,a.y);x.lineTo(cx,cy);x.stroke()}
+ // agent chain particles run along the real pipeline when something was decided recently
+ const recent=D&&D.activity.length&&(now-new Date(D.activity[0].ts))<3600e3;if(recent&&Math.random()<.05){const i=Math.floor(Math.random()*5);parts.push({x1:agents[i].x,y1:agents[i].y,x2:agents[i+1].x,y2:agents[i+1].y,t:0,c:'#a78bfa'})}
+ parts=parts.filter(p=>p.t<1);parts.forEach(p=>{p.t+=.02;const px=p.x1+(p.x2-p.x1)*p.t,py=p.y1+(p.y2-p.y1)*p.t;x.fillStyle=p.c;x.shadowColor=p.c;x.shadowBlur=8;x.beginPath();x.arc(px,py,2.2,0,7);x.fill();x.shadowBlur=0});
+ pts.forEach(p=>{const rr=3+Math.min(9,p.v*1.8);x.fillStyle=col(p.c);x.shadowColor=p.hot?'#31d4ff':'transparent';x.shadowBlur=p.hot?14:0;x.beginPath();x.arc(p.x,p.y,rr,0,7);x.fill();x.shadowBlur=0;
+   if(p.bo){x.strokeStyle='#f6c744';x.lineWidth=1.5;x.beginPath();x.arc(p.x,p.y,rr+3,0,7);x.stroke()}
+   x.fillStyle='#8fb0cc';x.font='9px monospace';const ang=Math.atan2(p.y-cy,p.x-cx);x.textAlign=Math.cos(ang)>0?'left':'right';x.fillText(p.s,p.x+Math.cos(ang)*(rr+5),p.y+Math.sin(ang)*(rr+5)+3)});
+ agents.forEach(a=>{const st=act[a.n],age=st&&st.ts?(now-new Date(st.ts))/60000:1e9,glow=Math.max(0,1-age/90),lvl=st&&st.level,cc=lvl==='bad'?'#ff4d6d':lvl==='good'?'#22f08a':lvl==='warn'?'#f6c744':'#a78bfa';
+   x.fillStyle='#0b1424';x.strokeStyle=cc;x.lineWidth=1+glow*2;x.shadowColor=cc;x.shadowBlur=glow*18;x.beginPath();x.arc(a.x,a.y,15,0,7);x.fill();x.stroke();x.shadowBlur=0;
+   x.fillStyle='#cfe3f5';x.font='bold 8.5px monospace';x.textAlign='center';x.fillText(LBL[a.n],a.x,a.y+3)});
+ const pulse=2+Math.sin(T*2)*1.5;x.fillStyle='#0b1424';x.strokeStyle='#f6c744';x.lineWidth=2;x.shadowColor='#f6c744';x.shadowBlur=14+pulse;x.beginPath();x.arc(cx,cy,22,0,7);x.fill();x.stroke();x.shadowBlur=0;
+ x.fillStyle='#f6c744';x.font='bold 9px monospace';x.textAlign='center';x.fillText('RISK',cx,cy-1);x.fillText('ENGINE',cx,cy+9);
+ requestAnimationFrame(frame)}
+load();setInterval(load,3000);frame();
+</script></body></html>

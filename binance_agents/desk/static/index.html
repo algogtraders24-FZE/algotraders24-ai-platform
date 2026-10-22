@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AT24 Paper Desk</title>
+<style>
+:root{--bg:#0B0F19;--panel:rgba(255,255,255,.035);--line:rgba(255,255,255,.09);--tx:#e7ecf5;--mut:#7d8aa5;--g:#22f08a;--r:#ff5d73;--b:#7c8cff;--y:#f6c744}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(1200px 600px at 70% -10%,#16204a55,transparent),var(--bg);color:var(--tx);font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+header{display:flex;flex-wrap:wrap;gap:22px;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line)}
+.brand{font-weight:800;letter-spacing:.18em;color:var(--y)}.brand small{display:block;color:var(--mut);letter-spacing:.05em;font-weight:400}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--g);box-shadow:0 0 10px var(--g);margin-right:6px}.dot.off{background:var(--r);box-shadow:0 0 10px var(--r)}
+.kpi{display:flex;flex-direction:column}.kpi b{font-size:18px}.kpi span{color:var(--mut);font-size:11px}
+.pos{color:var(--g)}.neg{color:var(--r)}
+.paper{background:#f6c74422;border:1px solid #f6c74455;color:var(--y);padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700}
+main{display:grid;grid-template-columns:260px 1fr 330px;gap:14px;padding:14px 20px 70px}
+@media(max-width:1100px){main{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;backdrop-filter:blur(6px)}
+.card h3{margin:0 0 8px;font-size:11px;letter-spacing:.16em;color:var(--mut);font-weight:700}
+.agent{border:1px solid var(--line);border-left:3px solid var(--b);border-radius:10px;padding:8px 10px;margin-bottom:8px;background:#ffffff05}
+.agent.good{border-left-color:var(--g)}.agent.bad{border-left-color:var(--r)}.agent.warn{border-left-color:var(--y)}
+.agent b{letter-spacing:.1em;font-size:11px}.agent .t{color:var(--mut);font-size:10px;float:right}.agent p{margin:4px 0 0;color:#b9c3d8;font-size:11px;word-break:break-word}
+canvas{width:100%;height:270px;display:block}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:6px;font-size:11px}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px}
+table{width:100%;border-collapse:collapse;font-size:11.5px}th{color:var(--mut);text-align:left;font-weight:600;padding:3px 4px}td{padding:4px;border-top:1px solid var(--line)}
+td.r,th.r{text-align:right}
+.feed{max-height:340px;overflow:auto}.feed div{padding:4px 0;border-top:1px solid var(--line);font-size:11.5px}.feed .a{color:var(--b);font-weight:700;margin-right:6px}.feed .m{color:var(--mut);margin-right:6px}
+.feed .good{color:#a6f5cc}.feed .bad{color:#ffb3bd}.feed .warn{color:#ffe29a}
+.tick{position:fixed;left:0;right:0;bottom:0;background:#070a12ee;border-top:1px solid var(--line);padding:8px 20px;display:flex;gap:26px;overflow:auto;white-space:nowrap}
+.note{color:var(--mut);font-size:11px;margin-top:8px}
+.badge{font-size:10px;padding:1px 6px;border-radius:5px;border:1px solid var(--line);color:var(--mut)}
+</style></head><body>
+<header>
+  <div class="brand">ALGOTRADERS24 AI<small>Paper desk &middot; Binance Spot &middot; Claude agents</small></div>
+  <div><span id="dot" class="dot"></span><span id="status">connecting...</span> <span class="paper">PAPER &middot; no real money</span></div>
+  <div class="kpi"><b id="k_eq">-</b><span>Desk equity (start 10,000)</span></div>
+  <div class="kpi"><b id="k_ret">-</b><span>Desk return</span></div>
+  <div class="kpi"><b id="k_day">-</b><span>Desk P&amp;L today</span></div>
+  <div class="kpi"><b id="k_win">-</b><span>Win rate / trades</span></div>
+  <div class="kpi"><b id="k_llm">-</b><span>Claude spend today (est.)</span></div>
+  <div class="kpi"><b id="k_reg">-</b><span>Market (BTC 24h / breadth)</span></div>
+</header>
+<main>
+  <section class="card"><h3>AGENTS</h3><div id="agents"></div></section>
+  <section>
+    <div class="card" style="margin-bottom:14px"><h3>EQUITY: CLAUDE DESK vs RULES vs RANDOM (return %)</h3>
+      <div class="legend"><span><i style="background:#22f08a"></i>Claude desk</span><span><i style="background:#7c8cff"></i>Rules only</span><span><i style="background:#8a93a6"></i>Random entries</span></div>
+      <canvas id="chart"></canvas>
+      <div class="note" id="chartnote"></div>
+    </div>
+    <div class="card" style="margin-bottom:14px"><h3>SCOREBOARD - does the Claude desk beat the rules and a coin flip?</h3><table id="score"></table>
+      <div class="note">All three trade the same market with the same risk rules, fees and slippage. Fewer than ~100 trades per arm proves nothing - treat early numbers as noise.</div></div>
+    <div class="card"><h3>ACTIVITY FEED</h3><div class="feed" id="feed"></div></div>
+  </section>
+  <section>
+    <div class="card" style="margin-bottom:14px"><h3>OPEN POSITIONS (desk)</h3><table id="pos"></table></div>
+    <div class="card" style="margin-bottom:14px"><h3>PENDING LIMIT ORDERS</h3><table id="pend"></table></div>
+    <div class="card" style="margin-bottom:14px"><h3>RECENT TRADES (desk)</h3><table id="trades"></table></div>
+    <div class="card"><h3>REVIEWER LESSONS <span class="badge">one-sample anecdotes</span></h3><div id="lessons" class="note"></div></div>
+  </section>
+</main>
+<div class="tick" id="ticker"></div>
+<script>
+const $=id=>document.getElementById(id);const f=(n,d=2)=>n==null?'-':Number(n).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d});
+const cls=n=>n>0?'pos':(n<0?'neg':'');const ago=s=>{if(!s)return'';const m=Math.round((Date.now()-new Date(s))/60000);return m<1?'now':m<60?m+'m':Math.round(m/60)+'h'};
+function draw(arms){const c=$('chart'),dpr=devicePixelRatio||1,W=c.clientWidth,H=c.clientHeight;c.width=W*dpr;c.height=H*dpr;const x=c.getContext('2d');x.scale(dpr,dpr);x.clearRect(0,0,W,H);
+ const cols={desk:'#22f08a',rules:'#7c8cff',random:'#8a93a6'};let all=[];for(const k in arms){const e=arms[k].equity;if(e.length)all.push(...e.map(p=>p[1]/e[0][1]*100-100))}
+ if(!all.length){x.fillStyle='#7d8aa5';x.fillText('waiting for the first cycles...',20,30);return}
+ let lo=Math.min(0,...all),hi=Math.max(0,...all);if(hi-lo<1){hi+=.5;lo-=.5}const pad=26,iy=v=>H-pad-(v-lo)/(hi-lo)*(H-2*pad);
+ x.strokeStyle='#ffffff14';x.fillStyle='#7d8aa5';x.font='10px monospace';for(let i=0;i<=4;i++){const v=lo+(hi-lo)*i/4,y=iy(v);x.beginPath();x.moveTo(40,y);x.lineTo(W,y);x.stroke();x.fillText(v.toFixed(1)+'%',2,y+3)}
+ const zero=iy(0);x.strokeStyle='#ffffff30';x.setLineDash([4,4]);x.beginPath();x.moveTo(40,zero);x.lineTo(W,zero);x.stroke();x.setLineDash([]);
+ for(const k of ['random','rules','desk']){const e=arms[k]?.equity||[];if(e.length<1)continue;x.strokeStyle=cols[k];x.lineWidth=k==='desk'?2.2:1.4;x.beginPath();
+  e.forEach((p,i)=>{const px=40+(W-48)*(e.length===1?1:i/(e.length-1)),py=iy(p[1]/e[0][1]*100-100);i?x.lineTo(px,py):x.moveTo(px,py)});x.stroke()}}
+async function tick(){let d;try{d=await (await fetch('/api/state',{cache:'no-store'})).json()}catch(e){$('status').textContent='dashboard offline';$('dot').className='dot off';return}
+ if(!d.ready){$('status').textContent='waiting for the first cycle (run: python -m binance_agents desk --once)';return}
+ $('status').textContent='LIVE DATA - last candle '+(d.last_bar||'').slice(0,16).replace('T',' ')+' UTC';$('dot').className='dot';
+ const s=d.arms.desk.stats;$('k_eq').textContent=f(s.equity);$('k_ret').textContent=(s.return_pct>=0?'+':'')+f(s.return_pct)+'%';$('k_ret').className=cls(s.return_pct);
+ $('k_day').textContent=(s.day_pnl>=0?'+':'')+f(s.day_pnl);$('k_day').className=cls(s.day_pnl);$('k_win').textContent=(s.win_pct==null?'-':f(s.win_pct,0)+'%')+' / '+s.trades;
+ $('k_llm').textContent='$'+f(d.llm.spent_today_usd,3)+' / $'+f(d.llm.budget_usd,0);$('k_reg').textContent=(d.regime.btc_24h_pct>=0?'+':'')+f(d.regime.btc_24h_pct,1)+'% / '+f(d.regime.breadth_above_ema200_pct,0)+'%';
+ $('agents').innerHTML=d.agents.map(a=>`<div class="agent ${a.level||''}"><b>${a.name.replace('_',' ').toUpperCase()}</b><span class="t">${ago(a.ts)}</span><p>${(a.text||'idle').replace(/</g,'&lt;')}</p></div>`).join('');
+ draw(d.arms);const n=d.arms.desk.equity.length;$('chartnote').textContent=n<2?'The curve fills in as hourly candles close.':n+' hourly points';
+ const rows=[['Claude desk','desk'],['Rules only','rules'],['Random entries','random']];
+ $('score').innerHTML='<tr><th>Arm</th><th class="r">Equity</th><th class="r">Return</th><th class="r">Trades</th><th class="r">Win%</th><th class="r">PF</th><th class="r">Avg R</th><th class="r">Max DD</th></tr>'+
+  rows.map(([n,k])=>{const t=d.arms[k].stats;return `<tr><td>${n}${t.halted?' <span class="badge neg">HALTED</span>':''}</td><td class="r">${f(t.equity)}</td><td class="r ${cls(t.return_pct)}">${f(t.return_pct)}%</td><td class="r">${t.trades}</td><td class="r">${t.win_pct==null?'-':f(t.win_pct,0)}</td><td class="r">${t.profit_factor==null?'-':f(t.profit_factor)}</td><td class="r">${t.avg_r==null?'-':f(t.avg_r)}</td><td class="r neg">${f(t.max_dd_pct)}%</td></tr>`}).join('');
+ $('feed').innerHTML=d.activity.map(a=>`<div class="${a.level}"><span class="m">${(a.ts||'').slice(11,16)}</span><span class="a">${a.agent.replace('_',' ')}</span>${a.arm!=='desk'?'<span class="badge">'+a.arm+'</span> ':''}${(a.text||'').replace(/</g,'&lt;')}</div>`).join('')||'<div class="m">no activity yet</div>';
+ $('pos').innerHTML=d.positions.length?'<tr><th>Symbol</th><th class="r">Entry</th><th class="r">Now</th><th class="r">P&amp;L</th><th class="r">Stop</th></tr>'+d.positions.map(p=>`<tr><td>${p.symbol}</td><td class="r">${f(p.entry,4)}</td><td class="r">${f(p.price,4)}</td><td class="r ${cls(p.pnl_pct)}">${f(p.pnl_pct)}%</td><td class="r">${f(p.stop,4)}</td></tr>`).join(''):'<tr><td class="m">flat</td></tr>';
+ $('pend').innerHTML=d.pending.length?d.pending.map(p=>`<tr><td>${p.symbol}</td><td class="r">limit ${f(p.limit_price,4)}</td></tr>`).join(''):'<tr><td class="m">none</td></tr>';
+ $('trades').innerHTML=d.trades.length?d.trades.map(t=>`<tr><td>${t.symbol}</td><td>${t.reason}</td><td class="r ${cls(t.pnl)}">${t.pnl>=0?'+':''}${f(t.pnl)}</td><td class="r">${f(t.r)}R</td></tr>`).join(''):'<tr><td class="m">no closed trades yet</td></tr>';
+ $('lessons').innerHTML=d.lessons.length?d.lessons.map(l=>`<div style="margin-bottom:6px"><b>${l.symbol}</b> (${l.cause}) ${(l.lesson||'').replace(/</g,'&lt;')}</div>`).join(''):'none yet';
+ $('ticker').innerHTML=d.ticker.map(t=>`<span>${t.symbol.replace('USDT','')} ${f(t.price,t.price<10?4:2)} <span class="${cls(t.chg24)}">${t.chg24>=0?'▲':'▼'}${f(Math.abs(t.chg24||0),1)}%</span></span>`).join('');}
+tick();setInterval(tick,3000);addEventListener('resize',tick);
+</script></body></html>
