@@ -7,6 +7,11 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
 import PageHero from "@/components/marketing/PageHero";
 import Card from "@/components/ui/Card";
+import { SOCIAL_PROFILES } from "@/config/social";
+
+// The channel and its Beginner Guide playlist (Parts 1-10). The embed uses the privacy-enhanced youtube-nocookie.com host.
+const YOUTUBE_CHANNEL = SOCIAL_PROFILES.find((p) => p.id === "youtube")?.href ?? "https://www.youtube.com/@algotraders-24";
+const BEGINNER_PLAYLIST_ID = "PLfKapoY0lGOA";
 
 export const metadata: Metadata = {
   title: "Tutorials",
@@ -135,6 +140,35 @@ export default function TutorialsPage() {
               Your first 15 minutes with AT24
             </Link>
           </Card>
+        </div>
+      </section>
+
+      <section className="px-6 pt-8">
+        <div className="mx-auto max-w-3xl">
+          <h2 className="text-xl font-semibold">Watch: the Beginner Guide</h2>
+          <p className="mt-2 text-sm leading-6 text-text-2">
+            Short videos that take a new user from sign-up to the free demo, one tool at a time. Educational content, not financial advice.
+          </p>
+          <div className="mt-4 aspect-video w-full overflow-hidden rounded-card border border-border bg-ink-2">
+            <iframe
+              className="h-full w-full"
+              src={`https://www.youtube-nocookie.com/embed/videoseries?list=${BEGINNER_PLAYLIST_ID}`}
+              title="Algotraders24 AI Beginner Guide (YouTube playlist)"
+              loading="lazy"
+              referrerPolicy="strict-origin-when-cross-origin"
+              allow="encrypted-media; picture-in-picture; fullscreen"
+              allowFullScreen
+            />
+          </div>
+          <p className="mt-3 text-sm text-text-2">
+            <a href={`https://www.youtube.com/playlist?list=${BEGINNER_PLAYLIST_ID}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-gold underline-offset-4 hover:underline">
+              Open the playlist on YouTube
+            </a>
+            {" · "}
+            <a href={`${YOUTUBE_CHANNEL}?sub_confirmation=1`} target="_blank" rel="noopener noreferrer" className="font-semibold text-gold underline-offset-4 hover:underline">
+              Subscribe to the channel
+            </a>
+          </p>
         </div>
       </section>
 

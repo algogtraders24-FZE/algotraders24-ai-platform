@@ -59,7 +59,9 @@ const nextConfig: NextConfig = {
   // (lib/marketplace/mediaStorage.ts); if the Supabase project URL ever
   // changes, this value must be updated to match. frame-src's Turnstile
   // origin covers the internal iframe Turnstile's own script creates for
-  // the CAPTCHA widget (this app never writes an <iframe> itself).
+  // the CAPTCHA widget. The one iframe this app writes itself is the YouTube
+  // beginner-guide playlist on /resources/tutorials (youtube-nocookie.com,
+  // the privacy-enhanced embed host).
   // frame-ancestors 'none' is the CSP-native clickjacking defense used
   // here instead of X-Frame-Options - no page in this app is ever
   // legitimately embedded in another site's frame.
@@ -84,7 +86,7 @@ const nextConfig: NextConfig = {
           {
             key: "Content-Security-Policy",
             value:
-              "default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://s3.tradingview.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://gyiwxsxgnnigoqpedzfw.supabase.co; connect-src 'self' https://gyiwxsxgnnigoqpedzfw.supabase.co; frame-src https://challenges.cloudflare.com; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
+              "default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://s3.tradingview.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://gyiwxsxgnnigoqpedzfw.supabase.co; connect-src 'self' https://gyiwxsxgnnigoqpedzfw.supabase.co; frame-src https://challenges.cloudflare.com https://www.youtube-nocookie.com; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
           },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
