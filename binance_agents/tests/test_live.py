@@ -89,19 +89,31 @@ class Push(unittest.TestCase):
         self.assertTrue(p.full({"ready": True, "arms": {}}))
         calls = sess.post.call_args_list
         self.assertEqual(calls[0].kwargs["headers"]["Authorization"], "Bearer tok")
-        self.assertEqual(calls[0].kwargs["json"]["kind"], "live")
-        self.assertEqual(calls[1].kwargs["json"]["kind"], "full")
+        self.assertEqual(json.loads(calls[0].kwargs["data"])["kind"], "live")
+        self.assertEqual(json.loads(calls[1].kwargs["data"])["kind"], "full")
 
     def test_push_failure_never_raises(self):
         sess = mock.Mock()
         sess.post.side_effect = requests.ConnectionError("down")
         p = ArenaPush("tok", session=sess)
         self.assertFalse(p.live({"ts": "x", "arms": {}}))
-        self.assertEqual(p.last_error, "ConnectionError")
+        self.assertTrue(p.last_error.startswith("ConnectionError"))
         sess.post.side_effect = None
         sess.post.return_value.status_code = 401
+        sess.post.return_value.text = "unauthorized"
         self.assertFalse(p.full({"ready": True, "arms": {}}))
-        self.assertEqual(p.last_error, "HTTP 401")
+        self.assertTrue(p.last_error.startswith("HTTP 401"))
+
+
+class PushStrict(unittest.TestCase):
+    def test_nan_and_inf_become_null_not_a_crash(self):
+        sess = mock.Mock()
+        sess.post.return_value.status_code = 200
+        p = ArenaPush("tok", session=sess)
+        self.assertTrue(p.full({"ready": True, "arms": {}, "x": float("nan"), "y": [float("inf"), 1.5]}))
+        body = json.loads(sess.post.call_args.kwargs["data"])
+        self.assertIsNone(body["payload"]["x"])
+        self.assertEqual(body["payload"]["y"], [None, 1.5])
 
 
 class Scheduling(unittest.TestCase):

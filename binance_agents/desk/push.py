@@ -4,11 +4,24 @@
 Only paper results are sent - never an exchange key. A failed push is logged and ignored: the bot never depends on the website."""
 from __future__ import annotations
 
+import json
+import math
 import os
 
 import requests
 
 DEFAULT_URL = "https://www.algotraders24.ai/api/arena/ingest"
+
+
+def clean(o):
+    """Strict JSON: NaN / inf become null (the website rejects non-standard numbers)."""
+    if isinstance(o, float) and (math.isnan(o) or math.isinf(o)):
+        return None
+    if isinstance(o, dict):
+        return {k: clean(v) for k, v in o.items()}
+    if isinstance(o, (list, tuple)):
+        return [clean(v) for v in o]
+    return o
 
 
 class ArenaPush:
@@ -24,13 +37,13 @@ class ArenaPush:
 
     def _post(self, body: dict) -> bool:
         try:
-            r = self.s.post(self.url, json=body, headers={"Authorization": f"Bearer {self.token}"}, timeout=10)
+            r = self.s.post(self.url, data=json.dumps(clean(body), allow_nan=False), headers={"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}, timeout=10)
             if r.status_code == 200:
                 self.last_error = ""
                 return True
-            self.last_error = f"HTTP {r.status_code}"
-        except requests.RequestException as e:
-            self.last_error = type(e).__name__
+            self.last_error = f"HTTP {r.status_code} {r.text[:80]}"
+        except Exception as e:  # network, encoding, anything: the bot must never depend on the website
+            self.last_error = f"{type(e).__name__}: {str(e)[:80]}"
         return False
 
     def full(self, payload: dict) -> bool:

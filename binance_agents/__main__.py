@@ -88,7 +88,17 @@ def cmd_desk(a):
     else:
         print("AT24_ARENA_TOKEN not set: results stay local (dashboard on this machine only)")
 
+    last_full = [time.time() if (push and desk.state.get("last_bar")) else 0.0]
+
+    def heartbeat():
+        """Re-send the full snapshot every 5 min so the website heals itself after a missed push or a restart."""
+        if push and desk.state.get("last_bar") and time.time() - last_full[0] > 300:
+            ok = push.full(build_payload(desk.dir))
+            last_full[0] = time.time()
+            print(datetime.now(timezone.utc).strftime("%H:%M:%S"), "heartbeat full push:", "ok" if ok else push.last_error)
+
     def tick():
+        heartbeat()
         live = build_live(desk)
         if live:
             write_live(desk, live)
@@ -102,6 +112,7 @@ def cmd_desk(a):
             if res.get("status") == "ok":
                 if push:
                     print("push full:", "ok" if push.full(build_payload(desk.dir)) else push.last_error)
+                    last_full[0] = time.time()
             else:
                 desk.backoff(30)
         tick()
