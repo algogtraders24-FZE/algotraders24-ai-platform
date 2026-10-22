@@ -18,6 +18,7 @@ const ADMIN_NAV = [
   { label: "Listing Reports", href: "/dashboard/admin/listing-reports" },
   { label: "Live Results", href: "/dashboard/admin/live-results" },
   { label: "Social", href: "/dashboard/admin/social" },
+  { label: "Arena", href: "/dashboard/admin/arena" },
   { label: "Announcements", href: "/dashboard/admin/announcements" },
   { label: "Knowledge", href: "/dashboard/admin/knowledge" },
   { label: "AI Usage Analytics", href: "/dashboard/admin/analytics" },

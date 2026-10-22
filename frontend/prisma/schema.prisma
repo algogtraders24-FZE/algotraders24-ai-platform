@@ -3789,3 +3789,17 @@ model BonusCreditGrant {
   @@index([userId, expiresAt])
   @@map("bonus_credit_grants")
 }
+
+// AT24 Arena: the latest snapshot of the paper-trading desk (Claude agents vs rules vs random), pushed by the bot that runs on the owner's VPS.
+// One row per arena (id "main"). Holds paper results only - no exchange or API keys ever. Additive table.
+model ArenaSnapshot {
+  id         String   @id
+  payload    Json
+  lastBar    String?
+  live       Json?
+  liveAt     DateTime?
+  receivedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("arena_snapshots")
+}
