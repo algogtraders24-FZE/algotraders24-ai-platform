@@ -58,6 +58,7 @@ import {
   Radio,
   Wallet,
   BellRing,
+  Trophy,
   type LucideIcon,
 } from "lucide-react";
 
@@ -237,6 +238,8 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       // older agent-builder scaffold) now redirects here, so the nav points
       // straight at it - one "AI Agents" destination, the framework itself.
       { label: "AI Agents", href: "/dashboard/agents/runs", icon: Cpu },
+      // AT24 Arena: the live paper-trading experiment (six Claude agents vs a plain rule vs a coin flip). Paper only, not signals.
+      { label: "AT24 Arena", href: "/dashboard/arena", icon: Trophy },
     ],
   },
   {
