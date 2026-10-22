@@ -21,7 +21,7 @@
 .note{position:absolute;left:14px;bottom:8px;color:var(--mut);font-size:10px;pointer-events:none}
 </style></head><body>
 <div class="top"><b class="t">AT24 // ARENA CRYPTO BOT</b><span class="pill">PAPER &middot; REAL DATA &middot; NO REAL MONEY</span>
- <span class="s">UTC <b id="clock"></b></span><span class="s">LAST CANDLE <b id="bar">-</b></span><span class="s">BTC <b id="btc">-</b></span>
+ <span class="s">UTC <b id="clock"></b></span><span class="s">LIVE <b id="live">-</b></span><span class="s">LAST CANDLE <b id="bar">-</b></span><span class="s">BTC <b id="btc">-</b></span>
  <span class="s">MARKET <b id="mood">-</b></span><span class="s" style="margin-left:auto"><a href="/" style="color:var(--c)">standard view</a></span></div>
 <div class="grid">
  <div class="p"><h4>ARMS &mdash; SAME MARKET, SAME RULES</h4>
@@ -47,7 +47,7 @@ setInterval(()=>$('clock').textContent=new Date().toISOString().slice(11,19),100
 function col(v){return v>0?`rgba(34,240,138,${Math.min(1,.35+Math.abs(v)/6)})`:`rgba(255,77,109,${Math.min(1,.35+Math.abs(v)/6)})`}
 async function load(){try{D=await (await fetch('/api/state',{cache:'no-store'})).json()}catch(e){return}
  if(!D.ready)return;const a=D.arms,s=a.desk.stats;
- $('bar').textContent=(D.last_bar||'').slice(5,16).replace('T',' ');const b=D.ticker.find(t=>t.symbol==='BTCUSDT');$('btc').innerHTML=b?f(b.price,0)+' <span class="'+cls(b.chg24)+'">'+f(b.chg24,1)+'%</span>':'-';
+ $('bar').textContent=(D.last_bar||'').slice(5,16).replace('T',' ');$('live').innerHTML=D.live_age==null?'-':(D.live_age<90?'<span class="pos">&#9679; '+D.live_age+'s ago</span>':'<span class="neg">stale '+Math.round(D.live_age/60)+' min</span>');const b=D.ticker.find(t=>t.symbol==='BTCUSDT');$('btc').innerHTML=b?f(b.price,0)+' <span class="'+cls(b.chg24)+'">'+f(b.chg24,1)+'%</span>':'-';
  $('mood').textContent='breadth '+f(D.regime.breadth_above_ema200_pct,0)+'% above EMA200 | BTC 7d '+f(D.regime.btc_7d_pct,1)+'%';
  const set=(id,t)=>{$(id).innerHTML=(t.return_pct>=0?'+':'')+f(t.return_pct)+'% <span class="mut" style="font-size:10px">('+t.trades+' trades)</span>';$(id).className=cls(t.return_pct)};
  set('a_d',a.desk.stats);set('a_r',a.rules.stats);set('a_x',a.random.stats);$('a_dd').textContent='equity '+f(s.equity)+' | max DD '+f(s.max_dd_pct)+'% | win '+(s.win_pct==null?'-':f(s.win_pct,0)+'%')+' | PF '+(s.profit_factor==null?'-':f(s.profit_factor));
@@ -60,7 +60,7 @@ async function load(){try{D=await (await fetch('/api/state',{cache:'no-store'}))
  $('agents').innerHTML=D.agents.map(x=>`<div class="ag ${x.level||''}"><b>${LBL[x.name]||x.name}</b><p>${(x.text||'idle').replace(/</g,'&lt;').slice(0,170)}</p></div>`).join('');
  nodes=(D.radar||[]).map(r=>({s:r.symbol.replace('USDT',''),v:r.rel_volume||0,c:r.chg24||0,hot:(r.rel_volume||0)>=1.3&&r.bullish,bo:r.breakout}));}
 function frame(){const c=$('orb'),dpr=devicePixelRatio||1,W=c.clientWidth,H=c.clientHeight;if(c.width!==W*dpr||c.height!==H*dpr){c.width=W*dpr;c.height=H*dpr}
- const x=c.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.fillStyle='#050912';x.fillRect(0,0,W,H);T+=.016;const cx=W/2,cy=H/2,R=Math.min(W,H)*.43,r2=R*.5;
+ const x=c.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.fillStyle='#050912';x.fillRect(0,0,W,H);T+=.016;const cx=W/2,cy=H/2-14,R=Math.min(W,H-70)*.43,r2=R*.5;
  const g=x.createRadialGradient(cx,cy,5,cx,cy,R);g.addColorStop(0,'#16305a55');g.addColorStop(1,'#00000000');x.fillStyle=g;x.beginPath();x.arc(cx,cy,R*1.05,0,7);x.fill();
  x.strokeStyle='#17304a';x.lineWidth=1;[R,r2,r2*.45].forEach(r=>{x.beginPath();x.arc(cx,cy,r,0,7);x.stroke()});
  const agents=AG.map((n,i)=>{const a=-Math.PI/2+i*2*Math.PI/AG.length;return{n,x:cx+Math.cos(a)*r2,y:cy+Math.sin(a)*r2}});
