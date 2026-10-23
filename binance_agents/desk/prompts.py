@@ -53,3 +53,34 @@ ROLE: REVIEWER (post-mortem). A trade just closed. In at most 2 sentences write 
 cause. Do not generalise from one trade; say 'one sample' when it is one.
 JSON: {"lesson":"<=45 words","cause":"good_setup|bad_setup|bad_luck|market_regime|stop_too_tight|stop_too_loose|execution","confidence_was_justified":true}""",
 }
+
+
+# --- Direct desk: the same six agents, but they trade a real Binance (Demo Mode) account and NO house rule is imposed on them -----------------------------
+DIRECT_COMMON = COMMON.replace("in PAPER mode (simulated money) so that the\ndesk's skill can be measured honestly", "on a Binance DEMO account (virtual funds) so that the\ndesk's skill can be measured honestly").replace(
+    "You cannot place orders. Your answer is a proposal: code validates it, clips every number to hard limits and a\nseparate rules engine can override you.",
+    "You cannot place orders yourself. Your answer is a decision proposal: code validates it, clips every number to hard limits, places the order and the\nstop-loss, and a separate rules engine can veto or shrink it.")
+
+DIRECT_SYSTEM = dict(SYSTEM)
+DIRECT_SYSTEM.update({
+    "scout": DIRECT_COMMON + """
+
+ROLE: SCOUT. From the candidate table (coins with unusual volume on the latest closed 1h candle) pick at most 3 worth a deeper look. Use any evidence in
+the table: volume spike, candle direction and size, distance to the recent high, volatility, the market context. No fixed rule is imposed on you.
+JSON: {"picks":[{"symbol":"BTCUSDT","why":"<=25 words","invalidation":"<=15 words"}],"note":"<=20 words"}""",
+
+    "strategy": DIRECT_COMMON + """
+
+ROLE: STRATEGY (the decision maker). Decide BUY or SKIP for each pick, and HOLD / TIGHTEN / EXIT for each open position. There is NO house rule: decide from
+the evidence you are given (price action statistics, volume, order-book pressure, market regime, your open positions, past lessons). Only BUY when you can name a
+specific reason AND what would prove you wrong. This is long-only spot: when you would rather short, SKIP. conviction is 0..1 and will be scored against the
+outcome, so do not inflate it. stop_atr (distance of the protective stop in ATRs) must be 1.0-3.0. TIGHTEN may only move a stop UP.
+JSON: {"decisions":[{"symbol":"BTCUSDT","action":"BUY|SKIP","conviction":0.0,"stop_atr":2.0,"thesis":"<=35 words","invalidation":"<=15 words"}],
+"positions":[{"symbol":"ETHUSDT","action":"HOLD|TIGHTEN|EXIT","stop_atr":1.5,"why":"<=20 words"}]}""",
+
+    "execution": DIRECT_COMMON + """
+
+ROLE: EXECUTION. For each approved BUY choose MARKET (buy now at the ask) or WAIT (do not buy this hour, e.g. the candle is stretched and a pullback is likely).
+JSON: {"orders":[{"symbol":"BTCUSDT","type":"MARKET|WAIT","why":"<=15 words"}]}""",
+})
+for _k in ("risk_checker", "sentiment", "risk_manager", "reviewer"):
+    DIRECT_SYSTEM[_k] = SYSTEM[_k].replace(COMMON, DIRECT_COMMON)

@@ -21,6 +21,7 @@ import requests
 from ..config import Costs, Live
 
 TESTNET_URL = "https://testnet.binance.vision"
+DEMO_URL = "https://demo-api.binance.com"      # Binance Spot Demo Mode: live-like prices, virtual funds, keys from the Demo Trading page
 LIVE_URL = "https://api.binance.com"
 
 
@@ -79,18 +80,23 @@ class SafetyError(RuntimeError):
 
 
 class BinanceBroker:
+    ENVS = {
+        "testnet": ("BINANCE_TESTNET_API_KEY", "BINANCE_TESTNET_API_SECRET", TESTNET_URL),
+        "demo": ("BINANCE_DEMO_API_KEY", "BINANCE_DEMO_API_SECRET", DEMO_URL),
+        "live": ("BINANCE_API_KEY", "BINANCE_API_SECRET", LIVE_URL),
+    }
+
     def __init__(self, live: Live, env: str | None = None, session: requests.Session | None = None):
         self.cfg = live
         self.env = (env or os.environ.get("BINANCE_ENV", "")).lower()
-        if self.env not in ("testnet", "live"):
-            raise SafetyError("BINANCE_ENV must be 'testnet' or 'live' to use the real broker (paper mode needs no broker).")
+        if self.env not in self.ENVS:
+            raise SafetyError("BINANCE_ENV must be 'demo', 'testnet' or 'live' to use the real broker (paper mode needs no broker).")
         if self.env == "live" and (os.environ.get("BINANCE_LIVE_CONFIRM") != "YES-I-ACCEPT-REAL-LOSSES"):
             raise SafetyError("Live trading needs BINANCE_LIVE_CONFIRM=YES-I-ACCEPT-REAL-LOSSES in the environment.")
-        key_var, sec_var = ("BINANCE_TESTNET_API_KEY", "BINANCE_TESTNET_API_SECRET") if self.env == "testnet" else ("BINANCE_API_KEY", "BINANCE_API_SECRET")
+        key_var, sec_var, self.base = self.ENVS[self.env]
         self.key, self.secret = os.environ.get(key_var, ""), os.environ.get(sec_var, "")
         if not self.key or not self.secret:
             raise SafetyError(f"{key_var} / {sec_var} are not set in the environment.")
-        self.base = TESTNET_URL if self.env == "testnet" else LIVE_URL
         self.s = session or requests.Session()
         self.s.headers["X-MBX-APIKEY"] = self.key
         if self.env == "live":
@@ -156,6 +162,37 @@ class BinanceBroker:
         quote = float(o["cummulativeQuoteQty"])
         fee_usdt = sum(float(f["commission"]) for f in o.get("fills", []) if f.get("commissionAsset") == "USDT")
         return Fill(symbol, "SELL", executed, quote / executed if executed else 0.0, fee_usdt, str(o["orderId"]))
+
+    # ---- account (read-only) ------------------------------------------------------------
+    def account(self) -> dict:
+        return self._request("GET", "/api/v3/account")
+
+    def open_orders(self, symbol: str | None = None) -> list[dict]:
+        return self._request("GET", "/api/v3/openOrders", {"symbol": symbol} if symbol else {})
+
+    def my_trades(self, symbol: str, limit: int = 50) -> list[dict]:
+        return self._request("GET", "/api/v3/myTrades", {"symbol": symbol, "limit": limit})
+
+    def order(self, symbol: str, order_id: str) -> dict:
+        return self._request("GET", "/api/v3/order", {"symbol": symbol, "orderId": order_id})
+
+    def price(self, symbol: str) -> float:
+        return float(self._request("GET", "/api/v3/ticker/price", {"symbol": symbol}, signed=False)["price"])
+
+    def book(self, symbol: str, limit: int = 50) -> dict:
+        return self._request("GET", "/api/v3/depth", {"symbol": symbol, "limit": limit}, signed=False)
+
+    def filters(self, symbol: str) -> dict:
+        info = self._request("GET", "/api/v3/exchangeInfo", {"symbol": symbol}, signed=False)["symbols"][0]
+        out = {"status": info["status"], "tickSize": 0.0, "stepSize": 0.0, "minNotional": 0.0, "minQty": 0.0}
+        for f in info["filters"]:
+            if f["filterType"] == "PRICE_FILTER":
+                out["tickSize"] = float(f["tickSize"])
+            elif f["filterType"] == "LOT_SIZE":
+                out["stepSize"], out["minQty"] = float(f["stepSize"]), float(f["minQty"])
+            elif f["filterType"] in ("NOTIONAL", "MIN_NOTIONAL"):
+                out["minNotional"] = float(f.get("minNotional", 0.0))
+        return out
 
     def usdt_balance(self) -> float:
         acct = self._request("GET", "/api/v3/account")

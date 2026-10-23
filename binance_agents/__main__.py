@@ -97,9 +97,31 @@ def cmd_desk(a):
             last_full[0] = time.time()
             print(datetime.now(timezone.utc).strftime("%H:%M:%S"), "heartbeat full push:", "ok" if ok else push.last_error)
 
+    direct = None
+    if a.direct:
+        import os
+        from .agents.execution import BinanceBroker, SafetyError
+        from .desk.direct import DirectDesk
+        env = os.environ.get("BINANCE_ENV", "demo").lower()
+        if env == "live":
+            print("Live trading is intentionally NOT enabled in this version. Use BINANCE_ENV=demo (default) or testnet.")
+            return
+        try:
+            direct = DirectDesk(cfg, llm, BinanceBroker(cfg.live, env=env), data=desk.data)
+        except SafetyError as e:
+            print("Direct desk NOT started:", e)
+            return
+        print(f"Direct desk ON: Claude agents trade the Binance {env.upper()} account (virtual funds)")
+
     def tick():
         heartbeat()
         live = build_live(desk)
+        if direct and live:
+            la = direct.live_account()
+            if la:
+                live["arms"]["demo"] = {k: la[k] for k in ("equity", "return_pct", "day_pnl", "open")}
+                live["account"] = la["account"]
+                direct.save_direct()
         if live:
             write_live(desk, live)
             if push and not push.live(live):
@@ -115,6 +137,11 @@ def cmd_desk(a):
                     last_full[0] = time.time()
             else:
                 desk.backoff(30)
+        if direct and (direct.cycle_due() or not a.loop):
+            dres = direct.run_cycle()
+            print(datetime.now(timezone.utc).strftime("%H:%M:%S"), "DIRECT", json.dumps(dres, default=str)[:600], "| llm spend $%.4f" % llm.spent_today())
+            if dres.get("status") != "ok":
+                direct.backoff(30)
         tick()
         if not a.loop:
             break
@@ -144,6 +171,7 @@ def main(argv=None):
     d.add_argument("--fake", action="store_true", help="offline stand-in for Claude (no API calls)")
     d.add_argument("--budget", type=float, default=3.0, help="daily Claude budget in USD (estimate)")
     d.add_argument("--reset", action="store_true", help="wipe the paper state and start again")
+    d.add_argument("--direct", action="store_true", help="ALSO run the direct desk: Claude agents trade a Binance DEMO account (needs BINANCE_DEMO_API_KEY / _SECRET). Live is not enabled.")
     d.set_defaults(fn=cmd_desk)
     s = sub.add_parser("dashboard")
     s.add_argument("--port", type=int, default=8800)

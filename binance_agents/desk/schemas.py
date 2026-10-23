@@ -87,6 +87,18 @@ def parse_execution(d: dict | None, symbols: set[str]) -> dict[str, dict]:
     return res
 
 
+def parse_execution_direct(d: dict | None, symbols: set[str]) -> dict[str, dict]:
+    """Direct desk: MARKET (buy now) or WAIT (skip this hour). Silence or garbage means WAIT - no order without an explicit MARKET."""
+    res = {s: {"type": "WAIT", "why": "no answer from Execution"} for s in symbols}
+    for x in _items(d, "orders"):
+        s = text(x.get("symbol"), 20).upper()
+        if s in res and text(x.get("type"), 8).upper() == "MARKET":
+            res[s] = {"type": "MARKET", "why": text(x.get("why"), 120)}
+        elif s in res:
+            res[s] = {"type": "WAIT", "why": text(x.get("why"), 120)}
+    return res
+
+
 def parse_manager(d: dict | None, symbols: set[str]) -> tuple[dict[str, dict], str]:
     res = {s: {"approve": False, "size_multiplier": 0.0, "why": "no answer from Risk Manager"} for s in symbols}                    # default VETO
     for x in _items(d, "approvals"):

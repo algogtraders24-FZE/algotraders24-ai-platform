@@ -44,6 +44,22 @@ setx AT24_ARENA_TOKEN "the-same-secret-as-ARENA_INGEST_SECRET-on-the-website"
 ```
 then open a NEW window and start the bot. No token = nothing is sent and the dashboard stays local.
 
+## Direct desk: Claude agents on a Binance DEMO account
+`python -m binance_agents desk --loop --direct` runs everything above AND a second desk where the six Claude agents **decide** (no house rule: no EMA, no breakout) and the
+orders go to a real Binance account through the Spot API - **Binance Demo Mode by default (virtual funds, `demo-api.binance.com`)**. Live trading is intentionally refused.
+
+Needs a demo API key (Binance > Demo Trading > API Key Management; spot trading only). Set it once on the VPS, never in chat:
+```
+setx BINANCE_DEMO_API_KEY "..."      setx BINANCE_DEMO_API_SECRET "..."      (then open a NEW PowerShell)
+```
+One trade: closed 1h candle -> reconcile with the exchange -> Scout -> Risk Checker -> Sentiment -> Strategy (BUY/SKIP, HOLD/TIGHTEN/EXIT) -> the rules engine sizes the order ->
+Execution (MARKET or WAIT) -> Risk Manager (reduce/veto) -> MARKET buy -> **protective stop-loss placed on the exchange at once** -> every cycle the Strategy agent may HOLD, TIGHTEN (up only)
+or EXIT; a 72 h time stop and the exchange stop do the rest. Hard limits no agent can change: 1% risk per trade, 20% max position, 5 positions, 5% daily loss, 20% drawdown halt, cooldown,
+per-order notional cap, stops only move up, a position whose stop cannot be placed is sold straight back. Silence or garbage from an agent means no order.
+The website's Arena page shows the account (balance, positions, open orders, trades) to admins and the "Claude on Binance demo" line in the scoreboard to everyone signed in.
+Tested against an in-memory exchange (58 tests) and against the demo server's public endpoints; **the signed order calls have not yet been run on the real demo server** - the first run
+with your demo key is the real test.
+
 ## What the numbers say so far (be honest with yourself)
 The deterministic rule (close above the previous 48-candle high, volume >= 2x average, above EMA200, up candle; ATR stop and trail; next-open fill; 0.10% fee + 5 bps
 slippage per side) was fixed **before** the first backtest and never tuned. 30 pairs, 1h, 2021-2026:

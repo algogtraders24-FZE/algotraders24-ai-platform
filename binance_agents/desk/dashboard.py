@@ -46,6 +46,38 @@ def arm_stats(a: dict) -> dict:
             "avg_r": round(sum(x["r"] for x in t) / len(t), 3) if t else None}
 
 
+def merge_direct(p: dict, state_dir: Path) -> dict:
+    """Add the 'Claude on Binance demo' arm, the demo account snapshot (balance, positions, open orders), its trades, activity and agent status."""
+    d = state_dir / "direct"
+    f = d / "direct_state.json"
+    if not f.exists():
+        return p
+    try:
+        ds = json.loads(f.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return p
+    if ds.get("start_equity") is None:
+        return p
+    risk = ds.get("risk") or {}
+    a = {"initial": ds["start_equity"], "equity": ds.get("equity", []), "trades": ds.get("trades", []), "pos": ds.get("positions", {}),
+         "risk": {"day": risk.get("day"), "day_start_equity": risk.get("day_start_equity"), "halted": risk.get("halted", False)}}
+    p["arms"]["demo"] = {"stats": arm_stats(a), "equity": a["equity"][-600:]}
+    p["account"] = ds.get("account")
+    p["demo_trades"] = list(reversed(ds.get("trades", [])[-12:]))
+    p["activity"] = sorted(p.get("activity", []) + _tail(d / "activity.jsonl", 80), key=lambda x: x.get("ts", ""), reverse=True)[:100]
+    dstate = d / "desk_state.json"
+    if dstate.exists():
+        try:
+            dag = json.loads(dstate.read_text(encoding="utf-8")).get("agents", {})
+            for x in p["agents"]:
+                y = dag.get(x["name"])
+                if y and (y.get("ts") or "") > (x.get("ts") or ""):
+                    x.update({"text": y.get("text", ""), "level": y.get("level", "info"), "ts": y.get("ts")})
+        except (OSError, ValueError):
+            pass
+    return p
+
+
 def merge_live(p: dict, live: dict | None) -> dict:
     """Overlay the 15 s live tick (prices, marks, rolling volume) on the hourly snapshot; mirrors the website page's merge()."""
     if not live:
@@ -68,6 +100,8 @@ def merge_live(p: dict, live: dict | None) -> dict:
         r["chg24"] = live["chg24"].get(r["symbol"], r["chg24"])
     main = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT", "LINKUSDT", "AVAXUSDT"]
     p["ticker"] = [{"symbol": s, "price": live["prices"][s], "chg24": live["chg24"].get(s)} for s in main if s in live["prices"]]
+    if live.get("account"):
+        p["account"] = live["account"]
     return p
 
 
@@ -80,7 +114,7 @@ def build_payload(state_dir: Path = STATE_DIR, with_live: bool = True) -> dict:
     desk = arms.get("desk")
     last_prices = {x["symbol"]: x["price"] for x in s.get("ticker", [])}
     act = _tail(state_dir / "activity.jsonl", 80)
-    return {
+    payload = {
         "ready": True, "mode": "PAPER", "last_bar": s.get("last_bar"), "regime": {k: v for k, v in s.get("regime", {}).items() if k != "chg24"}, "ticker": s.get("ticker", []), "llm": s.get("llm", {}),
         "arms": {n: {"stats": arm_stats(a), "equity": a.get("equity", [])[-600:]} for n, a in arms.items()},
         "agents": [{"name": n, **s.get("agents", {}).get(n, {"text": "idle", "level": "info", "ts": None})} for n in AGENT_ORDER],
@@ -92,6 +126,7 @@ def build_payload(state_dir: Path = STATE_DIR, with_live: bool = True) -> dict:
         "radar": s.get("radar", []),
         "live_age": None,
     }
+    return merge_direct(payload, state_dir)
 
 
 def create_app(state_dir: Path = STATE_DIR) -> FastAPI:
