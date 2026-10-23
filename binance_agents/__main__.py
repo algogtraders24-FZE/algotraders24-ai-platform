@@ -107,7 +107,7 @@ def cmd_desk(a):
             print("Live trading is intentionally NOT enabled in this version. Use BINANCE_ENV=demo (default) or testnet.")
             return
         try:
-            direct = DirectDesk(cfg, llm, BinanceBroker(cfg.live, env=env), data=desk.data)
+            direct = DirectDesk(cfg, llm, BinanceBroker(dataclasses.replace(cfg.live, max_order_notional=2500.0), env=env), data=desk.data)   # virtual funds: cap 2,500 USDT per order
         except SafetyError as e:
             print("Direct desk NOT started:", e)
             return

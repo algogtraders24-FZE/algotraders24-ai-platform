@@ -166,7 +166,8 @@ class DirectManage(unittest.TestCase):
         self.assertEqual(desk.ds["positions"], {})
         snap = desk.ds["account"]
         self.assertTrue(any(p["symbol"] == "SOLUSDT" and not p["managed"] for p in snap["positions"]))
-        self.assertGreater(snap["equity"], 10_000)
+        self.assertGreater(snap["account_equity"], snap["equity"])                  # shown, but never sized against
+        self.assertAlmostEqual(snap["equity"], 10_000, delta=1)
 
     def test_state_survives_a_restart(self):
         desk, _, ex = make(good_script())

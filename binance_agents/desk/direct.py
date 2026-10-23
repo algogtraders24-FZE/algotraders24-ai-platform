@@ -89,7 +89,9 @@ class DirectDesk(Desk):
             elif (b["asset"] + "USDT") in self.universe:
                 held[b["asset"] + "USDT"] = {"free": f, "locked": l, "total": f + l}
         value = sum(h["total"] * self._price(s, prices) for s, h in held.items())
-        return {"usdt_free": free, "usdt_locked": locked, "held": held, "equity": free + locked + value}
+        # sizing equity = USDT + coins the desk bought itself; pre-funded coins (the testnet starts with 1 BTC, 1 ETH ...) are shown but never sized against
+        own = sum(h["total"] * self._price(s, prices) for s, h in held.items() if s in self.ds["positions"])
+        return {"usdt_free": free, "usdt_locked": locked, "held": held, "equity": free + locked + own, "account_equity": free + locked + value}
 
     def snapshot(self, view: dict, prices: dict) -> dict:
         try:
@@ -102,7 +104,7 @@ class DirectDesk(Desk):
             px = self._price(s, prices)
             pos.append({"symbol": s, "qty": h["total"], "price": r4(px, 6), "value": r4(h["total"] * px, 2), "entry": r4(p["entry"], 6) if p else None,
                         "pnl_pct": r4((px / p["entry"] - 1) * 100, 2) if p else None, "stop": r4(p["stop"], 6) if p else None, "managed": bool(p)})
-        return {"ts": iso(pd.Timestamp.now(tz="UTC")), "env": getattr(self.broker, "env", "?"), "usdt_free": r4(view["usdt_free"], 2), "equity": r4(view["equity"], 2), "positions": pos,
+        return {"ts": iso(pd.Timestamp.now(tz="UTC")), "env": getattr(self.broker, "env", "?"), "usdt_free": r4(view["usdt_free"], 2), "equity": r4(view["equity"], 2), "account_equity": r4(view.get("account_equity", view["equity"]), 2), "positions": pos,
                 "open_orders": [{"symbol": o.get("symbol"), "side": o.get("side"), "type": o.get("type"), "stop_price": o.get("stopPrice"), "price": o.get("price"), "qty": o.get("origQty")} for o in oo]}
 
     # ------------------------------------------------------------------ reconcile with the exchange
@@ -212,6 +214,9 @@ class DirectDesk(Desk):
         if sz.qty <= 0:
             return f"blocked: {sz.reason}"
         qty = sz.qty * max(0.0, min(1.0, size_mult))
+        cap = getattr(getattr(self.broker, "cfg", None), "max_order_notional", None)
+        if cap and qty * ref > cap:                              # per-order cap: shrink the order instead of refusing it
+            qty = cap / ref * 0.999
         try:
             f = self.broker.filters(sym)
             fill = self.broker.buy_market(sym, qty, ref, f)
