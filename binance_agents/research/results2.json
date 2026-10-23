@@ -1,0 +1,124 @@
+{
+  "strategies": {
+    "S7 trend long/short 1d": {
+      "dev": {
+        "n": 1095,
+        "total_pct": -37.8,
+        "maxdd_pct": -72.8,
+        "sharpe": 0.05
+      },
+      "holdout": {
+        "n": 1024,
+        "total_pct": 10.2,
+        "maxdd_pct": -57.5,
+        "sharpe": 0.34
+      },
+      "random_shift_p90_sharpe": 0.65,
+      "position_openings": 2743,
+      "yearly_pct": {
+        "2021": -27.5,
+        "2022": -4.1,
+        "2023": -10.5,
+        "2024": 26.2,
+        "2025": -24.5,
+        "2026": 15.8
+      },
+      "avg_gross": 0.95,
+      "avg_net": -0.2,
+      "A": false,
+      "B": false,
+      "C": false,
+      "D": false,
+      "E": true,
+      "PASS": false
+    },
+    "S8 BTC trend long/short 1d": {
+      "dev": {
+        "n": 1095,
+        "total_pct": -21.5,
+        "maxdd_pct": -76.2,
+        "sharpe": 0.1
+      },
+      "holdout": {
+        "n": 1024,
+        "total_pct": 21.1,
+        "maxdd_pct": -53.7,
+        "sharpe": 0.38
+      },
+      "random_shift_p90_sharpe": 0.67,
+      "position_openings": 50,
+      "yearly_pct": {
+        "2021": -72.7,
+        "2022": 91.0,
+        "2023": 50.5,
+        "2024": 34.7,
+        "2025": -33.7,
+        "2026": 35.6
+      },
+      "avg_gross": 0.91,
+      "avg_net": 0.07,
+      "A": false,
+      "B": false,
+      "C": false,
+      "D": false,
+      "E": true,
+      "PASS": false
+    },
+    "S9 momentum long/short 1d": {
+      "dev": {
+        "n": 1095,
+        "total_pct": 90.1,
+        "maxdd_pct": -33.7,
+        "sharpe": 0.83
+      },
+      "holdout": {
+        "n": 1024,
+        "total_pct": -63.5,
+        "maxdd_pct": -65.2,
+        "sharpe": -1.24
+      },
+      "random_shift_p90_sharpe": 0.55,
+      "position_openings": 1241,
+      "yearly_pct": {
+        "2021": 93.5,
+        "2022": -17.6,
+        "2023": 19.2,
+        "2024": -17.4,
+        "2025": -24.2,
+        "2026": -41.8
+      },
+      "avg_gross": 0.97,
+      "avg_net": 0.0,
+      "A": false,
+      "B": true,
+      "C": false,
+      "D": false,
+      "E": true,
+      "PASS": false
+    }
+  },
+  "benchmarks": {
+    "BTC buy&hold": {
+      "dev": {
+        "n": 1095,
+        "total_pct": 50.6,
+        "maxdd_pct": -76.6,
+        "sharpe": 0.53
+      },
+      "holdout": {
+        "n": 1025,
+        "total_pct": 85.3,
+        "maxdd_pct": -53.0,
+        "sharpe": 0.7
+      },
+      "yearly_pct": {
+        "2021": 62.7,
+        "2022": -65.2,
+        "2023": 165.9,
+        "2024": 114.1,
+        "2025": -6.1,
+        "2026": -7.8
+      }
+    }
+  }
+}
