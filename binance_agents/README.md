@@ -48,7 +48,7 @@ then open a NEW window and start the bot. No token = nothing is sent and the das
 `python -m binance_agents desk --loop --direct` runs everything above AND a second desk where the six Claude agents **decide** (no house rule: no EMA, no breakout) and the
 orders go to a real Binance account through the Spot API - **Binance Demo Mode by default (virtual funds, `demo-api.binance.com`)**. Live trading is intentionally refused.
 
-Needs a demo API key (Binance > Demo Trading > API Key Management; spot trading only). Set it once on the VPS, never in chat:
+Needs a demo API key (Binance > Demo Trading > API Key Management; spot trading only) - or, without a Binance account, a **Spot Testnet** key from https://testnet.binance.vision (GitHub login; `BINANCE_ENV=testnet`, `BINANCE_TESTNET_API_KEY/_SECRET`; all 30 coins exist there, prices within ~0.1% of mainnet, monthly reset). Set it once on the VPS, never in chat:
 ```
 setx BINANCE_DEMO_API_KEY "..."      setx BINANCE_DEMO_API_SECRET "..."      (then open a NEW PowerShell)
 ```
