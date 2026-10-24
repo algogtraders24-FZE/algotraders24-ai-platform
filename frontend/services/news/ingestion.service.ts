@@ -12,6 +12,7 @@ import { fetchCryptoPanicNews, CRYPTOPANIC_PROVIDER } from "./providers/cryptopa
 import { fetchMarketauxNews, MARKETAUX_PROVIDER, MARKETAUX_SYMBOLS } from "./providers/marketaux.provider";
 import { normalizeAlphaVantageArticle, normalizeCryptoPanicArticle, normalizeMarketauxArticle } from "./normalize.service";
 import { persistArticles } from "./store.service";
+import { logger } from "@/services/backend/Logger";
 import { alphaVantageDailyLimit, cryptoPanicDailyLimit, loadCryptoPanicEnv, loadMarketauxEnv, marketauxDailyLimit } from "./config";
 
 // AN1.5 - one topic-based call already returns general market news covering
@@ -20,6 +21,8 @@ import { alphaVantageDailyLimit, cryptoPanicDailyLimit, loadCryptoPanicEnv, load
 const ALPHA_VANTAGE_TOPICS = ["financial_markets", "economy_macro"];
 // AN1.4's locked crypto scope: BTC/ETH/SOL/XRP (AT24's enabled crypto set).
 const CRYPTOPANIC_CURRENCY_CODES = ["BTC", "ETH", "SOL", "XRP"];
+
+const log = logger.child("news-ingestion");
 
 export type IngestionPurpose = "scheduled-ingestion" | "on-demand-fallback";
 
@@ -126,8 +129,16 @@ export async function ingestMarketaux(purpose: IngestionPurpose): Promise<Ingest
 /** The cron entry point - runs both providers, one after another (never in parallel, so a burst never risks tripping either provider's per-second throttle). */
 export async function runScheduledIngestion(): Promise<IngestionResult[]> {
   // Marketaux first: it is the provider that works on the free tier today (Alpha Vantage's news endpoint became premium-only on 2026-10-06).
-  const marketaux = await ingestMarketaux("scheduled-ingestion");
-  const alphaVantage = await ingestAlphaVantage("scheduled-ingestion");
-  const cryptoPanic = await ingestCryptoPanic("scheduled-ingestion");
+  // Each step is logged so a run that stalls leaves a trail (a 60 s cron timeout on 2026-10-23 and 24 left nothing at all).
+  const timed = async (run: () => Promise<IngestionResult>, provider: string): Promise<IngestionResult> => {
+    const startedAt = Date.now();
+    log.info("provider ingestion started", { provider });
+    const result = await run();
+    log.info("provider ingestion finished", { provider, success: result.success, attempted: result.attempted, created: result.created, updated: result.updated, durationMs: Date.now() - startedAt });
+    return result;
+  };
+  const marketaux = await timed(() => ingestMarketaux("scheduled-ingestion"), MARKETAUX_PROVIDER);
+  const alphaVantage = await timed(() => ingestAlphaVantage("scheduled-ingestion"), ALPHA_VANTAGE_PROVIDER);
+  const cryptoPanic = await timed(() => ingestCryptoPanic("scheduled-ingestion"), CRYPTOPANIC_PROVIDER);
   return [marketaux, alphaVantage, cryptoPanic];
 }
