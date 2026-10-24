@@ -12,6 +12,7 @@ import { MarketDataProviderError } from "@/lib/market-data/errors";
 
 const BASE_URL = "https://api.marketaux.com/v1/news/all";
 export const MARKETAUX_PROVIDER = "marketaux";
+const FETCH_TIMEOUT_MS = 15_000;
 
 /** AT24 symbols Marketaux covers as entities (verified live). Each is one request, so the daily budget is symbols x runs. */
 export const MARKETAUX_SYMBOLS = ["EURUSD", "GBPUSD", "USDJPY", "BTCUSD", "ETHUSD"] as const;
@@ -82,7 +83,8 @@ export async function fetchMarketauxNews(symbol: string, publishedAfter: Date): 
 
   let res: Response;
   try {
-    res = await fetch(`${BASE_URL}?${params.toString()}`, { headers: { "User-Agent": "algotraders24-news-ingestion" } });
+    // A stalled request must fail on its own - the cron has a 60 s ceiling and one hung call would otherwise swallow the whole run unlogged.
+    res = await fetch(`${BASE_URL}?${params.toString()}`, { headers: { "User-Agent": "algotraders24-news-ingestion" }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   } catch (error) {
     throw new MarketDataProviderError("http_error", "Failed to reach Marketaux", MARKETAUX_PROVIDER, error);
   }

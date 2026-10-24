@@ -7,7 +7,7 @@
     },
     {
       "path": "/api/private/admin/intelligence/ingest-news",
-      "schedule": "0 6 * * *"
+      "schedule": "40 6 * * *"
     },
     {
       "path": "/api/private/publishing/auto-daily",
