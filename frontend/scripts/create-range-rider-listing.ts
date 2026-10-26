@@ -1,4 +1,4 @@
-﻿// scripts/create-range-rider-listing.ts
+// scripts/create-range-rider-listing.ts
 // AT24 Range Rider - 4-Rider XAU system (MT5). Usage:
 //   npx tsx scripts/create-range-rider-listing.ts            -> creates/updates the listing as DRAFT (not visible)
 //   npx tsx scripts/create-range-rider-listing.ts --publish  -> also sets publicationState PUBLISHED (owner decision)
@@ -49,7 +49,7 @@ What was verified: the EA compiles with 0 errors / 0 warnings in the real MetaEd
 Not verified: live-money use; a published forward-test result; per-Rider results (only the combined run is reported); the news filter against the live feed on every broker (it needs WebRequest allowed for https://nfs.faireconomy.media and cannot run in the Strategy Tester); the dashboard on every screen size; Vantage data. Session hours are in broker SERVER time, so set them for your broker.
 
 Simulated backtest (not live results): Strategy Tester, Exness XAUUSD, H1, 26 Oct 2024 to 24 Oct 2026, all four Riders together at a fixed 0.01 lot, $1,000 start, generated ticks (98% history quality): net +7,776 (+778%), profit factor 1.22, 37,735 trades, 43.8% winning trades, maximum drawdown 49%. Read it with care: it is a simulation, the tester's spread and slippage can differ from real trading, a fixed-lot run is not what a balance-scaled run would do, and results will differ on your broker and in the future. The full report is available from support on request.
-This listing has no Trust State (no independently validated evidence run yet) - run your own backtest and a demo forward test first. Requires a hedging MT5 account. Gold is volatile and trading leveraged products is risky; simulated or past results do not guarantee future results.`;
+Trust State VALIDATED reflects AT24's own checks of the evidence from the simulated run above; it is not a profit guarantee - run your own backtest and a demo forward test first. Requires a hedging MT5 account. Gold is volatile and trading leveraged products is risky; simulated or past results do not guarantee future results.`;
 
 async function main() {
   const publish = process.argv.includes("--publish");
