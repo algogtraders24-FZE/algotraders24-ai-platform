@@ -1,0 +1,66 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19"/>
+      <stop offset="100%" stop-color="#171008"/>
+    </linearGradient>
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e7c86b"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="34%" r="46%">
+      <stop offset="0%" stop-color="#d4af37" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#d4af37" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff3d1"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#8be3ff"/>
+      <stop offset="100%" stop-color="#2aa8d8"/>
+    </linearGradient>
+    <linearGradient id="violetGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#c2a8ff"/>
+      <stop offset="100%" stop-color="#7a52e0"/>
+    </linearGradient>
+    <linearGradient id="pinkGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffb0d6"/>
+      <stop offset="100%" stop-color="#e0509a"/>
+    </linearGradient>
+    <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="url(#bg)"/>
+  <rect x="8" y="8" width="496" height="496" rx="72" fill="none" stroke="url(#borderGrad)" stroke-width="6"/>
+  <ellipse cx="256" cy="172" rx="150" ry="118" fill="url(#glow)"/>
+
+  <!-- the range box the four Riders break out of -->
+  <rect x="96" y="196" width="320" height="64" rx="6" fill="none" stroke="#94a3b8" stroke-width="3" stroke-dasharray="10 8" opacity="0.7"/>
+
+  <!-- four Riders: A cyan, B violet, C gold, D pink -->
+  <g filter="url(#softGlow)">
+    <line x1="146" y1="228" x2="146" y2="128" stroke="url(#cyanGrad)" stroke-width="9"/>
+    <path d="M 124 150 L 146 112 L 168 150 Z" fill="url(#cyanGrad)"/>
+
+    <line x1="216" y1="228" x2="216" y2="96" stroke="url(#violetGrad)" stroke-width="9"/>
+    <path d="M 194 118 L 216 80 L 238 118 Z" fill="url(#violetGrad)"/>
+
+    <line x1="296" y1="228" x2="296" y2="96" stroke="url(#goldGrad)" stroke-width="9"/>
+    <path d="M 274 118 L 296 80 L 318 118 Z" fill="url(#goldGrad)"/>
+
+    <line x1="366" y1="228" x2="366" y2="128" stroke="url(#pinkGrad)" stroke-width="9"/>
+    <path d="M 344 150 L 366 112 L 388 150 Z" fill="url(#pinkGrad)"/>
+
+    <circle cx="256" cy="228" r="28" fill="url(#goldGrad)"/>
+    <text x="256" y="237" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="800" fill="#2c1a02">Au</text>
+  </g>
+
+  <text x="256" y="338" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="46" font-weight="800" letter-spacing="1" fill="#ffffff">RANGE RIDER</text>
+  <text x="256" y="376" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="800" letter-spacing="0.5" fill="url(#borderGrad)">4-RIDER XAU SYSTEM</text>
+  <text x="256" y="410" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" letter-spacing="2" fill="#94a3b8">LIVE DASHBOARD · NEWS FILTER · MT5</text>
+  <text x="256" y="446" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" letter-spacing="3" fill="#7d8aa5">XAUUSD · XAUEUR · XAU PAIRS</text>
+</svg>
