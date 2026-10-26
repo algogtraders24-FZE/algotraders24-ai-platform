@@ -1,0 +1,29 @@
+﻿RANGE RIDER v4.2  -  SETUP GUIDE
+================================
+Four independent Riders for gold (XAUUSD and other XAU pairs), MetaTrader 5, HEDGING account.
+
+1. INSTALL
+   MT5 > File > Open Data Folder > MQL5 > Experts. Copy Range_Rider_v4.2.ex5 there. Restart MT5 (or right-click Navigator > Refresh).
+2. FIRST RUN (DEMO FIRST)
+   Open an XAUUSD (or XAUEUR, XAUGBP, XAUAUD ...) chart, any timeframe. Drag the EA onto it.
+   Load the preset: Inputs tab > Load > RangeRider_SafeStart_0.01lot.set  (fixed 0.01 lot per Rider).
+   Tick "Allow Algo Trading". The dashboard appears at the top-left of the chart.
+3. WHAT THE RIDERS DO
+   Rider A  H1 breakout: stop orders above/below the last H1 range, opposite order cancelled when one fills.
+   Rider B  M15 momentum: EMA20/EMA50 trend with RSI 50 filter (optional: fresh cross only).
+   Rider C  Session breakout: range of the last 7 H1 bars, orders at the two session hours you set (SERVER time).
+   Rider D  Volatility expansion: ATR expansion after a quiet spell, breakout order in the direction of the last candle.
+   Each Rider has its own magic number, direction, lot mode, SL/TP and trailing. Switch any Rider off with its Enable input.
+4. IMPORTANT SETTINGS
+   InpSessionHour1C / 2C : set to the London / New York open in YOUR broker's server time (differs per broker, and with daylight saving).
+   Lot modes: Fixed, Risk % of balance, or Balance-scaled. Balance-scaled grows lots as the balance grows - use it only once you understand the risk.
+   Units: SL/TP/trail inputs are "pips" (1 pip = 10 points on 3/5-digit symbols). On start the Experts log prints what your SL means in price and in account currency per 1.00 lot.
+   Protection: InpMaxSpreadPoints and InpMaxDailyLossPct (both off by default).
+5. NEWS FILTER
+   MT5 > Tools > Options > Expert Advisors > tick "Allow WebRequest for listed URL" and add https://nfs.faireconomy.media
+   Then set InpEnableNewsFilter = true and choose events (FOMC, CPI, NFP/Jobs, PCE, PPI, GDP, Retail Sales, ISM).
+   New entries pause and pending orders are removed around the event. The filter cannot run in the Strategy Tester.
+6. BACKTESTING
+   Strategy Tester: pick the XAU symbol, H1, "Every tick based on real ticks". The dashboard is OFF in the tester by default (faster); set InpDashInTester = true for visual mode.
+7. ALWAYS
+   Test on a DEMO account first. Gold is volatile; past or simulated results are not a promise of future results. Trading leveraged products is risky.

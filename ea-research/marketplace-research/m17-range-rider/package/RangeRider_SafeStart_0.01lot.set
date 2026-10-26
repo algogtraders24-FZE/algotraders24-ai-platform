@@ -1,0 +1,10 @@
+InpLotModeGhostA=0
+InpLotModeGhostB=0
+InpLotModeGhostC=0
+InpLotModeGhostD=0
+InpFixedLotGhostA=0.01
+InpFixedLotGhostB=0.01
+InpFixedLotGhostC=0.01
+InpFixedLotGhostD=0.01
+InpDashboardMode=0
+InpDashInTester=false
