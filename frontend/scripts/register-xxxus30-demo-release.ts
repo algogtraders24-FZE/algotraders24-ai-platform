@@ -11,9 +11,9 @@ import path from "path";
 import { prisma } from "../lib/prisma";
 
 const TRADING_SYSTEM_ID = "XXXUS30";
-const VERSION_ID = "XXXUS30-DEMO-v1.03";
+const VERSION_ID = "XXXUS30-DEMO-v1.03"; // stable id: services/trial/trialService.ts looks the demo release up by it (artifactVersion carries the real version)
 const LISTING_SLUG = "xxx-us30-multi-module-breakout";
-const ZIP = path.join(__dirname, "..", "..", "ea-research", "marketplace-research", "m15-new-products", "source", "XXXUS30_demo_v1.03.zip");
+const ZIP = path.join(__dirname, "..", "..", "ea-research", "marketplace-research", "m15-new-products", "source", "XXXUS30_demo_v1.14.zip");
 const RELEASES_DIR = path.join(__dirname, "..", "private-releases");
 
 async function main() {
@@ -24,7 +24,7 @@ async function main() {
   await mkdir(RELEASES_DIR, { recursive: true });
   const release = await prisma.releaseArtifact.upsert({
     where: { tradingSystemId_versionId_platform_artifactHash: { tradingSystemId: TRADING_SYSTEM_ID, versionId: VERSION_ID, platform: "MT5", artifactHash: hash } },
-    create: { tradingSystemId: TRADING_SYSTEM_ID, versionId: VERSION_ID, platform: "MT5", marketplaceListingId: listing.id, artifactVersion: "demo-v1.03", artifactHash: hash, releaseStatus: "PUBLISHED" },
+    create: { tradingSystemId: TRADING_SYSTEM_ID, versionId: VERSION_ID, platform: "MT5", marketplaceListingId: listing.id, artifactVersion: "demo-v1.14", artifactHash: hash, releaseStatus: "PUBLISHED" },
     update: { releaseStatus: "PUBLISHED" },
   });
   const older = await prisma.releaseArtifact.findMany({ where: { tradingSystemId: TRADING_SYSTEM_ID, versionId: VERSION_ID, platform: "MT5", id: { not: release.id }, releaseStatus: "PUBLISHED" }, select: { id: true } });
@@ -36,7 +36,7 @@ async function main() {
     console.log("Deprecated superseded demo release", o.id);
   }
   await writeFile(path.join(RELEASES_DIR, `${release.id}.zip`), bytes);
-  await writeFile(path.join(RELEASES_DIR, `${release.id}.filename.txt`), "XXXUS30_demo_v1.03.zip", "utf-8");
+  await writeFile(path.join(RELEASES_DIR, `${release.id}.filename.txt`), "XXXUS30_demo_v1.14.zip", "utf-8");
   console.log("Demo release:", release.id, "sha256", hash.slice(0, 16), "| file written to private-releases/");
 }
 
