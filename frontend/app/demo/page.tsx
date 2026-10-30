@@ -1,6 +1,7 @@
 // app/demo/page.tsx
 // Landing page of the free 30-day demo. Promotion copy lives here: what you get, how it works, the demo contest. It makes no result
 // claims - the visitor tries the product on their own demo account and sees their own results.
+import Link from "next/link";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { prisma } from "@/lib/prisma";
 import Navbar from "@/components/layout/Navbar";
@@ -81,7 +82,11 @@ export default async function DemoPage() {
             worse. Results on a demo account are terminal-reported and not verified by a broker. Past results do not
             predict future results. Trading leveraged products is risky; this is not financial advice.
           </p>
-          <p>Read the product page for the full evidence and its weak points before you decide to buy.</p>
+          <p>
+            Read the{" "}
+            <Link href="/marketplace/xxx-us30-multi-module-breakout" className="font-semibold text-gold hover:underline">XXX US30 product page</Link>{" "}
+            for the full evidence and its weak points before you decide to buy.
+          </p>
         </section>
       </div>
       <Footer />
