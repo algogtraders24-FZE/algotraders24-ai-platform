@@ -27,7 +27,13 @@ const nextConfig: NextConfig = {
 
   async redirects() {
     // The guided "first 15 minutes" page used to live at /beta.
-    return [{ source: "/beta", destination: "/getting-started", permanent: true }];
+    return [
+      { source: "/beta", destination: "/getting-started", permanent: true },
+      // Two legacy catalogue slugs never got a marketplace listing, so /products/<slug> -> /marketplace/<slug> ended in a 404
+      // (Search Console "Not found"). Send them straight to the catalogue with a permanent redirect instead.
+      { source: "/products/ai-trend-master-ea", destination: "/marketplace", permanent: true },
+      { source: "/products/quantum-scalper-pro", destination: "/marketplace", permanent: true },
+    ];
   },
   // AT24 Security Hardening P1.2 - baseline security response headers.
   // Content-Security-Policy: script-src includes 'unsafe-inline' - NOT
@@ -79,6 +85,12 @@ const nextConfig: NextConfig = {
           { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
           { key: "Service-Worker-Allowed", value: "/" },
         ],
+      },
+      {
+        // Social preview images (marketplace + blog opengraph-image routes) are not pages; keep them out of the index
+        // so Search Console stops listing them as "Crawled - currently not indexed".
+        source: "/:path*/opengraph-image",
+        headers: [{ key: "X-Robots-Tag", value: "noindex" }],
       },
       {
         source: "/(.*)",
