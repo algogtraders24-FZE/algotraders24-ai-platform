@@ -6,6 +6,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
 import PageHero from "@/components/marketing/PageHero";
 import { MARKETS } from "@/services/markets/hub";
+import { blogReaderService } from "@/services/publishing/blog-reader.service";
 import { breadcrumbJsonLd, jsonLdString } from "@/lib/seo/seo";
 
 export const metadata: Metadata = {
@@ -15,7 +16,11 @@ export const metadata: Metadata = {
   openGraph: { title: "Live markets - Algotraders24 AI", description: "Measured, self-checked market context for seven instruments. Never a buy or sell call.", type: "website", url: "/markets", images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Algotraders24 AI live markets" }] },
 };
 
-export default function MarketsIndexPage() {
+export const revalidate = 300;
+
+export default async function MarketsIndexPage() {
+  // Latest published analysis, so every report is reachable from the markets index (Search Console showed some reports with only the blog index linking to them).
+  const latest = (await blogReaderService.listPosts().catch(() => [])).slice(0, 8);
   return (
     <main className="min-h-screen bg-ink text-text">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd([{ name: "Home", path: "/" }, { name: "Markets", path: "/markets" }])) }} />
@@ -33,6 +38,21 @@ export default function MarketsIndexPage() {
             </Link>
           ))}
         </div>
+        {latest.length > 0 && (
+          <nav aria-label="Latest analysis" className="mx-auto mt-10 max-w-5xl">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-text-3">Latest analysis</h2>
+            <ul className="mt-3 space-y-2">
+              {latest.map((p) => (
+                <li key={p.slug}>
+                  <Link href={`/blog/${p.slug}`} className="text-text-2 hover:text-gold">
+                    {p.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-sm"><Link href="/blog" className="text-gold hover:underline">All reports</Link></p>
+          </nav>
+        )}
         <p className="mx-auto mt-8 max-w-5xl text-sm text-text-3">
           The ranges are checked against what happens next on the <Link href="/calibration" className="text-gold hover:underline">calibration scoreboard</Link>. Nothing here is financial advice.
         </p>

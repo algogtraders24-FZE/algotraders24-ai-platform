@@ -13,6 +13,7 @@ import ListingDetailView from "@/components/marketplace/ListingDetailView";
 import ListingResultsCard from "@/components/live-results/ListingResultsCard";
 import { listingResults } from "@/services/live-results/follow-store";
 import ReportListingPanel from "@/components/marketplace/ReportListingPanel";
+import RelatedListings from "@/components/marketplace/RelatedListings";
 import ReportCheckCard from "@/components/marketplace/ReportCheckCard";
 import { latestReportCheck } from "@/services/marketplace/reportCheckStore";
 import { breadcrumbJsonLd, jsonLdString, metaDescription, productJsonLd } from "@/lib/seo/seo";
@@ -71,6 +72,7 @@ export default async function MarketplaceListingPage({
       <ReportCheckCard check={reportCheck} live={liveResults[0] ? { mode: liveResults[0].mode, maxDrawdownPct: liveResults[0].maxDrawdownPct, trades: liveResults[0].liveTracked.trades, daysTracked: liveResults[0].daysSinceFirstSync } : null} />
       <ListingResultsCard items={liveResults} />
       <ReportListingPanel listingId={listing.id} />
+      <RelatedListings slug={listing.slug} />
       <Footer />
     </main>
   );
