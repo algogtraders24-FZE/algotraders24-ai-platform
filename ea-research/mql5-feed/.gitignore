@@ -4,3 +4,6 @@ state.json
 content/
 trends/
 signals/
+research/*.json
+research/*.md
+research/*.txt
