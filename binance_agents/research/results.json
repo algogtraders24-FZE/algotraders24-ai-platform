@@ -1,0 +1,166 @@
+{
+  "strategies": {
+    "S1 xs-momentum 1d": {
+      "dev": {
+        "n": 1095,
+        "total_pct": 195.8,
+        "maxdd_pct": -47.9,
+        "sharpe": 0.97
+      },
+      "holdout": {
+        "n": 1024,
+        "total_pct": 17.7,
+        "maxdd_pct": -56.3,
+        "sharpe": 0.39
+      },
+      "random_shift_p90_sharpe": 0.59,
+      "entries": 276,
+      "A": false,
+      "B": true,
+      "C": false,
+      "D": false,
+      "E": true,
+      "PASS": false
+    },
+    "S2 trend>SMA100 1d": {
+      "dev": {
+        "n": 1095,
+        "total_pct": -18.4,
+        "maxdd_pct": -78.8,
+        "sharpe": 0.19
+      },
+      "holdout": {
+        "n": 1024,
+        "total_pct": -4.2,
+        "maxdd_pct": -67.0,
+        "sharpe": 0.23
+      },
+      "random_shift_p90_sharpe": 0.51,
+      "entries": 1383,
+      "A": false,
+      "B": false,
+      "C": false,
+      "D": false,
+      "E": true,
+      "PASS": false
+    },
+    "S3 BTC trend 1d": {
+      "dev": {
+        "n": 1095,
+        "total_pct": 36.6,
+        "maxdd_pct": -36.3,
+        "sharpe": 0.48
+      },
+      "holdout": {
+        "n": 1024,
+        "total_pct": 72.4,
+        "maxdd_pct": -32.0,
+        "sharpe": 0.72
+      },
+      "random_shift_p90_sharpe": 0.91,
+      "entries": 25,
+      "A": true,
+      "B": false,
+      "C": true,
+      "D": false,
+      "E": false,
+      "PASS": false
+    },
+    "S4 RSI2 dip uptrend 1d": {
+      "dev": {
+        "n": 1095,
+        "total_pct": 2.4,
+        "maxdd_pct": -48.5,
+        "sharpe": 0.15
+      },
+      "holdout": {
+        "n": 1024,
+        "total_pct": -4.5,
+        "maxdd_pct": -29.8,
+        "sharpe": 0.08
+      },
+      "random_shift_p90_sharpe": 0.6,
+      "entries": 861,
+      "A": false,
+      "B": false,
+      "C": false,
+      "D": false,
+      "E": true,
+      "PASS": false
+    },
+    "S5 squeeze breakout 4h": {
+      "dev": {
+        "n": 6565,
+        "total_pct": 96.9,
+        "maxdd_pct": -57.5,
+        "sharpe": 0.84
+      },
+      "holdout": {
+        "n": 6152,
+        "total_pct": 17.1,
+        "maxdd_pct": -44.8,
+        "sharpe": 0.34
+      },
+      "random_shift_p90_sharpe": 0.16,
+      "entries": 2852,
+      "A": false,
+      "B": true,
+      "C": false,
+      "D": true,
+      "E": true,
+      "PASS": false
+    },
+    "S6 broad trend 1d": {
+      "dev": {
+        "n": 1095,
+        "total_pct": 56.4,
+        "maxdd_pct": -68.7,
+        "sharpe": 0.56
+      },
+      "holdout": {
+        "n": 1024,
+        "total_pct": 13.0,
+        "maxdd_pct": -60.2,
+        "sharpe": 0.32
+      },
+      "random_shift_p90_sharpe": 0.51,
+      "entries": 1466,
+      "A": false,
+      "B": true,
+      "C": false,
+      "D": false,
+      "E": true,
+      "PASS": false
+    }
+  },
+  "benchmarks": {
+    "BTC buy&hold": {
+      "dev": {
+        "n": 1095,
+        "total_pct": 50.6,
+        "maxdd_pct": -76.6,
+        "sharpe": 0.53
+      },
+      "holdout": {
+        "n": 1025,
+        "total_pct": 85.3,
+        "maxdd_pct": -53.0,
+        "sharpe": 0.7
+      }
+    },
+    "basket buy&hold": {
+      "dev": {
+        "n": 1095,
+        "total_pct": 566.9,
+        "maxdd_pct": -83.5,
+        "sharpe": 1.17
+      },
+      "holdout": {
+        "n": 1025,
+        "total_pct": -30.6,
+        "maxdd_pct": -78.7,
+        "sharpe": 0.15
+      }
+    }
+  }
+}
