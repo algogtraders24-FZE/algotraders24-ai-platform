@@ -1,0 +1,63 @@
+//@version=5
+// AT24 Spread Guard (TradingView edition) - see what trading costs, hour by hour.
+// TradingView has no historical spread, so this edition measures the average bar RANGE per UTC hour
+// and shows your typical spread as a % of that range. High % = costly hour. Context tool. Not a signal.
+indicator("AT24 Spread Guard", shorttitle="AT24 SG", overlay=false)
+
+spreadIn = input.float(0.30, "Your typical spread (price units, e.g. 0.30 = 30 points on gold)", step=0.01)
+okPct    = input.float(10.0, "Spread / avg range: normal up to (%)", step=0.5)
+highPct  = input.float(20.0, "Spread / avg range: costly above (%)", step=0.5)
+showDash = input.bool(true, "Show dashboard")
+dashPos  = input.string("top right", "Position", options=["top left","top right","bottom left","bottom right"])
+
+h = hour(time, "UTC")
+var float[] sumR = array.new_float(24, 0.0)
+var int[]   cntR = array.new_int(24, 0)
+if barstate.isconfirmed
+    array.set(sumR, h, array.get(sumR, h) + (high - low))
+    array.set(cntR, h, array.get(cntR, h) + 1)
+
+avgRange(i) => array.get(cntR, i) > 0 ? array.get(sumR, i) / array.get(cntR, i) : na
+costPctHour(i) => na(avgRange(i)) or avgRange(i) <= 0 ? na : 100.0 * spreadIn / avgRange(i)
+
+curCost = costPctHour(h)
+col = na(curCost) ? color.gray : curCost <= okPct ? color.lime : curCost <= highPct ? color.orange : color.red
+plot(curCost, "Spread / avg range for this hour (%)", color=col, style=plot.style_columns)
+hline(okPct, "Normal", color=color.new(color.gray, 60), linestyle=hline.style_dotted)
+hline(highPct, "Costly", color=color.new(color.gray, 60), linestyle=hline.style_dotted)
+
+pos = switch dashPos
+    "top left" => position.top_left
+    "top right" => position.top_right
+    "bottom left" => position.bottom_left
+    => position.bottom_right
+var table t = table.new(pos, 2, 6, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+
+if showDash and barstate.islast
+    // cheapest / costliest hour by cost %
+    float bestV = 1e10
+    float worstV = -1.0
+    int bestH = -1
+    int worstH = -1
+    for i = 0 to 23
+        c = costPctHour(i)
+        if not na(c) and array.get(cntR, i) >= 5
+            if c < bestV
+                bestV := c
+                bestH := i
+            if c > worstV
+                worstV := c
+                worstH := i
+    txtNow = na(curCost) ? "..." : (curCost <= okPct ? "NORMAL COST" : curCost <= highPct ? "COSTLY" : "VERY COSTLY")
+    table.cell(t, 0, 0, "AT24", text_color=#E8B84A, text_size=size.large)
+    table.cell(t, 1, 0, "SPREAD GUARD", text_color=#E8B84A, text_size=size.normal, text_halign=text.align_left)
+    table.cell(t, 0, 1, "This hour (UTC)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 1, str.tostring(h) + ":00  " + txtNow, text_color=col, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 2, "Spread / avg range", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 2, na(curCost) ? "..." : str.tostring(curCost, "0.0") + "%", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 3, "Cheapest hour (UTC)", text_color=color.lime, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 3, bestH < 0 ? "..." : str.tostring(bestH) + ":00  " + str.tostring(bestV, "0.0") + "%", text_color=color.lime, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 4, "Costliest hour (UTC)", text_color=color.red, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 4, worstH < 0 ? "..." : str.tostring(worstH) + ":00  " + str.tostring(worstV, "0.0") + "%", text_color=color.red, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 5, "Context tool.", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
+    table.cell(t, 1, 5, "Not a signal. algotraders24.ai", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
