@@ -1,4 +1,4 @@
-AT24 PIVOT LEVELS MAP v1.01 (MT5)
+AT24 PIVOT LEVELS MAP v1.02 (MT5, licensed utility EA)
 
 WHAT IT SHOWS
 - Daily and weekly pivot levels (P, R1, R2, S1, S2). Monthly pivot, R3/S3 and Camarilla H3/H4/L3/L4 can be switched on in the inputs.
@@ -15,17 +15,21 @@ WHAT WE TESTED (honest summary)
 INPUTS (short)
 Show daily / weekly / monthly levels, R3/S3, CPR, Camarilla, CPR average days, colours, line width, label size, dashboard position.
 
-INSTALL (MetaTrader 5)
-1. In MT5 choose File > Open Data Folder, open MQL5 > Indicators.
-2. Copy AT24_PivotLevelsMap.ex5 into that folder.
-3. In the Navigator panel right-click Indicators > Refresh.
-4. Drag AT24 Pivot Levels Map from the Navigator onto any chart (any symbol).
-5. The AT24 dashboard appears top-left. Inputs can be changed with the F7 key / Inputs tab.
+INSTALL (MetaTrader 5) - this product is a licensed UTILITY EXPERT ADVISOR
+It draws on your chart and never places or modifies orders. It is an Expert Advisor only because MetaTrader does not let indicators check a licence online.
+1. In MT5 choose File > Open Data Folder, open MQL5 > Experts and copy AT24_PivotLevelsMap_Licensed.ex5 into it.
+2. In the Navigator panel right-click Expert Advisors > Refresh.
+3. Allow the licence check once per terminal: Tools > Options > Expert Advisors > tick "Allow WebRequest for listed URL" and add https://www.algotraders24.ai
+4. Drag AT24_PivotLevelsMap_Licensed from Navigator > Expert Advisors onto a chart (any symbol). On the Inputs tab paste your licence key into "InpLicenseKey" (from your AT24 dashboard: Dashboard > Purchases > your product).
+5. Keep the Algo Trading button switched on so the EA can run. It does not trade. The dashboard appears top-left.
 
-The indicator does not trade, does not place orders, uses no DLL and no web access.
-The dashboard is switched off inside the Strategy Tester unless you enable it (input: Strategy Tester dashboard) and run in visual mode.
+LICENCE
+- One key works on ONE trading account at a time and only for this product. You can move it to another account yourself from Dashboard > Purchases (2 changes per 30 days).
+- The only data sent to AT24 is your key, the trading account number, the broker server name and the product name. No trade data leaves your computer.
+- The key is checked when the EA starts and every 4 hours. A short internet problem does not stop it (up to 72 hours).
+- The Strategy Tester needs no key (the dashboard is off there unless you enable it and run in visual mode).
 
 IMPORTANT
 - Education tool, not a signal. Nothing here is investment advice and nothing predicts future price.
-- Personal use on your own charts. Please do not redistribute the file.
+- Personal use on your own charts. Please do not share your key or the file.
 - Support: support@algotraders24.ai
