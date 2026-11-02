@@ -1,0 +1,74 @@
+//@version=5
+// AT24 Prop Guard (TradingView edition) - risk budget calculator for the limits YOU set.
+// TradingView cannot read your trading account, so this edition works from the numbers you type:
+// daily / max loss limits, risk per trade and your stop distance. Context tool. Not a guarantee.
+// Not affiliated with any prop firm. algotraders24.ai
+indicator("AT24 Prop Guard", shorttitle="AT24 PG", overlay=true)
+
+grp1 = "Your account and limits"
+acct     = input.float(100000.0, "Account size", minval=1, group=grp1)
+dailyPct = input.float(5.0, "Daily loss limit (%)", minval=0.1, step=0.1, group=grp1)
+maxPct   = input.float(10.0, "Max total loss limit (%)", minval=0.1, step=0.1, group=grp1)
+targetPct= input.float(10.0, "Profit target (%) (0 = hide)", minval=0.0, step=0.1, group=grp1)
+usedDay  = input.float(0.0, "Loss already used today (account currency)", minval=0.0, group=grp1)
+usedTot  = input.float(0.0, "Loss already used overall (account currency)", minval=0.0, group=grp1)
+grp2 = "Trade risk"
+riskPct  = input.float(0.5, "Risk per trade (% of account)", minval=0.01, step=0.05, group=grp2)
+stopMode = input.string("ATR", "Stop distance from", options=["ATR", "Manual"], group=grp2)
+atrLen   = input.int(14, "ATR length", minval=1, group=grp2)
+atrMult  = input.float(1.5, "ATR multiple", minval=0.1, step=0.1, group=grp2)
+manualStop = input.float(5.0, "Manual stop distance (price units)", minval=0.0001, group=grp2)
+grp3 = "Dashboard"
+showDash = input.bool(true, "Show dashboard", group=grp3)
+dashPos  = input.string("top right", "Position", options=["top left","top right","bottom left","bottom right"], group=grp3)
+showStops= input.bool(true, "Draw stop distance lines on chart", group=grp3)
+
+atrV = ta.atr(atrLen)
+stopDist = stopMode == "ATR" ? atrV * atrMult : manualStop
+
+dailyLimit = acct * dailyPct / 100.0
+totalLimit = acct * maxPct / 100.0
+dailyLeft  = dailyLimit - usedDay
+totalLeft  = totalLimit - usedTot
+binding    = math.min(dailyLeft, totalLeft)
+riskCash   = acct * riskPct / 100.0
+// position size in contracts/units: risk cash / (stop distance * value of one price unit per contract)
+pv = syminfo.pointvalue
+size = (stopDist > 0 and pv > 0) ? riskCash / (stopDist * pv) : na
+lossesToLimit = riskCash > 0 ? math.floor(binding / riskCash) : na
+usedFracDay = dailyLimit > 0 ? usedDay / dailyLimit : 0.0
+usedFracTot = totalLimit > 0 ? usedTot / totalLimit : 0.0
+worst = math.max(usedFracDay, usedFracTot)
+statusTxt = worst >= 1.0 ? "LIMIT REACHED" : worst >= 0.8 ? "DANGER" : worst >= 0.5 ? "CAUTION" : "WITHIN LIMITS"
+statusCol = worst >= 1.0 ? color.red : worst >= 0.8 ? color.orange : worst >= 0.5 ? color.yellow : color.lime
+
+plot(showStops ? close - stopDist : na, "Stop distance below", color=color.new(color.red, 40), style=plot.style_linebr)
+plot(showStops ? close + stopDist : na, "Stop distance above", color=color.new(color.red, 40), style=plot.style_linebr)
+
+pos = switch dashPos
+    "top left" => position.top_left
+    "top right" => position.top_right
+    "bottom left" => position.bottom_left
+    => position.bottom_right
+
+var table t = table.new(pos, 2, 9, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+f(x) => str.tostring(x, "#,###.00")
+if showDash and barstate.islast
+    table.cell(t, 0, 0, "AT24", text_color=#E8B84A, text_size=size.large)
+    table.cell(t, 1, 0, "PROP GUARD", text_color=#E8B84A, text_size=size.normal, text_halign=text.align_left)
+    table.cell(t, 0, 1, "Status", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 1, statusTxt, text_color=statusCol, text_size=size.normal, text_halign=text.align_left)
+    table.cell(t, 0, 2, "Daily limit / left", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 2, f(dailyLimit) + " / " + f(dailyLeft), text_color=dailyLeft <= 0 ? color.red : color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 3, "Max limit / left", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 3, f(totalLimit) + " / " + f(totalLeft), text_color=totalLeft <= 0 ? color.red : color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 4, "Risk per trade", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 4, f(riskCash) + " (" + str.tostring(riskPct, "0.00") + "%)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 5, "Full losses to limit", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 5, na(lossesToLimit) ? "..." : str.tostring(lossesToLimit, "0"), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 6, "Stop distance", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 6, str.tostring(stopDist, format.mintick), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 7, "Size for that risk", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 7, na(size) ? "..." : str.tostring(size, "0.00") + " units", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 8, "Context tool.", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
+    table.cell(t, 1, 8, "Not a guarantee. algotraders24.ai", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
