@@ -128,8 +128,8 @@ const PRODUCTS: CatalogProduct[] = [
   },
   {
     slug: "at24-pivot-scanner-pro", title: "Pivot Scanner Pro", tradingSystemId: "PIVOT-SCANNER-PRO", versionId: "PIVOT-SCANNER-PRO-v1.0-ASIS", artifactVersion: "v1.0",
-    description: "A free, multi-symbol multi-timeframe (M15/H1/H4/D1) dashboard indicator - not an auto-trading EA. Shows a BUY/SELL signal (EMA 9/21 crossover confirmed by the daily pivot), trend direction, and pivot side for every symbol/timeframe at a glance; rows glow when all selected timeframes agree.\n\nClick any cell to instantly open that symbol/timeframe with pivot levels (P/R1-3/S1-3) and EMA 9/21 lines drawn automatically. Works on any broker - just match your symbol names.",
-    category: "Trend", platformTag: "MT5", assetTag: "Forex", tags: ["indicator", "scanner", "pivot", "ema", "free", "mt5"], price: null,
+    description: "A multi-symbol multi-timeframe (M15/H1/H4/D1) dashboard indicator - not an auto-trading EA. Shows a BUY/SELL signal (EMA 9/21 crossover confirmed by the daily pivot), trend direction, and pivot side for every symbol/timeframe at a glance; rows glow when all selected timeframes agree.\n\nClick any cell to instantly open that symbol/timeframe with pivot levels (P/R1-3/S1-3) and EMA 9/21 lines drawn automatically. Works on any broker - just match your symbol names.",
+    category: "Trend", platformTag: "MT5", assetTag: "Forex", tags: ["indicator", "scanner", "pivot", "ema", "mt5"], price: 11,
     ex5File: "PivotScannerPro.ex5", hasBanner: false,
   },
   {
