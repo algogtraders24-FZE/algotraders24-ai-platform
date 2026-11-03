@@ -1,0 +1,131 @@
+//@version=5
+// AT24 Squeeze Meter - Bollinger-inside-Keltner squeeze + momentum, and what price really did after
+// squeezes released on this symbol. Context tool. Not a signal. algotraders24.ai
+indicator("AT24 Squeeze Meter", shorttitle="AT24 SQM", overlay=false, max_labels_count=5)
+
+grp1 = "Squeeze"
+bbLen = input.int(20, "Bollinger length", minval=5, group=grp1)
+bbMult = input.float(2.0, "Bollinger deviations", minval=0.1, step=0.1, group=grp1)
+kcLen = input.int(20, "Keltner length", minval=5, group=grp1)
+kcMult = input.float(1.5, "Keltner ATR multiple", minval=0.1, step=0.1, group=grp1)
+atrLen = input.int(14, "ATR length", minval=1, group=grp1)
+grp2 = "Statistics"
+minBars = input.int(6, "Squeeze must last at least this many bars to count", minval=2, group=grp2)
+windowBars = input.int(20, "Bars after the release that are measured", minval=5, group=grp2)
+grp3 = "Dashboard"
+showDash = input.bool(true, "Show dashboard", group=grp3)
+dashPos = input.string("top right", "Position", options=["top left","top right","bottom left","bottom right"], group=grp3)
+
+basis = ta.sma(close, bbLen)
+dev = ta.stdev(close, bbLen)
+kcMa = ta.sma(close, kcLen)
+atr = ta.atr(atrLen)
+sqOn = (basis + bbMult * dev) < (kcMa + kcMult * atr) and (basis - bbMult * dev) > (kcMa - kcMult * atr)
+ratio = (kcMult * atr) > 0 ? (bbMult * dev) / (kcMult * atr) : 0.0
+mom = close - ((ta.highest(high, bbLen) + ta.lowest(low, bbLen)) / 2 + basis) / 2
+
+momCol = mom >= 0 ? (mom >= nz(mom[1]) ? color.lime : color.green) : (mom <= nz(mom[1]) ? color.red : color.maroon)
+plot(mom, "Momentum", color=momCol, style=plot.style_histogram, linewidth=3)
+plot(0, "Squeeze (red = on)", color=sqOn ? color.red : color.gray, style=plot.style_circles, linewidth=2)
+
+// ---- squeeze runs and releases
+var int run = 0
+var int lastRun = 0
+var int sinceRelease = 999
+var int[] pIdx = array.new_int()
+var float[] pC = array.new_float()
+var float[] pAtr = array.new_float()
+var int[] pMom = array.new_int()
+var float[] ranges = array.new_float()
+var float[] bests = array.new_float()
+var float[] lens = array.new_float()
+var float[] base = array.new_float()
+var int cntAbove = 0
+var int cntHit = 0
+var int cntMeasured = 0
+var int cntAll = 0
+
+hiW = ta.highest(high, windowBars)
+loW = ta.lowest(low, windowBars)
+atrW = atr[windowBars]
+if not na(atrW) and atrW > 0 and bar_index % 3 == 0
+    array.push(base, (hiW - loW) / atrW)
+    if array.size(base) > 3000
+        array.shift(base)
+
+// resolve pending releases exactly `windowBars` bars after they happened
+if array.size(pIdx) > 0
+    for k = array.size(pIdx) - 1 to 0
+        if bar_index - array.get(pIdx, k) == windowBars
+            c0 = array.get(pC, k)
+            a0 = array.get(pAtr, k)
+            up = (hiW - c0) / a0
+            dn = (c0 - loW) / a0
+            rng = (hiW - loW) / a0
+            array.push(ranges, rng)
+            array.push(bests, math.max(up, dn))
+            cntMeasured += 1
+            if (up >= dn ? 1 : -1) == array.get(pMom, k)
+                cntHit += 1
+            array.remove(pIdx, k)
+            array.remove(pC, k)
+            array.remove(pAtr, k)
+            array.remove(pMom, k)
+
+released = not sqOn and nz(sqOn[1]) and run >= minBars
+if released and atr > 0
+    array.push(pIdx, bar_index)
+    array.push(pC, close)
+    array.push(pAtr, atr)
+    array.push(pMom, close >= basis ? 1 : -1)
+    array.push(lens, run)
+    cntAll += 1
+    sinceRelease := 0
+else if sinceRelease < 999
+    sinceRelease += 1
+if sqOn
+    run += 1
+else
+    lastRun := run
+    run := 0
+
+baseMed = array.size(base) > 0 ? array.median(base) : na
+medRange = array.size(ranges) > 0 ? array.median(ranges) : na
+medBest = array.size(bests) > 0 ? array.median(bests) : na
+medLen = array.size(lens) > 0 ? array.median(lens) : na
+// share of measured releases whose range beat the baseline median
+aboveN = 0
+if array.size(ranges) > 0 and not na(baseMed)
+    for i = 0 to array.size(ranges) - 1
+        if array.get(ranges, i) > baseMed
+            aboveN += 1
+pct(x, y) => y > 0 ? 100.0 * x / y : 0.0
+
+alertcondition(released, "AT24 squeeze released", "AT24 Squeeze Meter {{ticker}}: squeeze released")
+
+state = sqOn ? "SQUEEZE ON (" + str.tostring(run) + " bars)" : sinceRelease <= 5 ? "RELEASED " + str.tostring(sinceRelease) + " bar(s) ago" : "NO SQUEEZE"
+stateCol = sqOn ? color.red : sinceRelease <= 5 ? color.yellow : color.gray
+
+pos = switch dashPos
+    "top left" => position.top_left
+    "top right" => position.top_right
+    "bottom left" => position.bottom_left
+    => position.bottom_right
+var table t = table.new(pos, 2, 8, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+if showDash and barstate.islast
+    table.cell(t, 0, 0, "AT24", text_color=#E8B84A, text_size=size.large)
+    table.cell(t, 1, 0, "SQUEEZE METER", text_color=#E8B84A, text_size=size.normal, text_halign=text.align_left)
+    table.cell(t, 0, 1, "State", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 1, state, text_color=stateCol, text_size=size.normal, text_halign=text.align_left)
+    table.cell(t, 0, 2, "Momentum / band ratio", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 2, (mom > 0 ? "UP" : mom < 0 ? "DOWN" : "-") + "   BB/KC " + str.tostring(ratio, "0.00"), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 3, "Squeezes measured", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 3, str.tostring(cntMeasured) + " of " + str.tostring(cntAll) + "  (median " + (na(medLen) ? "-" : str.tostring(medLen, "0")) + " bars)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 4, "Next " + str.tostring(windowBars) + " bars range", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 4, (na(medRange) ? "-" : str.tostring(medRange, "0.0")) + " ATR vs " + (na(baseMed) ? "-" : str.tostring(baseMed, "0.0")) + " ATR usual", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 5, "Wider than usual", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 5, str.tostring(pct(aboveN, cntMeasured), "0") + "% of releases", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 6, "Momentum matched bigger side", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 6, str.tostring(pct(cntHit, cntMeasured), "0") + "%  (about 50% = coin flip)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 7, "Descriptive history.", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
+    table.cell(t, 1, 7, "Not a signal. algotraders24.ai", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)

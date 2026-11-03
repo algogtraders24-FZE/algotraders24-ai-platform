@@ -22,6 +22,8 @@ Each folder has `branding/` (logo, banner, MT5 + TradingView screenshots), `test
 
 Prop Guard open item: test open risk with a real open demo trade (only the no-position case was verified). Brief: `docs/social/INDICATORS/AT24-PROP-GUARD-BRIEF.md`.
 
+| L4 | AT24 Squeeze Meter (list #4: Bollinger-in-Keltner squeeze + momentum + real post-squeeze stats) | `ea-research/indicators/AT24_Squeeze_Meter` | compiled, math = Python (137 releases identical), screenshot | compiled, runtime buffers = Python (400 bars) | written, NOT tested (Chrome was disconnected) |
+
 ## Open items for the production window
 1. **Spread Guard on MT4:** drag it onto an MT4 chart and eyeball dashboard + histogram (my test read no values; the Exness demo history spread may be zero). If the histogram stays empty only because history spread is 0, the live-learning profile fills over time; the dashboard still works.
 2. **Side effect in the owner's MT4 terminal:** my startup-config attempts left an extra XAUUSD M5 chart (the test EA file is deleted, so nothing runs). The owner can close that chart. MT4 note: the ini path is passed WITHOUT `/config:` (MT4 syntax); MT5 uses `/config:`.
