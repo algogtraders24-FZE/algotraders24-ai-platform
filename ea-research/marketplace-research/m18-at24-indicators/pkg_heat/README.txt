@@ -1,4 +1,4 @@
-AT24 HOURLY RANGE HEATMAP v1.01 (MT5, licensed utility EA)
+AT24 HOURLY RANGE HEATMAP v1.02 (MT5, licensed utility EA)
 
 WHAT IT SHOWS
 - The average H1 range for each of the 24 hours of the day on the chart symbol, as a heatmap (current hour outlined).

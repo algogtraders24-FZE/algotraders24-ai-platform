@@ -1,4 +1,4 @@
-AT24 SPREAD BY HOUR v1.01 (MT5, licensed utility EA)
+AT24 SPREAD BY HOUR v1.02 (MT5, licensed utility EA)
 
 WHAT IT SHOWS
 - The average spread (in points) for each of the 24 hours of the day on the chart symbol, read from your broker's TICK history (last 10 trading days by default), as a heatmap with the current hour outlined.
