@@ -198,7 +198,7 @@ void UpdateDash()
    MakeLabel("s1", 10, 140, StringFormat("First break: up %.0f%%   down %.0f%%   none %.0f%%", gStats[1], gStats[2], gStats[3]), clrWhite, 9);
    MakeLabel("s2", 10, 156, StringFormat("When it broke: held to day end %.0f%%", gStats[4]), clrWhite, 9);
    MakeLabel("s3", 10, 172, StringFormat("When it broke: ran 1x the box or more %.0f%%", gStats[5]), clrWhite, 9);
-   MakeLabel("n1", 10, 194, StringFormat("GMT %02d:00-%02d:00 box, watching to %02d:00. Break = close beyond the box.", InpAsiaStartHour, InpAsiaEndHour, InpDayEndHour), clrSlateGray, 8);
+   MakeLabel("n1", 10, 194, StringFormat("GMT %02d-%02d box, watching to %02d. Break = a close beyond.", InpAsiaStartHour, InpAsiaEndHour, InpDayEndHour), clrSlateGray, 8);
    MakeLabel("f1", 10, 220, "Descriptive history on your broker's data. Context tool,", clrSlateGray, 7);
    MakeLabel("f2", 10, 232, "not a signal or a forecast. algotraders24.ai", clrSlateGray, 7);
   }
