@@ -16,6 +16,7 @@ Owner decision: the engineering-production agent takes over the remaining work (
 
 Each folder has `branding/` (logo, banner, MT5 + TradingView screenshots), `test/TEST-RECORD.md`; briefs in `docs/social/INDICATORS/AT24-REGIME-PULSE-BRIEF.md` and `AT24-SPREAD-GUARD-BRIEF.md`. Both indicators have their own resource file names (`logo56.bmp` / `sg_logo56.bmp`), so they can share one folder.
 
+| L1 | AT24 Session Range Box (list #1: Asia box + real breakout statistics) | `ea-research/indicators/AT24_Session_Range_Box` | compiled, math = Python (43 days, 0 mismatches), screenshot | compiled, runtime values = Python | compiled + rendered, screenshot |
 | 3 | AT24 Prop Guard (daily/max loss gauges, open risk, target progress, alerts) | `ea-research/indicators/AT24_Prop_Guard` | compiled; 22/22 self-test checks on a live demo; screenshot | compiled; 6/6 runtime checks on a demo | compiled + rendered (calculator edition, cannot read the account), screenshot |
 
 Prop Guard open item: test open risk with a real open demo trade (only the no-position case was verified). Brief: `docs/social/INDICATORS/AT24-PROP-GUARD-BRIEF.md`.
