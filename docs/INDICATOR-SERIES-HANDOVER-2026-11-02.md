@@ -16,6 +16,8 @@ Owner decision: the engineering-production agent takes over the remaining work (
 
 Each folder has `branding/` (logo, banner, MT5 + TradingView screenshots), `test/TEST-RECORD.md`; briefs in `docs/social/INDICATORS/AT24-REGIME-PULSE-BRIEF.md` and `AT24-SPREAD-GUARD-BRIEF.md`. Both indicators have their own resource file names (`logo56.bmp` / `sg_logo56.bmp`), so they can share one folder.
 
+| L1 | AT24 Session Range Box (list #1: Asia box + real breakout statistics) | `ea-research/indicators/AT24_Session_Range_Box` | compiled, math = Python (43 days, 0 mismatches), screenshot | compiled, runtime values = Python | compiled + rendered, screenshot |
+
 ## Open items for the production window
 1. **Spread Guard on MT4:** drag it onto an MT4 chart and eyeball dashboard + histogram (my test read no values; the Exness demo history spread may be zero). If the histogram stays empty only because history spread is 0, the live-learning profile fills over time; the dashboard still works.
 2. **Side effect in the owner's MT4 terminal:** my startup-config attempts left an extra XAUUSD M5 chart (the test EA file is deleted, so nothing runs). The owner can close that chart. MT4 note: the ini path is passed WITHOUT `/config:` (MT4 syntax); MT5 uses `/config:`.

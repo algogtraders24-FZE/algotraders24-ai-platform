@@ -1,0 +1,173 @@
+//@version=5
+// AT24 Session Range Box - the Asian range, drawn - and what it really did on this symbol.
+// Draws the Asia box each day, tracks the first close beyond it, and shows real history statistics.
+// Context tool. Not a signal. Past behaviour does not predict. algotraders24.ai
+indicator("AT24 Session Range Box", shorttitle="AT24 SRB", overlay=true, max_boxes_count=100)
+
+grp1 = "Session (UTC)"
+asiaS  = input.int(0, "Asia box starts (UTC hour)", minval=0, maxval=22, group=grp1)
+asiaE  = input.int(7, "Asia box ends = London open (UTC hour)", minval=1, maxval=23, group=grp1)
+dayE   = input.int(21, "Stop watching for a break at (UTC hour)", minval=2, maxval=24, group=grp1)
+buf    = input.float(0.0, "Close must be beyond the box by (price units)", minval=0.0, group=grp1)
+grp2 = "History and look"
+statDays = input.int(60, "Days used for the statistics", minval=5, maxval=250, group=grp2)
+boxDays  = input.int(10, "Days of boxes drawn", minval=1, maxval=45, group=grp2)
+boxCol   = input.color(color.new(#1E4670, 70), "Asia box", group=grp2)
+upCol    = input.color(color.lime, "Break up", group=grp2)
+dnCol    = input.color(color.red, "Break down", group=grp2)
+noCol    = input.color(color.yellow, "No break yet", group=grp2)
+grp3 = "Dashboard"
+showDash = input.bool(true, "Show dashboard", group=grp3)
+dashPos  = input.string("top right", "Position", options=["top left","top right","bottom left","bottom right"], group=grp3)
+
+asiaSess = str.format("{0,number,00}00-{1,number,00}00", asiaS, asiaE)
+monSess  = str.format("{0,number,00}00-{1,number,00}00", asiaE, dayE)
+inAsia = not na(time(timeframe.period, asiaSess, "UTC"))
+inMon  = not na(time(timeframe.period, monSess, "UTC"))
+dayKey = year(time, "UTC") * 10000 + month(time, "UTC") * 100 + dayofmonth(time, "UTC")
+newDay = dayKey != nz(dayKey[1], 0)
+pastEnd = hour(time, "UTC") >= dayE
+
+var float hi = na
+var float lo = na
+var int brk = 0
+var float ext = 0.0
+var float lastClose = na
+var bool finished = false
+var int brkBarTime = na
+var box asiaBox = na
+var box extBox = na
+var box[] boxes = array.new_box()
+var float[] szA = array.new_float()
+var int[] brkA = array.new_int()
+var int[] heldA = array.new_int()
+var float[] extA = array.new_float()
+
+// ---- finalise the previous day when a new day starts or the watching window is over
+finalize = not na(hi) and not finished and (newDay or pastEnd)
+if finalize
+    held = -1
+    if brk == 1
+        held := (not na(lastClose) and lastClose > hi) ? 1 : 0
+    else if brk == 2
+        held := (not na(lastClose) and lastClose < lo) ? 1 : 0
+    array.push(szA, hi - lo)
+    array.push(brkA, brk)
+    array.push(heldA, held)
+    array.push(extA, ext)
+    if array.size(szA) > statDays
+        array.shift(szA)
+        array.shift(brkA)
+        array.shift(heldA)
+        array.shift(extA)
+    finished := true
+
+if newDay
+    hi := na
+    lo := na
+    brk := 0
+    ext := 0.0
+    lastClose := na
+    finished := false
+    asiaBox := na
+    extBox := na
+
+// ---- Asia window
+if inAsia
+    if na(hi)
+        hi := high
+        lo := low
+        asiaBox := box.new(time, high, time, low, xloc=xloc.bar_time, border_color=color.new(boxCol, 0), bgcolor=boxCol)
+        array.push(boxes, asiaBox)
+        if array.size(boxes) > boxDays * 2
+            box.delete(array.shift(boxes))
+    else
+        hi := math.max(hi, high)
+        lo := math.min(lo, low)
+    box.set_right(asiaBox, time)
+    box.set_top(asiaBox, hi)
+    box.set_bottom(asiaBox, lo)
+
+// ---- monitoring window (break = a CLOSE beyond the box)
+if inMon and not na(hi) and barstate.isconfirmed
+    size = hi - lo
+    if brk == 0
+        if close > hi + buf
+            brk := 1
+            brkBarTime := time
+        else if close < lo - buf
+            brk := 2
+            brkBarTime := time
+    if brk != 0 and size > 0
+        e = brk == 1 ? (high - hi) / size : (lo - low) / size
+        ext := math.max(ext, e)
+    lastClose := close
+    if na(extBox)
+        dayEndTime = timestamp("UTC", year(time, "UTC"), month(time, "UTC"), dayofmonth(time, "UTC"), dayE % 24, 0) + (dayE >= 24 ? 86400000 : 0)
+        extBox := box.new(time, hi, dayEndTime, lo, xloc=xloc.bar_time, border_color=noCol, bgcolor=na, border_style=line.style_dotted)
+        array.push(boxes, extBox)
+        if array.size(boxes) > boxDays * 2
+            box.delete(array.shift(boxes))
+    box.set_border_color(extBox, brk == 1 ? upCol : brk == 2 ? dnCol : noCol)
+
+// ---- alerts on the first break (bar close)
+brkUp = brk == 1 and nz(brk[1]) != 1 and barstate.isconfirmed
+brkDn = brk == 2 and nz(brk[1]) != 2 and barstate.isconfirmed
+alertcondition(brkUp, "AT24 Asia box broken UP", "AT24 Session Range Box {{ticker}}: Asia range broken UP")
+alertcondition(brkDn, "AT24 Asia box broken DOWN", "AT24 Session Range Box {{ticker}}: Asia range broken DOWN")
+
+// ---- statistics over the finished days we have
+n = array.size(szA)
+upN = 0
+dnN = 0
+noN = 0
+heldN = 0
+ranN = 0
+brokenN = 0
+for i = 0 to math.max(n - 1, 0)
+    if i < n
+        b = array.get(brkA, i)
+        if b == 1
+            upN += 1
+        else if b == 2
+            dnN += 1
+        else
+            noN += 1
+        if b != 0
+            brokenN += 1
+            if array.get(heldA, i) == 1
+                heldN += 1
+            if array.get(extA, i) >= 1.0
+                ranN += 1
+medSize = n > 0 ? array.median(szA) : na
+pct(a, b) => b > 0 ? 100.0 * a / b : 0.0
+
+stateTxt = na(hi) ? "NO ASIA DATA" : inAsia ? "ASIA BOX FORMING" : brk == 0 ? (finished ? "NO BREAK TODAY" : "INSIDE THE BOX") : (brk == 1 ? "BROKE UP" : "BROKE DOWN")
+stateCol = na(hi) or inAsia ? color.gray : brk == 1 ? upCol : brk == 2 ? dnCol : noCol
+
+pos = switch dashPos
+    "top left" => position.top_left
+    "top right" => position.top_right
+    "bottom left" => position.bottom_left
+    => position.bottom_right
+
+var table t = table.new(pos, 2, 9, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+if showDash and barstate.islast
+    table.cell(t, 0, 0, "AT24", text_color=#E8B84A, text_size=size.large)
+    table.cell(t, 1, 0, "SESSION RANGE BOX", text_color=#E8B84A, text_size=size.normal, text_halign=text.align_left)
+    table.cell(t, 0, 1, "State", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 1, stateTxt, text_color=stateCol, text_size=size.normal, text_halign=text.align_left)
+    table.cell(t, 0, 2, "Asia box", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 2, na(hi) ? "..." : str.tostring(lo, format.mintick) + " - " + str.tostring(hi, format.mintick), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 3, "Size vs median", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 3, (na(hi) or na(medSize) or medSize <= 0) ? "..." : str.tostring((hi - lo) / medSize, "0.00") + "x  (median " + str.tostring(medSize, format.mintick) + ")", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 4, "Days analysed", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 4, str.tostring(n), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 5, "First break", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 5, "up " + str.tostring(pct(upN, n), "0") + "%  down " + str.tostring(pct(dnN, n), "0") + "%  none " + str.tostring(pct(noN, n), "0") + "%", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 6, "Held to day end", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 6, str.tostring(pct(heldN, brokenN), "0") + "% of broken days", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 7, "Ran 1x the box", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 7, str.tostring(pct(ranN, brokenN), "0") + "% of broken days", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 8, "Descriptive history.", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
+    table.cell(t, 1, 8, "Not a signal. algotraders24.ai", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
