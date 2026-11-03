@@ -1,4 +1,4 @@
-AT24 PIVOT LEVELS MAP v1.02 (MT5, licensed utility EA)
+AT24 PIVOT LEVELS MAP v1.03 (MT5, licensed utility EA)
 
 WHAT IT SHOWS
 - Daily and weekly pivot levels (P, R1, R2, S1, S2). Monthly pivot, R3/S3 and Camarilla H3/H4/L3/L4 can be switched on in the inputs.
