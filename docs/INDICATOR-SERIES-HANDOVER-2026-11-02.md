@@ -29,6 +29,7 @@ Prop Guard open item: test open risk with a real open demo trade (only the no-po
 
 **MT4 label limit (found 2026-11-03):** MT4 cuts object-label text at 63 characters. All MT4 dashboards were audited; three over-long lines were shortened (fix included with Round Levels).
 
+| L8 | AT24 Anchored VWAP (list #8: day/week/month VWAP + SD bands + real reversion test; MT5 only) | `ea-research/indicators/AT24_Anchored_VWAP` | compiled, math = Python (VWAP, SD and reversion stats identical), screenshot | not built | not built |
 | L9 | AT24 Range Detector (list #9: ADX-fade consolidation boxes + real range-ending statistics; MT5 only) | `ea-research/indicators/AT24_Range_Detector` | compiled, math = Python (153 ranges identical), screenshot | not built | not built |
 
 ## Open items for the production window
