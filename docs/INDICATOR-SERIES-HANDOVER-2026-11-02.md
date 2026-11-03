@@ -29,6 +29,8 @@ Prop Guard open item: test open risk with a real open demo trade (only the no-po
 
 **MT4 label limit (found 2026-11-03):** MT4 cuts object-label text at 63 characters. All MT4 dashboards were audited; three over-long lines were shortened (fix included with Round Levels).
 
+| L9 | AT24 Range Detector (list #9: ADX-fade consolidation boxes + real range-ending statistics; MT5 only) | `ea-research/indicators/AT24_Range_Detector` | compiled, math = Python (153 ranges identical), screenshot | not built | not built |
+
 ## Open items for the production window
 1. **Spread Guard on MT4:** drag it onto an MT4 chart and eyeball dashboard + histogram (my test read no values; the Exness demo history spread may be zero). If the histogram stays empty only because history spread is 0, the live-learning profile fills over time; the dashboard still works.
 2. **Side effect in the owner's MT4 terminal:** my startup-config attempts left an extra XAUUSD M5 chart (the test EA file is deleted, so nothing runs). The owner can close that chart. MT4 note: the ini path is passed WITHOUT `/config:` (MT4 syntax); MT5 uses `/config:`.
