@@ -1,0 +1,111 @@
+// AT24 Hourly Range Heatmap (TradingView) - education tool, not a signal.
+// Average H1 range for each hour of the day on this symbol, from the history loaded on your chart.
+// It only shows past averages. It never gives buy or sell advice.
+// (c) algotraders24.ai
+//@version=6
+indicator("AT24 Hourly Range Heatmap", shorttitle="AT24 Hourly Range", overlay=true)
+
+// ---------------------------------------------------------------- inputs
+days      = input.int(60, "Trading days of history used", minval=5, maxval=250, group="Data")
+tzSel     = input.string("Exchange time", "Hour labels in", options=["Exchange time", "UTC", "UTC+5:30 (India)"], group="Data")
+colQuiet  = input.color(#237B8C, "Quiet hour color", group="Look")
+colBusy   = input.color(#E6B43C, "Busy hour color",  group="Look")
+showPanel = input.bool(true, "Show dashboard", group="Dashboard")
+panelPos  = input.string("Top right", "Dashboard position", options=["Top left", "Top right", "Bottom left", "Bottom right"], group="Dashboard")
+
+tzStr = tzSel == "UTC" ? "UTC" : tzSel == "UTC+5:30 (India)" ? "UTC+5:30" : syminfo.timezone
+
+tblPosition(s) =>
+    s == "Top left" ? position.top_left : s == "Top right" ? position.top_right : s == "Bottom left" ? position.bottom_left : position.bottom_right
+
+lbl(int h) => (h < 10 ? "0" : "") + str.tostring(h) + ":00"
+
+pick(array<float> a, bool busiest, array<int> taken) =>
+    int best = -1
+    for h = 0 to 23
+        v = array.get(a, h)
+        if not na(v) and array.indexof(taken, h) < 0
+            if best < 0 or (busiest ? v > array.get(a, best) : v < array.get(a, best))
+                best := h
+    best
+
+topList(array<float> a, bool busiest) =>
+    taken = array.new_int()
+    string s = ""
+    for k = 0 to 2
+        h = pick(a, busiest, taken)
+        if h >= 0
+            array.push(taken, h)
+            s += (k > 0 ? "    " : "") + lbl(h) + " (" + str.tostring(array.get(a, h), "#.##") + ")"
+    s
+
+// ---------------------------------------------------------------- collect: one value per COMPLETED H1 bar
+var float[] sums = array.new_float(24, 0.0)
+var int[]   cnts = array.new_int(24, 0)
+
+[rgPrev, tPrev] = request.security(syminfo.tickerid, "60", [high[1] - low[1], time[1]], lookahead = barmerge.lookahead_on)
+[rgNow, tNow]   = request.security(syminfo.tickerid, "60", [high - low, time])
+
+newH1 = time("60") != time("60")[1]
+windowStart = last_bar_time - days * 86400000
+if newH1 and not na(rgPrev) and not na(tPrev) and tPrev >= windowStart and timeframe.in_seconds() <= 3600
+    idx = hour(tPrev, tzStr)
+    array.set(sums, idx, array.get(sums, idx) + rgPrev)
+    array.set(cnts, idx, array.get(cnts, idx) + 1)
+
+var table tbl = table.new(tblPosition(panelPos), 24, 9, bgcolor = color.new(#101420, 0), border_color = #3C4862, border_width = 1, frame_color = #3C4862, frame_width = 1)
+var bool merged = false
+
+// ---------------------------------------------------------------- dashboard on the last bar
+if barstate.islast and showPanel
+    dark = color.new(#101420, 0)
+    grey = #96A0AF
+    white = #EBF0FA
+    gold = #E6B43C
+    bar = #1C2436
+    if not merged
+        for r = 0 to 8
+            if r != 1 and r != 2 and r != 3
+                table.merge_cells(tbl, 0, r, 23, r)
+        merged := true
+
+    avg = array.new_float(24, na)
+    float mx = 0.0
+    float mn = 1e18
+    float tot = 0.0
+    int valid = 0
+    int bars = 0
+    for h = 0 to 23
+        c = array.get(cnts, h)
+        bars += c
+        if c >= 5
+            v = array.get(sums, h) / c
+            array.set(avg, h, v)
+            mx := math.max(mx, v)
+            mn := math.min(mn, v)
+            tot += v
+            valid += 1
+
+    table.cell(tbl, 0, 0, "AT24   HOURLY RANGE HEATMAP   " + syminfo.ticker + "   H1 average", text_color = gold, bgcolor = bar, text_halign = text.align_left, text_size = size.normal)
+
+    if timeframe.in_seconds() > 3600
+        table.cell(tbl, 0, 1, "Use a chart timeframe of 1 hour or lower.", text_color = #FFBE50, bgcolor = dark, text_halign = text.align_left, text_size = size.normal)
+    else if valid < 6
+        table.cell(tbl, 0, 1, "Not enough history loaded yet (" + str.tostring(bars) + " hours). Scroll the chart back or use a lower timeframe.", text_color = #FFBE50, bgcolor = dark, text_halign = text.align_left, text_size = size.normal)
+    else
+        curHour = hour(tNow, tzStr)
+        for h = 0 to 23
+            v = array.get(avg, h)
+            bg = na(v) ? #323A4C : color.from_gradient(v, mn, mx, colQuiet, colBusy)
+            table.cell(tbl, h, 1, (h < 10 ? "0" : "") + str.tostring(h), text_color = #FFFFFF, bgcolor = bg, text_halign = text.align_center, text_size = size.small)
+            table.cell(tbl, h, 2, na(v) ? "-" : str.tostring(v, "#.#"), text_color = grey, bgcolor = dark, text_halign = text.align_center, text_size = size.tiny)
+            table.cell(tbl, h, 3, h == curHour ? "^" : "", text_color = white, bgcolor = dark, text_halign = text.align_center, text_size = size.small)
+        table.cell(tbl, 0, 4, "Busiest   " + topList(avg, true), text_color = gold, bgcolor = dark, text_halign = text.align_left, text_size = size.small)
+        table.cell(tbl, 0, 5, "Quietest   " + topList(avg, false), text_color = #2DD4BF, bgcolor = dark, text_halign = text.align_left, text_size = size.small)
+        string nowTxt = "This hour (" + lbl(curHour) + ")   range so far " + str.tostring(rgNow, "#.##")
+        curAvg = array.get(avg, curHour)
+        if not na(curAvg)
+            nowTxt += "  /  usual full hour " + str.tostring(curAvg, "#.##") + "  (" + str.tostring(curAvg / (tot / valid) * 100.0, "#") + "% of the all-hours average)"
+        table.cell(tbl, 0, 6, "Widest vs quietest hour   " + str.tostring(mx / mn, "#.0") + "x      " + nowTxt, text_color = white, bgcolor = dark, text_halign = text.align_left, text_size = size.small)
+        table.cell(tbl, 0, 7, "Average H1 range per hour (" + tzSel + "), last " + str.tostring(bars) + " completed hours (about " + str.tostring(bars / 23.0, "#") + " trading days).", text_color = grey, bgcolor = dark, text_halign = text.align_left, text_size = size.tiny)
+    table.cell(tbl, 0, 8, "Education tool, not a signal. Past averages do not predict price.", text_color = #FFBE50, bgcolor = dark, text_halign = text.align_left, text_size = size.tiny)
