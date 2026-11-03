@@ -22,6 +22,7 @@ Each folder has `branding/` (logo, banner, MT5 + TradingView screenshots), `test
 
 Prop Guard open item: test open risk with a real open demo trade (only the no-position case was verified). Brief: `docs/social/INDICATORS/AT24-PROP-GUARD-BRIEF.md`.
 
+| L3 | AT24 Trend Pullback Map (list #3: EMA ribbon, trend/range, pullback zone + real pullback outcomes) | `ea-research/indicators/AT24_Trend_Pullback_Map` | compiled, math = Python (8,000 bars, 438 events identical), screenshot | compiled, runtime buffers = Python (400 bars) | compiled + rendered, screenshot |
 | L4 | AT24 Squeeze Meter (list #4: Bollinger-in-Keltner squeeze + momentum + real post-squeeze stats) | `ea-research/indicators/AT24_Squeeze_Meter` | compiled, math = Python (137 releases identical), screenshot | compiled, runtime buffers = Python (400 bars) | written, NOT tested (Chrome was disconnected) |
 
 ## Open items for the production window

@@ -1,0 +1,137 @@
+//@version=5
+// AT24 Trend Pullback Map - EMA ribbon, trend / range state, pullback zone, and how EMA pullbacks
+// really ended on this symbol. Context tool. Not a signal. algotraders24.ai
+indicator("AT24 Trend Pullback Map", shorttitle="AT24 TPM", overlay=true, max_labels_count=10)
+
+grp1 = "Ribbon"
+lenF = input.int(20, "Fast EMA", minval=2, group=grp1)
+lenM = input.int(50, "Mid EMA (trend colour, pullback failure level)", minval=3, group=grp1)
+lenS = input.int(200, "Slow EMA", minval=5, group=grp1)
+atrLen = input.int(14, "ATR length", minval=1, group=grp1)
+slopeBars = input.int(5, "Bars for the mid EMA slope", minval=1, group=grp1)
+slopeMin = input.float(0.10, "Mid EMA must move this many ATR over those bars", minval=0.0, step=0.01, group=grp1)
+grp2 = "Pullback statistics"
+swingBars = input.int(20, "Bars before the touch that define the swing extreme", minval=2, group=grp2)
+windowBars = input.int(20, "Bars allowed for the pullback to resolve", minval=2, group=grp2)
+extAtr = input.float(1.5, "Price this many ATR from the fast EMA = extended", minval=0.1, step=0.1, group=grp2)
+grp3 = "Dashboard"
+showDash = input.bool(true, "Show dashboard", group=grp3)
+dashPos = input.string("top right", "Position", options=["top left","top right","bottom left","bottom right"], group=grp3)
+
+ef = ta.ema(close, lenF)
+em = ta.ema(close, lenM)
+es = ta.ema(close, lenS)
+atr = ta.atr(atrLen)
+slope = em - em[slopeBars]
+trend = bar_index < lenS + slopeBars ? 0 : (ef > em and em > es and slope > slopeMin * atr) ? 1 : (ef < em and em < es and -slope > slopeMin * atr) ? -1 : 0
+
+col = trend == 1 ? color.lime : trend == -1 ? color.red : color.gray
+plot(ef, "EMA fast", color=color.yellow, linewidth=1)
+plot(em, "EMA mid", color=col, linewidth=2)
+plot(es, "EMA slow", color=color.aqua, linewidth=1)
+
+touchUp = trend == 1 and low <= ef and (low[1] > ef[1] or trend[1] != 1)
+touchDn = trend == -1 and high >= ef and (high[1] < ef[1] or trend[1] != -1)
+plotshape(touchUp, "Pullback touch (up trend)", shape.triangleup, location.belowbar, color.lime, size=size.tiny)
+plotshape(touchDn, "Pullback touch (down trend)", shape.triangledown, location.abovebar, color.red, size=size.tiny)
+
+// ---- track open pullback events until they resolve
+var int[] evDir = array.new_int()
+var float[] evRef = array.new_float()
+var int[] evStart = array.new_int()
+var float[] evWorst = array.new_float()
+var float[] evAtr = array.new_float()
+var float[] depths = array.new_float()
+var int cntRes = 0
+var int cntFail = 0
+var int cntNone = 0
+var int cntUp = 0
+var int cntDn = 0
+
+// resolve open events with the current bar (before adding a new one, like the MT5 core)
+if array.size(evDir) > 0
+    for k = array.size(evDir) - 1 to 0
+        d = array.get(evDir, k)
+        ref = array.get(evRef, k)
+        w = d == 1 ? math.min(array.get(evWorst, k), low) : math.max(array.get(evWorst, k), high)
+        array.set(evWorst, k, w)
+        bars = bar_index - array.get(evStart, k)
+        outcome = -1
+        if d == 1 and close < em
+            outcome := 2
+        else if d == -1 and close > em
+            outcome := 2
+        else if d == 1 and high > ref
+            outcome := 1
+        else if d == -1 and low < ref
+            outcome := 1
+        else if bars >= windowBars
+            outcome := 0
+        if outcome != -1
+            if outcome == 1
+                cntRes += 1
+            else if outcome == 2
+                cntFail += 1
+            else
+                cntNone += 1
+            a = array.get(evAtr, k)
+            array.push(depths, a > 0 ? math.abs(ref - w) / a : 0.0)
+            array.remove(evDir, k)
+            array.remove(evRef, k)
+            array.remove(evStart, k)
+            array.remove(evWorst, k)
+            array.remove(evAtr, k)
+
+if touchUp or touchDn
+    d0 = touchUp ? 1 : -1
+    ref0 = touchUp ? math.max(ta.highest(high, swingBars)[1], high[1]) : math.min(ta.lowest(low, swingBars)[1], low[1])
+    array.push(evDir, d0)
+    array.push(evRef, ref0)
+    array.push(evStart, bar_index)
+    array.push(evWorst, touchUp ? low : high)
+    array.push(evAtr, atr)
+    if touchUp
+        cntUp += 1
+    else
+        cntDn += 1
+
+resolved = cntRes + cntFail + cntNone
+pct(x, y) => y > 0 ? 100.0 * x / y : 0.0
+medDepth = array.size(depths) > 0 ? array.median(depths) : na
+
+// ---- zone of the last bar
+distAtr = atr > 0 ? (close - ef) / atr : 0.0
+zone = 0
+if trend == 1
+    zone := close < es ? 5 : close < em ? 4 : (close <= ef or low <= ef) ? 3 : (distAtr > extAtr ? 2 : 1)
+else if trend == -1
+    zone := close > es ? 5 : close > em ? 4 : (close >= ef or high >= ef) ? 3 : (-distAtr > extAtr ? 2 : 1)
+zoneTxt = trend == 0 ? "RANGE / NO CLEAR TREND" : zone == 1 ? "TREND RUNNING" : zone == 2 ? "EXTENDED from fast EMA" : zone == 3 ? "IN THE PULLBACK ZONE" : zone == 4 ? "DEEPER THAN THE ZONE" : "TREND BROKEN (slow EMA)"
+trendTxt = trend == 1 ? "UPTREND" : trend == -1 ? "DOWNTREND" : "RANGE"
+trendCol = trend == 1 ? color.lime : trend == -1 ? color.red : color.gray
+
+alertcondition(touchUp or touchDn, "AT24 pullback touch", "AT24 Trend Pullback Map {{ticker}}: pullback touch of the fast EMA")
+
+pos = switch dashPos
+    "top left" => position.top_left
+    "top right" => position.top_right
+    "bottom left" => position.bottom_left
+    => position.bottom_right
+var table t = table.new(pos, 2, 8, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+if showDash and barstate.islast
+    table.cell(t, 0, 0, "AT24", text_color=#E8B84A, text_size=size.large)
+    table.cell(t, 1, 0, "TREND PULLBACK MAP", text_color=#E8B84A, text_size=size.normal, text_halign=text.align_left)
+    table.cell(t, 0, 1, "Trend", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 1, trendTxt, text_color=trendCol, text_size=size.normal, text_halign=text.align_left)
+    table.cell(t, 0, 2, "Zone", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 2, zoneTxt, text_color=zone == 3 ? color.yellow : color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 3, "Price vs fast EMA", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 3, str.tostring(distAtr, "+0.00;-0.00") + " ATR", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 4, "Pullbacks resolved", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 4, str.tostring(resolved) + "  (up " + str.tostring(cntUp) + ", down " + str.tostring(cntDn) + ")", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 5, "Trend resumed", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 5, str.tostring(pct(cntRes, resolved), "0") + "%  failed " + str.tostring(pct(cntFail, resolved), "0") + "%  neither " + str.tostring(pct(cntNone, resolved), "0") + "%", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 6, "Median depth", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 6, na(medDepth) ? "..." : str.tostring(medDepth, "0.0") + " ATR", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 7, "Descriptive history.", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
+    table.cell(t, 1, 7, "Not a signal. algotraders24.ai", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
