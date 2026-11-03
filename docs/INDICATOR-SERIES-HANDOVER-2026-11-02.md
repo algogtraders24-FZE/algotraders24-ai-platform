@@ -25,6 +25,10 @@ Prop Guard open item: test open risk with a real open demo trade (only the no-po
 | L3 | AT24 Trend Pullback Map (list #3: EMA ribbon, trend/range, pullback zone + real pullback outcomes) | `ea-research/indicators/AT24_Trend_Pullback_Map` | compiled, math = Python (8,000 bars, 438 events identical), screenshot | compiled, runtime buffers = Python (400 bars) | compiled + rendered, screenshot |
 | L4 | AT24 Squeeze Meter (list #4: Bollinger-in-Keltner squeeze + momentum + real post-squeeze stats) | `ea-research/indicators/AT24_Squeeze_Meter` | compiled, math = Python (137 releases identical), screenshot | compiled, runtime buffers = Python (400 bars) | written, NOT tested (Chrome was disconnected) |
 
+| L6 | AT24 Round Levels (list #6: round-number grid + real bounce test vs control levels) | `ea-research/indicators/AT24_Round_Levels` | compiled, math = Python (6 scans identical), screenshot | compiled, runtime statistics = Python | written, NOT tested (Chrome was disconnected) |
+
+**MT4 label limit (found 2026-11-03):** MT4 cuts object-label text at 63 characters. All MT4 dashboards were audited; three over-long lines were shortened (fix included with Round Levels).
+
 ## Open items for the production window
 1. **Spread Guard on MT4:** drag it onto an MT4 chart and eyeball dashboard + histogram (my test read no values; the Exness demo history spread may be zero). If the histogram stays empty only because history spread is 0, the live-learning profile fills over time; the dashboard still works.
 2. **Side effect in the owner's MT4 terminal:** my startup-config attempts left an extra XAUUSD M5 chart (the test EA file is deleted, so nothing runs). The owner can close that chart. MT4 note: the ini path is passed WITHOUT `/config:` (MT4 syntax); MT5 uses `/config:`.

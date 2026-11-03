@@ -182,7 +182,7 @@ void UpdateAll(const bool redraw)
    MakeLabel("r6", 10, 146, InpShowMonth ? Row("PML", m.pLo, smL, bid) : "PML  hidden", InpMonthColor, 9);
    MakeLabel("h1", 10, 170, StringFormat("Last %d days on this symbol  (%d with a previous-day level)", InpStatDays, (int)gStats[0]), C'230,190,80', 9, true);
    MakeLabel("s1", 10, 188, StringFormat("PDH swept %.0f%%   PDL swept %.0f%%   either %.0f%%   both %.0f%%", gStats[1], gStats[2], gStats[3], gStats[4]), clrWhite, 9);
-   MakeLabel("s2", 10, 204, StringFormat("After a sweep: closed back inside %.0f%%  |  accepted beyond %.0f%%  (%d sweeps)", gStats[5], gStats[6], (int)gStats[7]), clrWhite, 9);
+   MakeLabel("s2", 10, 204, StringFormat("After a sweep: back inside %.0f%% | accepted %.0f%% (%d)", gStats[5], gStats[6], (int)gStats[7]), clrWhite, 9);
    MakeLabel("n1", 10, 224, "Swept = traded beyond. Accepted = closed beyond.", clrSlateGray, 8);
    MakeLabel("f1", 10, 246, "Descriptive history on your broker's data. Context tool,", clrSlateGray, 7);
    MakeLabel("f2", 10, 258, "not a signal or a forecast. algotraders24.ai", clrSlateGray, 7);
