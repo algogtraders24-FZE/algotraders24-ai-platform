@@ -1,0 +1,201 @@
+// AT24 Pivot Levels Map (TradingView) - education tool, not a signal.
+// Daily / weekly / monthly pivots, daily CPR and Camarilla levels with an AT24 dashboard.
+// It only draws levels and shows context. It never gives buy or sell advice.
+// (c) algotraders24.ai
+//@version=6
+indicator("AT24 Pivot Levels Map", shorttitle="AT24 Pivots", overlay=true, max_lines_count=100, max_labels_count=100)
+
+// ---------------------------------------------------------------- inputs
+showD    = input.bool(true,  "Daily pivot levels",            group="Periods")
+showW    = input.bool(true,  "Weekly pivot levels",           group="Periods")
+showM    = input.bool(false, "Monthly pivot levels",          group="Periods")
+showR3S3 = input.bool(false, "Draw R3 / S3 as well",          group="Periods")
+showCPR  = input.bool(true,  "Show daily CPR (TC / BC)",      group="CPR and Camarilla")
+showCama = input.bool(false, "Show daily Camarilla H3/H4/L3/L4", group="CPR and Camarilla")
+cprDays  = input.int(20, "Days used to judge narrow / wide CPR", minval=5, group="CPR and Camarilla")
+colD     = input.color(#FFD700, "Daily color",   group="Look")
+colW     = input.color(#1E90FF, "Weekly color",  group="Look")
+colM     = input.color(#BA55D3, "Monthly color", group="Look")
+colCPR   = input.color(#00FFFF, "CPR color",     group="Look")
+colCama  = input.color(#FF6347, "Camarilla color", group="Look")
+showPanel = input.bool(true, "Show dashboard", group="Dashboard")
+panelPos  = input.string("Top right", "Dashboard position", options=["Top left", "Top right", "Bottom left", "Bottom right"], group="Dashboard")
+
+// ---------------------------------------------------------------- data (previous COMPLETED day / week / month, no repainting)
+cprPct(h, l, c) =>
+    p  = (h + l + c) / 3.0
+    bc = (h + l) / 2.0
+    tc = 2.0 * p - bc
+    p > 0 ? math.abs(tc - bc) / p * 100.0 : na
+
+[dH, dL, dC, wNow, wAvg] = request.security(syminfo.tickerid, "D",
+     [high[1], low[1], close[1], cprPct(high[1], low[1], close[1]), ta.sma(cprPct(high, low, close), cprDays)[1]],
+     lookahead = barmerge.lookahead_on)
+[wH, wL, wC] = request.security(syminfo.tickerid, "W", [high[1], low[1], close[1]], lookahead = barmerge.lookahead_on)
+[mH, mL, mC] = request.security(syminfo.tickerid, "M", [high[1], low[1], close[1]], lookahead = barmerge.lookahead_on)
+
+pivots(h, l, c) =>
+    p = (h + l + c) / 3.0
+    [p, 2.0 * p - l, p + (h - l), 2.0 * p - h, p - (h - l), h + 2.0 * (p - l), l - 2.0 * (h - p)]
+
+tblPosition(s) =>
+    s == "Top left" ? position.top_left : s == "Top right" ? position.top_right : s == "Bottom left" ? position.bottom_left : position.bottom_right
+
+addLvl(array<string> names, array<float> prices, array<color> cols, array<int> starts, array<string> styles, string name, float price, color col, int start, string style) =>
+    array.push(names, name)
+    array.push(prices, price)
+    array.push(cols, col)
+    array.push(starts, start)
+    array.push(styles, style)
+
+fmt(float v) => na(v) ? "-" : str.tostring(v, format.mintick)
+
+var table tbl = table.new(tblPosition(panelPos), 6, 16, bgcolor = color.new(#101420, 0), border_color = #3C4862, border_width = 1, frame_color = #3C4862, frame_width = 1)
+var bool merged = false
+
+// ---------------------------------------------------------------- draw on the last bar
+if barstate.islast
+    for l in line.all
+        line.delete(l)
+    for lb in label.all
+        label.delete(lb)
+
+    names  = array.new<string>()
+    prices = array.new<float>()
+    cols   = array.new<color>()
+    starts = array.new<int>()
+    styles = array.new<string>()
+
+    sD = time("D")
+    sW = time("W")
+    sM = time("M")
+
+    if showD and not na(dH)
+        [p, r1, r2, s1, s2, r3, s3] = pivots(dH, dL, dC)
+        addLvl(names, prices, cols, starts, styles, "D P", p, colD, sD, "solid")
+        addLvl(names, prices, cols, starts, styles, "D R1", r1, colD, sD, "dot")
+        addLvl(names, prices, cols, starts, styles, "D R2", r2, colD, sD, "dot")
+        addLvl(names, prices, cols, starts, styles, "D S1", s1, colD, sD, "dot")
+        addLvl(names, prices, cols, starts, styles, "D S2", s2, colD, sD, "dot")
+        if showR3S3
+            addLvl(names, prices, cols, starts, styles, "D R3", r3, colD, sD, "dot")
+            addLvl(names, prices, cols, starts, styles, "D S3", s3, colD, sD, "dot")
+    if showW and not na(wH)
+        [p, r1, r2, s1, s2, r3, s3] = pivots(wH, wL, wC)
+        addLvl(names, prices, cols, starts, styles, "W P", p, colW, sW, "solid")
+        addLvl(names, prices, cols, starts, styles, "W R1", r1, colW, sW, "dot")
+        addLvl(names, prices, cols, starts, styles, "W R2", r2, colW, sW, "dot")
+        addLvl(names, prices, cols, starts, styles, "W S1", s1, colW, sW, "dot")
+        addLvl(names, prices, cols, starts, styles, "W S2", s2, colW, sW, "dot")
+        if showR3S3
+            addLvl(names, prices, cols, starts, styles, "W R3", r3, colW, sW, "dot")
+            addLvl(names, prices, cols, starts, styles, "W S3", s3, colW, sW, "dot")
+    if showM and not na(mH)
+        [p, r1, r2, s1, s2, r3, s3] = pivots(mH, mL, mC)
+        addLvl(names, prices, cols, starts, styles, "M P", p, colM, sM, "solid")
+        addLvl(names, prices, cols, starts, styles, "M R1", r1, colM, sM, "dot")
+        addLvl(names, prices, cols, starts, styles, "M R2", r2, colM, sM, "dot")
+        addLvl(names, prices, cols, starts, styles, "M S1", s1, colM, sM, "dot")
+        addLvl(names, prices, cols, starts, styles, "M S2", s2, colM, sM, "dot")
+        if showR3S3
+            addLvl(names, prices, cols, starts, styles, "M R3", r3, colM, sM, "dot")
+            addLvl(names, prices, cols, starts, styles, "M S3", s3, colM, sM, "dot")
+
+    float cprTop = na
+    float cprBot = na
+    if showCPR and not na(dH)
+        pp = (dH + dL + dC) / 3.0
+        bc = (dH + dL) / 2.0
+        tc = 2.0 * pp - bc
+        cprTop := math.max(tc, bc)
+        cprBot := math.min(tc, bc)
+        addLvl(names, prices, cols, starts, styles, "CPR TC", cprTop, colCPR, sD, "solid")
+        addLvl(names, prices, cols, starts, styles, "CPR BC", cprBot, colCPR, sD, "solid")
+    if showCama and not na(dH)
+        rg = dH - dL
+        addLvl(names, prices, cols, starts, styles, "Cama H4", dC + rg * 1.1 / 2.0, colCama, sD, "dash")
+        addLvl(names, prices, cols, starts, styles, "Cama H3", dC + rg * 1.1 / 4.0, colCama, sD, "dash")
+        addLvl(names, prices, cols, starts, styles, "Cama L3", dC - rg * 1.1 / 4.0, colCama, sD, "dash")
+        addLvl(names, prices, cols, starts, styles, "Cama L4", dC - rg * 1.1 / 2.0, colCama, sD, "dash")
+
+    n = array.size(names)
+    lblTime = time + 3 * timeframe.in_seconds() * 1000
+    for i = 0 to n - 1
+        c  = array.get(cols, i)
+        st = array.get(styles, i)
+        y  = array.get(prices, i)
+        ls = st == "solid" ? line.style_solid : st == "dash" ? line.style_dashed : line.style_dotted
+        line.new(array.get(starts, i), y, time, y, xloc = xloc.bar_time, extend = extend.right, color = c, style = ls, width = 1)
+        label.new(lblTime, y, array.get(names, i) + " " + str.tostring(y, format.mintick), xloc = xloc.bar_time, style = label.style_label_left, color = color.new(color.black, 100), textcolor = c, size = size.small)
+
+    // ------------------------------------------------------------ dashboard
+    if showPanel
+        if not merged
+            for r = 0 to 15
+                if r != 11 and r != 12 and r != 13 and r != 14
+                    table.merge_cells(tbl, 0, r, 5, r)
+            merged := true
+        dark = color.new(#101420, 0)
+        grey = #96A0AF
+        white = #EBF0FA
+        gold = #E6B43C
+        bar = #1C2436
+        px = close
+        nearest = -1
+        float dn = 1e18
+        int ab = -1
+        int be = -1
+        float dab = 1e18
+        float dbe = 1e18
+        for i = 0 to n - 1
+            d = array.get(prices, i) - px
+            if math.abs(d) < dn
+                dn := math.abs(d)
+                nearest := i
+            if d > 0 and d < dab
+                dab := d
+                ab := i
+            if d <= 0 and -d < dbe
+                dbe := -d
+                be := i
+
+        table.cell(tbl, 0, 0, "AT24   PIVOT LEVELS MAP   " + syminfo.ticker + "   " + timeframe.period, text_color = gold, bgcolor = bar, text_halign = text.align_left, text_size = size.normal)
+        string pos = "CPR off"
+        color posCol = grey
+        if not na(cprTop)
+            pos := px > cprTop ? "ABOVE the CPR" : px < cprBot ? "BELOW the CPR" : "INSIDE the CPR"
+            posCol := px > cprTop ? #50DC8C : px < cprBot ? #FF7878 : #FFBE50
+        table.cell(tbl, 0, 1, "Price " + fmt(px) + "      " + pos, text_color = posCol, bgcolor = dark, text_halign = text.align_left, text_size = size.normal)
+        table.cell(tbl, 0, 2, "NEAREST LEVELS", text_color = #6EAAFF, bgcolor = dark, text_halign = text.align_left, text_size = size.small)
+        table.cell(tbl, 0, 3, ab >= 0 ? "Above:  " + array.get(names, ab) + "   " + fmt(array.get(prices, ab)) + "   (+" + fmt(dab) + ")" : "Above: none", text_color = ab >= 0 ? array.get(cols, ab) : grey, bgcolor = dark, text_halign = text.align_left, text_size = size.small)
+        table.cell(tbl, 0, 4, be >= 0 ? "Below:  " + array.get(names, be) + "   " + fmt(array.get(prices, be)) + "   (-" + fmt(dbe) + ")" : "Below: none", text_color = be >= 0 ? array.get(cols, be) : grey, bgcolor = dark, text_halign = text.align_left, text_size = size.small)
+
+        table.cell(tbl, 0, 5, showCPR ? "CPR (TODAY)" : "", text_color = #6EAAFF, bgcolor = dark, text_halign = text.align_left, text_size = size.small)
+        table.cell(tbl, 0, 6, showCPR and not na(cprTop) ? "Top (TC)   " + fmt(cprTop) + "      Bottom (BC)   " + fmt(cprBot) : "", text_color = colCPR, bgcolor = dark, text_halign = text.align_left, text_size = size.small)
+        string kind = "loading history"
+        color kindCol = grey
+        if not na(wNow) and not na(wAvg) and wAvg > 0
+            ratio = wNow / wAvg
+            kind := ratio < 0.7 ? "NARROW vs average" : ratio > 1.3 ? "WIDE vs average" : "normal"
+            kindCol := ratio < 0.7 ? #00FFFF : ratio > 1.3 ? #FFA500 : white
+        table.cell(tbl, 0, 7, showCPR ? "Width " + str.tostring(wNow, "#.###") + "% / avg " + str.tostring(wAvg, "#.###") + "%   " + kind : "", text_color = kindCol, bgcolor = dark, text_halign = text.align_left, text_size = size.small)
+        table.cell(tbl, 0, 8, "", bgcolor = dark, text_size = size.tiny)
+
+        table.cell(tbl, 0, 9, "PIVOT LEVELS", text_color = #6EAAFF, bgcolor = dark, text_halign = text.align_left, text_size = size.small)
+        table.cell(tbl, 0, 10, "", bgcolor = dark, text_size = size.tiny)
+        hdr = array.from("", "P", "R1", "R2", "S1", "S2")
+        for c = 0 to 5
+            table.cell(tbl, c, 11, array.get(hdr, c), text_color = grey, bgcolor = dark, text_halign = text.align_center, text_size = size.small)
+        keys = array.from("P", "R1", "R2", "S1", "S2")
+        tags = array.from("D", "W", "M")
+        shows = array.from(showD, showW, showM)
+        tcol = array.from(colD, colW, colM)
+        for r = 0 to 2
+            row = 12 + r
+            on = array.get(shows, r)
+            table.cell(tbl, 0, row, on ? array.get(tags, r) : "", text_color = array.get(tcol, r), bgcolor = dark, text_halign = text.align_center, text_size = size.small)
+            for k = 0 to 4
+                idx = on ? array.indexof(names, array.get(tags, r) + " " + array.get(keys, k)) : -1
+                v = idx >= 0 ? fmt(array.get(prices, idx)) : (on ? "-" : "")
+                table.cell(tbl, k + 1, row, v, text_color = array.get(tcol, r), bgcolor = idx >= 0 and idx == nearest ? #3C4862 : dark, text_halign = text.align_center, text_size = size.small)
+        table.cell(tbl, 0, 15, "Education tool, not a signal. Past levels do not predict price.", text_color = #FFBE50, bgcolor = dark, text_halign = text.align_left, text_size = size.tiny)
