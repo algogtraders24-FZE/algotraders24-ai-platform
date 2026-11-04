@@ -1,0 +1,143 @@
+//@version=5
+// AT24 NY Opening Range - the 09:30-10:00 New York range, its break, and what happened next on this symbol.
+// Context tool. Not a signal. algotraders24.ai
+indicator("AT24 NY Opening Range", shorttitle="AT24 NYOR", overlay=true, max_boxes_count=60, max_labels_count=5)
+
+grp1 = "Opening range (New York time)"
+startH = input.int(9, "Range start hour", minval=0, maxval=23, group=grp1)
+startM = input.int(30, "Range start minute", minval=0, maxval=59, group=grp1)
+lenMin = input.int(30, "Range length (minutes)", minval=5, maxval=120, group=grp1)
+endH = input.int(16, "Window end hour", minval=1, maxval=23, group=grp1)
+fakeBars = input.int(4, "Bars to judge a false break", minval=1, maxval=20, group=grp1)
+ctrlH = input.int(11, "Control window start hour (same length)", minval=0, maxval=23, group=grp1)
+grp2 = "Look"
+openCol = input.color(color.new(#E8B84A, 80), "Range, not broken", group=grp2)
+upCol = input.color(color.new(color.lime, 80), "Broke up", group=grp2)
+dnCol = input.color(color.new(color.red, 80), "Broke down", group=grp2)
+noCol = input.color(color.new(color.gray, 80), "No break", group=grp2)
+grp3 = "Dashboard"
+showDash = input.bool(true, "Show dashboard", group=grp3)
+dashPos = input.string("top right", "Position", options=["top left","top right","bottom left","bottom right"], group=grp3)
+
+tz = "America/New_York"
+mn = hour(time, tz) * 60 + minute(time, tz)
+dkey = month(time, tz) * 100 + dayofmonth(time, tz)
+endMin = endH * 60
+
+// one tracker per window: returns [days, up, down, none, held, fell back, ran, brk now, hi now, lo now, first bar now]
+track(startMin, draw) =>
+    var int curKey = -1
+    var bool hasOR = false
+    var float hi = na
+    var float lo = na
+    var int firstBar = na
+    var int brk = 0
+    var int sinceBrk = 0
+    var int fake = 0
+    var int ran = 0
+    var float lastClose = na
+    var int winBars = 0
+    var int lastBarIdx = na
+    var int days = 0
+    var int upN = 0
+    var int dnN = 0
+    var int noneN = 0
+    var int heldN = 0
+    var int fakeN = 0
+    var int ranN = 0
+    if dkey != curKey
+        if hasOR and winBars > 0
+            days += 1
+            if brk == 1
+                upN += 1
+            else if brk == -1
+                dnN += 1
+            else
+                noneN += 1
+            if brk != 0
+                heldN += (brk == 1 ? lastClose > hi : lastClose < lo) ? 1 : 0
+                fakeN += fake
+                ranN += ran
+            if draw
+                box.new(firstBar, hi, lastBarIdx, lo, border_color=color.new(color.gray, 100), bgcolor=brk == 1 ? upCol : brk == -1 ? dnCol : noCol)
+        curKey := dkey
+        hasOR := false
+        hi := na
+        lo := na
+        firstBar := na
+        brk := 0
+        sinceBrk := 0
+        fake := 0
+        ran := 0
+        lastClose := na
+        winBars := 0
+        lastBarIdx := na
+    if mn >= startMin and mn < startMin + lenMin
+        if not hasOR
+            hasOR := true
+            hi := high
+            lo := low
+            firstBar := bar_index
+        else
+            hi := math.max(hi, high)
+            lo := math.min(lo, low)
+    else if mn >= startMin + lenMin and mn <= endMin and hasOR
+        winBars += 1
+        lastClose := close
+        lastBarIdx := bar_index
+        if brk == 0
+            if close > hi
+                brk := 1
+                sinceBrk := 0
+            else if close < lo
+                brk := -1
+                sinceBrk := 0
+        else
+            sinceBrk += 1
+            if sinceBrk <= fakeBars and close <= hi and close >= lo
+                fake := 1
+        if brk != 0 and ran == 0
+            h = hi - lo
+            if brk == 1 ? high >= hi + h : low <= lo - h
+                ran := 1
+    [days, upN, dnN, noneN, heldN, fakeN, ranN, brk, hi, lo, firstBar]
+
+[days, upN, dnN, noneN, heldN, fakeN, ranN, brkNow, hiNow, loNow, firstNow] = track(startH * 60 + startM, true)
+[cDays, cUp, cDn, cNone, cHeld, cFake, cRan, cBrk, cHi, cLo, cFirst] = track(ctrlH * 60, false)
+
+var box curBox = na
+if barstate.islast
+    box.delete(curBox)
+    if not na(firstNow)
+        curBox := box.new(firstNow, hiNow, bar_index, loNow, border_color=color.new(color.gray, 100), bgcolor=brkNow == 1 ? upCol : brkNow == -1 ? dnCol : openCol)
+
+pct(x, y) => y > 0 ? 100.0 * x / y : 0.0
+pos = switch dashPos
+    "top left" => position.top_left
+    "top right" => position.top_right
+    "bottom left" => position.bottom_left
+    => position.bottom_right
+var table t = table.new(pos, 2, 8, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+
+if showDash and barstate.islast
+    startMin = startH * 60 + startM
+    ok = timeframe.isintraday and timeframe.in_seconds() <= 1800
+    stateTxt = not ok ? "USE M30 OR LOWER" : mn < startMin ? "OPENS IN " + str.tostring(startMin - mn) + " MIN" : mn < startMin + lenMin ? "RANGE FORMING" : mn <= endMin ? (brkNow == 1 ? "BROKEN UP" : brkNow == -1 ? "BROKEN DOWN" : "RANGE SET, NOT BROKEN") : "WINDOW OVER"
+    broken = upN + dnN
+    cBroken = cUp + cDn
+    table.cell(t, 0, 0, "AT24", text_color=#E8B84A, text_size=size.large)
+    table.cell(t, 1, 0, "NY OPENING RANGE", text_color=#E8B84A, text_size=size.normal, text_halign=text.align_left)
+    table.cell(t, 0, 1, "State", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 1, stateTxt, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
+    table.cell(t, 0, 2, "Range / New York now", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 2, str.format("{0,number,00}:{1,number,00}", startH, startM) + "-" + str.format("{0,number,00}:{1,number,00}", math.floor((startMin + lenMin) / 60), (startMin + lenMin) % 60) + " NY / now " + str.format("{0,number,00}:{1,number,00}", hour(time, tz), minute(time, tz)), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 3, "Complete days", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 3, str.tostring(days) + ": up " + str.tostring(pct(upN, days), "0") + "%  down " + str.tostring(pct(dnN, days), "0") + "%  none " + str.tostring(pct(noneN, days), "0") + "%", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 4, "Break held to the window end", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 4, str.tostring(pct(heldN, broken), "0") + "%  (ran 1 box height " + str.tostring(pct(ranN, broken), "0") + "%)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 5, "Fell back inside in " + str.tostring(fakeBars) + " bars", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 5, str.tostring(pct(fakeN, broken), "0") + "%  (" + str.tostring(broken) + " broken days)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 6, "Control window " + str.tostring(ctrlH) + ":00", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 6, "held " + str.tostring(pct(cHeld, cBroken), "0") + "%  fell back " + str.tostring(pct(cFake, cBroken), "0") + "%  ran " + str.tostring(pct(cRan, cBroken), "0") + "%", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 7, "Descriptive history.", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
+    table.cell(t, 1, 7, "Not a signal. algotraders24.ai", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
