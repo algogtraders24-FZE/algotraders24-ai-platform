@@ -1,0 +1,118 @@
+//@version=5
+// AT24 Expected Range - the usual daily range, today's open and projected high / low, and how often days really exceeded it.
+// Context tool. Not a signal. algotraders24.ai
+indicator("AT24 Expected Range", shorttitle="AT24 ER", overlay=true, max_lines_count=20, max_labels_count=20)
+
+grp1 = "Expected range"
+lookback = input.int(14, "Previous complete days averaged", minval=3, maxval=60, group=grp1)
+grp2 = "Look"
+hiCol = input.color(color.red, "Projected day high", group=grp2)
+loCol = input.color(color.lime, "Projected day low", group=grp2)
+opCol = input.color(color.silver, "Day open", group=grp2)
+grp3 = "Dashboard"
+showDash = input.bool(true, "Show dashboard", group=grp3)
+dashPos = input.string("top right", "Position", options=["top left","top right","bottom left","bottom right"], group=grp3)
+
+newDay = timeframe.change("D")
+
+var float dayOpen = na
+var float dayHigh = na
+var float dayLow = na
+var float expToday = na
+var int dayStart = na
+var bool firstDay = true
+var float[] ranges = array.new_float()
+var float[] usedArr = array.new_float()
+var int halfN = 0
+
+if newDay
+    if not na(dayOpen)
+        rng = dayHigh - dayLow
+        if not firstDay
+            array.push(ranges, rng)
+            if not na(expToday) and expToday > 0
+                array.push(usedArr, rng / expToday)
+                if math.abs(close[1] - dayOpen) >= 0.5 * rng
+                    halfN += 1
+        firstDay := false
+    dayOpen := open
+    dayHigh := high
+    dayLow := low
+    dayStart := bar_index
+    n = array.size(ranges)
+    expToday := na
+    if n >= lookback
+        s = 0.0
+        for i = n - lookback to n - 1
+            s += array.get(ranges, i)
+        expToday := s / lookback
+else if not na(dayHigh)
+    dayHigh := math.max(dayHigh, high)
+    dayLow := math.min(dayLow, low)
+
+pct(x, y) => y > 0 ? 100.0 * x / y : 0.0
+pos = switch dashPos
+    "top left" => position.top_left
+    "top right" => position.top_right
+    "bottom left" => position.bottom_left
+    => position.bottom_right
+var table t = table.new(pos, 2, 9, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+var line[] lns = array.new_line()
+var label[] lbs = array.new_label()
+
+if barstate.islast
+    while array.size(lns) > 0
+        line.delete(array.pop(lns))
+    while array.size(lbs) > 0
+        label.delete(array.pop(lbs))
+    ok = timeframe.isintraday and timeframe.in_seconds() <= 14400
+    nU = array.size(usedArr)
+    over100 = 0
+    over150 = 0
+    reached = 0
+    reached125 = 0
+    reachedUsed = array.new_float()
+    for i = 0 to nU - 1
+        u = array.get(usedArr, i)
+        over100 += u > 1.0 ? 1 : 0
+        over150 += u > 1.5 ? 1 : 0
+        if u >= 1.0
+            reached += 1
+            array.push(reachedUsed, u)
+            reached125 += u >= 1.25 ? 1 : 0
+    medUsed = nU > 0 ? array.median(usedArr) : na
+    medReached = reached > 0 ? array.median(reachedUsed) : na
+    rngNow = na(dayHigh) ? na : dayHigh - dayLow
+    usedNow = (not na(expToday) and expToday > 0 and not na(rngNow)) ? rngNow / expToday : na
+    projHi = not na(expToday) ? dayLow + expToday : na
+    projLo = not na(expToday) ? dayHigh - expToday : na
+    if ok and not na(dayStart)
+        x2 = bar_index + 10
+        array.push(lns, line.new(dayStart, dayOpen, x2, dayOpen, color=opCol))
+        array.push(lbs, label.new(x2, dayOpen, "day open " + str.tostring(dayOpen, format.mintick), style=label.style_none, textcolor=opCol, size=size.small))
+        if not na(projHi)
+            array.push(lns, line.new(dayStart, projHi, x2, projHi, color=hiCol, width=2))
+            array.push(lbs, label.new(x2, projHi, "expected high " + str.tostring(projHi, format.mintick), style=label.style_none, textcolor=hiCol, size=size.small))
+            array.push(lns, line.new(dayStart, projLo, x2, projLo, color=loCol, width=2))
+            array.push(lbs, label.new(x2, projLo, "expected low " + str.tostring(projLo, format.mintick), style=label.style_none, textcolor=loCol, size=size.small))
+    if showDash
+        stateTxt = not ok ? "USE AN INTRADAY CHART (H4 OR LOWER)" : na(usedNow) ? "COLLECTING DAYS" : usedNow < 0.5 ? "TODAY: QUIET" : usedNow < 1.0 ? "TODAY: NORMAL" : usedNow < 1.5 ? "TODAY: STRETCHED" : "TODAY: EXTREME"
+        stateCol = na(usedNow) ? color.gray : usedNow < 0.5 ? color.aqua : usedNow < 1.0 ? color.lime : usedNow < 1.5 ? color.orange : color.red
+        table.cell(t, 0, 0, "AT24", text_color=#E8B84A, text_size=size.large)
+        table.cell(t, 1, 0, "EXPECTED RANGE", text_color=#E8B84A, text_size=size.normal, text_halign=text.align_left)
+        table.cell(t, 0, 1, "State", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 1, stateTxt + (na(usedNow) ? "" : "  (" + str.tostring(usedNow * 100, "0") + "% used)"), text_color=stateCol, text_size=size.normal, text_halign=text.align_left)
+        table.cell(t, 0, 2, "Usual range / so far", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 2, (na(expToday) ? "-" : str.tostring(expToday, format.mintick)) + " / " + (na(rngNow) ? "-" : str.tostring(rngNow, format.mintick)), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 3, "Complete days measured", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 3, str.tostring(nU) + "  (avg of " + str.tostring(lookback) + " prior days)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 4, "Median day", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 4, na(medUsed) ? "-" : str.tostring(medUsed * 100, "0") + "% of the usual range", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 5, "Days over 100% / 150%", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 5, str.tostring(pct(over100, nU), "0") + "% / " + str.tostring(pct(over150, nU), "0") + "%", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 6, "Reached 100% (" + str.tostring(reached) + " days)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 6, "ended >= 125%: " + str.tostring(pct(reached125, reached), "0") + "%, median " + (na(medReached) ? "-" : str.tostring(medReached * 100, "0") + "%"), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 7, "Close moved >= half range", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 7, str.tostring(pct(halfN, nU), "0") + "% of days  (100% is a mark, not a wall)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 8, "Descriptive history.", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
+        table.cell(t, 1, 8, "Not a signal. algotraders24.ai", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
