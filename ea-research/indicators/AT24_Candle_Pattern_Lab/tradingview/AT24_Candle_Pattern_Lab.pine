@@ -1,0 +1,99 @@
+//@version=5
+// AT24 Candle Pattern Lab - engulfing and pin-bar patterns on closed bars, and what price did after them vs any bar.
+// Context tool. Not a signal. algotraders24.ai
+indicator("AT24 Candle Pattern Lab", shorttitle="AT24 CPL", overlay=true, max_labels_count=200)
+
+grp1 = "Patterns"
+minAtr = input.float(0.5, "Ignore candles smaller than this many ATR", minval=0.0, step=0.1, group=grp1)
+atrLen = input.int(14, "ATR length", minval=2, group=grp1)
+H = input.int(6, "Bars after the pattern used for the statistics", minval=1, maxval=50, group=grp1)
+grp2 = "Look"
+markBars = input.int(150, "Bars back to mark patterns", minval=10, maxval=400, group=grp2)
+bullCol = input.color(color.lime, "Bullish patterns", group=grp2)
+bearCol = input.color(color.red, "Bearish patterns", group=grp2)
+grp3 = "Dashboard"
+showDash = input.bool(true, "Show dashboard", group=grp3)
+dashPos = input.string("top right", "Position", options=["top left","top right","bottom left","bottom right"], group=grp3)
+
+atr = ta.atr(atrLen)
+rg = high - low
+body = math.abs(close - open)
+pbody = math.abs(close[1] - open[1])
+valid = not na(atr) and atr > 0 and rg >= minAtr * atr and rg > 0 and bar_index > 0
+bullEng = valid and close > open and close[1] < open[1] and open <= close[1] and close >= open[1] and body > pbody
+bearEng = valid and close < open and close[1] > open[1] and open >= close[1] and close <= open[1] and body > pbody
+lowerW = math.min(open, close) - low
+upperW = high - math.max(open, close)
+bullPin = valid and body <= 0.30 * rg and lowerW >= 0.60 * rg
+bearPin = valid and body <= 0.30 * rg and upperW >= 0.60 * rg
+int flags = (bullEng ? 1 : 0) + (bearEng ? 2 : 0) + (bullPin ? 4 : 0) + (bearPin ? 8 : 0)
+
+has(f, k) => int(math.floor(f / math.pow(2, k))) % 2 == 1
+
+var int totAll = 0
+var int upAll = 0
+var int[] cnt = array.new_int(4, 0)
+var int[] hit = array.new_int(4, 0)
+var float[] mv = array.new_float(4, 0.0)
+
+if barstate.isconfirmed and bar_index > H
+    totAll += 1
+    if close > close[H]
+        upAll += 1
+    fH = flags[H]
+    d = close - close[H]
+    for k = 0 to 3
+        if has(fH, k)
+            bull = k % 2 == 0
+            array.set(cnt, k, array.get(cnt, k) + 1)
+            if bull ? d > 0 : d < 0
+                array.set(hit, k, array.get(hit, k) + 1)
+            array.set(mv, k, array.get(mv, k) + (bull ? d : -d))
+
+hw(x, n) => n > 0 ? 196.0 * math.sqrt((x / n) * (1.0 - x / n) / n) : 0.0
+pct(x, y) => y > 0 ? 100.0 * x / y : 0.0
+rowTxt(k) =>
+    n = array.get(cnt, k)
+    h = array.get(hit, k)
+    base = k % 2 == 0 ? pct(upAll, totAll) : 100.0 - pct(upAll, totAll)
+    n < 1 ? "-" : "n=" + str.tostring(n) + "  next " + str.tostring(H) + " bars: " + str.tostring(pct(h, n), "0") + "% (+-" + str.tostring(hw(h, n), "0") + ") vs " + str.tostring(base, "0") + "% any bar"
+
+pos = switch dashPos
+    "top left" => position.top_left
+    "top right" => position.top_right
+    "bottom left" => position.bottom_left
+    => position.bottom_right
+var table t = table.new(pos, 2, 9, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+var label[] lbs = array.new_label()
+names = array.from("Bullish engulfing", "Bearish engulfing", "Bullish pin bar", "Bearish pin bar")
+tags = array.from("E+", "E-", "P+", "P-")
+
+if barstate.islast
+    while array.size(lbs) > 0
+        label.delete(array.pop(lbs))
+    for i = 1 to markBars
+        if bar_index - i >= 0
+            fi = flags[i]
+            for k = 0 to 3
+                if has(fi, k)
+                    bull = k % 2 == 0
+                    array.push(lbs, label.new(bar_index - i, bull ? low[i] : high[i], array.get(tags, k), style=bull ? label.style_label_up : label.style_label_down, color=color.new(bull ? bullCol : bearCol, 20), textcolor=color.black, size=size.tiny))
+    if showDash
+        fl = flags[1]
+        nowTxt = ""
+        for k = 0 to 3
+            if has(fl, k)
+                nowTxt += (nowTxt == "" ? "" : " + ") + array.get(names, k)
+        table.cell(t, 0, 0, "AT24", text_color=#E8B84A, text_size=size.large)
+        table.cell(t, 1, 0, "CANDLE PATTERN LAB", text_color=#E8B84A, text_size=size.normal, text_halign=text.align_left)
+        table.cell(t, 0, 1, "Last closed", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 1, nowTxt == "" ? "NO PATTERN" : nowTxt, text_color=nowTxt == "" ? color.gray : ((has(fl, 0) or has(fl, 2)) ? bullCol : bearCol), text_size=size.normal, text_halign=text.align_left)
+        table.cell(t, 0, 2, "What happened after", text_color=#E8B84A, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 2, "bars on chart: " + str.tostring(totAll) + ", ATR filter " + str.tostring(minAtr, "0.0"), text_color=#E8B84A, text_size=size.small, text_halign=text.align_left)
+        for k = 0 to 3
+            table.cell(t, 0, 3 + k, k % 2 == 0 ? "+" : "-", text_color=k % 2 == 0 ? bullCol : bearCol, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 3 + k, array.get(names, k) + ":  " + rowTxt(k), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 7, "Hit", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 7, "price moved the pattern's way. A real edge would sit clearly beyond the +- interval above the 'any bar' rate.", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 8, "Descriptive history.", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
+        table.cell(t, 1, 8, "Not a signal. algotraders24.ai", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
