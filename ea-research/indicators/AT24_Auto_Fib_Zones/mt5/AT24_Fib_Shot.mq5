@@ -4,7 +4,7 @@ void OnStart()
    ChartSetInteger(0, CHART_SCALE, 3);
    ChartSetInteger(0, CHART_AUTOSCROLL, true);
    ChartSetInteger(0, CHART_SHIFT, true);
-   ChartSetDouble(0, CHART_SHIFT_SIZE, 25.0);
+   ChartSetDouble(0, CHART_SHIFT_SIZE, 30.0);
    int h = iCustom(_Symbol, PERIOD_M15, "AT24Indicators\\AT24_Auto_Fib_Zones");
    ChartIndicatorAdd(0, 0, h);
    Sleep(10000);

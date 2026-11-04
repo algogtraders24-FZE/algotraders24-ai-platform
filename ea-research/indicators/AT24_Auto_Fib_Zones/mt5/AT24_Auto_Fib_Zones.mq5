@@ -25,7 +25,8 @@ input group "=== Look ==="
 input bool   InpShowGolden    = true;   // Shade the 38.2 - 61.8 zone
 input color  InpUpColor       = clrLimeGreen;  // Levels after an up leg
 input color  InpDownColor     = clrTomato;     // Levels after a down leg
-input color  InpZoneColor     = C'60,70,40';   // Zone shading
+input color  InpZoneColor     = C'70,85,40';   // Zone shading
+input int    InpLineWidth     = 2;      // Line width of key levels (0, 50, 61.8, 100)
 input group "=== Dashboard ==="
 input bool   InpShowDash      = true;   // Show dashboard
 input bool   InpDashInTester  = false;  // Show dashboard in Strategy Tester
@@ -121,8 +122,9 @@ void DrawFib(const int base, const datetime &time[], const int rates_total)
    if(gM < 2) return;
    AT24FB_Swing a = gSw[gM - 2], b = gSw[gM - 1];
    color col = (b.dir == 1) ? InpUpColor : InpDownColor;
-   datetime t1 = time[base + b.idx];
-   datetime t2 = time[rates_total - 1] + PeriodSeconds() * 20;
+   datetime t1 = time[base + a.idx];
+   datetime tb = time[base + b.idx];
+   datetime t2 = time[rates_total - 1] + PeriodSeconds() * 30;
    if(InpShowGolden)
      {
       string zn = PFX + "zn";
@@ -133,14 +135,23 @@ void DrawFib(const int base, const datetime &time[], const int rates_total)
       ObjectSetInteger(0, zn, OBJPROP_SELECTABLE, false);
       ObjectSetInteger(0, zn, OBJPROP_HIDDEN, true);
      }
+   string leg = PFX + "lvleg";
+   ObjectCreate(0, leg, OBJ_TREND, 0, t1, a.price, tb, b.price);
+   ObjectSetInteger(0, leg, OBJPROP_COLOR, clrWhite);
+   ObjectSetInteger(0, leg, OBJPROP_STYLE, STYLE_DASH);
+   ObjectSetInteger(0, leg, OBJPROP_WIDTH, 1);
+   ObjectSetInteger(0, leg, OBJPROP_RAY_RIGHT, false);
+   ObjectSetInteger(0, leg, OBJPROP_SELECTABLE, false);
+   ObjectSetInteger(0, leg, OBJPROP_HIDDEN, true);
    for(int i = 0; i < 7; i++)
      {
+      bool key = (i == 0 || i == 3 || i == 4 || i == 6);
       string nm = PFX + "lv" + IntegerToString(i);
       double p = LevelPrice(a, b, gLevels[i]);
-      ObjectCreate(0, nm, OBJ_TREND, 0, t1, p, t2, p);
+      ObjectCreate(0, nm, OBJ_TREND, 0, tb, p, t2, p);
       ObjectSetInteger(0, nm, OBJPROP_COLOR, col);
-      ObjectSetInteger(0, nm, OBJPROP_STYLE, (i == 0 || i == 6) ? STYLE_SOLID : STYLE_DOT);
-      ObjectSetInteger(0, nm, OBJPROP_WIDTH, 1);
+      ObjectSetInteger(0, nm, OBJPROP_STYLE, STYLE_SOLID);
+      ObjectSetInteger(0, nm, OBJPROP_WIDTH, key ? InpLineWidth : 1);
       ObjectSetInteger(0, nm, OBJPROP_RAY_RIGHT, false);
       ObjectSetInteger(0, nm, OBJPROP_SELECTABLE, false);
       ObjectSetInteger(0, nm, OBJPROP_HIDDEN, true);
@@ -148,7 +159,8 @@ void DrawFib(const int base, const datetime &time[], const int rates_total)
       ObjectCreate(0, tx, OBJ_TEXT, 0, t2, p);
       ObjectSetString(0, tx, OBJPROP_TEXT, StringFormat("%.1f%%  %s", gLevels[i] * 100.0, DoubleToString(p, Dg())));
       ObjectSetInteger(0, tx, OBJPROP_COLOR, col);
-      ObjectSetInteger(0, tx, OBJPROP_FONTSIZE, 8);
+      ObjectSetInteger(0, tx, OBJPROP_FONTSIZE, key ? 10 : 9);
+      ObjectSetString(0, tx, OBJPROP_FONT, "Segoe UI Semibold");
       ObjectSetInteger(0, tx, OBJPROP_ANCHOR, ANCHOR_LEFT);
       ObjectSetInteger(0, tx, OBJPROP_SELECTABLE, false);
       ObjectSetInteger(0, tx, OBJPROP_HIDDEN, true);
