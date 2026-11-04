@@ -1,7 +1,7 @@
-// scripts/create-at24-auto-fib-listings.ts
+// scripts/create-at24-auto-fib-zones-listings.ts
 // AT24 Auto Fib Zones - MT5 (licensed non-trading utility EA that embeds the indicator), 11 USD.
-//   npx tsx scripts/create-at24-auto-fib-listings.ts            -> creates/updates the listings as DRAFT (not visible)
-//   npx tsx scripts/create-at24-auto-fib-listings.ts --publish  -> also sets publicationState PUBLISHED
+//   npx tsx scripts/create-at24-auto-fib-zones-listings.ts            -> creates/updates the listings as DRAFT (not visible)
+//   npx tsx scripts/create-at24-auto-fib-zones-listings.ts --publish  -> also sets publicationState PUBLISHED
 // MT5 tradingSystemId doubles as the licence gate's product id (AT24-AUTO-FIB-ZONES).
 // Claims rule: descriptive history only; no "price reacts at 61.8", no golden-zone entry, no win rate, no edge; the "shallow then resumed" figure is circular and is not advertised
 import "dotenv/config";
@@ -28,11 +28,11 @@ const PRODUCTS: Product[] = [
     slug: "at24-auto-fib-zones",
     title: "AT24 Auto Fib Zones (MT5)",
     tradingSystemId: "AT24-AUTO-FIB-ZONES",
-    version: "1.01",
+    version: "1.02",
     platform: "MT5",
-    zip: "AT24_AutoFibZones_MT5_v1.01.zip",
+    zip: "AT24_AutoFibZones_MT5_v1.02.zip",
     banner: "auto-fib-zones-banner.png",
-    tags: ["indicator", "fibonacci", "retracement", "swing", "levels", "statistics", "dashboard", "gold", "xauusd", "mt5"],
+    tags: ["indicator", "fibonacci", "retracement", "swing", "levels", "statistics", "dashboard", "gold", "xauusd", "mt5", "demo-tested"],
     description: `Hand-drawn Fibonacci levels change with whoever draws them. AT24 Auto Fib Zones finds the swing by a fixed, confirmed rule, draws the levels on the last leg, and measures on your own symbol how deep pullbacks really went.
 
 What you get
