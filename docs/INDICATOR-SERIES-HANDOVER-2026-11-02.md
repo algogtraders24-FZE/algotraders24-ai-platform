@@ -31,6 +31,7 @@ Prop Guard open item: test open risk with a real open demo trade (only the no-po
 
 | L8 | AT24 Anchored VWAP (list #8: day/week/month VWAP + SD bands + real reversion test; MT5 only) | `ea-research/indicators/AT24_Anchored_VWAP` | compiled, math = Python (VWAP, SD and reversion stats identical), screenshot | not built | not built |
 | L9 | AT24 Range Detector (list #9: ADX-fade consolidation boxes + real range-ending statistics; MT5 only) | `ea-research/indicators/AT24_Range_Detector` | compiled, math = Python (153 ranges identical), screenshot | not built | not built |
+| L10 | AT24 Auto Fib Zones (list #10: fib levels on the last confirmed swing leg + real pullback-depth statistics; MT5 only) | `ea-research/indicators/AT24_Auto_Fib_Zones` | compiled, math = Python (785 swings, 782 legs identical), screenshot | not built | not built |
 
 ## Open items for the production window
 1. **Spread Guard on MT4:** drag it onto an MT4 chart and eyeball dashboard + histogram (my test read no values; the Exness demo history spread may be zero). If the histogram stays empty only because history spread is 0, the live-learning profile fills over time; the dashboard still works.
