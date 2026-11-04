@@ -89,28 +89,29 @@ if barstate.islast
     ctrlN = 0
     ctrlT = 0
     wait = array.new_float()
-    for k = 0 to m - 1
-        i = array.get(gBar, k)
-        if i + win < n
-            cnt += 1
-            tc = array.get(gTouch, k)
-            if tc >= 0 and tc - i <= win
-                tchN += 1
-                array.push(wait, tc - i)
-            fl = array.get(gFill, k)
-            if fl >= 0 and fl - i <= win
-                filN += 1
-            c = i + 100
-            if c + win < n
-                dd = array.get(gDir, k) == 1 ? array.get(aC, i) - array.get(gTop, k) : array.get(gBot, k) - array.get(aC, i)
-                if dd > 0
-                    ctrlN += 1
-                    lvl = array.get(gDir, k) == 1 ? array.get(aC, c) - dd : array.get(aC, c) + dd
-                    for u = c + 1 to c + win
-                        hit = array.get(gDir, k) == 1 ? array.get(aL, u) <= lvl : array.get(aH, u) >= lvl
-                        if hit
-                            ctrlT += 1
-                            break
+    if m > 0
+        for k = 0 to m - 1
+            i = array.get(gBar, k)
+            if i + win < n
+                cnt += 1
+                tc = array.get(gTouch, k)
+                if tc >= 0 and tc - i <= win
+                    tchN += 1
+                    array.push(wait, tc - i)
+                fl = array.get(gFill, k)
+                if fl >= 0 and fl - i <= win
+                    filN += 1
+                c = i + 100
+                if c + win < n
+                    dd = array.get(gDir, k) == 1 ? array.get(aC, i) - array.get(gTop, k) : array.get(gBot, k) - array.get(aC, i)
+                    if dd > 0
+                        ctrlN += 1
+                        lvl = array.get(gDir, k) == 1 ? array.get(aC, c) - dd : array.get(aC, c) + dd
+                        for u = c + 1 to c + win
+                            hit = array.get(gDir, k) == 1 ? array.get(aL, u) <= lvl : array.get(aH, u) >= lvl
+                            if hit
+                                ctrlT += 1
+                                break
     medWait = tchN > 0 ? array.median(wait) : na
     // open gaps: draw the newest ones, find the nearest above / below the last close
     px = n > 0 ? array.get(aC, n - 1) : close

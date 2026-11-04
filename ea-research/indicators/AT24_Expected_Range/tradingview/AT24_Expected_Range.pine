@@ -72,14 +72,15 @@ if barstate.islast
     reached = 0
     reached125 = 0
     reachedUsed = array.new_float()
-    for i = 0 to nU - 1
-        u = array.get(usedArr, i)
-        over100 += u > 1.0 ? 1 : 0
-        over150 += u > 1.5 ? 1 : 0
-        if u >= 1.0
-            reached += 1
-            array.push(reachedUsed, u)
-            reached125 += u >= 1.25 ? 1 : 0
+    if nU > 0
+        for i = 0 to nU - 1
+            u = array.get(usedArr, i)
+            over100 += u > 1.0 ? 1 : 0
+            over150 += u > 1.5 ? 1 : 0
+            if u >= 1.0
+                reached += 1
+                array.push(reachedUsed, u)
+                reached125 += u >= 1.25 ? 1 : 0
     medUsed = nU > 0 ? array.median(usedArr) : na
     medReached = reached > 0 ? array.median(reachedUsed) : na
     rngNow = na(dayHigh) ? na : dayHigh - dayLow
