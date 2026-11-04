@@ -1,0 +1,155 @@
+//@version=5
+// AT24 FVG Zones - fair value gaps on closed bars, and how often price really came back to them.
+// Context tool. Not a signal. algotraders24.ai
+indicator("AT24 FVG Zones", shorttitle="AT24 FVG", overlay=true, max_boxes_count=40, max_labels_count=40)
+
+grp1 = "Detection"
+atrLen = input.int(14, "ATR length", minval=2, group=grp1)
+minAtr = input.float(0.3, "Minimum gap height in ATR", minval=0.0, step=0.1, group=grp1)
+win = input.int(50, "Bars used to judge revisit / fill", minval=5, group=grp1)
+grp2 = "Look"
+maxZones = input.int(8, "Open gaps drawn (newest first)", minval=1, maxval=30, group=grp2)
+upCol = input.color(color.new(#1E7846, 60), "Bullish gap", group=grp2)
+dnCol = input.color(color.new(#8C3232, 60), "Bearish gap", group=grp2)
+extend = input.int(15, "Bars the zones extend to the right", minval=1, maxval=100, group=grp2)
+grp3 = "Dashboard"
+showDash = input.bool(true, "Show dashboard", group=grp3)
+dashPos = input.string("top right", "Position", options=["top left","top right","bottom left","bottom right"], group=grp3)
+
+// every confirmed bar is stored once; the analysis runs on the last bar over the stored series
+var float[] aH = array.new_float()
+var float[] aL = array.new_float()
+var float[] aC = array.new_float()
+var float[] aA = array.new_float()
+atrNow = ta.atr(atrLen)
+if barstate.isconfirmed
+    array.push(aH, high)
+    array.push(aL, low)
+    array.push(aC, close)
+    array.push(aA, nz(atrNow))
+
+var box[] boxes = array.new_box()
+var label[] lbls = array.new_label()
+pct(x, y) => y > 0 ? 100.0 * x / y : 0.0
+pos = switch dashPos
+    "top left" => position.top_left
+    "top right" => position.top_right
+    "bottom left" => position.bottom_left
+    => position.bottom_right
+var table t = table.new(pos, 2, 9, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+
+if barstate.islast
+    while array.size(boxes) > 0
+        box.delete(array.pop(boxes))
+    while array.size(lbls) > 0
+        label.delete(array.pop(lbls))
+    n = array.size(aC)
+    gBar = array.new_int()
+    gDir = array.new_int()
+    gTop = array.new_float()
+    gBot = array.new_float()
+    gTouch = array.new_int()
+    gFill = array.new_int()
+    if n > atrLen + 3
+        for i = math.max(2, atrLen) to n - 1
+            dir = 0
+            top = 0.0
+            bot = 0.0
+            if array.get(aL, i) > array.get(aH, i - 2)
+                dir := 1
+                top := array.get(aL, i)
+                bot := array.get(aH, i - 2)
+            else if array.get(aH, i) < array.get(aL, i - 2)
+                dir := -1
+                top := array.get(aL, i - 2)
+                bot := array.get(aH, i)
+            if dir != 0 and top - bot >= minAtr * array.get(aA, i)
+                touchAt = -1
+                fillAt = -1
+                if i + 1 <= n - 1
+                    for q = i + 1 to n - 1
+                        tch = dir == 1 ? array.get(aL, q) <= top : array.get(aH, q) >= bot
+                        fil = dir == 1 ? array.get(aL, q) <= bot : array.get(aH, q) >= top
+                        if tch and touchAt < 0
+                            touchAt := q
+                        if fil
+                            fillAt := q
+                            break
+                array.push(gBar, i)
+                array.push(gDir, dir)
+                array.push(gTop, top)
+                array.push(gBot, bot)
+                array.push(gTouch, touchAt)
+                array.push(gFill, fillAt)
+    m = array.size(gBar)
+    // statistics over gaps that have win bars of future data
+    cnt = 0
+    tchN = 0
+    filN = 0
+    ctrlN = 0
+    ctrlT = 0
+    wait = array.new_float()
+    for k = 0 to m - 1
+        i = array.get(gBar, k)
+        if i + win < n
+            cnt += 1
+            tc = array.get(gTouch, k)
+            if tc >= 0 and tc - i <= win
+                tchN += 1
+                array.push(wait, tc - i)
+            fl = array.get(gFill, k)
+            if fl >= 0 and fl - i <= win
+                filN += 1
+            c = i + 100
+            if c + win < n
+                dd = array.get(gDir, k) == 1 ? array.get(aC, i) - array.get(gTop, k) : array.get(gBot, k) - array.get(aC, i)
+                if dd > 0
+                    ctrlN += 1
+                    lvl = array.get(gDir, k) == 1 ? array.get(aC, c) - dd : array.get(aC, c) + dd
+                    for u = c + 1 to c + win
+                        hit = array.get(gDir, k) == 1 ? array.get(aL, u) <= lvl : array.get(aH, u) >= lvl
+                        if hit
+                            ctrlT += 1
+                            break
+    medWait = tchN > 0 ? array.median(wait) : na
+    // open gaps: draw the newest ones, find the nearest above / below the last close
+    px = n > 0 ? array.get(aC, n - 1) : close
+    openN = 0
+    float nearUp = na
+    float nearDn = na
+    drawn = 0
+    if m > 0
+        for k2 = m - 1 to 0
+            if array.get(gFill, k2) < 0
+                openN += 1
+                tp = array.get(gTop, k2)
+                bt = array.get(gBot, k2)
+                if bt > px and (na(nearUp) or bt < nearUp)
+                    nearUp := bt
+                if tp < px and (na(nearDn) or tp > nearDn)
+                    nearDn := tp
+                if drawn < maxZones
+                    drawn += 1
+                    d2 = array.get(gDir, k2)
+                    touched = array.get(gTouch, k2) >= 0
+                    array.push(boxes, box.new(array.get(gBar, k2) - 2, tp, bar_index + extend, bt, border_color=color.new(color.gray, 100), bgcolor=d2 == 1 ? upCol : dnCol))
+                    array.push(lbls, label.new(bar_index + extend, (tp + bt) / 2, (d2 == 1 ? "FVG up" : "FVG down") + (touched ? " (touched)" : ""), style=label.style_none, textcolor=d2 == 1 ? color.lime : color.red, size=size.small))
+    if showDash
+        table.cell(t, 0, 0, "AT24", text_color=#E8B84A, text_size=size.large)
+        table.cell(t, 1, 0, "FVG ZONES", text_color=#E8B84A, text_size=size.normal, text_halign=text.align_left)
+        table.cell(t, 0, 1, "State", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 1, str.tostring(openN) + " OPEN GAPS", text_color=color.white, text_size=size.normal, text_halign=text.align_left)
+        table.cell(t, 0, 2, "Nearest open gap above", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 2, na(nearUp) ? "-" : str.tostring(nearUp, format.mintick), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 3, "Nearest open gap below", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 3, na(nearDn) ? "-" : str.tostring(nearDn, format.mintick), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 4, "Gaps measured", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 4, str.tostring(cnt) + " of " + str.tostring(m) + "  (min " + str.tostring(minAtr, "0.0") + " ATR)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 5, "Revisited within " + str.tostring(win) + " bars", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 5, str.tostring(pct(tchN, cnt), "0") + "%  (median " + (na(medWait) ? "-" : str.tostring(medWait, "0")) + " bars)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 6, "Filled completely", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 6, str.tostring(pct(filN, cnt), "0") + "%", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 7, "Control level, same distance", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 7, "revisited " + str.tostring(pct(ctrlT, ctrlN), "0") + "%  (gap = control: not a magnet)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 8, "Descriptive history.", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
+        table.cell(t, 1, 8, "Not a signal. algotraders24.ai", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
