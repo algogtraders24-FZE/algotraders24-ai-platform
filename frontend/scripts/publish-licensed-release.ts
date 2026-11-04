@@ -27,7 +27,7 @@ const NEW_COPIER_SENTENCE = "No server, no DLL and no account password - your tr
 async function main() {
   const [slug, zipPath, artifactVersion, fileName, kind = "ea"] = process.argv.slice(2);
   if (!slug || !zipPath || !artifactVersion || !fileName) throw new Error("usage: <listingSlug> <zipPath> <artifactVersion> <downloadFileName> [ea|copier]");
-  const listing = await prisma.marketplaceListing.findFirst({ where: { slug, deletedAt: null, publicationState: "PUBLISHED" } });
+  const listing = await prisma.marketplaceListing.findFirst({ where: { slug, deletedAt: null, publicationState: { in: ["PUBLISHED", "READY"] } } });
   if (!listing?.versionId || !listing.tradingSystemId) throw new Error(`No published listing with a release for slug ${slug}`);
   const { tradingSystemId, versionId } = listing;
   const platform = listing.platformTag;
