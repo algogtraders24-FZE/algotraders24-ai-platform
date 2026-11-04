@@ -11,12 +11,12 @@ Traders hear "trade the Asian range breakout" but never see how often it works o
 Daily Asia boxes + dotted extension boxes coloured by state; state label; box size vs median; countdown to London open; real-history statistics panel; alert on the first break (bar close, no repaint); GMT session hours and offset configurable; branded dashboard (off in the Strategy Tester by default).
 
 ## Honest claims you MAY make
-- Measures real history on your own broker data (our test on XAUUSD M15, 60 days: first break up 40%, down 52%, none 7%; held to day end 51%; ran 1x the box 33%).
+- Measures real history on your own broker data (our test on XAUUSD M15, 60 days: first break up 38%, down 50%, none 12%; held to day end 54%; ran 1x the box 32% (DST-aware clock)).
 - Maths verified against an independent Python calculation (0 mismatches over 43 days) on MT5; MT4 runtime values match; TradingView compiles and renders.
 - It never prints buy/sell arrows.
 
 ## Claims you must NOT make
-- No "breakout strategy that works", win rates, or edge: our own numbers show a coin flip (held 51%) and our earlier 25-rule scan found no cost-adjusted edge.
+- No "breakout strategy that works", win rates, or edge: our own numbers show a coin flip (held 54%) and our earlier 25-rule scan found no cost-adjusted edge.
 - Statistics are historical and descriptive; past behaviour does not predict.
 - Server-to-GMT conversion can be one hour off across daylight-saving changes.
 

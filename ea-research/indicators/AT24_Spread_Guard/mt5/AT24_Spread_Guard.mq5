@@ -25,6 +25,7 @@
 #property indicator_width2  1
 
 #include "AT24_SpreadGuard_Core.mqh"
+#include "AT24_ServerClock.mqh"
 
 #resource "sg_logo56.bmp"
 
@@ -34,8 +35,9 @@ input double InpOKMult        = 1.25;   // Spread up to this x typical = normal
 input double InpSpikeMult     = 2.00;   // Above this x typical = spike
 input double InpMaxCostATR    = 0.15;   // Warn when spread / ATR(14) is above this
 input group "=== Time zone ==="
-input bool   InpAutoOffset    = true;   // Detect broker server time offset from GMT
-input int    InpOffsetHours   = 0;      // Manual server offset in hours (if auto is off)
+input bool   InpDstAware      = true;   // Detect the broker clock incl. daylight-time rule (recommended)
+input bool   InpAutoOffset    = true;   // Fallback: detect the current server offset from GMT
+input int    InpOffsetHours   = 0;      // Fallback: manual server offset in hours (if auto is off)
 input group "=== Dashboard ==="
 input bool   InpShowDash      = true;   // Show dashboard
 input bool   InpDashInTester  = false;  // Show dashboard in Strategy Tester
@@ -64,6 +66,36 @@ int ServerOffsetSec()
   {
    if(!InpAutoOffset) return InpOffsetHours * 3600;
    return (int)MathRound((double)(TimeTradeServer() - TimeGMT()) / 1800.0) * 1800;
+  }
+
+//--- DST-aware broker clock (AT24_ServerClock.mqh). Falls back to the constant offset when detection fails.
+AT24SC_Clock gClk;
+bool     gUsedClock = false;
+datetime gClkAt = 0;
+int      gMeas[];
+datetime gUtc[];
+
+void RefreshClock()
+  {
+   if(!InpDstAware) { gClk.ok = false; return; }
+   //--- detected: refresh once an hour; not detected (H1 history still loading): retry every 10 seconds
+   if(gClkAt != 0 && TimeCurrent() - gClkAt < (gClk.ok ? 3600 : 10)) return;
+   AT24SC_Detect(_Symbol, gClk, 60, gMeas, gUtc);
+   gClkAt = TimeCurrent();
+  }
+
+bool UseClock() { return (InpDstAware && gClk.ok); }
+
+datetime ToGmt(const datetime serverTime)
+  {
+   if(UseClock()) return AT24SC_ToGmt(gClk, serverTime);
+   return serverTime - (datetime)ServerOffsetSec();
+  }
+
+string ClockName()
+  {
+   if(!UseClock()) return "fixed offset";
+   return gClk.rule == AT24SC_US ? "US DST" : (gClk.rule == AT24SC_EU ? "EU DST" : "no DST");
   }
 
 void CalcBase()
@@ -227,7 +259,7 @@ void UpdateDash(const int status, const double spreadNow, const double hourAvg, 
    MakeLabel("a6", 78, 214, "06", clrSlateGray, 7);
    MakeLabel("a12", 144, 214, "12", clrSlateGray, 7);
    MakeLabel("a18", 210, 214, "18", clrSlateGray, 7);
-   MakeLabel("ft", 10, 232, "Gold bar = now. Context tool. Not a signal. algotraders24.ai", clrSlateGray, 7);
+   MakeLabel("ft", 10, 232, StringFormat("Gold bar = now. Clock: %s. Context tool. algotraders24.ai", ClockName()), clrSlateGray, 7);
   }
 
 int OnInit()
@@ -268,18 +300,25 @@ int OnCalculate(const int rates_total, const int prev_calculated, const datetime
                 const long &volume[], const int &spread[])
   {
    if(rates_total < 50) return 0;
-   int off = ServerOffsetSec();
-   if(prev_calculated == 0 || rates_total != gLastTotal)
+   RefreshClock();
+   if(prev_calculated == 0 || rates_total != gLastTotal || UseClock() != gUsedClock)
      {
       gLastTotal = rates_total;
-      gUsed = AT24SG_Profile(rates_total, time, spread, off, InpDays, gAvg, gCnt);
+      gUsedClock = UseClock();
+      //--- the profile works on GMT hours (offset 0); the window below converts every bar with the DST-aware clock
+      int nbw = (int)MathMin((double)rates_total, (double)((InpDays + 2) * 86400 / MathMax(1, PeriodSeconds(_Period)) + 100));
+      int basew = rates_total - nbw;
+      datetime tg[]; int spw[];
+      ArrayResize(tg, nbw); ArrayResize(spw, nbw);
+      for(int q = 0; q < nbw; q++) { tg[q] = ToGmt(time[basew + q]); spw[q] = spread[basew + q]; }
+      gUsed = AT24SG_Profile(nbw, tg, spw, 0, InpDays, gAvg, gCnt);
       gFlat = IsFlat();
      }
    //--- learn the live spread (one sample every 2 s, saved every minute)
    bool tester = (bool)MQLInfoInteger(MQL_TESTER);
    if(!tester && TimeCurrent() - gLastSample >= 2)
      {
-      MqlDateTime lg; TimeToStruct(TimeGMT(), lg);
+      MqlDateTime lg; TimeToStruct(ToGmt(TimeCurrent()), lg);
       double sn = (double)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
       if(sn > 0.0) { gLSum[lg.hour] += sn; gLCnt[lg.hour]++; }
       gLastSample = TimeCurrent();
@@ -295,7 +334,7 @@ int OnCalculate(const int rates_total, const int prev_calculated, const datetime
      }
    for(int i = MathMax(first, rates_total - 15000); i < rates_total; i++)
      {
-      int hh = AT24SG_HourOf(time[i], off);
+      int hh = AT24SG_HourOf(ToGmt(time[i]), 0);
       double sp = (double)spread[i];
       BufSp[i] = (sp > 0.0) ? sp : EMPTY_VALUE;
       BufAvg[i] = (gAvg[hh] > 0.0) ? gAvg[hh] : EMPTY_VALUE;
@@ -304,7 +343,7 @@ int OnCalculate(const int rates_total, const int prev_calculated, const datetime
 
    //--- live status
    MqlDateTime g;
-   TimeToStruct(TimeGMT(), g);
+   TimeToStruct(ToGmt(TimeCurrent()), g);
    double now = (double)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
    double typ = gAvg[g.hour];
    int st = AT24SG_Status(now, typ, InpOKMult, InpSpikeMult);

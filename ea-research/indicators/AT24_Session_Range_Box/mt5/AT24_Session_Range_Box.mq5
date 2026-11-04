@@ -14,6 +14,7 @@
 #property indicator_plots   0
 
 #include "AT24_SessionBox_Core.mqh"
+#include "AT24_ServerClock.mqh"
 
 #resource "sb_logo56.bmp"
 
@@ -25,8 +26,9 @@ input double InpBreakBufferPts= 0;      // Close must be beyond the box by this 
 input group "=== History ==="
 input int    InpStatDays      = 60;     // Days used for the statistics
 input int    InpBoxDays       = 10;     // Boxes drawn on the chart
-input bool   InpAutoOffset    = true;   // Detect broker server time offset from GMT
-input int    InpOffsetHours   = 0;      // Manual server offset in hours (if auto is off)
+input bool   InpDstAware      = true;   // Detect the broker clock incl. daylight-time rule (recommended)
+input bool   InpAutoOffset    = true;   // Fallback: detect the current server offset from GMT
+input int    InpOffsetHours   = 0;      // Fallback: manual server offset in hours (if auto is off)
 input group "=== Colours ==="
 input color  InpBoxColor      = C'30,70,110'; // Asia box fill
 input color  InpUpColor       = clrLimeGreen; // Break up
@@ -58,6 +60,42 @@ int ServerOffsetSec()
   {
    if(!InpAutoOffset) return InpOffsetHours * 3600;
    return (int)MathRound((double)(TimeTradeServer() - TimeGMT()) / 1800.0) * 1800;
+  }
+
+//--- DST-aware broker clock (AT24_ServerClock.mqh). Falls back to the constant offset when detection fails.
+AT24SC_Clock gClk;
+bool     gUsedClock = false;
+datetime gClkAt = 0;
+int      gMeas[];
+datetime gUtc[];
+
+void RefreshClock()
+  {
+   if(!InpDstAware) { gClk.ok = false; return; }
+   //--- detected: refresh once an hour; not detected (H1 history still loading): retry every 10 seconds
+   if(gClkAt != 0 && TimeCurrent() - gClkAt < (gClk.ok ? 3600 : 10)) return;
+   AT24SC_Detect(_Symbol, gClk, 60, gMeas, gUtc);
+   gClkAt = TimeCurrent();
+  }
+
+bool UseClock() { return (InpDstAware && gClk.ok); }
+
+datetime ToGmt(const datetime serverTime)
+  {
+   if(UseClock()) return AT24SC_ToGmt(gClk, serverTime);
+   return serverTime - (datetime)ServerOffsetSec();
+  }
+
+datetime ToServer(const datetime gmt)
+  {
+   if(UseClock()) return gmt + (datetime)((long)AT24SC_OffsetHoursAtUtc(gClk, gmt) * 3600);
+   return gmt + (datetime)ServerOffsetSec();
+  }
+
+string ClockName()
+  {
+   if(!UseClock()) return "fixed offset";
+   return gClk.rule == AT24SC_US ? "US DST" : (gClk.rule == AT24SC_EU ? "EU DST" : "no DST");
   }
 
 void CalcBase()
@@ -158,9 +196,9 @@ void DrawBoxes()
      }
   }
 
-string Countdown(const int off)
+string Countdown(const int unused)
   {
-   MqlDateTime g; TimeToStruct(TimeGMT(), g);
+   MqlDateTime g; TimeToStruct(ToGmt(TimeCurrent()), g);
    int nowMin = g.hour * 60 + g.min;
    int open = InpAsiaEndHour * 60;
    int diff = open - nowMin;
@@ -173,9 +211,8 @@ void UpdateDash()
   {
    if(!gDash) return;
    BuildFrame();
-   int off = ServerOffsetSec();
    int ti = gN - 1;
-   int todayKey = AT24SB_GmtKey(TimeCurrent(), off);
+   int todayKey = AT24SB_GmtKey(ToGmt(TimeCurrent()), 0);
    bool haveToday = (ti >= 0 && gDays[ti].key == todayKey);
    MakeLabel("t1", 70, 6, "AT24 SESSION RANGE BOX", C'230,190,80', 10, true);
    if(!haveToday)
@@ -193,12 +230,12 @@ void UpdateDash()
       MakeLabel("l2", 10, 82, "Size  " + rel, clrWhite, 9);
      }
    else { MakeLabel("l1", 10, 66, "No bars inside the Asia window yet (check hours / offset).", clrOrange, 9); MakeLabel("l2", 10, 82, "", clrWhite, 9); }
-   MakeLabel("l3", 10, 98, Countdown(off), clrGold, 9);
+   MakeLabel("l3", 10, 98, Countdown(0), clrGold, 9);
    MakeLabel("h1", 10, 122, StringFormat("Last %d days on this symbol  (%d with a box)", InpStatDays, (int)gStats[0]), C'230,190,80', 9, true);
    MakeLabel("s1", 10, 140, StringFormat("First break: up %.0f%%   down %.0f%%   none %.0f%%", gStats[1], gStats[2], gStats[3]), clrWhite, 9);
    MakeLabel("s2", 10, 156, StringFormat("When it broke: held to day end %.0f%%", gStats[4]), clrWhite, 9);
    MakeLabel("s3", 10, 172, StringFormat("When it broke: ran 1x the box or more %.0f%%", gStats[5]), clrWhite, 9);
-   MakeLabel("n1", 10, 194, StringFormat("GMT %02d-%02d box, watching to %02d. Break = a close beyond.", InpAsiaStartHour, InpAsiaEndHour, InpDayEndHour), clrSlateGray, 8);
+   MakeLabel("n1", 10, 194, StringFormat("GMT %02d-%02d box to %02d, break = close beyond. Clock: %s", InpAsiaStartHour, InpAsiaEndHour, InpDayEndHour, ClockName()), clrSlateGray, 8);
    MakeLabel("f1", 10, 220, "Descriptive history on your broker's data. Context tool,", clrSlateGray, 7);
    MakeLabel("f2", 10, 232, "not a signal or a forecast. algotraders24.ai", clrSlateGray, 7);
   }
@@ -238,18 +275,34 @@ int OnCalculate(const int rates_total, const int prev_calculated, const datetime
                 const long &volume[], const int &spread[])
   {
    if(rates_total < 50) return 0;
-   int off = ServerOffsetSec();
-   if(prev_calculated == 0 || rates_total != gLastTotal)
+   RefreshClock();
+   if(prev_calculated == 0 || rates_total != gLastTotal || UseClock() != gUsedClock)
      {
       gLastTotal = rates_total;
-      //--- closed bars only (the forming bar can still change): no repaint
-      gN = AT24SB_Analyze(rates_total - 1, time, high, low, close, off, InpAsiaStartHour * 60, InpAsiaEndHour * 60, InpDayEndHour * 60,
+      gUsedClock = UseClock();
+      //--- closed bars only (the forming bar can still change): no repaint.
+      //--- the core works on GMT times (offset 0); the window below converts every bar with the DST-aware clock
+      int total = rates_total - 1;
+      int nbw = (int)MathMin((double)total, (double)((InpStatDays + 3) * 86400 / MathMax(1, PeriodSeconds(_Period)) + 200));
+      int basew = total - nbw;
+      datetime tg[]; double wh[], wl[], wc[];
+      ArrayResize(tg, nbw); ArrayResize(wh, nbw); ArrayResize(wl, nbw); ArrayResize(wc, nbw);
+      for(int q = 0; q < nbw; q++) { tg[q] = ToGmt(time[basew + q]); wh[q] = high[basew + q]; wl[q] = low[basew + q]; wc[q] = close[basew + q]; }
+      gN = AT24SB_Analyze(nbw, tg, wh, wl, wc, 0, InpAsiaStartHour * 60, InpAsiaEndHour * 60, InpDayEndHour * 60,
                           InpBreakBufferPts * _Point, InpStatDays, gDays);
+      //--- the core returned GMT-based times: convert them back to server time for drawing
+      for(int j = 0; j < gN; j++)
+        {
+         if(gDays[j].boxStart != 0) gDays[j].boxStart = ToServer(gDays[j].boxStart);
+         if(gDays[j].boxEnd != 0)   gDays[j].boxEnd = ToServer(gDays[j].boxEnd);
+         if(gDays[j].dayEnd != 0)   gDays[j].dayEnd = ToServer(gDays[j].dayEnd);
+         if(gDays[j].brkTime != 0)  gDays[j].brkTime = ToServer(gDays[j].brkTime);
+        }
       AT24SB_Stats(gDays, gN, gStats);
       DrawBoxes();
       //--- alert once per day when the box is first broken
       int ti = gN - 1;
-      if(InpAlertBreak && ti >= 0 && gDays[ti].key == AT24SB_GmtKey(TimeCurrent(), off) && gDays[ti].brk != 0 && gAlertKey != gDays[ti].key)
+      if(InpAlertBreak && ti >= 0 && gDays[ti].key == AT24SB_GmtKey(ToGmt(TimeCurrent()), 0) && gDays[ti].brk != 0 && gAlertKey != gDays[ti].key)
         {
          gAlertKey = gDays[ti].key;
          string msg = StringFormat("AT24 Session Range Box %s: Asia box %s - %s broken %s", _Symbol, DoubleToString(gDays[ti].lo, _Digits), DoubleToString(gDays[ti].hi, _Digits), gDays[ti].brk == 1 ? "UP" : "DOWN");

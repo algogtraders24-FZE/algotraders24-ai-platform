@@ -11,12 +11,12 @@ Everyone talks about "liquidity above yesterday's high" but nobody shows how oft
 Six level rays with live state labels; dashboard with distance of price to each level; sweep statistics; alert when a day level is swept (bar close, no repaint); GMT day boundaries; branded dashboard (off in the tester by default).
 
 ## Honest claims you MAY make
-- Real history on your own broker data (our XAUUSD M15 test, 60 days: PDH swept 41%, PDL 57%, either 77%; after a sweep the day closed back inside 58% and accepted beyond 42%, 52 sweeps).
+- Real history on your own broker data (our XAUUSD M15 test, 60 days: PDH swept 41%, PDL 57%, either 77%; after a sweep the day closed back inside 60% and accepted beyond 40%, 52 sweeps (DST-aware clock)).
 - Maths verified against an independent Python calculation (89 day/week/month periods, 0 mismatches); MT4 runtime values match; TradingView compiles and renders.
 - It never prints buy/sell arrows.
 
 ## Claims you must NOT make
-- No "reversal after a sweep works", win rates or edge: 58% is a small sample with wide uncertainty and is not a tested strategy; our earlier 25-rule scan found no cost-adjusted edge (it included a previous-day sweep rule).
+- No "reversal after a sweep works", win rates or edge: 60% is a small sample with wide uncertainty and is not a tested strategy; our earlier 25-rule scan found no cost-adjusted edge (it included a previous-day sweep rule).
 - TradingView day boundaries follow the symbol's exchange session and differ slightly from MT4/MT5 (GMT days).
 
 ## Footer text

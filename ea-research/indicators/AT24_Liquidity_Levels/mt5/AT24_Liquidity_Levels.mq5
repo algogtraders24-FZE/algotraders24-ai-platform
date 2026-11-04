@@ -15,6 +15,7 @@
 #property indicator_plots   0
 
 #include "AT24_Levels_Core.mqh"
+#include "AT24_ServerClock.mqh"
 
 #resource "lv_logo56.bmp"
 
@@ -22,8 +23,9 @@ input group "=== Levels ==="
 input bool   InpShowWeek      = true;   // Show previous week high/low
 input bool   InpShowMonth     = true;   // Show previous month high/low
 input int    InpStatDays      = 60;     // Days used for the sweep statistics
-input bool   InpAutoOffset    = true;   // Detect broker server time offset from GMT
-input int    InpOffsetHours   = 0;      // Manual server offset in hours (if auto is off)
+input bool   InpDstAware      = true;   // Detect the broker clock incl. daylight-time rule (recommended)
+input bool   InpAutoOffset    = true;   // Fallback: detect the current server offset from GMT
+input int    InpOffsetHours   = 0;      // Fallback: manual server offset in hours (if auto is off)
 input group "=== Colours ==="
 input color  InpDayColor      = clrGold;        // Day levels
 input color  InpWeekColor     = clrDeepSkyBlue; // Week levels
@@ -54,6 +56,55 @@ int ServerOffsetSec()
   {
    if(!InpAutoOffset) return InpOffsetHours * 3600;
    return (int)MathRound((double)(TimeTradeServer() - TimeGMT()) / 1800.0) * 1800;
+  }
+
+//--- DST-aware broker clock (AT24_ServerClock.mqh). Falls back to the constant offset when detection fails.
+AT24SC_Clock gClk;
+bool     gUsedClock = false;
+datetime gClkAt = 0;
+int      gMeas[];
+datetime gUtc[];
+
+void RefreshClock()
+  {
+   if(!InpDstAware) { gClk.ok = false; return; }
+   //--- detected: refresh once an hour; not detected (H1 history still loading): retry every 10 seconds
+   if(gClkAt != 0 && TimeCurrent() - gClkAt < (gClk.ok ? 3600 : 10)) return;
+   AT24SC_Detect(_Symbol, gClk, 60, gMeas, gUtc);
+   gClkAt = TimeCurrent();
+  }
+
+bool UseClock() { return (InpDstAware && gClk.ok); }
+
+datetime ToGmt(const datetime serverTime)
+  {
+   if(UseClock()) return AT24SC_ToGmt(gClk, serverTime);
+   return serverTime - (datetime)ServerOffsetSec();
+  }
+
+datetime ToServer(const datetime gmt)
+  {
+   if(UseClock()) return gmt + (datetime)((long)AT24SC_OffsetHoursAtUtc(gClk, gmt) * 3600);
+   return gmt + (datetime)ServerOffsetSec();
+  }
+
+string ClockName()
+  {
+   if(!UseClock()) return "fixed offset";
+   return gClk.rule == AT24SC_US ? "US DST" : (gClk.rule == AT24SC_EU ? "EU DST" : "no DST");
+  }
+
+void ToServerPeriods(AT24LV_Period &p[], const int n)
+  {
+   for(int k = 0; k < n; k++)
+     {
+      if(p[k].start != 0) p[k].start = ToServer(p[k].start);
+      if(p[k].end != 0) p[k].end = ToServer(p[k].end);
+      if(p[k].swHiT != 0) p[k].swHiT = ToServer(p[k].swHiT);
+      if(p[k].swLoT != 0) p[k].swLoT = ToServer(p[k].swLoT);
+      if(p[k].clHiT != 0) p[k].clHiT = ToServer(p[k].clHiT);
+      if(p[k].clLoT != 0) p[k].clLoT = ToServer(p[k].clLoT);
+     }
   }
 
 void CalcBase()
@@ -183,7 +234,7 @@ void UpdateAll(const bool redraw)
    MakeLabel("h1", 10, 170, StringFormat("Last %d days on this symbol  (%d with a previous-day level)", InpStatDays, (int)gStats[0]), C'230,190,80', 9, true);
    MakeLabel("s1", 10, 188, StringFormat("PDH swept %.0f%%   PDL swept %.0f%%   either %.0f%%   both %.0f%%", gStats[1], gStats[2], gStats[3], gStats[4]), clrWhite, 9);
    MakeLabel("s2", 10, 204, StringFormat("After a sweep: back inside %.0f%% | accepted %.0f%% (%d)", gStats[5], gStats[6], (int)gStats[7]), clrWhite, 9);
-   MakeLabel("n1", 10, 224, "Swept = traded beyond. Accepted = closed beyond.", clrSlateGray, 8);
+   MakeLabel("n1", 10, 224, StringFormat("Swept = traded beyond. Accepted = closed. Clock: %s", ClockName()), clrSlateGray, 8);
    MakeLabel("f1", 10, 246, "Descriptive history on your broker's data. Context tool,", clrSlateGray, 7);
    MakeLabel("f2", 10, 258, "not a signal or a forecast. algotraders24.ai", clrSlateGray, 7);
   }
@@ -216,15 +267,25 @@ int OnCalculate(const int rates_total, const int prev_calculated, const datetime
                 const long &volume[], const int &spread[])
   {
    if(rates_total < 50) return 0;
-   bool recalc = (prev_calculated == 0 || rates_total != gLastTotal);
+   RefreshClock();
+   bool recalc = (prev_calculated == 0 || rates_total != gLastTotal || UseClock() != gUsedClock);
    if(recalc)
      {
       gLastTotal = rates_total;
-      int off = ServerOffsetSec();
-      //--- closed bars only: levels and sweeps never repaint
-      gND = AT24LV_Analyze(rates_total - 1, time, high, low, close, off, 0, InpStatDays + 2, gD);
-      gNW = AT24LV_Analyze(rates_total - 1, time, high, low, close, off, 1, 20, gW);
-      gNM = AT24LV_Analyze(rates_total - 1, time, high, low, close, off, 2, 10, gM);
+      gUsedClock = UseClock();
+      //--- closed bars only: levels and sweeps never repaint.
+      //--- the core works on GMT times (offset 0); the window below converts every bar with the DST-aware clock
+      int total = rates_total - 1;
+      int nbw = (int)MathMin((double)total, (double)(340 * 86400 / MathMax(1, PeriodSeconds(_Period)) + 200));
+      int basew = total - nbw;
+      datetime tg[]; double wh[], wl[], wc[];
+      ArrayResize(tg, nbw); ArrayResize(wh, nbw); ArrayResize(wl, nbw); ArrayResize(wc, nbw);
+      for(int q = 0; q < nbw; q++) { tg[q] = ToGmt(time[basew + q]); wh[q] = high[basew + q]; wl[q] = low[basew + q]; wc[q] = close[basew + q]; }
+      gND = AT24LV_Analyze(nbw, tg, wh, wl, wc, 0, 0, InpStatDays + 2, gD);
+      gNW = AT24LV_Analyze(nbw, tg, wh, wl, wc, 0, 1, 20, gW);
+      gNM = AT24LV_Analyze(nbw, tg, wh, wl, wc, 0, 2, 10, gM);
+      //--- the core returned GMT-based times: convert them back to server time for drawing and alerts
+      ToServerPeriods(gD, gND); ToServerPeriods(gW, gNW); ToServerPeriods(gM, gNM);
       AT24LV_Stats(gD, gND, gStats);
       if(InpAlertSweep && gND > 0)
         {
