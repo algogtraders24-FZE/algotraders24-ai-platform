@@ -10,7 +10,7 @@
 | TradingView Pine v5 | compiled; rays + dashboard render; values within a few points of MT5 (different feed and daily boundary): branding/screenshot_tradingview.jpg |
 
 ## Real result on one broker feed (XAUUSD M15, last 60 GMT days, 53 days with a previous-day level)
-PDH swept 41.5%, PDL swept 56.6%, either 77.4%, both 20.8%. After a sweep: day closed back inside 57.7%, accepted beyond 42.3% (52 sweeps, so wide uncertainty). TradingView OANDA daily: PDH 43%, PDL 60%, either 90%, back inside 58%. Descriptive only; this is not an edge.
+PDH swept 41.5%, PDL swept 56.6%, either 77.4%, both 20.8%. After a sweep: day closed back inside 59.6%, accepted beyond 40.4% (52 sweeps, so wide uncertainty; DST-aware clock. Before the DST fix: 57.7% / 42.3%; the sweep frequencies were unchanged). TradingView OANDA daily: PDH 43%, PDL 60%, either 90%, back inside 58%. Descriptive only; this is not an edge.
 
 ## Bugs found and fixed
 1. Self-test found a real bug: the first period of the analysis window could start mid-period, so its partial high/low became the next period's levels. The window now always starts on a period boundary (0 mismatches afterwards).
@@ -21,3 +21,7 @@ PDH swept 41.5%, PDL swept 56.6%, either 77.4%, both 20.8%. After a sweep: day c
 ## Limits
 - The TradingView daily/weekly/monthly boundaries follow the symbol's exchange session (OANDA: 17:00 New York) while MT4/MT5 use GMT days; numbers differ slightly.
 - Server-to-GMT uses the current offset (daylight-saving days can be one hour off). Alerts and live ticking of states were not exercised beyond a screenshot.
+
+## DST-aware clock update (2026-11-04)
+The GMT sessions/days now use the shared AT24 Server Clock (`AT24_ServerClock.mqh`, detects the broker's daylight-time rule from the weekly close in the H1 history) instead of today's single offset, which was one hour off for about 97% of the last 60 days on this feed. The core maths is unchanged: the indicator converts every bar to GMT with the clock, calls the core with offset 0 and converts returned times back for drawing. If the clock cannot be detected (not enough H1 history, other weekly schedule) it falls back to the old offset and the dashboard shows "Clock: fixed offset"; the detection retries every 10 seconds until the H1 history has loaded.
+Verification: 89 day/week/month periods compared with an independent Python calendar (zoneinfo): 0 mismatches; statistics: PDH swept 41.5%, PDL 56.6%, either 77.4%, both 20.8%, back inside 59.6%, accepted 40.4%.

@@ -50,14 +50,16 @@
 #property indicator_width7  1
 
 #include "AT24_VWAP_Core.mqh"
+#include "AT24_ServerClock.mqh"
 
 #resource "vw_logo56.bmp"
 
 input group "=== VWAP ==="
 input bool   InpShowWeek      = true;   // Show week VWAP
 input bool   InpShowMonth     = true;   // Show month VWAP
-input bool   InpAutoOffset    = true;   // Detect broker server time offset from GMT
-input int    InpOffsetHours   = 0;      // Manual server offset in hours (if auto is off)
+input bool   InpDstAware      = true;   // Detect the broker clock incl. daylight-time rule (recommended)
+input bool   InpAutoOffset    = true;   // Fallback: detect the current server offset from GMT
+input int    InpOffsetHours   = 0;      // Fallback: manual server offset in hours (if auto is off)
 input int    InpHistoryBars   = 8000;   // Bars analysed
 input group "=== Mean-reversion test (day VWAP) ==="
 input double InpStartSd       = 2.0;    // Event: close this many SD from the day VWAP
@@ -90,6 +92,39 @@ int ServerOffsetSec()
   {
    if(!InpAutoOffset) return InpOffsetHours * 3600;
    return (int)MathRound((double)(TimeTradeServer() - TimeGMT()) / 1800.0) * 1800;
+  }
+
+//--- DST-aware broker clock (AT24_ServerClock.mqh). Falls back to the constant offset when detection fails.
+AT24SC_Clock gClk;
+bool     gUsedClock = false;
+datetime gTg[];          // cached GMT times of the analysed window (rebuilt only on a new bar or a clock change)
+int      gTgLast = 0;
+bool     gTgClk = false;
+datetime gClkAt = 0;
+int      gMeas[];
+datetime gUtc[];
+
+void RefreshClock()
+  {
+   if(!InpDstAware) { gClk.ok = false; return; }
+   //--- detected: refresh once an hour; not detected (H1 history still loading): retry every 10 seconds
+   if(gClkAt != 0 && TimeCurrent() - gClkAt < (gClk.ok ? 3600 : 10)) return;
+   AT24SC_Detect(_Symbol, gClk, 60, gMeas, gUtc);
+   gClkAt = TimeCurrent();
+  }
+
+bool UseClock() { return (InpDstAware && gClk.ok); }
+
+datetime ToGmt(const datetime serverTime)
+  {
+   if(UseClock()) return AT24SC_ToGmt(gClk, serverTime);
+   return serverTime - (datetime)ServerOffsetSec();
+  }
+
+string ClockName()
+  {
+   if(!UseClock()) return "fixed offset";
+   return gClk.rule == AT24SC_US ? "US DST" : (gClk.rule == AT24SC_EU ? "EU DST" : "no DST");
   }
 
 void CalcBase()
@@ -173,8 +208,8 @@ void UpdateDash(const double price)
    MakeLabel("s1", 10, 142, StringFormat("After a close %.0f SD out: back to VWAP %.0f%%", InpStartSd, n > 0 ? 100.0 * gRev[1] / n : 0.0), clrWhite, 9);
    MakeLabel("s2", 10, 158, StringFormat("went on to %.0f SD %.0f%%   neither %.0f%%", InpExtendSd, n > 0 ? 100.0 * gRev[2] / n : 0.0, n > 0 ? 100.0 * gRev[3] / n : 0.0), clrWhite, 9);
    MakeLabel("s3", 10, 174, StringFormat("Closes above day VWAP: %.0f%% of bars", gRev[4]), clrWhite, 9);
-   MakeLabel("n1", 10, 196, "Random-walk yardstick: back to VWAP about 33% when", clrSlateGray, 8);
-   MakeLabel("n2", 10, 210, "the stretch is 2 SD and the extension 3 SD. Volume = ticks.", clrSlateGray, 8);
+   MakeLabel("n1", 10, 196, StringFormat("Anchors in GMT (Clock: %s). Random-walk yardstick:", ClockName()), clrSlateGray, 8);
+   MakeLabel("n2", 10, 210, "back to VWAP about 33% for 2 SD out / 3 SD. Tick volume.", clrSlateGray, 8);
    MakeLabel("f1", 10, 238, "Descriptive history on your broker's data. Context tool,", clrSlateGray, 7);
    MakeLabel("f2", 10, 250, "not a signal or a forecast. algotraders24.ai", clrSlateGray, 7);
   }
@@ -212,20 +247,27 @@ int OnCalculate(const int rates_total, const int prev_calculated, const datetime
    if(rates_total < 100) return 0;
    int nb = (int)MathMin((double)rates_total, (double)InpHistoryBars);
    int base = rates_total - nb;
-   int off = ServerOffsetSec();
+   RefreshClock();
    double h[], l[], c[]; long v[]; datetime t[];
    ArrayResize(h, nb); ArrayResize(l, nb); ArrayResize(c, nb); ArrayResize(v, nb); ArrayResize(t, nb);
-   for(int q = 0; q < nb; q++) { h[q] = high[base + q]; l[q] = low[base + q]; c[q] = close[base + q]; v[q] = tick_volume[base + q]; t[q] = time[base + q]; }
+   if(ArraySize(gTg) != nb || gTgLast != rates_total || gTgClk != UseClock())
+     {
+      ArrayResize(gTg, nb);
+      for(int z = 0; z < nb; z++) gTg[z] = ToGmt(time[base + z]);
+      gTgLast = rates_total; gTgClk = UseClock();
+     }
+   for(int q = 0; q < nb; q++) { h[q] = high[base + q]; l[q] = low[base + q]; c[q] = close[base + q]; v[q] = tick_volume[base + q]; t[q] = gTg[q]; }
    double vd[], sdd[], vw[], sdw[], vm[], sdm[]; int fd[], fw[], fm[];
    ArrayResize(vd, nb); ArrayResize(sdd, nb); ArrayResize(fd, nb);
    ArrayResize(vw, nb); ArrayResize(sdw, nb); ArrayResize(fw, nb);
    ArrayResize(vm, nb); ArrayResize(sdm, nb); ArrayResize(fm, nb);
-   AT24VW_Calc(nb, t, h, l, c, v, off, 0, vd, sdd, fd);
-   AT24VW_Calc(nb, t, h, l, c, v, off, 1, vw, sdw, fw);
-   AT24VW_Calc(nb, t, h, l, c, v, off, 2, vm, sdm, fm);
-   if(prev_calculated == 0 || rates_total != gLastTotal)
+   AT24VW_Calc(nb, t, h, l, c, v, 0, 0, vd, sdd, fd);
+   AT24VW_Calc(nb, t, h, l, c, v, 0, 1, vw, sdw, fw);
+   AT24VW_Calc(nb, t, h, l, c, v, 0, 2, vm, sdm, fm);
+   if(prev_calculated == 0 || rates_total != gLastTotal || UseClock() != gUsedClock)
      {
       gLastTotal = rates_total;
+      gUsedClock = UseClock();
       //--- the reversion test uses CLOSED bars only (no repaint)
       AT24VW_Reversion(nb - 1, h, l, c, vd, sdd, fd, InpStartSd, InpExtendSd, InpMinBars, gRev);
       ArrayInitialize(BDay, EMPTY_VALUE); ArrayInitialize(BU1, EMPTY_VALUE); ArrayInitialize(BD1, EMPTY_VALUE);
