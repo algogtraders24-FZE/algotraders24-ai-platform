@@ -1,0 +1,135 @@
+//@version=5
+// AT24 Hour Bias Map - mean return by New York hour, t-statistics, and whether the pattern held in both halves of the history.
+// Context tool. Not a signal. algotraders24.ai
+indicator("AT24 Hour Bias Map", shorttitle="AT24 HOUR", overlay=true)
+
+grp1 = "Dashboard"
+showDash = input.bool(true, "Show dashboard", group=grp1)
+dashPos = input.string("top right", "Position", options=["top left","top right","bottom left","bottom right"], group=grp1)
+showHeat = input.bool(true, "Show the 24-hour strip (bottom centre)", group=grp1)
+
+sg1(x) => (x >= 0 ? "+" : "") + str.tostring(x, "0.0")
+sg2(x) => (x >= 0 ? "+" : "") + str.tostring(x, "0.00")
+
+var float[] rets = array.new_float()
+var int[] hrs = array.new_int()
+if barstate.isconfirmed and bar_index > 0 and close[1] > 0 and close > 0
+    array.push(rets, math.log(close / close[1]))
+    array.push(hrs, hour(time, "America/New_York"))
+
+pos = switch dashPos
+    "top left" => position.top_left
+    "top right" => position.top_right
+    "bottom left" => position.bottom_left
+    => position.bottom_right
+var table t = table.new(pos, 2, 9, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+var table hm = table.new(position.bottom_center, 24, 3, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+
+if barstate.islast
+    n = array.size(rets)
+    ok = timeframe.period == "60"
+    float[] s = array.new_float(24, 0.0)
+    float[] s2 = array.new_float(24, 0.0)
+    float[] sa = array.new_float(24, 0.0)
+    float[] sb = array.new_float(24, 0.0)
+    int[] c = array.new_int(24, 0)
+    int[] upc = array.new_int(24, 0)
+    int[] ca = array.new_int(24, 0)
+    int[] cb = array.new_int(24, 0)
+    half = n / 2
+    if ok and n > 0
+        for i = 0 to n - 1
+            h = array.get(hrs, i)
+            r = array.get(rets, i)
+            array.set(s, h, array.get(s, h) + r)
+            array.set(s2, h, array.get(s2, h) + r * r)
+            array.set(c, h, array.get(c, h) + 1)
+            if r > 0
+                array.set(upc, h, array.get(upc, h) + 1)
+            if i < half
+                array.set(sa, h, array.get(sa, h) + r)
+                array.set(ca, h, array.get(ca, h) + 1)
+            else
+                array.set(sb, h, array.get(sb, h) + r)
+                array.set(cb, h, array.get(cb, h) + 1)
+    float[] mean = array.new_float(24, 0.0)
+    float[] tst = array.new_float(24, 0.0)
+    float[] ma = array.new_float(24, 0.0)
+    float[] mb = array.new_float(24, 0.0)
+    int sig2 = 0
+    int sig3 = 0
+    int agree = 0
+    if ok and n > 2000
+        for h = 0 to 23
+            na_ = array.get(ca, h)
+            nb_ = array.get(cb, h)
+            array.set(ma, h, na_ > 0 ? array.get(sa, h) / na_ : 0.0)
+            array.set(mb, h, nb_ > 0 ? array.get(sb, h) / nb_ : 0.0)
+            ch = array.get(c, h)
+            if ch >= 3
+                m = array.get(s, h) / ch
+                v = (array.get(s2, h) - ch * m * m) / (ch - 1)
+                sd = math.sqrt(math.max(v, 0.0))
+                tv = sd > 0 ? m / (sd / math.sqrt(ch)) : 0.0
+                array.set(mean, h, m)
+                array.set(tst, h, tv)
+                if math.abs(tv) >= 1.96
+                    sig2 += 1
+                if math.abs(tv) >= 3.0
+                    sig3 += 1
+                if m != 0 and array.get(ma, h) != 0 and array.get(mb, h) != 0 and ((m > 0) == (array.get(ma, h) > 0)) and ((m > 0) == (array.get(mb, h) > 0))
+                    agree += 1
+    xa = array.avg(ma)
+    xb = array.avg(mb)
+    float sxy = 0.0
+    float sxx = 0.0
+    float syy = 0.0
+    for h = 0 to 23
+        da = array.get(ma, h) - xa
+        db = array.get(mb, h) - xb
+        sxy += da * db
+        sxx += da * da
+        syy += db * db
+    corr = (sxx > 0 and syy > 0) ? sxy / math.sqrt(sxx * syy) : 0.0
+    hh = hour(time, "America/New_York")
+    chh = array.get(c, hh)
+    mhh = array.get(mean, hh) * 10000
+    thh = array.get(tst, hh)
+    uphh = chh > 0 ? 100.0 * array.get(upc, hh) / chh : 0.0
+    verdict = chh < 3 ? "NO DATA FOR THIS HOUR" : math.abs(thh) >= 3.0 ? "CLEAR BIAS THIS HOUR (in the past)" : math.abs(thh) >= 1.96 ? "WEAK BIAS THIS HOUR" : "NO BIAS THIS HOUR"
+    vcol = chh < 3 ? color.gray : math.abs(thh) >= 3.0 ? #E6B450 : math.abs(thh) >= 1.96 ? color.orange : color.gray
+    if showDash
+        table.cell(t, 0, 0, "AT24", text_color=#E8B84A, text_size=size.large)
+        table.cell(t, 1, 0, "HOUR BIAS MAP", text_color=#E8B84A, text_size=size.normal, text_halign=text.align_left)
+        if not ok
+            table.cell(t, 0, 1, "State", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 1, "USE THE 1H CHART", text_color=color.gray, text_size=size.normal, text_halign=text.align_left)
+        else if n <= 2000
+            table.cell(t, 0, 1, "State", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 1, "NOT ENOUGH HOURLY HISTORY", text_color=color.gray, text_size=size.normal, text_halign=text.align_left)
+        else
+            table.cell(t, 0, 1, "NY " + str.tostring(hh, "00") + ":00", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 1, verdict, text_color=vcol, text_size=size.normal, text_halign=text.align_left)
+            table.cell(t, 0, 2, "This hour", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 2, "mean " + sg1(mhh) + " bp per hour, t " + sg2(thh) + ", up " + str.tostring(uphh, "0") + "% (n=" + str.tostring(chh) + ")", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 3, "Halves", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 3, "of history: " + sg1(array.get(ma, hh) * 10000) + " bp then " + sg1(array.get(mb, hh) * 10000) + " bp", text_color=color.silver, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 4, "24 hours", text_color=#E8B84A, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 4, str.tostring(sig2) + " with |t| >= 1.96 (chance ~1), " + str.tostring(sig3) + " with |t| >= 3", text_color=#E8B84A, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 5, "Held up?", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 5, "same sign in both halves: " + str.tostring(agree) + " of 24 hours (corr " + sg2(corr) + ")", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 6, "Strip", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 6, "bottom: mean return per NY hour in bp. Gold's drift lifts most.", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 7, "Bars", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 7, str.tostring(n) + " hourly bars on the chart", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 8, "Descriptive history.", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
+            table.cell(t, 1, 8, "Not a signal. algotraders24.ai", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
+    if showHeat and ok and n > 2000
+        for h = 0 to 23
+            m2 = array.get(mean, h) * 10000
+            t2 = array.get(tst, h)
+            sg = math.abs(t2) >= 1.96
+            bgc = array.get(c, h) < 3 ? color.new(#283246, 0) : m2 >= 0 ? color.new(color.green, sg ? 15 : 65) : color.new(color.red, sg ? 15 : 65)
+            table.cell(hm, h, 0, str.tostring(h), text_color=h == hh ? color.white : color.gray, text_size=size.tiny, bgcolor=h == hh ? color.new(#C8A03C, 40) : color.new(#0C1628, 0))
+            table.cell(hm, h, 1, sg1(m2), text_color=color.white, text_size=size.tiny, bgcolor=bgc)
+            table.cell(hm, h, 2, math.abs(t2) >= 3.0 ? "**" : sg ? "*" : "", text_color=#E6B450, text_size=size.tiny, bgcolor=color.new(#0C1628, 0))

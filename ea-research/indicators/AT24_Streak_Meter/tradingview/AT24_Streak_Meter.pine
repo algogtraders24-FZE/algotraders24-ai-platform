@@ -1,0 +1,76 @@
+//@version=5
+// AT24 Streak Meter - the current same-colour candle streak, and how often the next candle really continued it.
+// Context tool. Not a signal. algotraders24.ai
+indicator("AT24 Streak Meter", shorttitle="AT24 STREAK", overlay=true)
+
+grp1 = "Streaks"
+tf = input.timeframe("D", "Timeframe of the candles counted", group=grp1)
+grp2 = "Dashboard"
+showDash = input.bool(true, "Show dashboard", group=grp2)
+dashPos = input.string("top right", "Position", options=["top left","top right","bottom left","bottom right"], group=grp2)
+
+// runs on the candle timeframe: counts, for streak lengths 1..5 and 6+ (index 6), how often the NEXT candle had the same colour
+streakStats() =>
+    var int pLen = 0
+    var int pCol = 0
+    var int[] cnt = array.new_int(7, 0)      // index 0 = every candle (baseline), 1..6 = streak length (6 = six or more)
+    var int[] sm = array.new_int(7, 0)
+    int curLen = pLen
+    int curCol = pCol
+    if barstate.isconfirmed
+        c = close > open ? 1 : close < open ? -1 : 0
+        l = c == 0 ? 0 : (c == pCol ? pLen + 1 : 1)
+        if pCol != 0 and c != 0
+            k = math.min(pLen, 6)
+            array.set(cnt, k, array.get(cnt, k) + 1)
+            array.set(cnt, 0, array.get(cnt, 0) + 1)
+            if c == pCol
+                array.set(sm, k, array.get(sm, k) + 1)
+                array.set(sm, 0, array.get(sm, 0) + 1)
+        pLen := l
+        pCol := c
+        curLen := l
+        curCol := c
+    [array.get(cnt, 0), array.get(sm, 0), array.get(cnt, 1), array.get(sm, 1), array.get(cnt, 2), array.get(sm, 2), array.get(cnt, 3), array.get(sm, 3), array.get(cnt, 4), array.get(sm, 4), array.get(cnt, 5), array.get(sm, 5), array.get(cnt, 6), array.get(sm, 6), curLen, curCol]
+
+[n0, s0, n1, s1, n2, s2, n3, s3, n4, s4, n5, s5, n6, s6, curLen, curCol] = request.security(syminfo.tickerid, tf, streakStats())
+
+pct(x, y) => y > 0 ? 100.0 * x / y : 0.0
+ci(x, y) => y > 0 ? 196.0 * math.sqrt((x / y) * (1.0 - x / y) / y) : 0.0
+row(k, n, s) =>
+    (k < 6 ? str.tostring(k) : "6+") + " in a row: " + str.tostring(pct(s, n), "0") + "% (+-" + str.tostring(ci(s, n), "0") + ")  n=" + str.tostring(n)
+
+pos = switch dashPos
+    "top left" => position.top_left
+    "top right" => position.top_right
+    "bottom left" => position.bottom_left
+    => position.bottom_right
+var table t = table.new(pos, 2, 11, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+if showDash and barstate.islast
+    stateTxt = curLen == 0 ? "NO STREAK (flat candle)" : str.tostring(curLen) + " " + tf + " " + (curCol == 1 ? "UP" : "DOWN") + " IN A ROW"
+    stateCol = curCol == 1 ? color.lime : curCol == -1 ? color.red : color.gray
+    curK = math.min(curLen, 6)
+    curN = curK == 1 ? n1 : curK == 2 ? n2 : curK == 3 ? n3 : curK == 4 ? n4 : curK == 5 ? n5 : n6
+    curS = curK == 1 ? s1 : curK == 2 ? s2 : curK == 3 ? s3 : curK == 4 ? s4 : curK == 5 ? s5 : s6
+    table.cell(t, 0, 0, "AT24", text_color=#E8B84A, text_size=size.large)
+    table.cell(t, 1, 0, "STREAK METER", text_color=#E8B84A, text_size=size.normal, text_halign=text.align_left)
+    table.cell(t, 0, 1, "Now", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 1, stateTxt, text_color=stateCol, text_size=size.normal, text_halign=text.align_left)
+    table.cell(t, 0, 2, "After this length", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 2, curLen == 0 ? "-" : "next candle same colour " + str.tostring(pct(curS, curN), "0") + "% (+-" + str.tostring(ci(curS, curN), "0") + ")  n=" + str.tostring(curN), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 3, "Any candle", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 3, "next one same colour " + str.tostring(pct(s0, n0), "0") + "%  (n=" + str.tostring(n0) + ")", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 4, "By streak length", text_color=#E8B84A, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 4, "next candle same colour", text_color=#E8B84A, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 5, "1", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 5, row(1, n1, s1), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 6, "2", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 6, row(2, n2, s2), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 7, "3", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 7, row(3, n3, s3), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 8, "4 / 5", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 8, row(4, n4, s4) + "   " + row(5, n5, s5), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 9, "6+", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 9, row(6, n6, s6), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 10, "Descriptive history.", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
+    table.cell(t, 1, 10, "Not a signal. ~baseline everywhere = no 'due for a reversal'. algotraders24.ai", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)

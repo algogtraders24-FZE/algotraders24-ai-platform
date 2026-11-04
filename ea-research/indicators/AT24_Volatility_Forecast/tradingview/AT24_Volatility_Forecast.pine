@@ -1,0 +1,240 @@
+//@version=5
+// AT24 Volatility Forecast - the expected size of the next move (not its direction), and how well past forecasts tracked reality.
+// Context tool. Not a signal. algotraders24.ai
+indicator("AT24 Volatility Forecast", shorttitle="AT24 VOL", overlay=true, max_lines_count=10, max_labels_count=10)
+
+grp1 = "Forecast"
+estSel = input.string("Rogers-Satchell (range)", "Volatility estimator", options=["Rogers-Satchell (range)", "Close-to-close"], group=grp1)
+horizonH = input.int(8, "Forecast horizon (hours)", minval=1, maxval=72, group=grp1)
+lam = input.float(0.94, "EWMA decay (higher = slower)", minval=0.5, maxval=0.99, step=0.01, group=grp1)
+maxBars = input.int(8000, "Bars analysed (most recent)", minval=1000, maxval=20000, group=grp1)
+pctLook = input.int(2000, "Bars used for the volatility percentile", minval=200, maxval=10000, group=grp1)
+grp2 = "Look"
+showBand = input.bool(true, "Draw the expected-move band from the last close", group=grp2)
+bandCol = input.color(color.new(color.blue, 0), "1 sigma lines", group=grp2)
+band2Col = input.color(color.new(color.gray, 20), "2 sigma lines", group=grp2)
+grp3 = "Dashboard"
+showDash = input.bool(true, "Show dashboard", group=grp3)
+dashPos = input.string("top right", "Position", options=["top left","top right","bottom left","bottom right"], group=grp3)
+
+var float[] aO = array.new_float()
+var float[] aH = array.new_float()
+var float[] aL = array.new_float()
+var float[] aC = array.new_float()
+var float[] aA = array.new_float()
+var int[] aT = array.new_int()
+atrNow = ta.atr(14)
+if barstate.isconfirmed
+    array.push(aO, open)
+    array.push(aH, high)
+    array.push(aL, low)
+    array.push(aC, close)
+    array.push(aA, nz(atrNow))
+    array.push(aT, time)
+
+ewma(float[] v, float lm, int warm) =>
+    n = array.size(v)
+    sig = array.new_float(n, 0.0)
+    if n > warm
+        float s2 = 0.0
+        for i = 1 to warm
+            s2 += math.max(array.get(v, i), 0.0)
+        s2 := s2 / warm
+        array.set(sig, warm, math.sqrt(s2))
+        for i = warm + 1 to n - 1
+            s2 := lm * s2 + (1.0 - lm) * math.max(array.get(v, i), 0.0)
+            array.set(sig, i, math.sqrt(s2))
+    sig
+
+seasonal(int[] slot, int S, float[] v, float lm, int warm, int H) =>
+    n = array.size(v)
+    fH = array.new_float(n, 0.0)
+    lvl = array.new_float(n, 0.0)
+    if n > warm + 1
+        sm = array.new_float(S, 0.0)
+        ct = array.new_int(S, 0)
+        float tot = 0.0
+        int totc = 0
+        float level = 0.0
+        for i = 1 to n - 1
+            vi = math.max(array.get(v, i), 0.0)
+            sl = array.get(slot, i)
+            mean = totc > 0 ? tot / totc : 0.0
+            float f = 1.0
+            if array.get(ct, sl) >= 3 and mean > 0.0
+                f := (array.get(sm, sl) / array.get(ct, sl)) / mean
+            if f <= 1e-9
+                f := 1.0
+            d = vi / f
+            if i <= warm
+                level += d
+                if i == warm
+                    level := level / warm
+            else
+                level := lm * level + (1.0 - lm) * d
+            array.set(sm, sl, array.get(sm, sl) + vi)
+            array.set(ct, sl, array.get(ct, sl) + 1)
+            tot += vi
+            totc += 1
+            if i >= warm and tot > 0.0
+                array.set(lvl, i, math.sqrt(math.max(level, 0.0) / (tot / totc)))
+            if i >= warm
+                m2 = tot / totc
+                float acc = 0.0
+                for j = 1 to H
+                    si = (sl + j) % S
+                    float fj = 1.0
+                    if array.get(ct, si) >= 3 and m2 > 0.0
+                        fj := (array.get(sm, si) / array.get(ct, si)) / m2
+                    if fj <= 1e-9
+                        fj := 1.0
+                    acc += fj
+                array.set(fH, i, math.sqrt(math.max(level, 0.0) * acc / H))
+    [fH, lvl]
+
+calib(float[] f, float[] v0, int H, int start) =>
+    n = array.size(v0)
+    lf = array.new_float()
+    lr = array.new_float()
+    ratio = array.new_float()
+    int ok30 = 0
+    if n - H - 1 >= start
+        for t = start to n - H - 1 by H
+            ft = array.get(f, t)
+            if ft > 0.0
+                float s = 0.0
+                for j = t + 1 to t + H
+                    s += array.get(v0, j)
+                real = math.sqrt(s / H)
+                if real > 0.0
+                    array.push(lf, math.log(ft))
+                    array.push(lr, math.log(real))
+                    array.push(ratio, real / ft)
+                    if math.abs(real / ft - 1.0) <= 0.30
+                        ok30 += 1
+    m = array.size(lf)
+    float corr = 0.0
+    float med = 0.0
+    float p30 = 0.0
+    if m >= 3
+        mf = array.avg(lf)
+        mr = array.avg(lr)
+        float sxy = 0.0
+        float sxx = 0.0
+        float syy = 0.0
+        for i = 0 to m - 1
+            a = array.get(lf, i) - mf
+            b = array.get(lr, i) - mr
+            sxy += a * b
+            sxx += a * a
+            syy += b * b
+        corr := (sxx > 0.0 and syy > 0.0) ? sxy / math.sqrt(sxx * syy) : 0.0
+        med := array.median(ratio)
+        p30 := 100.0 * ok30 / m
+    [m, corr, med, p30]
+
+percentile(float[] s, int endI, int look, float x) =>
+    int cnt = 0
+    int below = 0
+    for i = math.max(0, endI - look + 1) to endI
+        si = array.get(s, i)
+        if si > 0.0
+            cnt += 1
+            if si < x
+                below += 1
+    cnt > 0 ? 100.0 * below / cnt : 0.0
+
+pos = switch dashPos
+    "top left" => position.top_left
+    "top right" => position.top_right
+    "bottom left" => position.bottom_left
+    => position.bottom_right
+var table t = table.new(pos, 2, 10, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+var line[] lns = array.new_line()
+var label[] lbs = array.new_label()
+
+if barstate.islast
+    while array.size(lns) > 0
+        line.delete(array.pop(lns))
+    while array.size(lbs) > 0
+        label.delete(array.pop(lbs))
+    nAll = array.size(aC)
+    ok = timeframe.isintraday and timeframe.in_seconds() <= 3600 and nAll > 600
+    if showDash
+        table.cell(t, 0, 0, "AT24", text_color=#E8B84A, text_size=size.large)
+        table.cell(t, 1, 0, "VOLATILITY FORECAST", text_color=#E8B84A, text_size=size.normal, text_halign=text.align_left)
+    if not ok
+        if showDash
+            table.cell(t, 0, 1, "State", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 1, timeframe.isintraday ? "NOT ENOUGH HISTORY" : "USE AN INTRADAY CHART (1H OR LOWER)", text_color=color.gray, text_size=size.normal, text_halign=text.align_left)
+    else
+        base = math.max(0, nAll - maxBars)
+        o = array.slice(aO, base, nAll)
+        h = array.slice(aH, base, nAll)
+        l = array.slice(aL, base, nAll)
+        c = array.slice(aC, base, nAll)
+        at = array.slice(aA, base, nAll)
+        tm = array.slice(aT, base, nAll)
+        nb = array.size(c)
+        per = timeframe.in_seconds()
+        S = math.max(1, int(86400 / per))
+        H = math.max(1, int(horizonH * 3600 / per))
+        slot = array.new_int(nb, 0)
+        v0 = array.new_float(nb, 0.0)
+        v3 = array.new_float(nb, 0.0)
+        atrp = array.new_float(nb, 0.0)
+        for i = 0 to nb - 1
+            oi = array.get(o, i)
+            hi = array.get(h, i)
+            li = array.get(l, i)
+            ci = array.get(c, i)
+            array.set(slot, i, int((array.get(tm, i) / 1000) % 86400 / per) % S)
+            array.set(v3, i, math.log(hi / ci) * math.log(hi / oi) + math.log(li / ci) * math.log(li / oi))
+            if i > 0
+                r = math.log(ci / array.get(c, i - 1))
+                array.set(v0, i, r * r)
+            array.set(atrp, i, array.get(at, i) / ci)
+        useRS = estSel == "Rogers-Satchell (range)"
+        vSel = useRS ? v3 : v0
+        warm = 100
+        start = 200
+        pl = ewma(vSel, lam, warm)
+        [fS, lvS] = seasonal(slot, S, vSel, lam, warm, H)
+        [mS, corrS, medS, p30S] = calib(fS, v0, H, start)
+        [mP, corrP, medP, p30P] = calib(pl, v0, H, start)
+        [mA, corrA, medA, p30A] = calib(atrp, v0, H, start)
+        fcast = array.get(fS, nb - 1)
+        sigH = fcast * math.sqrt(H)
+        rel = array.get(lvS, nb - 1)
+        pctv = percentile(lvS, nb - 1, pctLook, rel)
+        px = array.get(c, nb - 1)
+        reg = pctv < 25.0 ? "LOW" : pctv < 75.0 ? "NORMAL" : pctv < 90.0 ? "HIGH" : "VERY HIGH"
+        rcol = pctv < 25.0 ? color.gray : pctv < 75.0 ? color.lime : pctv < 90.0 ? #E6B450 : color.red
+        if showBand and sigH > 0.0
+            m1 = px * sigH
+            x2 = bar_index + H
+            array.push(lns, line.new(bar_index, px + m1, x2, px + m1, color=bandCol, width=2))
+            array.push(lns, line.new(bar_index, px - m1, x2, px - m1, color=bandCol, width=2))
+            array.push(lns, line.new(bar_index, px + 2 * m1, x2, px + 2 * m1, color=band2Col))
+            array.push(lns, line.new(bar_index, px - 2 * m1, x2, px - 2 * m1, color=band2Col))
+            array.push(lbs, label.new(x2, px + m1, "+1 sigma " + str.tostring(horizonH) + "h", style=label.style_none, textcolor=color.aqua, size=size.small))
+            array.push(lbs, label.new(x2, px - m1, "-1 sigma " + str.tostring(horizonH) + "h", style=label.style_none, textcolor=color.aqua, size=size.small))
+        if showDash
+            table.cell(t, 0, 1, "State", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 1, "VOLATILITY: " + reg + "  (" + str.tostring(pctv, "0") + "th pct)", text_color=rcol, text_size=size.normal, text_halign=text.align_left)
+            table.cell(t, 0, 2, "Next " + str.tostring(horizonH) + "h", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 2, "1-sigma move +-" + str.tostring(px * sigH, format.mintick) + " (" + str.tostring(sigH * 100.0, "0.00") + "%)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 3, "2 sigma", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 3, "+-" + str.tostring(2.0 * px * sigH, format.mintick) + "    now " + str.tostring(rel, "0.00") + "x its normal level", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 4, "Worked?", text_color=#E8B84A, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 4, "How the forecast worked (" + str.tostring(mS) + " windows of " + str.tostring(horizonH) + "h)", text_color=#E8B84A, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 5, "This forecast", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 5, "corr " + str.tostring(corrS, "0.00") + "   within +-30%: " + str.tostring(p30S, "0") + "%", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 6, "Plain average", text_color=color.silver, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 6, "corr " + str.tostring(corrP, "0.00") + "   within +-30%: " + str.tostring(p30P, "0") + "%", text_color=color.silver, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 7, "ATR(14) only", text_color=color.silver, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 7, "corr " + str.tostring(corrA, "0.00") + "   within +-30%: " + str.tostring(p30A, "0") + "%  (runs " + str.tostring((1.0 - medA) * 100.0, "0") + "% low)", text_color=color.silver, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 8, "Notes", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 8, "Normal level = long-run average, time of day removed. Size of moves, NOT direction. Real tails are fat.", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 9, "Descriptive history.", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
+            table.cell(t, 1, 9, "Not a signal. algotraders24.ai", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)

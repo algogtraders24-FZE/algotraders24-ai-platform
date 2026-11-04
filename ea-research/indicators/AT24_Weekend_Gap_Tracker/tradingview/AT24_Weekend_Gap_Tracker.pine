@@ -1,0 +1,139 @@
+//@version=5
+// AT24 Weekend Gap Tracker - the latest market-closed gap, whether it is filled, and how often gaps really filled vs a control level.
+// Context tool. Not a signal. algotraders24.ai
+indicator("AT24 Weekend Gap Tracker", shorttitle="AT24 GAP", overlay=true, max_boxes_count=5, max_lines_count=5, max_labels_count=5)
+
+grp1 = "Gaps"
+minAtr = input.float(0.1, "Ignore gaps smaller than this many ATR (hourly)", minval=0.0, step=0.05, group=grp1)
+breakH = input.int(12, "A gap = no bars for more than this many hours", minval=2, maxval=72, group=grp1)
+grp2 = "Look"
+gapCol = input.color(color.new(#E6B450, 70), "Open gap", group=grp2)
+filCol = input.color(color.new(color.gray, 80), "Filled gap", group=grp2)
+extend = input.int(14, "Bars the gap extends to the right", minval=1, maxval=100, group=grp2)
+grp3 = "Dashboard"
+showDash = input.bool(true, "Show dashboard", group=grp3)
+dashPos = input.string("top right", "Position", options=["top left","top right","bottom left","bottom right"], group=grp3)
+
+HOUR = 3600000
+atrPrev = request.security(syminfo.tickerid, "60", ta.atr(14)[1])
+
+var int[] gIdx = array.new_int()
+var int[] gT = array.new_int()
+var float[] gPrev = array.new_float()
+var float[] gOpen = array.new_float()
+var float[] gAtr = array.new_float()
+var int[] gFillT = array.new_int()
+var int[] gCtrlT = array.new_int()
+var int barsN = 0
+
+if barstate.isconfirmed
+    barsN += 1
+    if barsN > 15 and time - time[1] > breakH * HOUR and not na(atrPrev) and atrPrev > 0
+        sz = open - close[1]
+        if math.abs(sz) >= minAtr * atrPrev
+            array.push(gIdx, bar_index)
+            array.push(gT, time)
+            array.push(gPrev, close[1])
+            array.push(gOpen, open)
+            array.push(gAtr, atrPrev)
+            array.push(gFillT, -1)
+            array.push(gCtrlT, -1)
+    m0 = array.size(gIdx)
+    if m0 > 0
+        for k = 0 to m0 - 1
+            sz2 = array.get(gOpen, k) - array.get(gPrev, k)
+            if array.get(gFillT, k) < 0
+                if (sz2 > 0 and low <= array.get(gPrev, k)) or (sz2 < 0 and high >= array.get(gPrev, k))
+                    array.set(gFillT, k, time)
+            if array.get(gCtrlT, k) < 0
+                mir = array.get(gOpen, k) + sz2
+                if (sz2 > 0 and high >= mir) or (sz2 < 0 and low <= mir)
+                    array.set(gCtrlT, k, time)
+
+pct(x, y) => y > 0 ? 100.0 * x / y : 0.0
+pos = switch dashPos
+    "top left" => position.top_left
+    "top right" => position.top_right
+    "bottom left" => position.bottom_left
+    => position.bottom_right
+var table t = table.new(pos, 2, 12, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+var box bx = na
+var line ln = na
+var label lb = na
+
+if barstate.islast
+    box.delete(bx)
+    line.delete(ln)
+    label.delete(lb)
+    ok = timeframe.isintraday and timeframe.in_seconds() <= 3600
+    m = array.size(gIdx)
+    int cnt = 0
+    int up = 0
+    int[] wins = array.from(1, 4, 24, 120)
+    int[] fl = array.new_int(4, 0)
+    int[] ct = array.new_int(4, 0)
+    sizes = array.new_float()
+    if m > 0
+        for k = 0 to m - 1
+            if time - array.get(gT, k) >= 120 * HOUR
+                cnt += 1
+                s = array.get(gOpen, k) - array.get(gPrev, k)
+                if s > 0
+                    up += 1
+                array.push(sizes, math.abs(s) / array.get(gAtr, k))
+                for w = 0 to 3
+                    lim = array.get(wins, w) * HOUR
+                    f = array.get(gFillT, k)
+                    c2 = array.get(gCtrlT, k)
+                    if f >= 0 and f - array.get(gT, k) < lim
+                        array.set(fl, w, array.get(fl, w) + 1)
+                    if c2 >= 0 and c2 - array.get(gT, k) < lim
+                        array.set(ct, w, array.get(ct, w) + 1)
+    medSz = cnt > 0 ? array.median(sizes) : na
+    if ok and m > 0
+        k2 = m - 1
+        pc = array.get(gPrev, k2)
+        op = array.get(gOpen, k2)
+        isOpen = array.get(gFillT, k2) < 0
+        gi = array.get(gIdx, k2)
+        bx := box.new(gi, math.max(pc, op), bar_index + extend, math.min(pc, op), border_color=color.new(color.gray, 100), bgcolor=isOpen ? gapCol : filCol)
+        ln := line.new(gi, pc, bar_index + extend, pc, color=isOpen ? #E6B450 : color.gray, width=2)
+        lb := label.new(bar_index + extend, pc, (isOpen ? "Friday close " : "Friday close (filled) ") + str.tostring(pc, format.mintick), style=label.style_none, textcolor=isOpen ? #E6B450 : color.gray, size=size.small)
+    if showDash
+        table.cell(t, 0, 0, "AT24", text_color=#E8B84A, text_size=size.large)
+        table.cell(t, 1, 0, "WEEKEND GAP TRACKER", text_color=#E8B84A, text_size=size.normal, text_halign=text.align_left)
+        if not ok
+            table.cell(t, 0, 1, "State", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 1, "USE A 1H OR LOWER CHART", text_color=color.gray, text_size=size.normal, text_halign=text.align_left)
+        else if m == 0
+            table.cell(t, 0, 1, "State", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 1, "NO GAPS FOUND", text_color=color.gray, text_size=size.normal, text_halign=text.align_left)
+        else
+            k3 = m - 1
+            pc3 = array.get(gPrev, k3)
+            op3 = array.get(gOpen, k3)
+            s3 = op3 - pc3
+            open3 = array.get(gFillT, k3) < 0
+            ageH = (time - array.get(gT, k3)) / HOUR
+            table.cell(t, 0, 1, "Latest gap", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 1, (s3 > 0 ? "UP" : "DOWN") + (open3 ? "  NOT FILLED" : "  FILLED"), text_color=open3 ? #E6B450 : color.gray, text_size=size.normal, text_halign=text.align_left)
+            table.cell(t, 0, 2, "Close -> open", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 2, str.tostring(pc3, format.mintick) + " -> " + str.tostring(op3, format.mintick) + "  (" + str.tostring(s3, format.mintick) + ", " + str.tostring(math.abs(s3) / array.get(gAtr, k3), "0.00") + " ATR)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 3, "Reopened", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 3, str.format_time(array.get(gT, k3), "yyyy-MM-dd HH:mm") + "  (" + str.tostring(ageH, "0") + " h ago)" + (open3 ? "" : ", filled after " + str.tostring((array.get(gFillT, k3) - array.get(gT, k3)) / HOUR, "0") + " h"), text_color=color.silver, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 4, "Gaps measured", text_color=#E8B84A, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 4, str.tostring(cnt) + " (>= " + str.tostring(minAtr, "0.0") + " ATR)", text_color=#E8B84A, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 5, "Up / typical size", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 5, str.tostring(pct(up, cnt), "0") + "% up   typical " + (na(medSz) ? "-" : str.tostring(medSz, "0.00")) + " ATR", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 6, "Filled in 1 h", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 6, str.tostring(pct(array.get(fl, 0), cnt), "0") + "%  (control " + str.tostring(pct(array.get(ct, 0), cnt), "0") + "%)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 7, "Filled in 4 h", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 7, str.tostring(pct(array.get(fl, 1), cnt), "0") + "%  (control " + str.tostring(pct(array.get(ct, 1), cnt), "0") + "%)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 8, "Filled in 24 h", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 8, str.tostring(pct(array.get(fl, 2), cnt), "0") + "%  (control " + str.tostring(pct(array.get(ct, 2), cnt), "0") + "%)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 9, "Filled in 5 days", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 9, str.tostring(pct(array.get(fl, 3), cnt), "0") + "%  (control " + str.tostring(pct(array.get(ct, 3), cnt), "0") + "%)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 10, "Control", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 10, "a level the same distance on the other side; gaps fill about as often", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 11, "Descriptive history.", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
+            table.cell(t, 1, 11, "Not a signal. algotraders24.ai", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)

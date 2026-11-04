@@ -1,0 +1,236 @@
+//@version=5
+// AT24 Volume Profile Levels - yesterday's POC / value area from tick volume, and how price really treated them vs control levels.
+// Context tool. Not a signal. algotraders24.ai
+indicator("AT24 Volume Profile Levels", shorttitle="AT24 VPL", overlay=true, max_lines_count=20, max_boxes_count=5, max_labels_count=10)
+
+grp1 = "Profile"
+bins = input.int(60, "Price bins per day", minval=10, maxval=200, group=grp1)
+vaPct = input.float(70.0, "Value area, % of the day's volume", minval=50.0, maxval=95.0, group=grp1) / 100.0
+look = input.int(24, "Bars after a touch used to judge the reaction", minval=2, maxval=200, group=grp1)
+frac = input.float(0.15, "Reaction size, fraction of the previous day's range", minval=0.02, maxval=1.0, step=0.01, group=grp1)
+maxDays = input.int(300, "Days analysed (most recent)", minval=20, maxval=1000, group=grp1)
+grp2 = "Look"
+showVA = input.bool(true, "Shade the value area", group=grp2)
+pocCol = input.color(#E6B450, "Point of control", group=grp2)
+vaCol = input.color(color.new(color.blue, 0), "Value area edges", group=grp2)
+extend = input.int(15, "Bars the levels extend to the right", minval=1, maxval=100, group=grp2)
+grp3 = "Dashboard"
+showDash = input.bool(true, "Show dashboard", group=grp3)
+dashPos = input.string("top right", "Position", options=["top left","top right","bottom left","bottom right"], group=grp3)
+
+var float[] aO = array.new_float()
+var float[] aH = array.new_float()
+var float[] aL = array.new_float()
+var float[] aC = array.new_float()
+var float[] aV = array.new_float()
+var int[] dayFirst = array.new_int()
+var int[] dayBar = array.new_int()
+if barstate.isconfirmed
+    if timeframe.change("D") or array.size(dayFirst) == 0
+        array.push(dayFirst, array.size(aH))
+        array.push(dayBar, bar_index)
+    array.push(aO, open)
+    array.push(aH, high)
+    array.push(aL, low)
+    array.push(aC, close)
+    array.push(aV, nz(volume))
+
+pct(x, y) => y > 0 ? 100.0 * x / y : 0.0
+pos = switch dashPos
+    "top left" => position.top_left
+    "top right" => position.top_right
+    "bottom left" => position.bottom_left
+    => position.bottom_right
+var table t = table.new(pos, 2, 10, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+var line[] lns = array.new_line()
+var label[] lbs = array.new_label()
+var box[] bxs = array.new_box()
+
+rowTxt(name, st, l) =>
+    days = array.get(st, l * 6)
+    tch = array.get(st, l * 6 + 1)
+    ctl = array.get(st, l * 6 + 2)
+    rea = array.get(st, l * 6 + 3)
+    crea = array.get(st, l * 6 + 4)
+    dec = array.get(st, l * 6 + 5)
+    hw = dec > 0 ? 196.0 * math.sqrt(math.max(rea * (100.0 - rea), 0.0) / dec) / 100.0 : 0.0
+    dec < 1 ? name + "  touched " + str.tostring(tch, "0") + "% (control " + str.tostring(ctl, "0") + "%)  reacted -" : name + "  touched " + str.tostring(tch, "0") + "% (control " + str.tostring(ctl, "0") + "%)  reacted " + str.tostring(rea, "0") + "% +-" + str.tostring(hw, "0") + " (control " + str.tostring(crea, "0") + "%)"
+
+if barstate.islast
+    while array.size(lns) > 0
+        line.delete(array.pop(lns))
+    while array.size(lbs) > 0
+        label.delete(array.pop(lbs))
+    while array.size(bxs) > 0
+        box.delete(array.pop(bxs))
+    nd = array.size(dayFirst)
+    n = array.size(aH)
+    dPoc = array.new_float(nd, 0.0)
+    dVah = array.new_float(nd, 0.0)
+    dVal = array.new_float(nd, 0.0)
+    dHi = array.new_float(nd, 0.0)
+    dLo = array.new_float(nd, 0.0)
+    dLast = array.new_int(nd, 0)
+    dOk = array.new_bool(nd, false)
+    startK = math.max(0, nd - maxDays - 1)
+    if nd > 0 and n > 0
+        for k = startK to nd - 1
+            first = array.get(dayFirst, k)
+            last = k < nd - 1 ? array.get(dayFirst, k + 1) - 1 : n - 1
+            float hi = -1.0e18
+            float lo = 1.0e18
+            for i = first to last
+                hi := math.max(hi, array.get(aH, i))
+                lo := math.min(lo, array.get(aL, i))
+            array.set(dHi, k, hi)
+            array.set(dLo, k, lo)
+            array.set(dLast, k, last)
+            rng = hi - lo
+            if rng > 0
+                bw = rng / bins
+                prof = array.new_float(bins, 0.0)
+                float total = 0.0
+                for i = first to last
+                    v = array.get(aV, i)
+                    if v > 0
+                        l_ = array.get(aL, i)
+                        h_ = array.get(aH, i)
+                        total += v
+                        b1 = int(math.min(bins - 1, math.floor((l_ - lo) / bw)))
+                        if h_ - l_ <= 0
+                            array.set(prof, b1, array.get(prof, b1) + v)
+                        else
+                            b2 = int(math.min(bins - 1, math.floor((h_ - lo) / bw)))
+                            for b = b1 to b2
+                                bl = lo + b * bw
+                                bh = bl + bw
+                                ov = math.min(h_, bh) - math.max(l_, bl)
+                                if ov > 0
+                                    array.set(prof, b, array.get(prof, b) + v * ov / (h_ - l_))
+                if total > 0
+                    int pb = 0
+                    for b = 1 to bins - 1
+                        if array.get(prof, b) > array.get(prof, pb)
+                            pb := b
+                    int loI = pb
+                    int upI = pb
+                    float acc = array.get(prof, pb)
+                    while acc < vaPct * total and (loI > 0 or upI < bins - 1)
+                        dn = loI > 0 ? array.get(prof, loI - 1) : -1.0
+                        ab = upI < bins - 1 ? array.get(prof, upI + 1) : -1.0
+                        if ab >= dn
+                            upI += 1
+                            acc += array.get(prof, upI)
+                        else
+                            loI -= 1
+                            acc += array.get(prof, loI)
+                    array.set(dPoc, k, lo + (pb + 0.5) * bw)
+                    array.set(dVah, k, lo + (upI + 1) * bw)
+                    array.set(dVal, k, lo + loI * bw)
+                    array.set(dOk, k, true)
+    // study: previous day's POC / VAH / VAL against the next day's bars, and a control level mirrored through the open
+    st = array.new_float(18, 0.0)
+    if nd > 1
+        for l = 0 to 2
+            int days = 0
+            int touch = 0
+            int ctouch = 0
+            int react = 0
+            int decided = 0
+            int creact = 0
+            int cdecided = 0
+            for k = math.max(1, startK + 1) to nd - 1
+                if array.get(dOk, k - 1)
+                    lvl = l == 0 ? array.get(dPoc, k - 1) : l == 1 ? array.get(dVah, k - 1) : array.get(dVal, k - 1)
+                    R = array.get(dHi, k - 1) - array.get(dLo, k - 1)
+                    first = array.get(dayFirst, k)
+                    last = array.get(dLast, k)
+                    op = array.get(aO, first)
+                    if op != lvl
+                        days += 1
+                        for pass = 0 to 1
+                            L = pass == 0 ? lvl : op + (op - lvl)
+                            s = op > L ? 1.0 : -1.0
+                            int tb = -1
+                            for i = first to last
+                                if array.get(aL, i) <= L and array.get(aH, i) >= L
+                                    tb := i
+                                    break
+                            if tb >= 0
+                                if pass == 0
+                                    touch += 1
+                                else
+                                    ctouch += 1
+                                int res = 0
+                                for u = tb to math.min(last, tb + look)
+                                    away = (array.get(aC, u) - L) * s
+                                    beyond = (array.get(aC, u) - L) * (-s)
+                                    if away >= frac * R
+                                        res := 1
+                                        break
+                                    if beyond >= frac * R
+                                        res := -1
+                                        break
+                                if res != 0
+                                    if pass == 0
+                                        decided += 1
+                                        if res == 1
+                                            react += 1
+                                    else
+                                        cdecided += 1
+                                        if res == 1
+                                            creact += 1
+            array.set(st, l * 6, days)
+            if days > 0
+                array.set(st, l * 6 + 1, 100.0 * touch / days)
+                array.set(st, l * 6 + 2, 100.0 * ctouch / days)
+            array.set(st, l * 6 + 3, decided > 0 ? 100.0 * react / decided : 0.0)
+            array.set(st, l * 6 + 4, cdecided > 0 ? 100.0 * creact / cdecided : 0.0)
+            array.set(st, l * 6 + 5, decided)
+    pk = nd - 2
+    havePrev = pk >= 0 and array.get(dOk, math.max(pk, 0))
+    if havePrev
+        poc = array.get(dPoc, pk)
+        vah = array.get(dVah, pk)
+        val = array.get(dVal, pk)
+        x1 = array.get(dayBar, pk)
+        x0 = array.get(dayBar, nd - 1)
+        if showVA
+            array.push(bxs, box.new(x0, vah, bar_index + extend, val, border_color=color.new(color.gray, 100), bgcolor=color.new(color.blue, 88)))
+        array.push(lns, line.new(x1, poc, bar_index + extend, poc, color=pocCol, width=2))
+        array.push(lns, line.new(x1, vah, bar_index + extend, vah, color=vaCol))
+        array.push(lns, line.new(x1, val, bar_index + extend, val, color=vaCol))
+        array.push(lbs, label.new(bar_index + extend, poc, "POC " + str.tostring(poc, format.mintick), style=label.style_none, textcolor=pocCol, size=size.small))
+        array.push(lbs, label.new(bar_index + extend, vah, "VAH " + str.tostring(vah, format.mintick), style=label.style_none, textcolor=color.aqua, size=size.small))
+        array.push(lbs, label.new(bar_index + extend, val, "VAL " + str.tostring(val, format.mintick), style=label.style_none, textcolor=color.aqua, size=size.small))
+    if showDash
+        table.cell(t, 0, 0, "AT24", text_color=#E8B84A, text_size=size.large)
+        table.cell(t, 1, 0, "VOLUME PROFILE LEVELS", text_color=#E8B84A, text_size=size.normal, text_halign=text.align_left)
+        if not havePrev or not timeframe.isintraday
+            table.cell(t, 0, 1, "State", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 1, timeframe.isintraday ? "NO PREVIOUS-DAY PROFILE" : "USE AN INTRADAY CHART", text_color=color.gray, text_size=size.normal, text_halign=text.align_left)
+        else
+            px = close
+            poc2 = array.get(dPoc, pk)
+            vah2 = array.get(dVah, pk)
+            val2 = array.get(dVal, pk)
+            side = px > vah2 ? 1 : px < val2 ? -1 : 0
+            posTxt = side == 0 ? "PRICE INSIDE YESTERDAY'S VALUE AREA" : side > 0 ? "PRICE ABOVE YESTERDAY'S VALUE AREA" : "PRICE BELOW YESTERDAY'S VALUE AREA"
+            table.cell(t, 0, 1, "State", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 1, posTxt, text_color=side == 0 ? #E6B450 : side > 0 ? color.lime : color.red, text_size=size.normal, text_halign=text.align_left)
+            table.cell(t, 0, 2, "Levels", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 2, "POC " + str.tostring(poc2, format.mintick) + "   VAH " + str.tostring(vah2, format.mintick) + "   VAL " + str.tostring(val2, format.mintick), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 3, "From POC", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 3, str.tostring(math.abs(px - poc2), format.mintick) + " from POC (" + str.tostring(100.0 * math.abs(px - poc2) / math.max(vah2 - val2, syminfo.mintick), "0") + "% of the area width)", text_color=color.silver, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 4, "Study", text_color=#E8B84A, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 4, "last " + str.tostring(array.get(st, 0)) + " days: did price touch yesterday's level?", text_color=#E8B84A, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 5, "POC", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 5, rowTxt("POC", st, 0), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 6, "VAH", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 6, rowTxt("VAH", st, 1), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 7, "VAL", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 7, rowTxt("VAL", st, 2), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 8, "Notes", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 8, "Control = mirrored level. Tick volume.", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 9, "Descriptive history.", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
+            table.cell(t, 1, 9, "Not a signal. algotraders24.ai", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
