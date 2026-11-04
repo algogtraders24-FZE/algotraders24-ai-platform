@@ -35,6 +35,7 @@ Prop Guard open item: test open risk with a real open demo trade (only the no-po
 | L11 | AT24 Market Structure (list #13: BOS / CHoCH on confirmed swings + real follow-through statistics; MT5 only) | `ea-research/indicators/AT24_Market_Structure` | compiled, math = Python (364 events identical), screenshot | not built | not built |
 | L12 | AT24 FVG Zones (list #14: open fair value gaps on closed bars + real revisit/fill statistics with a control level; MT5 only) | `ea-research/indicators/AT24_FVG_Zones` | compiled, math = Python (693 gaps identical), screenshot | not built | not built |
 | L13 | AT24 Prop Guardian (protection EA, places NO trades: closes everything at 90% of your daily/max loss, blocks re-opened trades while locked, runaway-EA alert; MT5 EA) | `ea-research/indicators/AT24_Prop_Guardian` | compiled, tester self-test (lock/unlock/day roll/runaway), no screenshot | not built | not built |
+| L14 | AT24 Expected Range (list #5: usual daily range from the prior 14 days, range used today, projected day high/low + real exceed statistics; MT5 only, H4 or lower chart) | `ea-research/indicators/AT24_Expected_Range` | compiled, math = Python (88 days identical), screenshot | not built | not built |
 
 ## Open items for the production window
 1. **Spread Guard on MT4:** drag it onto an MT4 chart and eyeball dashboard + histogram (my test read no values; the Exness demo history spread may be zero). If the histogram stays empty only because history spread is 0, the live-learning profile fills over time; the dashboard still works.
