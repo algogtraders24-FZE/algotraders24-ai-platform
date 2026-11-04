@@ -11,7 +11,7 @@ import path from "path";
 import { prisma } from "../lib/prisma";
 
 const SELLER_EMAIL = "algogtraders24@gmail.com";
-const PRICE_USD = 11; // set by the owner
+const PRICE_USD = 22; // set by the owner
 const ROOT = path.join(__dirname, "..", "..", "ea-research", "marketplace-research", "m18-at24-indicators");
 const RELEASES_DIR = path.join(__dirname, "..", "private-releases");
 
