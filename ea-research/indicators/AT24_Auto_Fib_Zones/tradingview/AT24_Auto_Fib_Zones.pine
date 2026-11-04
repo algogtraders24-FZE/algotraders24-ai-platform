@@ -1,0 +1,144 @@
+//@version=5
+// AT24 Auto Fib Zones - Fibonacci levels on the last confirmed swing leg, and how deep pullbacks really went.
+// Context tool. Not a signal. algotraders24.ai
+indicator("AT24 Auto Fib Zones", shorttitle="AT24 FIB", overlay=true, max_lines_count=60, max_labels_count=20, max_boxes_count=5)
+
+grp1 = "Swings"
+k = input.int(5, "Bars each side to confirm a swing", minval=2, maxval=30, group=grp1)
+grp2 = "Look"
+showZone = input.bool(true, "Shade the 38.2 - 61.8 zone", group=grp2)
+upCol = input.color(color.lime, "Last leg up", group=grp2)
+dnCol = input.color(color.red, "Last leg down", group=grp2)
+zoneCol = input.color(color.new(#E8B84A, 80), "Zone colour", group=grp2)
+extend = input.int(30, "Bars the levels extend to the right", minval=5, maxval=200, group=grp2)
+grp3 = "Dashboard"
+showDash = input.bool(true, "Show dashboard", group=grp3)
+dashPos = input.string("top right", "Position", options=["top left","top right","bottom left","bottom right"], group=grp3)
+
+// ---- swings: strict k-bar fractals, alternating; two highs (or lows) in a row keep the more extreme one
+maxLeftH = ta.highest(high, k)[k + 1]
+maxRightH = ta.highest(high, k)
+minLeftL = ta.lowest(low, k)[k + 1]
+minRightL = ta.lowest(low, k)
+isH = not na(maxLeftH) and high[k] > maxLeftH and high[k] > maxRightH
+isL = not na(minLeftL) and low[k] < minLeftL and low[k] < minRightL
+
+var int[] swIdx = array.new_int()
+var float[] swP = array.new_float()
+var int[] swD = array.new_int()
+
+addSwing(d, pr) =>
+    n = array.size(swD)
+    last = 0
+    if n > 0
+        last := array.get(swD, n - 1)
+    if last == d
+        old = array.get(swP, n - 1)
+        if (d == 1 and pr > old) or (d == -1 and pr < old)
+            array.set(swIdx, n - 1, bar_index - k)
+            array.set(swP, n - 1, pr)
+    else
+        array.push(swIdx, bar_index - k)
+        array.push(swP, pr)
+        array.push(swD, d)
+
+if barstate.isconfirmed
+    if isH
+        addSwing(1, high[k])
+    if isL
+        addSwing(-1, low[k])
+
+// ---- levels, statistics, dashboard (last bar only)
+var line[] lns = array.new_line()
+var label[] lbs = array.new_label()
+var box zoneBox = na
+var float[] lv = array.from(0.0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0)
+
+pct(x, y) => y > 0 ? 100.0 * x / y : 0.0
+pos = switch dashPos
+    "top left" => position.top_left
+    "top right" => position.top_right
+    "bottom left" => position.bottom_left
+    => position.bottom_right
+var table t = table.new(pos, 2, 9, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+
+if barstate.islast
+    while array.size(lns) > 0
+        line.delete(array.pop(lns))
+    while array.size(lbs) > 0
+        label.delete(array.pop(lbs))
+    box.delete(zoneBox)
+    m = array.size(swD)
+    // statistics over every leg that has its pullback and the next swing known
+    legs = 0
+    deep = array.new_float()
+    r236 = 0
+    r382 = 0
+    r500 = 0
+    r618 = 0
+    r786 = 0
+    beyond = 0
+    resumed = 0
+    if m >= 4
+        for j = 0 to m - 4
+            leg = math.abs(array.get(swP, j + 1) - array.get(swP, j))
+            if leg > 0
+                d = math.abs(array.get(swP, j + 1) - array.get(swP, j + 2)) / leg
+                array.push(deep, d)
+                legs += 1
+                r236 += d >= 0.236 ? 1 : 0
+                r382 += d >= 0.382 ? 1 : 0
+                r500 += d >= 0.5 ? 1 : 0
+                r618 += d >= 0.618 ? 1 : 0
+                r786 += d >= 0.786 ? 1 : 0
+                beyond += d > 1.0 ? 1 : 0
+                up1 = array.get(swD, j + 1) == 1
+                res = up1 ? array.get(swP, j + 3) > array.get(swP, j + 1) : array.get(swP, j + 3) < array.get(swP, j + 1)
+                resumed += res ? 1 : 0
+    medDepth = legs > 0 ? array.median(deep) : na
+    stateTxt = "NO LEG YET"
+    stateCol = color.gray
+    legTxt = "-"
+    depthTxt = "-"
+    if m >= 2
+        pa = array.get(swP, m - 2)
+        pb = array.get(swP, m - 1)
+        up = array.get(swD, m - 1) == 1
+        col = up ? upCol : dnCol
+        stateTxt := up ? "LAST LEG: UP" : "LAST LEG: DOWN"
+        stateCol := col
+        legTxt := str.tostring(pa, format.mintick) + " -> " + str.tostring(pb, format.mintick) + "  (" + str.tostring(math.abs(pb - pa), format.mintick) + ")"
+        legSize = math.abs(pb - pa)
+        px = close[1]
+        dpt = legSize > 0 ? (up ? (pb - px) / legSize : (px - pb) / legSize) : 0.0
+        depthTxt := str.tostring(dpt * 100, "0.0") + "% of the leg"
+        x1 = array.get(swIdx, m - 1)
+        x2 = bar_index + extend
+        if showZone
+            zoneBox := box.new(array.get(swIdx, m - 2), pb + (pa - pb) * 0.382, x2, pb + (pa - pb) * 0.618, border_color=color.new(color.gray, 100), bgcolor=zoneCol)
+        array.push(lns, line.new(array.get(swIdx, m - 2), pa, x1, pb, color=color.white, style=line.style_dashed))
+        for i = 0 to 6
+            f = array.get(lv, i)
+            p = pb + (pa - pb) * f
+            key = i == 0 or i == 3 or i == 4 or i == 6
+            array.push(lns, line.new(x1, p, x2, p, color=col, width=key ? 2 : 1))
+            array.push(lbs, label.new(x2, p, str.tostring(f * 100, "0.0") + "%  " + str.tostring(p, format.mintick), style=label.style_none, textcolor=col, size=size.small))
+    if showDash
+        table.cell(t, 0, 0, "AT24", text_color=#E8B84A, text_size=size.large)
+        table.cell(t, 1, 0, "AUTO FIB ZONES", text_color=#E8B84A, text_size=size.normal, text_halign=text.align_left)
+        table.cell(t, 0, 1, "State", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 1, stateTxt, text_color=stateCol, text_size=size.normal, text_halign=text.align_left)
+        table.cell(t, 0, 2, "Leg", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 2, legTxt, text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 3, "Pullback so far", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 3, depthTxt, text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 4, "Legs measured", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 4, str.tostring(legs) + "  (swing " + str.tostring(k) + " bars)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 5, "Median pullback", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 5, na(medDepth) ? "-" : str.tostring(medDepth * 100, "0") + "% of the leg", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 6, "Reached 38.2 / 50 / 61.8", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 6, str.tostring(pct(r382, legs), "0") + "% / " + str.tostring(pct(r500, legs), "0") + "% / " + str.tostring(pct(r618, legs), "0") + "%", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 7, "Past 100% / extreme beaten", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 7, str.tostring(pct(beyond, legs), "0") + "% / " + str.tostring(pct(resumed, legs), "0") + "%  (about 50% = coin flip)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 8, "Descriptive history.", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
+        table.cell(t, 1, 8, "Not a signal. algotraders24.ai", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)

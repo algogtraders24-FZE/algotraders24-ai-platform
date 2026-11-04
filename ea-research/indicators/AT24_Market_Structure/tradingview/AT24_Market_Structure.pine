@@ -1,0 +1,163 @@
+//@version=5
+// AT24 Market Structure - BOS / CHoCH on confirmed swings, and what price really did after each break.
+// Context tool. Not a signal. algotraders24.ai
+indicator("AT24 Market Structure", shorttitle="AT24 MS", overlay=true, max_lines_count=100, max_labels_count=100)
+
+grp1 = "Structure"
+k = input.int(5, "Bars each side to confirm a swing", minval=2, maxval=30, group=grp1)
+fwd = input.int(20, "Bars after a break used for the statistics", minval=5, group=grp1)
+grp2 = "Look"
+upCol = input.color(color.lime, "BOS up", group=grp2)
+dnCol = input.color(color.red, "BOS down", group=grp2)
+chCol = input.color(#E8B84A, "CHoCH (change of character)", group=grp2)
+grp3 = "Dashboard"
+showDash = input.bool(true, "Show dashboard", group=grp3)
+dashPos = input.string("top right", "Position", options=["top left","top right","bottom left","bottom right"], group=grp3)
+
+// ---- swing detection: a bar that is strictly the highest / lowest of k bars on each side, known k bars later
+maxLeftH = ta.highest(high, k)[k + 1]
+maxRightH = ta.highest(high, k)
+minLeftL = ta.lowest(low, k)[k + 1]
+minRightL = ta.lowest(low, k)
+isH = not na(maxLeftH) and high[k] > maxLeftH and high[k] > maxRightH
+isL = not na(minLeftL) and low[k] < minLeftL and low[k] < minRightL
+
+var float hiPx = na
+var int hiBar = na
+var bool hiOpen = false
+var float loPx = na
+var int loBar = na
+var bool loOpen = false
+var int trend = 0
+var int nBos = 0
+var int nCh = 0
+var int bosN = 0
+var int bosOk = 0
+var int chN = 0
+var int chOk = 0
+var int upBase = 0
+var int totBase = 0
+var string lastTxt = "-"
+var int lastBar = na
+var int[] pBar = array.new_int()
+var int[] pDir = array.new_int()
+var int[] pType = array.new_int()
+var float[] pClose = array.new_float()
+
+bosNow = false
+chNow = false
+
+if barstate.isconfirmed
+    // resolve pending breaks exactly fwd bars after they happened
+    if array.size(pBar) > 0
+        for q = array.size(pBar) - 1 to 0
+            if bar_index - array.get(pBar, q) == fwd
+                d0 = array.get(pDir, q)
+                c0 = array.get(pClose, q)
+                agree = d0 == 1 ? close > c0 : close < c0
+                if array.get(pType, q) == 0
+                    bosN += 1
+                    if agree
+                        bosOk += 1
+                else
+                    chN += 1
+                    if agree
+                        chOk += 1
+                array.remove(pBar, q)
+                array.remove(pDir, q)
+                array.remove(pType, q)
+                array.remove(pClose, q)
+    if not na(close[fwd])
+        totBase += 1
+        if close > close[fwd]
+            upBase += 1
+
+    if isH
+        hiPx := high[k]
+        hiBar := bar_index - k
+        hiOpen := true
+    if isL
+        loPx := low[k]
+        loBar := bar_index - k
+        loOpen := true
+
+    if hiOpen and close > hiPx
+        tp = trend == -1 ? 1 : 0
+        col = tp == 1 ? chCol : upCol
+        line.new(hiBar, hiPx, bar_index, hiPx, color=col, width=2)
+        label.new(math.round((hiBar + bar_index) / 2.0), hiPx, tp == 1 ? "CHoCH" : "BOS", style=label.style_none, textcolor=col, size=size.small)
+        array.push(pBar, bar_index)
+        array.push(pDir, 1)
+        array.push(pType, tp)
+        array.push(pClose, close)
+        if tp == 1
+            nCh += 1
+            chNow := true
+        else
+            nBos += 1
+            bosNow := true
+        lastTxt := (tp == 1 ? "CHoCH up at " : "BOS up at ") + str.tostring(hiPx, format.mintick)
+        lastBar := bar_index
+        trend := 1
+        hiOpen := false
+    if loOpen and close < loPx
+        tp = trend == 1 ? 1 : 0
+        col = tp == 1 ? chCol : dnCol
+        line.new(loBar, loPx, bar_index, loPx, color=col, width=2)
+        label.new(math.round((loBar + bar_index) / 2.0), loPx, tp == 1 ? "CHoCH" : "BOS", style=label.style_none, textcolor=col, size=size.small, yloc=yloc.price)
+        array.push(pBar, bar_index)
+        array.push(pDir, -1)
+        array.push(pType, tp)
+        array.push(pClose, close)
+        if tp == 1
+            nCh += 1
+            chNow := true
+        else
+            nBos += 1
+            bosNow := true
+        lastTxt := (tp == 1 ? "CHoCH down at " : "BOS down at ") + str.tostring(loPx, format.mintick)
+        lastBar := bar_index
+        trend := -1
+        loOpen := false
+
+alertcondition(bosNow, "AT24 break of structure", "AT24 Market Structure {{ticker}}: break of structure")
+alertcondition(chNow, "AT24 change of character", "AT24 Market Structure {{ticker}}: change of character")
+
+// ---- open swing levels (right edge) and dashboard
+var line hiLn = na
+var line loLn = na
+if barstate.islast
+    line.delete(hiLn)
+    line.delete(loLn)
+    if hiOpen
+        hiLn := line.new(hiBar, hiPx, bar_index + 8, hiPx, color=color.gray, style=line.style_dashed)
+    if loOpen
+        loLn := line.new(loBar, loPx, bar_index + 8, loPx, color=color.gray, style=line.style_dashed)
+
+pct(x, y) => y > 0 ? 100.0 * x / y : 0.0
+pos = switch dashPos
+    "top left" => position.top_left
+    "top right" => position.top_right
+    "bottom left" => position.bottom_left
+    => position.bottom_right
+var table t = table.new(pos, 2, 8, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+if showDash and barstate.islast
+    stateTxt = trend == 1 ? "STRUCTURE: UP" : trend == -1 ? "STRUCTURE: DOWN" : "NO STRUCTURE YET"
+    stateCol = trend == 1 ? color.lime : trend == -1 ? color.red : color.gray
+    ago = na(lastBar) ? "" : "  (" + str.tostring(bar_index - lastBar) + " bars ago)"
+    table.cell(t, 0, 0, "AT24", text_color=#E8B84A, text_size=size.large)
+    table.cell(t, 1, 0, "MARKET STRUCTURE", text_color=#E8B84A, text_size=size.normal, text_halign=text.align_left)
+    table.cell(t, 0, 1, "State", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 1, stateTxt, text_color=stateCol, text_size=size.normal, text_halign=text.align_left)
+    table.cell(t, 0, 2, "Last break", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 2, lastTxt + ago, text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 3, "Breaks on loaded bars", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 3, str.tostring(nBos) + " BOS, " + str.tostring(nCh) + " CHoCH (swing " + str.tostring(k) + " bars)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 4, str.tostring(fwd) + " bars after a BOS", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 4, "kept going " + str.tostring(pct(bosOk, bosN), "0") + "%  (" + str.tostring(bosN) + ")", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 5, str.tostring(fwd) + " bars after a CHoCH", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 5, "kept going " + str.tostring(pct(chOk, chN), "0") + "%  (" + str.tostring(chN) + ")", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 6, "Any bar", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, 6, "close " + str.tostring(fwd) + " bars later higher " + str.tostring(pct(upBase, totBase), "0") + "%  (about 50% = coin flip)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 0, 7, "Descriptive history.", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
+    table.cell(t, 1, 7, "Not a signal. algotraders24.ai", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
