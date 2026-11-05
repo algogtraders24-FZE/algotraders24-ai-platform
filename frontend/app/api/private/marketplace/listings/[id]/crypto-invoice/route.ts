@@ -14,6 +14,7 @@ import { nowPaymentsProvider } from "@/services/billing/providers/NowPaymentsPro
 import { PaymentProviderError } from "@/lib/payments/errors";
 import { MAX_REASONABLE_PAYMENT_AMOUNT_USD } from "@/lib/payments/env";
 import { PUBLICLY_VISIBLE_STATES } from "@/types/marketplace";
+import { applyPromo, resolvePromo } from "@/lib/marketplace/promo";
 import { checkAndRecordCheckoutAttempt, CHECKOUT_RATE_LIMIT_MESSAGE } from "@/lib/security/checkoutRateLimit";
 import { isProgramListing, PROGRAM_LISTING_MESSAGE } from "@/services/rewards/listingGuard";
 
@@ -97,6 +98,14 @@ export const POST = withContext(async (req, ctx) => {
 
   const currency = (pricing as { currency?: string }).currency ?? "USD";
 
+  // Optional promo code, re-validated server-side (see ../checkout/route.ts).
+  const body = (await req.json().catch(() => ({}))) as { couponCode?: unknown };
+  const promo = body.couponCode ? resolvePromo(body.couponCode) : null;
+  if (body.couponCode && !promo) {
+    return ApiResponse.error({ code: "INVALID_COUPON", message: "This promo code is not valid or has expired." }, ctx.requestId, 400, ctx.startedAt);
+  }
+  const chargeAmount = promo ? applyPromo(amount as number, promo) : (amount as number);
+
   try {
     const intent = await prisma.marketplacePurchaseIntent.create({
       data: {
@@ -106,14 +115,14 @@ export const POST = withContext(async (req, ctx) => {
         versionId: listing.versionId,
         platform: listing.platformTag,
         releaseId: release.id,
-        amount: amount as number,
+        amount: chargeAmount,
         currency,
       },
     });
 
     const invoice = await nowPaymentsProvider.createMarketplaceInvoice({
       intentId: intent.id,
-      priceUsd: amount as number,
+      priceUsd: chargeAmount,
       listingTitle: listing.title,
       listingSlug: listing.slug,
     });
