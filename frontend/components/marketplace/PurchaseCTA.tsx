@@ -21,6 +21,9 @@ export default function PurchaseCTA({ listingId, pricing, releaseId }: { listing
   const [loading, setLoading] = useState<"card" | "crypto" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cryptoAvailable, setCryptoAvailable] = useState(false);
+  const [couponInput, setCouponInput] = useState("");
+  const [promo, setPromo] = useState<{ code: string; percentOff: number; endsAt: string } | null>(null);
+  const [couponMsg, setCouponMsg] = useState<string | null>(null);
 
   const canPurchase = pricing.model === "one_time" && typeof pricing.amount === "number" && pricing.amount > 0 && !!releaseId;
 
@@ -38,12 +41,48 @@ export default function PurchaseCTA({ listingId, pricing, releaseId }: { listing
     };
   }, [canPurchase]);
 
+  async function applyCoupon(raw?: string) {
+    const code = (raw ?? couponInput).trim();
+    if (!code) return;
+    setCouponMsg(null);
+    try {
+      const res = await fetch(`/api/marketplace/promo?code=${encodeURIComponent(code)}`);
+      const body = await res.json();
+      if (body?.status === "ok" && body.data?.valid) {
+        setPromo({ code: body.data.code, percentOff: body.data.percentOff, endsAt: body.data.endsAt });
+        setCouponInput(body.data.code);
+        setCouponMsg(null);
+      } else {
+        setPromo(null);
+        setCouponMsg("This promo code is not valid or has expired.");
+      }
+    } catch {
+      setCouponMsg("Could not check the promo code. Try again.");
+    }
+  }
+
+  // Links like /marketplace/<slug>?promo=DIWALI20 apply the code automatically.
+  useEffect(() => {
+    if (!canPurchase) return;
+    const fromUrl = new URLSearchParams(window.location.search).get("promo");
+    if (fromUrl) void applyCoupon(fromUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canPurchase]);
+
+  const baseAmount = typeof pricing.amount === "number" ? pricing.amount : null;
+  const discounted = promo && baseAmount ? Math.max(0.5, Math.round(baseAmount * (100 - promo.percentOff)) / 100) : null;
+  const money = (v: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: (pricing as { currency?: string }).currency ?? "USD" }).format(v);
+
   async function handleBuy(method: "card" | "crypto") {
     setError(null);
     setLoading(method);
     try {
       const path = method === "card" ? "checkout" : "crypto-invoice";
-      const res = await fetch(`/api/private/marketplace/listings/${listingId}/${path}`, { method: "POST" });
+      const res = await fetch(`/api/private/marketplace/listings/${listingId}/${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(promo ? { couponCode: promo.code } : {}),
+      });
       const body = await res.json();
       if (!res.ok || body.status !== "ok") throw new Error(body?.error?.message ?? `Checkout failed (${res.status})`);
       window.location.href = method === "card" ? body.data.url : body.data.invoiceUrl;
@@ -56,7 +95,32 @@ export default function PurchaseCTA({ listingId, pricing, releaseId }: { listing
   if (canPurchase) {
     return (
       <div className="rounded-2xl bg-ink-3 border border-border p-6 flex flex-col gap-3">
-        <span className="text-2xl font-bold">{formatListingPrice(pricing)}</span>
+        {discounted !== null && baseAmount ? (
+          <div className="flex flex-col gap-1">
+            <div className="flex items-baseline gap-3">
+              <span className="text-2xl font-bold">{money(discounted)}</span>
+              <span className="text-base text-text-3 line-through">{formatListingPrice(pricing)}</span>
+            </div>
+            <span className="text-xs text-gold">
+              {promo!.code} applied: {promo!.percentOff}% off until {new Date(promo!.endsAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+            </span>
+          </div>
+        ) : (
+          <span className="text-2xl font-bold">{formatListingPrice(pricing)}</span>
+        )}
+        <div className="flex gap-2">
+          <input
+            value={couponInput}
+            onChange={(e) => setCouponInput(e.target.value)}
+            placeholder="Promo code"
+            aria-label="Promo code"
+            className="min-w-0 flex-1 rounded-xl bg-ink-2 border border-border px-3 py-2 text-sm uppercase"
+          />
+          <button type="button" onClick={() => void applyCoupon()} className="rounded-xl bg-ink-2 border border-border px-4 py-2 text-sm font-semibold transition hover:border-gold">
+            Apply
+          </button>
+        </div>
+        {couponMsg && <p className="text-xs text-danger">{couponMsg}</p>}
         <button
           type="button"
           onClick={() => handleBuy("card")}

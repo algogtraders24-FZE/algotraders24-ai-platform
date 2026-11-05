@@ -140,6 +140,7 @@ export class StripeProvider {
     releaseId: string;
     amount: number;
     currency: string;
+    couponCode?: string;
   }): Promise<{ url: string }> {
     const stripe = getClient();
     if (params.amount <= 0) {
@@ -174,6 +175,7 @@ export class StripeProvider {
           versionId: params.versionId,
           platform: params.platform,
           releaseId: params.releaseId,
+          ...(params.couponCode ? { couponCode: params.couponCode } : {}),
         },
       });
 
