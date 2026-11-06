@@ -13,6 +13,7 @@ import type { PublishedInternalBlogRecord } from "../types/publishing";
 import { computeContentHash } from "../services/publishing/content-hash";
 import { serializeArticleBody } from "../services/publishing/article-serializer";
 import { BlogReaderService, type BlogReaderSource } from "../services/publishing/blog-reader.service";
+import { cachedBlogList, resetBlogListMemo, BLOG_LIST_TTL_SECONDS } from "../services/publishing/blog-list-cache";
 import { toSafePlainText, toSafeInline } from "../lib/publishing/sanitize-text";
 
 const FRONTEND = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -305,21 +306,92 @@ async function main() {
     assert.equal(await svc.getPostBySlug("anything"), null);
   });
 
+  // === database-egress fix: the list is cached, the detail page is not ===
+  class CountingSource extends FakeSource {
+    lists = 0;
+    singles = 0;
+    failNext = false;
+    async listPublishedInternalBlogRecords() {
+      this.lists += 1;
+      if (this.failNext) {
+        this.failNext = false;
+        throw new Error("db down");
+      }
+      return super.listPublishedInternalBlogRecords();
+    }
+    async findPublishedInternalBlogRecordBySlug(slug: string) {
+      this.singles += 1;
+      return super.findPublishedInternalBlogRecordBySlug(slug);
+    }
+  }
+  const T0 = 1_800_000_000_000;
+
+  await test("cached list: many callers within the TTL cost ONE read of the full articles (market hubs, /blog, sitemap, social cron all call listPosts)", async () => {
+    resetBlogListMemo();
+    const src = new CountingSource([entry({ slug: "a" }), entry({ slug: "b", completedAt: "2026-09-10T12:00:00.000Z" })]);
+    const svc = new BlogReaderService(src, (compute) => cachedBlogList(compute, () => T0));
+    const results = await Promise.all(Array.from({ length: 20 }, () => svc.listPosts()));
+    await svc.listPosts();
+    assert.equal(src.lists, 1, "21 callers must share one source read");
+    assert.deepEqual(results[0].map((p) => p.slug), ["b", "a"]);
+  });
+
+  await test("cached list: after the TTL the next call reads again, so a newly published post appears", async () => {
+    resetBlogListMemo();
+    const src = new CountingSource([entry({ slug: "a" })]);
+    let now = T0;
+    const svc = new BlogReaderService(src, (compute) => cachedBlogList(compute, () => now));
+    await svc.listPosts();
+    now += (BLOG_LIST_TTL_SECONDS - 1) * 1000;
+    await svc.listPosts();
+    assert.equal(src.lists, 1);
+    now += 2000;
+    await svc.listPosts();
+    assert.equal(src.lists, 2);
+  });
+
+  await test("cached list: a failed read is not kept for ten minutes and is not run twice", async () => {
+    resetBlogListMemo();
+    const src = new CountingSource([entry({ slug: "a" })]);
+    const svc = new BlogReaderService(src, (compute) => cachedBlogList(compute, () => T0));
+    src.failNext = true;
+    await assert.rejects(() => svc.listPosts(), /db down/);
+    assert.equal(src.lists, 1, "the failing load ran once");
+    assert.equal((await svc.listPosts()).length, 1, "the next call retries and succeeds");
+    assert.equal(src.lists, 2);
+  });
+
+  await test("cached list: callers get their own array; the drift check still hides a changed post; the detail page is never served from the list cache", async () => {
+    resetBlogListMemo();
+    const src = new CountingSource([entry({ slug: "ok" }), entry({ slug: "drifted", contentHashOverride: "deadbeef" })]);
+    const svc = new BlogReaderService(src, (compute) => cachedBlogList(compute, () => T0));
+    const first = await svc.listPosts();
+    assert.deepEqual(first.map((p) => p.slug), ["ok"], "drifted post stays hidden through the cache");
+    first.length = 0;
+    assert.equal((await svc.listPosts()).length, 1, "mutating one caller's array must not change the next caller's");
+    assert.equal(await svc.getPostBySlug("drifted"), null, "detail still re-verifies the hash");
+    assert.equal((await svc.getPostBySlug("ok"))?.slug, "ok");
+    assert.equal(src.singles, 2, "detail pages read the single record each time");
+    resetBlogListMemo();
+  });
+
   // === the page renders as React text children (no dangerouslySetInnerHTML) ===
-  await test("no /blog page actually uses dangerouslySetInnerHTML", () => {
+  await test("no /blog page uses dangerouslySetInnerHTML except for its JSON-LD structured-data script", () => {
     for (const f of ["app/blog/page.tsx", "app/blog/[slug]/page.tsx"]) {
       const src = readFileSync(join(FRONTEND, f), "utf8");
-      assert.ok(
-        !/dangerouslySetInnerHTML\s*[=:]/.test(src),
-        `${f} must not use dangerouslySetInnerHTML as a prop`,
-      );
+      const re = /dangerouslySetInnerHTML\s*[=:]/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(src)) !== null) {
+        const tag = src.slice(src.lastIndexOf("<script", m.index), m.index);
+        assert.ok(tag.startsWith("<script") && /type="application\/ld\+json"/.test(tag), `${f}: dangerouslySetInnerHTML is only allowed on a <script type="application/ld+json">`);
+      }
     }
   });
 
   await test("sitemap includes /blog and derives post URLs from the reader", () => {
     const src = readFileSync(join(FRONTEND, "app/sitemap.ts"), "utf8");
     assert.ok(src.includes("/blog"), "sitemap lists /blog");
-    assert.ok(src.includes("blogReaderService.listSlugs"), "sitemap derives post slugs from the reader");
+    assert.ok(/blogReaderService\.(listSlugs|listPosts)/.test(src), "sitemap derives post slugs from the reader");
   });
 
   console.log(`\n${passed} passed, ${failed} failed\n`);

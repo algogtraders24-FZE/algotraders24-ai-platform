@@ -85,6 +85,7 @@ export const prismaLiveSyncStore: LiveSyncStore = {
             positions: snapshot.data.positions as unknown as object,
             ...(snapshot.data.orders ? { orders: snapshot.data.orders as unknown as object } : {}),
           },
+          select: { id: true }, // the row is not used afterwards: do not send it back (positions JSON) on every snapshot
         });
       }
       await tx.liveSyncAccount.update({

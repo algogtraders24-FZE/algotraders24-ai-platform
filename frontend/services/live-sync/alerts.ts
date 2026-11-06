@@ -60,6 +60,18 @@ export interface Evaluation {
 const r1 = (n: number) => Math.round(n * 10) / 10;
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
+/** How long a 30-day equity peak read from the database may be reused (ms). Alerts run after EVERY stored snapshot (several a minute per
+ *  account); the peak scan was 87% of database time. A peak only moves up through new equity, which `peakWithLatest` adds back in,
+ *  so a five-minute-old stored peak can only be stale when an old high AGES OUT of the 30-day window - irrelevant at that timescale. */
+export const PEAK_CACHE_MS = 5 * 60_000;
+
+/** The peak to evaluate: the stored 30-day peak (possibly a few minutes old) raised by the newest equity, never lower than either. */
+export function peakWithLatest(storedPeak: number | null, latestEquity: number | null): number | null {
+  if (storedPeak === null) return latestEquity;
+  if (latestEquity === null) return storedPeak;
+  return Math.max(storedPeak, latestEquity);
+}
+
 export function evaluateRule(rule: Pick<AlertRuleState, "kind" | "threshold">, ctx: AlertContext): Evaluation {
   const s = ctx.snapshot;
   switch (rule.kind) {

@@ -27,6 +27,9 @@ export const prismaSocialStore: SocialStore = {
       throw e;
     }
   },
+  async exists(dedupeKey) {
+    return (await prisma.socialPost.findUnique({ where: { dedupeKey }, select: { id: true } })) !== null;
+  },
   async listApproved() {
     const rows = await prisma.socialPost.findMany({ where: { status: "APPROVED" }, orderBy: { createdAt: "asc" }, take: 10 });
     return rows.map((r) => ({ id: r.id, kind: r.kind, title: r.title, text: r.text, shortText: r.shortText, imagePath: r.imagePath, linkUrl: r.linkUrl, attempts: r.attempts }));

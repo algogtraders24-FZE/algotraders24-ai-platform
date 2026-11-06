@@ -17,6 +17,7 @@
 // testable without a database.
 
 import { publishingRepository } from "./publishing.repository";
+import { cachedBlogList } from "./blog-list-cache";
 import { serializeArticleBody } from "./article-serializer";
 import { computeContentHash } from "./content-hash";
 import { toSafeInline, toSafePlainText } from "@/lib/publishing/sanitize-text";
@@ -137,14 +138,26 @@ function toPost(r: PublishedInternalBlogRecord): BlogPost {
 
 // ---- service ----------------------------------------------------------
 
+/** Wraps the expensive list computation (every published post's full content is read to verify its hash). The production
+ *  wiring passes a shared, time-boxed cache; tests and scripts pass nothing and get a fresh read every call. */
+export type ListMemo = (compute: () => Promise<BlogPostSummary[]>) => Promise<BlogPostSummary[]>;
+
 export class BlogReaderService {
-  constructor(private readonly source: BlogReaderSource = publishingRepository) {}
+  constructor(
+    private readonly source: BlogReaderSource = publishingRepository,
+    private readonly memo?: ListMemo,
+  ) {}
 
   /** All published posts, newest first. Excludes any whose current content
-   *  has drifted from the published version. */
+   *  has drifted from the published version. Summaries only (no body), so the
+   *  result is small and safe to cache; the drift check still runs on the full
+   *  content whenever the list is (re)computed, and getPostBySlug re-checks it. */
   async listPosts(): Promise<BlogPostSummary[]> {
-    const records = await this.source.listPublishedInternalBlogRecords();
-    return records.filter(contentStillMatches).map(toSummary);
+    const compute = async (): Promise<BlogPostSummary[]> => {
+      const records = await this.source.listPublishedInternalBlogRecords();
+      return records.filter(contentStillMatches).map(toSummary);
+    };
+    return this.memo ? this.memo(compute) : compute();
   }
 
   /** One published post, or null (not published, wrong destination, drifted,
@@ -167,4 +180,4 @@ export class BlogReaderService {
   }
 }
 
-export const blogReaderService = new BlogReaderService();
+export const blogReaderService = new BlogReaderService(publishingRepository, cachedBlogList);
