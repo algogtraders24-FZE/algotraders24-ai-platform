@@ -1,6 +1,6 @@
 // Validates Live Sync alert rules: evaluation, edge-triggered state machine, severity, input validation. Pure.
 import assert from "node:assert/strict";
-import { alertSeverity, alertText, evaluateRule, KIND_INFO, nextTransition, validateRuleInput, ALERT_KINDS, type AlertContext } from "../services/live-sync/alerts";
+import { alertSeverity, alertText, evaluateRule, KIND_INFO, nextTransition, validateRuleInput, ALERT_KINDS, PEAK_CACHE_MS, peakWithLatest, type AlertContext } from "../services/live-sync/alerts";
 import { sweepAuthorized } from "../services/live-sync/sweep-auth";
 
 let checks = 0;
@@ -90,5 +90,11 @@ eq([sweepAuthorized(`Bearer ${DED}`, [DED, CRON]), sweepAuthorized(`Bearer ${CRO
 eq([sweepAuthorized(null, [DED, CRON]), sweepAuthorized("", [DED]), sweepAuthorized("Bearer wrong-secret-0123456789", [DED, CRON]), sweepAuthorized(`Bearer ${DED}x`, [DED])], [false, false, false, false], "missing, empty, wrong and longer secrets are refused");
 eq([sweepAuthorized("Bearer short", ["short"]), sweepAuthorized("Bearer ", [""]), sweepAuthorized("Bearer undefined", [undefined]), sweepAuthorized("Bearer anything-at-all-123456", [])], [false, false, false, false], "a missing or too-short (<16) secret never authorizes anything");
 eq(sweepAuthorized(`Bearer ${DED}`, [CRON]), false, "the dedicated secret does not work when only CRON_SECRET is configured");
+
+// ---- cached 30-day peak (database-load fix): a stored peak up to five minutes old is raised by the newest equity
+eq(PEAK_CACHE_MS, 300_000, "the stored peak is reused for five minutes");
+eq([peakWithLatest(1000, 1200), peakWithLatest(1000, 800), peakWithLatest(null, 900), peakWithLatest(1000, null), peakWithLatest(null, null)], [1200, 1000, 900, 1000, null], "peak = max(stored, newest equity); either may be missing");
+const stale = evaluateRule({ kind: "drawdown", threshold: 20 }, ctx({ peakEquity: peakWithLatest(1000, 1500), snapshot: { balance: 1000, equity: 1100, margin: 0, positions: [] } }));
+eq([stale.breached, stale.value], [true, 26.67], "a new equity high that happened after the cached peak was read is still counted, so a drawdown from it is not missed");
 
 console.log(`validate-live-sync-alerts: ${checks} checks passed`);

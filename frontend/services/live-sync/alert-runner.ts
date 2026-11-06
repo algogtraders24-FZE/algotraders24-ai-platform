@@ -11,10 +11,23 @@ import { sendPushToUser } from "@/services/push/deliver";
 import { alertMessage } from "@/services/telegram/messages";
 import { telegramConfig } from "@/services/telegram/config";
 import type { WirePosition } from "./contract";
-import { alertSeverity, alertText, evaluateRule, nextTransition, type AlertContext, type AlertKind } from "./alerts";
+import { PEAK_CACHE_MS, alertSeverity, alertText, evaluateRule, nextTransition, peakWithLatest, type AlertContext, type AlertKind } from "./alerts";
 
 const DAY = 86_400_000;
 const PEAK_WINDOW_MS = 30 * DAY;
+
+const peakCache = new Map<string, { at: number; value: number | null }>();
+
+/** The 30-day equity peak of one account, reused for PEAK_CACHE_MS (see alerts.ts). A failed read is not cached. */
+async function storedPeak(accountId: string, now: number): Promise<number | null> {
+  const hit = peakCache.get(accountId);
+  if (hit && now - hit.at < PEAK_CACHE_MS) return hit.value;
+  const peak = await prisma.liveSyncSnapshot.aggregate({ where: { accountId, timeUtc: { gte: new Date(now - PEAK_WINDOW_MS) } }, _max: { equity: true } });
+  const value = peak._max.equity ?? null;
+  if (peakCache.size > 500) peakCache.clear();
+  peakCache.set(accountId, { at: now, value });
+  return value;
+}
 
 export async function runAlertsForAccount(accountId: string, nowDate: Date = new Date()): Promise<number> {
   try {
@@ -27,7 +40,7 @@ export async function runAlertsForAccount(accountId: string, nowDate: Date = new
     const latest = await prisma.liveSyncSnapshot.findFirst({ where: { accountId }, orderBy: { timeUtc: "desc" }, select: { balance: true, equity: true, margin: true, positions: true } });
     const dayStartUtc = Math.floor((now + account.serverUtcOffsetSec * 1000) / DAY) * DAY - account.serverUtcOffsetSec * 1000;
     const dayFirst = await prisma.liveSyncSnapshot.findFirst({ where: { accountId, timeUtc: { gte: new Date(dayStartUtc) } }, orderBy: { timeUtc: "asc" }, select: { balance: true } });
-    const peak = await prisma.liveSyncSnapshot.aggregate({ where: { accountId, timeUtc: { gte: new Date(now - PEAK_WINDOW_MS) } }, _max: { equity: true } });
+    const peak = await storedPeak(accountId, now);
 
     const ctx: AlertContext = {
       nowUtc: now,
@@ -35,7 +48,7 @@ export async function runAlertsForAccount(accountId: string, nowDate: Date = new
       lastSyncAt: account.lastSyncAt.getTime(),
       snapshot: latest ? { balance: latest.balance, equity: latest.equity, margin: latest.margin, positions: (Array.isArray(latest.positions) ? latest.positions : []) as unknown as WirePosition[] } : null,
       dayStartBalance: dayFirst ? dayFirst.balance : null,
-      peakEquity: peak._max.equity ?? null,
+      peakEquity: peakWithLatest(peak, latest ? latest.equity : null),
     };
 
     const label = `Account ${account.accountKey.slice(0, 6)}`;

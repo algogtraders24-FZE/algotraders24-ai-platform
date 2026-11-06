@@ -9,7 +9,7 @@
 
 import type { HubView } from "@/services/markets/hub";
 import type { CalibrationRow } from "@/services/calibration/forecast";
-import { buildBlogPost, buildDailyPost, buildScoreboardPost, type DraftPost } from "./content";
+import { buildBlogPost, buildDailyPost, buildScoreboardPost, dayKey, type DraftPost } from "./content";
 import { dispatchPost, type ChannelResults, type DispatchDeps, type SendablePost } from "./dispatch";
 
 export const MAX_ATTEMPTS = 3;
@@ -22,6 +22,9 @@ export interface StoredPost extends SendablePost {
 export interface SocialStore {
   /** Inserts when the dedupeKey is new; false when it already existed. */
   createIfNew(draft: DraftPost, status: "DRAFT" | "APPROVED"): Promise<boolean>;
+  /** True when a post with this dedupeKey already exists. Lets a pass skip the expensive source loads (market hubs, scoreboard)
+   *  once today's post has been prepared; without it every 15-minute pass rebuilt all seven hubs just to be told "already exists". */
+  exists(dedupeKey: string): Promise<boolean>;
   /** APPROVED posts that still have attempts left, oldest first. */
   listApproved(): Promise<StoredPost[]>;
   markSent(id: string, results: ChannelResults): Promise<void>;
@@ -62,6 +65,15 @@ export interface SocialRunResult {
 const isWeekday = (d: Date) => d.getUTCDay() >= 1 && d.getUTCDay() <= 5;
 const afterUtc = (d: Date, h: number, m = 0) => d.getUTCHours() > h || (d.getUTCHours() === h && d.getUTCMinutes() >= m);
 
+/** A failing lookup counts as "not prepared": the pass then builds the post and createIfNew's unique key still prevents a duplicate. */
+async function alreadyPrepared(store: SocialStore, dedupeKey: string): Promise<boolean> {
+  try {
+    return await store.exists(dedupeKey);
+  } catch {
+    return false;
+  }
+}
+
 export async function runSocialWith(deps: SocialDeps, now: Date = new Date()): Promise<SocialRunResult> {
   const out: SocialRunResult = { drafted: 0, sent: 0, failed: 0, waiting: 0 };
   const statusFor = (draft: DraftPost): "DRAFT" | "APPROVED" =>
@@ -77,8 +89,12 @@ export async function runSocialWith(deps: SocialDeps, now: Date = new Date()): P
 
   // 1) prepare
   try {
-    if (isWeekday(now) && afterUtc(now, 5, 30)) await add(buildDailyPost(await deps.sources.hubs(), now, deps.siteUrl));
-    if (now.getUTCDay() === 1 && afterUtc(now, 6, 0)) await add(buildScoreboardPost(await deps.sources.scoreboard(), now, deps.siteUrl));
+    if (isWeekday(now) && afterUtc(now, 5, 30) && !(await alreadyPrepared(deps.store, `daily:${dayKey(now)}`))) {
+      await add(buildDailyPost(await deps.sources.hubs(), now, deps.siteUrl));
+    }
+    if (now.getUTCDay() === 1 && afterUtc(now, 6, 0) && !(await alreadyPrepared(deps.store, `scoreboard:${dayKey(now)}`))) {
+      await add(buildScoreboardPost(await deps.sources.scoreboard(), now, deps.siteUrl));
+    }
     const since = now.getTime() - 26 * HOUR;
     for (const p of await deps.sources.recentPosts()) {
       const t = p.publishedAt ? new Date(p.publishedAt).getTime() : NaN;

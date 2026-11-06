@@ -109,16 +109,22 @@ async function main() {
   });
 
   // ---- runner ----
-  function harness(opts: { autoApprove?: boolean | "daily"; dispatch?: Partial<DispatchDeps>; posts?: Array<{ slug: string; title: string; publishedAt: string | null }> } = {}) {
+  function harness(opts: { autoApprove?: boolean | "daily"; dispatch?: Partial<DispatchDeps>; posts?: Array<{ slug: string; title: string; publishedAt: string | null }>; existsThrows?: boolean } = {}) {
     const rows = new Map<string, DraftPost & { id: string; status: string; attempts: number; results?: unknown }>();
     let n = 0;
     const d = dispatchDeps(opts.dispatch);
+    const loads = { hubs: 0, scoreboard: 0, recent: 0 };
     const deps: SocialDeps = {
       siteUrl: SITE,
       autoApprove: opts.autoApprove ?? false,
       dispatch: d,
-      sources: { hubs: async () => hubs(), scoreboard: async () => [cal(12, 40, 33), cal(24, 40, 32)], recentPosts: async () => opts.posts ?? [] },
+      sources: {
+        hubs: async () => { loads.hubs++; return hubs(); },
+        scoreboard: async () => { loads.scoreboard++; return [cal(12, 40, 33), cal(24, 40, 32)]; },
+        recentPosts: async () => { loads.recent++; return opts.posts ?? []; },
+      },
       store: {
+        exists: async (key) => { if (opts.existsThrows) throw new Error("db down"); return rows.has(key); },
         createIfNew: async (draft, status) => {
           if (rows.has(draft.dedupeKey)) return false;
           rows.set(draft.dedupeKey, { ...draft, id: `id${++n}`, status, attempts: 0 });
@@ -129,7 +135,7 @@ async function main() {
         markAttempt: async (id, _res, _err, final) => { const r = [...rows.values()].find((x) => x.id === id)!; r.attempts++; if (final) r.status = "FAILED"; },
       },
     };
-    return { rows, deps, calls: d.calls };
+    return { rows, deps, calls: d.calls, loads };
   }
 
   await test("runner: weekday after 05:30 UTC prepares the daily post as a DRAFT (nothing sent); Monday also the scoreboard; weekends and early hours prepare nothing", async () => {
@@ -144,6 +150,24 @@ async function main() {
     assert.equal((await runSocialWith(sat.deps, new Date("2026-10-17T08:00:00Z"))).drafted, 0);
     const tue = harness();
     assert.equal((await runSocialWith(tue.deps, new Date("2026-10-20T08:00:00Z"))).drafted, 1); // daily only
+  });
+
+  await test("runner: once today's posts exist, later passes do NOT reload the market hubs or the scoreboard (the database-egress fix)", async () => {
+    const h = harness();
+    await runSocialWith(h.deps, NOW_MON);
+    assert.deepEqual([h.loads.hubs, h.loads.scoreboard], [1, 1]);
+    for (let i = 1; i <= 8; i++) await runSocialWith(h.deps, new Date(NOW_MON.getTime() + i * 15 * 60_000));
+    assert.deepEqual([h.loads.hubs, h.loads.scoreboard], [1, 1], "eight more passes loaded the hubs again");
+    const nextDay = await runSocialWith(h.deps, new Date("2026-10-20T08:00:00Z"));
+    assert.equal(nextDay.drafted, 1);
+    assert.equal(h.loads.hubs, 2, "a new day must load the hubs once");
+  });
+
+  await test("runner: a failing exists() lookup still builds the post, and the unique key prevents a duplicate", async () => {
+    const h = harness({ existsThrows: true });
+    assert.equal((await runSocialWith(h.deps, NOW_MON)).drafted, 2);
+    assert.equal((await runSocialWith(h.deps, new Date(NOW_MON.getTime() + 15 * 60_000))).drafted, 0);
+    assert.equal(h.rows.size, 2);
   });
 
   await test("runner: a second pass the same day drafts nothing new (idempotent); approval then sends exactly once", async () => {
