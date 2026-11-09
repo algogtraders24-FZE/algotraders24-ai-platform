@@ -21,3 +21,6 @@ Hour-of-day effects are a common request in the MQL5 library (seasonality, sessi
 - Needs the symbol's H1 history (the indicator retries until the terminal has built it; first display can take a few seconds). 900 days by default; changes in length change the numbers.
 - Hours use the New York clock, so the pattern moves against broker time twice a year (handled by the DST-aware clock); if clock detection fails the indicator waits (it never falls back to a fixed offset silently).
 - Alerts: none (descriptive map).
+
+## History guard (2026-11-10)
+The indicator now skips any history before the first server day with at least 20 hourly bars (this broker stores H1 before 2021-05 as two bars per day, which would otherwise create false data). Checked on this feed with the history set to 3,000 days: 33,009 valid hourly bars (2021-05 onwards) instead of 34,967, all 24 New York hours present; statistics code unchanged.
