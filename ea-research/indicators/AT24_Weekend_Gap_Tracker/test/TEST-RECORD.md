@@ -14,3 +14,6 @@ Gaps were small (median 0.39 ATR), 43 % up. Price came back to Friday's close wi
 - A "gap" is any break of more than 12 hours between hourly bars (weekends, and holidays with a long closure); gaps below 0.1 ATR (H1) are ignored. Other thresholds change counts.
 - Fill = a bar's range reaches the old close; control = the level mirrored through the reopening price. Fill windows count bars (hours) from the reopening bar.
 - The latest gap is evaluated on closed H1 bars; the indicator rebuilds once per hour (and retries every few seconds until the H1 history is available). Alert (gap filled) not exercised beyond a compile.
+
+## History guard (2026-11-10)
+The indicator now skips any history before the first server day with at least 20 hourly bars (this broker stores H1 before 2021-05 as two bars per day, which would make every day look like a market-closed gap). Gap detection code unchanged; the default 900 days was already safe.

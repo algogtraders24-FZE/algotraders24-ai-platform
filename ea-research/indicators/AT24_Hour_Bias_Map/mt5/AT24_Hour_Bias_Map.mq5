@@ -180,16 +180,34 @@ void Draw()
    MakeLabel("f2", 10, 250, StringFormat("not a signal or a forecast. %d hourly bars. algotraders24.ai", gBars), clrSlateGray, 7);
   }
 
+//--- some brokers store older years as two bars per day: only use history from the first day that has at least 20 hourly bars
+int ValidFrom(const MqlRates &r[], const int n)
+  {
+   int i = 0;
+   while(i < n)
+     {
+      long dk = (long)r[i].time / 86400;
+      int j = i;
+      while(j < n && (long)r[j].time / 86400 == dk) j++;
+      if(j - i >= 20) return i;
+      i = j;
+     }
+   return n;
+  }
+
 bool Rebuild()
   {
    MqlRates r[];
    int want = InpHistoryDays * 24 + 50;
    int n = CopyRates(_Symbol, PERIOD_H1, 1, want, r);
    if(n < 2000) { gBars = MathMax(n, 0); return false; }
+   int v0 = ValidFrom(r, n);
+   n -= v0;
+   if(n < 2000) { gBars = MathMax(n, 0); return false; }
    double ret[]; int hr[]; ArrayResize(ret, n); ArrayResize(hr, n);
-   for(int i = 0; i < n; i++) { ret[i] = MathLog(r[i].close / r[i].open); hr[i] = NyHour(r[i].time); }
+   for(int i = 0; i < n; i++) { ret[i] = MathLog(r[v0 + i].close / r[v0 + i].open); hr[i] = NyHour(r[v0 + i].time); }
    AT24HB_Stats(n, ret, hr, gOut, gSum);
-   gBars = n; gFirst = r[0].time; gLast = r[n - 1].time;
+   gBars = n; gFirst = r[v0].time; gLast = r[v0 + n - 1].time;
    B0[0] = gSum[0]; B1[0] = gSum[1]; B2[0] = gSum[2]; B3[0] = gSum[3]; B4[0] = n;
    return true;
   }
