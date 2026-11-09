@@ -116,7 +116,7 @@ if barstate.islast
         table.cell(t, 1, 0, "WEEKDAY BIAS MAP", text_color=#E8B84A, text_size=size.normal, text_halign=text.align_left)
         if not ok
             table.cell(t, 0, 1, "State", text_color=color.white, text_size=size.small, text_halign=text.align_left)
-            table.cell(t, 1, 1, "NOT ENOUGH DAILY CANDLES (NEED 300)", text_color=color.gray, text_size=size.normal, text_halign=text.align_left)
+            table.cell(t, 1, 1, "NOT ENOUGH DAILY CANDLES (NEED 300) - USE A DAILY CHART", text_color=color.gray, text_size=size.normal, text_halign=text.align_left)
         else
             table.cell(t, 0, 1, "State", text_color=color.white, text_size=size.small, text_halign=text.align_left)
             table.cell(t, 1, 1, anySig ? "A WEEKDAY STANDS OUT (in the past)" : "NO WEEKDAY STANDS OUT", text_color=anySig ? #E6B450 : color.gray, text_size=size.normal, text_halign=text.align_left)
