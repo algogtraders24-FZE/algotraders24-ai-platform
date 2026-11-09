@@ -177,14 +177,32 @@ void Draw()
    MakeLabel("f2", 10, 250, "not a signal or a forecast. algotraders24.ai", clrSlateGray, 7);
   }
 
+//--- some brokers store older years as two bars per day: only use history from the first day that has at least 20 hourly bars
+int ValidFrom(const MqlRates &r[], const int n)
+  {
+   int i = 0;
+   while(i < n)
+     {
+      long dk = (long)r[i].time / 86400;
+      int j = i;
+      while(j < n && (long)r[j].time / 86400 == dk) j++;
+      if(j - i >= 20) return i;
+      i = j;
+     }
+   return n;
+  }
+
 bool Rebuild()
   {
    MqlRates r[];
    int n = CopyRates(_Symbol, PERIOD_H1, 1, InpHistoryDays * 24 + 50, r);
    if(n < 2000) { gBars = MathMax(n, 0); return false; }
+   int v0 = ValidFrom(r, n);
+   n -= v0;
+   if(n < 2000) { gBars = MathMax(n, 0); return false; }
    datetime t[]; double o[], h[], l[], c[];
    ArrayResize(t, n); ArrayResize(o, n); ArrayResize(h, n); ArrayResize(l, n); ArrayResize(c, n); ArrayResize(gTimes, n);
-   for(int i = 0; i < n; i++) { t[i] = r[i].time; o[i] = r[i].open; h[i] = r[i].high; l[i] = r[i].low; c[i] = r[i].close; gTimes[i] = r[i].time; }
+   for(int i = 0; i < n; i++) { int k = v0 + i; t[i] = r[k].time; o[i] = r[k].open; h[i] = r[k].high; l[i] = r[k].low; c[i] = r[k].close; gTimes[i] = r[k].time; }
    gM = AT24WG_Find(n, t, o, h, l, c, InpBreakHours * 3600, InpMinAtr, gG);
    int win[4] = {1, 4, 24, 120};
    double st[]; AT24WG_Stats(n, gG, gM, win, 4, st);
