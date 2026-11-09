@@ -1,0 +1,202 @@
+//@version=5
+// AT24 Order Block Lab - "order blocks" on closed bars, and whether price really came back to them and reacted, vs a mirrored control zone.
+// Context tool. Not a signal. algotraders24.ai
+indicator("AT24 Order Block Lab", shorttitle="AT24 OB", overlay=true, max_boxes_count=20, max_labels_count=20)
+
+grp1 = "Detection"
+moveAtr = input.float(1.0, "Strong move = a close this many ATR beyond the candle within 3 bars", minval=0.1, step=0.1, group=grp1)
+touchWin = input.int(100, "Bars after confirmation in which a return counts", minval=5, maxval=500, group=grp1)
+lookN = input.int(24, "Bars after a touch used to judge the reaction", minval=1, maxval=200, group=grp1)
+reactFrac = input.float(0.5, "Reaction size, in ATR", minval=0.05, step=0.05, group=grp1)
+histBars = input.int(8000, "Bars analysed (most recent)", minval=1000, maxval=20000, group=grp1)
+grp2 = "Look"
+maxZones = input.int(6, "Untouched blocks drawn (newest first)", minval=1, maxval=15, group=grp2)
+bullCol = input.color(color.new(#1E7846, 45), "Bullish block", group=grp2)
+bearCol = input.color(color.new(#8C3232, 45), "Bearish block", group=grp2)
+extend = input.int(15, "Bars the zones extend to the right", minval=1, maxval=100, group=grp2)
+grp3 = "Dashboard"
+showDash = input.bool(true, "Show dashboard", group=grp3)
+dashPos = input.string("top right", "Position", options=["top left","top right","bottom left","bottom right"], group=grp3)
+
+var float[] aO = array.new_float()
+var float[] aH = array.new_float()
+var float[] aL = array.new_float()
+var float[] aC = array.new_float()
+var float[] aA = array.new_float()
+var int[] aI = array.new_int()
+atrNow = ta.atr(14)
+if barstate.isconfirmed
+    array.push(aO, open)
+    array.push(aH, high)
+    array.push(aL, low)
+    array.push(aC, close)
+    array.push(aA, nz(atrNow))
+    array.push(aI, bar_index)
+
+// reaction after a first touch: within `look` bars the close moves thr away from the level (1) before closing thr beyond it (-1)
+reactFn(float[] cl, int tb, float L, float s, float thr, int look) =>
+    int res = 0
+    int n = array.size(cl)
+    for u = tb to math.min(n - 1, tb + look)
+        away = (array.get(cl, u) - L) * s
+        beyond = (array.get(cl, u) - L) * (-s)
+        if away >= thr
+            res := 1
+            break
+        if beyond >= thr
+            res := -1
+            break
+    res
+
+pct(x, y) => y > 0 ? 100.0 * x / y : 0.0
+ci(p, n) => n < 1 ? "-" : str.tostring(p, "0") + "% (+-" + str.tostring(1.96 * math.sqrt(math.max(p * (100.0 - p), 0.0) / n), "0") + ", n=" + str.tostring(n) + ")"
+pos = switch dashPos
+    "top left" => position.top_left
+    "top right" => position.top_right
+    "bottom left" => position.bottom_left
+    => position.bottom_right
+var table t = table.new(pos, 2, 12, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+var box[] bxs = array.new_box()
+var label[] lbs = array.new_label()
+
+if barstate.islast
+    while array.size(bxs) > 0
+        box.delete(array.pop(bxs))
+    while array.size(lbs) > 0
+        label.delete(array.pop(lbs))
+    n = array.size(aC)
+    int[] bJ = array.new_int()
+    int[] bConf = array.new_int()
+    int[] bDir = array.new_int()
+    float[] bTop = array.new_float()
+    float[] bBot = array.new_float()
+    int[] bTouch = array.new_int()
+    int[] bCtrl = array.new_int()
+    int[] bRes = array.new_int()
+    int[] bCres = array.new_int()
+    bool[] bOpen = array.new_bool()
+    int lastJ = -10
+    start = math.max(15, n - histBars)
+    if n > start + 4
+        for j = start to n - 4
+            if j - lastJ >= 3
+                oj = array.get(aO, j)
+                cj = array.get(aC, j)
+                int dir = cj < oj ? 1 : cj > oj ? -1 : 0
+                if dir != 0
+                    int conf = -1
+                    for tt = j + 1 to j + 3
+                        at = array.get(aA, tt)
+                        if at <= 0.0
+                            break
+                        if dir == 1 and array.get(aC, tt) - array.get(aH, j) >= moveAtr * at
+                            conf := tt
+                            break
+                        if dir == -1 and array.get(aL, j) - array.get(aC, tt) >= moveAtr * at
+                            conf := tt
+                            break
+                    if conf >= 0
+                        lastJ := j
+                        float thr = reactFrac * array.get(aA, conf)
+                        float L = dir == 1 ? array.get(aH, j) : array.get(aL, j)
+                        float s = dir == 1 ? 1.0 : -1.0
+                        int touch = -1
+                        for u = conf + 1 to math.min(n - 1, conf + touchWin)
+                            if (dir == 1 and array.get(aL, u) <= L) or (dir == -1 and array.get(aH, u) >= L)
+                                touch := u
+                                break
+                        int res = 0
+                        if touch >= 0
+                            res := reactFn(aC, touch, L, s, thr, lookN)
+                        float mir = 2.0 * array.get(aC, conf) - L
+                        int ctrl = -1
+                        for u = conf + 1 to math.min(n - 1, conf + touchWin)
+                            if (dir == 1 and array.get(aH, u) >= mir) or (dir == -1 and array.get(aL, u) <= mir)
+                                ctrl := u
+                                break
+                        int cres = 0
+                        if ctrl >= 0
+                            cres := reactFn(aC, ctrl, mir, -s, thr, lookN)
+                        // still untouched: no bar after the confirmation has reached the block
+                        bool isOpen = true
+                        if conf + 1 <= n - 1
+                            for u = conf + 1 to n - 1
+                                if (dir == 1 and array.get(aL, u) <= L) or (dir == -1 and array.get(aH, u) >= L)
+                                    isOpen := false
+                                    break
+                        array.push(bJ, j)
+                        array.push(bConf, conf)
+                        array.push(bDir, dir)
+                        array.push(bTop, array.get(aH, j))
+                        array.push(bBot, array.get(aL, j))
+                        array.push(bTouch, touch)
+                        array.push(bCtrl, ctrl)
+                        array.push(bRes, res)
+                        array.push(bCres, cres)
+                        array.push(bOpen, isOpen)
+    m = array.size(bJ)
+    int cnt = 0
+    int tch = 0
+    int ctc = 0
+    int dec = 0
+    int rea = 0
+    int cdec = 0
+    int crea = 0
+    int openN = 0
+    if m > 0
+        for i = 0 to m - 1
+            if array.get(bOpen, i)
+                openN += 1
+            if array.get(bConf, i) + touchWin + lookN < n
+                cnt += 1
+                if array.get(bTouch, i) >= 0
+                    tch += 1
+                if array.get(bCtrl, i) >= 0
+                    ctc += 1
+                if array.get(bRes, i) != 0
+                    dec += 1
+                    if array.get(bRes, i) == 1
+                        rea += 1
+                if array.get(bCres, i) != 0
+                    cdec += 1
+                    if array.get(bCres, i) == 1
+                        crea += 1
+    px = n > 0 ? array.get(aC, n - 1) : close
+    float up = na
+    float dn = na
+    int drawn = 0
+    if m > 0
+        for k = m - 1 to 0
+            if array.get(bOpen, k)
+                mid = (array.get(bTop, k) + array.get(bBot, k)) / 2.0
+                if mid > px and (na(up) or mid < up)
+                    up := mid
+                if mid <= px and (na(dn) or mid > dn)
+                    dn := mid
+                if drawn < maxZones
+                    drawn += 1
+                    d2 = array.get(bDir, k)
+                    x1 = array.get(aI, array.get(bJ, k))
+                    array.push(bxs, box.new(x1, array.get(bTop, k), bar_index + extend, array.get(bBot, k), border_color=color.new(color.gray, 100), bgcolor=d2 == 1 ? bullCol : bearCol))
+                    array.push(lbs, label.new(bar_index + extend, (array.get(bTop, k) + array.get(bBot, k)) / 2.0, d2 == 1 ? "OB up" : "OB down", style=label.style_none, textcolor=d2 == 1 ? color.lime : color.red, size=size.small))
+    if showDash
+        table.cell(t, 0, 0, "AT24", text_color=#E8B84A, text_size=size.large)
+        table.cell(t, 1, 0, "ORDER BLOCK LAB", text_color=#E8B84A, text_size=size.normal, text_halign=text.align_left)
+        table.cell(t, 0, 1, "State", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 1, str.tostring(openN) + " UNTOUCHED BLOCKS", text_color=color.white, text_size=size.normal, text_halign=text.align_left)
+        table.cell(t, 0, 2, "Nearest above", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 2, na(up) ? "-" : str.tostring(up, format.mintick), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 3, "Nearest below", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 3, na(dn) ? "-" : str.tostring(dn, format.mintick), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 4, "Blocks found", text_color=#E8B84A, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 4, str.tostring(cnt) + " measured of " + str.tostring(m) + " (move >= " + str.tostring(moveAtr, "0.0") + " ATR)", text_color=#E8B84A, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 5, "Came back", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 5, "within " + str.tostring(touchWin) + " bars: block " + str.tostring(pct(tch, cnt), "0") + "%   control zone " + str.tostring(pct(ctc, cnt), "0") + "%", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 6, "Reacted", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 6, "block " + ci(pct(rea, dec), dec), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 7, "Reacted", text_color=color.silver, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 7, "control " + ci(pct(crea, cdec), cdec), text_color=color.silver, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 8, "Notes", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 1, 8, "Control = block mirrored through the confirming price. Block ~ control = no 'order block' effect.", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+        table.cell(t, 0, 9, "Descriptive history.", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
+        table.cell(t, 1, 9, "Not a signal. algotraders24.ai", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
