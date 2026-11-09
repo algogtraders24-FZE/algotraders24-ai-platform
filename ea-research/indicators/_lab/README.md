@@ -9,3 +9,5 @@ Our own, pre-registered research on XAUUSD (and later other symbols). Rules of t
 
 Files: `py/lab01_preregistered.py`, `py/lab02_original.py`, `reports/*.json` (machine results), `reports/LAB-01-02-REPORT.md` (the write-up).
 Run: `cd py && python lab01_preregistered.py ../data` (numpy, pandas, scipy).
+
+Lab 03 data: the export is kept outside the repository (E:/at24_lab_data); `python lab03_sessions_and_exits.py <data dir>` reproduces reports/lab03_results.json.
