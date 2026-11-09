@@ -1,0 +1,11 @@
+# AT24 Research Lab
+
+Our own, pre-registered research on XAUUSD (and later other symbols). Rules of the lab:
+1. Hypotheses, data window, splits and the decision rule are written in the script header BEFORE results are looked at.
+2. Nulls respect the data (shuffle within day, circular shift, permutation of labels), never plain t-tests on overlapping data.
+3. Multiple-testing correction across the hypotheses of a lab (Bonferroni), and an untouched holdout / final period.
+4. A result is a FINDING only if it survives all of the above. Everything else is reported as "no finding", including what failed in the holdout.
+5. Raw data are NOT committed (`data/` is git-ignored); regenerate them with `mt5/AT24_LabExport.mq5` in a terminal that has the history.
+
+Files: `py/lab01_preregistered.py`, `py/lab02_original.py`, `reports/*.json` (machine results), `reports/LAB-01-02-REPORT.md` (the write-up).
+Run: `cd py && python lab01_preregistered.py ../data` (numpy, pandas, scipy).
