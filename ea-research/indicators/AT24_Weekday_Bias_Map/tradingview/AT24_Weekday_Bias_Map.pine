@@ -1,0 +1,144 @@
+//@version=5
+// AT24 Weekday Bias Map - mean daily return by weekday, t-statistics, and whether the pattern held in both halves of the history.
+// Context tool. Not a signal. algotraders24.ai
+indicator("AT24 Weekday Bias Map", shorttitle="AT24 WDAY", overlay=true)
+
+grp1 = "Dashboard"
+showDash = input.bool(true, "Show dashboard", group=grp1)
+dashPos = input.string("top right", "Position", options=["top left","top right","bottom left","bottom right"], group=grp1)
+showStrip = input.bool(true, "Show the weekday strip (bottom centre)", group=grp1)
+
+sg1(x) => (x >= 0 ? "+" : "") + str.tostring(x, "0.0")
+sg2(x) => (x >= 0 ? "+" : "") + str.tostring(x, "0.00")
+
+// daily candles rebuilt from the chart bars (exchange day); a daily chart gives the longest history
+var float dOpen = na
+var float dClose = na
+var int dStart = 0
+var float[] rets = array.new_float()
+var int[] dows = array.new_int()
+if timeframe.change("D")
+    if not na(dOpen) and dOpen > 0 and dClose > 0
+        array.push(rets, math.log(dClose / dOpen))
+        // +12 hours so that candles starting Sunday 17:00 (New York) count as Monday; Pine weekdays: Sunday=1, Monday=2 .. Friday=6
+        array.push(dows, dayofweek(dStart + 12 * 3600 * 1000, "UTC"))
+    dOpen := open
+    dStart := time
+dClose := close
+
+pos = switch dashPos
+    "top left" => position.top_left
+    "top right" => position.top_right
+    "bottom left" => position.bottom_left
+    => position.bottom_right
+var table t = table.new(pos, 2, 8, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+var table st = table.new(position.bottom_center, 5, 3, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+
+if barstate.islast
+    n = array.size(rets)
+    float[] s = array.new_float(8, 0.0)
+    float[] s2 = array.new_float(8, 0.0)
+    float[] sa = array.new_float(8, 0.0)
+    float[] sb = array.new_float(8, 0.0)
+    int[] c = array.new_int(8, 0)
+    int[] upc = array.new_int(8, 0)
+    int[] ca = array.new_int(8, 0)
+    int[] cb = array.new_int(8, 0)
+    half = n / 2
+    if n > 0
+        for i = 0 to n - 1
+            d = array.get(dows, i)
+            r = array.get(rets, i)
+            array.set(s, d, array.get(s, d) + r)
+            array.set(s2, d, array.get(s2, d) + r * r)
+            array.set(c, d, array.get(c, d) + 1)
+            if r > 0
+                array.set(upc, d, array.get(upc, d) + 1)
+            if i < half
+                array.set(sa, d, array.get(sa, d) + r)
+                array.set(ca, d, array.get(ca, d) + 1)
+            else
+                array.set(sb, d, array.get(sb, d) + r)
+                array.set(cb, d, array.get(cb, d) + 1)
+    float[] mean = array.new_float(8, 0.0)
+    float[] tst = array.new_float(8, 0.0)
+    float[] ma = array.new_float(8, 0.0)
+    float[] mb = array.new_float(8, 0.0)
+    int sig2 = 0
+    int agree = 0
+    int used = 0
+    if n >= 300
+        for d = 2 to 6
+            cd = array.get(c, d)
+            if cd >= 30
+                used += 1
+                na_ = array.get(ca, d)
+                nb_ = array.get(cb, d)
+                array.set(ma, d, na_ > 0 ? array.get(sa, d) / na_ : 0.0)
+                array.set(mb, d, nb_ > 0 ? array.get(sb, d) / nb_ : 0.0)
+                m = array.get(s, d) / cd
+                v = (array.get(s2, d) - cd * m * m) / (cd - 1)
+                sd = math.sqrt(math.max(v, 0.0))
+                tv = sd > 0 ? m / (sd / math.sqrt(cd)) : 0.0
+                array.set(mean, d, m)
+                array.set(tst, d, tv)
+                if math.abs(tv) >= 1.96
+                    sig2 += 1
+                if m != 0 and array.get(ma, d) != 0 and array.get(mb, d) != 0 and ((m > 0) == (array.get(ma, d) > 0)) and ((m > 0) == (array.get(mb, d) > 0))
+                    agree += 1
+    float corr = 0.0
+    if used > 1
+        float xa = 0.0
+        float xb = 0.0
+        for d = 2 to 6
+            if array.get(c, d) >= 30
+                xa += array.get(ma, d)
+                xb += array.get(mb, d)
+        xa := xa / used
+        xb := xb / used
+        float sxy = 0.0
+        float sxx = 0.0
+        float syy = 0.0
+        for d = 2 to 6
+            if array.get(c, d) >= 30
+                da = array.get(ma, d) - xa
+                db = array.get(mb, d) - xb
+                sxy += da * db
+                sxx += da * da
+                syy += db * db
+        corr := (sxx > 0 and syy > 0) ? sxy / math.sqrt(sxx * syy) : 0.0
+    todayDow = dayofweek(time + 12 * 3600 * 1000, "UTC")
+    names = array.from("Mon", "Tue", "Wed", "Thu", "Fri")
+    anySig = sig2 > 0
+    ok = n >= 300
+    if showDash
+        table.cell(t, 0, 0, "AT24", text_color=#E8B84A, text_size=size.large)
+        table.cell(t, 1, 0, "WEEKDAY BIAS MAP", text_color=#E8B84A, text_size=size.normal, text_halign=text.align_left)
+        if not ok
+            table.cell(t, 0, 1, "State", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 1, "NOT ENOUGH DAILY CANDLES (NEED 300)", text_color=color.gray, text_size=size.normal, text_halign=text.align_left)
+        else
+            table.cell(t, 0, 1, "State", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 1, anySig ? "A WEEKDAY STANDS OUT (in the past)" : "NO WEEKDAY STANDS OUT", text_color=anySig ? #E6B450 : color.gray, text_size=size.normal, text_halign=text.align_left)
+            table.cell(t, 0, 2, "Mean daily return", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 2, "per weekday (bp), t-statistics:", text_color=color.silver, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 3, "t-stats", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 3, "Mon " + sg2(array.get(tst, 2)) + "  Tue " + sg2(array.get(tst, 3)) + "  Wed " + sg2(array.get(tst, 4)) + "  Thu " + sg2(array.get(tst, 5)) + "  Fri " + sg2(array.get(tst, 6)), text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 4, "Chance check", text_color=#E8B84A, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 4, "|t| >= 1.96: " + str.tostring(sig2) + " of 5 (chance ~0.25)", text_color=#E8B84A, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 5, "Held up?", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 5, "same sign in both halves: " + str.tostring(agree) + "  (corr " + sg2(corr) + ")", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 6, "Note", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 6, "Gold's drift lifts every day; with 5 points corr is unstable. " + str.tostring(n) + " daily candles.", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 7, "Descriptive history.", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
+            table.cell(t, 1, 7, "Not a signal. Use a daily chart for the full history. algotraders24.ai", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
+    if showStrip and ok
+        for k = 0 to 4
+            d = k + 2
+            m2 = array.get(mean, d) * 10000
+            t2 = array.get(tst, d)
+            sg = math.abs(t2) >= 1.96
+            bgc = m2 >= 0 ? color.new(color.green, sg ? 15 : 65) : color.new(color.red, sg ? 15 : 65)
+            table.cell(st, k, 0, array.get(names, k), text_color=d == todayDow ? color.white : color.gray, text_size=size.small, bgcolor=d == todayDow ? color.new(#C8A03C, 40) : color.new(#0C1628, 0))
+            table.cell(st, k, 1, sg1(m2) + " bp", text_color=color.white, text_size=size.small, bgcolor=bgc)
+            table.cell(st, k, 2, math.abs(t2) >= 2.58 ? "**" : sg ? "*" : "", text_color=#E6B450, text_size=size.small, bgcolor=color.new(#0C1628, 0))
