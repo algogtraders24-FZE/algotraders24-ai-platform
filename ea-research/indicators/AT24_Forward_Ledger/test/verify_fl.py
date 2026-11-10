@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 rows = list(csv.reader(open(sys.argv[1])))
 meta = [r for r in rows if r[0] == "meta"][0]; n0, v0 = int(meta[1]), int(meta[2])
 bars = [(int(r[1]), int(r[2]), int(r[3]), float(r[4]), float(r[5]), float(r[6]), float(r[7])) for r in rows if r[0] == "bar"]
+GM = [b[1] for b in bars]
 res = {(int(r[1]), int(r[2])): [float(x) for x in r[3:]] for r in rows if r[0] == "res"}
 NY, UTC = ZoneInfo("America/New_York"), timezone.utc
 bad_hr = sum(1 for t, g, hr, *_ in bars if datetime.fromtimestamp(g, UTC).astimezone(NY).hour != hr)
@@ -15,7 +16,7 @@ days = {}
 for i, b in enumerate(bars): days.setdefault(b[0] // 86400, []).append(i)
 first = next(v[0] for k, v in sorted(days.items()) if len(v) >= 20)
 print("valid-from index python", first, "mt5", v0)
-bars = bars[first:]
+bars = bars[first:]; GM = GM[first:]
 T = [b[0] for b in bars]; HR = [b[2] for b in bars]; O = [b[3] for b in bars]; H = [b[4] for b in bars]; L = [b[5] for b in bars]; C = [b[6] for b in bars]; n = len(bars)
 atr = [0.0] * n; a = 0.0; s = 0.0
 for i in range(n):
@@ -25,9 +26,28 @@ for i in range(n):
         if i == 13: a = s / 14; atr[i] = a
     else:
         a = (a * 13 + tr) / 14; atr[i] = a
-def run(rule, start):
+def run_relay(start):
     ds = [math.log(C[i] / O[i]) for i in range(n) if T[i] >= start]; drift = 1e4 * sum(ds) / len(ds) if ds else 0.0
-    hold = (1, 4, 24)[rule]; last = -1; rets = []; dirs = []
+    gh = [(g % 86400) // 3600 for g in GM]; gd = [g // 86400 for g in GM]
+    rets = []; dirs = []; hd = []; prev = None; i = 0
+    while i < n:
+        j = i
+        while j < n and gd[j] == gd[i]: j += 1
+        a = [k for k in range(i, j) if gh[k] < 7]
+        if prev is not None and prev[1] >= 6 and prev[0] != 0.0 and a and a[0] == i and gh[a[0]] <= 1 and len(a) >= 6 and T[a[0]] >= start:
+            d = 1 if prev[0] > 0 else -1; hold = a[-1] - a[0] + 1
+            rets.append(1e4 * d * math.log(C[a[-1]] / O[a[0]])); dirs.append(d); hd.append(d * hold)
+        nyk = [k for k in range(i, j) if 13 <= gh[k] < 21]
+        prev = (sum(math.log(C[k] / O[k]) for k in nyk), len(nyk)); i = j
+    m = len(rets)
+    if m == 0: return [0] * 10
+    mean = sum(rets) / m; var = (sum(x * x for x in rets) - m * mean * mean) / (m - 1) if m > 1 else 0.0; sd = math.sqrt(max(var, 0))
+    md = sum(dirs) / m; adj = mean - (sum(hd) / m) * drift
+    return [m, mean, sd, mean / (sd / math.sqrt(m)) if sd > 0 else 0, 100 * sum(x > 0 for x in rets) / m, sum(rets), md, drift, adj, adj / (sd / math.sqrt(m)) if sd > 0 else 0]
+def run(rule, start):
+    if rule == 3: return run_relay(start)
+    ds = [math.log(C[i] / O[i]) for i in range(n) if T[i] >= start]; drift = 1e4 * sum(ds) / len(ds) if ds else 0.0
+    hold = (1, 4, 24, 7)[rule]; last = -1; rets = []; dirs = []
     for i in range(15, n):
         entry = ex = -1; d = 0
         if rule == 0:

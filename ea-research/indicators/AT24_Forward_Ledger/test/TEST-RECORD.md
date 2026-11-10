@@ -24,3 +24,10 @@ Replay from 2025-06-01: R1 373 trades, +5.0 bp (net of drift +4.8, t +2.82); R2 
 - Candles are bid-based and bar spread is a bar-level field: a rule that "wins" at the reopening can still be a spread/bid artifact; the ledger reports bid-series results (see the research report). No costs are subtracted.
 - Rules are only ever ADDED with later registration dates; editing a registered rule would defeat the purpose.
 - The registration date lives in the indicator source (public in the repository history); a user can change their own copy, which is why the official ledger is the published, versioned one.
+
+## v1.01 (2026-11-10): rule R4 added
+- **R4 "Asia follows the last New York session"** registered **2026-11-11 (UTC)** (rules R1-R3 unchanged, still 2026-11-10). Direction = sign of the previous trading day's New York session return (GMT 13:00-21:00, at least 6 bars); trade the next Asian session (first bar at GMT hour 0 or 1, exit at the close of the last bar before GMT 07:00, at least 6 bars) in that direction. It comes from Lab 03 R1c (NY -> next-Asia correlation +0.12 only in 2025-26, not a finding).
+- Verdict threshold moves from |t| 2.39 to **2.50** (0.05 divided by four registered rules); the family-wise correction is the only change to the earlier rules' verdict text.
+- Engine vs independent Python (`verify_fl.py`, 34,997 bars): all four rules x three start dates = 12 of 12 identical (trades, mean, sd, t, hit, cum bp, direction, drift, adjusted mean, adjusted t); New York hour 0 mismatches of 34,997.
+- In-sample replay of R4 (NOT evidence): from 2024-01-01 585 trades, -0.0 bp (net of drift -0.2, t -0.09); from 2025-06-01 296 trades, +2.0 bp (t +0.41); from 2026-07-01 76 trades, -0.2 bp (t -0.02). The correlation seen in the research does not turn into a tradable drift-adjusted mean.
+- Screenshots refreshed: official ledger (R4 opens 2026-11-11; R1 already has its first real post-registration trade) and replay.

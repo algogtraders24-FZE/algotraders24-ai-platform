@@ -111,4 +111,53 @@ void AT24FL_Run(const int rule, const int param, const int n, const datetime &ti
      }
   }
 
+//--- rule 3 (R4, registered 2026-11-11): session relay. Direction = sign of the previous trading day's New York session return (GMT 13:00-21:00, at least 6 bars);
+//--- trade the Asian session of the next trading day (GMT day, first bar at GMT hour 0 or 1, exit at the close of the last bar before GMT 07:00, at least 6 bars) WITH that direction.
+//--- gmh = GMT hour of each bar, gmd = GMT day number. Only trades whose entry bar starts at or after `start` count. Needs full history after `start`.
+void AT24FL_RunRelay(const int n, const datetime &time[], const double &open[], const double &close[], const int &gmh[], const long &gmd[], const datetime start, AT24FL_Stat &st)
+  {
+   st.n = 0; st.meanBp = 0.0; st.sdBp = 0.0; st.t = 0.0; st.hitPct = 0.0; st.cumBp = 0.0; st.meanDir = 0.0; st.driftBp = 0.0; st.hold = 7.0; st.adjMeanBp = 0.0; st.tAdj = 0.0;
+   double ds = 0.0; int dn = 0;
+   for(int i = 0; i < n; i++) if(time[i] >= start) { ds += MathLog(close[i] / open[i]); dn++; }
+   st.driftBp = dn > 0 ? 1e4 * ds / dn : 0.0;
+   double sum = 0.0, sum2 = 0.0, sumDir = 0.0, sumHoldDir = 0.0; int cnt = 0, hit = 0;
+   double prevNy = 0.0; int prevNyBars = 0; bool havePrev = false;
+   int i = 0;
+   while(i < n)
+     {
+      int j = i; while(j < n && gmd[j] == gmd[i]) j++;
+      //--- Asian session of this day: bars with GMT hour < 7
+      int a0 = -1, a1 = -1, ac = 0;
+      for(int k = i; k < j; k++) if(gmh[k] < 7) { if(a0 < 0) a0 = k; a1 = k; ac++; }
+      if(havePrev && prevNyBars >= 6 && prevNy != 0.0 && a0 == i && gmh[a0] <= 1 && ac >= 6 && time[a0] >= start)
+        {
+         int dir = prevNy > 0.0 ? 1 : -1;
+         double r = 1e4 * dir * MathLog(close[a1] / open[a0]);
+         int hold = a1 - a0 + 1;
+         cnt++; sum += r; sum2 += r * r; sumDir += dir; sumHoldDir += (double)dir * hold; if(r > 0.0) hit++;
+        }
+      //--- New York session of this day for the next day's relay
+      double ny = 0.0; int nb = 0;
+      for(int k = i; k < j; k++) if(gmh[k] >= 13 && gmh[k] < 21) { ny += MathLog(close[k] / open[k]); nb++; }
+      prevNy = ny; prevNyBars = nb; havePrev = true;
+      i = j;
+     }
+   st.n = cnt; st.cumBp = sum;
+   if(cnt > 0)
+     {
+      st.meanBp = sum / cnt; st.meanDir = sumDir / cnt; st.hitPct = 100.0 * hit / cnt;
+      if(cnt > 1)
+        {
+         double var = (sum2 - cnt * st.meanBp * st.meanBp) / (cnt - 1);
+         st.sdBp = MathSqrt(MathMax(var, 0.0));
+         if(st.sdBp > 0.0)
+           {
+            st.t = st.meanBp / (st.sdBp / MathSqrt((double)cnt));
+            st.adjMeanBp = st.meanBp - (sumHoldDir / cnt) * st.driftBp;
+            st.tAdj = st.adjMeanBp / (st.sdBp / MathSqrt((double)cnt));
+           }
+        }
+     }
+  }
+
 #endif // AT24_FL_CORE_MQH

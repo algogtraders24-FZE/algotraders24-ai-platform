@@ -9,7 +9,7 @@
 //+------------------------------------------------------------------+
 #property copyright "AlgoTraders24"
 #property link      "https://algotraders24.ai"
-#property version   "1.00"
+#property version   "1.01"
 #property description "AT24 Forward Ledger - pre-registered candidate rules tallied out-of-sample (n, mean, drift-adjusted, t-stat, verdict)."
 #property description "It places NO trades: the ledger replays closed hourly bars. Research tool. Not a signal."
 #property indicator_chart_window
@@ -36,11 +36,11 @@ input int    InpDashX         = 12;     // Dashboard X offset
 input int    InpDashY         = 24;     // Dashboard Y offset
 
 //--- the register. Each rule: id, parameter, name, registration time (UTC). Rules are only ever ADDED with later dates, never edited.
-#define NRULES 3
+#define NRULES 4
 datetime gReg[NRULES];
-int      gRule[NRULES] = {0, 1, 2};
-int      gParam[NRULES] = {18, 0, 0};
-string   gName[NRULES] = {"R1  Long the New York 18:00 hour", "R2  Fade an H1 bar of 2.5+ ATR (4 h)", "R3  Follow 1h/4h/24h/120h agreement (24 h)"};
+int      gRule[NRULES] = {0, 1, 2, 3};
+int      gParam[NRULES] = {18, 0, 0, 0};
+string   gName[NRULES] = {"R1  Long the New York 18:00 hour", "R2  Fade an H1 bar of 2.5+ ATR (4 h)", "R3  Follow 1h/4h/24h/120h agreement (24 h)", "R4  Asia follows the last New York session"};
 
 double B0[], B1[], B2[], B3[], B4[];
 string PFX = "AT24FL_";
@@ -54,7 +54,7 @@ int      gMeas[];
 datetime gUtc[];
 
 #define DASH_W 360
-#define DASH_H 262
+#define DASH_H 322
 
 void RefreshClock()
   {
@@ -140,7 +140,7 @@ void Draw()
       MakeLabel("l0", 10, 66, "Loading hourly history / broker clock...", clrSlateGray, 9);
       return;
      }
-   double thr = 2.39;      // two-sided z for 0.05 / 3 (three rules registered)
+   double thr = 2.50;      // two-sided z for 0.05 / 4 (four rules registered)
    for(int r = 0; r < NRULES; r++)
      {
       int y = 56 + r * 60;
@@ -153,9 +153,9 @@ void Draw()
       else { v = StringFormat("NO EDGE SO FAR  (t %+.2f, hit %.0f%%, sum %+.0f bp)", s.tAdj, s.hitPct, s.cumBp); vc = clrSilver; }
       MakeLabel("c" + IntegerToString(r), 10, y + 28, v, vc, 8);
      }
-   MakeLabel("n1", 10, 232 - 14, "Rules are only added with later dates, never edited.", clrSlateGray, 7);
-   MakeLabel("f1", 10, 238, "Research ledger, not a signal. It replays closed bars; no", clrSlateGray, 7);
-   MakeLabel("f2", 10, 250, "trades are placed. Past results do not predict. algotraders24.ai", clrSlateGray, 7);
+   MakeLabel("n1", 10, 292 - 14, "Rules are only added with later dates, never edited.", clrSlateGray, 7);
+   MakeLabel("f1", 10, 298, "Research ledger, not a signal. It replays closed bars; no", clrSlateGray, 7);
+   MakeLabel("f2", 10, 310, "trades are placed. Not predictive. algotraders24.ai", clrSlateGray, 7);
   }
 
 bool Rebuild()
@@ -163,22 +163,27 @@ bool Rebuild()
    MqlRates rr[];
    int n = CopyRates(_Symbol, PERIOD_H1, 1, 40000, rr);
    if(n < 3000) { gBars = MathMax(n, 0); return false; }
-   datetime t[]; double o[], h[], l[], c[]; int hr[];
-   ArrayResize(t, n); ArrayResize(o, n); ArrayResize(h, n); ArrayResize(l, n); ArrayResize(c, n); ArrayResize(hr, n);
+   datetime t[]; double o[], h[], l[], c[]; int hr[]; int gh[]; long gd[];
+   ArrayResize(t, n); ArrayResize(o, n); ArrayResize(h, n); ArrayResize(l, n); ArrayResize(c, n); ArrayResize(hr, n); ArrayResize(gh, n); ArrayResize(gd, n);
    for(int i = 0; i < n; i++)
      {
       t[i] = rr[i].time; o[i] = rr[i].open; h[i] = rr[i].high; l[i] = rr[i].low; c[i] = rr[i].close;
       datetime g = AT24SC_ToGmt(gClk, rr[i].time);
       hr[i] = (int)(((long)(g + (datetime)((long)AT24SC_NyOffsetHours(g) * 3600)) % 86400) / 3600);
+      gh[i] = (int)(((long)g % 86400) / 3600); gd[i] = (long)g / 86400;
      }
    //--- never use history that is not hourly (some brokers store older years as two bars per day)
    int v0 = AT24FL_ValidFrom(n, t, 20);
    int m = n - v0;
    if(m < 3000) { gBars = m; return false; }
-   datetime tt[]; double oo[], hh[], ll[], cc[]; int hrr[];
-   ArrayResize(tt, m); ArrayResize(oo, m); ArrayResize(hh, m); ArrayResize(ll, m); ArrayResize(cc, m); ArrayResize(hrr, m);
-   for(int i = 0; i < m; i++) { tt[i] = t[v0 + i]; oo[i] = o[v0 + i]; hh[i] = h[v0 + i]; ll[i] = l[v0 + i]; cc[i] = c[v0 + i]; hrr[i] = hr[v0 + i]; }
-   for(int r = 0; r < NRULES; r++) AT24FL_Run(gRule[r], gParam[r], m, tt, oo, hh, ll, cc, hrr, StartOf(r), gSt[r]);
+   datetime tt[]; double oo[], hh[], ll[], cc[]; int hrr[]; int ghh[]; long gdd[];
+   ArrayResize(tt, m); ArrayResize(oo, m); ArrayResize(hh, m); ArrayResize(ll, m); ArrayResize(cc, m); ArrayResize(hrr, m); ArrayResize(ghh, m); ArrayResize(gdd, m);
+   for(int i = 0; i < m; i++) { tt[i] = t[v0 + i]; oo[i] = o[v0 + i]; hh[i] = h[v0 + i]; ll[i] = l[v0 + i]; cc[i] = c[v0 + i]; hrr[i] = hr[v0 + i]; ghh[i] = gh[v0 + i]; gdd[i] = gd[v0 + i]; }
+   for(int r = 0; r < NRULES; r++)
+     {
+      if(gRule[r] == 3) AT24FL_RunRelay(m, tt, oo, cc, ghh, gdd, StartOf(r), gSt[r]);
+      else AT24FL_Run(gRule[r], gParam[r], m, tt, oo, hh, ll, cc, hrr, StartOf(r), gSt[r]);
+     }
    gBars = m; gFirstValid = tt[0];
    B0[0] = gSt[0].n; B1[0] = gSt[0].adjMeanBp; B2[0] = gSt[0].tAdj; B3[0] = gSt[1].n; B4[0] = gSt[2].n;
    return true;
@@ -202,8 +207,9 @@ int OnInit()
       Print("AT24 Forward Ledger: needs the DST-aware clock (New York hour) and at least 5 trades per verdict.");
       return INIT_PARAMETERS_INCORRECT;
      }
-   //--- the register: all three rules are registered on 2026-11-10 (UTC). Add future rules BELOW with later dates; never edit these.
-   for(int r = 0; r < NRULES; r++) gReg[r] = D'2026.11.10 00:00';
+   //--- the register: R1-R3 are registered on 2026-11-10 (UTC), R4 on 2026-11-11. Add future rules BELOW with later dates; never edit these.
+   for(int r = 0; r < 3; r++) gReg[r] = D'2026.11.10 00:00';
+   gReg[3] = D'2026.11.11 00:00';
    bool tester = (bool)MQLInfoInteger(MQL_TESTER);
    bool visual = (bool)MQLInfoInteger(MQL_VISUAL_MODE);
    gDash = InpShowDash && (!tester || (InpDashInTester && visual));
