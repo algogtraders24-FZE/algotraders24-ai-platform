@@ -11,3 +11,5 @@ Files: `py/lab01_preregistered.py`, `py/lab02_original.py`, `reports/*.json` (ma
 Run: `cd py && python lab01_preregistered.py ../data` (numpy, pandas, scipy).
 
 Lab 03 data: the export is kept outside the repository (E:/at24_lab_data); `python lab03_sessions_and_exits.py <data dir>` reproduces reports/lab03_results.json.
+
+- Lab 04 (2026-11-10): `py/lab04_tradability_and_gaps.py`, `reports/LAB-04-REPORT.md` - cost by hour (stable ranking; spread is flat, range drives it) and daily-break gap after news (no effect).
