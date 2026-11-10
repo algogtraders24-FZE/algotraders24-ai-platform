@@ -177,4 +177,25 @@ string AT24SC_RuleName(const int rule)
    return "unknown";
   }
 
+//--- fallbacks (added 2026-11-10): some brokers close metals at other hours than 17:00 New York, which makes detection on the chart symbol fail.
+//--- the server clock is the same for every symbol, so try the major FX pairs (they always close Friday 17:00 New York) when the chart symbol does not work.
+bool AT24SC_DetectAny(const string sym, AT24SC_Clock &c, const int weeksBack, int &measuredOut[], datetime &utcOut[])
+  {
+   if(AT24SC_Detect(sym, c, weeksBack, measuredOut, utcOut)) return true;
+   string alt[6] = {"EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF"};
+   for(int i = 0; i < 6; i++)
+     {
+      if(alt[i] == sym) continue;
+      if(!SymbolSelect(alt[i], true)) continue;
+      if(AT24SC_Detect(alt[i], c, weeksBack, measuredOut, utcOut)) return true;
+     }
+   return false;
+  }
+
+//--- manual clock: winter offset in hours (server - GMT) and the daylight rule (ENUM_AT24SC_RULE: 1 none, 2 US, 3 EU)
+void AT24SC_SetManual(AT24SC_Clock &c, const int baseHours, const int rule)
+  {
+   c.ok = true; c.base = baseHours; c.rule = rule; c.hitsRecent = 0; c.hitsAll = 0; c.weeks = 0;
+  }
+
 #endif // AT24_SERVERCLOCK_MQH

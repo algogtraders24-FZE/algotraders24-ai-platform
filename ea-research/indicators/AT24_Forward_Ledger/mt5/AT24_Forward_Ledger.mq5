@@ -26,6 +26,8 @@ input datetime InpReplayFrom  = 0;      // 0 = official ledger. A date = REPLAY 
 input int    InpMinTrades     = 30;     // Trades needed before a verdict is shown
 input group "=== Clock ==="
 input bool   InpDstAware      = true;   // Detect the broker clock incl. daylight-time rule (needed for the New York hour)
+input int    InpManualBase    = -99;    // Broker clock: winter offset from GMT in hours (-99 = detect automatically)
+input ENUM_AT24SC_RULE InpManualRule = AT24SC_US; // Broker clock: daylight rule when set manually (1 none, 2 US, 3 EU)
 input group "=== Dashboard ==="
 input bool   InpShowDash      = true;   // Show dashboard
 input bool   InpDashInTester  = false;  // Show dashboard in Strategy Tester
@@ -57,8 +59,9 @@ datetime gUtc[];
 void RefreshClock()
   {
    if(!InpDstAware) { gClk.ok = false; return; }
+   if(InpManualBase != -99) { if(!gClk.ok || gClkAt == 0) { AT24SC_SetManual(gClk, InpManualBase, (int)InpManualRule); gClkAt = TimeCurrent(); } return; }
    if(gClkAt != 0 && TimeCurrent() - gClkAt < (gClk.ok ? 3600 : 10)) return;
-   AT24SC_Detect(_Symbol, gClk, 60, gMeas, gUtc);
+   AT24SC_DetectAny(_Symbol, gClk, 60, gMeas, gUtc);
    gClkAt = TimeCurrent();
   }
 

@@ -26,6 +26,9 @@ input int    InpWindowEnd     = 12;     // Sweep window = from the Asian end to 
 input int    InpExitHour      = 16;     // Time exit at this GMT hour
 input double InpCost          = 0.25;   // Cost per trade in PRICE units (spread + slippage; 0.25 = 25 cents on gold)
 input int    InpRecent        = 250;    // "Recent" = this many latest sweeps
+input group "=== Clock ==="
+input int    InpManualBase    = -99;    // Broker clock: winter offset from GMT in hours (-99 = detect automatically)
+input ENUM_AT24SC_RULE InpManualRule = AT24SC_US; // Broker clock: daylight rule when set manually (1 none, 2 US, 3 EU)
 input group "=== Look ==="
 input int    InpDaysShown     = 6;      // Days of Asian boxes / sweep marks drawn
 input color  InpBoxColor      = C'50,60,90';
@@ -62,8 +65,9 @@ datetime gUtc[];
 
 void RefreshClock()
   {
+   if(InpManualBase != -99) { if(!gClk.ok || gClkAt == 0) { AT24SC_SetManual(gClk, InpManualBase, (int)InpManualRule); gClkAt = TimeCurrent(); } return; }
    if(gClkAt != 0 && TimeCurrent() - gClkAt < (gClk.ok ? 3600 : 10)) return;
-   AT24SC_Detect(_Symbol, gClk, 60, gMeas, gUtc);
+   AT24SC_DetectAny(_Symbol, gClk, 60, gMeas, gUtc);
    gClkAt = TimeCurrent();
   }
 
