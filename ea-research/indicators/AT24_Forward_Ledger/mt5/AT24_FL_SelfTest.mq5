@@ -27,15 +27,15 @@ void OnStart()
    for(int i = 0; i < n; i++) FileWrite(f, "bar", (long)t[i], gm[i], hr[i], DoubleToString(o[i], 3), DoubleToString(h[i], 3), DoubleToString(l[i], 3), DoubleToString(c[i], 3));
    datetime starts[3] = {D'2024.01.01', D'2025.06.01', D'2026.07.01'};
    for(int s = 0; s < 3; s++)
-      for(int rule = 0; rule < 3; rule++)
+      for(int rule = 0; rule < 4; rule++)
         {
          AT24FL_Stat st;
          //--- bars before validFrom are excluded exactly as the indicator does
          int m = n - v0;
-         datetime tt[]; double oo[], hh[], ll[], cc[]; int hrr[];
-         ArrayResize(tt, m); ArrayResize(oo, m); ArrayResize(hh, m); ArrayResize(ll, m); ArrayResize(cc, m); ArrayResize(hrr, m);
-         for(int i = 0; i < m; i++) { tt[i] = t[v0 + i]; oo[i] = o[v0 + i]; hh[i] = h[v0 + i]; ll[i] = l[v0 + i]; cc[i] = c[v0 + i]; hrr[i] = hr[v0 + i]; }
-         AT24FL_Run(rule, 18, m, tt, oo, hh, ll, cc, hrr, starts[s], st);
+         datetime tt[]; double oo[], hh[], ll[], cc[]; int hrr[]; int ghh[]; long gdd[];
+         ArrayResize(ghh, m); ArrayResize(gdd, m); ArrayResize(tt, m); ArrayResize(oo, m); ArrayResize(hh, m); ArrayResize(ll, m); ArrayResize(cc, m); ArrayResize(hrr, m);
+         for(int i = 0; i < m; i++) { tt[i] = t[v0 + i]; oo[i] = o[v0 + i]; hh[i] = h[v0 + i]; ll[i] = l[v0 + i]; cc[i] = c[v0 + i]; hrr[i] = hr[v0 + i]; ghh[i] = (int)((gm[v0 + i] % 86400) / 3600); gdd[i] = gm[v0 + i] / 86400; }
+         if(rule == 3) AT24FL_RunRelay(m, tt, oo, cc, ghh, gdd, starts[s], st); else AT24FL_Run(rule, 18, m, tt, oo, hh, ll, cc, hrr, starts[s], st);
          PrintFormat("FLTEST start=%s rule=%d n=%d mean=%.3fbp t=%.2f hit=%.1f%% drift=%.3f adj=%.3f tAdj=%.2f", TimeToString(starts[s], TIME_DATE), rule, st.n, st.meanBp, st.t, st.hitPct, st.driftBp, st.adjMeanBp, st.tAdj);
          FileWrite(f, "res", (long)starts[s], rule, st.n, DoubleToString(st.meanBp, 8), DoubleToString(st.sdBp, 8), DoubleToString(st.t, 8), DoubleToString(st.hitPct, 8), DoubleToString(st.cumBp, 6), DoubleToString(st.meanDir, 8), DoubleToString(st.driftBp, 8), DoubleToString(st.adjMeanBp, 8), DoubleToString(st.tAdj, 8));
         }
