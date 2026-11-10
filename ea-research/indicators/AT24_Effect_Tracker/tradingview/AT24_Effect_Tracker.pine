@@ -1,0 +1,189 @@
+//@version=5
+// AT24 Effect Tracker - are hour-of-day effects ALIVE? Mean return and t-statistic of each New York hour in the latest window vs the window before.
+// Research tool. Not a signal. algotraders24.ai
+indicator("AT24 Effect Tracker", shorttitle="AT24 EFFECT", overlay=true)
+
+grp1 = "Windows"
+winDays = input.int(60, "Trading days per window (recent window and the one before)", minval=20, maxval=400, group=grp1)
+thr = input.float(2.0, "|t| needed to call an hour significant", minval=1.0, maxval=4.0, step=0.1, group=grp1)
+grp3 = "Dashboard"
+showDash = input.bool(true, "Show dashboard", group=grp3)
+dashPos = input.string("top right", "Position", options=["top left","top right","bottom left","bottom right"], group=grp3)
+
+var float[] rets = array.new_float()
+var int[] hrs = array.new_int()
+var int[] days = array.new_int()
+var int[] tms = array.new_int()
+if barstate.isconfirmed
+    nyH = hour(time, "America/New_York")
+    y = year(time, "America/New_York")
+    mo = month(time, "America/New_York")
+    dm = dayofmonth(time, "America/New_York")
+    // trading day starts 18:00 New York: hours 18..23 belong to the next date
+    dn = int(math.floor(timestamp("GMT", y, mo, dm, 0, 0) / 86400000.0)) + (nyH >= 18 ? 1 : 0)
+    array.push(rets, math.log(close / open))
+    array.push(hrs, nyH)
+    array.push(days, dn)
+    array.push(tms, time)
+
+sg1(x) => (x >= 0 ? "+" : "") + str.tostring(x, "0.0")
+stName(s) => s == 1 ? "ALIVE" : s == 2 ? "NEWBORN" : s == 3 ? "DIED" : "no effect"
+stCol(s) => s == 1 ? color.lime : s == 2 ? #E6B450 : s == 3 ? color.red : color.gray
+
+pos = switch dashPos
+    "top left" => position.top_left
+    "top right" => position.top_right
+    "bottom left" => position.bottom_left
+    => position.bottom_right
+var table t = table.new(pos, 2, 12, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+
+if barstate.islast
+    n = array.size(rets)
+    ok = timeframe.period == "60" and n > 1500
+    float[] mR = array.new_float(24, 0.0)
+    float[] tR = array.new_float(24, 0.0)
+    float[] mP = array.new_float(24, 0.0)
+    float[] tP = array.new_float(24, 0.0)
+    int[] st = array.new_int(24, 0)
+    int[] cpBar = array.new_int(24, -1)
+    float[] cpStat = array.new_float(24, 0.0)
+    float[] mBef = array.new_float(24, 0.0)
+    float[] mAft = array.new_float(24, 0.0)
+    int sigN = 0
+    int alive = 0
+    int born = 0
+    int died = 0
+    if ok
+        lastDay = array.get(days, n - 1)
+        r0 = lastDay - winDays + 1
+        p0 = r0 - winDays
+        a0 = r0 - 3 * winDays
+        for h = 0 to 23
+            int nR = 0
+            int nP = 0
+            float sR = 0.0
+            float s2R = 0.0
+            float sP = 0.0
+            float s2P = 0.0
+            int[] hist = array.new_int()
+            for i = 0 to n - 1
+                if array.get(hrs, i) == h
+                    d = array.get(days, i)
+                    r = array.get(rets, i)
+                    if d >= r0
+                        nR += 1
+                        sR += r
+                        s2R += r * r
+                    else if d >= p0
+                        nP += 1
+                        sP += r
+                        s2P += r * r
+                    if d >= a0
+                        array.push(hist, i)
+            float mr = 0.0
+            float tr = 0.0
+            float mp = 0.0
+            float tp = 0.0
+            if nR >= 30
+                mean = sR / nR
+                v = (s2R - nR * mean * mean) / (nR - 1)
+                sd = math.sqrt(math.max(v, 0.0))
+                mr := mean * 10000
+                tr := sd > 0 ? mean / (sd / math.sqrt(nR)) : 0.0
+            if nP >= 30
+                mean = sP / nP
+                v = (s2P - nP * mean * mean) / (nP - 1)
+                sd = math.sqrt(math.max(v, 0.0))
+                mp := mean * 10000
+                tp := sd > 0 ? mean / (sd / math.sqrt(nP)) : 0.0
+            bool sigR = nR >= 30 and math.abs(tr) >= thr
+            bool sigP = nP >= 30 and math.abs(tp) >= thr
+            int s = 0
+            if sigR and sigP and tr * tp > 0
+                s := 1
+            else if sigR
+                s := 2
+            else if sigP
+                s := 3
+            if sigR
+                sigN += 1
+            if s == 1
+                alive += 1
+            else if s == 2
+                born += 1
+            else if s == 3
+                died += 1
+            array.set(mR, h, mr)
+            array.set(tR, h, tr)
+            array.set(mP, h, mp)
+            array.set(tP, h, tp)
+            array.set(st, h, s)
+            m = array.size(hist)
+            if m >= 90
+                float mu = 0.0
+                for j = 0 to m - 1
+                    mu += array.get(rets, array.get(hist, j))
+                mu := mu / m
+                float ss = 0.0
+                for j = 0 to m - 1
+                    dd = array.get(rets, array.get(hist, j)) - mu
+                    ss += dd * dd
+                sdv = math.sqrt(ss / (m - 1))
+                float cum = 0.0
+                float best = 0.0
+                int kb = -1
+                for j = 0 to m - 2
+                    cum += array.get(rets, array.get(hist, j)) - mu
+                    if math.abs(cum) > best
+                        best := math.abs(cum)
+                        kb := j
+                if kb >= 0 and sdv > 0
+                    float b1 = 0.0
+                    float b2 = 0.0
+                    for j = 0 to kb
+                        b1 += array.get(rets, array.get(hist, j))
+                    for j = kb + 1 to m - 1
+                        b2 += array.get(rets, array.get(hist, j))
+                    array.set(cpBar, h, array.get(hist, kb))
+                    array.set(cpStat, h, best / (sdv * math.sqrt(m)))
+                    array.set(mBef, h, 10000.0 * b1 / (kb + 1))
+                    array.set(mAft, h, 10000.0 * b2 / (m - kb - 1))
+    nowH = ok ? array.get(hrs, n - 1) : 0
+    if showDash
+        table.cell(t, 0, 0, "AT24", text_color=#E8B84A, text_size=size.large)
+        table.cell(t, 1, 0, "EFFECT TRACKER", text_color=#E8B84A, text_size=size.normal, text_halign=text.align_left)
+        if not ok
+            table.cell(t, 0, 1, "State", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 1, "USE THE 1H CHART (NEED 1,500+ BARS)", text_color=color.gray, text_size=size.normal, text_halign=text.align_left)
+        else
+            table.cell(t, 0, 1, "Now", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 1, str.tostring(sigN) + " of 24 hours significant now (chance: ~" + str.tostring(24 * 0.0455, "0.0") + ")", text_color=sigN > 24 * 0.0455 + 1.5 ? #E6B450 : color.white, text_size=size.normal, text_halign=text.align_left)
+            table.cell(t, 0, 2, "Status", text_color=color.silver, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 2, "alive " + str.tostring(alive) + "   newborn " + str.tostring(born) + "   died " + str.tostring(died) + "  (|t| >= " + str.tostring(thr, "0.0") + ", " + str.tostring(winDays) + "-day windows)", text_color=color.silver, text_size=size.small, text_halign=text.align_left)
+            int[] used = array.new_int(24, 0)
+            int shown = 0
+            for k = 0 to 2
+                int bestH = -1
+                float bv = -1.0
+                for h = 0 to 23
+                    if array.get(st, h) != 0 and array.get(used, h) == 0
+                        v2 = math.max(math.abs(array.get(tR, h)), math.abs(array.get(tP, h)))
+                        if v2 > bv
+                            bv := v2
+                            bestH := h
+                if bestH >= 0
+                    array.set(used, bestH, 1)
+                    shown += 1
+                    when_ = array.get(cpBar, bestH) >= 0 and array.get(cpStat, bestH) >= 0.9 ? "changed around " + str.format_time(array.get(tms, array.get(cpBar, bestH)), "yyyy-MM-dd") + ": " + sg1(array.get(mBef, bestH)) + " -> " + sg1(array.get(mAft, bestH)) + " bp" : "no clear change point"
+                    table.cell(t, 0, 2 + shown, "NY " + str.tostring(bestH, "00") + ":00", text_color=stCol(array.get(st, bestH)), text_size=size.small, text_halign=text.align_left)
+                    table.cell(t, 1, 2 + shown, stName(array.get(st, bestH)) + ": last " + str.tostring(winDays) + "d " + sg1(array.get(mR, bestH)) + " bp (t " + sg1(array.get(tR, bestH)) + "), before " + sg1(array.get(mP, bestH)) + " bp (t " + sg1(array.get(tP, bestH)) + "); " + when_, text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            if shown == 0
+                table.cell(t, 0, 3, "Hours", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+                table.cell(t, 1, 3, "No hour is alive, newborn or dead right now.", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+                shown := 1
+            table.cell(t, 0, 7, "Read it", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 7, "Effects are mortal: a significant hour that dies is normal.", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 8, "Bars", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 8, str.tostring(n) + " hourly bars on the chart; a TradingView chart holds fewer days than a broker terminal, so windows are shorter.", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 9, "Descriptive history.", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
+            table.cell(t, 1, 9, "Research tool, not a signal. algotraders24.ai", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
