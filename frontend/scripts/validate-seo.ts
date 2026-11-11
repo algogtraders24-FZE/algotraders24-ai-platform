@@ -184,6 +184,13 @@ test("pageTitle: keeps the brand suffix when the whole title fits 60, drops it w
   for (const t of ["x", "A very long title ".repeat(10), "Gold Sniper XAUUSD M1 Pending Scalper"]) assert.ok(renderedTitle(pageTitle(t)).length <= TITLE_MAX, `rendered title too long for ${t.slice(0, 20)}`);
 });
 
+test("pageTitle: a daily analysis title that is 47 characters long drops the suffix instead of rendering 66", () => {
+  const t = "Bitcoin (BTC/USD) Crypto Analysis - 11 Nov 2026";
+  assert.equal(t.length + BRAND_SUFFIX.length, 66);
+  assert.deepEqual(pageTitle(t), { absolute: t });
+  assert.ok(renderedTitle(pageTitle(t)).length <= TITLE_MAX);
+});
+
 test("withPlatform: twin listings get distinct descriptions, never doubled, never over the limit", () => {
   const text = "A persistence meter that shows how long a trend usually lasts.";
   const mt4 = withPlatform(text, "MT4");
@@ -225,6 +232,7 @@ test("pages use the helpers (no hand-written long titles creep back)", () => {
   assert.ok(!/\| AT24 Marketplace`/.test(read("app/marketplace/[slug]/page.tsx")), "the long listing title suffix is gone");
   assert.ok(/withPlatform\(/.test(read("app/marketplace/[slug]/page.tsx")), "listing descriptions lead with the platform");
   assert.ok(/marketTitle\(def\.name\)/.test(read("app/markets/[slug]/page.tsx")), "market hubs use marketTitle");
+  assert.ok(/pageTitle\(s\.title\)/.test(read("app/blog/[slug]/page.tsx")), "blog posts use pageTitle (the daily analysis titles were 66-68 characters with the suffix)");
 });
 
 (async () => {
