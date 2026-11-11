@@ -14,7 +14,7 @@ A green equity curve feels like proof. It often is not: a handful of lucky trade
 ## Claims you must NOT make
 - A pass is NOT proof of a lasting edge or a prediction; markets change, and many tested ideas produce lucky lists. No profit claims.
 - Do not present the sample screenshot as real trading results: it is a labelled demonstration list.
-- Not yet verified on a real account history (see the test record); do not claim that until one demo run with trades is done.
+- Verified on one real demo account history (276 closed trades) by the Engineering window; say "ran on a demo with 276 trades", nothing more.
 
 ## Footer text
 "History-only research tool, not a signal or a forecast. No trades are placed. Not financial advice. algotraders24.ai"
