@@ -8,11 +8,11 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
 import PageHero from "@/components/marketing/PageHero";
 import Card from "@/components/ui/Card";
+import { PAGE_TEXT } from "@/lib/seo/titles";
 
 export const metadata: Metadata = {
   title: "Research",
-  description:
-    "Our own tests of what predicts price and what does not - including the results that did not go our way. Smart-money structure, CFTC positioning and volatility ranges.",
+  description: PAGE_TEXT.research.description,
   alternates: { canonical: "/resources/research" },
 };
 

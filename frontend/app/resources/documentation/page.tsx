@@ -8,11 +8,11 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
 import PageHero from "@/components/marketing/PageHero";
 import Card from "@/components/ui/Card";
+import { PAGE_TEXT } from "@/lib/seo/titles";
 
 export const metadata: Metadata = {
   title: "Documentation",
-  description:
-    "A reference to Algotraders24 AI: how the analysis pipeline works, what each tool does and does not do, plans and credits, the marketplace, licences, data and policies.",
+  description: PAGE_TEXT.documentation.description,
   alternates: { canonical: "/resources/documentation" },
 };
 

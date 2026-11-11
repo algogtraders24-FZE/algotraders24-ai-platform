@@ -6,6 +6,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { INDEXNOW_KEY, buildIndexNowRequest, pingIndexNow, selectIndexNowUrls } from "../services/seo/indexnow";
 import { absoluteUrl, breadcrumbJsonLd, faqJsonLd, jsonLdString, metaDescription, productJsonLd, type ListingForSeo } from "../lib/seo/seo";
+import { BRAND_SUFFIX, DESCRIPTION_MAX, DESCRIPTION_MIN, PAGE_TEXT, TITLE_MAX, marketDescription, marketTitle, pageTitle, renderedTitle, withPlatform } from "../lib/seo/titles";
+import { MARKETS } from "../services/markets/hub";
 
 let passed = 0;
 let failed = 0;
@@ -168,6 +170,61 @@ test("indexnow: the key file is served from public/ with exactly the key; the cr
   assert.equal(read(`public/${INDEXNOW_KEY}.txt`), INDEXNOW_KEY);
   assert.ok(read("proxy.ts").includes("/api/private/seo/indexnow"));
   assert.ok(read("vercel.json").includes("/api/private/seo/indexnow"));
+});
+
+
+// ---- title and description length rules (Search Console audit 2026-11-11: 74 long titles, 19 descriptions outside 70-160, twin descriptions)
+test("pageTitle: keeps the brand suffix when the whole title fits 60, drops it when it does not, cuts on a word when still too long", () => {
+  assert.equal(pageTitle("Blog"), "Blog");
+  assert.equal(BRAND_SUFFIX, " — Algotraders24 AI", "must equal the root layout template suffix");
+  const mid = pageTitle("AT24 Volume Profile Levels for MetaTrader 4");
+  assert.deepEqual(mid, { absolute: "AT24 Volume Profile Levels for MetaTrader 4" });
+  const long = pageTitle("Ustech Index Sniper M1 Pending Scalper for US Tech 100 with Trust State and Evidence");
+  assert.ok(typeof long === "object" && long.absolute.length <= TITLE_MAX && !/\s$/.test(long.absolute), "cut title fits and has no trailing space");
+  for (const t of ["x", "A very long title ".repeat(10), "Gold Sniper XAUUSD M1 Pending Scalper"]) assert.ok(renderedTitle(pageTitle(t)).length <= TITLE_MAX, `rendered title too long for ${t.slice(0, 20)}`);
+});
+
+test("withPlatform: twin listings get distinct descriptions, never doubled, never over the limit", () => {
+  const text = "A persistence meter that shows how long a trend usually lasts.";
+  const mt4 = withPlatform(text, "MT4");
+  const tv = withPlatform(text, "TradingView");
+  assert.notEqual(mt4, tv);
+  assert.ok(mt4.startsWith("MT4: ") && tv.startsWith("TradingView: "));
+  assert.equal(withPlatform("Works on MT4 charts only.", "MT4"), "Works on MT4 charts only.", "already mentions the platform");
+  assert.equal(withPlatform(text, null), text);
+  assert.ok(withPlatform("word ".repeat(80), "TradingView").length <= DESCRIPTION_MAX, "long text is cut to the limit");
+});
+
+test("static page descriptions and titles obey the length rules", () => {
+  for (const [name, v] of Object.entries(PAGE_TEXT)) {
+    const d = v.description;
+    assert.ok(d.length >= DESCRIPTION_MIN && d.length <= DESCRIPTION_MAX, `${name} description is ${d.length} characters`);
+    if ("title" in v) assert.ok(renderedTitle(pageTitle(v.title)).length <= TITLE_MAX, `${name} title too long`);
+  }
+  const all = Object.values(PAGE_TEXT).map((v) => v.description);
+  assert.equal(new Set(all).size, all.length, "no two static pages share a description");
+});
+
+test("market hub titles and descriptions: every market within the rules and unique", () => {
+  const titles = new Set<string>();
+  const descs = new Set<string>();
+  for (const m of MARKETS) {
+    const t = renderedTitle(marketTitle(m.name));
+    const d = marketDescription(m.name);
+    assert.ok(t.length <= TITLE_MAX, `${m.slug} title is ${t.length}: ${t}`);
+    assert.ok(d.length >= DESCRIPTION_MIN && d.length <= DESCRIPTION_MAX, `${m.slug} description is ${d.length}`);
+    titles.add(t);
+    descs.add(d);
+  }
+  assert.equal(titles.size, MARKETS.length);
+  assert.equal(descs.size, MARKETS.length);
+});
+
+test("pages use the helpers (no hand-written long titles creep back)", () => {
+  assert.ok(/pageTitle\(listing\.title\)/.test(read("app/marketplace/[slug]/page.tsx")), "listing pages use pageTitle");
+  assert.ok(!/\| AT24 Marketplace`/.test(read("app/marketplace/[slug]/page.tsx")), "the long listing title suffix is gone");
+  assert.ok(/withPlatform\(/.test(read("app/marketplace/[slug]/page.tsx")), "listing descriptions lead with the platform");
+  assert.ok(/marketTitle\(def\.name\)/.test(read("app/markets/[slug]/page.tsx")), "market hubs use marketTitle");
 });
 
 (async () => {

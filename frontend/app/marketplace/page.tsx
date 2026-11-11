@@ -11,13 +11,13 @@ import Footer from "@/sections/Footer";
 import PageHero from "@/components/marketing/PageHero";
 import MarketplaceClient from "./MarketplaceClient";
 import { MarketplaceCatalogue } from "@/services/marketplace/MarketplaceCatalogue";
+import { PAGE_TEXT, pageTitle } from "@/lib/seo/titles";
 
 export const revalidate = 60; // shorter than /products' 300s - evidence-backed state should feel fresher
 
 export const metadata = {
-  title: "Marketplace | AT24 — Independently Verified Trading Systems",
-  description:
-    "Browse trading systems with independently verified evidence, validation, and risk analysis. AT24 computes and discloses evidence-based Trust State for every listing - never a seller-authored claim.",
+  title: pageTitle(PAGE_TEXT.marketplaceIndex.title),
+  description: PAGE_TEXT.marketplaceIndex.description,
   alternates: { canonical: "/marketplace" },
   openGraph: {
     title: "AT24 Marketplace",

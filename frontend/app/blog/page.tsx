@@ -8,12 +8,13 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
 import PageHero from "@/components/marketing/PageHero";
 import { blogReaderService } from "@/services/publishing/blog-reader.service";
+import { PAGE_TEXT } from "@/lib/seo/titles";
 
 export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Blog",
-  description: "Evidence-backed market analysis and research from Algotraders24 AI.",
+  description: PAGE_TEXT.blog.description,
   alternates: { canonical: "/blog" },
 };
 

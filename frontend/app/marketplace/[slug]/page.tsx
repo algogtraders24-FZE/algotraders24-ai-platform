@@ -17,6 +17,7 @@ import RelatedListings from "@/components/marketplace/RelatedListings";
 import ReportCheckCard from "@/components/marketplace/ReportCheckCard";
 import { latestReportCheck } from "@/services/marketplace/reportCheckStore";
 import { breadcrumbJsonLd, jsonLdString, metaDescription, productJsonLd } from "@/lib/seo/seo";
+import { DESCRIPTION_MAX, pageTitle, withPlatform } from "@/lib/seo/titles";
 
 export const revalidate = 60;
 
@@ -29,9 +30,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const listing = await MarketplaceCatalogue.getBySlug(slug);
   if (!listing) return { title: "Listing not found | AT24 Marketplace", robots: { index: false, follow: false } };
-  const description = metaDescription(listing.description, `${listing.title} - ${[listing.platformTag, listing.assetTag].filter(Boolean).join(" ")} trading system on the AT24 Marketplace, with AT24-computed evidence disclosed.`);
+  const platform = listing.platformTag?.trim() || null;
+  // Twin listings (the MT4 and TradingView build of one indicator) share their text, so the platform leads the description to keep each one distinct.
+  const description = withPlatform(
+    metaDescription(listing.description, `${listing.title} - ${[listing.platformTag, listing.assetTag].filter(Boolean).join(" ")} trading system on the AT24 Marketplace, with AT24-computed evidence disclosed.`, DESCRIPTION_MAX - (platform ? platform.length + 2 : 0)),
+    platform,
+  );
   return {
-    title: `${listing.title} | AT24 Marketplace`,
+    title: pageTitle(listing.title),
     description,
     // Self-referential canonical: without it every listing inherited the homepage as canonical and was never indexable.
     alternates: { canonical: `/marketplace/${listing.slug}` },

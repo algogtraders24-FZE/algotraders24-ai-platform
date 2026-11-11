@@ -10,10 +10,11 @@ import type { LucideIcon } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
 import PageHero from "@/components/marketing/PageHero";
+import { PAGE_TEXT } from "@/lib/seo/titles";
 
 export const metadata: Metadata = {
   title: "Resources",
-  description: "FAQ, documentation, and guides for Algotraders24 AI.",
+  description: PAGE_TEXT.resources.description,
   alternates: { canonical: "/resources" },
 };
 

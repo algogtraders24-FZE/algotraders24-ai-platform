@@ -8,6 +8,7 @@ import Footer from "@/sections/Footer";
 import PageHero from "@/components/marketing/PageHero";
 import Card from "@/components/ui/Card";
 import { SOCIAL_PROFILES } from "@/config/social";
+import { PAGE_TEXT } from "@/lib/seo/titles";
 
 // The channel and its Beginner Guide playlist (Parts 1-10). The embed uses the privacy-enhanced youtube-nocookie.com host.
 const YOUTUBE_CHANNEL = SOCIAL_PROFILES.find((p) => p.id === "youtube")?.href ?? "https://www.youtube.com/@algotraders-24";
@@ -15,8 +16,7 @@ const BEGINNER_PLAYLIST_ID = "PLfKapoY0lGOA";
 
 export const metadata: Metadata = {
   title: "Tutorials",
-  description:
-    "Step-by-step guides: backtest a trading idea for free, use your licence key in MetaTrader, connect your account with Live Sync, analyse your trade history and set market alerts.",
+  description: PAGE_TEXT.tutorials.description,
   alternates: { canonical: "/resources/tutorials" },
 };
 

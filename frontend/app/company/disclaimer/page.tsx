@@ -10,10 +10,11 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
 import PageHero from "@/components/marketing/PageHero";
 import { AI_DISCLAIMER_TEXT } from "@/lib/ai/disclaimer";
+import { PAGE_TEXT } from "@/lib/seo/titles";
 
 export const metadata: Metadata = {
   title: "Disclaimer",
-  description: "Risk and AI-output disclosures for Algotraders24 AI.",
+  description: PAGE_TEXT.disclaimer.description,
   alternates: { canonical: "/company/disclaimer" },
 };
 
