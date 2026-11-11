@@ -160,4 +160,50 @@ void AT24FL_RunRelay(const int n, const datetime &time[], const double &open[], 
      }
   }
 
+//--- rule 4 (R5, registered 2026-11-12): hawkish data surprise. evT = release time in the SAME clock as the bar times, evDir = +1 (long gold) or -1 (short gold):
+//--- the caller sets evDir = -sign(actual - forecast) for ten high-importance USD releases where higher = USD-positive. Several releases in the same H1 bar are netted;
+//--- zero nets are skipped. Enter at the open of the H1 bar AFTER the bar that contains the release, exit at the close of the following bar (2 bars, consecutive hours).
+//--- No overlapping trades. Only trades whose entry bar starts at or after `start` count. Events must be sorted by time.
+void AT24FL_RunEvents(const int n, const datetime &time[], const double &open[], const double &close[], const int nEv, const datetime &evT[], const int &evDir[], const datetime start, AT24FL_Stat &st)
+  {
+   st.n = 0; st.meanBp = 0.0; st.sdBp = 0.0; st.t = 0.0; st.hitPct = 0.0; st.cumBp = 0.0; st.meanDir = 0.0; st.driftBp = 0.0; st.hold = 2.0; st.adjMeanBp = 0.0; st.tAdj = 0.0;
+   double ds = 0.0; int dn = 0;
+   for(int i = 0; i < n; i++) if(time[i] >= start) { ds += MathLog(close[i] / open[i]); dn++; }
+   st.driftBp = dn > 0 ? 1e4 * ds / dn : 0.0;
+   double sum = 0.0, sum2 = 0.0, sumDir = 0.0; int cnt = 0, hit = 0, lastExit = -1, bi = 0;
+   int k = 0;
+   while(k < nEv)
+     {
+      datetime hb = (datetime)(((long)evT[k] / 3600) * 3600);
+      int net = 0, j = k;
+      while(j < nEv && (datetime)(((long)evT[j] / 3600) * 3600) == hb) { net += evDir[j]; j++; }
+      k = j;
+      if(net == 0) continue;
+      datetime eb = hb + 3600;
+      while(bi < n && time[bi] < eb) bi++;
+      if(bi >= n - 1 || time[bi] != eb || time[bi + 1] != eb + 3600) continue;
+      if(time[bi] < start || bi <= lastExit) continue;
+      int dir = net > 0 ? 1 : -1;
+      double r = 1e4 * dir * MathLog(close[bi + 1] / open[bi]);
+      lastExit = bi + 1;
+      cnt++; sum += r; sum2 += r * r; sumDir += dir; if(r > 0.0) hit++;
+     }
+   st.n = cnt; st.cumBp = sum;
+   if(cnt > 0)
+     {
+      st.meanBp = sum / cnt; st.meanDir = sumDir / cnt; st.hitPct = 100.0 * hit / cnt;
+      if(cnt > 1)
+        {
+         double var = (sum2 - cnt * st.meanBp * st.meanBp) / (cnt - 1);
+         st.sdBp = MathSqrt(MathMax(var, 0.0));
+         if(st.sdBp > 0.0)
+           {
+            st.t = st.meanBp / (st.sdBp / MathSqrt((double)cnt));
+            st.adjMeanBp = st.meanBp - st.meanDir * st.hold * st.driftBp;
+            st.tAdj = st.adjMeanBp / (st.sdBp / MathSqrt((double)cnt));
+           }
+        }
+     }
+  }
+
 #endif // AT24_FL_CORE_MQH

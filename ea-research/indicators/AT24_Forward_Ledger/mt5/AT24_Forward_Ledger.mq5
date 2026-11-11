@@ -9,7 +9,7 @@
 //+------------------------------------------------------------------+
 #property copyright "AlgoTraders24"
 #property link      "https://algotraders24.ai"
-#property version   "1.01"
+#property version   "1.02"
 #property description "AT24 Forward Ledger - pre-registered candidate rules tallied out-of-sample (n, mean, drift-adjusted, t-stat, verdict)."
 #property description "It places NO trades: the ledger replays closed hourly bars. Research tool. Not a signal."
 #property indicator_chart_window
@@ -24,6 +24,7 @@
 input group "=== Ledger ==="
 input datetime InpReplayFrom  = 0;      // 0 = official ledger. A date = REPLAY from that date (in-sample, NOT evidence)
 input int    InpMinTrades     = 30;     // Trades needed before a verdict is shown
+input bool   InpCalUtc        = false;  // Calendar times are UTC (offline terminal); leave off on a connected broker terminal (calendar uses server time)
 input group "=== Clock ==="
 input bool   InpDstAware      = true;   // Detect the broker clock incl. daylight-time rule (needed for the New York hour)
 input int    InpManualBase    = -99;    // Broker clock: winter offset from GMT in hours (-99 = detect automatically)
@@ -36,11 +37,11 @@ input int    InpDashX         = 12;     // Dashboard X offset
 input int    InpDashY         = 24;     // Dashboard Y offset
 
 //--- the register. Each rule: id, parameter, name, registration time (UTC). Rules are only ever ADDED with later dates, never edited.
-#define NRULES 4
+#define NRULES 5
 datetime gReg[NRULES];
-int      gRule[NRULES] = {0, 1, 2, 3};
-int      gParam[NRULES] = {18, 0, 0, 0};
-string   gName[NRULES] = {"R1  Long the New York 18:00 hour", "R2  Fade an H1 bar of 2.5+ ATR (4 h)", "R3  Follow 1h/4h/24h/120h agreement (24 h)", "R4  Asia follows the last New York session"};
+int      gRule[NRULES] = {0, 1, 2, 3, 4};
+int      gParam[NRULES] = {18, 0, 0, 0, 0};
+string   gName[NRULES] = {"R1  Long the New York 18:00 hour", "R2  Fade an H1 bar of 2.5+ ATR (4 h)", "R3  Follow 1h/4h/24h/120h agreement (24 h)", "R4  Asia follows the last New York session", "R5  Fade a hawkish USD data surprise (2 h)"};
 
 double B0[], B1[], B2[], B3[], B4[];
 string PFX = "AT24FL_";
@@ -54,7 +55,7 @@ int      gMeas[];
 datetime gUtc[];
 
 #define DASH_W 360
-#define DASH_H 322
+#define DASH_H 382
 
 void RefreshClock()
   {
@@ -140,7 +141,7 @@ void Draw()
       MakeLabel("l0", 10, 66, "Loading hourly history / broker clock...", clrSlateGray, 9);
       return;
      }
-   double thr = 2.50;      // two-sided z for 0.05 / 4 (four rules registered)
+   double thr = 2.58;      // two-sided z for 0.05 / 5 (five rules registered)
    for(int r = 0; r < NRULES; r++)
      {
       int y = 56 + r * 60;
@@ -153,9 +154,42 @@ void Draw()
       else { v = StringFormat("NO EDGE SO FAR  (t %+.2f, hit %.0f%%, sum %+.0f bp)", s.tAdj, s.hitPct, s.cumBp); vc = clrSilver; }
       MakeLabel("c" + IntegerToString(r), 10, y + 28, v, vc, 8);
      }
-   MakeLabel("n1", 10, 292 - 14, "Rules are only added with later dates, never edited.", clrSlateGray, 7);
-   MakeLabel("f1", 10, 298, "Research ledger, not a signal. It replays closed bars; no", clrSlateGray, 7);
-   MakeLabel("f2", 10, 310, "trades are placed. Not predictive. algotraders24.ai", clrSlateGray, 7);
+   MakeLabel("n1", 10, 352 - 14, "Rules are only added with later dates, never edited.", clrSlateGray, 7);
+   MakeLabel("f1", 10, 358, "Research ledger, not a signal. It replays closed bars; no", clrSlateGray, 7);
+   MakeLabel("f2", 10, 370, "trades are placed. Not predictive. algotraders24.ai", clrSlateGray, 7);
+  }
+
+//--- hawkish-surprise events for rule R5 (calendar -> same clock as the bars)
+datetime gEvT[];
+int      gEvD[];
+int      gEvN = 0;
+string   gSurpNames[10] = {"Nonfarm Payrolls", "Average Hourly Earnings m/m", "CPI m/m", "CPI y/y", "Core CPI m/m", "Core PCE Price Index m/m", "Retail Sales m/m", "ISM Manufacturing PMI", "ISM Non-Manufacturing PMI", "GDP q/q"};
+
+void LoadSurprises(const datetime from)
+  {
+   gEvN = 0;
+   MqlCalendarValue v[];
+   int cn = CalendarValueHistory(v, from, TimeTradeServer() + 86400, NULL, "USD");
+   if(cn <= 0) return;
+   ArrayResize(gEvT, cn); ArrayResize(gEvD, cn);
+   for(int i = 0; i < cn; i++)
+     {
+      if(v[i].actual_value == LONG_MIN || v[i].forecast_value == LONG_MIN) continue;
+      MqlCalendarEvent e;
+      if(!CalendarEventById(v[i].event_id, e) || (int)e.importance != CALENDAR_IMPORTANCE_HIGH) continue;
+      bool ok = false;
+      for(int k = 0; k < 10; k++) if(e.name == gSurpNames[k]) { ok = true; break; }
+      if(!ok || v[i].actual_value == v[i].forecast_value) continue;
+      datetime t = v[i].time;
+      if(InpCalUtc) t += (datetime)((long)AT24SC_OffsetHoursAtUtc(gClk, t) * 3600);
+      gEvT[gEvN] = t; gEvD[gEvN] = (v[i].actual_value > v[i].forecast_value) ? -1 : 1; gEvN++;
+     }
+   for(int i = 1; i < gEvN; i++)      // the core needs events in time order
+     {
+      datetime tt = gEvT[i]; int dd = gEvD[i]; int j = i - 1;
+      while(j >= 0 && gEvT[j] > tt) { gEvT[j + 1] = gEvT[j]; gEvD[j + 1] = gEvD[j]; j--; }
+      gEvT[j + 1] = tt; gEvD[j + 1] = dd;
+     }
   }
 
 bool Rebuild()
@@ -182,6 +216,7 @@ bool Rebuild()
    for(int r = 0; r < NRULES; r++)
      {
       if(gRule[r] == 3) AT24FL_RunRelay(m, tt, oo, cc, ghh, gdd, StartOf(r), gSt[r]);
+      else if(gRule[r] == 4) { LoadSurprises(StartOf(r) - 86400); AT24FL_RunEvents(m, tt, oo, cc, gEvN, gEvT, gEvD, StartOf(r), gSt[r]); }
       else AT24FL_Run(gRule[r], gParam[r], m, tt, oo, hh, ll, cc, hrr, StartOf(r), gSt[r]);
      }
    gBars = m; gFirstValid = tt[0];
@@ -189,9 +224,19 @@ bool Rebuild()
    return true;
   }
 
+int      gCalCn = -1;
+datetime gCalChk = 0;
 void Refresh()
   {
    RefreshClock();
+   //--- the calendar syncs in the background: when the number of USD calendar values changes, rebuild (rule R5 depends on it)
+   if(TimeCurrent() - gCalChk >= 60)
+     {
+      gCalChk = TimeCurrent();
+      MqlCalendarValue cv[];
+      int cn = CalendarValueHistory(cv, D'2026.11.01', TimeTradeServer() + 86400, NULL, "USD");
+      if(cn != gCalCn) { if(gCalCn >= 0) gBuiltAt = 0; gCalCn = cn; }
+     }
    datetime hourNow = (datetime)(((long)TimeCurrent() / 3600) * 3600);
    if(gBuiltAt != hourNow && gClk.ok) { if(Rebuild()) gBuiltAt = hourNow; }
   }
@@ -210,6 +255,7 @@ int OnInit()
    //--- the register: R1-R3 are registered on 2026-11-10 (UTC), R4 on 2026-11-11. Add future rules BELOW with later dates; never edit these.
    for(int r = 0; r < 3; r++) gReg[r] = D'2026.11.10 00:00';
    gReg[3] = D'2026.11.11 00:00';
+   gReg[4] = D'2026.11.12 00:00';
    bool tester = (bool)MQLInfoInteger(MQL_TESTER);
    bool visual = (bool)MQLInfoInteger(MQL_VISUAL_MODE);
    gDash = InpShowDash && (!tester || (InpDashInTester && visual));

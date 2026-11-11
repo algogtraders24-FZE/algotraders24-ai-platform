@@ -4,7 +4,7 @@ void OnStart()
   {
    ChartSetInteger(0, CHART_SCALE, 3);
    ChartSetInteger(0, CHART_AUTOSCROLL, true);
-   int h = iCustom(_Symbol, PERIOD_H1, "AT24Indicators\\AT24_Forward_Ledger", "", D'2025.06.01');
+   int h = iCustom(_Symbol, PERIOD_H1, "AT24Indicators\\AT24_Forward_Ledger", "", D'2025.06.01', 30, true);   // 4th slot = InpCalUtc (offline terminal calendar is UTC)
    ChartIndicatorAdd(0, 0, h);
    Sleep(45000);
    ChartRedraw(0);
