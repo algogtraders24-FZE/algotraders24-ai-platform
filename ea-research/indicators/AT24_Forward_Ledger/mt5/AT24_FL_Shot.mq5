@@ -3,7 +3,7 @@ void OnStart()
   {
    ChartSetInteger(0, CHART_SCALE, 3);
    ChartSetInteger(0, CHART_AUTOSCROLL, true);
-   int h = iCustom(_Symbol, PERIOD_H1, "AT24Indicators\\AT24_Forward_Ledger");
+   int h = iCustom(_Symbol, PERIOD_H1, "AT24Indicators\\AT24_Forward_Ledger", "", (datetime)0, 30, true);
    ChartIndicatorAdd(0, 0, h);
    Sleep(45000);
    ChartRedraw(0);

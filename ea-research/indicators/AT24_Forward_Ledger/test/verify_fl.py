@@ -7,6 +7,8 @@ rows = list(csv.reader(open(sys.argv[1])))
 meta = [r for r in rows if r[0] == "meta"][0]; n0, v0 = int(meta[1]), int(meta[2])
 bars = [(int(r[1]), int(r[2]), int(r[3]), float(r[4]), float(r[5]), float(r[6]), float(r[7])) for r in rows if r[0] == "bar"]
 GM = [b[1] for b in bars]
+EVR = [(int(r[1]), r[2], int(r[3]), int(r[4])) for r in rows if r[0] == "ev"]
+SN = {"Nonfarm Payrolls", "Average Hourly Earnings m/m", "CPI m/m", "CPI y/y", "Core CPI m/m", "Core PCE Price Index m/m", "Retail Sales m/m", "ISM Manufacturing PMI", "ISM Non-Manufacturing PMI", "GDP q/q"}
 res = {(int(r[1]), int(r[2])): [float(x) for x in r[3:]] for r in rows if r[0] == "res"}
 NY, UTC = ZoneInfo("America/New_York"), timezone.utc
 bad_hr = sum(1 for t, g, hr, *_ in bars if datetime.fromtimestamp(g, UTC).astimezone(NY).hour != hr)
@@ -44,10 +46,34 @@ def run_relay(start):
     mean = sum(rets) / m; var = (sum(x * x for x in rets) - m * mean * mean) / (m - 1) if m > 1 else 0.0; sd = math.sqrt(max(var, 0))
     md = sum(dirs) / m; adj = mean - (sum(hd) / m) * drift
     return [m, mean, sd, mean / (sd / math.sqrt(m)) if sd > 0 else 0, 100 * sum(x > 0 for x in rets) / m, sum(rets), md, drift, adj, adj / (sd / math.sqrt(m)) if sd > 0 else 0]
+def run_events(start):
+    import bisect
+    ds = [math.log(C[i] / O[i]) for i in range(n) if T[i] >= start]; drift = 1e4 * sum(ds) / len(ds) if ds else 0.0
+    off = [T[i] - GM[i] for i in range(n)]                # server minus GMT, per bar (independent clock conversion)
+    ev = []
+    for t_utc, name, a, f in EVR:
+        if name not in SN or a == f: continue
+        k = min(bisect.bisect_left(GM, t_utc), n - 1)
+        ev.append((t_utc + off[k], -1 if a > f else 1))
+    ev.sort(); byhour = {}
+    for t, d in ev: byhour[t // 3600 * 3600] = byhour.get(t // 3600 * 3600, 0) + d
+    idx = {T[i]: i for i in range(n)}; rets = []; dirs = []; last = -1
+    for hb in sorted(byhour):
+        net = byhour[hb]
+        if net == 0: continue
+        e = hb + 3600; bi = idx.get(e)
+        if bi is None or bi + 1 >= n or T[bi + 1] != e + 3600 or T[bi] < start or bi <= last: continue
+        d = 1 if net > 0 else -1; rets.append(1e4 * d * math.log(C[bi + 1] / O[bi])); dirs.append(d); last = bi + 1
+    m = len(rets)
+    if m == 0: return [0] * 10
+    mean = sum(rets) / m; var = (sum(x * x for x in rets) - m * mean * mean) / (m - 1) if m > 1 else 0.0; sd = math.sqrt(max(var, 0))
+    md = sum(dirs) / m; adj = mean - md * 2 * drift
+    return [m, mean, sd, mean / (sd / math.sqrt(m)) if sd > 0 else 0, 100 * sum(x > 0 for x in rets) / m, sum(rets), md, drift, adj, adj / (sd / math.sqrt(m)) if sd > 0 else 0]
 def run(rule, start):
+    if rule == 4: return run_events(start)
     if rule == 3: return run_relay(start)
     ds = [math.log(C[i] / O[i]) for i in range(n) if T[i] >= start]; drift = 1e4 * sum(ds) / len(ds) if ds else 0.0
-    hold = (1, 4, 24, 7)[rule]; last = -1; rets = []; dirs = []
+    hold = (1, 4, 24, 7, 2)[rule]; last = -1; rets = []; dirs = []
     for i in range(15, n):
         entry = ex = -1; d = 0
         if rule == 0:
