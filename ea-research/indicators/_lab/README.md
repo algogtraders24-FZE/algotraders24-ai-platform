@@ -16,3 +16,4 @@ Lab 03 data: the export is kept outside the repository (E:/at24_lab_data); `pyth
 - Lab 05 (2026-11-11): `py/lab05_coiled_spring_and_levels.py`, `reports/LAB-05-REPORT.md` - compression breakouts, round numbers, quiet-London coiled spring (all no finding; the coiled-spring belief has the wrong sign).
 - Lab 06 (2026-11-11): `py/lab06_calendar_and_surprises.py`, `reports/LAB-06-REPORT.md` - turn of the month, hawkish-surprise reaction (candidate, fails train), weekend gap (train not testable).
 - Lab C1 (2026-11-11): `py/lab_c1_crypto_funding_weekend.py`, `reports/LAB-C1-CRYPTO-REPORT.md` - BTC/ETH funding extremes and weekend effect (no finding; funding carry collapsed to ~3.5 %/yr). Strategy memo: `docs/CRYPTO-RD-2026-11-11.md`.
+- Lab C2 (2026-11-11): `py/lab_c2_btc_price_structure.py`, `reports/LAB-C2-BTC-STRUCTURE-REPORT.md` - stable BTC intraday/weekend/funding-hour structure (descriptive); memo `docs/CRYPTO-INDICATOR-RD-2026-11-11.md`.
