@@ -8,10 +8,11 @@ import PageHero from "@/components/marketing/PageHero";
 import { MARKETS } from "@/services/markets/hub";
 import { blogReaderService } from "@/services/publishing/blog-reader.service";
 import { breadcrumbJsonLd, jsonLdString } from "@/lib/seo/seo";
+import { PAGE_TEXT, pageTitle } from "@/lib/seo/titles";
 
 export const metadata: Metadata = {
-  title: "Live markets: expected range, key levels and macro drivers",
-  description: "Gold, silver, EUR/USD, GBP/USD, USD/JPY, Bitcoin and Ethereum: how far each typically moves over the next 12 and 24 hours (self-checked), key levels, macro drivers and upcoming releases. No buy or sell calls.",
+  title: pageTitle(PAGE_TEXT.marketsIndex.title),
+  description: PAGE_TEXT.marketsIndex.description,
   alternates: { canonical: "/markets" },
   openGraph: { title: "Live markets - Algotraders24 AI", description: "Measured, self-checked market context for seven instruments. Never a buy or sell call.", type: "website", url: "/markets", images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Algotraders24 AI live markets" }] },
 };

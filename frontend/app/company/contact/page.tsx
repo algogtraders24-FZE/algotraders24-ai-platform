@@ -11,10 +11,11 @@ import Footer from "@/sections/Footer";
 import PageHero from "@/components/marketing/PageHero";
 import { SOCIAL_PROFILES } from "@/config/social";
 import SocialIcon from "@/components/brand/SocialIcon";
+import { PAGE_TEXT } from "@/lib/seo/titles";
 
 export const metadata: Metadata = {
   title: "Contact",
-  description: "Get in touch with the Algotraders24 AI team.",
+  description: PAGE_TEXT.contact.description,
   alternates: { canonical: "/company/contact" },
 };
 

@@ -12,6 +12,7 @@ import { marketBySlug } from "@/services/markets/hub";
 import { getMarketHub } from "@/services/markets/production";
 import { breadcrumbJsonLd, jsonLdString } from "@/lib/seo/seo";
 import { MIN_SAMPLE, TARGET_COVERAGE, type CalibrationRow } from "@/services/calibration/forecast";
+import { marketDescription, marketTitle } from "@/lib/seo/titles";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +20,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const def = marketBySlug(slug);
   if (!def) return { title: "Market not found", robots: { index: false, follow: false } };
-  const title = `${def.longName}: expected range, key levels and macro drivers`;
-  const description = `Live ${def.name} context: how far it typically moves over the next 12 and 24 hours (checked against what happened), yesterday's high and low, macro drivers and upcoming high-impact events. No buy or sell calls.`;
+  const title = marketTitle(def.name);
+  const description = marketDescription(def.name);
   return {
     title,
     description,

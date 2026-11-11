@@ -7,10 +7,11 @@ import type { LucideIcon } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
 import PageHero from "@/components/marketing/PageHero";
+import { PAGE_TEXT } from "@/lib/seo/titles";
 
 export const metadata: Metadata = {
   title: "Company",
-  description: "About Algotraders24 AI, our vision, and how to reach us.",
+  description: PAGE_TEXT.company.description,
   alternates: { canonical: "/company" },
 };
 

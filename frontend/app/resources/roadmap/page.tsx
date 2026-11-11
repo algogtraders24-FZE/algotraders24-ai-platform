@@ -8,11 +8,11 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
 import PageHero from "@/components/marketing/PageHero";
 import Card from "@/components/ui/Card";
+import { PAGE_TEXT } from "@/lib/seo/titles";
 
 export const metadata: Metadata = {
   title: "Roadmap",
-  description:
-    "Where Algotraders24 AI is heading over the next five years: from a trusted retail platform to a marketplace, professional tools, a developer platform and institutional reporting.",
+  description: PAGE_TEXT.roadmap.description,
   alternates: { canonical: "/resources/roadmap" },
 };
 

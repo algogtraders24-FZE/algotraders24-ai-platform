@@ -27,11 +27,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const base = `${slug}-live-results-${now.toISOString().slice(0, 10)}`;
   if (format === "csv") {
     return new Response(resultsCsv(res.results, now.toISOString().slice(0, 10)), {
-      headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="${base}.csv"`, "cache-control": cache, "x-content-type-options": "nosniff" },
+      headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="${base}.csv"`, "cache-control": cache, "x-content-type-options": "nosniff", "x-robots-tag": "noindex, nofollow" },
     });
   }
   const bytes = await renderResultsPdf(res.results, now);
   return new Response(Buffer.from(bytes), {
-    headers: { "content-type": "application/pdf", "content-disposition": `attachment; filename="${base}.pdf"`, "cache-control": cache, "x-content-type-options": "nosniff" },
+    headers: { "content-type": "application/pdf", "content-disposition": `attachment; filename="${base}.pdf"`, "cache-control": cache, "x-content-type-options": "nosniff", "x-robots-tag": "noindex, nofollow" },
   });
 }
