@@ -1,0 +1,276 @@
+//@version=5
+// AT24 Setup Pro - setups with entry/stop/target levels drawn before the trade, and a per-setup-type scorecard on this chart's own history.
+// Research and planning tool. Places no orders. Not a signal. algotraders24.ai
+indicator("AT24 Setup Pro", shorttitle="AT24 SETUP", overlay=true, max_lines_count=60, max_labels_count=60)
+
+grp1 = "Setups"
+usePb = input.bool(true, "Trend pullback setups", group=grp1)
+useSq = input.bool(true, "Squeeze release setups", group=grp1)
+stopAtr = input.float(1.5, "Stop distance in ATR(14) of the signal bar", minval=0.2, step=0.1, group=grp1)
+rr = input.float(2.0, "Target as a multiple of the stop distance", minval=0.5, step=0.1, group=grp1)
+maxHold = input.int(40, "Bars before a trade is closed at the market (timed exit)", minval=5, maxval=300, group=grp1)
+cost = input.float(0.20, "Round-turn cost in PRICE units (TradingView has no spread data: set it for your symbol)", minval=0.0, step=0.05, group=grp1)
+grp2 = "Chart"
+drawN = input.int(12, "Draw the last N setups on the chart (0 = none)", minval=0, maxval=25, group=grp2)
+grp3 = "Dashboard"
+showDash = input.bool(true, "Show dashboard", group=grp3)
+dashPos = input.string("top right", "Position", options=["top left","top right","bottom left","bottom right"], group=grp3)
+
+// ---- per-bar signals (closed bars) ----
+ef = ta.ema(close, 20)
+em = ta.ema(close, 50)
+es = ta.ema(close, 200)
+atr = ta.atr(14)
+trendOf(float f, float m, float s, float a, float m5) =>
+    sl = m - m5
+    f > m and m > s and sl > 0.10 * a ? 1 : f < m and m < s and -sl > 0.10 * a ? -1 : 0
+trend = bar_index >= 205 ? trendOf(ef, em, es, atr, em[5]) : 0
+touchUp = trend == 1 and low <= ef and (low[1] > ef[1] or nz(trend[1]) != 1)
+touchDn = trend == -1 and high >= ef and (high[1] < ef[1] or nz(trend[1]) != -1)
+pbDir = bar_index > 21 ? (touchUp ? 1 : touchDn ? -1 : 0) : 0
+
+sma20 = ta.sma(close, 20)
+sd20 = ta.stdev(close, 20)
+squeeze = bar_index >= 20 and (sma20 + 2.0 * sd20) < (sma20 + 1.5 * atr) and (sma20 - 2.0 * sd20) > (sma20 - 1.5 * atr)
+var int run = 0
+int runPrev = run
+run := squeeze ? run + 1 : 0
+sqDir = (not squeeze) and runPrev >= 6 and atr > 0 ? (close >= sma20 ? 1 : -1) : 0
+
+// trend state of other timeframes (same ribbon rule)
+[f15, m15, s15, a15, m515] = request.security(syminfo.tickerid, "15", [ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 200), ta.atr(14), ta.ema(close, 50)[5]])
+[f60, m60, s60, a60, m560] = request.security(syminfo.tickerid, "60", [ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 200), ta.atr(14), ta.ema(close, 50)[5]])
+[f240, m240, s240, a240, m5240] = request.security(syminfo.tickerid, "240", [ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 200), ta.atr(14), ta.ema(close, 50)[5]])
+[f1d, m1d, s1d, a1d, m51d] = request.security(syminfo.tickerid, "D", [ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 200), ta.atr(14), ta.ema(close, 50)[5]])
+t15 = trendOf(f15, m15, s15, a15, m515)
+t60 = trendOf(f60, m60, s60, a60, m560)
+t240 = trendOf(f240, m240, s240, a240, m5240)
+t1d = trendOf(f1d, m1d, s1d, a1d, m51d)
+
+var float[] aO = array.new_float()
+var float[] aH = array.new_float()
+var float[] aL = array.new_float()
+var float[] aC = array.new_float()
+var float[] aA = array.new_float()
+var int[] aP = array.new_int()
+var int[] aQ = array.new_int()
+var int[] aI = array.new_int()
+if barstate.isconfirmed
+    array.push(aO, open)
+    array.push(aH, high)
+    array.push(aL, low)
+    array.push(aC, close)
+    array.push(aA, nz(atr))
+    array.push(aP, pbDir)
+    array.push(aQ, sqDir)
+    array.push(aI, bar_index)
+
+// walk every signal forward on the bars; returns arrays via the out arrays: idx, dir, entry, sl, tp, exit, result, r
+simulate(int[] sig, bool[] dummy, int n, float[] sIdx, float[] sDir, float[] sEntry, float[] sSl, float[] sTp, float[] sExit, float[] sRes, float[] sR) =>
+    int lastExit = -1
+    for i = 1 to n - 2
+        d = array.get(sig, i)
+        a = array.get(aA, i)
+        if d != 0 and a > 0.0 and i > lastExit
+            entry = array.get(aO, i + 1)
+            risk = stopAtr * a
+            sl = entry - d * risk
+            tp = entry + d * rr * risk
+            float res = 2.0
+            int ex = -1
+            float r = 0.0
+            last = math.min(n - 1, i + maxHold)
+            for j = i + 1 to last
+                slHit = d > 0 ? array.get(aL, j) <= sl : array.get(aH, j) >= sl
+                tpHit = d > 0 ? array.get(aH, j) >= tp : array.get(aL, j) <= tp
+                if slHit
+                    res := -1.0
+                    ex := j
+                    r := -1.0 - cost / risk
+                    break
+                if tpHit
+                    res := 1.0
+                    ex := j
+                    r := rr - cost / risk
+                    break
+                if j == i + maxHold
+                    res := 0.0
+                    ex := j
+                    r := d * (array.get(aC, j) - entry) / risk - cost / risk
+                    break
+            array.push(sIdx, i)
+            array.push(sDir, d)
+            array.push(sEntry, entry)
+            array.push(sSl, sl)
+            array.push(sTp, tp)
+            array.push(sExit, ex)
+            array.push(sRes, res)
+            array.push(sR, r)
+            lastExit := res == 2.0 ? n : ex
+    n
+
+// score of a result list: [n, wins, hitPct, avgR, sumR, pFlip, open]
+score(float[] res, float[] rs) =>
+    int cnt = 0
+    int wins = 0
+    int opn = 0
+    float sum = 0.0
+    r2 = array.new_float()
+    for i = 0 to array.size(res) - 1
+        if array.get(res, i) == 2.0
+            opn += 1
+        else
+            v = array.get(rs, i)
+            array.push(r2, v)
+            cnt += 1
+            sum += v
+            if v > 0
+                wins += 1
+    float avg = cnt > 0 ? sum / cnt : 0.0
+    float pFlip = 1.0
+    if cnt >= 2
+        int seed = 20261111
+        int ge = 0
+        flips = 4000
+        for f = 1 to flips
+            float s = 0.0
+            for k = 0 to cnt - 1
+                seed := (seed * 1103515245 + 12345) % 2147483648
+                s += int(math.floor(seed / 65536.0)) % 2 == 0 ? array.get(r2, k) : -array.get(r2, k)
+            if s >= sum
+                ge += 1
+        pFlip := (ge + 1.0) / (flips + 1.0)
+    [cnt, wins, cnt > 0 ? 100.0 * wins / cnt : 0.0, avg, sum, pFlip, opn]
+
+verdictOf(int n, float avg, float p) =>
+    n < 30 ? "too few setups (" + str.tostring(n) + " of 30)" : avg > 0 and p < 0.05 ? "POSITIVE ON THIS HISTORY (p " + str.tostring(p, "0.000") + ")" : avg < 0 and p > 0.95 ? "NEGATIVE ON THIS HISTORY" : "NO EDGE SHOWN (p " + str.tostring(p, "0.00") + ")"
+verdictCol(int n, float avg, float p) =>
+    n < 30 ? color.gray : avg > 0 and p < 0.05 ? color.lime : avg < 0 and p > 0.95 ? color.red : #E6B450
+trendTxt(int t) => t > 0 ? "UP" : t < 0 ? "DOWN" : "RANGE"
+sg2(x) => (x >= 0 ? "+" : "") + str.tostring(x, "0.00")
+
+pos = switch dashPos
+    "top left" => position.top_left
+    "top right" => position.top_right
+    "bottom left" => position.bottom_left
+    => position.bottom_right
+var table t = table.new(pos, 2, 12, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+var line[] lns = array.new_line()
+var label[] lbs = array.new_label()
+
+if barstate.islast
+    while array.size(lns) > 0
+        line.delete(array.pop(lns))
+    while array.size(lbs) > 0
+        label.delete(array.pop(lbs))
+    n = array.size(aC)
+    ok = n > 500
+    float[] pIdx = array.new_float()
+    float[] pDir = array.new_float()
+    float[] pEn = array.new_float()
+    float[] pSl = array.new_float()
+    float[] pTp = array.new_float()
+    float[] pEx = array.new_float()
+    float[] pRes = array.new_float()
+    float[] pR = array.new_float()
+    float[] qIdx = array.new_float()
+    float[] qDir = array.new_float()
+    float[] qEn = array.new_float()
+    float[] qSl = array.new_float()
+    float[] qTp = array.new_float()
+    float[] qEx = array.new_float()
+    float[] qRes = array.new_float()
+    float[] qR = array.new_float()
+    bool[] dm = array.new_bool()
+    int[] pSig = array.new_int(n, 0)
+    int[] qSig = array.new_int(n, 0)
+    if ok
+        for i = 0 to n - 1
+            if usePb
+                array.set(pSig, i, array.get(aP, i))
+            if useSq
+                array.set(qSig, i, array.get(aQ, i))
+        simulate(pSig, dm, n, pIdx, pDir, pEn, pSl, pTp, pEx, pRes, pR)
+        simulate(qSig, dm, n, qIdx, qDir, qEn, qSl, qTp, qEx, qRes, qR)
+    [pn, pw, ph, pa, ps, pp, po] = score(pRes, pR)
+    [qn, qw, qh, qa, qs, qp, qo] = score(qRes, qR)
+    // live setup on the last closed bar (entry = next open, shown at the last close)
+    int actDir = 0
+    int actType = -1
+    if ok
+        if usePb and array.get(aP, n - 1) != 0
+            actDir := array.get(aP, n - 1)
+            actType := 0
+        else if useSq and array.get(aQ, n - 1) != 0
+            actDir := array.get(aQ, n - 1)
+            actType := 1
+    lastC = n > 0 ? array.get(aC, n - 1) : close
+    lastA = n > 0 ? array.get(aA, n - 1) : 0.0
+    aEntry = lastC
+    aSl = lastC - actDir * stopAtr * lastA
+    aTp = lastC + actDir * rr * stopAtr * lastA
+    // draw the last N setups
+    if ok and drawN > 0
+        int total = array.size(pIdx) + array.size(qIdx)
+        int drawn = 0
+        // newest first: merge by walking both lists from the end
+        int ip = array.size(pIdx) - 1
+        int iq = array.size(qIdx) - 1
+        while drawn < drawN and (ip >= 0 or iq >= 0)
+            bool takeP = ip >= 0 and (iq < 0 or array.get(pIdx, ip) >= array.get(qIdx, iq))
+            float sd = takeP ? array.get(pDir, ip) : array.get(qDir, iq)
+            float se = takeP ? array.get(pEn, ip) : array.get(qEn, iq)
+            float ssl = takeP ? array.get(pSl, ip) : array.get(qSl, iq)
+            float stp = takeP ? array.get(pTp, ip) : array.get(qTp, iq)
+            float sx = takeP ? array.get(pEx, ip) : array.get(qEx, iq)
+            float sr = takeP ? array.get(pRes, ip) : array.get(qRes, iq)
+            float si = takeP ? array.get(pIdx, ip) : array.get(qIdx, iq)
+            int bi = array.get(aI, int(si)) + 1
+            int bx = sx >= 0 ? array.get(aI, int(sx)) : bar_index
+            col = sr == 1.0 ? color.lime : sr == -1.0 ? color.red : sr == 0.0 ? #E6B450 : color.white
+            endP = sr == 1.0 ? stp : sr == -1.0 ? ssl : se
+            array.push(lns, line.new(bi, se, bx, endP, color=col, width=2, style=line.style_dotted))
+            array.push(lbs, label.new(array.get(aI, int(si)), se, sd > 0 ? "L" : "S", style=sd > 0 ? label.style_label_up : label.style_label_down, color=color.new(sd > 0 ? color.aqua : color.orange, 20), textcolor=color.black, size=size.tiny))
+            drawn += 1
+            if takeP
+                ip -= 1
+            else
+                iq -= 1
+        if actType >= 0
+            x2 = bar_index + 12
+            array.push(lns, line.new(bar_index, aEntry, x2, aEntry, color=color.white))
+            array.push(lns, line.new(bar_index, aSl, x2, aSl, color=color.red))
+            array.push(lns, line.new(bar_index, aTp, x2, aTp, color=color.lime))
+    if showDash
+        table.cell(t, 0, 0, "AT24", text_color=#E8B84A, text_size=size.large)
+        table.cell(t, 1, 0, "SETUP PRO", text_color=#E8B84A, text_size=size.normal, text_halign=text.align_left)
+        if not ok
+            table.cell(t, 0, 1, "State", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 1, "LOADING HISTORY (NEED 500+ BARS)", text_color=color.gray, text_size=size.normal, text_halign=text.align_left)
+        else
+            if actType >= 0
+                table.cell(t, 0, 1, "Setup", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+                table.cell(t, 1, 1, (actDir > 0 ? "LONG  " : "SHORT  ") + (actType == 0 ? "pullback" : "squeeze") + " setup:  entry ~" + str.tostring(aEntry, format.mintick) + "  stop " + str.tostring(aSl, format.mintick) + "  target " + str.tostring(aTp, format.mintick), text_color=actDir > 0 ? color.lime : color.red, text_size=size.small, text_halign=text.align_left)
+            else
+                table.cell(t, 0, 1, "Setup", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+                table.cell(t, 1, 1, "NO SETUP ON THE LAST CLOSED BAR  (stop " + str.tostring(stopAtr, "0.0") + " ATR, target " + str.tostring(rr, "0.0") + " R, cost " + str.tostring(cost, "0.00") + ")", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            allUp = t15 > 0 and t60 > 0 and t240 > 0 and t1d > 0
+            allDn = t15 < 0 and t60 < 0 and t240 < 0 and t1d < 0
+            table.cell(t, 0, 2, "Trend", text_color=#E8B84A, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 2, "M15 " + trendTxt(t15) + "   H1 " + trendTxt(t60) + "   H4 " + trendTxt(t240) + "   D1 " + trendTxt(t1d) + "  -  " + (allUp ? "all four UP" : allDn ? "all four DOWN" : "mixed"), text_color=allUp ? color.lime : allDn ? color.red : color.silver, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 3, "Scorecard", text_color=#E8B84A, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 3, "on this chart's own history (" + str.tostring(n) + " bars)", text_color=#E8B84A, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 4, "Trend pullback", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 4, usePb ? str.tostring(pn) + " setups   hit " + str.tostring(ph, "0") + "%   average " + sg2(pa) + " R after cost   total " + sg2(ps) + " R" : "off", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 5, "", text_size=size.tiny)
+            table.cell(t, 1, 5, usePb ? verdictOf(pn, pa, pp) : " ", text_color=verdictCol(pn, pa, pp), text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 6, "Squeeze release", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 6, useSq ? str.tostring(qn) + " setups   hit " + str.tostring(qh, "0") + "%   average " + sg2(qa) + " R after cost   total " + sg2(qs) + " R" : "off", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 7, "", text_color=color.white, text_size=size.tiny)
+            table.cell(t, 1, 7, useSq ? verdictOf(qn, qa, qp) : " ", text_color=verdictCol(qn, qa, qp), text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 8, "Read it", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 8, "Levels are drawn before the trade; every setup is walked forward on the bars (stop first if both hit in one bar). No edge shown = the setup did not beat luck here.", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 9, "Note", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 9, "Past results on this chart do not predict future results. A TradingView chart holds fewer bars than a broker terminal, so counts are smaller.", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 10, "Research tool.", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
+            table.cell(t, 1, 10, "Not a signal. algotraders24.ai", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
