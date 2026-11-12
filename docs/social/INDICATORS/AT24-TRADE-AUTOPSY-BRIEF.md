@@ -14,7 +14,7 @@ Most traders only see profit and loss. The Autopsy draws your closed trades on t
 ## Claims you must NOT make
 - No profit or win-rate promise; "price kept running" is hindsight, not proof that holding longer is better.
 - Do not show the SAMPLE screenshot as real trading results.
-- Not yet verified on a real account history (see the test record); do not claim that until one demo run is done.
+- Verified on one real demo account history (257 closed trades); say "ran once on a demo with 257 closed trades", nothing more. Do not publish the demo account numbers as results.
 
 ## Footer text
 "History-only review tool, not a signal or advice. No trades are placed. Not financial advice. algotraders24.ai"
