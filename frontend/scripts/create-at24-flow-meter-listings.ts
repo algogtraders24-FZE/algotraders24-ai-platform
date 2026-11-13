@@ -19,7 +19,7 @@ const FOOT = `\n\nDescriptive history on your own broker data. Context tool, not
 
 const LICENCE = `\n\nLICENCE KEY: the download is protected by your AT24 licence key. One key works on ONE trading account at a time and only for this product; you can move it to another account yourself (2 changes per 30 days) from Dashboard > Purchases. After buying, paste the key from your purchase page into the EA input "InpLicenseKey" and allow https://www.algotraders24.ai under Tools > Options > Expert Advisors > Allow WebRequest. The Strategy Tester needs no key.`;
 
-const RESULT = `BTCUSD M15 on an IC Markets demo feed: the badge read BAR PROXY (estimate) because the terminal had no recent tick history for the tick modes; the histogram, the daily cumulative line and two delta divergence marks on closed bars were drawn, and the terminal reported no slow-indicator warning. This demo feed carries no buy/sell flags, so a real delta mode is not available on it.`;
+const RESULT = `BTCUSD M15 on an IC Markets demo feed: with the tick bars input set to 5 the badge read TICK-RULE ESTIMATE (last 5 bars from ticks, older bars from the bar proxy); with the default input the demo had no tick history and the badge read BAR PROXY. The histogram, the daily cumulative line and two delta divergence marks on closed bars were drawn, and the terminal reported no slow-indicator warning. This demo feed carries no buy/sell flags, so a real delta mode is not available on it.`;
 
 type Product = { slug: string; title: string; tradingSystemId: string; version: string; platform: string; zip: string; banner: string; tags: string[]; description: string };
 
@@ -48,7 +48,7 @@ On most forex and CFD feeds the delta is an estimate, and the badge says so. Div
 
 It is delivered as a non-trading utility Expert Advisor with the indicator built into the file (MT5 does not allow licence checks inside indicators): attach it to a chart and the sub-window appears.
 
-What was verified: compiles with 0 errors and 0 warnings in the real MetaEditor and runs on a real MT5 chart (see the screenshot). The calculation matches an independent Python calculation on 83,924 real exchange trades and on 3,000 XAUUSD bars. On the IC Markets demo used for testing there are no buy or sell flags, so the badge read BAR PROXY. Not verified: the tick-based modes on a connected terminal, and the alert.
+What was verified: compiles with 0 errors and 0 warnings in the real MetaEditor and runs on a real MT5 chart (see the screenshot). The calculation matches an independent Python calculation on 83,924 real exchange trades and on 3,000 XAUUSD bars. On the IC Markets demo used for testing there are no buy or sell flags: with the tick bars input set to 5 the badge read TICK-RULE ESTIMATE, and with the default input (the demo keeps almost no tick history) it read BAR PROXY. Many brokers keep little tick history, so the number of tick bars may be smaller than the input. Not verified: a REAL delta feed on a connected terminal, and the alert.
 ${RESULT}
 Not verified: live-money use, alerts beyond a screenshot, the licence check with a real purchase. MetaTrader 5 only.${FOOT}${LICENCE}`,
   },

@@ -47,7 +47,7 @@ Correlation describes the past and can change at any time. It is not a forecast.
 
 It is delivered as a non-trading utility Expert Advisor with the indicator built into the file (MT5 does not allow licence checks inside indicators): attach it to any chart and the panel appears. Edit the pair list to the exact names your broker uses.
 
-What was verified: compiles with 0 errors and 0 warnings in the real MetaEditor and runs on a real MT5 chart with broker symbols (see the screenshot). The calculation matches an independent Python calculation, including a known-answer check. Not verified: the status-change alert on a live connected chart and a 20-pair watchlist on a slow feed.
+What was verified: compiles with 0 errors and 0 warnings in the real MetaEditor and runs on a real MT5 chart with broker symbols (see the screenshot). The calculation matches an independent Python calculation, including a known-answer check. Not verified: the status-change alert on a live connected chart and a 20-pair watchlist on a slow feed. The terminal loads each symbol's daily history one by one, so use a short pair list the first time; a long list fills in gradually.
 ${RESULT}
 Not verified: live-money use, alerts beyond a screenshot, the licence check with a real purchase. MetaTrader 5 only.${FOOT}${LICENCE}`,
   },
