@@ -28,9 +28,9 @@ const PRODUCTS: Product[] = [
     slug: "at24-setup-scanner",
     title: "AT24 Setup Scanner",
     tradingSystemId: "AT24-SETUP-SCANNER",
-    version: "1.00",
+    version: "1.01",
     platform: "MT5",
-    zip: "AT24_SetupScanner_MT5_v1.00.zip",
+    zip: "AT24_SetupScanner_MT5_v1.01.zip",
     banner: "setup-scanner-banner.png",
     tags: ["indicator", "scanner", "watchlist", "scorecard", "research", "dashboard", "multi-symbol", "mt5", "demo-tested"],
     description: `AT24 Setup Scanner puts your watchlist in one table and shows which symbols have a setup now and how each setup type did before.
@@ -47,7 +47,7 @@ A PASS is in-sample and may be luck, so treat it as a lead to re-check on new da
 
 It is delivered as a non-trading utility Expert Advisor with the indicator built into the file (MT5 does not allow licence checks inside indicators): attach it to any chart and the table appears.
 
-What was verified: compiles with 0 errors and 0 warnings in the real MetaEditor and runs on a real MT5 chart with eight broker symbols (see the screenshot). The engine matches an independent Python calculation on two symbols. Also checked on a live demo feed: a live setup was shown with its levels, the new-setup alert fired once per symbol per bar over a 12-minute run on 19 symbols, and a symbol the broker does not offer is shown as not found instead of stopping the table. Scanning many symbols on a very low timeframe can be slow (one reload took about 6 seconds with 19 symbols on M1), so an hourly or higher timeframe is the sensible choice. Push notifications were not tested.
+What was verified: compiles with 0 errors and 0 warnings in the real MetaEditor and runs on a real MT5 chart with eight broker symbols (see the screenshot). The engine matches an independent Python calculation on two symbols. Also checked on a live demo feed: a live setup was shown with its levels, the new-setup alert fired once per symbol per bar over a 12-minute run on 19 symbols, and a symbol the broker does not offer is shown as not found instead of stopping the table. Version 1.01 loads the watchlist in stages so the chart stays responsive; an hourly or higher timeframe is the sensible choice for long watchlists. Push notifications were not tested.
 ${RESULT}
 Not verified: live-money use, alerts beyond a screenshot, the licence check with a real purchase. MetaTrader 5 only.${FOOT}${LICENCE}`,
   },
