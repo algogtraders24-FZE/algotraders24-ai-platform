@@ -47,7 +47,7 @@ A PASS is in-sample and may be luck, so treat it as a lead to re-check on new da
 
 It is delivered as a non-trading utility Expert Advisor with the indicator built into the file (MT5 does not allow licence checks inside indicators): attach it to any chart and the table appears.
 
-What was verified: compiles with 0 errors and 0 warnings in the real MetaEditor and runs on a real MT5 chart with eight broker symbols (see the screenshot). The engine matches an independent Python calculation on two symbols. Not verified: live setups and alerts on a connected terminal, and a 15-20 symbol watchlist on a slow feed.
+What was verified: compiles with 0 errors and 0 warnings in the real MetaEditor and runs on a real MT5 chart with eight broker symbols (see the screenshot). The engine matches an independent Python calculation on two symbols. Also checked on a live demo feed: a live setup was shown with its levels, the new-setup alert fired once per symbol per bar over a 12-minute run on 19 symbols, and a symbol the broker does not offer is shown as not found instead of stopping the table. Scanning many symbols on a very low timeframe can be slow (one reload took about 6 seconds with 19 symbols on M1), so an hourly or higher timeframe is the sensible choice. Push notifications were not tested.
 ${RESULT}
 Not verified: live-money use, alerts beyond a screenshot, the licence check with a real purchase. MetaTrader 5 only.${FOOT}${LICENCE}`,
   },
