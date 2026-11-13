@@ -147,7 +147,7 @@ void Draw()
    if(gBars < 500) { MakeLabel("t2", 70, 26, "LOADING HISTORY", clrSlateGray, 11, true); return; }
    double px = gC[gBars - 1];
    MakeLabel("t2", 70, 26, StringFormat("%d fresh absorption zones on %s", gFresh, _Symbol), gFresh > 0 ? clrWhite : clrSlateGray, 11, true);
-   MakeLabel("t3", 70, 42, gTouchedNow >= 0 ? "A fresh zone was touched on the last closed bar" : "no zone touched on the last closed bar", gTouchedNow >= 0 ? clrGold : clrSilver, 8, gTouchedNow >= 0);
+   MakeLabel("t3", 70, 42, gTouchedNow >= 0 ? "A zone was touched on the last closed bar" : "no zone touched on the last closed bar", gTouchedNow >= 0 ? clrGold : clrSilver, 8, gTouchedNow >= 0);
    MakeLabel("d0", 10, 66, "Nearest fresh zones", C'230,190,80', 8, true);
    if(gSup >= 0) { MakeLabel("d1", 10, 82, StringFormat("SUPPLY above: %.1f ATR away", (gZ[gSup].bottom - px) / gAtr[gBars - 1]), clrOrange, 8, true); MakeLabel("d2", 10, 96, PlanTxt(gSup, 0), clrWhite, 8); }
    else { MakeLabel("d1", 10, 82, "SUPPLY above: none fresh", clrSlateGray, 8); MakeLabel("d2", 10, 96, " ", clrWhite, 8); }

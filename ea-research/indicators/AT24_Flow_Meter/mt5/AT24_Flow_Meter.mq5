@@ -163,9 +163,9 @@ int OnInit()
    PlotIndexSetDouble(1, PLOT_EMPTY_VALUE, EMPTY_VALUE);
    IndicatorSetString(INDICATOR_SHORTNAME, "AT24 Flow Meter");
    IndicatorSetInteger(INDICATOR_DIGITS, 1);
-   if(InpTickBars < 20 || InpTickBars > 5000 || InpHistoryBars < 500 || InpHistoryBars > 20000 || InpSwingBars < 2 || InpSwingBars > 20 || InpMinSep < 2 || InpMaxSep < InpMinSep)
+   if(InpTickBars < 5 || InpTickBars > 5000 || InpHistoryBars < 500 || InpHistoryBars > 20000 || InpSwingBars < 2 || InpSwingBars > 20 || InpMinSep < 2 || InpMaxSep < InpMinSep)
      {
-      Print("AT24 Flow Meter: tick bars 20-5000, history 500-20000, swing bars 2-20, separation min 2 and max above min.");
+      Print("AT24 Flow Meter: tick bars 5-5000, history 500-20000, swing bars 2-20, separation min 2 and max above min.");
       return INIT_PARAMETERS_INCORRECT;
      }
    EventSetTimer(5);

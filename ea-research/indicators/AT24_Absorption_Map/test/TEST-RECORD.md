@@ -19,3 +19,6 @@ Sellers absorbed: 39 retests, hit 23 %, average -0.34 R after cost (p 0.94). Buy
 - Uses tick volume per bar (the number of quote changes), not real volume: absorption here means "many quote changes, little movement". It is a proxy for effort, not exchange order flow.
 - The default thresholds were chosen to give a usable number of zones (stricter ones gave only 3 zones in 8,000 bars), not for results; with several inputs a lucky scorecard is easy to find (multiple testing). Past results do not predict future results.
 - Both stop and target inside one bar count as the stop; slippage and gaps are not modelled; cost = current spread unless set. Dashboard off in the Strategy Tester by default.
+
+## Live check (Engineering window, IC Markets demo XAUUSD M15, 2026-11-13)
+Loads with no slow warning. 114 past retests: sellers absorbed 67 at +0.17 R, buyers absorbed 47 at -0.34 R (NEGATIVE ON THIS HISTORY), all -0.04 R. No fresh zone existed, so rectangles and the plan were not seen. Wording fix: the panel now says "A zone was touched on the last closed bar" (it could show "0 fresh zones" and "a fresh zone was touched" together, which confused). Same wording fix in Zone Pro.
