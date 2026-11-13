@@ -8,7 +8,7 @@
 #property copyright "algotraders24.ai"
 #property link      "https://algotraders24.ai"
 #property version   "1.01"
-#property description "AT24 Forward Ledger - pre-registered research rules tallied only from their registration date, with drift-adjusted t-statistics."
+#property description "AT24 Forward Ledger - pre-registered research rules tallied only from their registration date. No trades are placed."
 #property description "Licensed utility EA: it loads the indicator on your chart and never places orders."
 #property description "Descriptive history on your own broker data. Context tool, not a signal or a forecast."
 

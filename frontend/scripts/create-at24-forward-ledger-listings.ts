@@ -19,7 +19,7 @@ const FOOT = `\n\nDescriptive history on your own broker data. Context tool, not
 
 const LICENCE = `\n\nLICENCE KEY: the download is protected by your AT24 licence key. One key works on ONE trading account at a time and only for this product; you can move it to another account yourself (2 changes per 30 days) from Dashboard > Purchases. After buying, paste the key from your purchase page into the EA input "InpLicenseKey" and allow https://www.algotraders24.ai under Tools > Options > Expert Advisors > Allow WebRequest. The Strategy Tester needs no key.`;
 
-const RESULT = `On the day the ledger opened (2026-11-10 UTC) every rule read 'collecting' (fewer than 30 trades) - the honest starting point. A rule only gets a verdict after enough trades, and only when it beats chance after correcting for the number of rules registered. Most ideas never will; that is the point of the ledger.`;
+const RESULT = `After four days the ledger shows every rule still 'collecting' (fewer than 30 trades each; the fifth rule has none yet) - the honest starting point. A rule only gets a verdict after enough trades, and only when it beats chance after correcting for the number of rules registered (five). Most ideas never will; that is the point of the ledger.`;
 
 type Product = { slug: string; title: string; tradingSystemId: string; version: string; platform: string; zip: string; banner: string; tags: string[]; description: string };
 
@@ -28,22 +28,22 @@ const PRODUCTS: Product[] = [
     slug: "at24-forward-ledger",
     title: "AT24 Forward Ledger (MT5)",
     tradingSystemId: "AT24-FORWARD-LEDGER",
-    version: "1.01",
+    version: "1.02",
     platform: "MT5",
-    zip: "AT24_ForwardLedger_MT5_v1.01.zip",
+    zip: "AT24_ForwardLedger_MT5_v1.02.zip",
     banner: "forward-ledger-banner.png",
     tags: ["indicator", "research", "out-of-sample", "forward-test", "pre-registered", "statistics", "dashboard", "gold", "mt5", "demo-tested"],
-    description: `Almost every 'edge' online is found by looking at history and then tested on the same history. AT24 Forward Ledger does the opposite: a candidate rule is written down with a date, and only what happens after that date counts. It shows, live, how many trades each rule has made, the average return, the average net of the market's own drift, a t-statistic and a verdict that only turns green when the result beats chance after correcting for the number of rules registered.
+    description: `Almost every 'edge' online is found by looking at history and then tested on the same history. AT24 Forward Ledger does the opposite: a candidate rule is written down with a date, and only what happens after that date counts. It shows, live, how many trades each rule has made, the average return, the average net of the market's own drift, a t-statistic and a verdict that only turns green when the result beats chance after correcting for the number of rules registered (five).
 
 What you get
-- Research candidate rules registered with dates (the rules are shown on the dashboard), each tallied out-of-sample from its own start date.
+- Five research candidate rules registered with dates (shown on the dashboard; one uses the broker's USD economic calendar, which your broker must provide), each tallied out-of-sample from its own start date.
 - Trades so far, mean return, mean net of drift, t-statistic and a plain verdict: collecting, no edge so far, or positive/negative so far.
 - Recomputed from your own broker's closed hourly bars: nothing is stored or sent. The broker clock is detected automatically (other FX pairs are tried if the chart symbol cannot be used) and can be set by hand.
 - A labelled REPLAY mode that shows how misleading in-sample numbers can be.
 
 It is delivered as a non-trading utility Expert Advisor with the indicator built into the file (MT5 does not allow licence checks inside indicators): attach it to a chart and the dashboard appears.
 
-What was verified: compiles with 0 errors and 0 warnings in the real MetaEditor and runs on a real MT5 XAUUSD chart (see the screenshot). The ledger engine matches an independent Python calculation (four rules from three start dates, all identical).
+What was verified: compiles with 0 errors and 0 warnings in the real MetaEditor and runs on a real MT5 XAUUSD chart (see the screenshot). The ledger engine matches an independent Python calculation (identical numbers across the registered rules and start dates). Not verified: the calendar-based rule on every broker's calendar feed.
 ${RESULT}
 Not verified: live-money use, alerts beyond a screenshot, the licence check with a real purchase. MetaTrader 5 only.${FOOT}${LICENCE}`,
   },
