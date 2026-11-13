@@ -9,7 +9,7 @@
 //+------------------------------------------------------------------+
 #property copyright "AlgoTraders24"
 #property link      "https://algotraders24.ai"
-#property version   "1.00"
+#property version   "1.01"
 #property description "AT24 Setup Scanner - watchlist table of live setups with levels and per-symbol scorecards, plus an honest chance-passes reminder."
 #property description "It places no trades. Results on past bars do not predict future results. Not financial advice."
 #property indicator_chart_window
@@ -22,7 +22,7 @@
 
 input group "=== Watchlist ==="
 input string InpSymbols       = "XAUUSD,EURUSD,GBPUSD,USDJPY,AUDUSD,USDCAD,US500,BTCUSD"; // Symbols, comma separated, exactly as your broker names them (max 20)
-input ENUM_TIMEFRAMES InpTf   = PERIOD_H1;     // Timeframe scanned
+input ENUM_TIMEFRAMES InpTf   = PERIOD_H1;     // Timeframe scanned (H1 or higher recommended for long watchlists)
 input group "=== Setups ==="
 input bool   InpPullback      = true;   // Trend pullback setups
 input bool   InpSqueeze       = true;   // Squeeze release setups
@@ -170,41 +170,54 @@ void Draw()
    MakeLabel("f1", 10, y2 + 62, "Research tool, not a signal or advice. algotraders24.ai", clrSlateGray, 7);
   }
 
-bool Rebuild(const bool onlyMissing)
+//--- one symbol at a time: the full analysis of a symbol is heavy, so the work is staged (two symbols per call) and never blocks the terminal
+void AnalyzeOne(const int i)
   {
-   bool any = false;
-   for(int i = 0; i < gNs; i++)
-     {
-      if(onlyMissing && gRows[i].ok) { any = true; continue; }
-      AT24SS_Work w;
-      AT24SS_Row row;
-      if(AT24SS_Analyze(gList[i], InpTf, InpHistoryBars, InpPullback, InpSqueeze, InpStopAtr, InpRewardRisk, InpMaxHold, InpCost, row, w)) any = true;
-      gRows[i] = row;
-     }
+   AT24SS_Work w;
+   AT24SS_Row row;
+   AT24SS_Analyze(gList[i], InpTf, InpHistoryBars, InpPullback, InpSqueeze, InpStopAtr, InpRewardRisk, InpMaxHold, InpCost, row, w);
+   gRows[i] = row;
+  }
+
+bool gCycle = false;
+int  gStage = 0;
+datetime gCycleBar = 0;
+
+void Finish(const datetime bar)
+  {
    int live = 0; for(int i = 0; i < gNs; i++) if(gRows[i].ok && gRows[i].active >= 0) live++;
    B0[0] = live; B1[0] = gNs;
-   return any;
+   if(!InpAlertNew) return;
+   for(int i = 0; i < gNs; i++)
+     {
+      if(!gRows[i].ok || gRows[i].active < 0 || gAlerted[i] == gRows[i].lastBar) continue;
+      gAlerted[i] = gRows[i].lastBar;
+      string msg = StringFormat("AT24 Setup Scanner %s %s: %s %s setup, entry ~%s stop %s target %s", gList[i], StringSubstr(EnumToString(InpTf), 7), gRows[i].actDir > 0 ? "LONG" : "SHORT", gRows[i].active == 0 ? "pullback" : "squeeze",
+                                DoubleToString(gRows[i].actEntry, gRows[i].digits), DoubleToString(gRows[i].actSl, gRows[i].digits), DoubleToString(gRows[i].actTp, gRows[i].digits));
+      Alert(msg);
+      if(InpAlertPush) SendNotification(msg);
+     }
   }
 
 void Refresh()
   {
    datetime bar = iTime(_Symbol, InpTf, 0);
    if(bar == 0) return;
-   bool allOk = AllOk();
-   bool stale = (gBuiltBar != bar) || (!allOk && TimeCurrent() - gBuiltAt >= 10);   // other symbols load their history in the background: retry until every row has data
-   if(!stale) return;
-   if(Rebuild(gBuiltBar == bar)) { gBuiltBar = bar; }
-   gBuiltAt = TimeCurrent();
-   if(gBuiltBar == bar && InpAlertNew)
-      for(int i = 0; i < gNs; i++)
-        {
-         if(!gRows[i].ok || gRows[i].active < 0 || gAlerted[i] == gRows[i].lastBar) continue;
-         gAlerted[i] = gRows[i].lastBar;
-         string msg = StringFormat("AT24 Setup Scanner %s %s: %s %s setup, entry ~%s stop %s target %s", gList[i], EnumToString(InpTf), gRows[i].actDir > 0 ? "LONG" : "SHORT", gRows[i].active == 0 ? "pullback" : "squeeze",
-                                   DoubleToString(gRows[i].actEntry, gRows[i].digits), DoubleToString(gRows[i].actSl, gRows[i].digits), DoubleToString(gRows[i].actTp, gRows[i].digits));
-         Alert(msg);
-         if(InpAlertPush) SendNotification(msg);
-        }
+   if(gBuiltBar != bar && !gCycle) { gCycle = true; gStage = 0; gCycleBar = bar; }
+   if(gCycle)
+     {
+      int done = 0;
+      while(gStage < gNs && done < 2) { AnalyzeOne(gStage); gStage++; done++; }
+      if(gStage >= gNs) { gCycle = false; gBuiltBar = gCycleBar; gBuiltAt = TimeCurrent(); Finish(gCycleBar); }
+      return;
+     }
+   //--- other symbols load their history in the background: retry one missing row every 10 seconds until every row has data
+   if(!AllOk() && TimeCurrent() - gBuiltAt >= 10)
+     {
+      gBuiltAt = TimeCurrent();
+      for(int i = 0; i < gNs; i++) if(!gRows[i].ok) { AnalyzeOne(i); break; }
+      Finish(bar);
+     }
   }
 
 bool AllOk() { for(int i = 0; i < gNs; i++) if(!gRows[i].ok) return false; return true; }
