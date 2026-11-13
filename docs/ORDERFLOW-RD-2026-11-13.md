@@ -42,3 +42,9 @@ Binance publishes full historical trade files for BTC/ETH (spot and futures) wit
 
 ## 8. Rules for any listing text
 No profit/win-rate promises, no "institutional order flow" claims, no logic details, say ESTIMATED when the delta is an estimate, "Not financial advice"; MQL5 builds must not use WebRequest or licence gates.
+
+## 9. Tick probe result on a real CFD feed (Engineering window, IC Markets demo, 2026-11-13)
+- XAUUSD: ticks flagged BID/ASK only, no volume. EURUSD (3,499 ticks), US500 (3,881) and BTCUSD (5,000 in 2 minutes): BUY / SELL / LAST flags all 0, tick volume and real volume 0, only BID/ASK flags; `MarketBook` add succeeds on EURUSD and US500 but returns 0 levels, and fails on BTCUSD.
+- Conclusion: on this broker (and, by the web evidence, on most retail forex/CFD brokers) there is no real aggressor flag, no real volume and no depth. A Flow Meter on such feeds can only offer the **tick-rule ESTIMATE** (from bid/ask changes) and the **bar proxy**; REAL delta needs an exchange-feed broker, or crypto exchange data on the website.
+- Caveat for the accuracy numbers in section 2: they were measured on trade prints; a CFD feed delivers quote ticks (the tick rule would run on the mid price), which is noisier, so the real accuracy on CFDs must be measured on a recorded CFD tick stream (the ticks cannot be compared with true delta there, only with the other estimate). The badge must therefore say "ESTIMATE" and not quote the 0.94 figure as the accuracy of the CFD mode.
+- Practical: tick history on CFD brokers is short (the probe needed a recent time window; a `from = 0` call returned only old cached ticks), so historical tick-based scorecards are not realistic; use bar-based (tick volume per bar) logic for anything that needs history.
