@@ -20,3 +20,6 @@ Bullish divergences: 43 trades, hit 37 %, average -0.17 R after cost (p 0.82). B
 - Only regular divergence is included (no hidden divergence); several inputs can be tuned, which makes a lucky scorecard easy to find (multiple testing). Past results do not predict future results.
 - Both stop and target inside one bar count as the stop; slippage and gaps are not modelled; cost = current spread unless set.
 - Dashboard off in the Strategy Tester by default.
+
+## Live-quote probe (Engineering window, 2026-11-13, IC Markets demo, connected)
+The cost-from-spread input (InpCost 0) gave sensible values on live quotes (spreads: XAUUSD 0.15, EURUSD 0.0001, US500 0.5, BTCUSD 5.0). Alert and push firing once per bar still needs a real setup / touch / divergence to occur and is NOT yet verified.
