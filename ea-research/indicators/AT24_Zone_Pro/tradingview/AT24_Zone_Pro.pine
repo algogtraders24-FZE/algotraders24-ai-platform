@@ -1,0 +1,331 @@
+//@version=5
+// AT24 Zone Pro - fresh supply and demand zones with a ready plan, and first-retest scorecards on this chart's own history.
+// Research and planning tool. Places no orders. Not a signal. algotraders24.ai
+indicator("AT24 Zone Pro", shorttitle="AT24 ZONE", overlay=true, max_boxes_count=60, max_lines_count=60)
+
+grp1 = "Zones"
+impK = input.float(1.5, "Impulse bar range in ATR(14) that creates a zone", minval=0.8, maxval=6.0, step=0.1, group=grp1)
+baseMax = input.float(0.9, "Base bars must be smaller than this many ATR", minval=0.2, maxval=2.0, step=0.1, group=grp1)
+maxBase = input.int(3, "Longest base (bars)", minval=1, maxval=8, group=grp1)
+maxH = input.float(2.0, "Widest zone allowed (ATR)", minval=0.5, maxval=6.0, step=0.1, group=grp1)
+maxAge = input.int(200, "Bars a zone stays fresh without being touched", minval=20, maxval=1000, group=grp1)
+grp2 = "Trade plan and scorecard"
+slBuf = input.float(0.25, "Stop beyond the far edge of the zone (ATR)", minval=0.0, maxval=3.0, step=0.05, group=grp2)
+rr = input.float(2.0, "Target as a multiple of the stop distance", minval=0.3, maxval=10.0, step=0.1, group=grp2)
+maxHold = input.int(40, "Bars before a trade is closed at the market (timed exit)", minval=5, maxval=500, group=grp2)
+cost = input.float(0.20, "Round-turn cost in PRICE units (TradingView has no spread data: set it for your symbol)", minval=0.0, step=0.05, group=grp2)
+grp3 = "Chart"
+drawZ = input.int(3, "Fresh zones drawn per side (0 = none)", minval=0, maxval=10, group=grp3)
+drawT = input.int(8, "Past retests drawn (0 = none)", minval=0, maxval=25, group=grp3)
+grp4 = "Dashboard"
+showDash = input.bool(true, "Show dashboard", group=grp4)
+dashPos = input.string("top right", "Position", options=["top left","top right","bottom left","bottom right"], group=grp4)
+
+atr = ta.atr(14)
+var float[] aO = array.new_float()
+var float[] aH = array.new_float()
+var float[] aL = array.new_float()
+var float[] aC = array.new_float()
+var float[] aA = array.new_float()
+var int[] aI = array.new_int()
+if barstate.isconfirmed
+    array.push(aO, open)
+    array.push(aH, high)
+    array.push(aL, low)
+    array.push(aC, close)
+    array.push(aA, nz(atr))
+    array.push(aI, bar_index)
+
+// trades from touched zones, in order of the touch bar, one at a time. dirF: 1 demand only, -1 supply only, 0 both
+runTrades(int dirF, int nz, int n, int[] zDir, float[] zTop, float[] zBot, float[] zAtr, int[] zTouch, float[] tK, float[] tD, float[] tEn, float[] tSl, float[] tTp, float[] tEx, float[] tRes, float[] tR) =>
+    int[] ord = array.new_int()
+    if nz > 0
+        for z = 0 to nz - 1
+            if array.get(zTouch, z) >= 0 and (dirF == 0 or array.get(zDir, z) == dirF)
+                array.push(ord, z)
+    int m = array.size(ord)
+    if m > 1
+        for i = 1 to m - 1
+            int a = array.get(ord, i)
+            int j = i - 1
+            bool go = true
+            while go
+                if j < 0
+                    go := false
+                else
+                    int oj = array.get(ord, j)
+                    int tj = array.get(zTouch, oj)
+                    int ta = array.get(zTouch, a)
+                    if tj > ta or (tj == ta and oj > a)
+                        array.set(ord, j + 1, oj)
+                        j -= 1
+                    else
+                        go := false
+            array.set(ord, j + 1, a)
+    int lastExit = -1
+    if m > 0
+        for q = 0 to m - 1
+            int z = array.get(ord, q)
+            int k = array.get(zTouch, z)
+            int d = array.get(zDir, z)
+            if k > lastExit
+                en = d > 0 ? math.min(array.get(aO, k), array.get(zTop, z)) : math.max(array.get(aO, k), array.get(zBot, z))
+                sl = d > 0 ? array.get(zBot, z) - slBuf * array.get(zAtr, z) : array.get(zTop, z) + slBuf * array.get(zAtr, z)
+                risk = d * (en - sl)
+                if risk > 0.0
+                    tp = en + d * rr * risk
+                    float res = 2.0
+                    int ex = -1
+                    float r = 0.0
+                    last = math.min(n - 1, k + maxHold)
+                    for j = k to last
+                        slHit = d > 0 ? array.get(aL, j) <= sl : array.get(aH, j) >= sl
+                        tpHit = d > 0 ? array.get(aH, j) >= tp : array.get(aL, j) <= tp
+                        if slHit
+                            res := -1.0
+                            ex := j
+                            r := -1.0 - cost / risk
+                            break
+                        if tpHit
+                            res := 1.0
+                            ex := j
+                            r := rr - cost / risk
+                            break
+                        if j == k + maxHold
+                            res := 0.0
+                            ex := j
+                            r := d * (array.get(aC, j) - en) / risk - cost / risk
+                            break
+                    array.push(tK, k)
+                    array.push(tD, d)
+                    array.push(tEn, en)
+                    array.push(tSl, sl)
+                    array.push(tTp, tp)
+                    array.push(tEx, ex)
+                    array.push(tRes, res)
+                    array.push(tR, r)
+                    lastExit := res == 2.0 ? n : ex
+    m
+
+score(float[] res, float[] rs) =>
+    int cnt = 0
+    int wins = 0
+    float sum = 0.0
+    r2 = array.new_float()
+    if array.size(res) > 0
+        for i = 0 to array.size(res) - 1
+            if array.get(res, i) != 2.0
+                v = array.get(rs, i)
+                array.push(r2, v)
+                cnt += 1
+                sum += v
+                if v > 0
+                    wins += 1
+    float avg = cnt > 0 ? sum / cnt : 0.0
+    float pFlip = 1.0
+    if cnt >= 2
+        int seed = 20261111
+        int ge = 0
+        flips = 4000
+        for f = 1 to flips
+            float s = 0.0
+            for k = 0 to cnt - 1
+                seed := (seed * 1103515245 + 12345) % 2147483648
+                s += int(math.floor(seed / 65536.0)) % 2 == 0 ? array.get(r2, k) : -array.get(r2, k)
+            if s >= sum
+                ge += 1
+        pFlip := (ge + 1.0) / (flips + 1.0)
+    [cnt, wins, cnt > 0 ? 100.0 * wins / cnt : 0.0, avg, sum, pFlip]
+
+verdictOf(int n, float avg, float p) =>
+    n < 30 ? "too few retests (" + str.tostring(n) + " of 30)" : avg > 0 and p < 0.05 ? "POSITIVE ON THIS HISTORY (p " + str.tostring(p, "0.000") + ")" : avg < 0 and p > 0.95 ? "NEGATIVE ON THIS HISTORY" : "NO EDGE SHOWN (p " + str.tostring(p, "0.00") + ")"
+verdictCol(int n, float avg, float p) =>
+    n < 30 ? color.gray : avg > 0 and p < 0.05 ? color.lime : avg < 0 and p > 0.95 ? color.red : #E6B450
+sg2(x) => (x >= 0 ? "+" : "") + str.tostring(x, "0.00")
+planTxt(int d, float top, float bot, float a) =>
+    en = d > 0 ? top : bot
+    sl = d > 0 ? bot - slBuf * a : top + slBuf * a
+    r = d * (en - sl)
+    tp = en + d * rr * r
+    (d > 0 ? "BUY" : "SELL") + " limit " + str.tostring(en, format.mintick) + "  stop " + str.tostring(sl, format.mintick) + "  target " + str.tostring(tp, format.mintick)
+
+pos = switch dashPos
+    "top left" => position.top_left
+    "top right" => position.top_right
+    "bottom left" => position.bottom_left
+    => position.bottom_right
+var table t = table.new(pos, 2, 14, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+var box[] bxs = array.new_box()
+var line[] lns = array.new_line()
+
+if barstate.islast
+    while array.size(bxs) > 0
+        box.delete(array.pop(bxs))
+    while array.size(lns) > 0
+        line.delete(array.pop(lns))
+    n = array.size(aC)
+    ok = n > 500
+    int[] zIdx = array.new_int()
+    int[] zDir = array.new_int()
+    float[] zTop = array.new_float()
+    float[] zBot = array.new_float()
+    float[] zAtr = array.new_float()
+    int[] zTouch = array.new_int()
+    if ok
+        for j = 30 to n - 1
+            a = array.get(aA, j - 1)
+            if a > 0.0
+                rg = array.get(aH, j) - array.get(aL, j)
+                bd = math.abs(array.get(aC, j) - array.get(aO, j))
+                if rg >= impK * a and bd >= 0.6 * rg
+                    int dir = array.get(aC, j) > array.get(aO, j) ? 1 : -1
+                    int cb = 0
+                    float zh = -1.0e300
+                    float zl = 1.0e300
+                    for k = j - 1 to 1
+                        if cb >= maxBase
+                            break
+                        if array.get(aH, k) - array.get(aL, k) >= baseMax * a
+                            break
+                        zh := math.max(zh, array.get(aH, k))
+                        zl := math.min(zl, array.get(aL, k))
+                        cb += 1
+                    bool good = cb > 0
+                    if good and dir > 0 and not (array.get(aC, j) > zh)
+                        good := false
+                    if good and dir < 0 and not (array.get(aC, j) < zl)
+                        good := false
+                    if good and zh - zl > maxH * a
+                        good := false
+                    if good
+                        array.push(zIdx, j)
+                        array.push(zDir, dir)
+                        array.push(zTop, zh)
+                        array.push(zBot, zl)
+                        array.push(zAtr, a)
+                        array.push(zTouch, -1)
+    nz = array.size(zIdx)
+    if nz > 0
+        for z = 0 to nz - 1
+            int i0 = array.get(zIdx, z)
+            last = math.min(n - 1, i0 + maxAge)
+            if i0 + 1 <= last
+                for k = i0 + 1 to last
+                    d = array.get(zDir, z)
+                    if (d > 0 and array.get(aL, k) <= array.get(zTop, z)) or (d < 0 and array.get(aH, k) >= array.get(zBot, z))
+                        array.set(zTouch, z, k)
+                        break
+    float[] dK = array.new_float()
+    float[] dD = array.new_float()
+    float[] dEn = array.new_float()
+    float[] dSl = array.new_float()
+    float[] dTp = array.new_float()
+    float[] dEx = array.new_float()
+    float[] dRes = array.new_float()
+    float[] dR = array.new_float()
+    float[] sK = array.new_float()
+    float[] sD = array.new_float()
+    float[] sEn = array.new_float()
+    float[] sSl = array.new_float()
+    float[] sTp = array.new_float()
+    float[] sEx = array.new_float()
+    float[] sRes = array.new_float()
+    float[] sR = array.new_float()
+    float[] xK = array.new_float()
+    float[] xD = array.new_float()
+    float[] xEn = array.new_float()
+    float[] xSl = array.new_float()
+    float[] xTp = array.new_float()
+    float[] xEx = array.new_float()
+    float[] xRes = array.new_float()
+    float[] xR = array.new_float()
+    if ok
+        runTrades(1, nz, n, zDir, zTop, zBot, zAtr, zTouch, dK, dD, dEn, dSl, dTp, dEx, dRes, dR)
+        runTrades(-1, nz, n, zDir, zTop, zBot, zAtr, zTouch, sK, sD, sEn, sSl, sTp, sEx, sRes, sR)
+        runTrades(0, nz, n, zDir, zTop, zBot, zAtr, zTouch, xK, xD, xEn, xSl, xTp, xEx, xRes, xR)
+    [dn, dw, dh, da, ds, dp] = score(dRes, dR)
+    [sn, sw, sh, sa, ss, sp] = score(sRes, sR)
+    [xn, xw, xh, xa, xs, xp] = score(xRes, xR)
+    // fresh zones and the nearest on each side of the last close
+    int fresh = 0
+    int gDem = -1
+    int gSup = -1
+    int touchedNow = -1
+    px = n > 0 ? array.get(aC, n - 1) : close
+    lastA = n > 0 ? array.get(aA, n - 1) : 0.0
+    float bestD = 1.0e300
+    float bestS = 1.0e300
+    if ok and nz > 0
+        for z = 0 to nz - 1
+            tz = array.get(zTouch, z)
+            if tz == n - 1
+                touchedNow := z
+            if tz < 0 and n - 1 - array.get(zIdx, z) <= maxAge
+                fresh += 1
+                if array.get(zDir, z) > 0 and array.get(zTop, z) < px and px - array.get(zTop, z) < bestD
+                    bestD := px - array.get(zTop, z)
+                    gDem := z
+                if array.get(zDir, z) < 0 and array.get(zBot, z) > px and array.get(zBot, z) - px < bestS
+                    bestS := array.get(zBot, z) - px
+                    gSup := z
+    if ok and drawZ > 0 and nz > 0
+        int shownD = 0
+        int shownS = 0
+        for z = nz - 1 to 0
+            if array.get(zTouch, z) < 0 and n - 1 - array.get(zIdx, z) <= maxAge
+                bool dem = array.get(zDir, z) > 0
+                bool take = dem ? shownD < drawZ : shownS < drawZ
+                if take
+                    if dem
+                        shownD += 1
+                    else
+                        shownS += 1
+                    col = dem ? color.aqua : color.orange
+                    array.push(bxs, box.new(array.get(aI, array.get(zIdx, z)), array.get(zTop, z), bar_index + 30, array.get(zBot, z), border_color=col, bgcolor=color.new(col, 80), text=dem ? "demand" : "supply", text_color=col, text_size=size.tiny))
+    if ok and drawT > 0
+        int tn = array.size(xK)
+        if tn > 0
+            int drawn = 0
+            for q = tn - 1 to 0
+                if drawn < drawT
+                    int k = int(array.get(xK, q))
+                    int ex = int(array.get(xEx, q))
+                    rs = array.get(xRes, q)
+                    col = rs == 1.0 ? color.lime : rs == -1.0 ? color.red : rs == 0.0 ? #E6B450 : color.white
+                    endP = rs == 1.0 ? array.get(xTp, q) : rs == -1.0 ? array.get(xSl, q) : array.get(xEn, q)
+                    bx = ex >= 0 ? array.get(aI, ex) : bar_index
+                    array.push(lns, line.new(array.get(aI, k), array.get(xEn, q), bx, endP, color=col, width=2, style=line.style_dotted))
+                    drawn += 1
+    if showDash
+        table.cell(t, 0, 0, "AT24", text_color=#E8B84A, text_size=size.large)
+        table.cell(t, 1, 0, "ZONE PRO", text_color=#E8B84A, text_size=size.normal, text_halign=text.align_left)
+        if not ok
+            table.cell(t, 0, 1, "State", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 1, "LOADING HISTORY (NEED 500+ BARS)", text_color=color.gray, text_size=size.normal, text_halign=text.align_left)
+        else
+            table.cell(t, 0, 1, "Zones", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 1, str.tostring(fresh) + " fresh zones on " + syminfo.ticker + (touchedNow >= 0 ? "  -  a fresh zone was touched on the last closed bar" : "  -  no zone touched on the last closed bar"), text_color=fresh > 0 ? color.white : color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 2, "Supply", text_color=color.orange, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 2, gSup >= 0 ? str.tostring((array.get(zBot, gSup) - px) / lastA, "0.0") + " ATR above:  " + planTxt(-1, array.get(zTop, gSup), array.get(zBot, gSup), array.get(zAtr, gSup)) : "none fresh above", text_color=gSup >= 0 ? color.white : color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 3, "Demand", text_color=color.aqua, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 3, gDem >= 0 ? str.tostring((px - array.get(zTop, gDem)) / lastA, "0.0") + " ATR below:  " + planTxt(1, array.get(zTop, gDem), array.get(zBot, gDem), array.get(zAtr, gDem)) : "none fresh below", text_color=gDem >= 0 ? color.white : color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 4, "Scorecard", text_color=#E8B84A, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 4, "first retest of past zones on this chart's own history (" + str.tostring(n) + " bars, cost " + str.tostring(cost, "0.00") + ")", text_color=#E8B84A, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 5, "Demand", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 5, str.tostring(dn) + " retests   hit " + str.tostring(dh, "0") + "%   average " + sg2(da) + " R after cost   total " + sg2(ds) + " R", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 6, "", text_size=size.tiny)
+            table.cell(t, 1, 6, verdictOf(dn, da, dp), text_color=verdictCol(dn, da, dp), text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 7, "Supply", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 7, str.tostring(sn) + " retests   hit " + str.tostring(sh, "0") + "%   average " + sg2(sa) + " R after cost   total " + sg2(ss) + " R", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 8, "", text_size=size.tiny)
+            table.cell(t, 1, 8, verdictOf(sn, sa, sp), text_color=verdictCol(sn, sa, sp), text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 9, "All zones", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 9, str.tostring(xn) + " retests   hit " + str.tostring(xh, "0") + "%   average " + sg2(xa) + " R after cost   total " + sg2(xs) + " R", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 10, "", text_size=size.tiny)
+            table.cell(t, 1, 10, verdictOf(xn, xa, xp), text_color=verdictCol(xn, xa, xp), text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 11, "Read it", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 11, "Zones are known only after the impulse closed; only the first retest counts. No edge shown = the zones did not beat luck here.", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 12, "Note", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 1, 12, "Past results on this chart do not predict future results. A TradingView chart holds fewer bars than a broker terminal, so counts are smaller.", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+            table.cell(t, 0, 13, "Research tool.", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
+            table.cell(t, 1, 13, "Not a signal. algotraders24.ai", text_color=color.gray, text_size=size.tiny, text_halign=text.align_left)
