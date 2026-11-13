@@ -23,3 +23,8 @@ XAUUSD: pullback -0.08 R (167), squeeze +0.03 R (90), none. BTCUSD_T (Binance te
 
 ## Live-quote probe (Engineering window, 2026-11-13, IC Markets demo, connected)
 The cost-from-spread input (InpCost 0) gave sensible values on live quotes (spreads: XAUUSD 0.15, EURUSD 0.0001, US500 0.5, BTCUSD 5.0). Alert and push firing once per bar still needs a real setup / touch / divergence to occur and is NOT yet verified (Setup Scanner: also a 15-20 symbol watchlist is not yet checked).
+
+## v1.01 (2026-11-13): staged rebuild after the live demo check
+- Live demo check by the Engineering window (IC Markets demo, M1, 19 symbols, alerts on, 12 minutes): the new-setup alert fired 9 times with no duplicate for the same symbol and bar (repeats only on later bars); a symbol the broker lacks showed "no data / symbol not found" without stopping the table; a live setup rendered with levels and sorted first. Push was not tested. One terminal warning, "indicator is too slow, 6125 ms", during the first reload with 19 symbols on M1.
+- Fix in v1.01: the work is staged (two symbols per call, one cycle per new bar of the scanned timeframe; missing rows retry one per 10 seconds), so the indicator no longer blocks the terminal. A hourly or higher timeframe is still recommended for large watchlists (input description says so).
+- Re-run on the offline rig after the change: table loads, live setups shown with levels (XAUUSD and EURUSD short pullback setups on the last closed bar), scorecards unchanged: test/mt5_setup_scanner_chart.png. Not re-run on 19 live symbols after the change.
