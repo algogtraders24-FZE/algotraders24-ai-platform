@@ -17,3 +17,6 @@ A sub-window with the delta of every bar (histogram) and the cumulative delta (r
 - Brokers keep little tick history: only the most recent bars can use ticks (default 300); older bars always use the bar proxy. Bars that mix sources are shown with different shades.
 - Delta divergence is context, not a signal: no edge claim; Labs and the web evidence found none for it.
 - Not shown in the Strategy Tester (bar proxy only there).
+
+## Live check (Engineering window, IC Markets demo, 2026-11-13)
+No "indicator too slow" warning; BTCUSD M15 drew the delta histogram, the daily cumulative line and 2 divergence marks. The badge read BAR PROXY (estimate) on XAUUSD and BTCUSD even with the tick-bar input at 20, because the demo keeps almost no tick history for the last bars (CopyTicksRange returned nothing): the TICK-RULE ESTIMATE colours were not seen live. Change: the minimum of the tick-bar input is now 5 so the tick path can be tried with very few bars. The divergence alert was not seen to fire.

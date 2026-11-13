@@ -15,3 +15,6 @@ For pairs the user chooses (A:B, symbols exactly as the broker names them): the 
 ## Notes / limits
 - Correlation of daily returns is noisy: with a 20-day window a value can move a lot by chance; the percentile and the long window are there to put it in context. Daily bars are matched by calendar day, so assets with different holidays use the common days only.
 - Default pairs use common broker names (XAUUSD, EURUSD, USOIL, US500, BTCUSD, USDJPY); users edit the list to match their broker. Dashboard off in the Strategy Tester by default.
+
+## Live check (Engineering window, IC Markets demo, 2026-11-13)
+Three pairs loaded; with seven pairs the staged load needed more than three minutes (about 45 seconds per pair after the first) because the terminal loads the daily history of each symbol from the server one by one. Not a defect of the maths: the table fills gradually and the terminal stays responsive. Use a short pair list on a fresh terminal; the history is cached afterwards.
