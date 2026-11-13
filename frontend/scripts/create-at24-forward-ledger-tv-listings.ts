@@ -42,6 +42,8 @@ What you get
 - A labelled REPLAY mode (an input date) that shows how misleading in-sample numbers can be. Use the 1h chart.
 
 What was verified: the script compiles and renders in TradingView's Pine Editor (OANDA XAUUSD 1h, ledger open at day 1: every rule reads collecting - see the screenshot). The ledger engine matches an independent Python calculation in the MetaTrader 5 edition. A collecting or 'no edge so far' reading is the normal outcome; nothing here is a signal or shows an edge.
+
+Difference from the MetaTrader 5 edition: this TradingView edition registers four rules. The fifth rule in the MetaTrader 5 edition uses the broker's economic calendar, which Pine Script cannot read, so it is not included here.
 Not verified: live-money use, other symbols and exchanges. ${TV_LICENCE_NOTE}${FOOT}`,
   },
 ];
