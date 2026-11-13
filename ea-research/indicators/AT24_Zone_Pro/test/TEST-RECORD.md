@@ -20,3 +20,6 @@ Demand zones: 76 retests, hit 37 %, average +0.09 R after cost (p 0.29). Supply 
 - Entry assumes the limit order at the near edge fills when price reaches it (gap = open price); both stop and target inside one bar count as the stop; slippage and gaps are not modelled; cost = current spread unless set.
 - A zone is touched by the first bar that reaches it, even if that bar also closes through it. Untouched zones expire after the max age (200 bars by default).
 - Dashboard off in the Strategy Tester by default.
+
+## Live-quote probe (Engineering window, 2026-11-13, IC Markets demo, connected)
+The cost-from-spread input (InpCost 0) gave sensible values on live quotes (spreads: XAUUSD 0.15, EURUSD 0.0001, US500 0.5, BTCUSD 5.0). Alert and push firing once per bar still needs a real setup / touch / divergence to occur and is NOT yet verified.

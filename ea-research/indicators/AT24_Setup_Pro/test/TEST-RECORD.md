@@ -19,3 +19,6 @@ Trend pullback: 223 setups, hit 33 %, average -0.05 R after cost (p 0.72): no ed
 - The scorecard is in-sample on the history the terminal holds; a setup can look good by chance (multiple testing: two types times the user's parameter choices). Past results do not predict future results.
 - Both-in-one-bar is counted as a stop; gaps and slippage are not modelled; the cost is the current spread unless set.
 - Dashboard off in the Strategy Tester by default.
+
+## Live-quote probe (Engineering window, 2026-11-13, IC Markets demo, connected)
+The cost-from-spread input (InpCost 0) gave sensible values on live quotes (spreads: XAUUSD 0.15, EURUSD 0.0001, US500 0.5, BTCUSD 5.0). Alert and push firing once per bar still needs a real setup / touch / divergence to occur and is NOT yet verified.

@@ -20,3 +20,6 @@ XAUUSD: pullback -0.08 R (167), squeeze +0.03 R (90), none. BTCUSD_T (Binance te
 - In-sample scorecards on whatever history the terminal holds; the same multiple-testing caution as Setup Pro applies, now across symbols.
 - A symbol the broker does not list (or with a suffix) shows "no data / symbol not found": the names must match the Market Watch.
 - Dashboard off in the Strategy Tester by default.
+
+## Live-quote probe (Engineering window, 2026-11-13, IC Markets demo, connected)
+The cost-from-spread input (InpCost 0) gave sensible values on live quotes (spreads: XAUUSD 0.15, EURUSD 0.0001, US500 0.5, BTCUSD 5.0). Alert and push firing once per bar still needs a real setup / touch / divergence to occur and is NOT yet verified (Setup Scanner: also a 15-20 symbol watchlist is not yet checked).
