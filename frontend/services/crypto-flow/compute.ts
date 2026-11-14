@@ -4,7 +4,7 @@
 //   [openTime, open, high, low, close, volume, closeTime, quoteVolume, trades, takerBuyBaseVolume, takerBuyQuoteVolume, ignore]
 // delta per bar = takerBuyBase - (volume - takerBuyBase) = 2 * takerBuyBase - volume
 // (buyer-aggressor volume minus seller-aggressor volume, base asset units).
-import type { CryptoFlowPoint, CryptoFlowResponse, CryptoFlowSymbol, CryptoFlowWindow } from "@/types/crypto-flow";
+import type { CryptoFlowBias, CryptoFlowPoint, CryptoFlowResponse, CryptoFlowSymbol, CryptoFlowWindow } from "@/types/crypto-flow";
 
 export type RawKline = ReadonlyArray<string | number>;
 
@@ -48,17 +48,36 @@ function windowOf(points: ReadonlyArray<CryptoFlowPoint>, minutes: number): Cryp
   };
 }
 
+/**
+ * Summarises the three windows into one bias. score = weighted mean of (buyers' share - 50) over 15 min (weight 1),
+ * 1 h (weight 2) and 4 h (weight 1). |score| < 2 points = balanced; 2-5 mild; 5-10 moderate; above 10 strong.
+ * "consistent" = all three windows lean the same way by at least 2 points.
+ */
+export function flowBias(windows: { m15: CryptoFlowWindow; h1: CryptoFlowWindow; h4: CryptoFlowWindow }): CryptoFlowBias {
+  const d15 = windows.m15.buyPct - 50;
+  const d1 = windows.h1.buyPct - 50;
+  const d4 = windows.h4.buyPct - 50;
+  const score = (d15 + 2 * d1 + d4) / 4;
+  const abs = Math.abs(score);
+  const side = abs < 2 ? "balanced" : score > 0 ? "buyers" : "sellers";
+  const strength = side === "balanced" ? null : abs < 5 ? "mild" : abs < 10 ? "moderate" : "strong";
+  const consistent = (d15 >= 2 && d1 >= 2 && d4 >= 2) || (d15 <= -2 && d1 <= -2 && d4 <= -2);
+  return { side, strength, score, consistent };
+}
+
 /** Builds the response from the raw klines. Returns null when there are too few closed bars. */
 export function computeCryptoFlow(symbol: CryptoFlowSymbol, rows: ReadonlyArray<RawKline>, nowMs: number): CryptoFlowResponse | null {
   const points = parseClosedKlines(rows, nowMs);
   if (points.length < 60) return null;
   const last = points[points.length - 1];
+  const windows = { m15: windowOf(points, 15), h1: windowOf(points, 60), h4: windowOf(points, 240) };
   return {
     symbol,
     venue: "Binance spot",
     asOf: last.t,
     lastPrice: last.close,
-    windows: { m15: windowOf(points, 15), h1: windowOf(points, 60), h4: windowOf(points, 240) },
+    windows,
+    bias: flowBias(windows),
     series: points,
   };
 }

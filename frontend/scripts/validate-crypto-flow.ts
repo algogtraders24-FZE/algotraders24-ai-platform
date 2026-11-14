@@ -8,7 +8,8 @@
 // Fixture: scripts/fixtures/crypto-flow-fixture.json (300 real BTCUSDT 1-minute klines).
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { computeCryptoFlow, parseClosedKlines, type RawKline } from "../services/crypto-flow/compute";
+import { computeCryptoFlow, flowBias, parseClosedKlines, type RawKline } from "../services/crypto-flow/compute";
+import type { CryptoFlowWindow } from "../types/crypto-flow";
 
 interface Fixture {
   symbol: "BTCUSDT";
@@ -65,6 +66,20 @@ if (res) {
   }
   check("last price, as-of bar and cumulative delta", close(res.lastPrice, fx.expected.lastPrice) && res.asOf === fx.expected.asOf && close(res.series[res.series.length - 1].cum, fx.expected.cumLast));
 }
+
+// 2b) bias summary: thresholds and the weighted score (cases worked out by hand)
+const w = (buyPct: number): CryptoFlowWindow => ({ minutes: 1, delta: 0, volume: 1, deltaPct: 2 * (buyPct - 50), buyPct, priceChangePct: 0 });
+const b1 = flowBias({ m15: w(50), h1: w(51), h4: w(50) }); // score 0.5 -> balanced
+check("bias: near 50% is balanced", b1.side === "balanced" && b1.strength === null && !b1.consistent);
+const b2 = flowBias({ m15: w(46), h1: w(46), h4: w(46) }); // score -4 -> sellers, mild, consistent
+check("bias: 46% everywhere = sellers, mild, consistent", b2.side === "sellers" && b2.strength === "mild" && b2.consistent && Math.abs(b2.score + 4) < 1e-9);
+const b3 = flowBias({ m15: w(60), h1: w(56), h4: w(52) }); // score (10 + 12 + 2) / 4 = 6 -> buyers, moderate, consistent
+check("bias: weighted score 6 = buyers, moderate", b3.side === "buyers" && b3.strength === "moderate" && b3.consistent && Math.abs(b3.score - 6) < 1e-9);
+const b4 = flowBias({ m15: w(70), h1: w(65), h4: w(60) }); // score (20 + 30 + 10) / 4 = 15 -> buyers, strong
+check("bias: weighted score 15 = buyers, strong", b4.side === "buyers" && b4.strength === "strong");
+const b5 = flowBias({ m15: w(40), h1: w(56), h4: w(54) }); // score (-10 + 12 + 4) / 4 = 1.5 -> balanced, not consistent
+check("bias: mixed windows are not consistent", b5.side === "balanced" && !b5.consistent);
+if (res) check("response carries the bias", res.bias.side === flowBias(res.windows).side && Math.abs(res.bias.score - flowBias(res.windows).score) < 1e-12);
 
 // 3) closed-bar rule and malformed rows
 const lastOpen = fx.klines[fx.klines.length - 1];

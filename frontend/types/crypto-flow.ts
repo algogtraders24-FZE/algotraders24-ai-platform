@@ -34,6 +34,19 @@ export interface CryptoFlowWindow {
   priceChangePct: number;
 }
 
+/** Who has been the aggressor lately. Descriptive: it summarises what already traded, it is not a forecast. */
+export type CryptoFlowSide = "buyers" | "sellers" | "balanced";
+export type CryptoFlowStrength = "mild" | "moderate" | "strong";
+
+export interface CryptoFlowBias {
+  side: CryptoFlowSide;
+  strength: CryptoFlowStrength | null;
+  /** Weighted distance of the buyers' share from 50 %, in percentage points (positive = buyers). */
+  score: number;
+  /** True when the 15 min, 1 h and 4 h windows all lean the same way (each at least 2 points from 50 %). */
+  consistent: boolean;
+}
+
 export interface CryptoFlowResponse {
   symbol: CryptoFlowSymbol;
   venue: "Binance spot";
@@ -41,6 +54,7 @@ export interface CryptoFlowResponse {
   asOf: number;
   lastPrice: number;
   windows: { m15: CryptoFlowWindow; h1: CryptoFlowWindow; h4: CryptoFlowWindow };
+  bias: CryptoFlowBias;
   /** Closed 1-minute points, oldest first (up to 240). */
   series: CryptoFlowPoint[];
 }
