@@ -5,3 +5,6 @@ export const COMPANY_ADDRESS = "C1-1F-SF13159, Ajman Free Zone, Ajman, UAE";
 
 /** One line for an email footer: who is sending and where they are registered. */
 export const COMPANY_FOOTER_LINE = `Algotraders24 AI · ${COMPANY_ADDRESS}`;
+
+/** The public contact inbox (support@). */
+export const CONTACT_EMAIL = "support@algotraders24.ai";

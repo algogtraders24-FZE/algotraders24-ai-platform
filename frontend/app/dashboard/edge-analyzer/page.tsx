@@ -397,6 +397,34 @@ export default function EdgeAnalyzerPage() {
             </Card>
           )}
 
+          {full?.propChecks && full.propChecks.tradeCount > 0 && (
+            <Card className="space-y-3">
+              <p className="text-sm font-semibold text-text">Rule-style checks</p>
+              <p className="text-xs text-text-3">The things a prop-firm rulebook is usually written around, measured on your closed trades. Compare each figure with the written rules that apply to you.</p>
+              <ul className="list-disc space-y-1.5 pl-5 text-sm text-text-2">
+                <li>
+                  Best single day: <b className="text-text">{money(full.propChecks.consistency.bestDayNet, cur)}</b>
+                  {full.propChecks.consistency.bestDayDate && <> on {full.propChecks.consistency.bestDayDate}</>}
+                  {full.propChecks.consistency.bestDaySharePct !== null && <>, which is <b className="text-text">{full.propChecks.consistency.bestDaySharePct}%</b> of your total net profit (best three days together: {full.propChecks.consistency.top3DaysSharePct}%)</>}
+                  {full.propChecks.consistency.bestDaySharePct === null && <> (a share of total profit is shown only when both are positive)</>}
+                  . {full.propChecks.consistency.profitableDays} profitable and {full.propChecks.consistency.losingDays} losing days out of {full.propChecks.consistency.tradingDays}.
+                </li>
+                <li>
+                  Trades closed without a stop loss: <b className="text-text">{full.propChecks.stopLoss.withoutStopLoss}</b> of {full.propChecks.tradeCount} ({full.propChecks.stopLoss.withoutPct}%).
+                </li>
+                <li>
+                  Most positions open at once on one symbol: <b className="text-text">{full.propChecks.overlap.maxOpenOnOneSymbol}</b>. Opened while another position in the same direction was open: {full.propChecks.overlap.openedWhileSameDirectionOpenPct}%. Opened while an opposite position was open (hedging): {full.propChecks.overlap.openedWhileOppositeDirectionOpenPct}%.
+                </li>
+                <li>
+                  Held under 1 minute: {full.propChecks.holding.under1MinutePct}%. Held under 5 minutes: {full.propChecks.holding.under5MinutesPct}%. Median hold: {minutes(full.propChecks.holding.medianHoldMs)}.
+                </li>
+              </ul>
+              <ul className="list-disc space-y-1 pl-5 text-xs text-text-3">
+                {full.propChecks.notes.map((a) => <li key={a}>{a}</li>)}
+              </ul>
+            </Card>
+          )}
+
           <Card className="space-y-2">
             <p className="text-sm font-semibold text-text">How to read this report</p>
             <ul className="list-disc space-y-1 pl-5 text-xs text-text-3">

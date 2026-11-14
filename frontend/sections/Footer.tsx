@@ -104,7 +104,7 @@ const SOLUTIONS: FooterItem[] = [
   { label: "Retail Traders", href: "/solutions/retail-traders" },
   { label: "Professional Traders", href: "/solutions/professional-traders" },
   { label: "All Solutions", href: "/solutions" },
-  { label: "Prop Firms" },
+  { label: "Prop Firms", href: "/solutions/prop-firms" },
   { label: "Hedge Funds" },
   { label: "Institutions" },
 ];
