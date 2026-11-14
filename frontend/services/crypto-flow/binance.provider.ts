@@ -6,6 +6,7 @@
 import "server-only";
 import type { CryptoFlowMarket } from "@/types/crypto-flow";
 import type { RawKline } from "./compute";
+import type { RawBook } from "./zones";
 
 export type CryptoFlowProviderErrorKind = "http_error" | "invalid_response" | "timeout" | "unknown";
 
@@ -31,8 +32,7 @@ const KLINE_LIMIT = 241;
 
 export type CryptoFlowFetch = typeof fetch;
 
-export async function fetchBinanceKlines(symbol: string, market: CryptoFlowMarket = "spot", fetchImpl: CryptoFlowFetch = fetch): Promise<RawKline[]> {
-  const url = `${BASE_URL[market]}${KLINE_PATH[market]}?symbol=${encodeURIComponent(symbol)}&interval=1m&limit=${KLINE_LIMIT}`;
+async function getJson(url: string, fetchImpl: CryptoFlowFetch): Promise<unknown> {
   let res: Response;
   try {
     res = await fetchImpl(url, {
@@ -51,6 +51,28 @@ export async function fetchBinanceKlines(symbol: string, market: CryptoFlowMarke
   } catch (error) {
     throw new CryptoFlowProviderError("invalid_response", "Market data host returned invalid JSON", error);
   }
+  return json;
+}
+
+export async function fetchBinanceKlines(
+  symbol: string,
+  market: CryptoFlowMarket = "spot",
+  fetchImpl: CryptoFlowFetch = fetch,
+  interval: string = "1m",
+  limit: number = KLINE_LIMIT,
+): Promise<RawKline[]> {
+  const url = `${BASE_URL[market]}${KLINE_PATH[market]}?symbol=${encodeURIComponent(symbol)}&interval=${interval}&limit=${limit}`;
+  const json = await getJson(url, fetchImpl);
   if (!Array.isArray(json)) throw new CryptoFlowProviderError("invalid_response", "Market data host returned an unexpected shape");
   return json as RawKline[];
+}
+
+const DEPTH_PATH: Record<CryptoFlowMarket, string> = { spot: "/api/v3/depth", perp: "/fapi/v1/depth" };
+
+/** The order book (up to 1000 levels per side). Resting orders, not trades. */
+export async function fetchBinanceDepth(symbol: string, market: CryptoFlowMarket = "spot", fetchImpl: CryptoFlowFetch = fetch): Promise<RawBook> {
+  const url = `${BASE_URL[market]}${DEPTH_PATH[market]}?symbol=${encodeURIComponent(symbol)}&limit=1000`;
+  const json = (await getJson(url, fetchImpl)) as Partial<RawBook> | null;
+  if (!json || !Array.isArray(json.bids) || !Array.isArray(json.asks)) throw new CryptoFlowProviderError("invalid_response", "Market data host returned an unexpected shape");
+  return { bids: json.bids, asks: json.asks };
 }

@@ -122,3 +122,93 @@ export type CryptoFlowOverviewRow =
 export interface CryptoFlowOverview {
   rows: CryptoFlowOverviewRow[];
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Flow Zones: where buyers and sellers have been trading (volume profile split by aggressor side) and where the
+// resting orders sit (order-book walls). Descriptive: it shows what already traded and what is resting now.
+// ---------------------------------------------------------------------------------------------------------------
+
+export type CryptoFlowLookback = "4h" | "24h" | "7d";
+
+export interface CryptoFlowLookbackConfig {
+  id: CryptoFlowLookback;
+  label: string;
+  /** Binance kline interval used for this lookback (one request, closed bars only). */
+  interval: "1m" | "5m" | "15m";
+  /** Minutes per bar. */
+  barMinutes: number;
+  /** Closed bars wanted. */
+  bars: number;
+  /** Price bucket size as a percentage of the last price. */
+  stepPct: number;
+}
+
+export const CRYPTO_FLOW_LOOKBACKS: readonly CryptoFlowLookbackConfig[] = [
+  { id: "4h", label: "4 hours", interval: "1m", barMinutes: 1, bars: 240, stepPct: 0.05 },
+  { id: "24h", label: "24 hours", interval: "5m", barMinutes: 5, bars: 288, stepPct: 0.1 },
+  { id: "7d", label: "7 days", interval: "15m", barMinutes: 15, bars: 672, stepPct: 0.25 },
+] as const;
+
+export function getCryptoFlowLookback(id: string): CryptoFlowLookbackConfig | undefined {
+  return CRYPTO_FLOW_LOOKBACKS.find((l) => l.id === id);
+}
+
+/** One price bucket of the profile. buy / sell are base-asset volume bought / sold by aggressors. */
+export interface CryptoFlowProfileBucket {
+  /** Bucket centre price. */
+  price: number;
+  buy: number;
+  sell: number;
+}
+
+export interface CryptoFlowZone {
+  /** Bucket centre price. */
+  price: number;
+  /** Distance from the last price, percent (negative = below). */
+  distancePct: number;
+  /** The bucket's net imbalance (buyers minus sellers, or the reverse) as a percentage of all volume in the lookback. */
+  netSharePct: number;
+}
+
+export interface CryptoFlowWall {
+  /** Centre price of the 0.2 % band. */
+  price: number;
+  distancePct: number;
+  /** Resting orders in the band, in quote currency (USDT). */
+  notional: number;
+}
+
+export interface CryptoFlowBook {
+  bids: CryptoFlowWall[];
+  asks: CryptoFlowWall[];
+  /** How far from the price each side of the downloaded book reaches (the smaller of the two), percent. */
+  coveragePct: number;
+  /** (bids - asks) / (bids + asks) within that coverage, percent. */
+  imbalancePct: number;
+}
+
+export type CryptoFlowValueState = "inside" | "above" | "below";
+
+export interface CryptoFlowZones {
+  symbol: string;
+  venue: string;
+  lookback: CryptoFlowLookback;
+  /** Open time of the last closed bar, epoch ms. */
+  asOf: number;
+  lastPrice: number;
+  /** Bucket size, percent of the last price. */
+  stepPct: number;
+  /** Trades per minute over the lookback; below 20 the profile is too thin to read. */
+  tradesPerMinute: number;
+  thin: boolean;
+  /** Empty when thin. Ordered from the lowest price to the highest. */
+  profile: CryptoFlowProfileBucket[];
+  poc: CryptoFlowZone | null;
+  valueAreaLow: number | null;
+  valueAreaHigh: number | null;
+  state: CryptoFlowValueState | null;
+  buyerZone: CryptoFlowZone | null;
+  sellerZone: CryptoFlowZone | null;
+  /** Null when the order book could not be loaded or the instrument is thin. */
+  book: CryptoFlowBook | null;
+}

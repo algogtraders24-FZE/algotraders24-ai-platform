@@ -1,9 +1,10 @@
 // services/crypto-flow/crypto-flow.service.ts
 // Reads the Binance klines through the provider and shapes them with the pure maths in compute.ts.
 import "server-only";
-import { CRYPTO_FLOW_INSTRUMENTS, getCryptoFlowInstrument, type CryptoFlowOverview, type CryptoFlowOverviewRow, type CryptoFlowResponse } from "@/types/crypto-flow";
-import { CryptoFlowProviderError, fetchBinanceKlines } from "./binance.provider";
+import { CRYPTO_FLOW_INSTRUMENTS, getCryptoFlowInstrument, getCryptoFlowLookback, type CryptoFlowZones, type CryptoFlowOverview, type CryptoFlowOverviewRow, type CryptoFlowResponse } from "@/types/crypto-flow";
+import { CryptoFlowProviderError, fetchBinanceDepth, fetchBinanceKlines } from "./binance.provider";
 import { computeCryptoFlow } from "./compute";
+import { computeFlowZones, type RawBook } from "./zones";
 
 /** One instrument, with the 4-hour series (detail view). Throws CryptoFlowProviderError when the feed fails. */
 export async function getCryptoFlow(symbol: string, withSeries = true): Promise<CryptoFlowResponse> {
@@ -25,4 +26,19 @@ export async function getCryptoFlowOverview(): Promise<CryptoFlowOverview> {
     return { symbol, status: "unavailable", message: "Temporarily unavailable" };
   });
   return { rows };
+}
+
+/** Flow Zones for one instrument and lookback. The order book is optional: when it cannot be loaded the zones still return, without walls. */
+export async function getCryptoFlowZones(symbol: string, lookback: string): Promise<CryptoFlowZones> {
+  const instrument = getCryptoFlowInstrument(symbol);
+  const cfg = getCryptoFlowLookback(lookback);
+  if (!instrument || !cfg) throw new CryptoFlowProviderError("invalid_response", "Unknown instrument or lookback");
+  const [klines, book] = await Promise.all([
+    fetchBinanceKlines(instrument.symbol, instrument.market, fetch, cfg.interval, cfg.bars + 1),
+    fetchBinanceDepth(instrument.symbol, instrument.market).catch((): RawBook | null => null),
+  ]);
+  const venue = instrument.market === "perp" ? "Binance USDS-M perpetual" : "Binance spot";
+  const result = computeFlowZones(instrument.symbol, klines, book, Date.now(), venue, cfg);
+  if (!result) throw new CryptoFlowProviderError("invalid_response", "Not enough closed bars returned");
+  return result;
 }
