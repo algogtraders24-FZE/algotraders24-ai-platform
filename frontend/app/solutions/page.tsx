@@ -24,10 +24,10 @@ export const metadata: Metadata = {
 const LIVE: { title: string; description: string; href: string; icon: LucideIcon }[] = [
   { title: "Retail Traders", description: "Explainable decision support, starting on the Free plan.", href: "/solutions/retail-traders", icon: User },
   { title: "Professional Traders", description: "Auditable, category-level reasoning you can verify, not just trust.", href: "/solutions/professional-traders", icon: Briefcase },
+  { title: "Prop Firms", description: "Evidence and analytics services that sit next to your stack: rule monitoring, consistency checks, applicant and EA screening.", href: "/solutions/prop-firms", icon: Building2 },
 ];
 
 const UPCOMING: { title: string; icon: LucideIcon }[] = [
-  { title: "Prop Firms", icon: Building2 },
   { title: "Hedge Funds", icon: Briefcase },
   { title: "Institutions", icon: Landmark },
 ];

@@ -23,6 +23,7 @@ export type LockedSection =
   | "Hour and hold-time breakdowns"
   | "Direction breakdown"
   | "Habits worth a closer look"
+  | "Rule-style checks"
   | "PDF download";
 
 export const FREE_LOCKED_SECTIONS: readonly LockedSection[] = [
@@ -31,6 +32,7 @@ export const FREE_LOCKED_SECTIONS: readonly LockedSection[] = [
   "Hour and hold-time breakdowns",
   "Direction breakdown",
   "Habits worth a closer look",
+  "Rule-style checks",
   "PDF download",
 ];
 

@@ -7,6 +7,7 @@ import { computeCoreStats, type CoreStats } from "./analysis/core";
 import { computePatterns, type Patterns } from "./analysis/patterns";
 import { computeEdgeEvidence, type EdgeEvidence } from "./analysis/edge-evidence";
 import { computeRuinAnalysis, type RuinAnalysis } from "./analysis/ruin";
+import { computePropChecks, type PropChecks } from "./analysis/prop-checks";
 import { reconcile } from "./analysis/reconcile";
 import { decodeReportBuffer, parseMt5HtmlReport } from "./parsers/mt5-html";
 import type { BalanceOp, ClosedTrade, ParseErrorCode, ReconciliationCheck, ReportedResults, ReportMeta } from "./types";
@@ -19,6 +20,8 @@ export interface EdgeReportE1 {
   edge: EdgeEvidence;
   /** Monte-Carlo risk view; null when there are too few trades. */
   ruin: RuinAnalysis | null;
+  /** Rule-style measurements (consistency, stop-loss use, overlap, holding time). Optional: reports saved before this existed do not have it. */
+  propChecks?: PropChecks;
   /** Our numbers vs the terminal's own Results block (empty if the report has none). */
   reconciliation: ReconciliationCheck[];
   /** True only if there is at least one check and every check passed. */
@@ -70,6 +73,7 @@ export function analyzeTrades(input: TradesInput): EdgeReportE1 {
     patterns: computePatterns(input.trades),
     edge: computeEdgeEvidence(input.trades, { currency: input.meta.currency }),
     ruin: computeRuinAnalysis(input.trades, core.endBalance),
+    propChecks: computePropChecks(input.trades),
     reconciliation,
     reconciled,
     warnings,
