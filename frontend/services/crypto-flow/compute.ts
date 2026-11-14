@@ -4,7 +4,7 @@
 //   [openTime, open, high, low, close, volume, closeTime, quoteVolume, trades, takerBuyBaseVolume, takerBuyQuoteVolume, ignore]
 // delta per bar = takerBuyBase - (volume - takerBuyBase) = 2 * takerBuyBase - volume
 // (buyer-aggressor volume minus seller-aggressor volume, base asset units).
-import type { CryptoFlowPoint, CryptoFlowResponse, CryptoFlowSymbol, CryptoFlowWindow } from "@/types/crypto-flow";
+import type { CryptoFlowBias, CryptoFlowPoint, CryptoFlowQuality, CryptoFlowResponse, CryptoFlowWindow } from "@/types/crypto-flow";
 
 export type RawKline = ReadonlyArray<string | number>;
 
@@ -18,12 +18,13 @@ export function parseClosedKlines(rows: ReadonlyArray<RawKline>, nowMs: number):
     const close = Number(row[4]);
     const volume = Number(row[5]);
     const closeTime = Number(row[6]);
+    const trades = Number(row[8]);
     const takerBuy = Number(row[9]);
-    if (![t, close, volume, closeTime, takerBuy].every(Number.isFinite)) continue;
+    if (![t, close, volume, closeTime, trades, takerBuy].every(Number.isFinite)) continue;
     if (closeTime >= nowMs) continue; // the current minute is still open
     const delta = 2 * takerBuy - volume;
     cum += delta;
-    points.push({ t, close, volume, delta, cum });
+    points.push({ t, close, volume, trades, delta, cum });
   }
   return points;
 }
@@ -48,17 +49,52 @@ function windowOf(points: ReadonlyArray<CryptoFlowPoint>, minutes: number): Cryp
   };
 }
 
+/**
+ * Summarises the three windows into one bias. score = weighted mean of (buyers' share - 50) over 15 min (weight 1),
+ * 1 h (weight 2) and 4 h (weight 1). |score| < 2 points = balanced; 2-5 mild; 5-10 moderate; above 10 strong.
+ * "consistent" = all three windows lean the same way by at least 2 points.
+ */
+export function flowBias(windows: { m15: CryptoFlowWindow; h1: CryptoFlowWindow; h4: CryptoFlowWindow }): CryptoFlowBias {
+  const d15 = windows.m15.buyPct - 50;
+  const d1 = windows.h1.buyPct - 50;
+  const d4 = windows.h4.buyPct - 50;
+  const score = (d15 + 2 * d1 + d4) / 4;
+  const abs = Math.abs(score);
+  const side = abs < 2 ? "balanced" : score > 0 ? "buyers" : "sellers";
+  const strength = side === "balanced" ? null : abs < 5 ? "mild" : abs < 10 ? "moderate" : "strong";
+  const consistent = (d15 >= 2 && d1 >= 2 && d4 >= 2) || (d15 <= -2 && d1 <= -2 && d4 <= -2);
+  return { side, strength, score, consistent };
+}
+
+/**
+ * Data quality from the trades per minute over the window (up to the last 240 closed minutes):
+ * high = median at least 100 trades a minute and no more than 2 % empty minutes; thin = median below 20 or at least 5 % empty minutes; otherwise medium.
+ */
+export function flowQuality(points: ReadonlyArray<CryptoFlowPoint>): CryptoFlowQuality {
+  const slice = points.slice(Math.max(0, points.length - 240));
+  const counts = slice.map((p) => p.trades).sort((a, b) => a - b);
+  const n = counts.length;
+  const median = n === 0 ? 0 : n % 2 === 1 ? counts[(n - 1) / 2] : (counts[n / 2 - 1] + counts[n / 2]) / 2;
+  const emptyMinutes = counts.filter((c) => c === 0).length;
+  const emptyShare = n > 0 ? emptyMinutes / n : 1;
+  const level = median < 20 || emptyShare >= 0.05 ? "thin" : median >= 100 && emptyShare <= 0.02 ? "high" : "medium";
+  return { level, medianTradesPerMinute: median, emptyMinutes };
+}
+
 /** Builds the response from the raw klines. Returns null when there are too few closed bars. */
-export function computeCryptoFlow(symbol: CryptoFlowSymbol, rows: ReadonlyArray<RawKline>, nowMs: number): CryptoFlowResponse | null {
+export function computeCryptoFlow(symbol: string, rows: ReadonlyArray<RawKline>, nowMs: number, venue = "Binance spot", withSeries = true): CryptoFlowResponse | null {
   const points = parseClosedKlines(rows, nowMs);
   if (points.length < 60) return null;
   const last = points[points.length - 1];
+  const windows = { m15: windowOf(points, 15), h1: windowOf(points, 60), h4: windowOf(points, 240) };
   return {
     symbol,
-    venue: "Binance spot",
+    venue,
     asOf: last.t,
     lastPrice: last.close,
-    windows: { m15: windowOf(points, 15), h1: windowOf(points, 60), h4: windowOf(points, 240) },
-    series: points,
+    windows,
+    bias: flowBias(windows),
+    quality: flowQuality(points),
+    ...(withSeries ? { series: points } : {}),
   };
 }
