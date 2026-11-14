@@ -3803,3 +3803,49 @@ model ArenaSnapshot {
 
   @@map("arena_snapshots")
 }
+
+/// Crypto Flow Zones forward scoreboard: one hourly snapshot per instrument of the 24-hour zones, scored later against the
+/// 5-minute bars that really followed (did price reach the zone, and what did the next hour do). Additive.
+model FlowZoneObservation {
+  id            String    @id @default(cuid())
+  symbol        String
+  /// UTC hour of the snapshot, "YYYY-MM-DDTHH". One snapshot per symbol per hour.
+  hourKey       String
+  createdAt     DateTime  @default(now())
+  /// Open time of the last closed 5-minute bar at snapshot time.
+  barTime       DateTime
+  price         Float
+  stepPct       Float
+  /// Typical one-hour range of the instrument (percent of price), the unit the reaction is measured in.
+  xRangePct     Float
+  buyerPrice    Float?
+  sellerPrice   Float?
+  pocPrice      Float?
+  /// open | done
+  status        String    @default("open")
+  buyerTouchAt  DateTime?
+  buyerR        Float?
+  sellerTouchAt DateTime?
+  sellerR       Float?
+  evaluatedAt   DateTime?
+
+  @@unique([symbol, hourKey])
+  @@index([status, createdAt])
+  @@map("flow_zone_observations")
+}
+
+/// A member's Telegram alert subscription for one Crypto Flow instrument (the zones are the latest hourly snapshot).
+model FlowZoneAlertSub {
+  id                String    @id @default(cuid())
+  userId            String
+  symbol            String
+  createdAt         DateTime  @default(now())
+  lastBuyerObsId    String?
+  lastBuyerAt       DateTime?
+  lastSellerObsId   String?
+  lastSellerAt      DateTime?
+
+  @@unique([userId, symbol])
+  @@index([symbol])
+  @@map("flow_zone_alert_subs")
+}

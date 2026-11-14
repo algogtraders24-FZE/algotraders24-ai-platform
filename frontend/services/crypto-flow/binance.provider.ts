@@ -60,8 +60,10 @@ export async function fetchBinanceKlines(
   fetchImpl: CryptoFlowFetch = fetch,
   interval: string = "1m",
   limit: number = KLINE_LIMIT,
+  startTime?: number,
 ): Promise<RawKline[]> {
-  const url = `${BASE_URL[market]}${KLINE_PATH[market]}?symbol=${encodeURIComponent(symbol)}&interval=${interval}&limit=${limit}`;
+  const start = startTime !== undefined ? `&startTime=${Math.floor(startTime)}` : "";
+  const url = `${BASE_URL[market]}${KLINE_PATH[market]}?symbol=${encodeURIComponent(symbol)}&interval=${interval}&limit=${limit}${start}`;
   const json = await getJson(url, fetchImpl);
   if (!Array.isArray(json)) throw new CryptoFlowProviderError("invalid_response", "Market data host returned an unexpected shape");
   return json as RawKline[];

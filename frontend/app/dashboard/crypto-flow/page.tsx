@@ -19,6 +19,7 @@ import {
   getCryptoFlowLookback,
   type CryptoFlowLookback,
   type CryptoFlowZone,
+  type CryptoFlowScoreboard,
   type CryptoFlowZones,
   type CryptoFlowBias,
   type CryptoFlowGroup,
@@ -439,12 +440,20 @@ function ZonesCard({
   onLookback,
   state,
   onRetry,
+  alerts,
+  alertBusy,
+  alertError,
+  onToggleAlert,
 }: {
   inst: CryptoFlowInstrument;
   lookback: CryptoFlowLookback;
   onLookback: (l: CryptoFlowLookback) => void;
   state: LoadState<CryptoFlowZones>;
   onRetry: () => void;
+  alerts: AlertState | null;
+  alertBusy: boolean;
+  alertError: string | null;
+  onToggleAlert: (on: boolean) => void;
 }) {
   const lb = getCryptoFlowLookback(lookback);
   return (
@@ -543,9 +552,112 @@ function ZonesCard({
           )}
         </div>
       ) : null}
+      <AlertSwitch inst={inst} alerts={alerts} busy={alertBusy} error={alertError} onToggle={onToggleAlert} />
       <p className="mt-3 text-xs text-text-3">
         Context, not a signal. The profile puts each bar&apos;s volume at its typical price, uses one venue (Binance) and shows what already traded. Flow does not predict the
         next move, and a zone can fail.
+      </p>
+    </Card>
+  );
+}
+
+interface AlertState {
+  configured: boolean;
+  linked: boolean;
+  symbols: string[];
+}
+
+/** Telegram alert switch for one instrument (zones of the hourly 24 hour snapshot). */
+function AlertSwitch({ inst, alerts, busy, error, onToggle }: { inst: CryptoFlowInstrument; alerts: AlertState | null; busy: boolean; error: string | null; onToggle: (on: boolean) => void }) {
+  if (!alerts) return null;
+  const on = alerts.symbols.includes(inst.symbol);
+  return (
+    <div className="mt-4 rounded-lg border border-border bg-surface-2 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-sm text-text-1">
+          Telegram alert when price reaches a {inst.short} zone
+          <div className="text-xs text-text-3">Uses the 24 hour zones recorded each hour. One message per zone, at most one per side every 3 hours.</div>
+        </div>
+        {!alerts.configured ? (
+          <span className="text-xs text-text-3">Telegram alerts are not switched on yet.</span>
+        ) : !alerts.linked && !on ? (
+          <span className="text-xs text-text-2">Connect Telegram first: Live Sync &gt; Connect Telegram.</span>
+        ) : (
+          <Button variant={on ? "secondary" : "primary"} disabled={busy} onClick={() => onToggle(!on)}>
+            {on ? "Alert on - turn off" : "Turn alert on"}
+          </Button>
+        )}
+      </div>
+      {error ? <div className="mt-2 text-xs text-danger">{error}</div> : null}
+    </div>
+  );
+}
+
+const VERDICT_TONE: Record<string, string> = {
+  "POSITIVE ON THIS HISTORY": "text-success",
+  "NEGATIVE ON THIS HISTORY": "text-danger",
+  "NO EDGE SHOWN": "text-text-2",
+  COLLECTING: "text-text-3",
+};
+
+function ScoreCells({ label, row }: { label: string; row: { n: number; meanR: number | null; hitPct: number | null; t: number | null; verdict: string; untouched?: number } }) {
+  return (
+    <tr className="border-t border-border">
+      <td className="py-2 pr-3 text-text-1">{label}</td>
+      <td className="py-2 pr-3 text-text-2">{row.n}</td>
+      <td className="py-2 pr-3 text-text-2">{row.meanR === null ? "-" : row.meanR.toFixed(2)}</td>
+      <td className="py-2 pr-3 text-text-2">{row.hitPct === null ? "-" : `${row.hitPct.toFixed(0)}%`}</td>
+      <td className="py-2 pr-3 text-text-2">{row.t === null ? "-" : row.t.toFixed(2)}</td>
+      <td className="py-2 pr-3 text-text-3">{row.untouched ?? "-"}</td>
+      <td className={`py-2 font-medium ${VERDICT_TONE[row.verdict] ?? "text-text-2"}`}>{row.n < 30 ? `Collecting (${row.n}/30)` : row.verdict}</td>
+    </tr>
+  );
+}
+
+/** Forward scoreboard: how price really behaved after reaching the recorded zones. */
+function ScoreboardCard({ state }: { state: LoadState<CryptoFlowScoreboard> }) {
+  return (
+    <Card className="mt-4">
+      <h3 className="text-base font-semibold text-text-1">Zone scoreboard &middot; do the zones work?</h3>
+      <p className="mt-1 text-xs text-text-3">
+        Every hour the 24 hour zones are recorded. If price later reaches a zone within 6 hours, we measure the next hour from the close of that bar: for a buyer zone the move up, for a
+        seller zone the move down, in units of the instrument&apos;s typical one-hour range (r). Results below are real, recorded forward, not a backtest. Under 30 touches nothing is claimed.
+      </p>
+      {state.status === "loading" ? <Skeleton className="mt-4 h-32 w-full" /> : null}
+      {state.status === "error" ? <div className="mt-3 text-sm text-text-3">{state.message}</div> : null}
+      {state.status === "ready" ? (
+        <div className="mt-3">
+          <div className="text-xs text-text-3">
+            {state.data.since ? `Recording since ${state.data.since.slice(0, 10)}. ` : "Nothing recorded yet. "}
+            {state.data.done} snapshots scored, {state.data.open} waiting.
+          </div>
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="text-text-3">
+                  <th className="pb-1 pr-3 font-medium">Zone</th>
+                  <th className="pb-1 pr-3 font-medium">Touches</th>
+                  <th className="pb-1 pr-3 font-medium">Mean r</th>
+                  <th className="pb-1 pr-3 font-medium">Positive</th>
+                  <th className="pb-1 pr-3 font-medium">t</th>
+                  <th className="pb-1 pr-3 font-medium">Never reached</th>
+                  <th className="pb-1 font-medium">Verdict</th>
+                </tr>
+              </thead>
+              <tbody>
+                <ScoreCells label="All instruments - buyer zones" row={state.data.pooled.buyer} />
+                <ScoreCells label="All instruments - seller zones" row={state.data.pooled.seller} />
+                {state.data.rows.map((r) => (
+                  <ScoreCells key={`${r.symbol}${r.side}`} label={`${getCryptoFlowInstrument(r.symbol)?.short ?? r.symbol} - ${r.side} zone`} row={r} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+      <p className="mt-3 text-xs text-text-3">
+        r above 0 means price moved the zone&apos;s way in the hour after touching it. A rising market lifts buyer-zone results by itself, and the pooled rows mix coins that move together, so
+        read them with care. A verdict needs at least 30 touches and |t| of 2.58 or more; otherwise it stays &quot;no edge shown&quot;.
       </p>
     </Card>
   );
@@ -557,6 +669,10 @@ export default function CryptoFlowPage() {
   const [detail, setDetail] = useState<LoadState<CryptoFlowResponse>>({ status: "loading" });
   const [lookback, setLookback] = useState<CryptoFlowLookback>("24h");
   const [zones, setZones] = useState<LoadState<CryptoFlowZones>>({ status: "loading" });
+  const [alerts, setAlerts] = useState<AlertState | null>(null);
+  const [alertBusy, setAlertBusy] = useState(false);
+  const [alertError, setAlertError] = useState<string | null>(null);
+  const [board, setBoard] = useState<LoadState<CryptoFlowScoreboard>>({ status: "loading" });
 
   const loadOverview = useCallback(async () => {
     try {
@@ -599,6 +715,52 @@ export default function CryptoFlowPage() {
       setZones({ status: "error", message: "Network error - could not reach the service." });
     }
   }, []);
+
+  const loadAlerts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/private/crypto-flow/alerts");
+      const json = (await res.json().catch(() => null)) as { status?: string; data?: AlertState } | null;
+      if (res.ok && json?.status === "ok" && json.data) setAlerts(json.data);
+    } catch {
+      /* the switch just stays hidden */
+    }
+  }, []);
+
+  const loadBoard = useCallback(async () => {
+    try {
+      const res = await fetch("/api/private/crypto-flow/scoreboard");
+      const json = (await res.json().catch(() => null)) as { status?: string; data?: CryptoFlowScoreboard } | null;
+      if (!res.ok || !json || json.status !== "ok" || !json.data) {
+        setBoard({ status: "error", message: "The scoreboard could not be loaded." });
+        return;
+      }
+      setBoard({ status: "ready", data: json.data });
+    } catch {
+      setBoard({ status: "error", message: "The scoreboard could not be loaded." });
+    }
+  }, []);
+
+  const toggleAlert = async (symbol: string, enabled: boolean) => {
+    setAlertBusy(true);
+    setAlertError(null);
+    try {
+      const res = await fetch("/api/private/crypto-flow/alerts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol, enabled }) });
+      const json = (await res.json().catch(() => null)) as { status?: string; error?: { message?: string } } | null;
+      if (!res.ok || json?.status !== "ok") setAlertError(json?.error?.message || "Could not change the alert.");
+      await loadAlerts();
+    } catch {
+      setAlertError("Network error - could not reach the service.");
+    } finally {
+      setAlertBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadAlerts();
+    void loadBoard();
+    const id = window.setInterval(() => void loadBoard(), 5 * 60_000);
+    return () => window.clearInterval(id);
+  }, [loadAlerts, loadBoard]);
 
   useEffect(() => {
     void loadOverview();
@@ -677,7 +839,8 @@ export default function CryptoFlowPage() {
       <section className="mb-6">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-text-2">Detail: {selectedInst.label}</h2>
         <DetailPanel inst={selectedInst} state={detail} onRetry={() => void loadDetail(selected)} />
-        <ZonesCard inst={selectedInst} lookback={lookback} onLookback={changeLookback} state={zones} onRetry={() => void loadZones(selected, lookback)} />
+        <ZonesCard inst={selectedInst} lookback={lookback} onLookback={changeLookback} state={zones} onRetry={() => void loadZones(selected, lookback)} alerts={alerts} alertBusy={alertBusy} alertError={alertError} onToggleAlert={(on) => void toggleAlert(selected, on)} />
+        <ScoreboardCard state={board} />
       </section>
       <p className="mt-6 text-xs text-text-3">Source: Binance public market data (bars and order book), refreshed every minute. Click a card for its detail. Not financial advice.</p>
     </div>
