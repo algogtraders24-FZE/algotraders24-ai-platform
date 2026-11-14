@@ -212,3 +212,22 @@ export interface CryptoFlowZones {
   /** Null when the order book could not be loaded or the instrument is thin. */
   book: CryptoFlowBook | null;
 }
+
+// ---- forward scoreboard (see services/crypto-flow/scoreboard.ts for the fixed rules) ----
+export type CryptoFlowScoreVerdict = "COLLECTING" | "POSITIVE ON THIS HISTORY" | "NEGATIVE ON THIS HISTORY" | "NO EDGE SHOWN";
+
+export interface CryptoFlowScoreRow {
+  n: number;
+  meanR: number | null;
+  hitPct: number | null;
+  t: number | null;
+  verdict: CryptoFlowScoreVerdict;
+}
+
+export interface CryptoFlowScoreboard {
+  rows: Array<{ symbol: string; side: "buyer" | "seller"; untouched: number } & CryptoFlowScoreRow>;
+  pooled: { buyer: CryptoFlowScoreRow; seller: CryptoFlowScoreRow };
+  open: number;
+  done: number;
+  since: string | null;
+}

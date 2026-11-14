@@ -9,6 +9,7 @@
 import { sweepOfflineAlerts } from "@/services/live-sync/alert-runner";
 import { sweepAuthorized } from "@/services/live-sync/sweep-auth";
 import { sweepWatchers } from "@/services/live-results/watch-notify";
+import { runFlowZoneTracker } from "@/services/crypto-flow/zone-tracker";
 import { announceNewListings, postWeeklyDigest, productionChannelDeps } from "@/services/telegram/channel";
 
 export const runtime = "nodejs";
@@ -30,7 +31,9 @@ export async function POST(request: Request): Promise<Response> {
     channelPosts += (await announceNewListings(channel)).posted;
     if (await postWeeklyDigest(channel)) channelPosts++;
   }
-  return Response.json({ ok: true, ...r, watchers: w.watched, watcherNotices: w.notified, channelPosts }, { headers: { "cache-control": "no-store" } });
+  // Crypto Flow Zones: hourly zone snapshots, forward scoring, member Telegram alerts (best effort, never throws).
+  const flowZones = await runFlowZoneTracker(now).catch(() => null);
+  return Response.json({ ok: true, ...r, flowZones, watchers: w.watched, watcherNotices: w.notified, channelPosts }, { headers: { "cache-control": "no-store" } });
 }
 
 export const GET = () => Response.json({ ok: false, code: "METHOD" }, { status: 405, headers: { allow: "POST" } });
