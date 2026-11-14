@@ -4,7 +4,7 @@
 // reachable from regions where api.binance.com is restricted. The upstream fetch is cached by Next.js
 // so a burst of page loads collapses to one request per symbol per cache window.
 import "server-only";
-import type { CryptoFlowSymbol } from "@/types/crypto-flow";
+import type { CryptoFlowMarket } from "@/types/crypto-flow";
 import type { RawKline } from "./compute";
 
 export type CryptoFlowProviderErrorKind = "http_error" | "invalid_response" | "timeout" | "unknown";
@@ -20,7 +20,9 @@ export class CryptoFlowProviderError extends Error {
   }
 }
 
-const BASE_URL = "https://data-api.binance.vision";
+/** Spot: data-api.binance.vision (Binance market-data host, reachable where api.binance.com is restricted). Perpetual futures: fapi.binance.com. */
+const BASE_URL: Record<CryptoFlowMarket, string> = { spot: "https://data-api.binance.vision", perp: "https://fapi.binance.com" };
+const KLINE_PATH: Record<CryptoFlowMarket, string> = { spot: "/api/v3/klines", perp: "/fapi/v1/klines" };
 const FETCH_TIMEOUT_MS = 8_000;
 /** Seconds the upstream response is cached (one minute: the data is 1-minute bars). */
 export const CRYPTO_FLOW_CACHE_SECONDS = 30;
@@ -29,8 +31,8 @@ const KLINE_LIMIT = 241;
 
 export type CryptoFlowFetch = typeof fetch;
 
-export async function fetchBinanceKlines(symbol: CryptoFlowSymbol, fetchImpl: CryptoFlowFetch = fetch): Promise<RawKline[]> {
-  const url = `${BASE_URL}/api/v3/klines?symbol=${symbol}&interval=1m&limit=${KLINE_LIMIT}`;
+export async function fetchBinanceKlines(symbol: string, market: CryptoFlowMarket = "spot", fetchImpl: CryptoFlowFetch = fetch): Promise<RawKline[]> {
+  const url = `${BASE_URL[market]}${KLINE_PATH[market]}?symbol=${encodeURIComponent(symbol)}&interval=1m&limit=${KLINE_LIMIT}`;
   let res: Response;
   try {
     res = await fetchImpl(url, {

@@ -8,8 +8,8 @@
 // Fixture: scripts/fixtures/crypto-flow-fixture.json (300 real BTCUSDT 1-minute klines).
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { computeCryptoFlow, flowBias, parseClosedKlines, type RawKline } from "../services/crypto-flow/compute";
-import type { CryptoFlowWindow } from "../types/crypto-flow";
+import { computeCryptoFlow, flowBias, flowQuality, parseClosedKlines, type RawKline } from "../services/crypto-flow/compute";
+import { CRYPTO_FLOW_INSTRUMENTS, getCryptoFlowInstrument, type CryptoFlowPoint, type CryptoFlowWindow } from "../types/crypto-flow";
 
 interface Fixture {
   symbol: "BTCUSDT";
@@ -26,6 +26,7 @@ interface Fixture {
     asOf: number;
     points: number;
     cumLast: number;
+    quality: { median: number; empty: number; n: number };
   };
 }
 
@@ -64,7 +65,7 @@ if (res) {
     const ok = w.minutes === exp.minutes && close(w.delta, exp.delta) && close(w.volume, exp.volume) && close(w.deltaPct, exp.deltaPct) && close(w.buyPct, exp.buyPct) && close(w.priceChangePct, exp.priceChangePct);
     check(`window ${key} identical to Python`, ok, `(delta ${w.delta.toFixed(3)}, ${w.deltaPct.toFixed(2)}% of volume)`);
   }
-  check("last price, as-of bar and cumulative delta", close(res.lastPrice, fx.expected.lastPrice) && res.asOf === fx.expected.asOf && close(res.series[res.series.length - 1].cum, fx.expected.cumLast));
+  check("last price, as-of bar and cumulative delta", close(res.lastPrice, fx.expected.lastPrice) && res.asOf === fx.expected.asOf && close(res.series?.[res.series.length - 1]?.cum ?? Number.NaN, fx.expected.cumLast));
 }
 
 // 2b) bias summary: thresholds and the weighted score (cases worked out by hand)
@@ -80,6 +81,24 @@ check("bias: weighted score 15 = buyers, strong", b4.side === "buyers" && b4.str
 const b5 = flowBias({ m15: w(40), h1: w(56), h4: w(54) }); // score (-10 + 12 + 4) / 4 = 1.5 -> balanced, not consistent
 check("bias: mixed windows are not consistent", b5.side === "balanced" && !b5.consistent);
 if (res) check("response carries the bias", res.bias.side === flowBias(res.windows).side && Math.abs(res.bias.score - flowBias(res.windows).score) < 1e-12);
+
+// 2c) data quality: independent numbers from the fixture, then the thresholds on hand-built series
+if (res) check("quality (median trades per minute, empty minutes) identical to Python", res.quality.medianTradesPerMinute === fx.expected.quality.median && res.quality.emptyMinutes === fx.expected.quality.empty, `(${res.quality.level}, median ${res.quality.medianTradesPerMinute})`);
+const mk = (trades: number[]): CryptoFlowPoint[] => trades.map((n, i) => ({ t: i * 60000, close: 1, volume: 1, trades: n, delta: 0, cum: 0 }));
+check("quality: 150 trades a minute is high", flowQuality(mk(Array.from({ length: 240 }, () => 150))).level === "high");
+check("quality: 50 trades a minute is medium", flowQuality(mk(Array.from({ length: 240 }, () => 50))).level === "medium");
+check("quality: 5 trades a minute is thin", flowQuality(mk(Array.from({ length: 240 }, () => 5))).level === "thin");
+check("quality: many empty minutes make it thin even with a high median", flowQuality(mk(Array.from({ length: 240 }, (_, i) => (i % 10 === 0 ? 0 : 300)))).level === "thin");
+check("quality: 3 empty minutes of 240 (1.25%) can stay high", flowQuality(mk(Array.from({ length: 240 }, (_, i) => (i < 3 ? 0 : 300)))).level === "high");
+
+// 2d) instrument list
+const symbols = CRYPTO_FLOW_INSTRUMENTS.map((i) => i.symbol);
+check("instrument symbols are unique", new Set(symbols).size === symbols.length, `(${symbols.length})`);
+check("ten crypto instruments (spot) and three gold / metal instruments", CRYPTO_FLOW_INSTRUMENTS.filter((i) => i.group === "crypto" && i.market === "spot").length === 10 && CRYPTO_FLOW_INSTRUMENTS.filter((i) => i.group === "gold").length === 3);
+check("gold and silver are perpetuals, PAXG is spot", getCryptoFlowInstrument("XAUUSDT")?.market === "perp" && getCryptoFlowInstrument("XAGUSDT")?.market === "perp" && getCryptoFlowInstrument("PAXGUSDT")?.market === "spot");
+check("an unknown symbol is not an instrument", getCryptoFlowInstrument("DOGEBTC") === undefined);
+const noSeries = computeCryptoFlow(fx.symbol, fx.klines, fx.nowMs, "Binance spot", false);
+check("overview mode returns no series", noSeries !== null && noSeries.series === undefined);
 
 // 3) closed-bar rule and malformed rows
 const lastOpen = fx.klines[fx.klines.length - 1];
