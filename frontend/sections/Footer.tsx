@@ -109,7 +109,12 @@ const SOLUTIONS: FooterItem[] = [
   { label: "Institutions" },
 ];
 
-const DEVELOPERS: FooterItem[] = [{ label: "API" }, { label: "SDK" }, { label: "Documentation" }, { label: "GitHub" }];
+const DEVELOPERS: FooterItem[] = [
+  { label: "API", href: "/developers" },
+  { label: "SDK" },
+  { label: "Documentation", href: "/resources/documentation" },
+  { label: "GitHub" },
+];
 
 const LEGAL: FooterItem[] = [
   { label: "Disclaimer", href: "/company/disclaimer" },
