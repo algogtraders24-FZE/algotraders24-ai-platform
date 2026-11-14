@@ -331,10 +331,10 @@ function pct(v: number): string {
 
 /** Butterfly volume profile: sellers extend left, buyers right, one row per price bucket, highest price on top. */
 function ZoneChart({ z }: { z: CryptoFlowZones }) {
-  const W = 640;
-  const H = 360;
-  const centre = 250;
-  const half = 230;
+  const W = 1000;
+  const H = 380;
+  const centre = 400;
+  const half = 370;
   const rows = z.profile;
   const n = rows.length;
   if (n < 2) return null;
@@ -350,7 +350,7 @@ function ZoneChart({ z }: { z: CryptoFlowZones }) {
   const maxSide = Math.max(...rows.map((r) => Math.max(r.buy, r.sell))) || 1;
   const band = (p: number, cls: string) => <rect x={0} y={y(p) - rowH / 2} width={W} height={Math.max(rowH, 3)} fill="currentColor" className={cls} opacity="0.18" />;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="h-80 w-full" role="img" aria-label={`${z.symbol} buyer and seller volume by price, last ${z.lookback}`}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`${z.symbol} buyer and seller volume by price, last ${z.lookback}`}>
       {z.valueAreaLow !== null && z.valueAreaHigh !== null ? (
         <rect
           x={0}
