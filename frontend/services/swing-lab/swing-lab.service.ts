@@ -25,13 +25,36 @@ export type CandleSource = "exness" | "bridge";
 let exnessErrors: Record<string, number> = {};
 let exnessSample = "";
 
+/**
+ * The Exness API rate limits bursts (a first version sent 12 requests at once: 10 got HTTP 429 and the client then paused itself for a minute, so everything
+ * fell back to the bridge). So at most EXNESS_CONCURRENCY requests are in flight, the access point is primed with one call first, and candles are kept per
+ * market and timeframe for as long as they stay useful: weekly 6 hours, daily 1 hour, 4-hour 4 minutes.
+ */
+const EXNESS_CONCURRENCY = 2;
+const CANDLE_TTL_MS: Record<string, number> = { "1w": 6 * 3_600_000, "1d": 3_600_000, "4h": 4 * 60_000 };
+let exnessActive = 0;
+const exnessWaiters: Array<() => void> = [];
+
+async function withExnessSlot<T>(fn: () => Promise<T>): Promise<T> {
+  if (exnessActive >= EXNESS_CONCURRENCY) await new Promise<void>((resolve) => exnessWaiters.push(resolve));
+  exnessActive += 1;
+  try {
+    return await fn();
+  } finally {
+    exnessActive -= 1;
+    exnessWaiters.shift()?.();
+  }
+}
+
+const candleCache = new Map<string, { at: number; value: { candles: BridgeCandle[]; source: CandleSource } }>();
+
 class NotConnectedError extends Error {}
 class TooShortError extends Error {}
 
-async function bridgeCandles(env: Mt5BridgeEnv | null, symbol: string, interval: string, count: number): Promise<{ candles: BridgeCandle[]; source: CandleSource }> {
+async function fetchCandlesUncached(env: Mt5BridgeEnv | null, symbol: string, interval: string, count: number): Promise<{ candles: BridgeCandle[]; source: CandleSource }> {
   if (exness.isEnabled()) {
     try {
-      return { candles: await exness.getCandles(symbol, interval, count), source: "exness" };
+      return { candles: await withExnessSlot(() => exness.getCandles(symbol, interval, count)), source: "exness" };
     } catch (error) {
       // any Exness API problem: fall back to the VPS bridge below; remember only the kind of error
       const kind = error instanceof ExnessApiError ? error.kind : "other";
@@ -46,6 +69,16 @@ async function bridgeCandles(env: Mt5BridgeEnv | null, symbol: string, interval:
   if (!res.ok) throw new Error(`bridge HTTP ${res.status}`);
   const body = (await res.json()) as { candles?: BridgeCandle[] };
   return { candles: Array.isArray(body.candles) ? body.candles : [], source: "bridge" };
+}
+
+async function bridgeCandles(env: Mt5BridgeEnv | null, symbol: string, interval: string, count: number): Promise<{ candles: BridgeCandle[]; source: CandleSource }> {
+  const key = `${symbol}|${interval}|${count}`;
+  const hit = candleCache.get(key);
+  const now = Date.now();
+  if (hit && now - hit.at < (CANDLE_TTL_MS[interval] ?? 60_000)) return hit.value;
+  const value = await fetchCandlesUncached(env, symbol, interval, count);
+  candleCache.set(key, { at: now, value });
+  return value;
 }
 
 /** Closed bars of one market (used by the scoreboard tracker): Exness API first, bridge second. Throws when neither source works. */
@@ -81,6 +114,16 @@ export async function getSwingMapOverview(): Promise<SwingMapOverview> {
   const tally: Record<CandleSource, number> = { exness: 0, bridge: 0 };
   exnessErrors = {};
   exnessSample = "";
+  // Prime the Exness access point with one call before the burst (discovery is rate limited too); a failure here just sends this refresh to the bridge.
+  if (exness.isEnabled()) {
+    try {
+      await withExnessSlot(() => exness.getCandles(SWING_INSTRUMENTS[0].symbol, "4h", 5));
+    } catch (error) {
+      const kind = error instanceof ExnessApiError ? error.kind : "other";
+      exnessErrors[kind] = (exnessErrors[kind] ?? 0) + 1;
+      if (!exnessSample) exnessSample = `warm-up: ${error instanceof ExnessApiError ? error.message : "error"}`;
+    }
+  }
   const rows: SwingMapOverviewRow[] = new Array(SWING_INSTRUMENTS.length);
   let next = 0;
   await Promise.all(
