@@ -22,6 +22,9 @@ const USER_AGENT = "AT24-ReadOnlyClient/0.1 (own-account market data)";
 const ACCESS_POINT_TTL_MS = 6 * 60 * 60 * 1000;
 const BLOCK_AFTER_FAILURE_MS = 60_000;
 const MAX_CANDLES_PER_REQUEST = 1000;
+/** Paging pace: a short gap between pages, and up to this many waits-and-retries when the API answers 429. */
+const PAGE_GAP_MS = 1200;
+const PAGE_RETRIES = 3;
 
 /** Bridge-style interval -> Exness timeframe. Anything else is not served here (the caller falls back to the bridge). */
 const TIMEFRAME_MAP: Record<string, string> = {
@@ -54,11 +57,12 @@ interface FetchLikeResponse {
   ok: boolean;
   status: number;
   json(): Promise<unknown>;
+  headers?: { get(name: string): string | null };
 }
 export type ExnessFetch = (url: string, init: { method: "GET"; headers: Record<string, string> }) => Promise<FetchLikeResponse>;
 
 export class ExnessApiError extends Error {
-  constructor(readonly kind: "disabled" | "blocked" | "auth" | "rate_limit" | "http" | "shape" | "unsupported", message: string) {
+  constructor(readonly kind: "disabled" | "blocked" | "auth" | "rate_limit" | "http" | "shape" | "unsupported", message: string, readonly retryAfterMs?: number) {
     super(message);
     this.name = "ExnessApiError";
   }
@@ -115,12 +119,15 @@ export interface ExnessApiClientOptions {
   env: ExnessApiEnv | null;
   fetchImpl?: ExnessFetch;
   clock?: Clock;
+  /** Test hook: how long-running paging waits between pages and after a rate limit (default: real timers). */
+  sleep?: (ms: number) => Promise<void>;
 }
 
 export class ExnessApiClient {
   private readonly env: ExnessApiEnv | null;
   private readonly fetchImpl: ExnessFetch;
   private readonly clock: Clock;
+  private readonly sleep: (ms: number) => Promise<void>;
   private key: KeyObject | null = null;
   private accessPoint: { url: string; at: number } | null = null;
   private blockedUntil = 0;
@@ -129,6 +136,7 @@ export class ExnessApiClient {
     this.env = options.env;
     this.fetchImpl = options.fetchImpl ?? (fetch as unknown as ExnessFetch);
     this.clock = options.clock ?? systemClock;
+    this.sleep = options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
   }
 
   isEnabled(): boolean {
@@ -140,7 +148,7 @@ export class ExnessApiClient {
     return this.key;
   }
 
-  private async get(base: string, pathWithQuery: string): Promise<unknown> {
+  private async get(base: string, pathWithQuery: string, opts: { noBreaker?: boolean } = {}): Promise<unknown> {
     const env = this.env;
     if (!env) throw new ExnessApiError("disabled", "Exness API is not enabled");
     const now = this.clock.now();
@@ -155,8 +163,10 @@ export class ExnessApiClient {
       throw new ExnessApiError("http", "Failed to reach the Exness API");
     }
     if (res.status === 429) {
-      this.blockedUntil = now + BLOCK_AFTER_FAILURE_MS;
-      throw new ExnessApiError("rate_limit", "Exness API rate limit");
+      // the caller may be paging through history and will wait and retry itself: then no global pause is opened
+      if (!opts.noBreaker) this.blockedUntil = now + BLOCK_AFTER_FAILURE_MS;
+      const header = Number(res.headers?.get("retry-after") ?? "");
+      throw new ExnessApiError("rate_limit", "Exness API rate limit", Number.isFinite(header) && header > 0 ? header * 1000 : 5000);
     }
     if (res.status === 401 || res.status === 403) {
       this.blockedUntil = now + BLOCK_AFTER_FAILURE_MS;
@@ -219,9 +229,9 @@ export class ExnessApiClient {
     return this.fetchCandlePage(timeframe, instrument, Math.max(1, outputSize));
   }
 
-  private async fetchCandlePage(timeframe: string, instrument: string, count: number, fromIso?: string): Promise<ExnessCandle[]> {
+  private async fetchCandlePage(timeframe: string, instrument: string, count: number, fromIso?: string, noBreaker = false): Promise<ExnessCandle[]> {
     const base = await this.getAccessPoint();
-    const body = (await this.get(base, this.candlesPath(instrument, timeframe, count, "bid", fromIso))) as { candles?: unknown };
+    const body = (await this.get(base, this.candlesPath(instrument, timeframe, count, "bid", fromIso), { noBreaker })) as { candles?: unknown };
     if (!Array.isArray(body.candles)) throw new ExnessApiError("shape", "Exness candles response has no candles array");
     const out: ExnessCandle[] = [];
     for (const row of body.candles as Array<Record<string, unknown>>) {
@@ -246,13 +256,21 @@ export class ExnessApiClient {
     const byTime = new Map<string, ExnessCandle>();
     let fromIso: string | undefined;
     for (let page = 0; byTime.size < total && page < 40; page++) {
-      let rows: ExnessCandle[];
-      try {
-        rows = await this.fetchCandlePage(timeframe, instrument, Math.min(MAX_CANDLES_PER_REQUEST, total - byTime.size + 1), fromIso);
-      } catch (error) {
-        if (page === 0) throw error;
-        break;
+      let rows: ExnessCandle[] | null = null;
+      if (page > 0) await this.sleep(PAGE_GAP_MS); // the API rate limit allows only a few requests in a burst
+      for (let attempt = 0; attempt <= PAGE_RETRIES && !rows; attempt++) {
+        try {
+          rows = await this.fetchCandlePage(timeframe, instrument, Math.min(MAX_CANDLES_PER_REQUEST, total - byTime.size + 1), fromIso, page > 0);
+        } catch (error) {
+          if (page > 0 && attempt < PAGE_RETRIES && error instanceof ExnessApiError && error.kind === "rate_limit") {
+            await this.sleep(Math.min(Math.max(error.retryAfterMs ?? 0, 2000), 10_000));
+            continue;
+          }
+          if (page === 0) throw error;
+          break;
+        }
       }
+      if (!rows) break;
       const before = byTime.size;
       for (const r of rows) byTime.set(r.datetime, r);
       if (byTime.size === before) break; // no progress: the start of the history
