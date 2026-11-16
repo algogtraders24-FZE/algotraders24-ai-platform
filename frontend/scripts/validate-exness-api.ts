@@ -183,6 +183,23 @@ async function clientTests(): Promise<void> {
     await c.getCandles("XAUUSD", "15m", 5);
   });
 
+  await test("getCandlesPaged can extend older history: starting from a given time it returns only candles up to that time", async () => {
+    const nowMs = Date.UTC(2026, 10, 16, 12, 0, 0);
+    const all = Array.from({ length: 4000 }, (_, i) => ({ time: new Date(nowMs - (3999 - i) * 3_600_000).toISOString().replace(/\.\d{3}Z$/, "+00:00"), open: i, high: i + 1, low: i - 1, close: i, volume: 1 }));
+    const f: ExnessFetch = async (url) => {
+      if (url.includes("/access-point")) return json(200, { access_point: AP });
+      const q = new URL(url).searchParams;
+      const fromMs = Date.parse(q.get("from") as string);
+      return json(200, { candles: all.filter((c) => Date.parse(c.time) <= fromMs).slice(-Math.abs(Number(q.get("count")))) });
+    };
+    const startIso = all[2999].time; // pretend the newest 1000 candles are already held
+    const c = new ExnessApiClient({ env: ENV, fetchImpl: f, clock: clockAt({ t: nowMs }), sleep: async () => undefined });
+    const out = await c.getCandlesPaged("XAUUSD", "1h", 2000, startIso);
+    assert.equal(out.length, 2000);
+    assert.equal(out[out.length - 1].datetime, startIso);
+    assert.equal(out[0].datetime, all[1000].time);
+  });
+
   await test("getCandlesPaged keeps the collected candles when a later page fails, but a failing first page throws", async () => {
     let n = 0;
     const f: ExnessFetch = async (url) => {

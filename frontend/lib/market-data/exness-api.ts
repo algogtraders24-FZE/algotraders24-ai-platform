@@ -250,11 +250,11 @@ export class ExnessApiClient {
    * Up to `total` candles ending now, fetched one page at a time (each page ends where the next begins), oldest first, de-duplicated by time.
    * The first page must succeed; if a later page fails the candles collected so far are returned (older history is simply shorter).
    */
-  async getCandlesPaged(instrument: string, interval: string, total: number): Promise<ExnessCandle[]> {
+  async getCandlesPaged(instrument: string, interval: string, total: number, startFromIso?: string): Promise<ExnessCandle[]> {
     const timeframe = TIMEFRAME_MAP[interval];
     if (!timeframe) throw new ExnessApiError("unsupported", `Interval "${interval}" is not served by the Exness API client`);
     const byTime = new Map<string, ExnessCandle>();
-    let fromIso: string | undefined;
+    let fromIso: string | undefined = startFromIso; // default: end at now; to extend older history pass the time of the oldest candle already held
     for (let page = 0; byTime.size < total && page < 40; page++) {
       let rows: ExnessCandle[] | null = null;
       if (page > 0) await this.sleep(PAGE_GAP_MS); // the API rate limit allows only a few requests in a burst

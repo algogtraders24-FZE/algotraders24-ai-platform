@@ -573,7 +573,7 @@ export default function MarketBoardPage() {
 
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
               {on.zones ? (
-                <IndCard title="Zone Pro" note={`First retest of past zones on this chart (${chart.data.barsAnalysed} bars, cost ${chart.data.costUsed.toFixed(chart.data.costUsed < 1 ? 4 : 2)})`}>
+                <IndCard title="Zone Pro" note={`First retest of past zones on this chart (${chart.data.barsAnalysed} bars${chart.data.historyComplete ? "" : ", older history is still loading"}, cost ${chart.data.costUsed.toFixed(chart.data.costUsed < 1 ? 4 : 2)})`}>
                   <ScoreLine label="Demand" score={chart.data.zones.scores.demand} unit="retests" />
                   <ScoreLine label="Supply" score={chart.data.zones.scores.supply} unit="retests" />
                   <ScoreLine label="All zones" score={chart.data.zones.scores.all} unit="retests" />

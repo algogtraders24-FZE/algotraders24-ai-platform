@@ -21,6 +21,8 @@ const CONCURRENCY = 2;
 const SHIFT_LEVEL = 0.4;
 /** Candles kept per chart (the scorecards are computed on all of them, the chart draws the last DISPLAY_BARS). 8000 matches the MT5 builds' default history. */
 const HISTORY_TARGET: Record<BoardTimeframe, number> = { "15m": 8000, "1h": 8000, "4h": 6000, "1d": 1000 };
+/** The first answer for a chart uses this many candles so it comes back in a few seconds; the rest is loaded in the background. */
+const HISTORY_FIRST: Record<BoardTimeframe, number> = { "15m": 3000, "1h": 3000, "4h": 3000, "1d": 1000 };
 /** The newest page re-read on every refresh; older candles never change, so they are kept. */
 const REFRESH_BARS = 1000;
 const HISTORY_ENTRIES_MAX = 16;
@@ -70,7 +72,12 @@ interface HistoryEntry {
   candles: RawCandle[];
   source: CandleSource;
   at: number;
+  /** True once the full target is loaded (or the source has nothing older). */
+  complete: boolean;
+  /** Earliest time a failed background extension may be retried. */
+  retryAt?: number;
 }
+const historyExtending = new Set<string>();
 const historyCache = new Map<string, HistoryEntry>();
 const historyLoading = new Map<string, Promise<HistoryEntry>>();
 
@@ -88,7 +95,7 @@ async function getHistory(env: Mt5BridgeEnv | null, symbol: string, interval: Bo
   const cached = historyCache.get(key);
   if (cached) {
     const fresh = await fetchRaw(env, symbol, interval, REFRESH_BARS);
-    const entry: HistoryEntry = { candles: mergeCandles(cached.candles, fresh.candles, target), source: fresh.source, at: Date.now() };
+    const entry: HistoryEntry = { candles: mergeCandles(cached.candles, fresh.candles, target), source: fresh.source, at: Date.now(), complete: cached.complete, retryAt: cached.retryAt };
     historyCache.set(key, entry);
     return entry;
   }
@@ -99,7 +106,7 @@ async function getHistory(env: Mt5BridgeEnv | null, symbol: string, interval: Bo
     let source: CandleSource = "exness";
     if (exness.isEnabled()) {
       try {
-        candles = await exness.getCandlesPaged(symbol, interval, target);
+        candles = await exness.getCandlesPaged(symbol, interval, HISTORY_FIRST[interval]);
       } catch {
         candles = null; // any Exness API problem: fall back to the VPS bridge below
       }
@@ -109,7 +116,7 @@ async function getHistory(env: Mt5BridgeEnv | null, symbol: string, interval: Bo
       candles = raw.candles;
       source = raw.source;
     }
-    const entry: HistoryEntry = { candles, source, at: Date.now() };
+    const entry: HistoryEntry = { candles, source, at: Date.now(), complete: source !== "exness" || candles.length < HISTORY_FIRST[interval] || HISTORY_FIRST[interval] >= target };
     if (historyCache.size >= HISTORY_ENTRIES_MAX) {
       const oldest = [...historyCache.entries()].sort((a, b) => a[1].at - b[1].at)[0];
       if (oldest) historyCache.delete(oldest[0]);
@@ -119,6 +126,36 @@ async function getHistory(env: Mt5BridgeEnv | null, symbol: string, interval: Bo
   })().finally(() => historyLoading.delete(key));
   historyLoading.set(key, job);
   return job;
+}
+
+/** Loads the older part of a chart's history after the first answer was sent (call it from `after()`); safe to call repeatedly. */
+export async function completeHistory(symbol: string, interval: BoardTimeframe): Promise<void> {
+  const key = `${symbol}|${interval}`;
+  const entry = historyCache.get(key);
+  if (!entry || entry.complete || historyExtending.has(key) || !exness.isEnabled()) return;
+  if (entry.retryAt && Date.now() < entry.retryAt) return;
+  const target = HISTORY_TARGET[interval];
+  historyExtending.add(key);
+  try {
+    const need = target - entry.candles.length;
+    const oldest = entry.candles[0]?.datetime;
+    if (need <= 0 || !oldest) {
+      entry.complete = true;
+      return;
+    }
+    const older = await exness.getCandlesPaged(symbol, interval, need + 1, new Date(Date.parse(oldest)).toISOString().replace(/\.\d{3}Z$/, "+00:00"));
+    const current = historyCache.get(key) ?? entry;
+    historyCache.set(key, { ...current, candles: mergeCandles(current.candles, older, target), at: Date.now(), complete: older.length < need, retryAt: undefined });
+    if (older.length >= need) {
+      const done = historyCache.get(key);
+      if (done) done.complete = true;
+    }
+  } catch {
+    const current = historyCache.get(key);
+    if (current) current.retryAt = Date.now() + 60_000;
+  } finally {
+    historyExtending.delete(key);
+  }
 }
 
 const chartCache = new Map<string, { at: number; value: BoardChartDto }>();
@@ -131,7 +168,7 @@ export async function getBoardChart(symbol: string, interval: BoardTimeframe): P
   const env = loadMt5BridgeEnv();
   if (!env && !exness.isEnabled()) throw new Error("Market data is not configured");
 
-  const { candles, source } = await getHistory(env, symbol, interval);
+  const { candles, source, complete } = await getHistory(env, symbol, interval);
   const { closed, forming } = splitBars(candles, interval, now);
   if (closed.length < 200) throw new Error("Not enough history");
 
@@ -164,6 +201,7 @@ export async function getBoardChart(symbol: string, interval: BoardTimeframe): P
     volumeProfile: interval === "15m" || interval === "1h" ? computeVpBoard(closed) : null,
     costUsed: cost,
     barsAnalysed: closed.length,
+    historyComplete: complete,
     source,
     asOf: now,
   };
