@@ -20,6 +20,10 @@ import {
   type CryptoFlowLookback,
   type CryptoFlowZone,
   type CryptoFlowScoreboard,
+  type CryptoFlowDerivativesDetail,
+  type CryptoFlowDerivativesOverview,
+  type CryptoFlowFundingLabel,
+  type CryptoFlowOiWindow,
   type CryptoFlowZones,
   type CryptoFlowBias,
   type CryptoFlowGroup,
@@ -663,6 +667,128 @@ function ScoreboardCard({ state }: { state: LoadState<CryptoFlowScoreboard> }) {
   );
 }
 
+const FUNDING_TONE: Record<CryptoFlowFundingLabel, string> = {
+  neutral: "text-text-2",
+  "longs paying": "text-warning",
+  "longs paying a lot": "text-danger",
+  "shorts paying": "text-warning",
+  "shorts paying a lot": "text-danger",
+};
+
+const REGIME_TEXT: Record<CryptoFlowOiWindow["regime"], string> = {
+  "new longs": "New long positions are being opened (open interest up, price up).",
+  "new shorts": "New short positions are being opened (open interest up, price down).",
+  "short covering": "Shorts are closing (open interest down, price up).",
+  "long unwinding": "Longs are closing (open interest down, price down).",
+  flat: "No clear change in positioning.",
+};
+
+function signed(v: number, digits = 2): string {
+  return `${v >= 0 ? "+" : ""}${v.toFixed(digits)}%`;
+}
+
+function OiCell({ label, w }: { label: string; w: CryptoFlowOiWindow }) {
+  return (
+    <div className="rounded-lg border border-border bg-surface-2 p-3">
+      <div className="text-xs uppercase tracking-wide text-text-3">Open interest, {label}</div>
+      <div className={`mt-1 text-lg font-semibold ${tone(w.oiChangePct)}`}>{signed(w.oiChangePct)}</div>
+      <div className="text-xs text-text-2">price {signed(w.priceChangePct)}</div>
+      <div className="mt-1 text-xs text-text-3">{REGIME_TEXT[w.regime]}</div>
+    </div>
+  );
+}
+
+function CrowdBar({ label, longPct, note }: { label: string; longPct: number; note: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-surface-2 p-3">
+      <div className="text-xs uppercase tracking-wide text-text-3">{label}</div>
+      <div className="mt-2 flex h-3 overflow-hidden rounded-full" role="img" aria-label={`${longPct.toFixed(0)} percent long, ${(100 - longPct).toFixed(0)} percent short`}>
+        <div className="bg-success" style={{ width: `${longPct}%` }} />
+        <div className="bg-danger" style={{ width: `${100 - longPct}%` }} />
+      </div>
+      <div className="mt-1 flex justify-between text-xs text-text-2">
+        <span>Long {longPct.toFixed(0)}%</span>
+        <span>Short {(100 - longPct).toFixed(0)}%</span>
+      </div>
+      <div className="mt-1 text-xs text-text-3">{note}</div>
+    </div>
+  );
+}
+
+/** Derivatives positioning: funding, open interest and long/short crowding from Binance USDS-M futures. Descriptive. */
+function DerivativesCard({ inst, overview, detail }: { inst: CryptoFlowInstrument; overview: LoadState<CryptoFlowDerivativesOverview>; detail: LoadState<CryptoFlowDerivativesDetail | null> }) {
+  return (
+    <Card className="mt-4">
+      <h3 className="text-base font-semibold text-text-1">Positioning &middot; how traders are set up in futures</h3>
+      <p className="mt-1 text-xs text-text-3">
+        From the Binance perpetual futures: who pays whom (funding), whether open positions are growing or closing (open interest) and how crowded the long or short side is.
+      </p>
+      {detail.status === "loading" ? <Skeleton className="mt-4 h-40 w-full" /> : null}
+      {detail.status === "error" ? <div className="mt-3 text-sm text-text-3">{detail.message}</div> : null}
+      {detail.status === "ready" && detail.data === null ? <div className="mt-3 text-sm text-text-3">{inst.label} has no perpetual futures on Binance, so there is no positioning data.</div> : null}
+      {detail.status === "ready" && detail.data ? (
+        <div className="mt-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border border-border bg-surface-2 p-3">
+              <div className="text-xs uppercase tracking-wide text-text-3">Funding</div>
+              <div className={`mt-1 text-lg font-semibold ${FUNDING_TONE[detail.data.funding.label]}`}>{signed(detail.data.funding.annualPct, 1)} a year</div>
+              <div className="text-xs text-text-2">
+                {detail.data.funding.fundingPct.toFixed(4)}% every {detail.data.funding.intervalHours} h &middot; {detail.data.funding.label}
+              </div>
+              <div className="mt-1 text-xs text-text-3">Positive: longs pay shorts. Negative: shorts pay longs.</div>
+            </div>
+            <OiCell label="4 hours" w={detail.data.h4} />
+            <OiCell label="24 hours" w={detail.data.h24} />
+          </div>
+          <div className="mt-3 text-xs text-text-2">Open interest now: {detail.data.openInterestUsd >= 1e9 ? `${(detail.data.openInterestUsd / 1e9).toFixed(2)}B` : `${(detail.data.openInterestUsd / 1e6).toFixed(0)}M`} USDT.</div>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {detail.data.accounts ? <CrowdBar label="All accounts" longPct={detail.data.accounts.longPct} note={`Account count, ${detail.data.accounts.crowd}. Small accounts dominate this number.`} /> : null}
+            {detail.data.topTraders ? <CrowdBar label="Top traders" longPct={detail.data.topTraders.longPct} note={`By position size, ${detail.data.topTraders.crowd}.`} /> : null}
+            {detail.data.takerRatio1h !== null ? (
+              <div className="rounded-lg border border-border bg-surface-2 p-3">
+                <div className="text-xs uppercase tracking-wide text-text-3">Futures taker flow, last hour</div>
+                <div className={`mt-1 text-lg font-semibold ${detail.data.takerRatio1h >= 1 ? "text-success" : "text-danger"}`}>{detail.data.takerRatio1h.toFixed(2)}</div>
+                <div className="mt-1 text-xs text-text-3">Buy volume divided by sell volume, aggressive orders only. Above 1: buyers hit the market harder.</div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+      {overview.status === "ready" && overview.data.rows.length > 0 ? (
+        <div className="mt-5">
+          <div className="text-xs font-semibold uppercase tracking-wide text-text-2">Funding across the perpetuals</div>
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="text-text-3">
+                  <th className="pb-1 pr-3 font-medium">Market</th>
+                  <th className="pb-1 pr-3 font-medium">Per interval</th>
+                  <th className="pb-1 pr-3 font-medium">Per year</th>
+                  <th className="pb-1 font-medium">Reading</th>
+                </tr>
+              </thead>
+              <tbody>
+                {overview.data.rows.map((r) => (
+                  <tr key={r.symbol} className="border-t border-border">
+                    <td className="py-1.5 pr-3 text-text-1">{getCryptoFlowInstrument(r.symbol)?.short ?? r.symbol}</td>
+                    <td className="py-1.5 pr-3 text-text-2">{r.fundingPct.toFixed(4)}% / {r.intervalHours} h</td>
+                    <td className={`py-1.5 pr-3 ${FUNDING_TONE[r.label]}`}>{signed(r.annualPct, 1)}</td>
+                    <td className="py-1.5 text-text-2">{r.label}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+      <p className="mt-3 text-xs text-text-3">
+        Context, not a signal. This is one venue (Binance), and our own tests found that funding and flow do not predict the next move. A crowded side shows where traders are
+        positioned; it does not say the market will turn.
+      </p>
+    </Card>
+  );
+}
+
 export default function CryptoFlowPage() {
   const [overview, setOverview] = useState<LoadState<CryptoFlowOverview>>({ status: "loading" });
   const [selected, setSelected] = useState<string>("BTCUSDT");
@@ -673,6 +799,8 @@ export default function CryptoFlowPage() {
   const [alertBusy, setAlertBusy] = useState(false);
   const [alertError, setAlertError] = useState<string | null>(null);
   const [board, setBoard] = useState<LoadState<CryptoFlowScoreboard>>({ status: "loading" });
+  const [deriv, setDeriv] = useState<LoadState<CryptoFlowDerivativesOverview>>({ status: "loading" });
+  const [derivDetail, setDerivDetail] = useState<LoadState<CryptoFlowDerivativesDetail | null>>({ status: "loading" });
 
   const loadOverview = useCallback(async () => {
     try {
@@ -740,6 +868,38 @@ export default function CryptoFlowPage() {
     }
   }, []);
 
+  const loadDerivOverview = useCallback(async () => {
+    try {
+      const res = await fetch("/api/private/crypto-flow/derivatives");
+      const json = (await res.json().catch(() => null)) as { status?: string; data?: CryptoFlowDerivativesOverview } | null;
+      if (!res.ok || !json || json.status !== "ok" || !json.data) {
+        setDeriv({ status: "error", message: "Funding data could not be loaded." });
+        return;
+      }
+      setDeriv({ status: "ready", data: json.data });
+    } catch {
+      setDeriv({ status: "error", message: "Funding data could not be loaded." });
+    }
+  }, []);
+
+  const loadDerivDetail = useCallback(async (symbol: string) => {
+    try {
+      const res = await fetch(`/api/private/crypto-flow/derivatives?symbol=${encodeURIComponent(symbol)}`);
+      if (res.status === 404) {
+        setDerivDetail({ status: "ready", data: null });
+        return;
+      }
+      const json = (await res.json().catch(() => null)) as { status?: string; data?: CryptoFlowDerivativesDetail } | null;
+      if (!res.ok || !json || json.status !== "ok" || !json.data) {
+        setDerivDetail({ status: "error", message: "Positioning data could not be loaded." });
+        return;
+      }
+      setDerivDetail({ status: "ready", data: json.data });
+    } catch {
+      setDerivDetail({ status: "error", message: "Positioning data could not be loaded." });
+    }
+  }, []);
+
   const toggleAlert = async (symbol: string, enabled: boolean) => {
     setAlertBusy(true);
     setAlertError(null);
@@ -780,6 +940,18 @@ export default function CryptoFlowPage() {
     return () => window.clearInterval(id);
   }, [loadZones, selected, lookback]);
 
+  useEffect(() => {
+    void loadDerivOverview();
+    const id = window.setInterval(() => void loadDerivOverview(), 5 * 60_000);
+    return () => window.clearInterval(id);
+  }, [loadDerivOverview]);
+
+  useEffect(() => {
+    void loadDerivDetail(selected);
+    const id = window.setInterval(() => void loadDerivDetail(selected), 5 * 60_000);
+    return () => window.clearInterval(id);
+  }, [loadDerivDetail, selected]);
+
   const changeLookback = (lb: CryptoFlowLookback) => {
     if (lb === lookback) return;
     setZones({ status: "loading" });
@@ -790,6 +962,7 @@ export default function CryptoFlowPage() {
     if (symbol === selected) return;
     setDetail({ status: "loading" });
     setZones({ status: "loading" });
+    setDerivDetail({ status: "loading" });
     setSelected(symbol);
   };
 
@@ -840,6 +1013,7 @@ export default function CryptoFlowPage() {
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-text-2">Detail: {selectedInst.label}</h2>
         <DetailPanel inst={selectedInst} state={detail} onRetry={() => void loadDetail(selected)} />
         <ZonesCard inst={selectedInst} lookback={lookback} onLookback={changeLookback} state={zones} onRetry={() => void loadZones(selected, lookback)} alerts={alerts} alertBusy={alertBusy} alertError={alertError} onToggleAlert={(on) => void toggleAlert(selected, on)} />
+        <DerivativesCard inst={selectedInst} overview={deriv} detail={derivDetail} />
         <ScoreboardCard state={board} />
       </section>
       <p className="mt-6 text-xs text-text-3">Source: Binance public market data (bars and order book), refreshed every minute. Click a card for its detail. Not financial advice.</p>

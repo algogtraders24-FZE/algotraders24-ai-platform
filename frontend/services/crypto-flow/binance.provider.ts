@@ -32,7 +32,7 @@ const KLINE_LIMIT = 241;
 
 export type CryptoFlowFetch = typeof fetch;
 
-async function getJson(url: string, fetchImpl: CryptoFlowFetch): Promise<unknown> {
+export async function getJson(url: string, fetchImpl: CryptoFlowFetch): Promise<unknown> {
   let res: Response;
   try {
     res = await fetchImpl(url, {
@@ -78,3 +78,19 @@ export async function fetchBinanceDepth(symbol: string, market: CryptoFlowMarket
   if (!json || !Array.isArray(json.bids) || !Array.isArray(json.asks)) throw new CryptoFlowProviderError("invalid_response", "Market data host returned an unexpected shape");
   return { bids: json.bids, asks: json.asks };
 }
+
+// ---- derivatives (USDS-M futures, public) ----
+const FAPI = "https://fapi.binance.com";
+
+async function fapiList(path: string, fetchImpl: CryptoFlowFetch): Promise<unknown[]> {
+  const json = await getJson(`${FAPI}${path}`, fetchImpl);
+  if (!Array.isArray(json)) throw new CryptoFlowProviderError("invalid_response", "Market data host returned an unexpected shape");
+  return json;
+}
+
+export const fetchPremiumIndexAll = (f: CryptoFlowFetch = fetch) => fapiList("/fapi/v1/premiumIndex", f);
+export const fetchFundingInfo = (f: CryptoFlowFetch = fetch) => fapiList("/fapi/v1/fundingInfo", f);
+export const fetchOpenInterestHist = (symbol: string, f: CryptoFlowFetch = fetch) => fapiList(`/futures/data/openInterestHist?symbol=${encodeURIComponent(symbol)}&period=1h&limit=25`, f);
+export const fetchGlobalRatio = (symbol: string, f: CryptoFlowFetch = fetch) => fapiList(`/futures/data/globalLongShortAccountRatio?symbol=${encodeURIComponent(symbol)}&period=1h&limit=2`, f);
+export const fetchTopRatio = (symbol: string, f: CryptoFlowFetch = fetch) => fapiList(`/futures/data/topLongShortPositionRatio?symbol=${encodeURIComponent(symbol)}&period=1h&limit=2`, f);
+export const fetchTakerRatio = (symbol: string, f: CryptoFlowFetch = fetch) => fapiList(`/futures/data/takerlongshortRatio?symbol=${encodeURIComponent(symbol)}&period=1h&limit=2`, f);
