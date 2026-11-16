@@ -55,6 +55,10 @@ export default function InstitutionsPage() {
               </Link>
             ))}
           </div>
+          <p className="mt-4 text-sm leading-6 text-text-2">
+            Want to see it first? Open the{" "}
+            <Link href="/solutions/institutions/demo" className="text-gold hover:underline">Market Context widget prototype</Link>, shown with live numbers in an illustrative client portal.
+          </p>
         </div>
       </section>
 
