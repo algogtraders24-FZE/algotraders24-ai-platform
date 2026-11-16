@@ -107,36 +107,84 @@ function ChartSvg({ chart, on }: { chart: BoardChartDto; on: OnMap }) {
       lo = Math.min(lo, c.low);
       hi = Math.max(hi, c.high);
     }
+    // Overlay boxes widen the range only when they are close to the candles (within 30 % of their range); farther ones are clipped or skipped.
+    const base = hi - lo || 1;
+    const near = base * 0.3;
+    const cLo = lo;
+    const cHi = hi;
     for (const z of [...zones, ...absZones, ...fvgs, ...obs]) {
-      lo = Math.min(lo, z.bottom);
-      hi = Math.max(hi, z.top);
+      if (z.top >= cLo - near && z.bottom <= cHi + near) {
+        lo = Math.min(lo, z.bottom);
+        hi = Math.max(hi, z.top);
+      }
     }
     const span = hi - lo || 1;
-    lo -= span * 0.04;
-    hi += span * 0.04;
+    lo -= span * 0.05;
+    hi += span * 0.05;
     const plotW = W - PAD_L - PAD_R;
     const plotH = H - PAD_T - PAD_B;
     const step = plotW / Math.max(n, 1);
+    const yOf = (v: number) => PAD_T + ((hi - v) / (hi - lo)) * plotH;
     return {
       lo,
       hi,
       step,
       x: (i: number) => PAD_L + step * (i + 0.5),
-      y: (v: number) => PAD_T + ((hi - v) / (hi - lo)) * plotH,
+      y: yOf,
+      /** A price box as screen rows, clipped to the plot area; null when it is entirely outside. */
+      box: (top: number, bottom: number): { top: number; bottom: number } | null => {
+        const t = yOf(top);
+        const b = yOf(bottom);
+        const minY = PAD_T;
+        const maxY = H - PAD_B;
+        if (b < minY || t > maxY) return null;
+        return { top: Math.max(minY, t), bottom: Math.min(maxY, b) };
+      },
     };
   }, [candles, zones, absZones, fvgs, obs, n]);
 
   const ticks = useMemo(() => {
+    // about five round price levels
+    const rough = (geom.hi - geom.lo) / 5;
+    const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+    const norm = rough / mag;
+    const step = (norm < 1.5 ? 1 : norm < 3.5 ? 2 : norm < 7.5 ? 5 : 10) * mag;
     const out: number[] = [];
-    for (let k = 0; k <= 4; k++) out.push(geom.lo + ((geom.hi - geom.lo) * k) / 4);
+    for (let v = Math.ceil(geom.lo / step) * step; v <= geom.hi; v += step) out.push(Number(v.toFixed(8)));
     return out;
   }, [geom]);
+
+  const timeTicks = useMemo(() => {
+    const out: Array<{ i: number; label: string }> = [];
+    if (n < 2) return out;
+    const every = Math.max(1, Math.floor(n / 6));
+    const intraday = candles.length > 1 && Date.parse(candles[1].time) - Date.parse(candles[0].time) < 86_400_000;
+    for (let i = every; i < n; i += every) {
+      const iso = candles[i].time;
+      out.push({ i, label: intraday ? `${iso.slice(5, 10)} ${iso.slice(11, 16)}` : iso.slice(0, 10) });
+    }
+    return out;
+  }, [candles, n]);
+
+  const [hover, setHover] = useState<number | null>(null);
 
   const lastClose = candles[candles.length - 1]?.close;
   const firstTime = candles[0]?.time ? Date.parse(candles[0].time) : 0;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={`${chart.symbol} candles with Zone Pro and Divergence Pro overlays`}>
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className="h-auto w-full"
+      role="img"
+      aria-label={`${chart.symbol} candles with AT24 indicator overlays`}
+      onMouseMove={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * W;
+        const i = Math.round((x - PAD_L) / geom.step - 0.5);
+        setHover(i >= 0 && i < n ? i : null);
+      }}
+      onMouseLeave={() => setHover(null)}
+    >
       {ticks.map((t) => (
         <g key={t}>
           <line x1={PAD_L} x2={W - PAD_R} y1={geom.y(t)} y2={geom.y(t)} stroke="currentColor" strokeOpacity={0.12} />
@@ -146,13 +194,20 @@ function ChartSvg({ chart, on }: { chart: BoardChartDto; on: OnMap }) {
         </g>
       ))}
 
+      {timeTicks.map((t) => (
+        <text key={t.i} x={geom.x(t.i)} y={H - 6} fontSize={10} fill="currentColor" fillOpacity={0.55} textAnchor="middle">
+          {t.label}
+        </text>
+      ))}
+
       {zones.map((z, i) => {
         const startIdx = times.get(z.time);
         const x0 = startIdx === undefined ? (Date.parse(z.time) < firstTime ? PAD_L : null) : geom.x(startIdx);
         if (x0 === null) return null;
         const col = z.dir > 0 ? "#1D9E75" : "#D85A30";
-        const top = geom.y(z.top);
-        const bottom = geom.y(z.bottom);
+        const box = geom.box(z.top, z.bottom);
+        if (!box) return null;
+        const { top, bottom } = box;
         return (
           <g key={`z${i}`}>
             <rect x={x0} y={top} width={W - PAD_R - x0} height={Math.max(2, bottom - top)} fill={col} fillOpacity={0.16} stroke={col} strokeOpacity={0.6} strokeWidth={1} />
@@ -168,8 +223,9 @@ function ChartSvg({ chart, on }: { chart: BoardChartDto; on: OnMap }) {
         const x0 = startIdx === undefined ? (Date.parse(z.time) < firstTime ? PAD_L : null) : geom.x(startIdx);
         if (x0 === null) return null;
         const col = z.dir > 0 ? "#378ADD" : "#D4537E";
-        const top = geom.y(z.top);
-        const bottom = geom.y(z.bottom);
+        const box = geom.box(z.top, z.bottom);
+        if (!box) return null;
+        const { top, bottom } = box;
         return (
           <g key={`a${i}`}>
             <rect x={x0} y={top} width={W - PAD_R - x0} height={Math.max(2, bottom - top)} fill={col} fillOpacity={0.14} stroke={col} strokeOpacity={0.7} strokeDasharray="4 2" />
@@ -185,8 +241,9 @@ function ChartSvg({ chart, on }: { chart: BoardChartDto; on: OnMap }) {
         const x0 = startIdx === undefined ? (Date.parse(g.time) < firstTime ? PAD_L : null) : geom.x(startIdx);
         if (x0 === null) return null;
         const col = g.dir > 0 ? "#0F6E56" : "#993C1D";
-        const top = geom.y(g.top);
-        const bottom = geom.y(g.bottom);
+        const box = geom.box(g.top, g.bottom);
+        if (!box) return null;
+        const { top, bottom } = box;
         return (
           <g key={`f${i}`}>
             <rect x={x0} y={top} width={W - PAD_R - x0} height={Math.max(2, bottom - top)} fill={col} fillOpacity={0.1} stroke={col} strokeOpacity={0.5} strokeDasharray="2 3" />
@@ -202,8 +259,9 @@ function ChartSvg({ chart, on }: { chart: BoardChartDto; on: OnMap }) {
         const x0 = startIdx === undefined ? (Date.parse(b.time) < firstTime ? PAD_L : null) : geom.x(startIdx);
         if (x0 === null) return null;
         const col = b.dir > 0 ? "#534AB7" : "#854F0B";
-        const top = geom.y(b.top);
-        const bottom = geom.y(b.bottom);
+        const box = geom.box(b.top, b.bottom);
+        if (!box) return null;
+        const { top, bottom } = box;
         return (
           <g key={`o${i}`}>
             <rect x={x0} y={top} width={W - PAD_R - x0} height={Math.max(2, bottom - top)} fill="none" stroke={col} strokeOpacity={0.8} strokeWidth={1.5} />
@@ -338,6 +396,15 @@ function ChartSvg({ chart, on }: { chart: BoardChartDto; on: OnMap }) {
           <rect x={W - PAD_R + 2} y={geom.y(lastClose) - 9} width={60} height={18} rx={3} fill="currentColor" fillOpacity={0.85} />
           <text x={W - PAD_R + 6} y={geom.y(lastClose) + 4} fontSize={11} style={{ fill: "var(--surface-2, #fff)" }}>
             {fmtPrice(lastClose)}
+          </text>
+        </g>
+      ) : null}
+      {hover !== null && candles[hover] ? (
+        <g pointerEvents="none">
+          <line x1={geom.x(hover)} x2={geom.x(hover)} y1={PAD_T} y2={H - PAD_B} stroke="currentColor" strokeOpacity={0.35} strokeDasharray="3 3" />
+          <rect x={PAD_L + 2} y={PAD_T + 2} width={430} height={18} rx={3} fill="currentColor" fillOpacity={0.12} />
+          <text x={PAD_L + 8} y={PAD_T + 15} fontSize={11} fill="currentColor">
+            {candles[hover].time.slice(0, 16).replace("T", " ")} · O {fmtPrice(candles[hover].open)} · H {fmtPrice(candles[hover].high)} · L {fmtPrice(candles[hover].low)} · C {fmtPrice(candles[hover].close)}
           </text>
         </g>
       ) : null}
