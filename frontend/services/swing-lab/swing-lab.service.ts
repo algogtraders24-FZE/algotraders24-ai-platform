@@ -4,7 +4,7 @@
 // The bridge is one small terminal on a VPS, so the requests are limited to a few at a time and the whole result is kept for 5 minutes.
 import "server-only";
 import { loadExnessApiEnv, loadMt5BridgeEnv, type Mt5BridgeEnv } from "@/lib/market-data/env";
-import { ExnessApiClient } from "@/lib/market-data/exness-api";
+import { ExnessApiClient, ExnessApiError } from "@/lib/market-data/exness-api";
 import { SWING_INSTRUMENTS, type SwingMapOverview, type SwingMapOverviewRow } from "@/types/swing-lab";
 import { computeSwingMapFromBars, parseBridgeCandles, type Bar, type BridgeCandle } from "./compute";
 
@@ -21,6 +21,10 @@ const exness = new ExnessApiClient({ env: loadExnessApiEnv() });
 
 export type CandleSource = "exness" | "bridge";
 
+/** Why the Exness API did not serve a candle request (kind of error only, never a secret), for the diagnostics field of the overview. */
+let exnessErrors: Record<string, number> = {};
+let exnessSample = "";
+
 class NotConnectedError extends Error {}
 class TooShortError extends Error {}
 
@@ -28,8 +32,11 @@ async function bridgeCandles(env: Mt5BridgeEnv | null, symbol: string, interval:
   if (exness.isEnabled()) {
     try {
       return { candles: await exness.getCandles(symbol, interval, count), source: "exness" };
-    } catch {
-      /* any Exness API problem: fall back to the VPS bridge below */
+    } catch (error) {
+      // any Exness API problem: fall back to the VPS bridge below; remember only the kind of error
+      const kind = error instanceof ExnessApiError ? error.kind : "other";
+      exnessErrors[kind] = (exnessErrors[kind] ?? 0) + 1;
+      if (!exnessSample) exnessSample = `${symbol} ${interval}: ${error instanceof ExnessApiError ? error.message : error instanceof Error ? error.name : "error"}`;
     }
   }
   if (!env) throw new Error("no data source configured");
@@ -72,6 +79,8 @@ export async function getSwingMapOverview(): Promise<SwingMapOverview> {
     return { rows: SWING_INSTRUMENTS.map((i) => ({ symbol: i.symbol, status: "unavailable", reason: "error", message: "Market data is not configured" })), asOf: now, source: "none" };
   }
   const tally: Record<CandleSource, number> = { exness: 0, bridge: 0 };
+  exnessErrors = {};
+  exnessSample = "";
   const rows: SwingMapOverviewRow[] = new Array(SWING_INSTRUMENTS.length);
   let next = 0;
   await Promise.all(
@@ -83,7 +92,7 @@ export async function getSwingMapOverview(): Promise<SwingMapOverview> {
     }),
   );
   const source = tally.exness > 0 && tally.bridge > 0 ? "mixed" : tally.exness > 0 ? "exness" : "bridge";
-  const value: SwingMapOverview = { rows, asOf: now, source };
+  const value: SwingMapOverview = { rows, asOf: now, source, exnessDiag: { enabled: exness.isEnabled(), errors: exnessErrors, sample: exnessSample || undefined } };
   // Keep a result only when most markets loaded, so a short bridge outage is not remembered for 5 minutes.
   if (rows.filter((r) => r.status === "ok").length >= rows.length / 2) cached = { at: now, value };
   return value;
