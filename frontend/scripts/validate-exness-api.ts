@@ -95,6 +95,10 @@ async function clientTests(): Promise<void> {
       assert.equal(loadExnessApiEnv()?.gatewayUrl, "https://g.example.test");
       process.env.EXNESS_API_GATEWAY_URL = "http://plain.example.test";
       assert.equal(loadExnessApiEnv(), null, "plain http gateway is refused");
+      process.env.EXNESS_API_GATEWAY_URL = "g.example.test";
+      assert.equal(loadExnessApiEnv()?.gatewayUrl, "https://g.example.test", "a bare host gets https");
+      process.env.EXNESS_API_GATEWAY_URL = "g.example.test/";
+      assert.equal(loadExnessApiEnv()?.gatewayUrl, "https://g.example.test", "bare host with trailing slash");
     } finally {
       for (const k of Object.keys(process.env)) if (k.startsWith("EXNESS_API_")) delete process.env[k];
       Object.assign(process.env, keep);

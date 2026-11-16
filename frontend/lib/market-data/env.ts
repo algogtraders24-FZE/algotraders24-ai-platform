@@ -108,7 +108,9 @@ export function loadExnessApiEnv(): ExnessApiEnv | null {
   const apiKey = process.env.EXNESS_API_KEY?.trim();
   const privateKey = process.env.EXNESS_API_PRIVATE_KEY?.trim();
   const accountId = process.env.EXNESS_API_ACCOUNT_ID?.trim();
-  const gatewayUrl = process.env.EXNESS_API_GATEWAY_URL?.trim().replace(/\/+$/, "");
+  // Tolerate a bare host ("api.exness.com") by assuming https; plain http is never accepted.
+  const rawGateway = process.env.EXNESS_API_GATEWAY_URL?.trim().replace(/\/+$/, "");
+  const gatewayUrl = rawGateway && !/^[a-z][a-z0-9+.-]*:\/\//i.test(rawGateway) ? `https://${rawGateway}` : rawGateway;
   if (!apiKey || !privateKey || !accountId || !gatewayUrl) return null;
   if (!/^\d+$/.test(accountId) || !/^https:\/\/[^/?#\s]+$/.test(gatewayUrl)) return null;
   return { apiKey, privateKey, accountId, gatewayUrl };
