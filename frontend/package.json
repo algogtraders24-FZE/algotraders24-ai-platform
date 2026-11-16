@@ -120,6 +120,7 @@
     "validate:production-intelligence-truth": "tsx scripts/validate-production-intelligence-truth.ts",
     "validate:mt5-provider": "tsx scripts/validate-mt5-provider.ts",
     "validate:exness-api": "tsx scripts/validate-exness-api.ts",
+    "validate:market-board": "tsx scripts/validate-market-board.ts",
     "validate:market-data-integrity": "tsx scripts/validate-market-data-integrity.ts",
     "validate:market-data-provider-audit": "tsx scripts/validate-market-data-provider-audit.ts",
     "validate:microstructure-poc": "tsx scripts/validate-microstructure-poc.ts",
