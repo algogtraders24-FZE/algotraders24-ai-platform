@@ -2,7 +2,7 @@
 // Swing Lab - process tools for swing trading forex pairs, metals, energy and stock indices (crypto has its own page, Crypto Flow):
 // a weekly / daily / 4-hour trend and key-level map, and a position planner that turns a risk limit and a stop into a size.
 // Descriptive, not a signal: our own tests found no edge in the popular daily swing rules, so nothing here says "buy" or "sell".
-// Data: the AT24 MT5 data bridge (Exness symbols), read-only.
+// Data: Exness candles (Exness Trading API first, the AT24 MT5 data bridge as backup), read-only.
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -485,7 +485,7 @@ export default function SwingLabPage() {
         : null}
       {map.status === "ready" ? (
         <p className="mb-6 text-xs text-text-3">
-          Click a market to fill the planner. Prices are the broker feed of the AT24 data bridge and refresh every 5 minutes. ATR is the average daily range of the last 14 days; a level less than half an ATR from the price is
+          Click a market to fill the planner. Prices are the Exness broker feed and refresh every 5 minutes. ATR is the average daily range of the last 14 days; a level less than half an ATR from the price is
           inside a normal day&apos;s noise.
           {notConnected.length > 0 ? ` Not connected yet: ${notConnected.join(", ")}.` : ""}
         </p>

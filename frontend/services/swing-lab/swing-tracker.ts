@@ -8,9 +8,9 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { SWING_INSTRUMENTS } from "@/types/swing-lab";
-import { parseBridgeCandles, type Bar } from "./compute";
+import type { Bar } from "./compute";
 import { BAR_4H_MS, FORWARD_MS, forwardClose, marketOpen, scoreSnapshot } from "./scoreboard";
-import { fetchBridgeCandles, getSwingMapOverview } from "./swing-lab.service";
+import { fetchClosedBars, getSwingMapOverview } from "./swing-lab.service";
 
 const SNAPSHOT_RETRY_MS = 30 * 60_000;
 const MAX_DUE_PER_RUN = 120;
@@ -60,7 +60,7 @@ async function scoreDue(now: Date): Promise<number> {
   for (const [symbol, list] of bySymbol) {
     let bars: Bar[];
     try {
-      bars = parseBridgeCandles(await fetchBridgeCandles(symbol, "4h", SCORING_BARS));
+      bars = await fetchClosedBars(symbol, "4h", SCORING_BARS, now.getTime());
     } catch {
       continue; // try again on a later sweep
     }

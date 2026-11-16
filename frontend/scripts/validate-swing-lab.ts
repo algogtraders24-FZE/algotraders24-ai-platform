@@ -82,6 +82,15 @@ const cand = parseBridgeCandles([
   { datetime: "2026-11-05T00:00:00+00:00", open: 2, high: 4, low: 1, close: 3 }, // newest = still forming
 ]);
 check("bridge candles: sorted, bad rows skipped, forming candle dropped", cand.length === 2 && cand[0].t < cand[1].t && cand[1].close === 2);
+// with the clock: a candle that has finished is kept (weekend: Friday daily candle), one still forming is dropped
+const dayRows = [
+  { datetime: "2026-11-12T00:00:00+00:00", open: 1, high: 2, low: 0.5, close: 1.5 },
+  { datetime: "2026-11-13T00:00:00+00:00", open: 1.5, high: 2.5, low: 1, close: 2 },
+];
+const sat = Date.parse("2026-11-14T10:00:00+00:00");
+const fri = Date.parse("2026-11-13T10:00:00+00:00");
+check("closed-bar rule with the clock: Friday candle kept on Saturday, dropped while it is forming", parseBridgeCandles(dayRows, { nowMs: sat, intervalMs: 86_400_000 }).length === 2 && parseBridgeCandles(dayRows, { nowMs: fri, intervalMs: 86_400_000 }).length === 1);
+check("closed-bar rule: an empty list stays empty", parseBridgeCandles([], { nowMs: sat, intervalMs: 86_400_000 }).length === 0);
 // a forex-like series (5 trading days a week): weekly trend comes from the supplied weekly bars, the map is built from bars directly
 const fxDaily: Bar[] = Array.from({ length: 120 }, (_, i) => bar(i * DAY_MS, 0, 101 + i * 0.1, 99 + i * 0.1, 100 + i * 0.1));
 const fxH4: Bar[] = Array.from({ length: 80 }, (_, i) => bar(i * 4 * 3_600_000, 0, 112, 111, 111.5 + i * 0.01));
