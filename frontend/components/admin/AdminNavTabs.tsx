@@ -19,6 +19,7 @@ const ADMIN_NAV = [
   { label: "Live Results", href: "/dashboard/admin/live-results" },
   { label: "Social", href: "/dashboard/admin/social" },
   { label: "Arena", href: "/dashboard/admin/arena" },
+  { label: "AI Arena FX", href: "/dashboard/admin/arena-fx" },
   { label: "Announcements", href: "/dashboard/admin/announcements" },
   { label: "Knowledge", href: "/dashboard/admin/knowledge" },
   { label: "AI Usage Analytics", href: "/dashboard/admin/analytics" },
