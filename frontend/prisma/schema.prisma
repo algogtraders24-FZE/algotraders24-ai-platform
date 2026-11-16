@@ -3849,3 +3849,30 @@ model FlowZoneAlertSub {
   @@index([symbol])
   @@map("flow_zone_alert_subs")
 }
+
+/// Swing Lab forward scoreboard: one daily snapshot per market of the weekly/daily/4-hour trend alignment, scored 5 days later against the
+/// 4-hour close that really followed (continuation in the direction of the alignment, in daily ATR units). Additive.
+model SwingLabObservation {
+  id           String    @id @default(cuid())
+  symbol       String
+  /// UTC day of the snapshot, "YYYY-MM-DD". One snapshot per market per day.
+  dayKey       String
+  createdAt    DateTime  @default(now())
+  /// Open time of the last closed 4-hour bar at snapshot time (the price is its close).
+  barTime      DateTime
+  price        Float
+  atrPct       Float
+  /// "aligned up" | "aligned down" | "mixed"
+  alignment    String
+  /// open | done
+  status       String    @default("open")
+  fwdPrice     Float?
+  /// Raw move over the horizon in daily ATR units (unsigned); r is the same signed by the alignment (null for mixed).
+  rawAtr       Float?
+  r            Float?
+  evaluatedAt  DateTime?
+
+  @@unique([symbol, dayKey])
+  @@index([status, createdAt])
+  @@map("swing_lab_observations")
+}
