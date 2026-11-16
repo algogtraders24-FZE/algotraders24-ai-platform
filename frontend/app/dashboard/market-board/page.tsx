@@ -294,7 +294,7 @@ export default function MarketBoardPage() {
             </button>
           ))}
           <span className="ml-auto text-xs text-text-3">
-            {inst?.label} &middot; bid &middot; updates every 10 s{data ? ` &middot; ${data.source === "exness" ? "Exness API" : "AT24 data bridge"}` : ""}
+            {inst?.label} · bid · updates every 10 s{data ? ` · ${data.source === "exness" ? "Exness API" : "AT24 data bridge"}` : ""}
           </span>
         </div>
 
@@ -304,7 +304,7 @@ export default function MarketBoardPage() {
           <Skeleton className="h-96 w-full" />
         ) : (
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-            <div className="rounded-md border border-border bg-surface-1 p-2 text-text">
+            <div className="self-start rounded-md border border-border bg-surface-1 p-2 text-text">
               <ChartSvg chart={chart.data} showZones={showZones} showDiv={showDiv} />
             </div>
             <div className="space-y-3 text-sm">
