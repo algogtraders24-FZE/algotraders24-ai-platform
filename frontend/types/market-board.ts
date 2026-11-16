@@ -90,6 +90,8 @@ export interface BoardChartDto {
   costUsed: number;
   /** Bars the scorecards were computed on. */
   barsAnalysed: number;
+  /** False while older history is still being loaded in the background (the scorecards then use fewer bars and fill in on a later refresh). */
+  historyComplete: boolean;
   source: CandleSource;
   asOf: number;
 }
