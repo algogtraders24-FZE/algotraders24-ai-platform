@@ -60,6 +60,7 @@ import {
   BellRing,
   Trophy,
   Layers,
+  CandlestickChart,
   type LucideIcon,
 } from "lucide-react";
 
@@ -223,6 +224,8 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       { label: "Crypto Flow", href: "/dashboard/crypto-flow", icon: Activity },
       // Swing Lab: weekly / daily / 4-hour trend and key-level map plus a swing position planner. Process tools, not signals.
       { label: "Swing Lab", href: "/dashboard/swing-lab", icon: Layers },
+      // Market Board: a live chart with AT24 indicators (Zone Pro, Divergence Pro) plus a market heatmap and correlation shifts. Context, not a signal.
+      { label: "Market Board", href: "/dashboard/market-board", icon: CandlestickChart },
       // Trader Edge Analyzer (E3): upload an MT5 history report -> where the
       // results come from, edge vs luck, risk spread. Analyze-only, nothing saved.
       { label: "Edge Analyzer", href: "/dashboard/edge-analyzer", icon: Gauge },
