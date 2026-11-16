@@ -153,6 +153,36 @@ async function clientTests(): Promise<void> {
     assert.equal(short.length, 3500);
   });
 
+  await test("getCandlesPaged paces its pages and waits out a 429 instead of giving up (no global pause opened)", async () => {
+    const nowMs = Date.UTC(2026, 10, 16, 12, 0, 0);
+    const all = Array.from({ length: 5200 }, (_, i) => {
+      const t = nowMs - (5199 - i) * 900_000;
+      return { time: new Date(t).toISOString().replace(/\.\d{3}Z$/, "+00:00"), open: i, high: i + 1, low: i - 1, close: i + 0.5, volume: 1 };
+    });
+    let pageCalls = 0;
+    let rateLimited = false;
+    const f: ExnessFetch = async (url) => {
+      if (url.includes("/access-point")) return json(200, { access_point: AP });
+      pageCalls += 1;
+      if (pageCalls === 3 && !rateLimited) {
+        rateLimited = true;
+        return { ok: false, status: 429, json: async () => ({}), headers: { get: (n: string) => (n.toLowerCase() === "retry-after" ? "4" : null) } };
+      }
+      const q = new URL(url).searchParams;
+      const fromMs = Date.parse(q.get("from") as string);
+      const want = Math.abs(Number(q.get("count")));
+      return json(200, { candles: all.filter((c) => Date.parse(c.time) <= fromMs).slice(-want) });
+    };
+    const sleeps: number[] = [];
+    const c = new ExnessApiClient({ env: ENV, fetchImpl: f, clock: clockAt({ t: nowMs }), sleep: async (ms) => void sleeps.push(ms) });
+    const out = await c.getCandlesPaged("XAUUSD", "15m", 5000);
+    assert.equal(out.length, 5000, "reached the target despite the 429");
+    assert.ok(sleeps.some((ms) => ms === 4000), `waited the Retry-After of 4 s (waits: ${sleeps.join(",")})`);
+    assert.ok(sleeps.filter((ms) => ms === 1200).length >= 4, "a gap before every page after the first");
+    // the 429 did not open the global breaker: a normal request still goes out
+    await c.getCandles("XAUUSD", "15m", 5);
+  });
+
   await test("getCandlesPaged keeps the collected candles when a later page fails, but a failing first page throws", async () => {
     let n = 0;
     const f: ExnessFetch = async (url) => {
