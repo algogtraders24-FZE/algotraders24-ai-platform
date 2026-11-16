@@ -10,6 +10,9 @@ import {
   BOARD_INSTRUMENTS, BOARD_PAIRS, type BoardChartDto, type BoardCorrelationRow, type BoardOverviewDto, type BoardOverviewRow, type BoardTimeframe, type CandleSource,
 } from "@/types/market-board";
 import { computeCorrelation, computeDivergenceBoard, computeOverviewRow, computeZoneBoard, shiftStatus, type Bar } from "./indicators";
+import { computeAbsorptionBoard, computeFvgBoard, computeObBoard, computeVpBoard } from "./indicators-more";
+import { computeSetupBoard } from "./indicators-setups";
+import { computeErBoard, computeStructureBoard } from "./indicators-structure";
 
 const FETCH_TIMEOUT_MS = 10_000;
 const CHART_CACHE_MS = 10_000;
@@ -152,6 +155,13 @@ export async function getBoardChart(symbol: string, interval: BoardTimeframe): P
     forming: forming ? toDto(forming) : null,
     zones,
     divergences,
+    absorption: computeAbsorptionBoard(closed, cost),
+    setups: computeSetupBoard(closed, cost),
+    fvg: computeFvgBoard(closed),
+    orderBlocks: computeObBoard(closed),
+    structure: computeStructureBoard(closed),
+    expectedRange: interval === "1d" ? null : computeErBoard(closed),
+    volumeProfile: interval === "15m" || interval === "1h" ? computeVpBoard(closed) : null,
     costUsed: cost,
     barsAnalysed: closed.length,
     source,
