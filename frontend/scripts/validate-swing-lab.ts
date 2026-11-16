@@ -5,7 +5,7 @@
 //     4-hour klines: trends, alignment, ATR, nearest support and resistance and the range position must match.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { DAY_MS, alignmentOf, atr14, computeSwingMap, levelCandidates, nearestLevels, parseBars, trendOf, weeklyBars, type Bar, type RawKline } from "../services/swing-lab/compute";
+import { DAY_MS, alignmentOf, atr14, computeSwingMap, computeSwingMapFromBars, levelCandidates, nearestLevels, parseBars, parseBridgeCandles, trendOf, weeklyBars, type Bar, type RawKline } from "../services/swing-lab/compute";
 import { planSwing } from "../services/swing-lab/planner";
 
 let failures = 0;
@@ -66,6 +66,29 @@ check("planner: wide stop flag", planSwing({ account: 1000, riskPct: 1, entry: 1
 check("planner: a stop on the wrong side is an error", !planSwing({ account: 1000, riskPct: 1, entry: 100, stop: 105, side: "long" }).ok && !planSwing({ account: 1000, riskPct: 1, entry: 100, stop: 95, side: "short" }).ok);
 check("planner: a target on the wrong side is an error", !planSwing({ account: 1000, riskPct: 1, entry: 100, stop: 95, target: 90, side: "long" }).ok);
 check("planner: risk above 5 % or zero account is rejected", !planSwing({ account: 1000, riskPct: 6, entry: 100, stop: 95, side: "long" }).ok && !planSwing({ account: 0, riskPct: 1, entry: 100, stop: 95, side: "long" }).ok);
+
+// planner with a quote currency: USDJPY, entry 150, stop 149, risk 1 % of 10,000 = 100 USD. One yen of stop = 1/150 USD per unit,
+// so units = 100 / (1 * (1/150)) = 15,000 and notional = 15,000 * 150 * (1/150) = 15,000 USD (leverage 1.5).
+const jpy = planSwing({ account: 10000, riskPct: 1, entry: 150, stop: 149, side: "long", quoteToUsd: 1 / 150 });
+check("planner: yen-quoted pair converts the risk through the quote rate", jpy.ok && near(jpy.units, 15000, 1e-9) && near(jpy.notional, 15000, 1e-9) && near(jpy.leverage, 1.5, 1e-9));
+check("planner: a missing quote rate defaults to 1 and a bad one is rejected", near(planSwing({ account: 10000, riskPct: 1, entry: 100, stop: 95, side: "long" }).units, 20) && !planSwing({ account: 10000, riskPct: 1, entry: 100, stop: 95, side: "long", quoteToUsd: 0 }).ok);
+
+// ---- bridge candles: the forming (last) candle is dropped, bad rows are skipped, order is oldest first ------------------------
+const cand = parseBridgeCandles([
+  { datetime: "2026-11-03T00:00:00+00:00", open: 1, high: 3, low: 0.5, close: 2 },
+  { datetime: "2026-11-02T00:00:00+00:00", open: 1, high: 2, low: 0.5, close: 1.5 },
+  { datetime: "bad", open: 1, high: 2, low: 0.5, close: 1.5 },
+  { datetime: "2026-11-04T00:00:00+00:00", open: 1, high: 0.4, low: 0.5, close: 1 }, // high below low
+  { datetime: "2026-11-05T00:00:00+00:00", open: 2, high: 4, low: 1, close: 3 }, // newest = still forming
+]);
+check("bridge candles: sorted, bad rows skipped, forming candle dropped", cand.length === 2 && cand[0].t < cand[1].t && cand[1].close === 2);
+// a forex-like series (5 trading days a week): weekly trend comes from the supplied weekly bars, the map is built from bars directly
+const fxDaily: Bar[] = Array.from({ length: 120 }, (_, i) => bar(i * DAY_MS, 0, 101 + i * 0.1, 99 + i * 0.1, 100 + i * 0.1));
+const fxH4: Bar[] = Array.from({ length: 80 }, (_, i) => bar(i * 4 * 3_600_000, 0, 112, 111, 111.5 + i * 0.01));
+const fxWeekly: Bar[] = Array.from({ length: 60 }, (_, i) => bar(i * 7 * DAY_MS, 0, 110, 90, 90 + i * 0.5));
+const fxRow = computeSwingMapFromBars("EURUSD", fxDaily, fxH4, fxWeekly);
+check("map from bars: trends, as-of bar time and price", fxRow !== null && fxRow.w1 === "up" && fxRow.d1 === "up" && fxRow.h4 === "up" && fxRow.alignment === "aligned up" && fxRow.asOfBar === 79 * 4 * 3_600_000 && near(fxRow.price, 111.5 + 79 * 0.01));
+check("map from bars: too little daily history gives no row", computeSwingMapFromBars("X", fxDaily.slice(0, 59), fxH4, fxWeekly) === null);
 
 // ---- real data against the independent Python numbers --------------------------------------------------------------------
 interface ExpLevel { price: number; pct: number; atr: number; source: string }

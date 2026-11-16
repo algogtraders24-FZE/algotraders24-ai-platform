@@ -69,6 +69,15 @@ SYMBOL_MAP: dict[str, str] = {
     "JP225": "JP225",
     "DE30": "DE30",
     "XCUUSD": "XCUUSD",
+    # Swing Lab (2026-11-16): the remaining major forex pairs and yen crosses. Standard Exness names; a symbol the account does not have
+    # simply answers 404 and the Swing Lab page lists it as "not connected yet". Needs the bridge on the VPS to be redeployed with this file.
+    "AUDUSD": "AUDUSD",
+    "NZDUSD": "NZDUSD",
+    "USDCAD": "USDCAD",
+    "USDCHF": "USDCHF",
+    "EURJPY": "EURJPY",
+    "GBPJPY": "GBPJPY",
+    "EURGBP": "EURGBP",
 }
 
 

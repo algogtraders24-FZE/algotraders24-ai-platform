@@ -1,8 +1,10 @@
 // services/swing-lab/compute.ts
 // Pure maths for the Swing Lab trend and level map (no network, no "server-only"; the validation script imports it).
-// Input: Binance klines rows [openTime, open, high, low, close, volume, closeTime, ...]. Only closed bars are used.
+// Input: bars of one instrument on three timeframes (weekly, daily, 4-hour), only closed bars. They come from the MT5 data bridge candles
+// (parseBridgeCandles drops the still-forming last candle) or, for series that trade 7 days a week and in the validation, from Binance klines
+// (parseBars + weeklyBars).
 //   trend of a timeframe: close, SMA(20) and SMA(50) of closes. up: close > SMA20 > SMA50; down: close < SMA20 < SMA50; else mixed. Needs 50 bars.
-//   weekly bars are built from complete UTC weeks (Monday 00:00 to Sunday 23:59, 7 daily bars) of the daily series.
+//   weekly bars: the bridge's own weekly candles; weeklyBars() builds them from complete UTC weeks (7 daily bars) for 7-day series.
 //   alignment: all three timeframes up = "aligned up", all three down = "aligned down", else mixed.
 //   ATR(14) on daily bars = simple mean of the last 14 true ranges, true range = max(high - low, |high - previous close|, |low - previous close|).
 //   levels (candidates): daily swing highs / lows (a bar whose high is strictly above the 5 bars before and the 5 bars after it; lows mirrored),
@@ -39,6 +41,30 @@ export function parseBars(rows: ReadonlyArray<RawKline>, nowMs: number): Bar[] {
     bars.push({ t, open, high, low, close });
   }
   return bars;
+}
+
+export interface BridgeCandle {
+  datetime?: unknown;
+  open?: unknown;
+  high?: unknown;
+  low?: unknown;
+  close?: unknown;
+}
+
+/** Closed bars from the MT5 bridge candles (oldest first). The last candle is the one still forming and is always dropped. */
+export function parseBridgeCandles(rows: ReadonlyArray<BridgeCandle>): Bar[] {
+  const bars: Bar[] = [];
+  for (const r of rows) {
+    const t = typeof r.datetime === "string" ? Date.parse(r.datetime) : NaN;
+    const open = Number(r.open);
+    const high = Number(r.high);
+    const low = Number(r.low);
+    const close = Number(r.close);
+    if (![t, open, high, low, close].every(Number.isFinite) || !(high >= low)) continue;
+    bars.push({ t, open, high, low, close });
+  }
+  bars.sort((a, b) => a.t - b.t);
+  return bars.slice(0, Math.max(0, bars.length - 1));
 }
 
 export function sma(values: ReadonlyArray<number>, n: number): number | null {
@@ -139,15 +165,13 @@ export function alignmentOf(w1: SwingTrend | null, d1: SwingTrend | null, h4: Sw
   return "mixed";
 }
 
-/** The map row for one instrument. Null when the daily history is too short. */
-export function computeSwingMap(symbol: string, dailyRows: ReadonlyArray<RawKline>, h4Rows: ReadonlyArray<RawKline>, nowMs: number): SwingMapRow | null {
-  const daily = parseBars(dailyRows, nowMs);
-  const h4 = parseBars(h4Rows, nowMs);
+/** The map row for one instrument from closed bars (oldest first). Null when the daily history is too short. */
+export function computeSwingMapFromBars(symbol: string, daily: ReadonlyArray<Bar>, h4: ReadonlyArray<Bar>, weekly: ReadonlyArray<Bar>): SwingMapRow | null {
   if (daily.length < 60 || h4.length < 1) return null;
-  const price = h4[h4.length - 1].close;
+  const last4h = h4[h4.length - 1];
+  const price = last4h.close;
   const atr = atr14(daily);
   if (atr === null || !(atr > 0) || !(price > 0)) return null;
-  const weekly = weeklyBars(daily);
   const w1 = trendOf(weekly);
   const d1 = trendOf(daily);
   const h4t = trendOf(h4);
@@ -158,6 +182,7 @@ export function computeSwingMap(symbol: string, dailyRows: ReadonlyArray<RawKlin
   return {
     symbol,
     price,
+    asOfBar: last4h.t,
     atrPct: (100 * atr) / price,
     w1,
     d1,
@@ -167,4 +192,10 @@ export function computeSwingMap(symbol: string, dailyRows: ReadonlyArray<RawKlin
     support,
     rangePosPct: hi50 > lo50 ? (100 * (price - lo50)) / (hi50 - lo50) : 50,
   };
+}
+
+/** Same from Binance klines (7-day series; weekly bars are built from the daily bars). Used by the validation script. */
+export function computeSwingMap(symbol: string, dailyRows: ReadonlyArray<RawKline>, h4Rows: ReadonlyArray<RawKline>, nowMs: number): SwingMapRow | null {
+  const daily = parseBars(dailyRows, nowMs);
+  return computeSwingMapFromBars(symbol, daily, parseBars(h4Rows, nowMs), weeklyBars(daily));
 }
