@@ -35,8 +35,8 @@ import type { MarketSnapshot, MarketStatus } from "@/types/market-snapshot";
 import type { Candle, TimeSeriesRequest } from "@/types/market-candle";
 import { getMarket } from "../market-registry";
 import { mappingsForProvider } from "../instrument-catalog";
-import { loadMt5BridgeEnv, loadExnessApiEnv, type Mt5BridgeEnv } from "../env";
-import { ExnessApiClient } from "../exness-api";
+import { loadMt5BridgeEnv, type Mt5BridgeEnv } from "../env";
+import { ExnessApiClient, getSharedExnessClient } from "../exness-api";
 import { MarketDataProviderError } from "../errors";
 import { TtlCache, systemClock, type Clock } from "../cache";
 
@@ -136,7 +136,7 @@ export class Mt5Provider implements MarketDataProvider, SnapshotProvider, TimeSe
     this.quoteCache = new TtlCache<ParsedMt5Quote>(options.cacheTtlMs ?? DEFAULT_QUOTE_CACHE_TTL_MS, this.clock);
     this.candleCache = new TtlCache<Candle[]>(options.candleCacheTtlMs ?? DEFAULT_CANDLE_CACHE_TTL_MS, this.clock);
     this.fetchImpl = options.fetchImpl ?? (fetch as unknown as Mt5BridgeFetch);
-    this.exness = options.exness ?? new ExnessApiClient({ env: loadExnessApiEnv(), clock: this.clock });
+    this.exness = options.exness ?? getSharedExnessClient();
   }
 
   isConfigured(): boolean {

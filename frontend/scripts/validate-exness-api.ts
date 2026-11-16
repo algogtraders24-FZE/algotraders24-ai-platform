@@ -118,6 +118,13 @@ async function clientTests(): Promise<void> {
     assert.deepEqual(a[0], { datetime: "2026-11-16T07:45:00+00:00", open: 1, high: 2, low: 0.5, close: 1.5, volume: 10 });
   });
 
+  await test("concurrent callers share ONE access point discovery", async () => {
+    const log: string[] = [];
+    const c = new ExnessApiClient({ env: ENV, fetchImpl: exnessFetch(log), clock: clockAt({ t: Date.now() }) });
+    await Promise.all([c.getCandles("XAUUSD", "1h", 5), c.getCandles("XAGUSD", "1h", 5), c.getCandles("EURUSD", "1h", 5)]);
+    assert.equal(log.filter((u) => u.includes("/access-point")).length, 1);
+  });
+
   await test("quote: bid/ask from the latest M1 candle (price_type=both)", async () => {
     const c = new ExnessApiClient({ env: ENV, fetchImpl: exnessFetch([]), clock: clockAt({ t: Date.now() }) });
     const q = await c.getQuote("XAUUSD");

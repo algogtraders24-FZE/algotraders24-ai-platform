@@ -4,8 +4,8 @@
 // the AT24 VPS bridge when the API is off or fails for any reason. Results are cached in memory (chart 10 s, overview 5 min) so many viewers
 // never multiply the number of upstream requests.
 import "server-only";
-import { loadExnessApiEnv, loadMt5BridgeEnv, type Mt5BridgeEnv } from "@/lib/market-data/env";
-import { ExnessApiClient } from "@/lib/market-data/exness-api";
+import { loadMt5BridgeEnv, type Mt5BridgeEnv } from "@/lib/market-data/env";
+import { getSharedExnessClient } from "@/lib/market-data/exness-api";
 import {
   BOARD_INSTRUMENTS, BOARD_PAIRS, type BoardChartDto, type BoardCorrelationRow, type BoardOverviewDto, type BoardOverviewRow, type BoardTimeframe, type CandleSource,
 } from "@/types/market-board";
@@ -14,7 +14,7 @@ import { computeCorrelation, computeDivergenceBoard, computeOverviewRow, compute
 const FETCH_TIMEOUT_MS = 10_000;
 const CHART_CACHE_MS = 10_000;
 const OVERVIEW_CACHE_MS = 5 * 60_000;
-const CONCURRENCY = 3;
+const CONCURRENCY = 2;
 const SHIFT_LEVEL = 0.4;
 /** Closed candles requested per chart (one Exness page); the scorecards are computed on all of them, the chart draws the last DISPLAY_BARS. */
 const CHART_BARS = 1000;
@@ -22,7 +22,7 @@ const DISPLAY_BARS = 160;
 const DAILY_BARS = 1000;
 
 const INTERVAL_MS: Record<BoardTimeframe, number> = { "15m": 15 * 60_000, "1h": 3_600_000, "4h": 4 * 3_600_000, "1d": 86_400_000 };
-const exness = new ExnessApiClient({ env: loadExnessApiEnv() });
+const exness = getSharedExnessClient();
 
 interface RawCandle {
   datetime: string;

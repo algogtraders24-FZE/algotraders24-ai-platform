@@ -16,7 +16,7 @@
 import { createHash, createPrivateKey, sign as edSign, type KeyObject } from "node:crypto";
 import type { Clock } from "./cache";
 import { systemClock } from "./cache";
-import type { ExnessApiEnv } from "./env";
+import { loadExnessApiEnv, type ExnessApiEnv } from "./env";
 
 const USER_AGENT = "AT24-ReadOnlyClient/0.1 (own-account market data)";
 const ACCESS_POINT_TTL_MS = 6 * 60 * 60 * 1000;
@@ -173,18 +173,30 @@ export class ExnessApiClient {
     }
   }
 
+  private accessPointInFlight: Promise<string> | null = null;
+
   private async getAccessPoint(): Promise<string> {
     const env = this.env;
     if (!env) throw new ExnessApiError("disabled", "Exness API is not enabled");
     const now = this.clock.now();
     if (this.accessPoint && now - this.accessPoint.at < ACCESS_POINT_TTL_MS) return this.accessPoint.url;
-    const body = (await this.get(env.gatewayUrl, `/v1/trading/access-point?account_id=${encodeURIComponent(env.accountId)}`)) as { access_point?: unknown };
-    if (typeof body.access_point !== "string" || !/^https:\/\//.test(body.access_point)) {
-      throw new ExnessApiError("shape", "Exness access point response is invalid");
+    // discovery is rate limited: concurrent callers share one request
+    if (!this.accessPointInFlight) {
+      this.accessPointInFlight = (async () => {
+        try {
+          const body = (await this.get(env.gatewayUrl, `/v1/trading/access-point?account_id=${encodeURIComponent(env.accountId)}`)) as { access_point?: unknown };
+          if (typeof body.access_point !== "string" || !/^https:\/\//.test(body.access_point)) {
+            throw new ExnessApiError("shape", "Exness access point response is invalid");
+          }
+          const url = body.access_point.replace(/\/+$/, "");
+          this.accessPoint = { url, at: this.clock.now() };
+          return url;
+        } finally {
+          this.accessPointInFlight = null;
+        }
+      })();
     }
-    const url = body.access_point.replace(/\/+$/, "");
-    this.accessPoint = { url, at: now };
-    return url;
+    return this.accessPointInFlight;
   }
 
   private candlesPath(instrument: string, timeframe: string, count: number, priceType: "bid" | "both"): string {
@@ -234,4 +246,12 @@ export class ExnessApiClient {
     }
     return { bid, ask, providerTimestamp: row.time };
   }
+}
+
+let sharedClient: ExnessApiClient | null = null;
+
+/** One client per server instance, so the access point is discovered once and the circuit breaker is shared by every caller. */
+export function getSharedExnessClient(): ExnessApiClient {
+  if (!sharedClient) sharedClient = new ExnessApiClient({ env: loadExnessApiEnv() });
+  return sharedClient;
 }
