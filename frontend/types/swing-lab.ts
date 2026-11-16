@@ -92,6 +92,8 @@ export interface SwingMapOverview {
   asOf: number;
   /** Which source served the candles of this refresh (diagnostics). */
   source?: "exness" | "bridge" | "mixed" | "none";
+  /** Whether the Exness API is switched on for this deployment and, per kind, why it did not serve requests. Diagnostics only. */
+  exnessDiag?: { enabled: boolean; errors: Record<string, number>; sample?: string };
 }
 
 // ---- forward scoreboard (rules in services/swing-lab/scoreboard.ts) ----
