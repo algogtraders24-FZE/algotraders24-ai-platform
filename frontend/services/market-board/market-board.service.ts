@@ -16,8 +16,11 @@ const CHART_CACHE_MS = 10_000;
 const OVERVIEW_CACHE_MS = 5 * 60_000;
 const CONCURRENCY = 2;
 const SHIFT_LEVEL = 0.4;
-/** Closed candles requested per chart (one Exness page); the scorecards are computed on all of them, the chart draws the last DISPLAY_BARS. */
-const CHART_BARS = 1000;
+/** Candles kept per chart (the scorecards are computed on all of them, the chart draws the last DISPLAY_BARS). 8000 matches the MT5 builds' default history. */
+const HISTORY_TARGET: Record<BoardTimeframe, number> = { "15m": 8000, "1h": 8000, "4h": 6000, "1d": 1000 };
+/** The newest page re-read on every refresh; older candles never change, so they are kept. */
+const REFRESH_BARS = 1000;
+const HISTORY_ENTRIES_MAX = 16;
 const DISPLAY_BARS = 160;
 const DAILY_BARS = 1000;
 
@@ -60,6 +63,61 @@ function splitBars(candles: RawCandle[], interval: BoardTimeframe, nowMs: number
   return { closed: bars, forming: null };
 }
 
+interface HistoryEntry {
+  candles: RawCandle[];
+  source: CandleSource;
+  at: number;
+}
+const historyCache = new Map<string, HistoryEntry>();
+const historyLoading = new Map<string, Promise<HistoryEntry>>();
+
+function mergeCandles(oldC: RawCandle[], fresh: RawCandle[], keep: number): RawCandle[] {
+  const byTime = new Map<string, RawCandle>();
+  for (const c of oldC) byTime.set(c.datetime, c);
+  for (const c of fresh) byTime.set(c.datetime, c);
+  return [...byTime.values()].sort((a, b) => Date.parse(a.datetime) - Date.parse(b.datetime)).slice(-keep);
+}
+
+/** Deep history for one chart: the first load pages back through the Exness API (older candles are then cached), every later refresh reads only the newest page. */
+async function getHistory(env: Mt5BridgeEnv | null, symbol: string, interval: BoardTimeframe): Promise<HistoryEntry> {
+  const key = `${symbol}|${interval}`;
+  const target = HISTORY_TARGET[interval];
+  const cached = historyCache.get(key);
+  if (cached) {
+    const fresh = await fetchRaw(env, symbol, interval, REFRESH_BARS);
+    const entry: HistoryEntry = { candles: mergeCandles(cached.candles, fresh.candles, target), source: fresh.source, at: Date.now() };
+    historyCache.set(key, entry);
+    return entry;
+  }
+  const loading = historyLoading.get(key);
+  if (loading) return loading;
+  const job = (async () => {
+    let candles: RawCandle[] | null = null;
+    let source: CandleSource = "exness";
+    if (exness.isEnabled()) {
+      try {
+        candles = await exness.getCandlesPaged(symbol, interval, target);
+      } catch {
+        candles = null; // any Exness API problem: fall back to the VPS bridge below
+      }
+    }
+    if (!candles) {
+      const raw = await fetchRaw(env, symbol, interval, Math.min(target, 5000));
+      candles = raw.candles;
+      source = raw.source;
+    }
+    const entry: HistoryEntry = { candles, source, at: Date.now() };
+    if (historyCache.size >= HISTORY_ENTRIES_MAX) {
+      const oldest = [...historyCache.entries()].sort((a, b) => a[1].at - b[1].at)[0];
+      if (oldest) historyCache.delete(oldest[0]);
+    }
+    historyCache.set(key, entry);
+    return entry;
+  })().finally(() => historyLoading.delete(key));
+  historyLoading.set(key, job);
+  return job;
+}
+
 const chartCache = new Map<string, { at: number; value: BoardChartDto }>();
 
 export async function getBoardChart(symbol: string, interval: BoardTimeframe): Promise<BoardChartDto> {
@@ -70,7 +128,7 @@ export async function getBoardChart(symbol: string, interval: BoardTimeframe): P
   const env = loadMt5BridgeEnv();
   if (!env && !exness.isEnabled()) throw new Error("Market data is not configured");
 
-  const { candles, source } = await fetchRaw(env, symbol, interval, CHART_BARS);
+  const { candles, source } = await getHistory(env, symbol, interval);
   const { closed, forming } = splitBars(candles, interval, now);
   if (closed.length < 200) throw new Error("Not enough history");
 

@@ -125,6 +125,48 @@ async function clientTests(): Promise<void> {
     assert.equal(log.filter((u) => u.includes("/access-point")).length, 1);
   });
 
+  await test("getCandlesPaged pages back, de-duplicates the overlap and returns exactly the newest `total` candles oldest first", async () => {
+    const nowMs = Date.UTC(2026, 10, 16, 12, 0, 0);
+    const all = Array.from({ length: 3500 }, (_, i) => {
+      const t = nowMs - (3499 - i) * 3_600_000;
+      return { time: new Date(t).toISOString().replace(/\.\d{3}Z$/, "+00:00"), open: i, high: i + 1, low: i - 1, close: i + 0.5, volume: 1 };
+    });
+    const calls: string[] = [];
+    const f: ExnessFetch = async (url) => {
+      if (url.includes("/access-point")) return json(200, { access_point: AP });
+      const q = new URL(url).searchParams;
+      calls.push(`${q.get("from")}|${q.get("count")}`);
+      const fromMs = Date.parse(q.get("from") as string);
+      const want = Math.abs(Number(q.get("count")));
+      const upTo = all.filter((c) => Date.parse(c.time) <= fromMs); // inclusive `from`: forces overlap handling
+      return json(200, { candles: upTo.slice(-want) });
+    };
+    const c = new ExnessApiClient({ env: ENV, fetchImpl: f, clock: clockAt({ t: nowMs }) });
+    const out = await c.getCandlesPaged("XAUUSD", "1h", 2500);
+    assert.equal(out.length, 2500);
+    assert.equal(out[out.length - 1].datetime, all[all.length - 1].time);
+    assert.equal(out[0].datetime, all[all.length - 2500].time);
+    for (let i = 1; i < out.length; i++) assert.ok(Date.parse(out[i].datetime) > Date.parse(out[i - 1].datetime), "strictly increasing times");
+    assert.ok(calls.length >= 3 && calls.length <= 4, `pages used: ${calls.length}`);
+    // a short history stops by itself instead of looping
+    const short = await new ExnessApiClient({ env: ENV, fetchImpl: f, clock: clockAt({ t: nowMs }) }).getCandlesPaged("XAUUSD", "1h", 9000);
+    assert.equal(short.length, 3500);
+  });
+
+  await test("getCandlesPaged keeps the collected candles when a later page fails, but a failing first page throws", async () => {
+    let n = 0;
+    const f: ExnessFetch = async (url) => {
+      if (url.includes("/access-point")) return json(200, { access_point: AP });
+      n += 1;
+      if (n === 1) return json(200, { candles: Array.from({ length: 1000 }, (_, i) => ({ time: new Date(Date.UTC(2026, 0, 1) + i * 3_600_000).toISOString().replace(/\.\d{3}Z$/, "+00:00"), open: 1, high: 2, low: 0, close: 1, volume: 1 })) });
+      return json(500, {});
+    };
+    const c = new ExnessApiClient({ env: ENV, fetchImpl: f });
+    assert.equal((await c.getCandlesPaged("XAUUSD", "1h", 3000)).length, 1000);
+    const bad = new ExnessApiClient({ env: ENV, fetchImpl: async (url) => (url.includes("/access-point") ? json(200, { access_point: AP }) : json(500, {})) });
+    await assert.rejects(bad.getCandlesPaged("XAUUSD", "1h", 3000), ExnessApiError);
+  });
+
   await test("quote: bid/ask from the latest M1 candle (price_type=both)", async () => {
     const c = new ExnessApiClient({ env: ENV, fetchImpl: exnessFetch([]), clock: clockAt({ t: Date.now() }) });
     const q = await c.getQuote("XAUUSD");

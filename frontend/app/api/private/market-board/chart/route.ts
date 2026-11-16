@@ -9,6 +9,8 @@ import { getBoardChart } from "@/services/market-board/market-board.service";
 import { getBoardInstrument, isBoardTimeframe } from "@/types/market-board";
 
 export const dynamic = "force-dynamic";
+// The first load of a chart pages back through up to 8000 candles; later refreshes read only the newest page.
+export const maxDuration = 60;
 
 export const GET = withContext(async (req, ctx) => {
   const user = await getUserOrNull();
