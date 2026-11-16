@@ -8,6 +8,7 @@
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint",
+    "validate:swing-lab": "tsx scripts/validate-swing-lab.ts",
     "validate:crypto-flow": "tsx scripts/validate-crypto-flow.ts && tsx scripts/validate-crypto-flow-zones.ts && tsx scripts/validate-crypto-flow-scoreboard.ts && tsx scripts/validate-crypto-flow-derivatives.ts",
     "validate:context": "tsx scripts/validate-context-manager.ts",
     "validate:mcp-facade": "tsx scripts/validate-mcp-facade.ts",
