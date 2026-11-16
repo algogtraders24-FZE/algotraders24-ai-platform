@@ -59,6 +59,7 @@ import {
   Wallet,
   BellRing,
   Trophy,
+  Layers,
   type LucideIcon,
 } from "lucide-react";
 
@@ -220,6 +221,8 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       { label: "Economic Calendar", href: "/dashboard/calendar", icon: CalendarDays },
       // Crypto Flow: real buyer / seller aggressor delta for BTC and ETH (Binance spot 1-minute bars). Context, not a signal.
       { label: "Crypto Flow", href: "/dashboard/crypto-flow", icon: Activity },
+      // Swing Lab: weekly / daily / 4-hour trend and key-level map plus a swing position planner. Process tools, not signals.
+      { label: "Swing Lab", href: "/dashboard/swing-lab", icon: Layers },
       // Trader Edge Analyzer (E3): upload an MT5 history report -> where the
       // results come from, edge vs luck, risk spread. Analyze-only, nothing saved.
       { label: "Edge Analyzer", href: "/dashboard/edge-analyzer", icon: Gauge },
