@@ -106,7 +106,7 @@ const SOLUTIONS: FooterItem[] = [
   { label: "All Solutions", href: "/solutions" },
   { label: "Prop Firms", href: "/solutions/prop-firms" },
   { label: "Hedge Funds" },
-  { label: "Institutions" },
+  { label: "Institutions", href: "/solutions/institutions" },
 ];
 
 const DEVELOPERS: FooterItem[] = [
