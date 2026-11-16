@@ -231,3 +231,59 @@ export interface CryptoFlowScoreboard {
   done: number;
   since: string | null;
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Derivatives positioning: funding, open interest and long/short crowding from the public Binance USDS-M futures
+// endpoints. Descriptive: it shows how traders are positioned now, not where price goes next.
+// ---------------------------------------------------------------------------------------------------------------
+
+export type CryptoFlowFundingLabel = "neutral" | "longs paying" | "longs paying a lot" | "shorts paying" | "shorts paying a lot";
+export type CryptoFlowOiRegime = "new longs" | "new shorts" | "short covering" | "long unwinding" | "flat";
+export type CryptoFlowCrowd = "long-heavy" | "short-heavy" | "balanced";
+
+/** One row of the funding table (every perpetual). */
+export interface CryptoFlowFundingRow {
+  symbol: string;
+  markPrice: number;
+  /** Last funding rate for one funding interval, percent (for example 0.004). */
+  fundingPct: number;
+  intervalHours: number;
+  /** Funding rate scaled to a year, percent. */
+  annualPct: number;
+  label: CryptoFlowFundingLabel;
+  nextFundingTime: number;
+}
+
+export interface CryptoFlowOiWindow {
+  hours: number;
+  oiChangePct: number;
+  priceChangePct: number;
+  regime: CryptoFlowOiRegime;
+}
+
+export interface CryptoFlowRatio {
+  /** Share of accounts (or of top-trader positions) that are long, percent. */
+  longPct: number;
+  crowd: CryptoFlowCrowd;
+}
+
+export interface CryptoFlowDerivativesDetail {
+  symbol: string;
+  asOf: number;
+  funding: CryptoFlowFundingRow;
+  /** Open interest now, in contracts and in USDT. */
+  openInterest: number;
+  openInterestUsd: number;
+  h4: CryptoFlowOiWindow;
+  h24: CryptoFlowOiWindow;
+  /** All accounts. Null when the venue does not publish it for this symbol. */
+  accounts: CryptoFlowRatio | null;
+  /** Top traders by position size. Null when not published. */
+  topTraders: CryptoFlowRatio | null;
+  /** Taker buy / sell volume ratio of the last hour (above 1 = buyers aggressive). */
+  takerRatio1h: number | null;
+}
+
+export interface CryptoFlowDerivativesOverview {
+  rows: CryptoFlowFundingRow[];
+}
