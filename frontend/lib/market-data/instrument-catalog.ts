@@ -215,6 +215,11 @@ export const INSTRUMENT_CATALOG: readonly CanonicalInstrument[] = [
     providerMappings: [
       { provider: "twelve-data", providerSymbol: "XRP/USD", supportedCapabilities: ["quote", "candles"], verified: true },
       { provider: "binance", providerSymbol: "XRPUSDT", supportedCapabilities: ["quote", "candles"], verified: true },
+      // Served only by the Exness Trading API (read-only) inside the mt5 provider: the VPS bridge's
+      // SYMBOL_MAP does not contain XRPUSD, so a successful "mt5" answer for this symbol can only come
+      // from the Exness API (proof of source). If that API is off or fails, the bridge answers 404 and the
+      // service falls through to the providers above exactly as before.
+      { provider: "mt5", providerSymbol: "XRPUSD", supportedCapabilities: ["quote", "candles"], verified: true },
     ],
   },
 
