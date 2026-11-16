@@ -1,0 +1,78 @@
+AT24 - BROKER FOLLOW-UP NOTES WITH THE WIDGET DEMO (DRAFTS, NOT SENT)
+Date: 2026-11-16
+Demo link: https://www.algotraders24.ai/solutions/institutions/demo
+Offer page: https://www.algotraders24.ai/solutions/institutions
+
+Rules used: no client names, no return claims, no "signals", say plainly it is a prototype and a pilot,
+say the ranges were tested on Gold and Bitcoin only. Send from support@algotraders24.ai. Follow-up dates: CFI ~19 Nov, Equiti ~26 Nov.
+
+------------------------------------------------------------
+1) CFI - Carla Nemr (follow-up to the first email)
+------------------------------------------------------------
+Subject: Following up: a short demo of market context for your clients
+
+Hello Carla,
+
+A quick follow-up to my earlier note. Since then we put a working prototype online, so you can see what we mean instead of reading about it:
+
+https://www.algotraders24.ai/solutions/institutions/demo
+
+It shows, inside an illustrative client portal (not live at any broker), a typical-move range per instrument that we check afterwards against what price really did, key levels, macro alignment and the next high-impact event. The numbers are live. It is information only, with no buy or sell wording.
+
+Two things to be clear about: it is a prototype, and the ranges were tested on Gold and Bitcoin only. Which market data may be shown to your clients is something we would agree with you first, and how AI-generated content is classified is your compliance team's call.
+
+If it looks useful, we would be glad to run a small pilot with a branded version for a limited group of your clients. Our full offer and limits are here: https://www.algotraders24.ai/solutions/institutions
+
+Kind regards,
+Pravin Awari
+Algotraders24 AI
+support@algotraders24.ai
+
+------------------------------------------------------------
+2) Equiti - Sartaj Singh (follow-up)
+------------------------------------------------------------
+Subject: Market context widget for clients: live prototype
+
+Hello Sartaj,
+
+Following my earlier message, here is a live prototype of the market context widget I mentioned:
+
+https://www.algotraders24.ai/solutions/institutions/demo
+
+Each card shows a typical-move range for the instrument, the result of checking that range afterwards, key levels, macro alignment and the next high-impact event. Everything is stated with its limits, and nothing is a signal or a recommendation. The public record behind the ranges is here: https://www.algotraders24.ai/calibration
+
+It is a prototype today, not an embeddable partner product, and the ranges were tested on Gold and Bitcoin only. We would build the branded, keyed version with a first partner, on a pilot basis, after agreeing the data and wording with your compliance team.
+
+Would a short call, or a pilot scoped to one instrument, make sense?
+
+Kind regards,
+Pravin Awari
+Algotraders24 AI
+support@algotraders24.ai
+
+------------------------------------------------------------
+3) Generic first-contact version (FP Markets, Pepperstone, others)
+------------------------------------------------------------
+Subject: Evidence-based market context for your clients (live prototype)
+
+Hello [Name],
+
+I run Algotraders24 AI. We produce market context that clients can check: a typical-move range per instrument, checked afterwards against what price really did (public scoreboard: https://www.algotraders24.ai/calibration), plus key levels, macro alignment and the next high-impact event. No signals and no return claims.
+
+There is a live prototype in an illustrative client portal here: https://www.algotraders24.ai/solutions/institutions/demo
+
+It is a prototype, the ranges were tested on Gold and Bitcoin only, and there is no uptime guarantee yet. We work on a pilot basis and agree the data use and wording with your compliance team first. Details: https://www.algotraders24.ai/solutions/institutions
+
+Would you be open to a short call?
+
+Kind regards,
+Pravin Awari
+Algotraders24 AI
+support@algotraders24.ai
+
+------------------------------------------------------------
+Before sending
+------------------------------------------------------------
+- Replace [Name] and check the person's current role on LinkedIn first.
+- Do not add a client list, return figures or the words "signal", "guaranteed" or "outperform".
+- Pending (lawyer review): the wording on information vs recommendation, and market-data redistribution licences, before a pilot goes live.
