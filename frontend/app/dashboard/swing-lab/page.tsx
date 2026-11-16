@@ -60,7 +60,7 @@ function RangeBar({ pct }: { pct: number }) {
       </div>
       <div className="mt-0.5 flex justify-between text-[10px] text-text-3">
         <span>low</span>
-        <span>{pct.toFixed(0)}%</span>
+        <span>{pct < 0 ? "below range" : pct > 100 ? "above range" : `${pct.toFixed(0)}%`}</span>
         <span>high</span>
       </div>
     </div>
