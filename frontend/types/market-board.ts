@@ -2,6 +2,9 @@
 // Market Board: a live chart with AT24 indicators attached (Zone Pro, Divergence Pro), plus a market heatmap and a correlation shift table.
 // Descriptive process tools, not signals. Data: Exness candles (Exness Trading API first, the AT24 MT5 data bridge as backup), read-only.
 import type { CorrelationRow, OverviewRow, ShiftStatus, ZoneBoard, DivergenceBoard } from "@/services/market-board/indicators";
+import type { AbsorptionBoard, FvgBoard, ObBoard, VpBoard } from "@/services/market-board/indicators-more";
+import type { SetupBoard } from "@/services/market-board/indicators-setups";
+import type { ErBoard, StructureBoard } from "@/services/market-board/indicators-structure";
 
 export type BoardGroup = "metals" | "energy" | "forex" | "indices" | "crypto";
 
@@ -74,6 +77,15 @@ export interface BoardChartDto {
   forming: BoardCandleDto | null;
   zones: ZoneBoard;
   divergences: DivergenceBoard;
+  absorption: AbsorptionBoard;
+  setups: SetupBoard;
+  fvg: FvgBoard;
+  orderBlocks: ObBoard;
+  structure: StructureBoard;
+  /** Usual daily range for today with projected high and low; built from intraday bars, so null on the D1 chart. */
+  expectedRange: ErBoard | null;
+  /** Daily volume profile levels; only for intraday charts (M15, H1), null otherwise. */
+  volumeProfile: VpBoard | null;
   /** Round-turn cost used by the scorecards, in price units (the latest spread). */
   costUsed: number;
   /** Bars the scorecards were computed on. */
