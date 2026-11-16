@@ -199,14 +199,14 @@ export class ExnessApiClient {
     return this.accessPointInFlight;
   }
 
-  private candlesPath(instrument: string, timeframe: string, count: number, priceType: "bid" | "both"): string {
+  private candlesPath(instrument: string, timeframe: string, count: number, priceType: "bid" | "both", fromIso?: string): string {
     const env = this.env as ExnessApiEnv;
     const params = new URLSearchParams({
       instrument,
       timeframe,
       price_type: priceType,
       count: String(-count), // negative count = candles before `from`
-      from: isoNoMillis(this.clock.now()),
+      from: fromIso ?? isoNoMillis(this.clock.now()),
     });
     return `/v1/market-data/accounts/${encodeURIComponent(env.accountId)}/candles?${params.toString()}`;
   }
@@ -216,8 +216,12 @@ export class ExnessApiClient {
     const timeframe = TIMEFRAME_MAP[interval];
     if (!timeframe) throw new ExnessApiError("unsupported", `Interval "${interval}" is not served by the Exness API client`);
     if (outputSize > MAX_CANDLES_PER_REQUEST) throw new ExnessApiError("unsupported", "Requested more candles than one Exness page");
+    return this.fetchCandlePage(timeframe, instrument, Math.max(1, outputSize));
+  }
+
+  private async fetchCandlePage(timeframe: string, instrument: string, count: number, fromIso?: string): Promise<ExnessCandle[]> {
     const base = await this.getAccessPoint();
-    const body = (await this.get(base, this.candlesPath(instrument, timeframe, Math.max(1, outputSize), "bid"))) as { candles?: unknown };
+    const body = (await this.get(base, this.candlesPath(instrument, timeframe, count, "bid", fromIso))) as { candles?: unknown };
     if (!Array.isArray(body.candles)) throw new ExnessApiError("shape", "Exness candles response has no candles array");
     const out: ExnessCandle[] = [];
     for (const row of body.candles as Array<Record<string, unknown>>) {
@@ -230,6 +234,33 @@ export class ExnessApiClient {
     }
     if (out.length === 0) throw new ExnessApiError("shape", "Exness returned no usable candles");
     return out;
+  }
+
+  /**
+   * Up to `total` candles ending now, fetched one page at a time (each page ends where the next begins), oldest first, de-duplicated by time.
+   * The first page must succeed; if a later page fails the candles collected so far are returned (older history is simply shorter).
+   */
+  async getCandlesPaged(instrument: string, interval: string, total: number): Promise<ExnessCandle[]> {
+    const timeframe = TIMEFRAME_MAP[interval];
+    if (!timeframe) throw new ExnessApiError("unsupported", `Interval "${interval}" is not served by the Exness API client`);
+    const byTime = new Map<string, ExnessCandle>();
+    let fromIso: string | undefined;
+    for (let page = 0; byTime.size < total && page < 40; page++) {
+      let rows: ExnessCandle[];
+      try {
+        rows = await this.fetchCandlePage(timeframe, instrument, Math.min(MAX_CANDLES_PER_REQUEST, total - byTime.size + 1), fromIso);
+      } catch (error) {
+        if (page === 0) throw error;
+        break;
+      }
+      const before = byTime.size;
+      for (const r of rows) byTime.set(r.datetime, r);
+      if (byTime.size === before) break; // no progress: the start of the history
+      const oldest = rows.reduce((a, b) => (Date.parse(a.datetime) <= Date.parse(b.datetime) ? a : b));
+      fromIso = isoNoMillis(Date.parse(oldest.datetime));
+      if (rows.length < 50) break;
+    }
+    return [...byTime.values()].sort((a, b) => Date.parse(a.datetime) - Date.parse(b.datetime)).slice(-total);
   }
 
   /** Latest bid/ask taken from the most recent M1 candle (both sides). Its timestamp is that candle's open time, so it can be up to a minute old. */
