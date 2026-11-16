@@ -11,6 +11,7 @@ import Button from "@/components/ui/Button";
 import Alert from "@/components/ui/Alert";
 import Badge from "@/components/ui/Badge";
 import Input from "@/components/ui/Input";
+import { MCP_ENDPOINT, MCP_TOOL_DOCS } from "@/lib/content/developers";
 
 interface TokenRow {
   id: string;
@@ -22,19 +23,11 @@ interface TokenRow {
   createdAt: string;
 }
 
-// Must be the canonical www host: the apex 308-redirects to www, and clients
-// drop the Authorization header when following a cross-host redirect.
-const ENDPOINT = "https://www.algotraders24.ai/api/mcp";
-
-const TOOLS: { name: string; blurb: string }[] = [
-  { name: "market_snapshot", blurb: "Latest verified quote with provider and freshness." },
-  { name: "market_intelligence", blurb: "Evidence-backed market context. Never a buy/sell signal." },
-  { name: "quant_backtest", blurb: "Run a strategy backtest and get the metrics." },
-  { name: "news_search", blurb: "Recent headlines for an instrument." },
-  { name: "economic_calendar", blurb: "This week's scheduled economic events." },
-  { name: "strategy_library_search", blurb: "Search legacy backtest results (evidence only, never validated)." },
-  { name: "risk_calculator", blurb: "Position-size math from your own inputs." },
-];
+// The endpoint (canonical www host: the apex 308-redirects to www, and clients drop the Authorization header on a cross-host redirect) and the
+// tool list come from lib/content/developers.ts - the same source as the public /developers page, which scripts/validate-developers-docs.ts
+// checks against the real MCP code, so this page can no longer list fewer tools than the server has.
+const ENDPOINT = MCP_ENDPOINT;
+const TOOLS = MCP_TOOL_DOCS;
 
 interface UsageSummary {
   serviceEnabled: boolean;
@@ -277,6 +270,7 @@ export default function McpPage() {
           {TOOLS.map((t) => (
             <li key={t.name} className="text-sm text-text-2">
               <span className="font-mono text-text">{t.name}</span> - {t.blurb}
+              {t.paid && <> <Badge tone="gold" className="ml-1 normal-case">Paid plan</Badge></>}
             </li>
           ))}
         </ul>
