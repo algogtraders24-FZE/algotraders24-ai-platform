@@ -14,6 +14,7 @@ import Disclaimer from "@/components/ui/Disclaimer";
 import { blogReaderService } from "@/services/publishing/blog-reader.service";
 import { breadcrumbJsonLd, jsonLdString } from "@/lib/seo/seo";
 import { MARKETS } from "@/services/markets/hub";
+import { pageTitle } from "@/lib/seo/titles";
 
 export const revalidate = 300;
 
@@ -34,7 +35,7 @@ export async function generateMetadata({
   }
   const s = post.seo;
   return {
-    title: s.title,
+    title: pageTitle(s.title),
     description: s.description,
     keywords: s.keywords.length > 0 ? s.keywords : undefined,
     alternates: { canonical: s.canonicalUrl },
