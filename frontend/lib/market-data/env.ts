@@ -90,3 +90,26 @@ export function loadMt5BridgeEnv(): Mt5BridgeEnv | null {
   // guess about the real host.
   return { bridgeUrl: bridgeUrl.trim().replace(/\/+$/, ""), secret: secret.trim() };
 }
+
+// Exness Trading API (read-only, own account) - PRIMARY source for the "mt5" provider's candles and
+// quotes when enabled; the VPS bridge above stays the fallback. OFF unless EXNESS_API_ENABLED=1, so a
+// half-configured environment can never change behaviour. All values are server-only secrets (never
+// NEXT_PUBLIC_*): EXNESS_API_KEY (key id), EXNESS_API_PRIVATE_KEY (128-hex Ed25519 key),
+// EXNESS_API_ACCOUNT_ID, EXNESS_API_GATEWAY_URL (the https Gateway host from Key Management).
+export interface ExnessApiEnv {
+  apiKey: string;
+  privateKey: string;
+  accountId: string;
+  gatewayUrl: string;
+}
+
+export function loadExnessApiEnv(): ExnessApiEnv | null {
+  if (process.env.EXNESS_API_ENABLED?.trim() !== "1") return null;
+  const apiKey = process.env.EXNESS_API_KEY?.trim();
+  const privateKey = process.env.EXNESS_API_PRIVATE_KEY?.trim();
+  const accountId = process.env.EXNESS_API_ACCOUNT_ID?.trim();
+  const gatewayUrl = process.env.EXNESS_API_GATEWAY_URL?.trim().replace(/\/+$/, "");
+  if (!apiKey || !privateKey || !accountId || !gatewayUrl) return null;
+  if (!/^\d+$/.test(accountId) || !/^https:\/\/[^/?#\s]+$/.test(gatewayUrl)) return null;
+  return { apiKey, privateKey, accountId, gatewayUrl };
+}

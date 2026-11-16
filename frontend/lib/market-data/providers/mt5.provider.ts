@@ -35,7 +35,8 @@ import type { MarketSnapshot, MarketStatus } from "@/types/market-snapshot";
 import type { Candle, TimeSeriesRequest } from "@/types/market-candle";
 import { getMarket } from "../market-registry";
 import { mappingsForProvider } from "../instrument-catalog";
-import { loadMt5BridgeEnv, type Mt5BridgeEnv } from "../env";
+import { loadMt5BridgeEnv, loadExnessApiEnv, type Mt5BridgeEnv } from "../env";
+import { ExnessApiClient } from "../exness-api";
 import { MarketDataProviderError } from "../errors";
 import { TtlCache, systemClock, type Clock } from "../cache";
 
@@ -110,6 +111,8 @@ export interface Mt5ProviderOptions {
   fetchImpl?: Mt5BridgeFetch;
   /** Test-only override - production always reads from loadMt5BridgeEnv(). */
   env?: Mt5BridgeEnv | null;
+  /** Test-only override - production builds it from loadExnessApiEnv() (disabled unless EXNESS_API_ENABLED=1). */
+  exness?: ExnessApiClient;
 }
 
 function toFiniteNumber(value: unknown): number | undefined {
@@ -123,6 +126,9 @@ export class Mt5Provider implements MarketDataProvider, SnapshotProvider, TimeSe
   private readonly candleCache: TtlCache<Candle[]>;
   private readonly clock: Clock;
   private readonly fetchImpl: Mt5BridgeFetch;
+  private readonly exness: ExnessApiClient;
+  /** Which source served the most recent quote/candles: "exness" or "bridge". Diagnostics only. */
+  lastSource: "exness" | "bridge" | null = null;
 
   constructor(options: Mt5ProviderOptions = {}) {
     this.env = options.env !== undefined ? options.env : loadMt5BridgeEnv();
@@ -130,10 +136,11 @@ export class Mt5Provider implements MarketDataProvider, SnapshotProvider, TimeSe
     this.quoteCache = new TtlCache<ParsedMt5Quote>(options.cacheTtlMs ?? DEFAULT_QUOTE_CACHE_TTL_MS, this.clock);
     this.candleCache = new TtlCache<Candle[]>(options.candleCacheTtlMs ?? DEFAULT_CANDLE_CACHE_TTL_MS, this.clock);
     this.fetchImpl = options.fetchImpl ?? (fetch as unknown as Mt5BridgeFetch);
+    this.exness = options.exness ?? new ExnessApiClient({ env: loadExnessApiEnv(), clock: this.clock });
   }
 
   isConfigured(): boolean {
-    return this.env !== null;
+    return this.env !== null || this.exness.isEnabled();
   }
 
   /** Canonical symbols this provider maps today, per the catalog - exposed so callers/registries can advertise coverage without reaching into the symbol map directly. */
@@ -197,10 +204,21 @@ export class Mt5Provider implements MarketDataProvider, SnapshotProvider, TimeSe
     return { bid, ask, last: toFiniteNumber(body.last), volume: toFiniteNumber(body.volume), providerTimestamp: body.time };
   }
 
-  private async getParsedQuote(env: Mt5BridgeEnv, mt5Symbol: string): Promise<ParsedMt5Quote> {
+  private async getParsedQuote(mt5Symbol: string): Promise<ParsedMt5Quote> {
     let quote = this.quoteCache.get(mt5Symbol);
     if (!quote) {
-      quote = await this.fetchQuote(env, mt5Symbol);
+      if (this.exness.isEnabled()) {
+        try {
+          quote = await this.exness.getQuote(mt5Symbol);
+          this.lastSource = "exness";
+        } catch {
+          quote = undefined; // any Exness API problem: fall back to the VPS bridge below
+        }
+      }
+      if (!quote) {
+        quote = await this.fetchQuote(this.requireEnv(), mt5Symbol);
+        this.lastSource = "bridge";
+      }
       this.quoteCache.set(mt5Symbol, quote);
     }
     return quote;
@@ -215,8 +233,7 @@ export class Mt5Provider implements MarketDataProvider, SnapshotProvider, TimeSe
 
   async getMarketContext(request: MarketContextRequest): Promise<MarketContextResult> {
     const spec = this.resolveSymbol(request.symbol);
-    const env = this.requireEnv();
-    const quote = await this.getParsedQuote(env, spec.mt5Symbol);
+    const quote = await this.getParsedQuote(spec.mt5Symbol);
     const retrievedAt = new Date(this.clock.now()).toISOString();
     const price = quote.last && quote.last > 0 ? quote.last : (quote.bid + quote.ask) / 2;
 
@@ -229,8 +246,7 @@ export class Mt5Provider implements MarketDataProvider, SnapshotProvider, TimeSe
 
   async getSnapshot(request: MarketContextRequest): Promise<MarketSnapshot> {
     const spec = this.resolveSymbol(request.symbol);
-    const env = this.requireEnv();
-    const quote = await this.getParsedQuote(env, spec.mt5Symbol);
+    const quote = await this.getParsedQuote(spec.mt5Symbol);
     const retrievedAt = new Date(this.clock.now()).toISOString();
     // A forex/CFD instrument's "last traded price" is often 0/absent (no
     // central exchange tape) - the honest, industry-standard fallback is
@@ -263,14 +279,24 @@ export class Mt5Provider implements MarketDataProvider, SnapshotProvider, TimeSe
 
   async getTimeSeries(request: TimeSeriesRequest): Promise<Candle[]> {
     const spec = this.resolveSymbol(request.symbol);
-    const env = this.requireEnv();
     const interval = request.interval ?? DEFAULT_INTERVAL;
     const outputSize = request.outputSize ?? DEFAULT_OUTPUT_SIZE;
     const cacheKey = `${spec.mt5Symbol}|${interval}|${outputSize}`;
 
     let candles = this.candleCache.get(cacheKey);
     if (!candles) {
-      candles = await this.fetchCandles(env, spec.mt5Symbol, interval, outputSize);
+      if (this.exness.isEnabled()) {
+        try {
+          candles = await this.exness.getCandles(spec.mt5Symbol, interval, outputSize);
+          this.lastSource = "exness";
+        } catch {
+          candles = undefined; // any Exness API problem: fall back to the VPS bridge below
+        }
+      }
+      if (!candles) {
+        candles = await this.fetchCandles(this.requireEnv(), spec.mt5Symbol, interval, outputSize);
+        this.lastSource = "bridge";
+      }
       this.candleCache.set(cacheKey, candles);
     }
     return candles;
