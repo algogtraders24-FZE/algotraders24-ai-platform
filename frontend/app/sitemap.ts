@@ -56,6 +56,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/solutions/professional-traders`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${SITE_URL}/solutions/prop-firms`, changeFrequency: "monthly", priority: 0.6 },
     { url: `${SITE_URL}/solutions/institutions`, changeFrequency: "monthly", priority: 0.6 },
+    { url: `${SITE_URL}/solutions/hedge-funds`, changeFrequency: "monthly", priority: 0.6 },
     { url: `${SITE_URL}/getting-started`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${SITE_URL}/company`, changeFrequency: "monthly", priority: 0.4 },
     { url: `${SITE_URL}/company/about`, changeFrequency: "monthly", priority: 0.6 },

@@ -1,15 +1,8 @@
 // app/solutions/page.tsx
-// Sprint D2.4.A1 - Retail Traders and Professional Traders ship as real
-// pages per the user's Phase-1 amendment; Prop Firms, Hedge Funds, and
-// Institutions remain honestly labeled upcoming (no real audience-specific
-// content exists for them yet) rather than each getting a fabricated page.
-//
-// Sprint D2.4.A4 - "Brokers" relabeled "Institutions" to match the footer's
-// expanded Solutions taxonomy - same coming-soon audience, one consistent
-// name across the site.
+// Solutions hub: every audience now has a real page (retail, professional, prop firms, brokers and platforms, funds and allocators).
 import type { Metadata } from "next";
 import Link from "next/link";
-import { User, Briefcase, Building2, Landmark } from "lucide-react";
+import { User, Briefcase, Building2, Landmark, Scale } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/sections/Footer";
@@ -26,10 +19,7 @@ const LIVE: { title: string; description: string; href: string; icon: LucideIcon
   { title: "Professional Traders", description: "Auditable, category-level reasoning you can verify, not just trust.", href: "/solutions/professional-traders", icon: Briefcase },
   { title: "Prop Firms", description: "Evidence and analytics services that sit next to your stack: rule monitoring, consistency checks, applicant and EA screening.", href: "/solutions/prop-firms", icon: Building2 },
   { title: "Brokers and Platforms", description: "Evidence-based market context for your clients, plus strategy-provider vetting. Pilot basis.", href: "/solutions/institutions", icon: Landmark },
-];
-
-const UPCOMING: { title: string; icon: LucideIcon }[] = [
-  { title: "Hedge Funds", icon: Briefcase },
+  { title: "Hedge Funds and Allocators", description: "Auditable evidence tools for analysts, an independent volatility cross-check and a track-record screening aid. Not alpha. Pilot basis.", href: "/solutions/hedge-funds", icon: Scale },
 ];
 
 export default function SolutionsHubPage() {
@@ -55,21 +45,6 @@ export default function SolutionsHubPage() {
                   <p className="mt-1 text-sm leading-6 text-text-2">{item.description}</p>
                 </div>
               </Link>
-            ))}
-          </div>
-
-          <p className="mt-10 text-center text-xs font-semibold uppercase tracking-[0.2em] text-text-3">Coming soon</p>
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
-            {UPCOMING.map((item) => (
-              <div
-                key={item.title}
-                className="flex items-center gap-3 rounded-card border border-dashed border-border bg-ink-2/50 p-5 opacity-70"
-              >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control border border-border">
-                  <item.icon className="h-4 w-4 text-text-3" aria-hidden="true" />
-                </span>
-                <span className="text-sm font-medium text-text-2">{item.title}</span>
-              </div>
             ))}
           </div>
         </div>
