@@ -3876,3 +3876,54 @@ model SwingLabObservation {
   @@index([status, createdAt])
   @@map("swing_lab_observations")
 }
+
+/// AI Arena (forex, gold, energy, indices): one price snapshot per market per decision day, taken at decision time. Every contestant's position is scored
+/// from these snapshots, so nobody can see a price after deciding. Paper arena, no orders. Additive.
+model ArenaFxSnapshot {
+  id         String   @id @default(cuid())
+  dayKey     String
+  symbol     String
+  createdAt  DateTime @default(now())
+  price      Float
+  atrPct     Float
+  /// "aligned up" | "aligned down" | "mixed"
+  alignment  String
+  /// Map features shown to the AI contestants (trend per timeframe, nearest levels, range position).
+  features   Json
+
+  @@unique([dayKey, symbol])
+  @@index([dayKey])
+  @@map("arena_fx_snapshots")
+}
+
+/// A stored decision of an AI contestant: 1 long, -1 short, 0 flat for the next day, with a short reason. Decoys and rule contestants are computed, not stored.
+model ArenaFxDecision {
+  id         String   @id @default(cuid())
+  dayKey     String
+  symbol     String
+  contestant String
+  position   Int
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  @@unique([dayKey, symbol, contestant])
+  @@index([contestant])
+  @@map("arena_fx_decisions")
+}
+
+/// One row per contestant call per day: whether it worked and what it cost in tokens. Also keeps a contestant from being called twice a day.
+model ArenaFxRun {
+  id           String   @id @default(cuid())
+  dayKey       String
+  contestant   String
+  /// ok | failed
+  status       String
+  model        String?
+  inputTokens  Int?
+  outputTokens Int?
+  error        String?
+  createdAt    DateTime @default(now())
+
+  @@unique([dayKey, contestant])
+  @@map("arena_fx_runs")
+}

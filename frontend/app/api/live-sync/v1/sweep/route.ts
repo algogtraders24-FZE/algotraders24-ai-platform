@@ -11,6 +11,7 @@ import { sweepAuthorized } from "@/services/live-sync/sweep-auth";
 import { sweepWatchers } from "@/services/live-results/watch-notify";
 import { runFlowZoneTracker } from "@/services/crypto-flow/zone-tracker";
 import { runSwingTracker } from "@/services/swing-lab/swing-tracker";
+import { runArenaTracker } from "@/services/arena-fx/tracker";
 import { announceNewListings, postWeeklyDigest, productionChannelDeps } from "@/services/telegram/channel";
 
 export const runtime = "nodejs";
@@ -36,7 +37,9 @@ export async function POST(request: Request): Promise<Response> {
   const flowZones = await runFlowZoneTracker(now).catch(() => null);
   // Swing Lab forward scoreboard: daily snapshots and 5-day scoring (best effort, never throws).
   const swingLab = await runSwingTracker(now).catch(() => null);
-  return Response.json({ ok: true, ...r, flowZones, swingLab, watchers: w.watched, watcherNotices: w.notified, channelPosts }, { headers: { "cache-control": "no-store" } });
+  // AI Arena (forex, gold, energy, indices): daily decision-time snapshot and the AI contestants (best effort, never throws).
+  const arenaFx = await runArenaTracker(now).catch(() => null);
+  return Response.json({ ok: true, ...r, flowZones, swingLab, arenaFx, watchers: w.watched, watcherNotices: w.notified, channelPosts }, { headers: { "cache-control": "no-store" } });
 }
 
 export const GET = () => Response.json({ ok: false, code: "METHOD" }, { status: 405, headers: { allow: "POST" } });
