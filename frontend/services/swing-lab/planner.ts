@@ -1,8 +1,9 @@
 // services/swing-lab/planner.ts
 // Pure maths for the swing position planner (also used by the page; no network, no "server-only").
-//   risk amount = account * risk% / 100
-//   units = risk amount / |entry - stop|           (stop distance per unit of the asset)
-//   notional = units * entry;  leverage needed = notional / account
+//   risk amount = account * risk% / 100   (account in USD)
+//   quoteToUsd = value of one unit of the quote currency in USD (1 for USD-quoted instruments; 1/USDJPY for yen-quoted ones, EURUSD for euro-quoted ...)
+//   units = risk amount / (|entry - stop| * quoteToUsd)       (base units of the asset)
+//   notional (USD) = units * entry * quoteToUsd;  leverage needed = notional / account
 //   R multiple of a target = |target - entry| / |entry - stop|, valid only when the target is on the profit side
 //   stop distance in daily ATR = |entry - stop| / ATR (ATR = atrPct / 100 * entry), flagged tight below 0.5 and wide above 3
 //   break-even win rate for the target R = 1 / (1 + R)
@@ -17,6 +18,8 @@ export interface PlanInput {
   side: PlanSide;
   /** Daily ATR as percent of price, optional. */
   atrPct?: number | null;
+  /** USD value of one unit of the quote currency. Default 1 (USD-quoted instruments). */
+  quoteToUsd?: number | null;
 }
 
 export interface PlanResult {
@@ -40,14 +43,16 @@ export function planSwing(i: PlanInput): PlanResult {
   if (!(i.riskPct > 0) || i.riskPct > 5) errors.push("Risk per trade must be above 0 and at most 5 percent.");
   if (!(i.entry > 0)) errors.push("Entry price must be above 0.");
   if (!(i.stop > 0)) errors.push("Stop price must be above 0.");
+  const q = i.quoteToUsd === undefined || i.quoteToUsd === null ? 1 : i.quoteToUsd;
+  if (!(q > 0)) errors.push("The quote currency rate must be above 0.");
   const stopOnLossSide = i.side === "long" ? i.stop < i.entry : i.stop > i.entry;
   if (i.entry > 0 && i.stop > 0 && !stopOnLossSide) errors.push(i.side === "long" ? "For a long trade the stop must be below the entry." : "For a short trade the stop must be above the entry.");
   const empty: PlanResult = { ok: false, errors, riskAmount: 0, units: 0, notional: 0, leverage: 0, stopDistancePct: 0, stopAtr: null, stopNote: null, rMultiple: null, rewardAmount: null, breakEvenWinPct: null };
   if (errors.length > 0) return empty;
   const riskAmount = (i.account * i.riskPct) / 100;
   const dist = Math.abs(i.entry - i.stop);
-  const units = riskAmount / dist;
-  const notional = units * i.entry;
+  const units = riskAmount / (dist * q);
+  const notional = units * i.entry * q;
   let stopAtr: number | null = null;
   let stopNote: PlanResult["stopNote"] = null;
   if (i.atrPct && i.atrPct > 0) {
