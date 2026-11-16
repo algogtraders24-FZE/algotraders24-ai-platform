@@ -14,6 +14,7 @@ import ErrorState from "@/components/ui/ErrorState";
 import Skeleton from "@/components/ui/Skeleton";
 import { SWING_GROUP_TITLE, SWING_INSTRUMENTS, getSwingInstrument, type SwingGroup, type SwingLevel, type SwingMapOverview, type SwingMapRow, type SwingQuote, type SwingTrend } from "@/types/swing-lab";
 import { planSwing, type PlanSide } from "@/services/swing-lab/planner";
+import type { SwingScoreboard, SwingScoreRowDto } from "@/types/swing-lab";
 
 type LoadState<T> = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; data: T };
 
@@ -241,10 +242,82 @@ function Planner({ row, prefill }: { row: SwingMapRow | null; prefill: Prefill |
   );
 }
 
+const VERDICT_TONE: Record<string, string> = {
+  "POSITIVE ON THIS HISTORY": "text-success",
+  "NEGATIVE ON THIS HISTORY": "text-danger",
+  "NO EDGE SHOWN": "text-text-2",
+  COLLECTING: "text-text-3",
+};
+
+function ScoreLine({ label, row }: { label: string; row: SwingScoreRowDto }) {
+  return (
+    <tr className="border-t border-border">
+      <td className="py-2 pr-3 text-text-1">{label}</td>
+      <td className="py-2 pr-3 text-text-2">{row.n}</td>
+      <td className="py-2 pr-3 text-text-2">{row.meanR === null ? "-" : row.meanR.toFixed(2)}</td>
+      <td className="py-2 pr-3 text-text-2">{row.t === null ? "-" : row.t.toFixed(2)}</td>
+      <td className="py-2 pr-3 text-text-3">{row.driftAtr === null ? "-" : `${row.driftAtr >= 0 ? "+" : ""}${row.driftAtr.toFixed(2)}`}</td>
+      <td className={`py-2 font-medium ${VERDICT_TONE[row.verdict] ?? "text-text-2"}`}>{row.n < 30 ? `Collecting (${row.n}/30)` : row.verdict}</td>
+    </tr>
+  );
+}
+
+/** Forward scoreboard: after the map says aligned up or down, does price continue over the next 5 days? */
+function ScoreboardCard({ state }: { state: LoadState<SwingScoreboard> }) {
+  return (
+    <Card className="mb-6">
+      <h2 className="text-base font-semibold text-text-1">Does the map work? Forward scoreboard</h2>
+      <p className="mt-1 text-xs text-text-3">
+        Once a day, while a market is open, its weekly, daily and 4-hour alignment is recorded. Five days later we measure what price did, in units of the market&apos;s daily range (ATR): for
+        &quot;aligned up&quot; the move up, for &quot;aligned down&quot; the move down, so a positive score means the trend continued. These are real forward results, not a backtest. Under 30 counted cases nothing is claimed.
+      </p>
+      {state.status === "loading" ? <Skeleton className="mt-4 h-32 w-full" /> : null}
+      {state.status === "error" ? <div className="mt-3 text-sm text-text-3">{state.message}</div> : null}
+      {state.status === "ready" ? (
+        <div className="mt-3">
+          <div className="text-xs text-text-3">
+            {state.data.since ? `Recording since ${state.data.since.slice(0, 10)}. ` : "Nothing recorded yet. "}
+            {state.data.done} snapshots scored, {state.data.open} waiting for their 5 days. The first scores appear 5 days after the first snapshot.
+          </div>
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-xs">
+              <thead>
+                <tr className="text-text-3">
+                  <th className="pb-1 pr-3 font-medium">Scope</th>
+                  <th className="pb-1 pr-3 font-medium">Cases</th>
+                  <th className="pb-1 pr-3 font-medium">Mean score (ATR)</th>
+                  <th className="pb-1 pr-3 font-medium">t</th>
+                  <th className="pb-1 pr-3 font-medium">Drift of all days (ATR)</th>
+                  <th className="pb-1 font-medium">Verdict</th>
+                </tr>
+              </thead>
+              <tbody>
+                <ScoreLine label="All markets - aligned up" row={state.data.pooled.up} />
+                <ScoreLine label="All markets - aligned down" row={state.data.pooled.down} />
+                {state.data.groups.map((g) => (
+                  <ScoreLine key={`${g.group}u`} label={`${SWING_GROUP_TITLE[g.group as SwingGroup]} - aligned up`} row={g.up} />
+                ))}
+                {state.data.groups.map((g) => (
+                  <ScoreLine key={`${g.group}d`} label={`${SWING_GROUP_TITLE[g.group as SwingGroup]} - aligned down`} row={g.down} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+      <p className="mt-3 text-xs text-text-3">
+        Drift is the average 5-day move of all recorded days, any alignment. In a rising market &quot;aligned up&quot; gets a free ride and &quot;aligned down&quot; is penalised, so compare the score with the drift.
+        Markets also move together (the dollar), so the pooled rows count the same move more than once; a verdict needs at least 30 cases and |t| of 2.58 or more.
+      </p>
+    </Card>
+  );
+}
+
 export default function SwingLabPage() {
   const [map, setMap] = useState<LoadState<SwingMapOverview>>({ status: "loading" });
   const [selected, setSelected] = useState<string | null>(null);
   const [prefill, setPrefill] = useState<Prefill | null>(null);
+  const [board, setBoard] = useState<LoadState<SwingScoreboard>>({ status: "loading" });
 
   const load = useCallback(async () => {
     try {
@@ -265,6 +338,26 @@ export default function SwingLabPage() {
     const id = window.setInterval(() => void load(), REFRESH_MS);
     return () => window.clearInterval(id);
   }, [load]);
+
+  const loadBoard = useCallback(async () => {
+    try {
+      const res = await fetch("/api/private/swing-lab/scoreboard");
+      const json = (await res.json().catch(() => null)) as { status?: string; data?: SwingScoreboard } | null;
+      if (!res.ok || !json || json.status !== "ok" || !json.data) {
+        setBoard({ status: "error", message: "The scoreboard could not be loaded." });
+        return;
+      }
+      setBoard({ status: "ready", data: json.data });
+    } catch {
+      setBoard({ status: "error", message: "The scoreboard could not be loaded." });
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadBoard();
+    const id = window.setInterval(() => void loadBoard(), REFRESH_MS);
+    return () => window.clearInterval(id);
+  }, [loadBoard]);
 
   const priceOf = useCallback(
     (symbol: string): number | null => {
@@ -398,6 +491,9 @@ export default function SwingLabPage() {
         </p>
       ) : null}
       <Planner row={selectedRow} prefill={prefill} />
+      <div className="mt-6">
+        <ScoreboardCard state={board} />
+      </div>
       <p className="mt-6 text-xs text-text-3">Context and arithmetic, not financial advice.</p>
     </div>
   );

@@ -26,6 +26,13 @@ async function bridgeCandles(env: Mt5BridgeEnv, symbol: string, interval: string
   return Array.isArray(body.candles) ? body.candles : [];
 }
 
+/** Candles of one market from the bridge (used by the scoreboard tracker). Throws when the bridge is not configured or fails. */
+export async function fetchBridgeCandles(symbol: string, interval: string, count: number): Promise<BridgeCandle[]> {
+  const env = loadMt5BridgeEnv();
+  if (!env) throw new Error("bridge not configured");
+  return bridgeCandles(env, symbol, interval, count);
+}
+
 async function oneRow(env: Mt5BridgeEnv, symbol: string): Promise<SwingMapOverviewRow> {
   try {
     const [w, d, h] = await Promise.all([bridgeCandles(env, symbol, "1w", WEEKLY_COUNT), bridgeCandles(env, symbol, "1d", DAILY_COUNT), bridgeCandles(env, symbol, "4h", H4_COUNT)]);

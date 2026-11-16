@@ -91,3 +91,25 @@ export interface SwingMapOverview {
   /** Epoch ms when the rows were computed. */
   asOf: number;
 }
+
+// ---- forward scoreboard (rules in services/swing-lab/scoreboard.ts) ----
+export type SwingScoreVerdict = "COLLECTING" | "POSITIVE ON THIS HISTORY" | "NEGATIVE ON THIS HISTORY" | "NO EDGE SHOWN";
+
+export interface SwingScoreRowDto {
+  n: number;
+  meanR: number | null;
+  hitPct: number | null;
+  t: number | null;
+  verdict: SwingScoreVerdict;
+  driftAtr: number | null;
+  snapshots: number;
+}
+
+export interface SwingScoreboard {
+  pooled: { up: SwingScoreRowDto; down: SwingScoreRowDto };
+  groups: Array<{ group: string; up: SwingScoreRowDto; down: SwingScoreRowDto }>;
+  rows: Array<{ symbol: string; up: SwingScoreRowDto; down: SwingScoreRowDto }>;
+  open: number;
+  done: number;
+  since: string | null;
+}

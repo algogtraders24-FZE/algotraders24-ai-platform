@@ -10,6 +10,7 @@ import { sweepOfflineAlerts } from "@/services/live-sync/alert-runner";
 import { sweepAuthorized } from "@/services/live-sync/sweep-auth";
 import { sweepWatchers } from "@/services/live-results/watch-notify";
 import { runFlowZoneTracker } from "@/services/crypto-flow/zone-tracker";
+import { runSwingTracker } from "@/services/swing-lab/swing-tracker";
 import { announceNewListings, postWeeklyDigest, productionChannelDeps } from "@/services/telegram/channel";
 
 export const runtime = "nodejs";
@@ -33,7 +34,9 @@ export async function POST(request: Request): Promise<Response> {
   }
   // Crypto Flow Zones: hourly zone snapshots, forward scoring, member Telegram alerts (best effort, never throws).
   const flowZones = await runFlowZoneTracker(now).catch(() => null);
-  return Response.json({ ok: true, ...r, flowZones, watchers: w.watched, watcherNotices: w.notified, channelPosts }, { headers: { "cache-control": "no-store" } });
+  // Swing Lab forward scoreboard: daily snapshots and 5-day scoring (best effort, never throws).
+  const swingLab = await runSwingTracker(now).catch(() => null);
+  return Response.json({ ok: true, ...r, flowZones, swingLab, watchers: w.watched, watcherNotices: w.notified, channelPosts }, { headers: { "cache-control": "no-store" } });
 }
 
 export const GET = () => Response.json({ ok: false, code: "METHOD" }, { status: 405, headers: { allow: "POST" } });
