@@ -51,8 +51,11 @@ export interface BridgeCandle {
   close?: unknown;
 }
 
-/** Closed bars from the MT5 bridge candles (oldest first). The last candle is the one still forming and is always dropped. */
-export function parseBridgeCandles(rows: ReadonlyArray<BridgeCandle>): Bar[] {
+/**
+ * Closed bars from bridge / Exness candles (oldest first). With `opts` the last candle is dropped only while it is still forming (its open time plus
+ * the timeframe is after now), so on a weekend the finished Friday candle is kept; without `opts` the last candle is always dropped.
+ */
+export function parseBridgeCandles(rows: ReadonlyArray<BridgeCandle>, opts?: { nowMs: number; intervalMs: number }): Bar[] {
   const bars: Bar[] = [];
   for (const r of rows) {
     const t = typeof r.datetime === "string" ? Date.parse(r.datetime) : NaN;
@@ -64,7 +67,10 @@ export function parseBridgeCandles(rows: ReadonlyArray<BridgeCandle>): Bar[] {
     bars.push({ t, open, high, low, close });
   }
   bars.sort((a, b) => a.t - b.t);
-  return bars.slice(0, Math.max(0, bars.length - 1));
+  const last = bars[bars.length - 1];
+  if (!last) return bars;
+  const forming = opts ? last.t + opts.intervalMs > opts.nowMs : true;
+  return forming ? bars.slice(0, bars.length - 1) : bars;
 }
 
 export function sma(values: ReadonlyArray<number>, n: number): number | null {

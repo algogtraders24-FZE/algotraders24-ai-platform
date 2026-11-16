@@ -1,10 +1,12 @@
 // services/swing-lab/swing-lab.service.ts
-// Reads weekly, daily and 4-hour candles from the AT24 MT5 data bridge (read-only, Exness symbols) and builds the swing map rows.
+// Reads weekly, daily and 4-hour candles (read-only, Exness symbols) and builds the swing map rows. Source order, as for the mt5 market-data
+// provider: the Exness Trading API first (when EXNESS_API_ENABLED=1), the AT24 VPS bridge when the API is off or fails for any reason.
 // The bridge is one small terminal on a VPS, so the requests are limited to a few at a time and the whole result is kept for 5 minutes.
 import "server-only";
-import { loadMt5BridgeEnv, type Mt5BridgeEnv } from "@/lib/market-data/env";
+import { loadExnessApiEnv, loadMt5BridgeEnv, type Mt5BridgeEnv } from "@/lib/market-data/env";
+import { ExnessApiClient } from "@/lib/market-data/exness-api";
 import { SWING_INSTRUMENTS, type SwingMapOverview, type SwingMapOverviewRow } from "@/types/swing-lab";
-import { computeSwingMapFromBars, parseBridgeCandles, type BridgeCandle } from "./compute";
+import { computeSwingMapFromBars, parseBridgeCandles, type Bar, type BridgeCandle } from "./compute";
 
 const FETCH_TIMEOUT_MS = 10_000;
 const CACHE_MS = 5 * 60_000;
@@ -14,29 +16,43 @@ const WEEKLY_COUNT = 62;
 const DAILY_COUNT = 262;
 const H4_COUNT = 122;
 
+const INTERVAL_MS: Record<string, number> = { "4h": 4 * 3_600_000, "1d": 86_400_000, "1w": 7 * 86_400_000 };
+const exness = new ExnessApiClient({ env: loadExnessApiEnv() });
+
+export type CandleSource = "exness" | "bridge";
+
 class NotConnectedError extends Error {}
 class TooShortError extends Error {}
 
-async function bridgeCandles(env: Mt5BridgeEnv, symbol: string, interval: string, count: number): Promise<BridgeCandle[]> {
+async function bridgeCandles(env: Mt5BridgeEnv | null, symbol: string, interval: string, count: number): Promise<{ candles: BridgeCandle[]; source: CandleSource }> {
+  if (exness.isEnabled()) {
+    try {
+      return { candles: await exness.getCandles(symbol, interval, count), source: "exness" };
+    } catch {
+      /* any Exness API problem: fall back to the VPS bridge below */
+    }
+  }
+  if (!env) throw new Error("no data source configured");
   const url = `${env.bridgeUrl}/candles?symbol=${encodeURIComponent(symbol)}&interval=${interval}&count=${count}`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${env.secret}` }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), cache: "no-store" });
   if (res.status === 400 || res.status === 404) throw new NotConnectedError(symbol);
   if (!res.ok) throw new Error(`bridge HTTP ${res.status}`);
   const body = (await res.json()) as { candles?: BridgeCandle[] };
-  return Array.isArray(body.candles) ? body.candles : [];
+  return { candles: Array.isArray(body.candles) ? body.candles : [], source: "bridge" };
 }
 
-/** Candles of one market from the bridge (used by the scoreboard tracker). Throws when the bridge is not configured or fails. */
-export async function fetchBridgeCandles(symbol: string, interval: string, count: number): Promise<BridgeCandle[]> {
-  const env = loadMt5BridgeEnv();
-  if (!env) throw new Error("bridge not configured");
-  return bridgeCandles(env, symbol, interval, count);
+/** Closed bars of one market (used by the scoreboard tracker): Exness API first, bridge second. Throws when neither source works. */
+export async function fetchClosedBars(symbol: string, interval: "4h" | "1d" | "1w", count: number, nowMs: number): Promise<Bar[]> {
+  const { candles } = await bridgeCandles(loadMt5BridgeEnv(), symbol, interval, count);
+  return parseBridgeCandles(candles, { nowMs, intervalMs: INTERVAL_MS[interval] });
 }
 
-async function oneRow(env: Mt5BridgeEnv, symbol: string): Promise<SwingMapOverviewRow> {
+async function oneRow(env: Mt5BridgeEnv | null, symbol: string, nowMs: number, tally: Record<CandleSource, number>): Promise<SwingMapOverviewRow> {
   try {
     const [w, d, h] = await Promise.all([bridgeCandles(env, symbol, "1w", WEEKLY_COUNT), bridgeCandles(env, symbol, "1d", DAILY_COUNT), bridgeCandles(env, symbol, "4h", H4_COUNT)]);
-    const row = computeSwingMapFromBars(symbol, parseBridgeCandles(d), parseBridgeCandles(h), parseBridgeCandles(w));
+    for (const x of [w, d, h]) tally[x.source] += 1;
+    const closed = (c: { candles: BridgeCandle[] }, interval: string) => parseBridgeCandles(c.candles, { nowMs, intervalMs: INTERVAL_MS[interval] });
+    const row = computeSwingMapFromBars(symbol, closed(d, "1d"), closed(h, "4h"), closed(w, "1w"));
     if (!row) throw new TooShortError(symbol);
     return { symbol, status: "ok", data: row };
   } catch (error) {
@@ -52,20 +68,22 @@ export async function getSwingMapOverview(): Promise<SwingMapOverview> {
   const now = Date.now();
   if (cached && now - cached.at < CACHE_MS) return cached.value;
   const env = loadMt5BridgeEnv();
-  if (!env) {
-    return { rows: SWING_INSTRUMENTS.map((i) => ({ symbol: i.symbol, status: "unavailable", reason: "error", message: "Market data bridge is not configured" })), asOf: now };
+  if (!env && !exness.isEnabled()) {
+    return { rows: SWING_INSTRUMENTS.map((i) => ({ symbol: i.symbol, status: "unavailable", reason: "error", message: "Market data is not configured" })), asOf: now, source: "none" };
   }
+  const tally: Record<CandleSource, number> = { exness: 0, bridge: 0 };
   const rows: SwingMapOverviewRow[] = new Array(SWING_INSTRUMENTS.length);
   let next = 0;
   await Promise.all(
     Array.from({ length: CONCURRENCY }, async () => {
       while (next < SWING_INSTRUMENTS.length) {
         const i = next++;
-        rows[i] = await oneRow(env, SWING_INSTRUMENTS[i].symbol);
+        rows[i] = await oneRow(env, SWING_INSTRUMENTS[i].symbol, now, tally);
       }
     }),
   );
-  const value: SwingMapOverview = { rows, asOf: now };
+  const source = tally.exness > 0 && tally.bridge > 0 ? "mixed" : tally.exness > 0 ? "exness" : "bridge";
+  const value: SwingMapOverview = { rows, asOf: now, source };
   // Keep a result only when most markets loaded, so a short bridge outage is not remembered for 5 minutes.
   if (rows.filter((r) => r.status === "ok").length >= rows.length / 2) cached = { at: now, value };
   return value;

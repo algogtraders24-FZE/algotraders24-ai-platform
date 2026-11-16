@@ -90,6 +90,8 @@ export interface SwingMapOverview {
   rows: SwingMapOverviewRow[];
   /** Epoch ms when the rows were computed. */
   asOf: number;
+  /** Which source served the candles of this refresh (diagnostics). */
+  source?: "exness" | "bridge" | "mixed" | "none";
 }
 
 // ---- forward scoreboard (rules in services/swing-lab/scoreboard.ts) ----
