@@ -16,6 +16,8 @@ export interface ArenaFxResponse extends ArenaBoard {
   /** The latest problems of the daily job (run log rows that are not ok), newest first. */
   problems: Array<{ dayKey: string; contestant: string; status: string; error: string | null }>;
   aiEnabled: boolean;
+  /** Why the AI contestants are off, from the deployment's own environment (booleans only, never a value). */
+  aiEnv: { keyPresent: boolean; switchedOff: boolean; vercelEnv: string | null };
 }
 
 export async function getArenaFx(now: Date = new Date()): Promise<ArenaFxResponse> {
@@ -47,5 +49,5 @@ export async function getArenaFx(now: Date = new Date()): Promise<ArenaFxRespons
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     .slice(0, 6)
     .map((r) => ({ dayKey: r.dayKey, contestant: r.contestant, status: r.status, error: r.error }));
-  return { ...board, latest, usage, problems, aiEnabled: process.env.ARENA_FX_AI_DISABLED !== "1" && !!process.env.ANTHROPIC_API_KEY };
+  return { ...board, latest, usage, problems, aiEnabled: process.env.ARENA_FX_AI_DISABLED !== "1" && !!process.env.ANTHROPIC_API_KEY?.trim(), aiEnv: { keyPresent: !!process.env.ANTHROPIC_API_KEY?.trim(), switchedOff: process.env.ARENA_FX_AI_DISABLED === "1", vercelEnv: process.env.VERCEL_ENV ?? null } };
 }
