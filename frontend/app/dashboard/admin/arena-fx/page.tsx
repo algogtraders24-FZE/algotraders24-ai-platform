@@ -115,7 +115,7 @@ export default function ArenaFxPage() {
         <>
           <Card className="mb-6">
             <div className="text-xs text-text-3">
-              {state.data.snapshotDays} snapshot days, {state.data.markets} markets, {state.data.dayKeys.length} scored days. AI contestants are {state.data.aiEnabled ? "on" : "OFF (no key or switched off)"}. The first scores appear the day after the
+              {state.data.snapshotDays} snapshot days, {state.data.markets} markets, {state.data.dayKeys.length} scored days. AI contestants are {state.data.aiEnabled ? "on" : `OFF (${state.data.aiEnv.switchedOff ? "switched off by ARENA_FX_AI_DISABLED" : "no ANTHROPIC_API_KEY in this deployment"}; environment: ${state.data.aiEnv.vercelEnv ?? "unknown"})`}. The first scores appear the day after the
               first snapshot.
             </div>
             <div className="mt-3 overflow-x-auto">
