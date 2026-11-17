@@ -171,6 +171,11 @@ export default function ArenaFxPage() {
               )}
             </Card>
           ))}
+          {state.data.problems.length > 0 ? (
+            <Alert tone="warning" title="Problems in the daily job" className="mb-4">
+              {state.data.problems.map((p) => `${p.dayKey} ${p.contestant}: ${p.status}${p.error ? ` - ${p.error}` : ""}`).join(" | ")}
+            </Alert>
+          ) : null}
           <p className="text-xs text-text-3">
             Token use:{" "}
             {state.data.usage.map((u) => `${state.data.contestants.find((c) => c.id === u.contestant)?.label}: ${u.runs} runs (${u.failed} failed), ${u.inputTokens.toLocaleString()} in / ${u.outputTokens.toLocaleString()} out`).join("; ")}. A short

@@ -16,7 +16,7 @@ import { announceNewListings, postWeeklyDigest, productionChannelDeps } from "@/
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 30;
+export const maxDuration = 120;
 
 export async function POST(request: Request): Promise<Response> {
   if (process.env.LIVE_SYNC_ENABLED !== "true") return Response.json({ ok: false, code: "DISABLED" }, { status: 503 });

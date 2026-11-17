@@ -58,6 +58,34 @@ async function takeSnapshots(now: Date, dayKey: string): Promise<number> {
   return n;
 }
 
+/** One AI contestant: mark the attempt BEFORE the call (so a timeout cannot cause a storm of repeated calls), call, parse, store. Never throws. */
+async function runOneAi(c: (typeof AI_CONTESTANTS)[number], now: Date, dayKey: string, prompt: string, symbols: string[]): Promise<boolean> {
+  try {
+    const prev = await prisma.arenaFxRun.findUnique({ where: { dayKey_contestant: { dayKey, contestant: c.id } } });
+    if (prev && (prev.status === "ok" || now.getTime() - prev.createdAt.getTime() < RETRY_AFTER_MS)) return false;
+    const start = { status: "running", model: c.model, inputTokens: null, outputTokens: null, error: null, createdAt: now };
+    await prisma.arenaFxRun.upsert({ where: { dayKey_contestant: { dayKey, contestant: c.id } }, create: { dayKey, contestant: c.id, ...start }, update: start });
+    const res = await callClaude(c.model, SYSTEM_PROMPT, prompt);
+    const parsed = res.ok ? parseDecisions(res.text, symbols) : null;
+    const status = parsed ? "ok" : "failed";
+    const error = parsed ? (parsed.missing.length > 0 ? `${parsed.missing.length} markets not answered (set flat)` : null) : res.error ?? "unusable answer";
+    if (parsed) await prisma.arenaFxDecision.createMany({ data: parsed.decisions.map((d) => ({ dayKey, symbol: d.symbol, contestant: c.id, position: d.position, reason: d.reason })), skipDuplicates: true });
+    const done = { status, model: c.model, inputTokens: res.inputTokens, outputTokens: res.outputTokens, error, createdAt: now };
+    await prisma.arenaFxRun.update({ where: { dayKey_contestant: { dayKey, contestant: c.id } }, data: done });
+    return parsed !== null;
+  } catch (error) {
+    await noteProblem(dayKey, c.id, error);
+    return false;
+  }
+}
+
+/** A step problem goes into the run log so the admin page shows it (name and short message only, never a secret). */
+async function noteProblem(dayKey: string, contestant: string, error: unknown): Promise<void> {
+  const text = error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 160) : "error";
+  const data = { status: "failed", model: null, inputTokens: null, outputTokens: null, error: text, createdAt: new Date() };
+  await prisma.arenaFxRun.upsert({ where: { dayKey_contestant: { dayKey, contestant } }, create: { dayKey, contestant, ...data }, update: data }).catch(() => undefined);
+}
+
 async function runAi(now: Date, dayKey: string): Promise<number> {
   if (process.env.ARENA_FX_AI_DISABLED === "1") return 0;
   const snaps = await prisma.arenaFxSnapshot.findMany({ where: { dayKey } });
@@ -68,22 +96,8 @@ async function runAi(now: Date, dayKey: string): Promise<number> {
     .map((s) => ({ symbol: s.symbol, label: getSwingInstrument(s.symbol)?.label ?? s.symbol, price: s.price, atrPct: s.atrPct, alignment: s.alignment, features: s.features as unknown as MapFeatures }));
   const prompt = buildUserPrompt(now.toISOString(), markets);
   const symbols = markets.map((m) => m.symbol);
-  let n = 0;
-  for (const c of AI_CONTESTANTS) {
-    const prev = await prisma.arenaFxRun.findUnique({ where: { dayKey_contestant: { dayKey, contestant: c.id } } });
-    if (prev && (prev.status === "ok" || now.getTime() - prev.createdAt.getTime() < RETRY_AFTER_MS)) continue;
-    const res = await callClaude(c.model, SYSTEM_PROMPT, prompt);
-    const parsed = res.ok ? parseDecisions(res.text, symbols) : null;
-    const status = parsed ? "ok" : "failed";
-    const error = parsed ? (parsed.missing.length > 0 ? `${parsed.missing.length} markets not answered (set flat)` : null) : res.error ?? "unusable answer";
-    if (parsed) {
-      await prisma.arenaFxDecision.createMany({ data: parsed.decisions.map((d) => ({ dayKey, symbol: d.symbol, contestant: c.id, position: d.position, reason: d.reason })), skipDuplicates: true });
-      n += 1;
-    }
-    const data = { status, model: c.model, inputTokens: res.inputTokens, outputTokens: res.outputTokens, error, createdAt: now };
-    await prisma.arenaFxRun.upsert({ where: { dayKey_contestant: { dayKey, contestant: c.id } }, create: { dayKey, contestant: c.id, ...data }, update: data });
-  }
-  return n;
+  const results = await Promise.all(AI_CONTESTANTS.map((c) => runOneAi(c, now, dayKey, prompt, symbols)));
+  return results.filter(Boolean).length;
 }
 
 export async function runArenaTracker(now: Date = new Date()): Promise<ArenaTrackerResult> {
@@ -94,13 +108,13 @@ export async function runArenaTracker(now: Date = new Date()): Promise<ArenaTrac
   const dayKey = now.toISOString().slice(0, 10);
   try {
     out.snapshots = await takeSnapshots(now, dayKey);
-  } catch {
-    /* skip the step */
+  } catch (error) {
+    await noteProblem(dayKey, "tracker-snapshots", error);
   }
   try {
     out.aiRuns = await runAi(now, dayKey);
-  } catch {
-    /* skip the step */
+  } catch (error) {
+    await noteProblem(dayKey, "tracker-ai", error);
   }
   return out;
 }
