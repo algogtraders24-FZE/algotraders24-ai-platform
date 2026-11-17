@@ -303,6 +303,7 @@ void Draw()
    MakeLabel("n2", 10, fy + 13, "own H4 history. Under 30 setups: no claim (n shown).", clrSlateGray, 8);
    MakeLabel("n3", 10, fy + 26, "Past results do not predict future results.", clrSlateGray, 8);
    MakeLabel("f1", 10, DashH() - 13, "Planning tool, not a signal. algotraders24.ai", clrSlateGray, 7);
+   ChartRedraw(0);
   }
 
 void Notify(const PsRow &r, const string what)
