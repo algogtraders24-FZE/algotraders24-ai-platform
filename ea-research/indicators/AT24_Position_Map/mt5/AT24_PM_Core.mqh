@@ -34,7 +34,7 @@ struct AT24PM_Params
    double minSwingAtr;       // smallest swing, in ATR(14) of its timeframe
    double minRetrace;        // smallest pullback depth as a share of the leg (0.382)
    double stopBufAtr;        // stop buffer in ATR(14) of H4
-   double minRR;             // smallest reward to risk
+   double rr1, rr2, rr3;     // the three targets as multiples of the risk (3, 4, 5)
    int    timeStopWeeks;
    double cost;              // round-turn spread, price units
    double swapLong;          // holding cost per calendar day, price units (positive = cost)
@@ -46,13 +46,15 @@ struct AT24PM_Plan
    int    dir;        // +1 long, -1 short
    int    trigIdx;    // H4 bar that closed beyond B
    int    entryIdx;   // trigIdx + 1 (-1 when that bar does not exist yet)
-   double entry, sl, tp, risk, rr;
+   double entry, sl, risk;
    double pullback;   // P: lowest low (long) or highest high (short) of the pullback
    double brkLevel;   // B
-   int    status;     // 1 target, -1 stop, 0 timed out, 2 still open, 3 trigger on the last bar (entry next bar), -2 reward too small, -3 no room (measured move already reached), -4 stop not below entry
-   int    exitIdx;
-   double r;          // result in R after cost (0 while open or rejected)
-   double rCtl;       // the same geometry traded the other way (control)
+   int    status;     // 1 walked forward, 3 trigger on the last bar (entry next bar), -4 stop not beyond the entry
+   double tp[3];      // entry +/- 3, 4, 5 times the risk
+   int    st[3];      // per target: 1 target, -1 stop, 0 timed out, 2 still open
+   int    ex[3];      // exit bar per target (-1 while open)
+   double r[3];       // result in R after cost per target
+   double rc[3];      // the same geometry traded the other way (control)
   };
 
 struct AT24PM_Score
@@ -71,6 +73,18 @@ struct AT24PM_Life
    int    pbUpN, pbDownN;
    double pbUpMedPct, pbDownMedPct, pbUpMedAtr, pbDownMedAtr;
    double pbUpOver382, pbDownOver382, pbUpOver618, pbDownOver618, pbUpBroke, pbDownBroke;
+  };
+
+struct AT24PM_Ctx
+  {
+   int    jw;        // last W1 bar closed at the decision time (-1 if none)
+   int    dir;       // W1 trend: +1 up, -1 down, 0 range
+   int    stage;     // 0 range, 1 trend but no qualifying pullback yet, 2 pullback in the zone (waiting for the H4 turn), 3 H4 turn formed (waiting for the close beyond B), 4 trigger (a close beyond B)
+   double legTop, legBase, legLen;   // newest weekly extreme of the trend side, the opposite swing before it, and the leg length
+   double P, depth;                  // pullback extreme since the weekly extreme, and its depth as a share of the leg
+   int    anchor;                    // H4 bar that made the weekly extreme (-1 if not found)
+   double B, turnPx;                 // swing B and the price of the H4 higher low (long) / lower high (short)
+   int    sAbar, sBbar;              // H4 swing bars of the turn and of B
   };
 
 //--- ATR(14): simple mean of the last 14 true ranges; 0 for the first 14 bars
@@ -210,7 +224,62 @@ void AT24PM_Walk(const int dir, const double entry, const double sl, const doubl
      }
   }
 
-//--- the full scan (SPEC 3-5): every setup the rules produce on the loaded history, walked forward on the real bars
+//--- where the rules stand at the close of H4 bar h (SPEC 3-5). The scan (Run) and the dashboard use this one function.
+int AT24PM_Eval(const int h, const int nW, const datetime &tW[], const AT24PM_Swing &swW[], const int cW_,
+                const int nH, const datetime &tH[], const double &hH[], const double &lH[], const double &cH[], const AT24PM_Swing &swH[], const int cH_,
+                const AT24PM_Params &p, AT24PM_Ctx &x)
+  {
+   x.jw = -1; x.dir = 0; x.stage = 0; x.legTop = 0.0; x.legBase = 0.0; x.legLen = 0.0; x.P = 0.0; x.depth = 0.0; x.anchor = -1; x.B = 0.0; x.turnPx = 0.0; x.sAbar = -1; x.sBbar = -1;
+   datetime T = (datetime)((long)tH[h] + AT24PM_SEC_H4);
+   int jw = AT24PM_LastClosed(nW, tW, AT24PM_SEC_W1, T);
+   x.jw = jw;
+   if(jw < 0) return 0;
+   int dir = AT24PM_Trend(swW, cW_, jw);
+   x.dir = dir;
+   if(dir == 0) return 0;
+   x.stage = 1;
+   int wa[]; int wm = AT24PM_LastActive(swW, cW_, jw, 8, wa);
+   int pos = -1;
+   for(int q = 0; q < wm; q++) if(swW[wa[q]].type == dir) { pos = q; break; }      // newest swing of the trend side (high for a long)
+   if(pos < 0 || pos + 1 >= wm) return 1;
+   int sNew = wa[pos], sLeg = wa[pos + 1];
+   if(swW[sLeg].type != -dir) return 1;
+   x.legTop = swW[sNew].price; x.legBase = swW[sLeg].price;
+   x.legLen = dir * (x.legTop - x.legBase);
+   if(x.legLen <= 0.0) return 1;
+   datetime wStart = tW[swW[sNew].bar];
+   int a0 = AT24PM_FirstAtOrAfter(nH, tH, wStart);
+   int anchor = -1; double ext = 0.0;
+   for(int j = a0; j <= h && (long)tH[j] < (long)wStart + AT24PM_SEC_W1; j++)
+     {
+      double v = (dir > 0) ? hH[j] : -lH[j];
+      if(anchor < 0 || v > ext) { anchor = j; ext = v; }
+     }
+   x.anchor = anchor;
+   if(anchor < 0 || anchor >= h) return 1;
+   double P = (dir > 0) ? lH[anchor + 1] : hH[anchor + 1];
+   for(int j = anchor + 1; j <= h; j++) P = (dir > 0) ? MathMin(P, lH[j]) : MathMax(P, hH[j]);
+   x.P = P;
+   x.depth = (dir > 0) ? (x.legTop - P) / x.legLen : (P - x.legTop) / x.legLen;      // long: (H-P)/(H-L); short: (P-L)/(H-L), legTop = the low
+   if(x.depth < p.minRetrace) return 1;
+   x.stage = 2;
+   int ha[]; int hm = AT24PM_LastActive(swH, cH_, h, 6, ha);
+   int ps = -1;
+   for(int q = 0; q < hm; q++) if(swH[ha[q]].type == -dir) { ps = q; break; }
+   if(ps < 0 || ps + 2 >= hm) return 2;
+   int sA = ha[ps], sB = ha[ps + 1], sPrev = ha[ps + 2];
+   if(swH[sB].type != dir || swH[sPrev].type != -dir) return 2;
+   bool turned = (dir > 0) ? (swH[sA].price > swH[sPrev].price) : (swH[sA].price < swH[sPrev].price);
+   if(!turned) return 2;
+   if(swH[sA].bar <= anchor || swH[sB].bar <= anchor) return 2;
+   x.B = swH[sB].price; x.turnPx = swH[sA].price; x.sAbar = swH[sA].bar; x.sBbar = swH[sB].bar;
+   x.stage = 3;
+   bool brokeB = (dir > 0) ? (cH[h] > swH[sB].price) : (cH[h] < swH[sB].price);
+   if(brokeB) x.stage = 4;
+   return x.stage;
+  }
+
+//--- the full scan (SPEC 3-5); each setup is walked forward three times: stop against target 1, 2 and 3: every setup the rules produce on the loaded history, walked forward on the real bars
 int AT24PM_Run(const int nW, const datetime &tW[], const double &hW[], const double &lW[], const double &cW[],
                const int nH, const datetime &tH[], const double &oH[], const double &hH[], const double &lH[], const double &cH[],
                const AT24PM_Params &p, AT24PM_Plan &out[])
@@ -227,102 +296,59 @@ int AT24PM_Run(const int nW, const datetime &tW[], const double &hW[], const dou
    for(int h = 0; h < nH; h++)
      {
       if(atrH[h] <= 0.0) continue;
-      datetime T = (datetime)((long)tH[h] + AT24PM_SEC_H4);
-      int jw = AT24PM_LastClosed(nW, tW, AT24PM_SEC_W1, T);
-      if(jw < 0) continue;
-      int trend = AT24PM_Trend(swW, cW_, jw);
-      if(trend == 0) continue;
-      int dir = trend;
+      AT24PM_Ctx x;
+      if(AT24PM_Eval(h, nW, tW, swW, cW_, nH, tH, hH, lH, cH, swH, cH_, p, x) != 4) continue;
+      int dir = x.dir;
       if(dir > 0 && h <= busyLong) continue;
       if(dir < 0 && h <= busyShort) continue;
-      int wa[]; int wm = AT24PM_LastActive(swW, cW_, jw, 8, wa);
-      // newest swing of the trend side (high for a long) and the opposite swing right before it
-      int pos = -1;
-      for(int q = 0; q < wm; q++) if(swW[wa[q]].type == dir) { pos = q; break; }
-      if(pos < 0 || pos + 1 >= wm) continue;
-      int sNew = wa[pos], sLeg = wa[pos + 1];
-      if(swW[sLeg].type != -dir) continue;
-      double legTop = swW[sNew].price, legBase = swW[sLeg].price;      // long: high H, base L ; short: low and the high before it (mirrored by dir)
-      double legLen = dir * (legTop - legBase);
-      if(legLen <= 0.0) continue;
-      // anchor: the H4 bar that made the weekly extreme (first bar of the highest high / lowest low inside that week)
-      datetime wStart = tW[swW[sNew].bar];
-      int a0 = AT24PM_FirstAtOrAfter(nH, tH, wStart);
-      int anchor = -1; double ext = 0.0;
-      for(int j = a0; j <= h && (long)tH[j] < (long)wStart + AT24PM_SEC_W1; j++)
-        {
-         double v = (dir > 0) ? hH[j] : -lH[j];
-         if(anchor < 0 || v > ext) { anchor = j; ext = v; }
-        }
-      if(anchor < 0 || anchor >= h) continue;
-      double P = (dir > 0) ? lH[anchor + 1] : hH[anchor + 1];
-      for(int j = anchor + 1; j <= h; j++) P = (dir > 0) ? MathMin(P, lH[j]) : MathMax(P, hH[j]);
-      double depth = (dir > 0) ? (legTop - P) / legLen : (P - legTop) / legLen;     // long: (H-P)/(H-L); short: (P-L)/(H-L), legTop = the low
-      if(depth < p.minRetrace) continue;
-      // H4 structure: higher low (long) / lower high (short) and the swing B right before it
-      int ha[]; int hm = AT24PM_LastActive(swH, cH_, h, 6, ha);
-      int ps = -1;
-      for(int q = 0; q < hm; q++) if(swH[ha[q]].type == -dir) { ps = q; break; }
-      if(ps < 0 || ps + 2 >= hm) continue;
-      int sA = ha[ps], sB = ha[ps + 1], sPrev = ha[ps + 2];
-      if(swH[sB].type != dir || swH[sPrev].type != -dir) continue;
-      bool turned = (dir > 0) ? (swH[sA].price > swH[sPrev].price) : (swH[sA].price < swH[sPrev].price);
-      if(!turned) continue;
-      if(swH[sA].bar <= anchor || swH[sB].bar <= anchor) continue;
-      bool brokeB = (dir > 0) ? (cH[h] > swH[sB].price) : (cH[h] < swH[sB].price);
-      if(!brokeB) continue;
-      if(dir > 0 && swH[sA].bar == usedLong) continue;
-      if(dir < 0 && swH[sA].bar == usedShort) continue;
-      if(dir > 0) usedLong = swH[sA].bar; else usedShort = swH[sA].bar;
+      if(dir > 0 && x.sAbar == usedLong) continue;
+      if(dir < 0 && x.sAbar == usedShort) continue;
+      if(dir > 0) usedLong = x.sAbar; else usedShort = x.sAbar;
+      double P = x.P;
       AT24PM_Plan pl;
       pl.dir = dir; pl.trigIdx = h; pl.entryIdx = (h + 1 < nH) ? h + 1 : -1;
-      pl.entry = 0.0; pl.sl = 0.0; pl.tp = 0.0; pl.risk = 0.0; pl.rr = 0.0; pl.pullback = P; pl.brkLevel = swH[sB].price;
-      pl.status = 3; pl.exitIdx = -1; pl.r = 0.0; pl.rCtl = 0.0;
+      pl.entry = 0.0; pl.sl = 0.0; pl.risk = 0.0; pl.pullback = P; pl.brkLevel = x.B; pl.status = 3;
+      for(int q = 0; q < 3; q++) { pl.tp[q] = 0.0; pl.st[q] = 2; pl.ex[q] = -1; pl.r[q] = 0.0; pl.rc[q] = 0.0; }
       double entryPx = (pl.entryIdx >= 0) ? oH[pl.entryIdx] : cH[h];
       pl.entry = entryPx;
       pl.sl = (dir > 0) ? P - p.stopBufAtr * atrH[h] : P + p.stopBufAtr * atrH[h];
       pl.risk = dir * (entryPx - pl.sl);
       if(pl.risk <= 0.0) pl.status = -4;
-      // target (SPEC 5.5): the measured move, the last weekly leg repeated from the pullback extreme (AB = CD)
-      if(pl.status != -4)
-        {
-         double tp = P + dir * legLen;
-         if(dir * (tp - entryPx) <= 0.0) pl.status = -3;            // the measured move is already reached: no room left
-         else
-           {
-            pl.tp = tp; pl.rr = dir * (tp - entryPx) / pl.risk;
-            if(pl.rr < p.minRR) pl.status = -2;
-           }
-        }
+      // targets (SPEC 5.5): entry + 3, 4 and 5 times the risk (1:3, 1:4, 1:5)
+      pl.tp[0] = entryPx + dir * p.rr1 * pl.risk; pl.tp[1] = entryPx + dir * p.rr2 * pl.risk; pl.tp[2] = entryPx + dir * p.rr3 * pl.risk;
       if(pl.status == 3 && pl.entryIdx >= 0)
         {
-         int st, ex; double r, rc;
          double swp = (dir > 0) ? p.swapLong : p.swapShort;
          double swpC = (dir > 0) ? p.swapShort : p.swapLong;
-         AT24PM_Walk(dir, pl.entry, pl.sl, pl.tp, pl.entryIdx, nH, tH, hH, lH, cH, p.timeStopWeeks, p.cost, swp, st, ex, r);
-         pl.status = st; pl.exitIdx = ex; pl.r = r;
-         double slC = pl.entry + dir * pl.risk, tpC = pl.entry - dir * pl.rr * pl.risk;
-         int st2, ex2;
-         AT24PM_Walk(-dir, pl.entry, slC, tpC, pl.entryIdx, nH, tH, hH, lH, cH, p.timeStopWeeks, p.cost, swpC, st2, ex2, rc);
-         pl.rCtl = rc;
-         int until = (ex >= 0) ? ex : nH;
-         if(dir > 0) busyLong = until; else busyShort = until;
+         double mult[3]; mult[0] = p.rr1; mult[1] = p.rr2; mult[2] = p.rr3;
+         int until = -1;
+         for(int q = 0; q < 3; q++)
+           {
+            AT24PM_Walk(dir, pl.entry, pl.sl, pl.tp[q], pl.entryIdx, nH, tH, hH, lH, cH, p.timeStopWeeks, p.cost, swp, pl.st[q], pl.ex[q], pl.r[q]);
+            double slC = pl.entry + dir * pl.risk, tpC = pl.entry - dir * mult[q] * pl.risk;
+            int stC, exC; double rc;
+            AT24PM_Walk(-dir, pl.entry, slC, tpC, pl.entryIdx, nH, tH, hH, lH, cH, p.timeStopWeeks, p.cost, swpC, stC, exC, rc);
+            pl.rc[q] = rc;
+            until = (pl.ex[q] < 0 || until == nH) ? nH : MathMax(until, pl.ex[q]);
+           }
+         pl.status = 1;
+         if(dir > 0) busyLong = until; else busyShort = until;     // the side is busy until all three walks are finished
         }
       ArrayResize(out, cnt + 1); out[cnt] = pl; cnt++;
      }
    return cnt;
   }
 
-//--- score of the accepted, resolved plans (SPEC 7): result in R after cost, sign-flip luck test, and the control traded the other way
-void AT24PM_ScoreOf(const AT24PM_Plan &pl[], const int cnt, const uint seed, const bool control, AT24PM_Score &sc)
+//--- score of one target q (0 = 1:3, 1 = 1:4, 2 = 1:5) over the resolved plans (SPEC 7): result in R after cost, sign-flip luck test, and the control traded the other way
+void AT24PM_ScoreOf(const AT24PM_Plan &pl[], const int cnt, const uint seed, const bool control, const int q, AT24PM_Score &sc)
   {
    sc.n = 0; sc.wins = 0; sc.hitPct = 0.0; sc.avgR = 0.0; sc.sumR = 0.0; sc.t = 0.0; sc.pFlip = 1.0; sc.open = 0; sc.rejected = 0;
    double rs[]; ArrayResize(rs, cnt); int m = 0;
    for(int i = 0; i < cnt; i++)
      {
-      if(pl[i].status < 0 && pl[i].status != -1) { sc.rejected++; continue; }
-      if(pl[i].status == 2 || pl[i].status == 3) { sc.open++; continue; }
-      double v = control ? pl[i].rCtl : pl[i].r;
+      if(pl[i].status == -4) { sc.rejected++; continue; }
+      if(pl[i].status == 3 || pl[i].st[q] == 2) { sc.open++; continue; }
+      double v = control ? pl[i].rc[q] : pl[i].r[q];
       rs[m++] = v;
       if(v > 0.0) sc.wins++;
      }

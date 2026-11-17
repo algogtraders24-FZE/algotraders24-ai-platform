@@ -119,23 +119,33 @@ void OnStart()
                         {111.7, 112.2, 111.2, 112.0}, {112.0, 112.3, 111.5, 112.1}, {112.1, 112.2, 111.6, 111.9} };
    for(int i = 0; i < 13; i++) { Ho[104 + i] = pr[i][0]; Hh[104 + i] = pr[i][1]; Hl[104 + i] = pr[i][2]; Hc[104 + i] = pr[i][3]; }
    AT24PM_Params pp;
-   pp.kW = 1; pp.kD = 3; pp.kH = 1; pp.minSwingAtr = 0.75; pp.minRetrace = 0.382; pp.stopBufAtr = 0.25; pp.minRR = 2.0; pp.timeStopWeeks = 8; pp.cost = 0.0; pp.swapLong = 0.0; pp.swapShort = 0.0;
+   pp.kW = 1; pp.kD = 3; pp.kH = 1; pp.minSwingAtr = 0.75; pp.minRetrace = 0.382; pp.stopBufAtr = 0.25; pp.rr1 = 3.0; pp.rr2 = 4.0; pp.rr3 = 5.0; pp.timeStopWeeks = 8; pp.cost = 0.0; pp.swapLong = 0.0; pp.swapShort = 0.0;
    AT24PM_Plan pls[]; double atH[]; AT24PM_Atr(nH, Hh, Hl, Hc, atH);
    int np = AT24PM_Run(nW, Wt, Wh, Wl, Wc, nH, Ht, Ho, Hh, Hl, Hc, pp, pls);
    Check("E: exactly one setup is produced (no repeat trigger while the same higher low is in force)", np == 1);
+   double slx = 108.0 - 0.25 * atH[113];
+   double rk = 111.7 - slx;
    if(np == 1)
      {
-      double slx = 108.0 - 0.25 * atH[113];
       Check("E: long, trigger bar 113, entry bar 114", pls[0].dir == 1 && pls[0].trigIdx == 113 && pls[0].entryIdx == 114);
       Check("E: entry = open of the next bar (111.7), pullback low P = 108.0, B = 111.0", pls[0].entry == 111.7 && pls[0].pullback == 108.0 && pls[0].brkLevel == 111.0);
-      Check("E: stop = P - 0.25 ATR(H4), target = measured move 108 + 14 = 122", MathAbs(pls[0].sl - slx) < 1e-9 && MathAbs(pls[0].tp - 122.0) < 1e-9);
-      Check("E: reward to risk = (122 - 111.7) / (111.7 - stop) and is accepted (>= 2), nothing hit yet = still open", MathAbs(pls[0].rr - (122.0 - 111.7) / (111.7 - slx)) < 1e-9 && pls[0].rr >= 2.0 && pls[0].status == 2);
+      Check("E: stop = P - 0.25 ATR(H4); risk = entry - stop", MathAbs(pls[0].sl - slx) < 1e-9 && MathAbs(pls[0].risk - rk) < 1e-9);
+      Check("E: targets are entry + 3, 4 and 5 times the risk (1:3, 1:4, 1:5)", MathAbs(pls[0].tp[0] - (111.7 + 3 * rk)) < 1e-9 && MathAbs(pls[0].tp[1] - (111.7 + 4 * rk)) < 1e-9 && MathAbs(pls[0].tp[2] - (111.7 + 5 * rk)) < 1e-9);
+      Check("E: nothing is hit in the bars that follow: all three targets still open", pls[0].status == 1 && pls[0].st[0] == 2 && pls[0].st[1] == 2 && pls[0].st[2] == 2 && pls[0].ex[0] == -1);
      }
-   pp.minRR = 3.0; np = AT24PM_Run(nW, Wt, Wh, Wl, Wc, nH, Ht, Ho, Hh, Hl, Hc, pp, pls);
-   Check("E2: with a minimum of 3 the same setup is rejected as reward too small (-2), not traded", np == 1 && pls[0].status == -2 && pls[0].exitIdx == -1 && pls[0].r == 0.0);
-   pp.minRR = 2.0; pp.minRetrace = 0.6; np = AT24PM_Run(nW, Wt, Wh, Wl, Wc, nH, Ht, Ho, Hh, Hl, Hc, pp, pls);
+   // bar 115 reaches 124: above target 1 (123.67) but below target 2 (127.66)
+   double keepH = Hh[115]; Hh[115] = 124.0;
+   np = AT24PM_Run(nW, Wt, Wh, Wl, Wc, nH, Ht, Ho, Hh, Hl, Hc, pp, pls);
+   Check("E2: a bar that reaches 124 pays target 1 (+3 R at the target price, exit bar 115) and leaves targets 2 and 3 open", np == 1 && pls[0].st[0] == 1 && pls[0].ex[0] == 115 && MathAbs(pls[0].r[0] - 3.0) < 1e-9 && pls[0].st[1] == 2 && pls[0].st[2] == 2);
+   Hh[115] = keepH;
+   // bar 115 trades below the stop: all three targets lose exactly 1 R
+   double keepL = Hl[115]; Hl[115] = 107.0;
+   np = AT24PM_Run(nW, Wt, Wh, Wl, Wc, nH, Ht, Ho, Hh, Hl, Hc, pp, pls);
+   Check("E2b: a bar below the stop ends all three targets at the stop: -1 R each, exit bar 115", np == 1 && pls[0].st[0] == -1 && pls[0].st[1] == -1 && pls[0].st[2] == -1 && pls[0].ex[2] == 115 && MathAbs(pls[0].r[0] + 1.0) < 1e-9 && MathAbs(pls[0].r[2] + 1.0) < 1e-9);
+   Hl[115] = keepL;
+   pp.minRetrace = 0.6; np = AT24PM_Run(nW, Wt, Wh, Wl, Wc, nH, Ht, Ho, Hh, Hl, Hc, pp, pls);
    Check("E3: a pullback of 50 percent is not enough when 60 percent is required: no setup", np == 0);
-   pp.minRetrace = 0.382; pp.minRR = 2.0;
+   pp.minRetrace = 0.382;
    // the mirror: every price p becomes 200 - p, highs and lows swap. Short, same bars, mirrored levels
    double Mwh[], Mwl[], Mwc[], Mho[], Mhh[], Mhl[], Mhc[];
    ArrayResize(Mwh, nW); ArrayResize(Mwl, nW); ArrayResize(Mwc, nW);
@@ -147,8 +157,9 @@ void OnStart()
    if(np == 1)
      {
       double slm = 92.0 + 0.25 * atH[113];
-      Check("E4: entry 88.3, P = 92.0, B = 89.0, target = 92 - 14 = 78, stop = P + 0.25 ATR", MathAbs(pls[0].entry - 88.3) < 1e-9 && MathAbs(pls[0].pullback - 92.0) < 1e-9 && MathAbs(pls[0].brkLevel - 89.0) < 1e-9 && MathAbs(pls[0].tp - 78.0) < 1e-9 && MathAbs(pls[0].sl - slm) < 1e-9);
-      Check("E4: the short has the same reward to risk as the long", MathAbs(pls[0].rr - (88.3 - 78.0) / (slm - 88.3)) < 1e-9);
+      double rm = slm - 88.3;
+      Check("E4: entry 88.3, P = 92.0, B = 89.0, stop = P + 0.25 ATR", MathAbs(pls[0].entry - 88.3) < 1e-9 && MathAbs(pls[0].pullback - 92.0) < 1e-9 && MathAbs(pls[0].brkLevel - 89.0) < 1e-9 && MathAbs(pls[0].sl - slm) < 1e-9);
+      Check("E4: the short targets are entry - 3, 4 and 5 times the risk", MathAbs(pls[0].tp[0] - (88.3 - 3 * rm)) < 1e-9 && MathAbs(pls[0].tp[1] - (88.3 - 4 * rm)) < 1e-9 && MathAbs(pls[0].tp[2] - (88.3 - 5 * rm)) < 1e-9);
      }
 
    PrintFormat("PMUNIT %s", g_fail == 0 ? "ALL PASSED" : "SOME FAILED");

@@ -8,8 +8,9 @@ import csv, sys, math, bisect, statistics
 rows = list(csv.reader(open(sys.argv[1])))
 meta = [r for r in rows if r[0] == "meta"][0]
 nW, nD, nH, kW, kD, kH = (int(x) for x in meta[1:7])
-MINSW, MINRET, BUF, MINRR = (float(x) for x in meta[7:11])
-WEEKS = int(meta[11]); COST, SWL, SWS = (float(x) for x in meta[12:15])
+MINSW, MINRET, BUF = (float(x) for x in meta[7:10])
+RRS = [float(x) for x in meta[10:13]]
+WEEKS = int(meta[13]); COST, SWL, SWS = (float(x) for x in meta[14:17])
 SEC_W, SEC_D, SEC_H = 604800, 86400, 14400
 
 
@@ -173,19 +174,18 @@ def run_plans(Wn, Hn):
         entry = oh[ei] if ei >= 0 else ch_[h]
         sl = P - BUF * ah[h] if d > 0 else P + BUF * ah[h]
         risk = d * (entry - sl)
-        pl = {"dir": d, "trig": h, "ei": ei, "entry": entry, "sl": sl, "tp": 0.0, "risk": risk, "rr": 0.0, "P": P, "B": sB["price"], "st": 3, "ex": -1, "r": 0.0, "rc": 0.0}
-        if risk <= 0: pl["st"] = -4
-        else:
-            tp = P + d * leg
-            if d * (tp - entry) <= 0: pl["st"] = -3
-            else:
-                pl["tp"] = tp; pl["rr"] = d * (tp - entry) / risk
-                if pl["rr"] < MINRR: pl["st"] = -2
-        if pl["st"] == 3 and ei >= 0:
-            st, ex, r = walk(d, entry, sl, pl["tp"], ei, SWL if d > 0 else SWS)
-            rc = walk(-d, entry, entry + d * risk, entry - d * pl["rr"] * risk, ei, SWS if d > 0 else SWL)[2]
-            pl["st"], pl["ex"], pl["r"], pl["rc"] = st, ex, r, rc
-            busy[d] = ex if ex >= 0 else Hn
+        pl = {"dir": d, "trig": h, "ei": ei, "entry": entry, "sl": sl, "risk": risk, "P": P, "B": sB["price"], "status": 3,
+              "tp": [entry + d * m * risk for m in RRS], "st": [2, 2, 2], "ex": [-1, -1, -1], "r": [0.0] * 3, "rc": [0.0] * 3}
+        if risk <= 0: pl["status"] = -4
+        elif ei >= 0:
+            until = -1
+            for q, m in enumerate(RRS):
+                st, ex, r = walk(d, entry, sl, pl["tp"][q], ei, SWL if d > 0 else SWS)
+                rc = walk(-d, entry, entry + d * risk, entry - d * m * risk, ei, SWS if d > 0 else SWL)[2]
+                pl["st"][q], pl["ex"][q], pl["r"][q], pl["rc"][q] = st, ex, r, rc
+                until = Hn if (ex < 0 or until == Hn) else max(until, ex)
+            pl["status"] = 1
+            busy[d] = until
         out.append(pl)
     return out
 
@@ -196,16 +196,14 @@ theirs = [r for r in rows if r[0] == "plan"]
 ok = len(plans) == len(theirs)
 bad = []
 for a, r in zip(plans, theirs):
-    t = (int(r[1]), int(r[2]), int(r[3]), float(r[4]), float(r[5]), float(r[6]), float(r[7]), float(r[8]), float(r[9]), float(r[10]), int(r[11]), int(r[12]), float(r[13]), float(r[14]))
-    mine = (a["dir"], a["trig"], a["ei"], a["entry"], a["sl"], a["tp"], a["risk"], a["rr"], a["P"], a["B"], a["st"], a["ex"], a["r"], a["rc"])
-    same = all((abs(x - y) <= 7e-4 if isinstance(x, float) and i in (3, 5, 8, 9) else abs(x - y) <= 2e-6 if isinstance(x, float) else x == y) for i, (x, y) in enumerate(zip(mine, t)))
+    t = [int(r[1]), int(r[2]), int(r[3]), float(r[4]), float(r[5]), float(r[6]), float(r[7]), float(r[8]), int(r[9])] + [float(x) for x in r[10:13]] + [int(x) for x in r[13:19]] + [float(x) for x in r[19:25]]
+    mine = [a["dir"], a["trig"], a["ei"], a["entry"], a["sl"], a["risk"], a["P"], a["B"], a["status"]] + a["tp"] + a["st"] + a["ex"] + a["r"] + a["rc"]
+    same = all((abs(x - y) <= 7e-4 if isinstance(x, float) and i in (3, 6, 7) else abs(x - y) <= 2e-6 if isinstance(x, float) else x == y) for i, (x, y) in enumerate(zip(mine, t)))
     if not same: bad.append((mine, t))
 check("setups: same count", ok, f"({len(plans)} mine, {len(theirs)} dumped)")
-check("setups: every field identical (direction, trigger bar, entry bar, entry, stop, target, risk, R:R, pullback, B, status, exit bar, result in R, control in R)", ok and not bad, f"({len(bad)} differ)")
+check("setups: every field identical (direction, trigger bar, entry bar, entry, stop, risk, pullback, B, status, three targets, and per target the exit status, exit bar, result in R and control in R)", ok and not bad, f"({len(bad)} differ)")
 if bad: print("  first difference:", bad[0])
-cnt = {}
-for a in plans: cnt[a["st"]] = cnt.get(a["st"], 0) + 1
-print("  status counts:", dict(sorted(cnt.items())))
+print("  per target exits (1 target, -1 stop, 0 time stop, 2 open):", [dict(sorted({k: sum(1 for a in plans if a['status'] == 1 and a['st'][q] == k) for k in (1, -1, 0, 2)}.items())) for q in range(3)])
 
 # ---- score and control ---------------------------------------------------------------------------------------------------------
 M = 0xFFFFFFFF
@@ -223,19 +221,20 @@ def tt(rs, seed):
         for v in rs: s += v if (nx() >> 8) & 1 else -v
         if s >= total - 1e-9: cnt += 1
     return total, mean, t, (1 + cnt) / 5001
-for ctl in (0, 1):
-    rs = [a["rc" if ctl else "r"] for a in plans if a["st"] in (1, -1, 0)]
-    rej = sum(1 for a in plans if a["st"] < 0 and a["st"] != -1); op = sum(1 for a in plans if a["st"] in (2, 3))
-    row = [r for r in rows if r[0] == "score" and int(r[1]) == ctl][0]
-    if len(rs) >= 2:
-        total, mean, t, p = tt(rs, 20261117)
-        mine = (len(rs), sum(1 for v in rs if v > 0), 100.0 * sum(1 for v in rs if v > 0) / len(rs), mean, total, t, p, op, rej)
-    else:
-        mine = (len(rs), 0, 0.0, rs[0] if rs else 0.0, rs[0] if rs else 0.0, 0.0, 1.0, op, rej)
-    t_ = (int(row[2]), int(row[3]), float(row[4]), float(row[5]), float(row[6]), float(row[7]), float(row[8]), int(row[9]), int(row[10]))
-    same = all(abs(x - y) <= 1e-5 for x, y in zip(mine, t_))
-    check(f"score {'control (the same trades the other way)' if ctl else 'setups'}: n, wins, hit, average R, total R, t and the sign-flip p identical", same,
-          f"(n {mine[0]}, hit {mine[2]:.1f}%, avg R {mine[3]:+.3f}, t {mine[5]:+.2f}, p {mine[6]:.3f})")
+for q in range(3):
+    for ctl in (0, 1):
+        rs = [a["rc" if ctl else "r"][q] for a in plans if a["status"] == 1 and a["st"][q] in (1, -1, 0)]
+        rej = sum(1 for a in plans if a["status"] == -4); op = sum(1 for a in plans if a["status"] == 3 or (a["status"] == 1 and a["st"][q] == 2))
+        row = [r for r in rows if r[0] == "score" and int(r[1]) == q and int(r[2]) == ctl][0]
+        if len(rs) >= 2:
+            total, mean, t, p = tt(rs, 20261117)
+            mine = (len(rs), sum(1 for v in rs if v > 0), 100.0 * sum(1 for v in rs if v > 0) / len(rs), mean, total, t, p, op, rej)
+        else:
+            mine = (len(rs), 0, 0.0, rs[0] if rs else 0.0, rs[0] if rs else 0.0, 0.0, 1.0, op, rej)
+        t_ = (int(row[3]), int(row[4]), float(row[5]), float(row[6]), float(row[7]), float(row[8]), float(row[9]), int(row[10]), int(row[11]))
+        same = all(abs(x - y) <= 1e-5 for x, y in zip(mine, t_))
+        check(f"score target 1:{int(RRS[q])} {'control (the same trades the other way)' if ctl else 'setups'}: n, wins, hit, average R, total R, t and the sign-flip p identical", same,
+              f"(n {mine[0]}, hit {mine[2]:.1f}%, avg R {mine[3]:+.3f}, t {mine[5]:+.2f}, p {mine[6]:.3f})")
 
 # ---- trend life ----------------------------------------------------------------------------------------------------------------
 ch = chW.chain
@@ -261,7 +260,7 @@ check("trend life: legs, median weeks, pullback depth (percent and ATR), shares 
 
 # ---- no look-ahead: cut the history, run the same rules, the setups known at the cut must be the same ---------------------------------------------
 def trig_fields(a):
-    return (a["dir"], a["trig"], a["ei"], round(a["entry"], 6), round(a["sl"], 6), round(a["tp"], 6), round(a["rr"], 6), round(a["P"], 6), round(a["B"], 6), a["st"] < 0)
+    return (a["dir"], a["trig"], a["ei"], round(a["entry"], 6), round(a["sl"], 6), round(a["tp"][0], 6), round(a["tp"][2], 6), round(a["P"], 6), round(a["B"], 6), a["status"] < 0)
 
 
 all_same = True; detail = []
