@@ -30,3 +30,11 @@ The weekly structure gives the only direction: higher highs and higher lows (up)
 - The structural stop is wide on a weekly pullback (the dashboard shows the risk in weekly ATR and flags WIDE above 2.5); the lot size shrinks accordingly.
 - Both-in-one-bar is counted as a stop; gaps and slippage are not modelled; the cost is the spread plus the swap.
 - Dashboard off in the Strategy Tester by default. Buffers (iCustom): 0 weekly trend, 1 stage (0-4), 2 live plan direction, 3 entry, 4 stop, 5-7 targets; the parameter list in iCustom counts each `input group` header as a slot.
+
+## Position Scanner (multi-symbol table, same core)
+- The Scanner includes `AT24_PM_Core.mqh` unchanged: no new maths, one symbol is rebuilt per 1 s timer tick and again on each new H4 bar.
+- Compiled 0 errors, 0 warnings. Offline terminal, 4 of 5 symbols had data.
+- Row equality with Position Map on the same bars: XAUUSD (W1 DOWN, short plan running, entry 4091.59, stop 4703.22, TP1 2256.70, 3.0 wk ATR, +1.06 R (19)) and EURUSD (entry 1.13412, stop 1.17164, TP1 1.02157, 2.9 wk ATR, +0.22 R (15)) are identical to the Map. GBPUSD and USDJPY show RANGE (no trade). US30 shows "no data / symbol not found" (not in the offline terminal).
+- Build time 63-110 ms per symbol.
+- NOT exercised live: alerts (trigger / turn / push), real-account swap and lots, symbols missing in the offline terminal.
+- Record column is the same-rules average R on that symbol's own H4 history; under 30 setups nothing is claimed.

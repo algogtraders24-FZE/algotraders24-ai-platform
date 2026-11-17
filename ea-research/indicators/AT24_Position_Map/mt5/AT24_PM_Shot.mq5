@@ -13,6 +13,7 @@ void OnStart()
    string out = "";
    for(int i = 0; i < 8; i++) { if(CopyBuffer(h, i, 0, 1, v) == 1) out += StringFormat(" b%d=%.5f", i, v[0]); }
    Print("PMSHOT buffers:", out);
+   Print("PMSHOT label p1: ", ObjectGetString(0, "AT24PM_p1", OBJPROP_TEXT), " | record: ", ObjectGetString(0, "AT24PM_a0", OBJPROP_TEXT), " | ", ObjectGetString(0, "AT24PM_p0", OBJPROP_TEXT));
    ChartScreenShot(0, "pm_shot.png", 1400, 820, ALIGN_RIGHT);
    Print("PMSHOT done");
   }
