@@ -13,6 +13,8 @@ export interface ArenaFxResponse extends ArenaBoard {
   latest: Array<{ contestant: string; dayKey: string; decisions: Array<{ symbol: string; position: number; reason: string | null }> }>;
   /** Token use over the window per AI contestant, and run problems. */
   usage: Array<{ contestant: string; runs: number; failed: number; inputTokens: number; outputTokens: number }>;
+  /** The latest problems of the daily job (run log rows that are not ok), newest first. */
+  problems: Array<{ dayKey: string; contestant: string; status: string; error: string | null }>;
   aiEnabled: boolean;
 }
 
@@ -21,7 +23,7 @@ export async function getArenaFx(now: Date = new Date()): Promise<ArenaFxRespons
   const [snapRows, decisions, runs] = await Promise.all([
     prisma.arenaFxSnapshot.findMany({ where: { dayKey: { gte: from } }, select: { dayKey: true, symbol: true, price: true, atrPct: true, alignment: true } }),
     prisma.arenaFxDecision.findMany({ where: { dayKey: { gte: from } }, select: { dayKey: true, symbol: true, contestant: true, position: true, reason: true } }),
-    prisma.arenaFxRun.findMany({ where: { dayKey: { gte: from }, contestant: { not: "snapshot" } }, select: { dayKey: true, contestant: true, status: true, inputTokens: true, outputTokens: true } }),
+    prisma.arenaFxRun.findMany({ where: { dayKey: { gte: from }, contestant: { not: "snapshot" } }, select: { dayKey: true, contestant: true, status: true, inputTokens: true, outputTokens: true, error: true, createdAt: true } }),
   ]);
   const snaps: SnapRow[] = snapRows.map((s) => ({ dayKey: s.dayKey, symbol: s.symbol, price: s.price, atrPct: s.atrPct, alignment: s.alignment as SwingAlignment }));
   const contestants: ContestantInput[] = [{ id: "rule-trend", label: "Rule: follow the map alignment", kind: "rule", positionOf: (s) => trendPosition(s.alignment) }];
@@ -40,5 +42,10 @@ export async function getArenaFx(now: Date = new Date()): Promise<ArenaFxRespons
     const mine = runs.filter((r) => r.contestant === c.id);
     return { contestant: c.id, runs: mine.length, failed: mine.filter((r) => r.status !== "ok").length, inputTokens: mine.reduce((s, r) => s + (r.inputTokens ?? 0), 0), outputTokens: mine.reduce((s, r) => s + (r.outputTokens ?? 0), 0) };
   });
-  return { ...board, latest, usage, aiEnabled: process.env.ARENA_FX_AI_DISABLED !== "1" && !!process.env.ANTHROPIC_API_KEY };
+  const problems = runs
+    .filter((r) => r.status !== "ok" || (r.error ?? "") !== "")
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 6)
+    .map((r) => ({ dayKey: r.dayKey, contestant: r.contestant, status: r.status, error: r.error }));
+  return { ...board, latest, usage, problems, aiEnabled: process.env.ARENA_FX_AI_DISABLED !== "1" && !!process.env.ANTHROPIC_API_KEY };
 }

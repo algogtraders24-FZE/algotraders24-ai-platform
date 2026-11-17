@@ -40,11 +40,15 @@ function levelText(name: string, l: { pct: number; atr: number } | null): string
 }
 
 export function buildUserPrompt(nowIso: string, markets: ReadonlyArray<PromptMarket>): string {
-  const lines = markets.map(
-    (m) =>
-      `${m.symbol} (${m.label}): price ${fmt(m.price)}, daily range ${m.atrPct.toFixed(2)}%, trend W/D/4H ${m.features.w1 ?? "-"}/${m.features.d1 ?? "-"}/${m.features.h4 ?? "-"} (${m.alignment}), ` +
-      `${levelText("resistance", m.features.resistance)}, ${levelText("support", m.features.support)}, at ${m.features.rangePos.toFixed(0)}% of the 50-day range`,
-  );
+  const lines = markets.map((m) => {
+    // The features come back from a JSON column: be tolerant of a missing field instead of throwing.
+    const f: Partial<MapFeatures> = m.features ?? {};
+    const range = typeof f.rangePos === "number" && Number.isFinite(f.rangePos) ? `${f.rangePos.toFixed(0)}%` : "-";
+    return (
+      `${m.symbol} (${m.label}): price ${fmt(m.price)}, daily range ${m.atrPct.toFixed(2)}%, trend W/D/4H ${f.w1 ?? "-"}/${f.d1 ?? "-"}/${f.h4 ?? "-"} (${m.alignment}), ` +
+      `${levelText("resistance", f.resistance ?? null)}, ${levelText("support", f.support ?? null)}, at ${range} of the 50-day range`
+    );
+  });
   return `Time (UTC): ${nowIso}\nMarkets now:\n${lines.join("\n")}\nGive your position for each market for the next day.`;
 }
 

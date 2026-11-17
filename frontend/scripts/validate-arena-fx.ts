@@ -87,5 +87,8 @@ const pm: PromptMarket = { symbol: "EURUSD", label: "Euro / US dollar", price: 1
 const prompt = buildUserPrompt("2026-11-17T14:00:00Z", [pm]);
 check("prompt carries the market facts and no outcome", prompt.includes("EURUSD") && prompt.includes("resistance +0.40% (0.80 ATR)") && prompt.includes("support none") && prompt.includes("71% of the 50-day range") && prompt.includes("2026-11-17T14:00:00Z"));
 
+const sparse = buildUserPrompt("2026-11-17T14:00:00Z", [{ symbol: "US30", label: "Dow", price: 47000, atrPct: 0.9, alignment: "mixed", features: {} as never }, { symbol: "XAUUSD", label: "Gold", price: 4000, atrPct: 1.1, alignment: "aligned down", features: null as never }]);
+check("prompt does not throw on missing feature fields", sparse.includes("US30") && sparse.includes("XAUUSD") && sparse.includes("at - of the 50-day range"));
+
 console.log(failures === 0 ? "\nALL CHECKS PASSED" : `\n${failures} CHECK(S) FAILED`);
 process.exit(failures === 0 ? 0 : 1);
