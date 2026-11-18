@@ -3,13 +3,13 @@ void OnStart()
   {
    ChartSetInteger(0, CHART_SCALE, 2);
    ChartSetInteger(0, CHART_SHOW_GRID, false);
-   int h = iCustom(_Symbol, PERIOD_H1, "AT24Indicators\AT24_Regime_AI", "", 20000, 30000, "", true, true, 2, 3, 0.75, 0.382, 0.25, 3.0, 8, true, "", false, false, false, "", true, false, CORNER_LEFT_UPPER, 10, 20);
+   int h = iCustom(_Symbol, PERIOD_H1, "AT24Indicators\AT24_Regime_AI", "", 20000, 30000, "", true, true, true, 2, 3, 0.75, 0.382, 0.25, 3.0, 8, true, 0, 0.5, 10, "", false, false, false, "", true, false, CORNER_LEFT_UPPER, 10, 20);
    if(h == INVALID_HANDLE) { PrintFormat("RASHOT FAIL handle err=%d", GetLastError()); return; }
    ChartIndicatorAdd(0, 1, h);
    Sleep(30000);
    ChartRedraw(0);
    Sleep(1500);
-   string ids[] = {"c2", "c3", "c4", "b2", "b3", "b4", "p1", "mv0", "mv1", "mv2", "mv3", "mv4"};
+   string ids[] = {"c2", "c3", "c4", "b2", "b3", "b4", "p1", "p2", "p3", "mv0", "mv1", "mv2", "mv3", "mv4"};
    for(int k = 0; k < ArraySize(ids); k++)
      {
       string nm = "AT24RA_" + ids[k];

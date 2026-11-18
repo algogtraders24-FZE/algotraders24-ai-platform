@@ -1,4 +1,4 @@
-# AT24 Regime AI - specification (v1.10, MT5, H1)
+# AT24 Regime AI - specification (v1.20, MT5, H1)
 
 Honest purpose: classify every closed H1 bar into one of 5 **learned market states** and show what each state has historically been followed by (size of the next 24-hour range, how long the state lasts). It does not predict direction, gives no buy/sell signal and makes no profit claim.
 
@@ -47,3 +47,10 @@ Planning information about the size of moves, not direction. Past statistics do 
 
 ## 7. v1.10 weekly bias layer
 Direction, entry, stop and target come only from the rules of `AT24_Position_Map/SPEC.md` (weekly HH+HL / LH+LL structure, pullback depth, H4 trigger, structural stop, targets 1:3 / 1:4 / 1:5, per-target record with luck test), executed by the unchanged `AT24_PM_Core.mqh` on the chart symbol's weekly and H4 bars (400 / 4500 by default). The panel shows the weekly trend (UP / DOWN / RANGE), the stage ("waiting for a pullback", "wait H4 turn", "TRIGGER ...", "plan running"), the plan (entry, stop, TP1) and the 1:3 record with n. Chart: a buy or sell arrow per plan at its entry bar (last 60 plans) and entry / stop / TP1 lines for the running plan. Alert (optional) when a plan triggers on a closed H4 bar. Buffer 5 = running-plan direction of the last closed bar. The regime state and the bias are independent readings: the state does not change the plan.
+
+## 8. v1.20 tight plan (default) and plan distances
+Reason: the Position Map stop sits beyond the weekly pullback extreme, which can be 3-25 % of the price away (XAUUSD example: stop +24 %, TP1 -40 % from the price), too far to use as a trading plan. New input `InpStopMode`:
+- `RA_STOP_TURN` (default, tight): same triggers as the Position Map, stop = H4 turn price (the H4 higher low for a long, the lower high for a short; `AT24PM_Ctx.turnPx`, a strict 3-bar H4 swing before the trigger) -/+ 0.25 x ATR(14) of H4 at the trigger bar. Target 1 = entry +/- 3 x risk (input). Walked forward with the unchanged `AT24PM_Walk` (stop first, target, 8-week time stop, spread cost; swap as set). The record shown (average R, n, luck test) is measured with this tight stop on the same triggers. Targets 2 and 3 are not computed in this mode.
+- `RA_STOP_STRUCT`: the Position Map plan unchanged (wide stop).
+Pure function: `AT24_RA_Plan.mqh` (`AT24RA_TightPlans`).
+Dashboard: plan age in days, price now, distance from the price to the stop and to TP1 in %, lots for `InpRiskPercent` (default 0.5 % of balance). A running plan older than `InpFreshDays` (default 10) is shown as OLD in grey, gets no chart lines and no buffer direction. `InpDrawLevels` switches the entry / stop / TP1 lines off. When the H4 trigger exists but its turn was already traded, the panel says "trigger already used".
