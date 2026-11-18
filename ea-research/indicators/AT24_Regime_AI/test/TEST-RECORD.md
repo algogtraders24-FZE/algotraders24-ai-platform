@@ -55,3 +55,14 @@ Reading: states 0 NOISY and 4 STEADY TREND are followed by a smaller than averag
 - Records with the tight stop (offline demo feed, same 4500 H4 / 400 weekly bars): XAUUSD +1.25 R (11), EURUSD +0.76 R (9), GBPUSD +0.07 R (7), USDJPY -0.39 R (12), USDCHF -0.37 R (16). All n under 30: small samples, shown with n. No claim.
 - Real chart (USDCHF H1): OLD LONG plan, entry 0.82058, stop 0.81249, TP1 0.84485, price now 0.84248, "to SL -3.6 %, to TP1 +0.3 %, 0.5 % risk = 0.04 lots": test/mt5_regime_ai_chart.png.
 - Not verified live: alerts and push, real swap, forward record, other brokers.
+
+## v1.30: expected next-24-hour range (2026-11-18)
+| Check | Result |
+|---|---|
+| MT5 compile | indicator, core, unit test, self test: 0 errors, 0 warnings |
+| Hand-worked unit tests (`AT24_RR_UnitTest.mq5`) | 23 passed, 0 failed: quantiles (1..5 -> 1.4, 3, 4.6), 2x2 and 3x3 linear solve incl. a row swap and a singular matrix, hour of a timestamp, features and target on constant bars (ln 0.02), valid from bar 150, target known up to n-25, short history, full run on constant bars (range exactly 2.0, band 2.0 - 2.0, coverage 100 %), too short = no model, price scaling (4.0 units, 2.0 %), periodic volatility gives a finite band |
+| Independent Python (`verify_rr.py`, numpy re-implementation) on 5 symbols x 20,000 H1 bars | validity flags identical; features and target max difference 3e-12; ridge fit, quantiles, out-of-sample coverage, final range and band max difference 4e-11; row counts identical |
+| No look-ahead (cut-history test in `AT24_RR_SelfTest.mq5`) | EURUSD and XAUUSD, 3 cuts each: 0 differing feature rows |
+| Result on the demo feed (20,000 H1 bars) | XAUUSD 2.35 % typical (band 56.7 - 153.8), band held 76.8 % of 5,949 test rows; EURUSD 0.52 % held 77.7 %; GBPUSD 0.54 % held 77.5 %; USDJPY 0.55 % held 77.7 %; USDCHF 0.59 % held 81.7 % |
+| Real chart (MT5, XAUUSD H1) | left card shows "next 24 h range ~ 89.22 (2.36 %)", "80 % band 56.72 - 153.59 held 77 %"; buffers 6-8 read back identical: branding/screenshot_mt5.png |
+Limits: held 77-82 % means the band is slightly narrow on some symbols; not verified live: alerts, other brokers, forward record.

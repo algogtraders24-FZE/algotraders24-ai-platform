@@ -9,7 +9,7 @@ void OnStart()
    Sleep(30000);
    ChartRedraw(0);
    Sleep(1500);
-   string ids[] = {"c2", "c3", "c4", "b2", "b3", "b4", "p1", "p2", "p3", "mv0", "mv1", "mv2", "mv3", "mv4"};
+   string ids[] = {"c2", "c3", "c4", "c5", "b2", "b3", "b4", "p1", "p2", "p3", "mv0", "mv1", "mv2", "mv3", "mv4"};
    for(int k = 0; k < ArraySize(ids); k++)
      {
       string nm = "AT24RA_" + ids[k];
@@ -23,7 +23,8 @@ void OnStart()
       if(StringFind(n, "AT24RA_lv") == 0) PrintFormat("RASHOT %s = %s", n, DoubleToString(ObjectGetDouble(0, n, OBJPROP_PRICE), _Digits));
      }
    PrintFormat("RASHOT arrows %d (buy %d, sell %d)", na, nb, ns);
-   double b2[], b5[];
+   double b2[], b5[], b6[], b7[], b8[];
+   if(CopyBuffer(h, 6, 1, 1, b6) == 1 && CopyBuffer(h, 7, 1, 1, b7) == 1 && CopyBuffer(h, 8, 1, 1, b8) == 1) PrintFormat("RASHOT range buffers: mid %.5f lo %.5f hi %.5f", b6[0], b7[0], b8[0]);
    if(CopyBuffer(h, 2, 1, 1, b2) == 1 && CopyBuffer(h, 5, 1, 1, b5) == 1)
       PrintFormat("RASHOT last closed bar: state %.0f, plan direction buffer %.0f", b2[0], b5[0]);
    ChartScreenShot(0, "ra_shot.png", 1400, 820, ALIGN_RIGHT);

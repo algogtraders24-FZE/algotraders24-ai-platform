@@ -1,4 +1,4 @@
-# AT24 Regime AI - specification (v1.20, MT5, H1)
+# AT24 Regime AI - specification (v1.30, MT5, H1)
 
 Honest purpose: classify every closed H1 bar into one of 5 **learned market states** and show what each state has historically been followed by (size of the next 24-hour range, how long the state lasts). It does not predict direction, gives no buy/sell signal and makes no profit claim.
 
@@ -54,3 +54,13 @@ Reason: the Position Map stop sits beyond the weekly pullback extreme, which can
 - `RA_STOP_STRUCT`: the Position Map plan unchanged (wide stop).
 Pure function: `AT24_RA_Plan.mqh` (`AT24RA_TightPlans`).
 Dashboard: plan age in days, price now, distance from the price to the stop and to TP1 in %, lots for `InpRiskPercent` (default 0.5 % of balance). A running plan older than `InpFreshDays` (default 10) is shown as OLD in grey, gets no chart lines and no buffer direction. `InpDrawLevels` switches the entry / stop / TP1 lines off. When the H4 trigger exists but its turn was already traded, the panel says "trigger already used".
+
+## 9. v1.30 expected next-24-hour range
+Question the panel answers: how big will the next 24 hours be (not which way), so that stops and targets can be sized. Pure core `AT24_RA_Range.mqh`.
+- Target: y_i = ln(range / C_i) with range = max H_{i+1..i+24} - min L_{i+1..i+24} (known only for bars with 24 later bars).
+- Features at closed bar i (from bar index 150): ln(ATR14_i / C_i), ln(ATR24_i / C_i), ln(ATR120_i / C_i) (simple means of the true range) and the hour-of-day mean of y over the training rows (the symbol's clock pattern; hour of the bar's server time).
+- Model: ridge regression (lambda 1, features standardised with population mean / std, intercept = mean of y) fitted on the chart symbol's own last InpHistBars H1 rows with a known target; residual quantiles q10, q50, q90 (linear interpolation) from the training rows. Expected range = C x exp(pred + q50); 80 % band = C x exp(pred + q10) to C x exp(pred + q90). At least 1,500 training rows.
+- Honesty check on the panel: a second model fitted on the first 70 % of the rows (48-bar gap) is tested on the last 30 %; "held 77 %" = share of those rows whose real range was inside the band (the band is meant to hold about 80 %).
+- R&D (`test/rnd_expected_range.py`, 13 symbols, last 40 % out of sample, R-squared on ln range): ATR only 0.03-0.30; with the hour pattern 0.03-0.39 (XAUUSD 0.26 -> 0.39, US500 0.24 -> 0.39, GBPUSD 0.03 -> 0.18); adding the 5 market states changed R-squared by less than 0.01; the 80 % band held 77-84 % on 12 of 13 symbols (USDCAD, the short history, 84 %). So the market state is not part of the model.
+- Buffers 6, 7, 8: expected range, band low, band high in price units at the last closed bar.
+Limits: it forecasts size, not direction; a news spike or gap can break the band; the band is estimated from the symbol's own history (a short history gives a rough band).
