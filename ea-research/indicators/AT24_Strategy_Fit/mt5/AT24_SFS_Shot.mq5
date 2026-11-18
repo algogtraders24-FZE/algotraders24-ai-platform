@@ -3,7 +3,7 @@ void OnStart()
   {
    ChartSetInteger(0, CHART_SCALE, 2);
    ChartSetInteger(0, CHART_SHOW_GRID, false);
-   int h = iCustom(_Symbol, PERIOD_H1, "AT24Indicators\AT24_Strategy_Fit_Scanner", "", "XAUUSD,EURUSD,GBPUSD,USDJPY,USDCHF,US30", "", "", 20000, "", 12, false, "", false, false, "", true, false, true, CORNER_LEFT_UPPER, 10, 20);
+   int h = iCustom(_Symbol, PERIOD_H1, "AT24Indicators\AT24_Strategy_Fit_Scanner", "", "XAUUSD,EURUSD,GBPUSD,USDJPY,USDCHF,US30", "", "", 20000, 2.0, "", 12, false, "", false, false, "", true, false, true, CORNER_LEFT_UPPER, 10, 20);
    if(h == INVALID_HANDLE) { PrintFormat("SFSSHOT FAIL handle err=%d", GetLastError()); return; }
    ChartIndicatorAdd(0, 0, h);
    Sleep(60000);

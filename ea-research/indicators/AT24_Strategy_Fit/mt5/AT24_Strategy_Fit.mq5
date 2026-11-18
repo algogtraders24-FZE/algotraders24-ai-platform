@@ -9,7 +9,7 @@
 //+------------------------------------------------------------------+
 #property copyright "AlgoTraders24"
 #property link      "https://algotraders24.ai"
-#property version   "1.00"
+#property version   "1.10"
 #property description "AT24 Strategy Fit - trend, breakout and reversion rules measured per Regime AI market state on this symbol's own H1 history (average R, n, luck test) and which rule fits the current state."
 #property description "A measurement of the past, not a forecast. Places no trades. Past results do not predict future results. Not financial advice."
 #property indicator_chart_window
@@ -23,6 +23,7 @@
 input group "=== History ==="
 input int    InpHistBars   = 20000;   // Closed H1 bars used for the trades
 input int    InpMaxBars    = 30000;   // H1 bars read from the chart (limits the first calculation)
+input double InpStopAtr    = 2.0;     // Protective stop of the measured trades, in ATR(14) of the signal bar (0 = no stop)
 input group "=== Alert and arrow (bar close) ==="
 input bool   InpDrawArrow  = true;    // Draw an arrow when a rule signals in a state where its own record is FIT
 input bool   InpAlert      = false;   // Alert on that event
@@ -195,7 +196,7 @@ void Draw()
       MakeLabel("rv" + id, x + 8, 146, cc.n > 0 ? StringFormat("%+.2f R   n %d   p %.2f", cc.avg, cc.n, cc.p) : "no trades here", clrSilver, 8);
      }
    //--- grid
-   MakeLabel("g0", 18, 187, "AVERAGE R PER TRADE (24 h hold, ATR units) BY RULE AND STATE", C'255,214,110', 8, true);
+   MakeLabel("g0", 18, 187, "AVERAGE PER TRADE (ATR units) BY RULE AND STATE", C'255,214,110', 8, true);
    for(int s = 0; s < AT24RA_K; s++)
      {
       int x = 82 + s * 94;
@@ -216,7 +217,8 @@ void Draw()
         }
      }
    MakeLabel("n1", 12, 366, "FIT = average above 0 and luck test p below 0.10 (n 30+).", clrSlateGray, 7);
-   MakeLabel("n2", 12, 377, "Cost = current spread. Measured on past bars, no forecast.", clrSlateGray, 7);
+   string stopTxt = InpStopAtr > 0.0 ? StringFormat("stop %.1f ATR (hit in %.0f %%)", InpStopAtr, gRes.trades > 0 ? 100.0 * gRes.stopped / gRes.trades : 0.0) : "NO stop";
+   MakeLabel("n2", 12, 377, "24 h hold, " + stopTxt + ", spread cost.", clrSlateGray, 7);
    MakeLabel("n3", 12, 387, "Past results do not predict future results.  algotraders24.ai", clrSlateGray, 7);
    ChartRedraw(0);
   }
@@ -227,9 +229,9 @@ int OnInit()
    SetIndexBuffer(3, B3, INDICATOR_CALCULATIONS); SetIndexBuffer(4, B4, INDICATOR_CALCULATIONS); SetIndexBuffer(5, B5, INDICATOR_CALCULATIONS);
    ArraySetAsSeries(B0, false); ArraySetAsSeries(B1, false); ArraySetAsSeries(B2, false); ArraySetAsSeries(B3, false); ArraySetAsSeries(B4, false); ArraySetAsSeries(B5, false);
    IndicatorSetString(INDICATOR_SHORTNAME, "AT24 Strategy Fit");
-   if(InpHistBars < 3000 || InpHistBars > 200000 || InpMaxBars < 4000 || InpMaxBars > 200000)
+   if(InpHistBars < 3000 || InpHistBars > 200000 || InpMaxBars < 4000 || InpMaxBars > 200000 || InpStopAtr < 0.0 || (InpStopAtr > 0.0 && InpStopAtr < 0.5) || InpStopAtr > 10.0)
      {
-      Print("AT24 Strategy Fit: history bars 3000-200000, bars read 4000-200000.");
+      Print("AT24 Strategy Fit: history bars 3000-200000, bars read 4000-200000, stop 0 or 0.5-10 ATR.");
       return INIT_PARAMETERS_INCORRECT;
      }
    bool tester = (bool)MQLInfoInteger(MQL_TESTER);
@@ -263,7 +265,7 @@ int OnCalculate(const int rates_total, const int prev_calculated, const datetime
    AT24SF_Signals(nUse, h, l, c, sig);
    gCost = MathMax(0.0, SymbolInfoDouble(_Symbol, SYMBOL_ASK) - SymbolInfoDouble(_Symbol, SYMBOL_BID));
    int from = MathMax(AT24SF_FIRST, nUse - InpHistBars);
-   AT24SF_Run(nUse, o, atr, ok, st, sig, gCost, from, gRes);
+   AT24SF_Run(nUse, o, h, l, atr, ok, st, sig, gCost, InpStopAtr, from, gRes);
    gState = st[nUse - 1];
    for(int r = 0; r < AT24SF_NR; r++) gSigNow[r] = sig[(nUse - 1) * AT24SF_NR + r];
    gHave = (gState >= 0);

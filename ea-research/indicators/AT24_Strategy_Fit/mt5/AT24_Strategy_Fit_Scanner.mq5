@@ -10,7 +10,7 @@
 //+------------------------------------------------------------------+
 #property copyright "AlgoTraders24"
 #property link      "https://algotraders24.ai"
-#property version   "1.00"
+#property version   "1.10"
 #property description "AT24 Strategy Fit Scanner - the rule signals of the last closed H1 bar for a list of symbols, with each rule's own record in the current market state (average R, n, luck test), the typical next 24 h range and the ATR."
 #property description "A measurement of the past, not a forecast. Places no trades. Past results do not predict future results. Not financial advice."
 #property indicator_chart_window
@@ -27,6 +27,7 @@ input string InpSymbols    = "EURUSD,GBPUSD,USDJPY,USDCHF,AUDUSD,NZDUSD,USDCAD,E
 input string InpSuffix     = "";     // Broker suffix added to every symbol (for example .m or _x)
 input group "=== History ==="
 input int    InpHistBars   = 20000;  // Closed H1 bars used per symbol
+input double InpStopAtr    = 2.0;    // Protective stop of the measured trades, in ATR(14) of the signal bar (0 = no stop)
 input group "=== Table ==="
 input int    InpRows       = 12;     // Signal rows shown
 input bool   InpOnlyFit    = false;  // Show only signals whose own record is FIT
@@ -190,7 +191,7 @@ void BuildRow(SfRow &r)
    AT24SF_Signals(n, h, l, c, sig);
    double cost = MathMax(0.0, SymbolInfoDouble(r.sym, SYMBOL_ASK) - SymbolInfoDouble(r.sym, SYMBOL_BID));
    int from = MathMax(AT24SF_FIRST, n - InpHistBars);
-   AT24SF_Res res; AT24SF_Run(n, o, atr, ok, st, sig, cost, from, res);
+   AT24SF_Res res; AT24SF_Run(n, o, h, l, atr, ok, st, sig, cost, InpStopAtr, from, res);
    r.mstate = st[n - 1];
    for(int q = 0; q < AT24SF_NR; q++)
      {
@@ -295,7 +296,7 @@ void Draw()
      }
    int fy = 112 + 22 * gRows;
    MakeLabel("n1", 12, fy, "Record: same rule, same state, this symbol's own history:", clrSlateGray, 7);
-   MakeLabel("n2", 12, fy + 11, "next-open entry, 24 h hold, NO stop, spread cost, R = 1 ATR.", clrSlateGray, 7);
+   MakeLabel("n2", 12, fy + 11, (InpStopAtr > 0.0 ? StringFormat("next-open entry, 24 h hold, stop %.1f ATR, spread cost.", InpStopAtr) : "next-open entry, 24 h hold, NO stop, spread cost."), clrSlateGray, 7);
    MakeLabel("n3", 12, fy + 22, "FIT = average above 0, p below 0.10, n 30+. FIT first.", clrSlateGray, 7);
    MakeLabel("n4", 12, fy + 33, "A measurement of the past, not a forecast. algotraders24.ai", clrSlateGray, 7);
    ChartRedraw(0);
@@ -346,9 +347,9 @@ int OnInit()
    SetIndexBuffer(0, B0, INDICATOR_CALCULATIONS);
    ArraySetAsSeries(B0, true);
    IndicatorSetString(INDICATOR_SHORTNAME, "AT24 Strategy Fit Scanner");
-   if(InpHistBars < 4000 || InpHistBars > 100000 || InpRows < 3 || InpRows > 24)
+   if(InpHistBars < 4000 || InpHistBars > 100000 || InpRows < 3 || InpRows > 24 || InpStopAtr < 0.0 || (InpStopAtr > 0.0 && InpStopAtr < 0.5) || InpStopAtr > 10.0)
      {
-      Print("AT24 Strategy Fit Scanner: history bars 4000-100000, rows 3-24.");
+      Print("AT24 Strategy Fit Scanner: history bars 4000-100000, rows 3-24, stop 0 or 0.5-10 ATR.");
       return INIT_PARAMETERS_INCORRECT;
      }
    gRows = InpRows;

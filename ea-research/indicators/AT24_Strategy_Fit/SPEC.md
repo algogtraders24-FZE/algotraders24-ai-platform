@@ -1,4 +1,4 @@
-# AT24 Strategy Fit - specification (v1.00, MT5, H1)
+# AT24 Strategy Fit - specification (v1.10, MT5, H1)
 
 Honest purpose: for the chart symbol, show how three plain rules (trend, breakout, reversion) performed in each of the 5 AT24 Regime AI market states, on the symbol's own history, with the number of trades and a luck test, and mark which rule fits the state the market is in now. It is a measurement of the past, not a forecast and not a signal service. Places no trades.
 
@@ -30,7 +30,9 @@ Reading: the state matters a lot (breakout: -0.24 R in NOISY, +0.135 R in COMPRE
 Dashboard (default off in the Strategy Tester): the current state, for each rule the signal on the last closed bar (long / short / none) and the class of that rule in the current state, and the 3 x 5 grid of average R with n coloured by class. Arrow on the last closed bar only when a rule signals while its class in that state is FIT (historical bars never get arrows, because the class is measured with the whole history). Optional alert on that event. Buffers: 0-2 signals of trend / breakout / reversion on the last closed bar (+1 / -1 / 0), 3-5 class of each rule in the current state (1 FIT, 0 neutral or no claim, -1 AVOID).
 
 ## 5a. What the measured trade is (stated on the panels)
-Entry at the next open, hold 24 bars, **no stop**, cost = spread, result in ATR(14) units (1 R = 1 ATR at the signal bar). A stop or a target would be a different trade with a different record; none is tested here.
+Entry at the next open, hold 24 bars, spread cost, result in ATR(14) units (1 R = 1 ATR at the signal bar). From v1.10 an optional protective stop (input `InpStopAtr`, default 2.0 ATR, 0 = no stop): stop price = entry -/+ stopAtr x ATR14 of the signal bar, checked on the high / low of the 24 bars from the entry bar on; a hit closes the trade at the stop price (a loss of exactly stopAtr ATR before cost, no gap or slippage); otherwise the trade closes at the open 24 bars later. The panel states the stop and the share of trades it closed. A different stop is a different trade with a different record.
+
+R&D on the stop (`test/rnd_strategy_fit_stop.py`, out of sample, 13 symbols, pooled average in ATR units; share of trades stopped in brackets): no stop vs 1 ATR (77 %) / 1.5 (67 %) / 2 (57 %) / 3 (40 %). Breakout in COMPRESSED: +0.135 / +0.03 / +0.06 / +0.08 / +0.09; trend in NOISY: -0.30 / -0.15 / -0.19 / -0.23 / -0.25; reversion in COMPRESSED: -0.51 / -0.30 / -0.30 / -0.30 / -0.32. A stop does not create an edge: it caps the loss of each trade and lowers the average of the good cells; 1 ATR is inside the normal H1 noise (stopped in 77 %). Default 2 ATR keeps most of the best cell (+0.08) while limiting each loss.
 
 ## 5. Limits written on the product
 Averages are measurements on past bars; classes change as history grows; small cells prove nothing (n shown). Spread is the current spread for all past trades. H1 only. Past results do not predict future results. Not financial advice.

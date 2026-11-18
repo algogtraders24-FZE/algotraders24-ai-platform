@@ -3,7 +3,7 @@ void OnStart()
   {
    ChartSetInteger(0, CHART_SCALE, 2);
    ChartSetInteger(0, CHART_SHOW_GRID, false);
-   int h = iCustom(_Symbol, PERIOD_H1, "AT24Indicators\AT24_Strategy_Fit", "", 20000, 30000, "", true, false, false, "", true, false, CORNER_LEFT_UPPER, 10, 20);
+   int h = iCustom(_Symbol, PERIOD_H1, "AT24Indicators\AT24_Strategy_Fit", "", 20000, 30000, 2.0, "", true, false, false, "", true, false, CORNER_LEFT_UPPER, 10, 20);
    if(h == INVALID_HANDLE) { PrintFormat("SFSHOT FAIL handle err=%d", GetLastError()); return; }
    ChartIndicatorAdd(0, 0, h);
    Sleep(25000);

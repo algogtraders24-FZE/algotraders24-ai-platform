@@ -5,7 +5,7 @@
 #include "AT24_SF_Core.mqh"
 input int InpBars = 20000;
 
-void Dump(const string sym, const double cost)
+void Dump(const string sym, const double cost, const double stopAtr, const string tag)
   {
    MqlRates r[]; int n = -1;
    for(int t = 0; t < 20 && n < 3000; t++) { n = CopyRates(sym, PERIOD_H1, 1, InpBars, r); if(n < 3000) Sleep(500); }
@@ -16,23 +16,23 @@ void Dump(const string sym, const double cost)
    AT24RA_Features(n, h, l, c, atr, er, lv, sl, rg, ok);
    AT24RA_States(n, er, lv, sl, rg, ok, st);
    AT24SF_Signals(n, h, l, c, sig);
-   AT24SF_Res res; AT24SF_Run(n, o, atr, ok, st, sig, cost, 0, res);
+   AT24SF_Res res; AT24SF_Run(n, o, h, l, atr, ok, st, sig, cost, stopAtr, 0, res);
    int f = FileOpen("SF_selftest_" + sym + ".csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
    FileWrite(f, "time", "open", "high", "low", "close", "atr14", "state", "sT", "sB", "sR");
    for(int i = 0; i < n; i++)
       FileWrite(f, TimeToString(r[i].time, TIME_DATE | TIME_MINUTES), DoubleToString(o[i], 8), DoubleToString(h[i], 8), DoubleToString(l[i], 8), DoubleToString(c[i], 8),
                 DoubleToString(atr[i], 10), st[i], sig[i * 3], sig[i * 3 + 1], sig[i * 3 + 2]);
    FileClose(f);
-   f = FileOpen("SF_stats_" + sym + ".csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
-   FileWrite(f, "rule", "state", "n", "avg", "hit", "p", "cls", "cost");
+   f = FileOpen("SF_stats_" + sym + "_" + tag + ".csv", FILE_WRITE | FILE_CSV | FILE_ANSI, ',');
+   FileWrite(f, "rule", "state", "n", "avg", "hit", "p", "cls", "cost", "stop", "nStop");
    for(int q = 0; q < AT24SF_NR; q++)
       for(int s = 0; s < AT24RA_K; s++)
         {
          AT24SF_Cell cc = res.c[q * AT24RA_K + s];
-         FileWrite(f, q, s, cc.n, DoubleToString(cc.avg, 10), DoubleToString(cc.hit, 10), DoubleToString(cc.p, 10), cc.cls, DoubleToString(cost, 8));
+         FileWrite(f, q, s, cc.n, DoubleToString(cc.avg, 10), DoubleToString(cc.hit, 10), DoubleToString(cc.p, 10), cc.cls, DoubleToString(cost, 8), DoubleToString(stopAtr, 4), cc.nStop);
         }
    FileClose(f);
-   PrintFormat("SF selftest %s: %d bars, %d trades", sym, n, res.trades);
+   PrintFormat("SF selftest %s stop %.1f: %d bars, %d trades, %d stopped", sym, stopAtr, n, res.trades, res.stopped);
   }
 
 //--- no look-ahead: signals of a history cut at k equal those of the full history for bars 0..k-1
@@ -57,5 +57,6 @@ void CutTest(const string sym)
 void OnStart()
   {
    CutTest("EURUSD"); CutTest("XAUUSD");
-   Dump("EURUSD", 0.00012); Dump("XAUUSD", 0.30); Dump("GBPUSD", 0.00015); Dump("USDJPY", 0.012); Dump("USDCHF", 0.00015);
+   string sy[5] = {"EURUSD", "XAUUSD", "GBPUSD", "USDJPY", "USDCHF"}; double co[5] = {0.00012, 0.30, 0.00015, 0.012, 0.00015};
+   for(int k = 0; k < 5; k++) { Dump(sy[k], co[k], 0.0, "s0"); Dump(sy[k], co[k], 2.0, "s2"); }
   }

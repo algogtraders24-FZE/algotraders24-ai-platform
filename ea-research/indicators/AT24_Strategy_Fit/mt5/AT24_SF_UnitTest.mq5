@@ -57,7 +57,7 @@ void OnStart()
    AT24SF_Signals(n, h, l, c, sig);
    double atr[]; bool ok[]; int st[]; ArrayResize(atr, n); ArrayResize(ok, n); ArrayResize(st, n);
    for(int i = 0; i < n; i++) { atr[i] = 2.0; ok[i] = true; st[i] = 3; }
-   AT24SF_Res res; AT24SF_Run(n, o, atr, ok, st, sig, 0.5, 0, res);
+   AT24SF_Res res; AT24SF_Run(n, o, h, l, atr, ok, st, sig, 0.5, 0.0, 0, res);
    // trades at i = 250, 274, 298, 322, 346, 370 (i + 25 <= 399)
    Chk("breakout: 6 trades in state 3", res.c[1 * 5 + 3].n == 6);
    Chk("breakout average R = (24 - 0.5) / 2", Near(res.c[1 * 5 + 3].avg, 11.75));
@@ -65,15 +65,24 @@ void OnStart()
    Chk("reversion short loses: (-24 - 0.5) / 2", res.c[2 * 5 + 3].n == 6 && Near(res.c[2 * 5 + 3].avg, -12.25));
    Chk("other states empty", res.c[1 * 5 + 0].n == 0 && res.c[1 * 5 + 4].n == 0);
    Chk("total trades 18", res.trades == 18);
+   //--- 6b. protective stop of 2 ATR (distance 4) on the same line: long trades never reach it, the short reversion trades are all stopped
+   AT24SF_Run(n, o, h, l, atr, ok, st, sig, 0.5, 2.0, 0, res);
+   Chk("stop 2: long rules unchanged", res.c[1 * 5 + 3].n == 6 && Near(res.c[1 * 5 + 3].avg, 11.75) && res.c[1 * 5 + 3].nStop == 0 && res.c[0 * 5 + 3].nStop == 0);
+   Chk("stop 2: reversion short stopped, R = (-4 - 0.5) / 2", res.c[2 * 5 + 3].n == 6 && Near(res.c[2 * 5 + 3].avg, -2.25) && res.c[2 * 5 + 3].nStop == 6);
+   Chk("stop 2: total stopped 6", res.stopped == 6 && res.trades == 18);
+   AT24SF_Run(n, o, h, l, atr, ok, st, sig, 0.5, 0.1, 0, res);
+   Chk("stop 0.1 ATR: every long trade stopped on the entry bar, R = (-0.2 - 0.5) / 2", res.c[1 * 5 + 3].nStop == 6 && Near(res.c[1 * 5 + 3].avg, -0.35) && res.stopped >= 12);
+   AT24SF_Run(n, o, h, l, atr, ok, st, sig, 0.5, 0.0, 0, res);
+   Chk("stop 0 = no stop", res.stopped == 0 && Near(res.c[2 * 5 + 3].avg, -12.25));
    //--- 7. 'from' limits the history: trades at 300, 324, 348, 372
-   AT24SF_Run(n, o, atr, ok, st, sig, 0.5, 300, res);
+   AT24SF_Run(n, o, h, l, atr, ok, st, sig, 0.5, 0.0, 300, res);
    Chk("from 300: 4 breakout trades", res.c[1 * 5 + 3].n == 4);
    //--- 8. too short: no trade has a known exit
-   AT24SF_Run(260, o, atr, ok, st, sig, 0.5, 0, res);
+   AT24SF_Run(260, o, h, l, atr, ok, st, sig, 0.5, 0.0, 0, res);
    Chk("n 260: no trades", res.trades == 0);
    //--- 9. a bar with invalid features is skipped and does not start the wait
    for(int i = 0; i < n; i++) ok[i] = (i != 250);
-   AT24SF_Run(n, o, atr, ok, st, sig, 0.5, 0, res);
+   AT24SF_Run(n, o, h, l, atr, ok, st, sig, 0.5, 0.0, 0, res);
    // trades at 251, 275, 299, 323, 347, 371 (371 + 25 = 396 <= 399)
    Chk("invalid bar skipped, wait not started", res.c[1 * 5 + 3].n == 6);
    //--- 10. flat market: no trend, no breakout

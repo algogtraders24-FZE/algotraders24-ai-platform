@@ -7,3 +7,6 @@ Three plain rules - trend (EMA 50 / 200), breakout (20-bar high / low) and rever
 - Live arrow and optional alert only when a rule signals in a state where its own record is FIT. Buffers for EAs (signals, fit classes).
 - Input: history bars, alert, dashboard. H1 charts. Platform: MT5. Price: 33 USD (series standard).
 - Test status: 26 unit tests, independent Python check identical (signals, trades, statistics, luck test), no look-ahead test passed; alerts and live forward record not verified yet.
+
+## v1.10
+- Optional protective stop in the measured trades (default 2 ATR, 0 = none): the record, the FIT / AVOID classes and the panel note are measured with that stop, and the share of stopped trades is shown. A stop caps each loss; it does not create an edge.

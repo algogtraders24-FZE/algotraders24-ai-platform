@@ -27,3 +27,10 @@
 - Bugs found and fixed while building: header summary overlapped the title; two column headers overlapped.
 - Not verified live: alerts and push, other brokers' symbol names, many symbols on a slow machine, forward record.
 - The measured trade has no stop (stated on the panel); no claim.
+
+## v1.10: protective stop option (2026-11-18)
+- `AT24SF_Run` now takes the bars' high / low and `stopAtr`; the cells count the trades closed by the stop (`nStop`, `stopped`). New R&D in `rnd_strategy_fit_stop.py` (SPEC 5a). Default 2.0 ATR; 0 = the old no-stop record.
+- Hand-worked unit tests: 31 passed (26 before + 5 for the stop: long rules not reached by a 2 ATR stop, short reversion trades all stopped with R = (-4 - 0.5) / 2 = -2.25, a 0.1 ATR stop hits on the entry bar with R = -0.35, totals, stop 0 = no stop).
+- Independent Python (`verify_sf.py`, now with the stop, both stop 0 and stop 2.0): 5 symbols x 2 settings, 18,584 trades, signals / states / trades / per-cell n, class, stopped count, average, hit rate and luck-test p all identical (max difference 5e-11).
+- No look-ahead (cut-history test): 0 differing signals. Real charts: Strategy Fit panel and Scanner show "stop 2.0 ATR (hit in 56 %)", records re-measured with the stop (XAUUSD STEADY TREND: reversion FIT +0.40 R n 139 p 0.08).
+- Not verified live: alerts, forward record, other brokers. The stop is a measured parameter of the past trades, not advice on where to place a real stop.
