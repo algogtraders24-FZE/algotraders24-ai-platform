@@ -1,4 +1,4 @@
-# AT24 Regime AI - specification (v1.00, MT5, H1)
+# AT24 Regime AI - specification (v1.10, MT5, H1)
 
 Honest purpose: classify every closed H1 bar into one of 5 **learned market states** and show what each state has historically been followed by (size of the next 24-hour range, how long the state lasts). It does not predict direction, gives no buy/sell signal and makes no profit claim.
 
@@ -44,3 +44,6 @@ Dashboard (default off in the Strategy Tester), colour strip of the state per ba
 
 ## 6. Limits written on the product
 Planning information about the size of moves, not direction. Past statistics do not predict future results. Not financial advice.
+
+## 7. v1.10 weekly bias layer
+Direction, entry, stop and target come only from the rules of `AT24_Position_Map/SPEC.md` (weekly HH+HL / LH+LL structure, pullback depth, H4 trigger, structural stop, targets 1:3 / 1:4 / 1:5, per-target record with luck test), executed by the unchanged `AT24_PM_Core.mqh` on the chart symbol's weekly and H4 bars (400 / 4500 by default). The panel shows the weekly trend (UP / DOWN / RANGE), the stage ("waiting for a pullback", "wait H4 turn", "TRIGGER ...", "plan running"), the plan (entry, stop, TP1) and the 1:3 record with n. Chart: a buy or sell arrow per plan at its entry bar (last 60 plans) and entry / stop / TP1 lines for the running plan. Alert (optional) when a plan triggers on a closed H4 bar. Buffer 5 = running-plan direction of the last closed bar. The regime state and the bias are independent readings: the state does not change the plan.

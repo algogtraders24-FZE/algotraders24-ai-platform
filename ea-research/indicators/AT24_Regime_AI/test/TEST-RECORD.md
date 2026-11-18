@@ -1,4 +1,4 @@
-# AT24 Regime AI - test record (2026-11-18)
+# AT24 Regime AI - test record (v1.00 engine 2026-11-18, v1.10 weekly bias + new dashboard 2026-11-18)
 
 ## Engine checks
 | Check | Result |
@@ -38,3 +38,12 @@ Reading: states 0 NOISY and 4 STEADY TREND are followed by a smaller than averag
 - The dashboard statistics are the chart symbol's own history (last 20,000 closed bars by default) and are descriptive: they say what followed in the past. No forward (live) record yet; a 30-day demo forward check by the Engineering window is still open.
 - Not verified live: alerts and push, the first calculation time on a 100,000-bar chart (InpMaxBars limits it to 30,000), other brokers' symbol names.
 - No trade, no signal, no profit claim.
+
+## v1.10 additions: weekly bias, arrows, new 3D dashboard
+- The weekly bias is the **unchanged, already verified AT24 Position Map core** (`AT24_PM_Core.mqh`, `AT24_TT_Core.mqh`, copies of the Position Map files). Its own record: 29 unit tests, independent Python identical on every swing, trend bar, setup and score (see the Position Map test record).
+- Cross-check of the new glue code (same defaults 4500 H4 / 400 weekly bars, offline test terminal): XAUUSD bias DOWN, short plan running, entry 4091.59, stop 4703.22, TP1 2256.70, record +1.54 R (10); EURUSD bias DOWN, short plan running, entry 1.13412, stop 1.17164, TP1 1.02157, record +0.24 R (8). Entry, stop and target are identical to the Position Map / Position Scanner on the same bars. The two records differ from the Scanner screenshot (7000 bars: +1.06 R (19)) only because fewer H4 bars are read here.
+- Chart arrows: one per plan found by the rules (last 60), at the H4 bar where the entry happens (a trigger waiting for the next open is drawn at the next bar). XAUUSD: 11 arrows (5 buy, 6 sell) for 10 scored plans + 1 running; EURUSD: 9 (4 buy, 5 sell). The running plan also draws entry / stop / TP1 lines.
+- A new buffer 5 gives the running-plan direction of the last closed bar (+1 long, -1 short, 0 none).
+- Bugs found and fixed while building the dashboard: first version overlapped the logo; the bias stayed on "loading" in a terminal whose weekly history was not loaded yet (a 3-second timer now retries); a chart change reset the range columns to 1 px (columns are created once and the chart-change handler redraws).
+- Not verified live: alerts and push (state change, trigger), real-account swap, other brokers, forward record. The weekly-bias records are small samples (n under 30 each) and are shown with n.
+- Honest framing kept: the state says how big moves tend to be; the direction is the weekly-structure rule set with its record, not a forecast. Our tests have not shown a reliable direction edge from price features.
