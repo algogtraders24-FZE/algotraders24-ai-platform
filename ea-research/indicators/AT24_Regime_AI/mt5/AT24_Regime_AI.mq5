@@ -12,11 +12,11 @@
 //+------------------------------------------------------------------+
 #property copyright "AlgoTraders24"
 #property link      "https://algotraders24.ai"
-#property version   "1.20"
+#property version   "1.30"
 #property description "AT24 Regime AI - 5 learned market states on H1 (size of the next 24 h, with n) plus the weekly-structure bias and H4 trigger of AT24 Position Map: direction, entry, stop, target, arrows on the chart."
 #property description "The state says how big moves tend to be; the direction is the weekly structure rule set, not a prediction. Places no trades. Past results do not predict future results. Not financial advice."
 #property indicator_separate_window
-#property indicator_buffers 6
+#property indicator_buffers 9
 #property indicator_plots   1
 #property indicator_minimum 0
 #property indicator_maximum 1
@@ -29,6 +29,7 @@
 #include "AT24_RA_Core.mqh"
 #include "AT24_PM_Core.mqh"
 #include "AT24_RA_Plan.mqh"
+#include "AT24_RA_Range.mqh"
 
 #resource "ra_logo56.bmp"
 
@@ -63,7 +64,8 @@ input ENUM_BASE_CORNER InpCorner = CORNER_LEFT_UPPER; // Dashboard corner
 input int    InpDashX       = 10;     // Dashboard X offset
 input int    InpDashY       = 20;     // Dashboard Y offset
 
-double B_hist[], B_col[], B_state[], B_run[], B_ratio[], B_bias[];
+double B_hist[], B_col[], B_state[], B_run[], B_ratio[], B_bias[], B_rmid[], B_rlo[], B_rhi[];
+AT24RR_Out gR;
 string PFX = "AT24RA_";
 bool   gDash = false;
 int    gBaseX = 0, gBaseY = 0;
@@ -371,8 +373,17 @@ void Draw()
    //--- left card: market state
    MakeLabel("c1", 18, 78, "MARKET STATE", C'255,214,110', 8, true);
    MakeLabel("c2", 18, 94, AT24RA_Name(k), StateColor(k), 17, true);
-   MakeLabel("c3", 18, 128, StringFormat("for %d bar%s    stays next bar %.0f %%", gRunNow, gRunNow == 1 ? "" : "s", gStat.pStay[k] * 100.0), clrSilver, 8);
-   MakeLabel("c4", 18, 146, StringFormat("next 24 h range here: %s  (n %d)", RatioTxt(gStat, k), gStat.nf[k]), clrSilver, 8);
+   MakeLabel("c3", 18, 122, StringFormat("for %d bar%s    stays next bar %.0f %%", gRunNow, gRunNow == 1 ? "" : "s", gStat.pStay[k] * 100.0), clrSilver, 8);
+   if(gR.ok)
+     {
+      MakeLabel("c4", 18, 138, StringFormat("next 24 h range ~ %s  (%.2f %%)", DoubleToString(gR.mid, _Digits), gR.midPct), clrSilver, 8, true);
+      MakeLabel("c5", 18, 153, StringFormat("80 %% band %s - %s   held %.0f %%", DoubleToString(gR.lo, _Digits), DoubleToString(gR.hi, _Digits), gR.cover * 100.0), clrSlateGray, 8);
+     }
+   else
+     {
+      MakeLabel("c4", 18, 138, StringFormat("next 24 h range here: %s  (n %d)", RatioTxt(gStat, k), gStat.nf[k]), clrSilver, 8);
+      MakeLabel("c5", 18, 153, " ", clrSlateGray, 8);
+     }
    //--- right card: weekly bias
    MakeLabel("b1", 278, 78, "WEEKLY BIAS", C'255,214,110', 8, true);
    if(InpShowBias && gB.ok)
@@ -440,6 +451,8 @@ int OnInit()
    SetIndexBuffer(3, B_run, INDICATOR_CALCULATIONS);
    SetIndexBuffer(4, B_ratio, INDICATOR_CALCULATIONS);
    SetIndexBuffer(5, B_bias, INDICATOR_CALCULATIONS);
+   SetIndexBuffer(6, B_rmid, INDICATOR_CALCULATIONS); SetIndexBuffer(7, B_rlo, INDICATOR_CALCULATIONS); SetIndexBuffer(8, B_rhi, INDICATOR_CALCULATIONS);
+   ArraySetAsSeries(B_rmid, false); ArraySetAsSeries(B_rlo, false); ArraySetAsSeries(B_rhi, false);
    ArraySetAsSeries(B_hist, false); ArraySetAsSeries(B_col, false); ArraySetAsSeries(B_state, false); ArraySetAsSeries(B_run, false); ArraySetAsSeries(B_ratio, false); ArraySetAsSeries(B_bias, false);
    PlotIndexSetDouble(0, PLOT_EMPTY_VALUE, EMPTY_VALUE);
    IndicatorSetString(INDICATOR_SHORTNAME, "AT24 Regime AI");
@@ -498,9 +511,12 @@ int OnCalculate(const int rates_total, const int prev_calculated, const datetime
    AT24RA_Forward(nUse, h, l, atr, ok, fr);
    int from = MathMax(AT24RA_FIRST, nUse - InpHistBars);
    AT24RA_Stats(nUse, from, st, fr, gStat);
+   datetime tt[]; ArrayResize(tt, nUse);
+   for(int i = 0; i < nUse; i++) tt[i] = time[off + i];
+   AT24RR_Run(nUse, from, tt, h, l, c, gR);
    for(int i = 0; i < rates_total; i++)
      {
-      B_hist[i] = EMPTY_VALUE; B_col[i] = 0; B_state[i] = EMPTY_VALUE; B_run[i] = EMPTY_VALUE; B_ratio[i] = EMPTY_VALUE; B_bias[i] = EMPTY_VALUE;
+      B_hist[i] = EMPTY_VALUE; B_col[i] = 0; B_state[i] = EMPTY_VALUE; B_run[i] = EMPTY_VALUE; B_ratio[i] = EMPTY_VALUE; B_bias[i] = EMPTY_VALUE; B_rmid[i] = EMPTY_VALUE; B_rlo[i] = EMPTY_VALUE; B_rhi[i] = EMPTY_VALUE;
      }
    int run = 0;
    for(int i = 0; i < nUse; i++)
@@ -510,6 +526,7 @@ int OnCalculate(const int rates_total, const int prev_calculated, const datetime
       run = (i > 0 && st[i - 1] == k) ? run + 1 : 1;
       B_hist[ci] = 1.0; B_col[ci] = k; B_state[ci] = k; B_run[ci] = run; B_ratio[ci] = gStat.ratio[k];
      }
+   if(gR.ok) { B_rmid[rates_total - 2] = gR.mid; B_rlo[rates_total - 2] = gR.lo; B_rhi[rates_total - 2] = gR.hi; }
    gStateNow = st[nUse - 1];
    gRunNow = AT24RA_RunLen(st, nUse - 1);
    gHaveStat = (gStat.nAll > 0);

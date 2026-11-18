@@ -18,3 +18,7 @@ Every closed H1 bar is put into one of 5 learned market states: NOISY, WIDE SWIN
 ## v1.20
 - Tight plan by default: stop beyond the H4 turn instead of the weekly pullback extreme, with its own record (n shown). The wide weekly stop stays available as an input.
 - The panel shows the plan age, the price now, the distance to the stop and TP1 in %, and the lots for your risk percent; a plan older than 10 days is shown as OLD without chart lines. Entry / stop / TP1 lines can be switched off.
+
+## v1.30
+- Expected next-24-hour range with an 80 % band, from the symbol's own history and its hour-of-day pattern; the panel shows how often the band held on the last 30 % of the history. It sizes stops and targets; it does not say which way.
+- Buffers for EAs: expected range, band low, band high.
