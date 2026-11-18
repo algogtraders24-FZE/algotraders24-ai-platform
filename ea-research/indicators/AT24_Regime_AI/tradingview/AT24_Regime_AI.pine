@@ -1,0 +1,355 @@
+//@version=5
+// AT24 Regime AI (TradingView port, H1) - 5 learned market states + expected next-24-hour range.
+// States: nearest of 5 fixed k-means centroids (trained offline on 12 symbols, see SPEC.md). Size of moves, not direction. No signals, no trades.
+// Closed bars only. Past statistics do not predict future results. Not financial advice. algotraders24.ai
+indicator("AT24 Regime AI", shorttitle="AT24 REGIME", overlay=true, max_bars_back=1000)
+
+grp1 = "Display"
+colorBars = input.bool(true, "Colour the candles by market state", group=grp1)
+showDash = input.bool(true, "Show dashboard", group=grp1)
+dashPos = input.string("top right", "Dashboard position", options=["top left", "top right", "bottom left", "bottom right"], group=grp1)
+grp2 = "Range model"
+minTrain = input.int(1500, "Fewest training rows for the range model", minval=500, maxval=5000, group=grp2)
+
+// ---- fixed model constants (identical to AT24_RA_Core.mqh) ----
+var float[] MU = array.from(0.163863, -0.031967, 1.014311, 5.525808)
+var float[] SD = array.from(0.119898, 0.26684, 0.766584, 1.932356)
+var float[] CENT = array.from(0.1023, 0.1663, 0.6141, 4.3468, 0.1219, -0.2405, 1.3098, 7.4327, 0.3395, -0.1325, 2.6010, 9.4282, 0.1197, -0.2249, 0.4958, 4.6743, 0.2955, 0.1396, 1.5741, 5.6380)
+
+stName(s) => s == 0 ? "NOISY" : s == 1 ? "WIDE SWING" : s == 2 ? "STRONG MOVE" : s == 3 ? "COMPRESSED" : s == 4 ? "STEADY TREND" : "-"
+stCol(s) => s == 0 ? color.rgb(120, 130, 145) : s == 1 ? color.rgb(230, 140, 60) : s == 2 ? color.rgb(60, 190, 110) : s == 3 ? color.rgb(80, 160, 230) : s == 4 ? color.rgb(180, 120, 220) : color.gray
+
+f_state(float x1, float x2, float x3, float x4) =>
+    int best = 0
+    float bd = 1e18
+    for k = 0 to 4
+        float d = 0.0
+        for q = 0 to 3
+            float xv = q == 0 ? x1 : q == 1 ? x2 : q == 2 ? x3 : x4
+            float z = (xv - array.get(MU, q)) / array.get(SD, q)
+            float zc = (array.get(CENT, k * 4 + q) - array.get(MU, q)) / array.get(SD, q)
+            d += (z - zc) * (z - zc)
+        if d < bd - 1e-12
+            bd := d
+            best := k
+    best
+
+// ---- features of the bar (SPEC section 2) ----
+tr = ta.tr(true)
+a14 = ta.sma(tr, 14)
+a24 = ta.sma(tr, 24)
+a100 = ta.sma(tr, 100)
+a120 = ta.sma(tr, 120)
+den48 = math.sum(math.abs(close - close[1]), 48)
+er = den48 > 0 ? math.abs(close - close[48]) / den48 : 0.0
+lvol = math.log(a14 / a100)
+var float e20 = na
+if na(e20)
+    e20 := close
+else
+    e20 := (2.0 / 21.0) * close + (1.0 - 2.0 / 21.0) * e20
+slope = math.min(6.0, math.abs(e20 - e20[10]) / a14)
+hh24 = ta.highest(high, 24)
+ll24 = ta.lowest(low, 24)
+rngx = math.min(30.0, (hh24 - ll24) / a14)
+validBar = bar_index >= 99 and not na(a14) and not na(a100) and not na(er) and not na(slope) and a14 > 0 and a100 > 0
+stateNow = validBar ? f_state(er, lvol, slope, rngx) : -1
+
+// range-model features (SPEC section 9): from bar 150
+okR = bar_index >= 150 and not na(a14) and not na(a24) and not na(a120) and a14 > 0 and a24 > 0 and a120 > 0 and close > 0
+
+// ---- history (one entry per closed bar; index = bar_index) ----
+var int[] stA = array.new_int()
+var float[] frA = array.new_float()      // forward range in ATR14 units, -1 = unknown
+var float[] yA = array.new_float()       // ln(forward range / close), valid only when yokA = 1
+var int[] yokA = array.new_int()
+var float[] l14A = array.new_float()
+var float[] l24A = array.new_float()
+var float[] l120A = array.new_float()
+var int[] okA = array.new_int()
+var int[] hrA = array.new_int()
+var float[] a14A = array.new_float()
+var float[] clA = array.new_float()
+if barstate.isconfirmed
+    array.push(stA, stateNow)
+    array.push(frA, -1.0)
+    array.push(yA, 0.0)
+    array.push(yokA, 0)
+    array.push(l14A, okR ? math.log(a14 / close) : 0.0)
+    array.push(l24A, okR ? math.log(a24 / close) : 0.0)
+    array.push(l120A, okR ? math.log(a120 / close) : 0.0)
+    array.push(okA, okR ? 1 : 0)
+    array.push(hrA, hour(time, "UTC"))
+    array.push(a14A, na(a14) ? 0.0 : a14)
+    array.push(clA, close)
+    int j = bar_index - 24
+    if j >= 0
+        if array.get(stA, j) >= 0 and array.get(a14A, j) > 0
+            array.set(frA, j, (hh24 - ll24) / array.get(a14A, j))
+        if array.get(okA, j) == 1
+            float fr = (hh24 - ll24) / array.get(clA, j)
+            if fr > 0
+                array.set(yA, j, math.log(fr))
+                array.set(yokA, j, 1)
+
+// ---- expected range: ridge fit (SPEC section 9) ----
+f_solve(float[] A, float[] b, int k) =>
+    // Gaussian elimination with partial pivoting (while loops: a Pine for loop with start > end counts backwards); empty array when singular
+    float[] M = array.copy(A)
+    float[] v = array.copy(b)
+    float[] x = array.new_float(k, 0.0)
+    bool okS = true
+    int c = 0
+    while c < k and okS
+        int piv = c
+        float best = math.abs(array.get(M, c * k + c))
+        int r = c + 1
+        while r < k
+            if math.abs(array.get(M, r * k + c)) > best
+                best := math.abs(array.get(M, r * k + c))
+                piv := r
+            r += 1
+        if best < 1e-14
+            okS := false
+        else
+            if piv != c
+                int jj = 0
+                while jj < k
+                    float tmp = array.get(M, c * k + jj)
+                    array.set(M, c * k + jj, array.get(M, piv * k + jj))
+                    array.set(M, piv * k + jj, tmp)
+                    jj += 1
+                float tb = array.get(v, c)
+                array.set(v, c, array.get(v, piv))
+                array.set(v, piv, tb)
+            r := c + 1
+            while r < k
+                float f = array.get(M, r * k + c) / array.get(M, c * k + c)
+                int j2 = c
+                while j2 < k
+                    array.set(M, r * k + j2, array.get(M, r * k + j2) - f * array.get(M, c * k + j2))
+                    j2 += 1
+                array.set(v, r, array.get(v, r) - f * array.get(v, c))
+                r += 1
+            c += 1
+    if okS
+        int i = k - 1
+        while i >= 0
+            float s = array.get(v, i)
+            int j3 = i + 1
+            while j3 < k
+                s -= array.get(M, i * k + j3) * array.get(x, j3)
+                j3 += 1
+            array.set(x, i, s / array.get(M, i * k + i))
+            i -= 1
+    okS ? x : array.new_float()
+
+f_quant(float[] sorted, float p) =>
+    int m = array.size(sorted)
+    float pos = p * (m - 1)
+    int lo = int(math.floor(pos))
+    int hi = math.min(lo + 1, m - 1)
+    float fr = pos - lo
+    array.get(sorted, lo) + (array.get(sorted, hi) - array.get(sorted, lo)) * fr
+
+// model layout: [0] ok, [1] ymean, [2..25] hour means, [26..29] mean, [30..33] sd, [34..37] w, [38] q10, [39] q50, [40] q90, [41] rows
+f_fit(int a, int b) =>
+    float[] mdl = array.new_float(42, 0.0)
+    float[] hs = array.new_float(24, 0.0)
+    int[] hc = array.new_int(24, 0)
+    float ys = 0.0
+    int cnt = 0
+    for i = a to b
+        if array.get(okA, i) == 1 and array.get(yokA, i) == 1
+            int hr = array.get(hrA, i)
+            array.set(hs, hr, array.get(hs, hr) + array.get(yA, i))
+            array.set(hc, hr, array.get(hc, hr) + 1)
+            ys += array.get(yA, i)
+            cnt += 1
+    if cnt >= minTrain
+        float ym = ys / cnt
+        array.set(mdl, 1, ym)
+        array.set(mdl, 41, cnt)
+        for hr = 0 to 23
+            array.set(mdl, 2 + hr, array.get(hc, hr) > 0 ? array.get(hs, hr) / array.get(hc, hr) : ym)
+        float[] X = array.new_float(cnt * 4, 0.0)
+        float[] yy = array.new_float(cnt, 0.0)
+        int r = 0
+        for i = a to b
+            if array.get(okA, i) == 1 and array.get(yokA, i) == 1
+                array.set(X, r * 4 + 0, array.get(l14A, i))
+                array.set(X, r * 4 + 1, array.get(l24A, i))
+                array.set(X, r * 4 + 2, array.get(l120A, i))
+                array.set(X, r * 4 + 3, array.get(mdl, 2 + array.get(hrA, i)))
+                array.set(yy, r, array.get(yA, i))
+                r += 1
+        for q = 0 to 3
+            float s = 0.0
+            for k = 0 to cnt - 1
+                s += array.get(X, k * 4 + q)
+            float mean = s / cnt
+            float v = 0.0
+            for k = 0 to cnt - 1
+                float dd = array.get(X, k * 4 + q) - mean
+                v += dd * dd
+            array.set(mdl, 26 + q, mean)
+            array.set(mdl, 30 + q, math.sqrt(v / cnt) + 1e-12)
+        float[] A = array.new_float(16, 0.0)
+        float[] bv = array.new_float(4, 0.0)
+        for k = 0 to cnt - 1
+            float[] z = array.new_float(4, 0.0)
+            for q = 0 to 3
+                array.set(z, q, (array.get(X, k * 4 + q) - array.get(mdl, 26 + q)) / array.get(mdl, 30 + q))
+            for p1 = 0 to 3
+                array.set(bv, p1, array.get(bv, p1) + array.get(z, p1) * (array.get(yy, k) - ym))
+                for p2 = 0 to 3
+                    array.set(A, p1 * 4 + p2, array.get(A, p1 * 4 + p2) + array.get(z, p1) * array.get(z, p2))
+        for p1 = 0 to 3
+            array.set(A, p1 * 4 + p1, array.get(A, p1 * 4 + p1) + 1.0)
+        float[] w = f_solve(A, bv, 4)
+        if array.size(w) == 4
+            for q = 0 to 3
+                array.set(mdl, 34 + q, array.get(w, q))
+            float[] res = array.new_float(cnt, 0.0)
+            for k = 0 to cnt - 1
+                float p = ym
+                for q = 0 to 3
+                    p += ((array.get(X, k * 4 + q) - array.get(mdl, 26 + q)) / array.get(mdl, 30 + q)) * array.get(mdl, 34 + q)
+                array.set(res, k, array.get(yy, k) - p)
+            array.sort(res)
+            array.set(mdl, 38, f_quant(res, 0.10))
+            array.set(mdl, 39, f_quant(res, 0.50))
+            array.set(mdl, 40, f_quant(res, 0.90))
+            array.set(mdl, 0, 1.0)
+    mdl
+
+f_predict(float[] mdl, int i) =>
+    float p = array.get(mdl, 1)
+    for q = 0 to 3
+        float xv = q == 0 ? array.get(l14A, i) : q == 1 ? array.get(l24A, i) : q == 2 ? array.get(l120A, i) : array.get(mdl, 2 + array.get(hrA, i))
+        p += ((xv - array.get(mdl, 26 + q)) / array.get(mdl, 30 + q)) * array.get(mdl, 34 + q)
+    p
+
+// ---- dashboard ----
+pos = switch dashPos
+    "top left" => position.top_left
+    "top right" => position.top_right
+    "bottom left" => position.bottom_left
+    => position.bottom_right
+var table t = table.new(pos, 5, 12, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+gold = color.rgb(255, 214, 110)
+
+if barstate.islast and showDash
+    int n = array.size(stA)
+    table.cell(t, 0, 0, "AT24 REGIME AI", text_color=gold, text_size=size.normal, bgcolor=color.rgb(26, 50, 96))
+    table.merge_cells(t, 0, 0, 4, 0)
+    if timeframe.period != "60" or n < 700
+        table.cell(t, 0, 1, timeframe.period != "60" ? "Open this on an H1 chart." : "Not enough history (needs 700+ H1 bars).", text_color=color.orange, text_size=size.small)
+        table.merge_cells(t, 0, 1, 4, 1)
+    else
+        // own-history statistics over all stored closed bars
+        int[] cn = array.new_int(5, 0)
+        int[] cnf = array.new_int(5, 0)
+        float[] cs = array.new_float(5, 0.0)
+        int[] cstay = array.new_int(5, 0)
+        int[] ctr = array.new_int(5, 0)
+        int[] crun = array.new_int(5, 0)
+        int tot = 0
+        float sumAll = 0.0
+        int nAll = 0
+        int prev = -1
+        for i = 99 to n - 1
+            int s = array.get(stA, i)
+            if s < 0
+                prev := -1
+                continue
+            array.set(cn, s, array.get(cn, s) + 1)
+            tot += 1
+            float f = array.get(frA, i)
+            if f >= 0
+                array.set(cnf, s, array.get(cnf, s) + 1)
+                array.set(cs, s, array.get(cs, s) + f)
+                sumAll += f
+                nAll += 1
+            if i + 1 < n
+                int nx = array.get(stA, i + 1)
+                if nx >= 0
+                    array.set(ctr, s, array.get(ctr, s) + 1)
+                    if nx == s
+                        array.set(cstay, s, array.get(cstay, s) + 1)
+            if prev != s
+                array.set(crun, s, array.get(crun, s) + 1)
+            prev := s
+        float allF = nAll > 0 ? sumAll / nAll : 0.0
+        int k = array.get(stA, n - 1)
+        int runNow = 0
+        if k >= 0
+            runNow := 1
+            for dd = 1 to n - 1
+                if array.get(stA, n - 1 - dd) == k
+                    runNow += 1
+                else
+                    break
+        table.cell(t, 0, 1, "MARKET STATE", text_color=gold, text_size=size.small)
+        table.cell(t, 1, 1, k >= 0 ? stName(k) : "-", text_color=stCol(k), text_size=size.large)
+        table.merge_cells(t, 1, 1, 4, 1)
+        int kk = math.max(k, 0)
+        float pst = (k >= 0 and array.get(ctr, kk) > 0) ? array.get(cstay, kk) * 1.0 / array.get(ctr, kk) * 100.0 : 0.0
+        table.cell(t, 0, 2, k >= 0 ? "for " + str.tostring(runNow) + " bar" + (runNow == 1 ? "" : "s") + ", stays next bar " + str.tostring(pst, "0") + " %" : "", text_color=color.silver, text_size=size.small)
+        table.merge_cells(t, 0, 2, 4, 2)
+        // expected range
+        float[] mf = f_fit(150, n - 1 - 24)
+        // the model rows are known up to n-1-24; the last stored bar is n-1
+        if true
+            if array.get(mf, 0) == 1.0 and array.get(okA, n - 1) == 1
+                float pr = f_predict(mf, n - 1)
+                float px = array.get(clA, n - 1)
+                float mid = px * math.exp(pr + array.get(mf, 39))
+                float lo = px * math.exp(pr + array.get(mf, 38))
+                float hi = px * math.exp(pr + array.get(mf, 40))
+                // out-of-sample coverage: fit on the first 70 % (48-bar gap), test on the rest
+                int a0 = 150
+                int b0 = n - 1 - 24
+                int sp = a0 + int(0.7 * (b0 - a0))
+                float[] tf = f_fit(a0, sp - 48)
+                int inn = 0
+                int mm = 0
+                if array.get(tf, 0) == 1.0
+                    for i = sp to b0
+                        if array.get(okA, i) == 1 and array.get(yokA, i) == 1
+                            float p = f_predict(tf, i)
+                            mm += 1
+                            float yv = array.get(yA, i)
+                            if yv >= p + array.get(tf, 38) - 1e-12 and yv <= p + array.get(tf, 40) + 1e-12
+                                inn += 1
+                float cov = mm > 0 ? inn * 1.0 / mm * 100.0 : 0.0
+                table.cell(t, 0, 3, "next 24 h range ~ " + str.tostring(mid, format.mintick) + "  (" + str.tostring(mid / px * 100.0, "0.00") + " %)", text_color=color.white, text_size=size.small)
+                table.merge_cells(t, 0, 3, 4, 3)
+                table.cell(t, 0, 4, "80 % band " + str.tostring(lo, format.mintick) + " - " + str.tostring(hi, format.mintick) + "   held " + str.tostring(cov, "0") + " %", text_color=color.gray, text_size=size.small)
+                table.merge_cells(t, 0, 4, 4, 4)
+            else
+                table.cell(t, 0, 3, "range model: not enough history", text_color=color.gray, text_size=size.small)
+                table.merge_cells(t, 0, 3, 4, 3)
+                table.cell(t, 0, 4, " ", text_size=size.tiny)
+                table.merge_cells(t, 0, 4, 4, 4)
+        table.cell(t, 0, 5, "STATE", text_color=gold, text_size=size.small)
+        table.cell(t, 1, 5, "SHARE", text_color=gold, text_size=size.small)
+        table.cell(t, 2, 5, "MEAN RUN", text_color=gold, text_size=size.small)
+        table.cell(t, 3, 5, "STAYS", text_color=gold, text_size=size.small)
+        table.cell(t, 4, 5, "NEXT 24 H RANGE", text_color=gold, text_size=size.small)
+        for q = 0 to 4
+            float share = tot > 0 ? array.get(cn, q) * 1.0 / tot * 100.0 : 0.0
+            float mrun = array.get(crun, q) > 0 ? array.get(cn, q) * 1.0 / array.get(crun, q) : 0.0
+            float stp = array.get(ctr, q) > 0 ? array.get(cstay, q) * 1.0 / array.get(ctr, q) * 100.0 : 0.0
+            bool claim = array.get(cnf, q) >= 200 and allF > 0
+            float ratio = claim ? (array.get(cs, q) / array.get(cnf, q)) / allF : 0.0
+            table.cell(t, 0, 6 + q, (q == k ? "> " : "  ") + stName(q), text_color=stCol(q), text_size=size.small)
+            table.cell(t, 1, 6 + q, str.tostring(share, "0") + " %", text_color=color.silver, text_size=size.small)
+            table.cell(t, 2, 6 + q, str.tostring(mrun, "0.0"), text_color=color.silver, text_size=size.small)
+            table.cell(t, 3, 6 + q, str.tostring(stp, "0") + " %", text_color=color.silver, text_size=size.small)
+            table.cell(t, 4, 6 + q, claim ? "x" + str.tostring(ratio, "0.00") + " (n " + str.tostring(array.get(cnf, q)) + ")" : "-", text_color=claim ? (ratio > 1.05 ? color.rgb(230, 140, 60) : ratio < 0.95 ? color.rgb(80, 160, 230) : color.silver) : color.gray, text_size=size.small)
+        table.cell(t, 0, 11, "Size of moves, not direction. x1.00 = average next 24 h range. Past results do not predict.", text_color=color.gray, text_size=size.tiny)
+        table.merge_cells(t, 0, 11, 4, 11)
+
+barcolor(colorBars and stateNow >= 0 ? stCol(stateNow) : na)
+alertcondition(barstate.isconfirmed and stateNow >= 0 and stateNow != nz(stateNow[1], -1) and nz(stateNow[1], -1) >= 0, "AT24 Regime AI: state changed", "AT24 Regime AI: market state changed")
