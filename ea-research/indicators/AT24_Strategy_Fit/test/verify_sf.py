@@ -68,7 +68,8 @@ for f in sorted(glob.glob(os.path.join(d0, "SF_selftest_*.csv"))):
                 if stopAtr > 0:
                     sp = e0 - dirn * stopAtr * atr[i]
                     for j in range(i + 1, i + HOLD + 1):
-                        if (dirn > 0 and l[j] <= sp) or (dirn < 0 and h[j] >= sp):
+                        tol = 1e-12 * max(1.0, abs(sp))
+                        if (dirn > 0 and l[j] <= sp + tol) or (dirn < 0 and h[j] >= sp - tol):
                             pnl = dirn * (sp - e0); hit = True; break
                 cells[(r, st[i])].append((pnl - cost) / atr[i]); stp[(r, st[i])] += int(hit); ntr += 1
         maxd = 0.0; cm = 0

@@ -137,8 +137,9 @@ void AT24SF_Run(const int n, const double &o[], const double &h[], const double 
                if(stopAtr > 0.0)
                  {
                   double stopPx = e0 - d * stopAtr * atr14[i];
+                  double tol = 1e-12 * MathMax(1.0, MathAbs(stopPx));     // a stop price equal to a bar extreme up to rounding counts as hit
                   for(int j = i + 1; j <= i + AT24SF_HOLD; j++)
-                     if((d > 0 && l[j] <= stopPx) || (d < 0 && h[j] >= stopPx)) { pnl = d * (stopPx - e0); stp[cell]++; break; }
+                     if((d > 0 && l[j] <= stopPx + tol) || (d < 0 && h[j] >= stopPx - tol)) { pnl = d * (stopPx - e0); stp[cell]++; break; }
                  }
                double R = (pnl - cost) / atr14[i];
                int base = 0; for(int q = 0; q < cell; q++) base += cnt[q];
