@@ -22,3 +22,6 @@ Every closed H1 bar is put into one of 5 learned market states: NOISY, WIDE SWIN
 ## v1.30
 - Expected next-24-hour range with an 80 % band, from the symbol's own history and its hour-of-day pattern; the panel shows how often the band held on the last 30 % of the history. It sizes stops and targets; it does not say which way.
 - Buffers for EAs: expected range, band low, band high.
+
+## TradingView
+- Pine v5 version of the market states, the own-history statistics and the expected next-24-hour range (candle colours and a dashboard). The weekly-bias plan is MT5 only for now.

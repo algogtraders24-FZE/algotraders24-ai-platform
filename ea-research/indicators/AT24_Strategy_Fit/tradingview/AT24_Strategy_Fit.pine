@@ -1,0 +1,237 @@
+//@version=5
+// AT24 Strategy Fit (TradingView port, H1) - trend, breakout and reversion measured in each AT24 Regime AI market state on this chart's own history.
+// A measurement of the past, not a forecast. No trades. Closed bars only. Past results do not predict future results. Not financial advice. algotraders24.ai
+indicator("AT24 Strategy Fit", shorttitle="AT24 FIT", overlay=true, max_bars_back=1000)
+
+grp1 = "Measured trade"
+stopAtr = input.float(2.0, "Protective stop in ATR(14) of the signal bar (0 = no stop)", minval=0.0, maxval=10.0, step=0.5, group=grp1)
+costPct = input.float(0.01, "Cost per trade, % of the entry price", minval=0.0, maxval=1.0, step=0.005, group=grp1)
+flips = input.int(1000, "Random sign flips of the luck test", minval=200, maxval=3000, step=100, group=grp1)
+grp2 = "Display"
+showDash = input.bool(true, "Show dashboard", group=grp2)
+dashPos = input.string("top right", "Dashboard position", options=["top left", "top right", "bottom left", "bottom right"], group=grp2)
+showArrow = input.bool(true, "Arrow on the last closed bar when a rule signals in a state where its own record is FIT", group=grp2)
+
+HOLD = 24
+FIRST = 250
+MINN = 30
+
+var float[] MU = array.from(0.163863, -0.031967, 1.014311, 5.525808)
+var float[] SD = array.from(0.119898, 0.26684, 0.766584, 1.932356)
+var float[] CENT = array.from(0.1023, 0.1663, 0.6141, 4.3468, 0.1219, -0.2405, 1.3098, 7.4327, 0.3395, -0.1325, 2.6010, 9.4282, 0.1197, -0.2249, 0.4958, 4.6743, 0.2955, 0.1396, 1.5741, 5.6380)
+
+stName(s) => s == 0 ? "NOISY" : s == 1 ? "WIDE SWING" : s == 2 ? "STRONG MOVE" : s == 3 ? "COMPRESSED" : s == 4 ? "STEADY TREND" : "-"
+stCol(s) => s == 0 ? color.rgb(120, 130, 145) : s == 1 ? color.rgb(230, 140, 60) : s == 2 ? color.rgb(60, 190, 110) : s == 3 ? color.rgb(80, 160, 230) : s == 4 ? color.rgb(180, 120, 220) : color.gray
+ruleName(r) => r == 0 ? "TREND" : r == 1 ? "BREAKOUT" : "REVERSION"
+clsName(c) => c == 1 ? "FIT" : c == -1 ? "AVOID" : c == 0 ? "NEUTRAL" : "TOO FEW"
+clsBg(c) => c == 1 ? color.rgb(24, 78, 46) : c == -1 ? color.rgb(84, 34, 34) : c == 0 ? color.rgb(30, 40, 62) : color.rgb(18, 26, 42)
+f_sg(float v) => (v >= 0 ? "+" : "") + str.tostring(v, "0.00")
+clsTx(c) => c == 1 ? color.lime : c == -1 ? color.rgb(255, 99, 71) : c == 0 ? color.silver : color.gray
+
+f_state(float x1, float x2, float x3, float x4) =>
+    int best = 0
+    float bd = 1e18
+    for k = 0 to 4
+        float d = 0.0
+        for q = 0 to 3
+            float xv = q == 0 ? x1 : q == 1 ? x2 : q == 2 ? x3 : x4
+            float z = (xv - array.get(MU, q)) / array.get(SD, q)
+            float zc = (array.get(CENT, k * 4 + q) - array.get(MU, q)) / array.get(SD, q)
+            d += (z - zc) * (z - zc)
+        if d < bd - 1e-12
+            bd := d
+            best := k
+    best
+
+// ---- market state (same as AT24 Regime AI) ----
+tr = ta.tr(true)
+a14 = ta.sma(tr, 14)
+a100 = ta.sma(tr, 100)
+den48 = math.sum(math.abs(close - close[1]), 48)
+er = den48 > 0 ? math.abs(close - close[48]) / den48 : 0.0
+lvol = math.log(a14 / a100)
+var float e20 = na
+if na(e20)
+    e20 := close
+else
+    e20 := (2.0 / 21.0) * close + (1.0 - 2.0 / 21.0) * e20
+slope = math.min(6.0, math.abs(e20 - e20[10]) / a14)
+rngx = math.min(30.0, (ta.highest(high, 24) - ta.lowest(low, 24)) / a14)
+validBar = bar_index >= 99 and not na(a14) and not na(a100) and not na(er) and not na(slope) and a14 > 0 and a100 > 0
+stateNow = validBar ? f_state(er, lvol, slope, rngx) : -1
+
+// ---- the three rules (SPEC section 2) ----
+var float e50 = na
+var float e200 = na
+if na(e50)
+    e50 := close
+    e200 := close
+else
+    e50 := (2.0 / 51.0) * close + (1.0 - 2.0 / 51.0) * e50
+    e200 := (2.0 / 201.0) * close + (1.0 - 2.0 / 201.0) * e200
+hh20 = ta.highest(high, 20)[1]
+ll20 = ta.lowest(low, 20)[1]
+upv = ta.sma(math.max(close - close[1], 0.0), 14)
+dnv = ta.sma(math.max(close[1] - close, 0.0), 14)
+rsi = 100.0 - 100.0 / (1.0 + upv / (dnv + 1e-12))
+int sT = 0
+int sB = 0
+int sR = 0
+if bar_index >= FIRST
+    sT := close > e50 and e50 > e200 ? 1 : close < e50 and e50 < e200 ? -1 : 0
+    sB := close > hh20 ? 1 : close < ll20 ? -1 : 0
+    sR := rsi < 30.0 ? 1 : rsi > 70.0 ? -1 : 0
+
+// ---- history and trades ----
+var int[] stA = array.new_int()
+var float[] oA = array.new_float()
+var float[] hA = array.new_float()
+var float[] lA = array.new_float()
+var float[] aA = array.new_float()
+var int[] sgA = array.new_int()          // 3 signals per bar
+var int[] lastT = array.from(-1000000, -1000000, -1000000)
+var float[] rvA = array.new_float()      // R of every trade
+var int[] rcA = array.new_int()          // cell = rule * 5 + state
+var int[] rsA = array.new_int()          // 1 = closed by the stop
+if barstate.isconfirmed
+    array.push(stA, stateNow)
+    array.push(oA, open)
+    array.push(hA, high)
+    array.push(lA, low)
+    array.push(aA, na(a14) ? 0.0 : a14)
+    array.push(sgA, sT)
+    array.push(sgA, sB)
+    array.push(sgA, sR)
+    int i = bar_index - HOLD - 1
+    if i >= FIRST
+        for r = 0 to 2
+            int d = array.get(sgA, i * 3 + r)
+            int sti = array.get(stA, i)
+            float ai = array.get(aA, i)
+            if d != 0 and sti >= 0 and ai > 0 and i - array.get(lastT, r) >= HOLD
+                array.set(lastT, r, i)
+                float e0 = array.get(oA, i + 1)
+                float pnl = d * (array.get(oA, i + 1 + HOLD) - e0)
+                int stopped = 0
+                if stopAtr > 0
+                    float stopPx = e0 - d * stopAtr * ai
+                    for j = i + 1 to i + HOLD
+                        if (d > 0 and array.get(lA, j) <= stopPx) or (d < 0 and array.get(hA, j) >= stopPx)
+                            pnl := d * (stopPx - e0)
+                            stopped := 1
+                            break
+                float cst = costPct / 100.0 * e0
+                array.push(rvA, (pnl - cst) / ai)
+                array.push(rcA, r * 5 + sti)
+                array.push(rsA, stopped)
+
+// ---- luck test: Park-Miller generator (Pine has no bit operations, so MT5's xorshift32 cannot be used) ----
+f_cell(int cell) =>
+    // returns [n, avg, hit, p, cls, stopped]
+    int m = 0
+    float s = 0.0
+    int w = 0
+    int sp = 0
+    int total = array.size(rvA)
+    for t = 0 to total - 1
+        if array.get(rcA, t) == cell
+            float v = array.get(rvA, t)
+            m += 1
+            s += v
+            sp += array.get(rsA, t)
+            if v > 0
+                w += 1
+    float avg = m > 0 ? s / m : 0.0
+    float hit = m > 0 ? w * 1.0 / m : 0.0
+    float p = 1.0
+    int cls = 2
+    if m >= MINN
+        float[] rv = array.new_float()
+        for t = 0 to total - 1
+            if array.get(rcA, t) == cell
+                array.push(rv, array.get(rvA, t))
+        float x = 20261118.0
+        int ge = 0
+        for f = 1 to flips
+            float fs = 0.0
+            for k = 0 to m - 1
+                x := (16807.0 * x) % 2147483647.0
+                fs += x > 1073741823.0 ? array.get(rv, k) : -array.get(rv, k)
+            if fs / m >= avg - 1e-12
+                ge += 1
+        p := ge * 1.0 / flips
+        cls := avg > 0 and p < 0.10 ? 1 : avg < 0 ? -1 : 0
+    [m, avg, hit, p, cls, sp]
+
+// ---- dashboard (heavy part runs once per new closed bar) ----
+pos = switch dashPos
+    "top left" => position.top_left
+    "top right" => position.top_right
+    "bottom left" => position.bottom_left
+    => position.bottom_right
+var table t = table.new(pos, 6, 11, bgcolor=color.new(#0C1628, 0), border_color=color.new(#C8A03C, 0), border_width=1, frame_color=color.new(#C8A03C, 0), frame_width=1)
+gold = color.rgb(255, 214, 110)
+var int calcN = 0
+var label arrowLbl = na
+
+if barstate.islast and showDash and array.size(stA) != calcN
+    int n = array.size(stA)
+    calcN := n
+    table.cell(t, 0, 0, "AT24 STRATEGY FIT", text_color=gold, text_size=size.normal, bgcolor=color.rgb(26, 50, 96))
+    table.merge_cells(t, 0, 0, 5, 0)
+    if timeframe.period != "60" or n < 1500
+        table.cell(t, 0, 1, timeframe.period != "60" ? "Open this on an H1 chart." : "Not enough history (needs 1500+ H1 bars).", text_color=color.orange, text_size=size.small)
+        table.merge_cells(t, 0, 1, 5, 1)
+    else
+        int k = array.get(stA, n - 1)
+        table.cell(t, 0, 1, "MARKET NOW", text_color=gold, text_size=size.small)
+        table.cell(t, 1, 1, k >= 0 ? stName(k) : "-", text_color=stCol(k), text_size=size.large)
+        table.merge_cells(t, 1, 1, 5, 1)
+        int[] cN = array.new_int(15, 0)
+        float[] cA = array.new_float(15, 0.0)
+        float[] cP = array.new_float(15, 1.0)
+        int[] cC = array.new_int(15, 2)
+        int stoppedAll = 0
+        int tradesAll = 0
+        for c = 0 to 14
+            [m, avg, hit, p, cls, sp] = f_cell(c)
+            array.set(cN, c, m)
+            array.set(cA, c, avg)
+            array.set(cP, c, p)
+            array.set(cC, c, cls)
+            stoppedAll += sp
+            tradesAll += m
+        table.cell(t, 0, 2, "RULE", text_color=gold, text_size=size.small)
+        table.cell(t, 1, 2, "SIGNAL NOW", text_color=gold, text_size=size.small)
+        table.cell(t, 2, 2, "OWN RECORD IN THE CURRENT STATE", text_color=gold, text_size=size.small)
+        table.merge_cells(t, 2, 2, 5, 2)
+        bool anyFit = false
+        for r = 0 to 2
+            int sg = array.get(sgA, (n - 1) * 3 + r)
+            int cell = r * 5 + math.max(k, 0)
+            int cl = k >= 0 ? array.get(cC, cell) : 2
+            table.cell(t, 0, 3 + r, ruleName(r), text_color=color.silver, text_size=size.small)
+            table.cell(t, 1, 3 + r, sg > 0 ? "▲ LONG" : sg < 0 ? "▼ SHORT" : "● none", text_color=sg > 0 ? color.lime : sg < 0 ? color.rgb(255, 99, 71) : color.gray, text_size=size.small)
+            table.cell(t, 2, 3 + r, k >= 0 ? clsName(cl) + "  " + f_sg(array.get(cA, cell)) + " R  n " + str.tostring(array.get(cN, cell)) + "  p " + str.tostring(array.get(cP, cell), "0.00") : "-", text_color=clsTx(cl), bgcolor=clsBg(cl), text_size=size.small)
+            table.merge_cells(t, 2, 3 + r, 5, 3 + r)
+            if sg != 0 and cl == 1
+                anyFit := true
+                if showArrow
+                    if not na(arrowLbl)
+                        label.delete(arrowLbl)
+                    arrowLbl := label.new(bar_index - 1, sg > 0 ? low[1] : high[1], ruleName(r) + (sg > 0 ? " long" : " short") + " (FIT)", style=sg > 0 ? label.style_label_up : label.style_label_down, color=sg > 0 ? color.new(color.lime, 20) : color.new(color.red, 20), textcolor=color.white, size=size.small)
+        if anyFit
+            alert("AT24 Strategy Fit " + syminfo.tickerid + ": a rule signals in a state where its own record is FIT", alert.freq_once_per_bar_close)
+        table.cell(t, 0, 6, "AVG R / TRADES", text_color=gold, text_size=size.small)
+        for s = 0 to 4
+            table.cell(t, 1 + s, 6, (s == k ? "> " : "") + stName(s), text_color=stCol(s), text_size=size.small)
+        for r = 0 to 2
+            table.cell(t, 0, 7 + r, ruleName(r), text_color=color.silver, text_size=size.small)
+            for s = 0 to 4
+                int cell = r * 5 + s
+                int mm = array.get(cN, cell)
+                int cl = array.get(cC, cell)
+                table.cell(t, 1 + s, 7 + r, mm > 0 ? f_sg(array.get(cA, cell)) + "  n" + str.tostring(mm) : "-", text_color=clsTx(cl), bgcolor=clsBg(cl), text_size=size.small)
+        string stopTxt = stopAtr > 0 ? "stop " + str.tostring(stopAtr, "0.0") + " ATR (hit in " + str.tostring(tradesAll > 0 ? stoppedAll * 100.0 / tradesAll : 0.0, "0") + " %)" : "NO stop"
+        table.cell(t, 0, 10, "24 h hold, " + stopTxt + ", cost " + str.tostring(costPct, "0.000") + " %. FIT = average above 0, p below 0.10, n 30+. A measurement of the past, not a forecast.", text_color=color.gray, text_size=size.tiny)
+        table.merge_cells(t, 0, 10, 5, 10)

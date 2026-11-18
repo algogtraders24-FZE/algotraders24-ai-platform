@@ -10,3 +10,6 @@ Three plain rules - trend (EMA 50 / 200), breakout (20-bar high / low) and rever
 
 ## v1.10
 - Optional protective stop in the measured trades (default 2 ATR, 0 = none): the record, the FIT / AVOID classes and the panel note are measured with that stop, and the share of stopped trades is shown. A stop caps each loss; it does not create an edge.
+
+## TradingView
+- Pine v5 version with the same rules, states, optional stop and statistics; the luck test uses a different random generator (p can differ slightly from MT5), cost is a percent of the entry price.
