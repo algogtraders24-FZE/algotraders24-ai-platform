@@ -7,3 +7,6 @@ One table for up to 24 symbols (forex majors, gold, silver, indices, Bitcoin by 
 - Optional alert when a rule signals in a state where its own record is FIT; buffer for EAs (number of FIT signals).
 - Input: symbol list, broker suffix, history bars, rows, only-FIT filter, alert, dashboard. H1. MT5. Price: 33 USD (series standard).
 - Test status: cores verified (26 + 23 unit tests, independent Python identical); scanner rows identical to the single-symbol panels; alerts and live forward record not verified yet.
+
+## v1.10
+- Same optional protective stop (default 2 ATR, 0 = none) in the measured trades; the panel note states it.

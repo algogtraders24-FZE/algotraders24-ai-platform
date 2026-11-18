@@ -1,0 +1,342 @@
+{
+ "0": {
+  "trend": {
+   "NOISY": [
+    -0.299,
+    3005
+   ],
+   "WIDE SWING": [
+    0.005,
+    1702
+   ],
+   "STRONG MOVE": [
+    -0.253,
+    869
+   ],
+   "COMPRESSED": [
+    -0.019,
+    3155
+   ],
+   "STEADY TREND": [
+    -0.134,
+    1940
+   ]
+  },
+  "breakout": {
+   "NOISY": [
+    -0.235,
+    2514
+   ],
+   "WIDE SWING": [
+    0.028,
+    1176
+   ],
+   "STRONG MOVE": [
+    -0.097,
+    436
+   ],
+   "COMPRESSED": [
+    0.135,
+    2998
+   ],
+   "STEADY TREND": [
+    0.011,
+    1436
+   ]
+  },
+  "reversion": {
+   "NOISY": [
+    -0.042,
+    2096
+   ],
+   "WIDE SWING": [
+    -0.344,
+    1710
+   ],
+   "STRONG MOVE": [
+    -0.302,
+    574
+   ],
+   "COMPRESSED": [
+    -0.514,
+    2700
+   ],
+   "STEADY TREND": [
+    0.03,
+    1910
+   ]
+  }
+ },
+ "1.0": {
+  "trend": {
+   "NOISY": [
+    -0.15,
+    3005
+   ],
+   "WIDE SWING": [
+    -0.044,
+    1702
+   ],
+   "STRONG MOVE": [
+    -0.086,
+    869
+   ],
+   "COMPRESSED": [
+    -0.051,
+    3155
+   ],
+   "STEADY TREND": [
+    -0.062,
+    1940
+   ]
+  },
+  "breakout": {
+   "NOISY": [
+    -0.118,
+    2514
+   ],
+   "WIDE SWING": [
+    -0.09,
+    1176
+   ],
+   "STRONG MOVE": [
+    -0.123,
+    436
+   ],
+   "COMPRESSED": [
+    0.03,
+    2998
+   ],
+   "STEADY TREND": [
+    -0.013,
+    1436
+   ]
+  },
+  "reversion": {
+   "NOISY": [
+    -0.115,
+    2096
+   ],
+   "WIDE SWING": [
+    -0.167,
+    1710
+   ],
+   "STRONG MOVE": [
+    -0.109,
+    574
+   ],
+   "COMPRESSED": [
+    -0.295,
+    2700
+   ],
+   "STEADY TREND": [
+    -0.018,
+    1910
+   ]
+  }
+ },
+ "1.5": {
+  "trend": {
+   "NOISY": [
+    -0.19,
+    3005
+   ],
+   "WIDE SWING": [
+    -0.0,
+    1702
+   ],
+   "STRONG MOVE": [
+    -0.018,
+    869
+   ],
+   "COMPRESSED": [
+    -0.002,
+    3155
+   ],
+   "STEADY TREND": [
+    -0.1,
+    1940
+   ]
+  },
+  "breakout": {
+   "NOISY": [
+    -0.139,
+    2514
+   ],
+   "WIDE SWING": [
+    -0.138,
+    1176
+   ],
+   "STRONG MOVE": [
+    -0.177,
+    436
+   ],
+   "COMPRESSED": [
+    0.061,
+    2998
+   ],
+   "STEADY TREND": [
+    0.043,
+    1436
+   ]
+  },
+  "reversion": {
+   "NOISY": [
+    -0.073,
+    2096
+   ],
+   "WIDE SWING": [
+    -0.206,
+    1710
+   ],
+   "STRONG MOVE": [
+    -0.075,
+    574
+   ],
+   "COMPRESSED": [
+    -0.303,
+    2700
+   ],
+   "STEADY TREND": [
+    0.04,
+    1910
+   ]
+  }
+ },
+ "2.0": {
+  "trend": {
+   "NOISY": [
+    -0.229,
+    3005
+   ],
+   "WIDE SWING": [
+    0.014,
+    1702
+   ],
+   "STRONG MOVE": [
+    -0.079,
+    869
+   ],
+   "COMPRESSED": [
+    0.016,
+    3155
+   ],
+   "STEADY TREND": [
+    -0.112,
+    1940
+   ]
+  },
+  "breakout": {
+   "NOISY": [
+    -0.167,
+    2514
+   ],
+   "WIDE SWING": [
+    -0.115,
+    1176
+   ],
+   "STRONG MOVE": [
+    0.014,
+    436
+   ],
+   "COMPRESSED": [
+    0.077,
+    2998
+   ],
+   "STEADY TREND": [
+    0.057,
+    1436
+   ]
+  },
+  "reversion": {
+   "NOISY": [
+    -0.041,
+    2096
+   ],
+   "WIDE SWING": [
+    -0.231,
+    1710
+   ],
+   "STRONG MOVE": [
+    -0.08,
+    574
+   ],
+   "COMPRESSED": [
+    -0.298,
+    2700
+   ],
+   "STEADY TREND": [
+    0.081,
+    1910
+   ]
+  }
+ },
+ "3.0": {
+  "trend": {
+   "NOISY": [
+    -0.252,
+    3005
+   ],
+   "WIDE SWING": [
+    -0.048,
+    1702
+   ],
+   "STRONG MOVE": [
+    -0.153,
+    869
+   ],
+   "COMPRESSED": [
+    0.024,
+    3155
+   ],
+   "STEADY TREND": [
+    -0.081,
+    1940
+   ]
+  },
+  "breakout": {
+   "NOISY": [
+    -0.183,
+    2514
+   ],
+   "WIDE SWING": [
+    -0.092,
+    1176
+   ],
+   "STRONG MOVE": [
+    -0.113,
+    436
+   ],
+   "COMPRESSED": [
+    0.091,
+    2998
+   ],
+   "STEADY TREND": [
+    -0.024,
+    1436
+   ]
+  },
+  "reversion": {
+   "NOISY": [
+    -0.032,
+    2096
+   ],
+   "WIDE SWING": [
+    -0.3,
+    1710
+   ],
+   "STRONG MOVE": [
+    -0.133,
+    574
+   ],
+   "COMPRESSED": [
+    -0.319,
+    2700
+   ],
+   "STEADY TREND": [
+    0.062,
+    1910
+   ]
+  }
+ }
+}

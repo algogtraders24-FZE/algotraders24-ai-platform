@@ -31,12 +31,14 @@ struct AT24SF_Cell
    double hit;      // share of trades with R > 0
    double p;        // luck test: share of random sign flips with mean >= real mean (1 when n = 0)
    int    cls;      // 1 FIT, 0 neutral, -1 AVOID, 2 no claim (n < 30)
+   int    nStop;    // trades closed by the protective stop
   };
 
 struct AT24SF_Res
   {
    AT24SF_Cell c[AT24SF_NR * AT24RA_K];     // index rule * 5 + state
    int         trades;
+   int         stopped;                     // trades closed by the stop, all cells
   };
 
 //--- signals of every bar: sig[i * 3 + rule] = +1 / -1 / 0
@@ -85,7 +87,7 @@ uint AT24SF_Next(uint &x)
 //--- cell statistics from a list of R values (luck test included)
 void AT24SF_CellOf(const double &rv[], const int m, AT24SF_Cell &c)
   {
-   c.n = m; c.avg = 0.0; c.hit = 0.0; c.p = 1.0; c.cls = 2;
+   c.n = m; c.avg = 0.0; c.hit = 0.0; c.p = 1.0; c.cls = 2; c.nStop = 0;
    if(m <= 0) return;
    double s = 0.0; int w = 0;
    for(int i = 0; i < m; i++) { s += rv[i]; if(rv[i] > 0.0) w++; }
@@ -104,14 +106,16 @@ void AT24SF_CellOf(const double &rv[], const int m, AT24SF_Cell &c)
    else c.cls = 0;
   }
 
-//--- trades of the last bars from index 'from': R per rule and state
-void AT24SF_Run(const int n, const double &o[], const double &atr14[], const bool &valid[], const int &st[], const int &sig[],
-                const double cost, const int from, AT24SF_Res &res)
+//--- trades of the last bars from index 'from': R per rule and state. stopAtr > 0: protective stop at stopAtr x ATR14 of the signal bar from the entry price,
+//--- checked on the high / low of the bars entry..entry+23; a hit closes the trade at the stop price (a loss of exactly stopAtr ATR before cost); 0 = no stop
+void AT24SF_Run(const int n, const double &o[], const double &h[], const double &l[], const double &atr14[], const bool &valid[], const int &st[], const int &sig[],
+                const double cost, const double stopAtr, const int from, AT24SF_Res &res)
   {
    double rv[];
    int total = 0;
    //--- first pass: count trades per cell, second pass fill
    int cnt[AT24SF_NR * AT24RA_K]; ArrayInitialize(cnt, 0);
+   int stp[AT24SF_NR * AT24RA_K]; ArrayInitialize(stp, 0);
    int i0 = MathMax(from, AT24SF_FIRST);
    for(int ph = 0; ph < 2; ph++)
      {
@@ -129,7 +133,14 @@ void AT24SF_Run(const int n, const double &o[], const double &atr14[], const boo
             if(ph == 0) { cnt[cell]++; total++; }
             else
               {
-               double R = (d * (o[i + 1 + AT24SF_HOLD] - o[i + 1]) - cost) / atr14[i];
+               double e0 = o[i + 1], pnl = d * (o[i + 1 + AT24SF_HOLD] - e0);
+               if(stopAtr > 0.0)
+                 {
+                  double stopPx = e0 - d * stopAtr * atr14[i];
+                  for(int j = i + 1; j <= i + AT24SF_HOLD; j++)
+                     if((d > 0 && l[j] <= stopPx) || (d < 0 && h[j] >= stopPx)) { pnl = d * (stopPx - e0); stp[cell]++; break; }
+                 }
+               double R = (pnl - cost) / atr14[i];
                int base = 0; for(int q = 0; q < cell; q++) base += cnt[q];
                rv[base + pos[cell]] = R; pos[cell]++;
               }
@@ -137,13 +148,14 @@ void AT24SF_Run(const int n, const double &o[], const double &atr14[], const boo
         }
       if(ph == 0) ArrayResize(rv, MathMax(total, 1));
      }
-   res.trades = total;
+   res.trades = total; res.stopped = 0;
    int base = 0;
    for(int cell = 0; cell < AT24SF_NR * AT24RA_K; cell++)
      {
       double tmp[]; ArrayResize(tmp, MathMax(cnt[cell], 1));
       for(int k = 0; k < cnt[cell]; k++) tmp[k] = rv[base + k];
       AT24SF_CellOf(tmp, cnt[cell], res.c[cell]);
+      res.c[cell].nStop = stp[cell]; res.stopped += stp[cell];
       base += cnt[cell];
      }
   }
