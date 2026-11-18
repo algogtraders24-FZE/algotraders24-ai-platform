@@ -14,3 +14,7 @@ Every closed H1 bar is put into one of 5 learned market states: NOISY, WIDE SWIN
 - New 3D-style dashboard (bevelled panels, big state name, range columns per state).
 - Weekly bias from the verified Position Map rules: trend UP / DOWN / RANGE, stage, entry / stop / TP1 and the 1:3 record with n. Buy / sell arrows on the chart at each plan's entry, lines for the running plan, optional trigger alert.
 - Direction is the weekly-structure rule set, not a forecast; the state is about the size of moves.
+
+## v1.20
+- Tight plan by default: stop beyond the H4 turn instead of the weekly pullback extreme, with its own record (n shown). The wide weekly stop stays available as an input.
+- The panel shows the plan age, the price now, the distance to the stop and TP1 in %, and the lots for your risk percent; a plan older than 10 days is shown as OLD without chart lines. Entry / stop / TP1 lines can be switched off.

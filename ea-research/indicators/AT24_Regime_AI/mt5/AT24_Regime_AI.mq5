@@ -12,7 +12,7 @@
 //+------------------------------------------------------------------+
 #property copyright "AlgoTraders24"
 #property link      "https://algotraders24.ai"
-#property version   "1.10"
+#property version   "1.20"
 #property description "AT24 Regime AI - 5 learned market states on H1 (size of the next 24 h, with n) plus the weekly-structure bias and H4 trigger of AT24 Position Map: direction, entry, stop, target, arrows on the chart."
 #property description "The state says how big moves tend to be; the direction is the weekly structure rule set, not a prediction. Places no trades. Past results do not predict future results. Not financial advice."
 #property indicator_separate_window
@@ -28,15 +28,19 @@
 
 #include "AT24_RA_Core.mqh"
 #include "AT24_PM_Core.mqh"
+#include "AT24_RA_Plan.mqh"
 
 #resource "ra_logo56.bmp"
+
+enum ENUM_RA_STOP { RA_STOP_TURN = 0, RA_STOP_STRUCT = 1 };
 
 input group "=== History ==="
 input int    InpHistBars   = 20000;   // Closed H1 bars used for the own-history statistics
 input int    InpMaxBars    = 30000;   // H1 bars read from the chart (limits the first calculation)
 input group "=== Weekly bias (same rules as Position Map) ==="
 input bool   InpShowBias   = true;    // Show the weekly bias and the H4 trigger
-input bool   InpDrawArrows = true;    // Draw trigger arrows and the running plan on the chart
+input bool   InpDrawArrows = true;    // Draw buy / sell arrows at the plan entries
+input bool   InpDrawLevels = true;    // Draw entry / stop / TP1 lines of the running plan (off = no lines on the chart)
 input int    InpSwingW     = 2;       // Swing bars each side: weekly
 input int    InpSwingH     = 3;       // Swing bars each side: H4 (entry)
 input double InpMinSwingAtr = 0.75;   // Smallest swing in ATR(14) of its timeframe
@@ -45,6 +49,9 @@ input double InpStopBufAtr = 0.25;    // Stop buffer beyond the pullback extreme
 input double InpRR1        = 3.0;     // Target 1 as a multiple of the risk (1:3)
 input int    InpTimeStopWeeks = 8;    // Weeks before a plan that hit neither stop nor target is closed
 input bool   InpUseSwap    = true;    // Include the broker swap of the holding time in the record
+input ENUM_RA_STOP InpStopMode = RA_STOP_TURN; // Stop: beyond the H4 turn (tight) or beyond the weekly pullback extreme (Position Map, wide)
+input double InpRiskPercent = 0.5;    // Risk per plan for the lot size shown, percent of balance
+input int    InpFreshDays  = 10;      // A running plan older than this many days is shown as OLD (no chart lines, no buffer direction)
 input group "=== Alerts (bar close) ==="
 input bool   InpAlertChange  = false; // Alert when the market state changes on a closed H1 bar
 input bool   InpAlertTrigger = false; // Alert when the weekly-bias plan triggers on a closed H4 bar
@@ -77,12 +84,17 @@ struct Bias
    double entry, sl, tp1, risk, atrW;
    int    n3; double avg3, p3;
    int    nPlans;
+   datetime entryTime;   // H4 open of the entry bar (pending: of the bar after the trigger)
+   double cur;           // last closed H1 close
+   int    ageD;          // days since entry
+   bool   fresh;         // pending or younger than InpFreshDays
+   double lots;          // lots for InpRiskPercent
   };
 Bias gB;
 datetime gAlertH4 = 0;
 
 #define DASH_W 520
-#define DASH_H 362
+#define DASH_H 398
 
 color StateColor(const int s)
   {
@@ -175,7 +187,7 @@ void BuildFrame()
       if(ObjectFind(0, PFX + "mg" + IntegerToString(q)) < 0) Rect("mg" + IntegerToString(q), 0, 0, 1, 1, C'200,160,60', BORDER_FLAT, C'200,160,60');
       if(ObjectFind(0, PFX + "mc" + IntegerToString(q)) < 0) Rect("mc" + IntegerToString(q), 0, 0, 1, 1, StateColor(q), BORDER_RAISED, StateColor(q));
      }
-   Rect("pl", 10, 310, 500, 28, C'8,16,30', BORDER_SUNKEN, C'90,105,140');
+   Rect("pl", 10, 310, 500, 56, C'8,16,30', BORDER_SUNKEN, C'90,105,140');
    string lg = PFX + "logo";
    if(ObjectFind(0, lg) < 0) ObjectCreate(0, lg, OBJ_BITMAP_LABEL, 0, 0, 0);
    ObjectSetString(0, lg, OBJPROP_BMPFILE, "::ra_logo56.bmp");
@@ -213,10 +225,21 @@ void DelChartObjects()
    ObjectsDeleteAll(0, PFX + "lv");
   }
 
+double LotsFor(const double riskDist)
+  {
+   double tv = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE), ts = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
+   double step = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP), vmin = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN), vmax = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
+   if(tv <= 0.0 || ts <= 0.0 || riskDist <= 0.0 || step <= 0.0) return 0.0;
+   double money = AccountInfoDouble(ACCOUNT_BALANCE) * InpRiskPercent / 100.0;
+   double lots = money / ((riskDist / ts) * tv);
+   lots = MathFloor(lots / step) * step;
+   return MathMax(vmin, MathMin(vmax, lots));
+  }
+
 //--- weekly bias: the same chain as the Position Map / Position Scanner (unchanged core)
 void BuildBias()
   {
-   gB.ok = false; gB.live = false; gB.pending = false; gB.nPlans = 0;
+   gB.ok = false; gB.live = false; gB.pending = false; gB.nPlans = 0; gB.fresh = false; gB.ageD = 0; gB.lots = 0.0; gB.entryTime = 0; gB.cur = 0.0;
    MqlRates rw[], rh[];
    int nW = CopyRates(_Symbol, PERIOD_W1, 1, 400, rw);
    int nH = CopyRates(_Symbol, PERIOD_H4, 1, 4500, rh);
@@ -236,20 +259,35 @@ void BuildBias()
    int cW_ = AT24PM_Swings(nW, hW, lW, cW, aW, p.kW, p.minSwingAtr, sW);
    int cH_ = AT24PM_Swings(nH, hH, lH, cH, aH, p.kH, p.minSwingAtr, sH);
    AT24PM_Plan pl[]; int np = AT24PM_Run(nW, tW, hW, lW, cW, nH, tH, oH, hH, lH, cH, p, pl);
-   AT24PM_Score sc; AT24PM_ScoreOf(pl, np, 20261117, false, 0, sc);
+   AT24PM_Plan use[];
+   if(InpStopMode == RA_STOP_TURN)
+     {
+      double tpx[]; int tbr[];
+      AT24RA_TightPlans(np, pl, nW, tW, sW, cW_, nH, tH, hH, lH, cH, sH, cH_, aH, p, use, tpx, tbr);
+     }
+   else { ArrayResize(use, np); for(int k = 0; k < np; k++) use[k] = pl[k]; }
+   AT24PM_Score sc; AT24PM_ScoreOf(use, np, 20261117, false, 0, sc);
    AT24PM_Ctx x; AT24PM_Eval(nH - 1, nW, tW, sW, cW_, nH, tH, hH, lH, cH, sH, cH_, p, x);
    gB.trendW = AT24PM_Trend(sW, cW_, nW - 1);
    gB.stage = x.stage; gB.dir = x.dir; gB.depth = x.depth; gB.B = x.B; gB.atrW = aW[nW - 1];
    gB.entry = 0.0; gB.sl = 0.0; gB.tp1 = 0.0; gB.risk = 0.0;
    if(np > 0)
      {
-      AT24PM_Plan q = pl[np - 1];
+      AT24PM_Plan q = use[np - 1];
       if(q.status == 3) { gB.live = true; gB.pending = true; }
       else if(q.status == 1 && (q.st[0] == 2 || q.st[1] == 2 || q.st[2] == 2)) gB.live = true;
       if(gB.live)
         {
          gB.entry = gB.pending ? cH[nH - 1] : q.entry; gB.sl = q.sl; gB.risk = MathAbs(gB.entry - q.sl);
          gB.tp1 = gB.entry + q.dir * InpRR1 * gB.risk; gB.dir = q.dir;
+         int ei = gB.pending ? q.trigIdx : q.entryIdx;
+         gB.entryTime = (ei >= 0 && ei < nH) ? tH[ei] : 0;
+         double lc = iClose(_Symbol, PERIOD_H1, 1);
+         gB.cur = lc > 0.0 ? lc : cH[nH - 1];
+         datetime lt = iTime(_Symbol, PERIOD_H1, 1);
+         gB.ageD = (gB.pending || gB.entryTime == 0 || lt == 0) ? 0 : (int)MathMax(0, (lt - gB.entryTime) / 86400);
+         gB.fresh = gB.pending || gB.ageD <= InpFreshDays;
+         gB.lots = LotsFor(gB.risk);
         }
      }
    gB.n3 = sc.n; gB.avg3 = sc.avgR; gB.p3 = sc.pFlip; gB.nPlans = np;
@@ -261,7 +299,7 @@ void BuildBias()
       int from = MathMax(0, np - 60);
       for(int k = from; k < np; k++)
         {
-         AT24PM_Plan q = pl[k];
+         AT24PM_Plan q = use[k];
          if(q.status != 1 && q.status != 3) continue;
          int ix = (q.status == 3) ? q.trigIdx : q.entryIdx;
          if(ix < 0 || ix >= nH) continue;
@@ -276,7 +314,7 @@ void BuildBias()
          ObjectSetInteger(0, an, OBJPROP_HIDDEN, true);
          ObjectSetString(0, an, OBJPROP_TOOLTIP, StringFormat("AT24 weekly-structure plan: %s, stop %s", q.dir > 0 ? "LONG" : "SHORT", DoubleToString(q.sl, _Digits)));
         }
-      if(gB.live)
+      if(InpDrawLevels && gB.live && gB.fresh)
         {
          string nm[3] = {"entry", "stop", "tp1"}; double pr[3] = {gB.entry, gB.sl, gB.tp1};
          color cl[3] = {clrGold, clrTomato, clrLimeGreen};
@@ -299,14 +337,15 @@ string StageTxt(color &c)
   {
    c = clrSilver;
    if(gB.live && gB.pending) { c = clrGold; return StringFormat("TRIGGER: %s, entry next open", gB.dir > 0 ? "LONG" : "SHORT"); }
-   if(gB.live) { c = clrSilver; return StringFormat("%s plan running", gB.dir > 0 ? "long" : "short"); }
+   if(gB.live && !gB.fresh) { c = clrSlateGray; return StringFormat("old %s plan still open (%d d)", gB.dir > 0 ? "long" : "short", gB.ageD); }
+   if(gB.live) { c = clrSilver; return StringFormat("%s plan running (%d d)", gB.dir > 0 ? "long" : "short", gB.ageD); }
    if(gB.trendW == 0) { c = clrSlateGray; return "weekly range: no trade"; }
    switch(gB.stage)
      {
       case 1: return StringFormat("waiting for a pullback (%.0f %%)", MathMax(0.0, gB.depth) * 100.0);
       case 2: return StringFormat("pullback %.0f %%: wait H4 turn", gB.depth * 100.0);
       case 3: c = clrGold; return StringFormat("H4 turn: close %s %s", gB.dir > 0 ? "above" : "below", DoubleToString(gB.B, _Digits));
-      case 4: c = clrGold; return "close beyond B on the last bar";
+      case 4: c = clrSlateGray; return "trigger already used: wait for the next turn";
      }
    return "";
   }
@@ -343,7 +382,8 @@ void Draw()
       MakeLabel("b2", 278, 94, arrow, bc, 17, true, "Segoe UI Symbol");
       color sc2; string stg = StageTxt(sc2);
       MakeLabel("b3", 278, 128, stg, sc2, 8, gB.live && gB.pending);
-      string rec = (gB.n3 < 30) ? StringFormat("same rules, 1:3: %+.2f R (%d)", gB.avg3, gB.n3) : StringFormat("same rules, 1:3: %+.2f R  n=%d", gB.avg3, gB.n3);
+      string md = (InpStopMode == RA_STOP_TURN) ? "tight stop, 1:3" : "weekly stop, 1:3";
+      string rec = (gB.n3 < 30) ? StringFormat("%s: %+.2f R (%d)", md, gB.avg3, gB.n3) : StringFormat("%s: %+.2f R  n=%d", md, gB.avg3, gB.n3);
       MakeLabel("b4", 278, 146, rec, clrSlateGray, 8);
      }
    else
@@ -366,16 +406,29 @@ void Draw()
       MakeLabel("mn" + IntegerToString(q), sx + 12, base + 4, StateShort(q), StateColor(q), 8, true);
       MakeLabel("mv" + IntegerToString(q), sx + 12, base + 17, rt <= 0.0 ? "-" : StringFormat("%s  n%d", RatioTxt(gStat, q), gStat.nf[q]), clrSilver, 8);
      }
-   //--- plan strip
+   //--- plan strip: levels, age and how far they are from the price now
    if(InpShowBias && gB.ok && gB.live)
      {
-      color pc = gB.dir > 0 ? clrLimeGreen : clrTomato;
-      MakeLabel("p1", 18, 314, StringFormat("%s  E %s  SL %s  TP1 %s", gB.dir > 0 ? "LONG" : "SHORT", DoubleToString(gB.entry, _Digits), DoubleToString(gB.sl, _Digits), DoubleToString(gB.tp1, _Digits)), pc, 9, true);
+      color pc = !gB.fresh ? clrSlateGray : (gB.dir > 0 ? clrLimeGreen : clrTomato);
+      string side = gB.dir > 0 ? "LONG" : "SHORT";
+      if(gB.pending)
+         MakeLabel("p1", 18, 314, StringFormat("TRIGGER %s  E ~%s  SL %s  TP1 %s", side, DoubleToString(gB.entry, _Digits), DoubleToString(gB.sl, _Digits), DoubleToString(gB.tp1, _Digits)), pc, 9, true);
+      else
+         MakeLabel("p1", 18, 314, StringFormat("%s%s  E %s  SL %s  TP1 %s", gB.fresh ? "" : "OLD ", side, DoubleToString(gB.entry, _Digits), DoubleToString(gB.sl, _Digits), DoubleToString(gB.tp1, _Digits)), pc, 9, true);
+      double cur = gB.cur;
+      string when = gB.pending ? "trigger on the last closed H4 bar, entry next open" : StringFormat("entered %s (%d d ago)   price now %s", TimeToString(gB.entryTime, TIME_DATE), gB.ageD, DoubleToString(cur, _Digits));
+      MakeLabel("p2", 18, 332, when, clrSilver, 8);
+      if(cur > 0.0)
+         MakeLabel("p3", 18, 346, StringFormat("to SL %+.1f %%   to TP1 %+.1f %%   %.1f %% risk = %s lots", (gB.sl - cur) / cur * 100.0, (gB.tp1 - cur) / cur * 100.0, InpRiskPercent, gB.lots > 0.0 ? DoubleToString(gB.lots, 2) : "n/a"), clrSilver, 8);
      }
    else
+     {
       MakeLabel("p1", 18, 314, InpShowBias ? "no plan running: arrows appear when the H4 trigger fires" : "weekly bias is off", clrSlateGray, 8);
-   MakeLabel("n1", 12, 342, "Size = regime. Direction = weekly structure rules.", clrSlateGray, 7);
-   MakeLabel("n2", 12, 352, "Past results do not predict future results.  algotraders24.ai", clrSlateGray, 7);
+      MakeLabel("p2", 18, 332, " ", clrSlateGray, 8);
+      MakeLabel("p3", 18, 346, " ", clrSlateGray, 8);
+     }
+   MakeLabel("n1", 12, 372, "Size = regime. Direction = weekly structure rules.", clrSlateGray, 7);
+   MakeLabel("n2", 12, 382, "Past results do not predict future results.  algotraders24.ai", clrSlateGray, 7);
    ChartRedraw(0);
   }
 
@@ -393,7 +446,7 @@ int OnInit()
    IndicatorSetInteger(INDICATOR_DIGITS, 2);
    if(InpHistBars < 2000 || InpHistBars > 200000 || InpMaxBars < 3000 || InpMaxBars > 200000 ||
       InpSwingW < 1 || InpSwingW > 5 || InpSwingH < 1 || InpSwingH > 8 || InpMinSwingAtr < 0.0 || InpMinSwingAtr > 5.0 || InpMinRetrace < 0.1 || InpMinRetrace > 0.9 ||
-      InpStopBufAtr < 0.0 || InpStopBufAtr > 3.0 || InpRR1 < 0.5 || InpRR1 > 18.0 || InpTimeStopWeeks < 1 || InpTimeStopWeeks > 52)
+      InpStopBufAtr < 0.0 || InpStopBufAtr > 3.0 || InpRiskPercent <= 0.0 || InpRiskPercent > 10.0 || InpStopMode < 0 || InpStopMode > 1 || InpFreshDays < 1 || InpFreshDays > 60 || InpRR1 < 0.5 || InpRR1 > 18.0 || InpTimeStopWeeks < 1 || InpTimeStopWeeks > 52)
      {
       Print("AT24 Regime AI: history bars 2000-200000; swing bars W 1-5, H4 1-8; min swing 0-5 ATR; retrace 0.1-0.9; stop buffer 0-3 ATR; target 0.5-18; time stop 1-52 weeks.");
       return INIT_PARAMETERS_INCORRECT;
@@ -421,7 +474,7 @@ void OnTimer()
    if(gB.ok)
      {
       gLastH4 = iTime(_Symbol, PERIOD_H4, 0);
-      if(gStateNow >= 0 && gB.ok) B_bias[ArraySize(B_bias) - 2] = gB.live ? gB.dir : 0.0;
+      if(gStateNow >= 0 && gB.ok) B_bias[ArraySize(B_bias) - 2] = (gB.live && gB.fresh) ? gB.dir : 0.0;
       Draw();
      }
   }
@@ -475,7 +528,7 @@ int OnCalculate(const int rates_total, const int prev_calculated, const datetime
          if(InpAlertPush) SendNotification(msg);
         }
      }
-   if(gB.ok) B_bias[rates_total - 2] = gB.live ? gB.dir : 0.0;     // last closed bar: running or triggered plan direction (0 = none)
+   if(gB.ok) B_bias[rates_total - 2] = (gB.live && gB.fresh) ? gB.dir : 0.0;     // last closed bar: running or triggered plan direction (0 = none)
    if(InpAlertChange && gLastState != -2 && gStateNow >= 0 && gStateNow != gLastState && gLastState >= 0)
      {
       string msg = StringFormat("AT24 Regime AI %s: %s -> %s", _Symbol, AT24RA_Name(gLastState), AT24RA_Name(gStateNow));

@@ -47,3 +47,11 @@ Reading: states 0 NOISY and 4 STEADY TREND are followed by a smaller than averag
 - Bugs found and fixed while building the dashboard: first version overlapped the logo; the bias stayed on "loading" in a terminal whose weekly history was not loaded yet (a 3-second timer now retries); a chart change reset the range columns to 1 px (columns are created once and the chart-change handler redraws).
 - Not verified live: alerts and push (state change, trigger), real-account swap, other brokers, forward record. The weekly-bias records are small samples (n under 30 each) and are shown with n.
 - Honest framing kept: the state says how big moves tend to be; the direction is the weekly-structure rule set with its record, not a forecast. Our tests have not shown a reliable direction edge from price features.
+
+## v1.20: tight plan, plan age and distances (2026-11-18)
+- Owner feedback: entry / stop / TP1 were far from the price (XAUUSD short: entry 4091.64, stop 4703.15 = +24 %, TP1 2257 = -40 %; EURUSD: stop 3.7 % and TP1 10 % away) and the entry could be weeks old.
+- Fix: tight stop beyond the H4 turn (default), plan age, price now and % distance to stop / TP1, lots for the risk percent, OLD marking after 10 days, lines optional, "trigger already used" text.
+- Verification of the new rule: `AT24_RA_PlanDump.mq5` dumps the H4 bars and every tight plan; `verify_ra_plan.py` recomputes from the bars, independently: the turn is a strict 3-bar H4 swing before the trigger, stop, risk, target 1, walk-forward result (stop first, target, 8-week time stop, cost). 56 plans on XAUUSD (11), EURUSD (9), GBPUSD (7), USDJPY (12), USDCHF (17): 0 mismatches, max R difference 5e-11. The triggers and the walk function are the unchanged Position Map core.
+- Records with the tight stop (offline demo feed, same 4500 H4 / 400 weekly bars): XAUUSD +1.25 R (11), EURUSD +0.76 R (9), GBPUSD +0.07 R (7), USDJPY -0.39 R (12), USDCHF -0.37 R (16). All n under 30: small samples, shown with n. No claim.
+- Real chart (USDCHF H1): OLD LONG plan, entry 0.82058, stop 0.81249, TP1 0.84485, price now 0.84248, "to SL -3.6 %, to TP1 +0.3 %, 0.5 % risk = 0.04 lots": test/mt5_regime_ai_chart.png.
+- Not verified live: alerts and push, real swap, forward record, other brokers.
