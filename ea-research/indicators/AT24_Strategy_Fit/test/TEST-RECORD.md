@@ -18,3 +18,12 @@
 - Arrows are live only (drawn when a FIT-class rule signals on the last closed bar while the indicator runs); history never gets arrows because the class is measured with the whole history.
 - Not verified live: alerts and push, a forward record, other brokers' symbol names, first calculation time on a 100,000-bar chart (InpMaxBars limits it to 30,000).
 - No trade, no signal service, no profit claim.
+
+## Strategy Fit Scanner (2026-11-18)
+- New code is only the table, the staging and the sort; every number comes from the verified cores (`AT24_SF_Core.mqh`: 26 unit tests, independent Python identical; `AT24_RA_Range.mqh`: 23 unit tests, independent Python identical).
+- Compile: 0 errors, 0 warnings.
+- Cross-check on the same bars (offline test terminal, XAUUSD H1 chart, 6 symbols, one has no data): the scanner row of XAUUSD equals the single-symbol Strategy Fit panel read back immediately after: STEADY TREND; trend short NEUTRAL +0.20 R n 166 p 0.22; breakout FIT +0.45 R n 106 p 0.09 (no signal now); reversion NEUTRAL +0.28 R n 139 (identical). The typical 24 h range per symbol equals the Regime AI range self test (EURUSD 0.00574, XAUUSD 89.1, GBPUSD 0.00708 vs 0.00709, USDJPY 0.8695 vs 0.8688, USDCHF 0.00494; the small differences are one newer bar).
+- Table behaviour: US30 (not in the terminal) is skipped and counted ("5 of 6 symbols read"); FIT row first (USDCHF trend long +0.82 R n 99), NEUTRAL (XAUUSD), then AVOID by average R (EURUSD -0.22 before GBPUSD -0.32); buffer 0 = 1 FIT signal. 93-140 ms per symbol rebuild.
+- Bugs found and fixed while building: header summary overlapped the title; two column headers overlapped.
+- Not verified live: alerts and push, other brokers' symbol names, many symbols on a slow machine, forward record.
+- The measured trade has no stop (stated on the panel); no claim.
