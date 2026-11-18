@@ -29,5 +29,12 @@ Reading: the state matters a lot (breakout: -0.24 R in NOISY, +0.135 R in COMPRE
 ## 4. Output
 Dashboard (default off in the Strategy Tester): the current state, for each rule the signal on the last closed bar (long / short / none) and the class of that rule in the current state, and the 3 x 5 grid of average R with n coloured by class. Arrow on the last closed bar only when a rule signals while its class in that state is FIT (historical bars never get arrows, because the class is measured with the whole history). Optional alert on that event. Buffers: 0-2 signals of trend / breakout / reversion on the last closed bar (+1 / -1 / 0), 3-5 class of each rule in the current state (1 FIT, 0 neutral or no claim, -1 AVOID).
 
+## 5a. What the measured trade is (stated on the panels)
+Entry at the next open, hold 24 bars, **no stop**, cost = spread, result in ATR(14) units (1 R = 1 ATR at the signal bar). A stop or a target would be a different trade with a different record; none is tested here.
+
 ## 5. Limits written on the product
 Averages are measurements on past bars; classes change as history grows; small cells prove nothing (n shown). Spread is the current spread for all past trades. H1 only. Past results do not predict future results. Not financial advice.
+
+## 6. Strategy Fit Scanner (v1.00)
+`AT24_Strategy_Fit_Scanner.mq5`: the same engine (`AT24_RA_Core.mqh`, `AT24_SF_Core.mqh`) run for a list of symbols (up to 24, optional broker suffix), one symbol per 1-second timer tick, rebuilt on each new H1 bar of that symbol (retry every 8 s while history loads; "no data" after 4 failures). Per symbol: the market state and the signal of each rule on the last closed H1 bar, the class / average R / n / p of that rule in that state (SPEC section 3, symbol's own last InpHistBars bars, spread of that symbol), the typical next 24 h range band (`AT24_RA_Range.mqh`, SPEC of AT24_Regime_AI section 9) and the ATR(14).
+Table: one row per (symbol, rule) with a signal; sorted FIT first, then NEUTRAL, TOO FEW, AVOID, each by average R descending; InpRows rows (default 12); InpOnlyFit hides the rest. Header: symbols read, FIT signals, all signals. Optional alert (once per symbol, rule and H1 bar) when a rule signals in a state where its record is FIT. Buffer 0 = number of FIT signals. Same limits as section 5.
