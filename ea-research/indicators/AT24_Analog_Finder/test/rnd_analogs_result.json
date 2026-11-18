@@ -1,0 +1,132 @@
+{
+ "AUDUSD": {
+  "n_test": 999,
+  "n_sel": 363,
+  "band80_cover": 0.758,
+  "hit": 0.51,
+  "avg_atr": -0.046,
+  "p_luck": 0.602,
+  "always_long": -0.027,
+  "spread_corr": 0.09
+ },
+ "BTCUSD": {
+  "n_test": 1343,
+  "n_sel": 581,
+  "band80_cover": 0.734,
+  "hit": 0.525,
+  "avg_atr": -0.076,
+  "p_luck": 0.69,
+  "always_long": 0.111,
+  "spread_corr": 0.12
+ },
+ "EURJPY": {
+  "n_test": 999,
+  "n_sel": 322,
+  "band80_cover": 0.791,
+  "hit": 0.506,
+  "avg_atr": -0.029,
+  "p_luck": 0.559,
+  "always_long": 0.165,
+  "spread_corr": 0.06
+ },
+ "EURUSD": {
+  "n_test": 799,
+  "n_sel": 294,
+  "band80_cover": 0.79,
+  "hit": 0.554,
+  "avg_atr": 0.221,
+  "p_luck": 0.166,
+  "always_long": 0.01,
+  "spread_corr": 0.107
+ },
+ "GBPUSD": {
+  "n_test": 999,
+  "n_sel": 339,
+  "band80_cover": 0.742,
+  "hit": 0.466,
+  "avg_atr": -0.093,
+  "p_luck": 0.667,
+  "always_long": 0.052,
+  "spread_corr": 0.137
+ },
+ "NZDUSD": {
+  "n_test": 999,
+  "n_sel": 354,
+  "band80_cover": 0.779,
+  "hit": 0.492,
+  "avg_atr": -0.031,
+  "p_luck": 0.566,
+  "always_long": -0.128,
+  "spread_corr": 0.065
+ },
+ "US30": {
+  "n_test": 999,
+  "n_sel": 449,
+  "band80_cover": 0.737,
+  "hit": 0.519,
+  "avg_atr": 0.281,
+  "p_luck": 0.071,
+  "always_long": 0.201,
+  "spread_corr": 0.21
+ },
+ "US500": {
+  "n_test": 999,
+  "n_sel": 468,
+  "band80_cover": 0.742,
+  "hit": 0.543,
+  "avg_atr": 0.156,
+  "p_luck": 0.201,
+  "always_long": 0.275,
+  "spread_corr": 0.234
+ },
+ "USDCAD": {
+  "n_test": 194,
+  "n_sel": 79,
+  "band80_cover": 0.768,
+  "hit": 0.557,
+  "avg_atr": 0.151,
+  "p_luck": 0.325,
+  "always_long": 0.256,
+  "spread_corr": 0.052
+ },
+ "USDCHF": {
+  "n_test": 999,
+  "n_sel": 342,
+  "band80_cover": 0.771,
+  "hit": 0.494,
+  "avg_atr": -0.208,
+  "p_luck": 0.827,
+  "always_long": -0.055,
+  "spread_corr": 0.104
+ },
+ "USDJPY": {
+  "n_test": 999,
+  "n_sel": 351,
+  "band80_cover": 0.764,
+  "hit": 0.53,
+  "avg_atr": -0.237,
+  "p_luck": 0.802,
+  "always_long": 0.185,
+  "spread_corr": 0.116
+ },
+ "USTEC": {
+  "n_test": 999,
+  "n_sel": 517,
+  "band80_cover": 0.752,
+  "hit": 0.565,
+  "avg_atr": 0.429,
+  "p_luck": 0.01,
+  "always_long": 0.307,
+  "spread_corr": 0.188
+ },
+ "XAUUSD": {
+  "n_test": 999,
+  "n_sel": 383,
+  "band80_cover": 0.715,
+  "hit": 0.535,
+  "avg_atr": 0.202,
+  "p_luck": 0.171,
+  "always_long": 0.435,
+  "spread_corr": 0.166
+ }
+}
