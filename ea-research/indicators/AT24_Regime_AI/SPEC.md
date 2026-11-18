@@ -1,0 +1,46 @@
+# AT24 Regime AI - specification (v1.00, MT5, H1)
+
+Honest purpose: classify every closed H1 bar into one of 5 **learned market states** and show what each state has historically been followed by (size of the next 24-hour range, how long the state lasts). It does not predict direction, gives no buy/sell signal and makes no profit claim.
+
+## 1. R&D result that decided the design (2026-11-18)
+- Method: k-means (K=5, z-scored 4 scale-free features), trained once, offline, on the **first 60 % of the H1 history of 12 symbols pooled** (EURUSD, GBPUSD, USDJPY, USDCHF, AUDUSD, NZDUSD, EURJPY, USDCAD, XAUUSD, US30, US500, USTEC, plus BTCUSD from Binance), tested on the **last 40 %** (out of sample). Data: Exness H1 export (`KX_*`), BTC from Binance public klines.
+- Result 1, persistence: a state is the same on the next bar in 83.6 % - 87.4 % of bars (mean run 6.1 - 7.9 bars) on every one of the 13 symbols.
+- Result 2, what follows (out of sample, next-24-bar range in ATR(14) units; "all" = average of all bars):
+  - states 0 NOISY and 4 STEADY TREND: below average on all 13 symbols (for example EURUSD 4.81 / 4.92 vs all 5.93; US30 4.90 / 5.35 vs all 6.66; BTCUSD 4.98 / 5.38 vs all 6.20).
+  - states 1 WIDE SWING and 3 COMPRESSED: above average on all 13 symbols; state 2 STRONG MOVE above average on 12 of 13 (NZDUSD 5.30 vs 5.50 is the exception). Examples 1 / 2 / 3: EURUSD 7.29 / 6.39 / 6.87; US30 8.61 / 8.15 / 7.56; BTCUSD 6.62 / 6.03 / 7.66.
+  - Spread between the lowest and highest state: roughly +30 % to +60 % in range size.
+- Result 3, limits: the states say how big the next 24 hours tend to be, not which way. Our other tests found no reliable direction edge from price features, so none is claimed. Trained and tested on H1 only. One history sample per symbol.
+
+## 2. Inputs per closed bar i (chronological, index 0 = oldest; all use bars <= i)
+- TR_i = max(H_i - L_i, |H_i - C_{i-1}|, |L_i - C_{i-1}|); TR_0 = H_0 - L_0.
+- ATR14_i = mean(TR_{i-13..i}), ATR100_i = mean(TR_{i-99..i}) (simple means).
+- f1 `er` = |C_i - C_{i-48}| / sum_{j=i-47..i} |C_j - C_{j-1}|.
+- f2 `lvol` = ln(ATR14_i / ATR100_i).
+- EMA20: alpha = 2/21, EMA_0 = C_0, EMA_j = alpha*C_j + (1-alpha)*EMA_{j-1}. f3 `slope` = min(6, |EMA_i - EMA_{i-10}| / ATR14_i).
+- f4 `rngx` = min(30, (max H_{i-23..i} - min L_{i-23..i}) / ATR14_i).
+- A bar is valid from index 99 on.
+
+## 3. State
+z_k = (f_k - mu_k) / sd_k with fixed constants (mu er 0.163863, lvol -0.031967, slope 1.014311, rngx 5.525808; sd 0.119898, 0.26684, 0.766584, 1.932356). The state is the nearest of 5 fixed centroids (Euclidean distance in z space; the smaller index wins a tie). Centroids in raw units:
+
+| id | name | er | lvol | slope | rngx | pooled out-of-sample next-24 range |
+|---|---|---|---|---|---|---|
+| 0 | NOISY | 0.1023 | 0.1663 | 0.6141 | 4.3468 | below average |
+| 1 | WIDE SWING | 0.1219 | -0.2405 | 1.3098 | 7.4327 | above average |
+| 2 | STRONG MOVE | 0.3395 | -0.1325 | 2.6010 | 9.4282 | above average (12 of 13 symbols) |
+| 3 | COMPRESSED | 0.1197 | -0.2249 | 0.4958 | 4.6743 | above average |
+| 4 | STEADY TREND | 0.2955 | 0.1396 | 1.5741 | 5.6380 | below average |
+
+The constants never change at run time (no learning on the chart, no repaint). A state at bar i never changes afterwards.
+
+## 4. Own-history statistics (shown on the dashboard, with n)
+Over the last InpHistBars (default 20000) closed bars of the chart symbol:
+- share of bars per state, mean run length, P(stay) = share of bars whose next bar has the same state.
+- forward range fr_i = (max H_{i+1..i+24} - min L_{i+1..i+24}) / ATR14_i, known only for bars with 24 later bars. Ratio of a state = mean(fr | state) / mean(fr | all). Shown as "x1.20" with the number of bars n. Under 200 bars in a state: shown as "-" (no claim).
+- Current bar: state, run length so far, P(stay), own ratio.
+
+## 5. Output
+Dashboard (default off in the Strategy Tester), colour strip of the state per bar in a sub-window, buffers: 0 state (0-4, EMPTY before bar 99), 1 run length, 2 own ratio, 3 P(stay). Optional alert on a state change at bar close. Timeframe other than H1: the dashboard says the model was trained on H1.
+
+## 6. Limits written on the product
+Planning information about the size of moves, not direction. Past statistics do not predict future results. Not financial advice.
