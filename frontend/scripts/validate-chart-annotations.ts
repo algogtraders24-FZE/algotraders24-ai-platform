@@ -53,6 +53,30 @@ check("Deterministic output", JSON.stringify(computeAnnotations(f1)) === JSON.st
 // Degenerate input
 check("Short input returns empty", computeAnnotations(f1.slice(0, 5)).annotations.length === 0);
 
+// Plan: after the bullish BOS, price retests the demand OB (101.5-103.5) -> long plan with measurable risk.
+import { planAt, PLAN_RR, buildTradePlan } from "../lib/chart-engine/annotations/plan";
+{
+  const f5 = build([100, 101, 102, 103, 105, 110, 106, 104, 103, 102, 104, 106, 108, 112, 111, 113, 114, 115, 116, 117, 110, 105, 103]);
+  const p = planAt(f5);
+  check("Plan: long on demand-OB retest", p.state === "plan" && p.dir === "long", JSON.stringify(p));
+  if (p.state === "plan") {
+    check("Plan: entry = last close 103", p.entry === 103);
+    check("Plan: stop below the OB low 101.5", p.stop < 101.5);
+    check("Plan: target = entry + 2 x risk", Math.abs(p.target - (p.entry + PLAN_RR * (p.entry - p.stop))) < 1e-9);
+    check("Plan: score counts confluences, max 5", p.score >= 1 && p.score <= p.scoreMax, String(p.score));
+  }
+  const aside = planAt(f1); // price far above the zone
+  check("Plan: stand aside when price is not at a zone", aside.state === "standAside", JSON.stringify(aside));
+  check("Plan: record is null (honest) when history is too short", buildTradePlan(f5).state !== "plan" || (buildTradePlan(f5) as { record: unknown }).record === null);
+  // Long random-walk history: record must be computed deterministically and never invent a number from nothing
+  let x = 12345; const rnd = () => ((x = (x * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  let px = 100; const walk = build(Array.from({ length: 900 }, () => (px += (rnd() - 0.5) * 2)));
+  const { measurePlanRecord } = require("../lib/chart-engine/annotations/plan");
+  const r1m = measurePlanRecord(walk), r2m = measurePlanRecord(walk);
+  check("Record: deterministic", JSON.stringify(r1m) === JSON.stringify(r2m));
+  console.log("      random-walk record (expected ~ -0.1..0 R, no edge):", JSON.stringify(r1m));
+}
+
 // Render smoke test on a recording canvas: layers on draws something, layers off (clean chart) draws nothing.
 import { drawAnnotations } from "../lib/chart-engine/annotations/render";
 import { ALL_LAYERS_OFF, ALL_LAYERS_ON } from "../lib/chart-engine/annotations/types";
