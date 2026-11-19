@@ -79,13 +79,15 @@ interface PlanOverlayProps {
   onExecute: (side: "buy" | "sell") => void;
   onClose: () => void;
   formatPrice: (n: number) => string;
+  /** Pro layout: render in the side panel instead of floating over the chart. */
+  inline?: boolean;
 }
 
 /** Floating trade card in the top-left of the chart (Pipflow-style): compact, details on demand. */
-export function PlanOverlay({ plan, onExecute, onClose, formatPrice }: PlanOverlayProps) {
+export function PlanOverlay({ plan, onExecute, onClose, formatPrice, inline }: PlanOverlayProps) {
   const [open, setOpen] = useState(false);
   if (!plan) return null;
-  const shell = "absolute left-3 top-3 z-10 w-64 rounded-panel border border-border bg-ink-2/95 p-3 text-xs text-text-2 shadow-lg backdrop-blur";
+  const shell = (inline ? "w-full " : "absolute left-3 top-3 z-10 w-64 ") + "rounded-panel border border-border bg-ink-2/95 p-3 text-xs text-text-2 shadow-lg backdrop-blur";
   const close = (
     <button type="button" onClick={onClose} aria-label="Close plan" className="text-text-3 hover:text-text">×</button>
   );
@@ -140,6 +142,30 @@ export function PlanOverlay({ plan, onExecute, onClose, formatPrice }: PlanOverl
           <p>Execute opens the paper ticket for you to confirm; set the stop and target shown. Educational, not financial advice.</p>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Side-panel "Annotations detected" with per-kind counts (Pipflow-style). */
+export function AnnotationSummary({ analysis }: { analysis: AnnotationResult | null }) {
+  if (!analysis) return <p className="text-xs text-text-3">Press Analyze chart to map the structure.</p>;
+  const c = analysis.counts;
+  const rows: [string, number][] = [["Lines (BOS / CHoCH)", c.lines], ["Zones (OB / FVG / P-D / OTE)", c.zones], ["Markers (sweeps)", c.markers], ["Levels (S/R)", c.levels], ["Patterns", c.patterns], ["Sessions", c.sessions]];
+  return (
+    <div className="text-xs text-text-2">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-text-3">Annotations detected</span>
+        <span className="rounded-full bg-ink-3 px-2 py-0.5 text-[11px]">{c.total}</span>
+      </div>
+      <ul>
+        {rows.map(([label, n]) => (
+          <li key={label} className="flex items-center justify-between border-b border-border/60 py-1">
+            <span>{label}</span>
+            <span className="text-text-3">{n}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 text-[11px] text-text-3">Swing size {analysis.params.swingBars} bars, ATR(14) {analysis.params.atr.toPrecision(5)}. Descriptive map of what price already did, not a prediction.</p>
     </div>
   );
 }

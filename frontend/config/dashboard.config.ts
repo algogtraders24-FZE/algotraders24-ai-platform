@@ -176,6 +176,7 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
           // services/algo-test/live-execution/live-execution.service.ts's
           // own headers for the full design (tab-resident polling only,
           // no new cron/Agent Framework tool).
+          { label: "Pro Chart", href: "/dashboard/chart" },
           { label: "Live Execution (Paper)", href: "/dashboard/algo-test-live" },
           { label: "My Product Listing", href: "/marketplace/my-products" },
         ],

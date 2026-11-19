@@ -34,9 +34,13 @@ export function drawAnnotations(
 
   const label = (text: string, x: number, y: number, rgb: string, align: CanvasTextAlign = "left") => {
     ctx.font = canvasMonoFont(10);
-    ctx.textAlign = align;
-    ctx.fillStyle = `rgba(${rgb}, 0.95)`;
-    ctx.fillText(text, x, y);
+    const w = text.length * 6.2 + 8;
+    const left = align === "right" ? x - w : align === "center" ? x - w / 2 : x;
+    ctx.fillStyle = "rgba(15, 18, 24, 0.82)"; // dark pill behind the text, like Pipflow
+    ctx.fillRect(left, y - 10, w, 14);
+    ctx.textAlign = "left";
+    ctx.fillStyle = `rgba(${rgb}, 1)`;
+    ctx.fillText(text, left + 4, y);
     ctx.textAlign = "left";
   };
   const line = (x1: number, y1: number, x2: number, y2: number, rgb: string, alpha: number, width = 1) => {

@@ -32,7 +32,7 @@
 // (lib/chart-engine/indicators/*, sub-panel-renderer.ts, panel-layout.ts),
 // and a crosshair readout that includes volume + every active indicator's
 // real value at the hovered candle - never interpolated.
-import { ProModeBar, PlanOverlay } from "./ProModeBar";
+import { ProModeBar, PlanOverlay, AnnotationSummary } from "./ProModeBar";
 import { buildTradePlan, type TradePlan } from "@/lib/chart-engine/annotations/plan";
 import { computeAnnotations } from "@/lib/chart-engine/annotations/compute";
 import { ALL_LAYERS_ON, ALL_LAYERS_OFF, type AnnotationLayers, type AnnotationResult } from "@/lib/chart-engine/annotations/types";
@@ -159,6 +159,8 @@ export interface NativeChartProps {
    */
   onCrosshairTimeChange?: (time: number | null) => void;
   externalCrosshairTime?: number | null;
+  /** Professional Mode layout: big chart + right side panel (plan card, annotations), account/test panels below. */
+  proLayout?: boolean;
 }
 
 export default function NativeChart({
@@ -171,6 +173,7 @@ export default function NativeChart({
   onApplyIndicatorKeys,
   onCrosshairTimeChange,
   externalCrosshairTime = null,
+  proLayout = false,
 }: NativeChartProps) {
   // Sprint D2.8.13 - `hypothesisType` is the real, already-fetched active
   // hypothesis WorkspaceResearch found for this same symbol (D2.8.13's own
@@ -1263,9 +1266,8 @@ export default function NativeChart({
   const hoveredCandle = hoveredIndex >= 0 && hoveredIndex < candles.length ? candles[hoveredIndex] : null;
   const trend = hoveredCandle ? classifyCandle(hoveredCandle) : null;
 
-  return (
-    <div className={isFullscreen ? "fixed inset-0 z-50 flex flex-col gap-2 bg-ink p-4" : "flex flex-col gap-2"}>
-      <ChartHeader displaySymbol={resolution.displaySymbol} instrumentName={name} timeframe={timeframe} series={result.series} />
+  const panelBlock = (
+    <>
       <MicrostructurePanel symbol={symbol} hypothesisType={symbol === activeSymbol ? hypothesisType : undefined} />
       <PaperTradingPanel ref={paperTradingRef} symbol={symbol} isActive={symbol === activeSymbol} />
       <AlgoTestPanel
@@ -1276,6 +1278,13 @@ export default function NativeChart({
         selectedTradeId={selectedAlgoTestTradeId}
         onSelectTrade={handleSelectAlgoTestTrade}
       />
+    </>
+  );
+
+  return (
+    <div className={isFullscreen ? "fixed inset-0 z-50 flex flex-col gap-2 bg-ink p-4" : "flex flex-col gap-2"}>
+      <ChartHeader displaySymbol={resolution.displaySymbol} instrumentName={name} timeframe={timeframe} series={result.series} />
+      {!proLayout && panelBlock}
       <ChartToolbar
         displaySymbol={resolution.displaySymbol}
         timeframe={timeframe}
@@ -1406,7 +1415,15 @@ export default function NativeChart({
           })}
         </div>
       ) : (
-        <span className={FIN_LABEL}>Native chart</span>
+        liveQuote ? (
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <span className={FIN_LABEL}>BID {formatPrice(liveQuote.bid, { maxDecimals: 5 })}</span>
+            <span className={FIN_LABEL}>ASK {formatPrice(liveQuote.ask, { maxDecimals: 5 })}</span>
+            <span className={FIN_LABEL}>SPREAD {formatPrice(Math.abs(liveQuote.ask - liveQuote.bid), { maxDecimals: 5 })}</span>
+          </div>
+        ) : (
+          <span className={FIN_LABEL}>Native chart</span>
+        )
       )}
 
       <ProModeBar
@@ -1418,10 +1435,12 @@ export default function NativeChart({
         onShowAll={() => setProState((p) => ({ ...p, layers: ALL_LAYERS_ON }))}
       />
 
+      <div className={proLayout ? "flex flex-col gap-3 xl:flex-row" : "contents"}>
+      <div className={proLayout ? "flex min-w-0 flex-1 flex-col gap-2" : "contents"}>
       <div
         ref={containerRef}
         className={isFullscreen ? "relative w-full min-h-0 flex-1" : "relative w-full"}
-        style={isFullscreen ? undefined : { height: containerHeight }}
+        style={isFullscreen ? undefined : { height: proLayout ? "max(520px, calc(100vh - 330px))" : containerHeight }}
       >
         <canvas
           ref={canvasRef}
@@ -1445,7 +1464,7 @@ export default function NativeChart({
           onDoubleClick={handleDoubleClick}
           onKeyDown={handleKeyDown}
         />
-        <PlanOverlay plan={proPlan} onExecute={(side) => paperTradingRef.current?.quickTrade(side)} onClose={() => setProPlan(null)} formatPrice={(n) => formatPrice(n, { maxDecimals: 5 })} />
+        {!proLayout && <PlanOverlay plan={proPlan} onExecute={(side) => paperTradingRef.current?.quickTrade(side)} onClose={() => setProPlan(null)} formatPrice={(n) => formatPrice(n, { maxDecimals: 5 })} />}
       </div>
       {result.series && result.series.rejectedCount > 0 && (
         <p className="text-xs text-text-3">
@@ -1453,6 +1472,21 @@ export default function NativeChart({
         </p>
       )}
       {result.series && <ProvenanceDisclosure series={result.series} />}
+      </div>
+      {proLayout && (
+        <aside className="flex w-full shrink-0 flex-col gap-3 xl:w-80">
+          {proPlan ? (
+            <PlanOverlay inline plan={proPlan} onExecute={(side) => paperTradingRef.current?.quickTrade(side)} onClose={() => setProPlan(null)} formatPrice={(n) => formatPrice(n, { maxDecimals: 5 })} />
+          ) : (
+            <div className="rounded-panel border border-border bg-ink-2 p-3 text-xs text-text-3">Press <span className="text-gold">Analyze chart</span> to get the structure map and a trade plan (or stand aside).</div>
+          )}
+          <div className="rounded-panel border border-border bg-ink-2 p-3">
+            <AnnotationSummary analysis={proState.analysis} />
+          </div>
+        </aside>
+      )}
+      </div>
+      {proLayout && panelBlock}
     </div>
   );
 }
