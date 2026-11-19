@@ -297,7 +297,7 @@ function wiringTests(): void {
 
   test("27: NativeChart owns colorScheme as local state (same 'rendering-style preference, not per-instrument data' reasoning as chartType/showGrid) - defaults to 'mt5', the exact theme this chart has always used, so this is zero visual change until Properties is actually opened", () => {
     const src = read("components/chart-engine/NativeChart.tsx");
-    assert.ok(src.includes('useState<ChartTheme>("mt5")'));
+    assert.ok(src.includes('useState<ChartTheme>(proLayout ? "pro" : "mt5")')); // classic chart keeps mt5; only the Pro Chart page defaults to the pro scheme
     assert.ok(!src.includes("colors: resolveChartColors(\"mt5\")"), "the OLD hardcoded call site must be gone - colorScheme is now the real source of truth (a historical mention of the same string in a comment is fine)");
     assert.ok(src.includes("colors: resolveChartColors(colorScheme)"));
   });

@@ -54,10 +54,10 @@ export interface ChartColors {
   sellLine: string;
 }
 
-export type ChartTheme = "at24" | "mt5" | "mt5-green" | "light";
+export type ChartTheme = "at24" | "mt5" | "mt5-green" | "light" | "pro";
 
 /** Sprint D2.7.11 Phase 5c - human-readable labels for the Properties dialog's Colors-tab scheme picker, in the same order OPTIONS lists them. */
-export const CHART_THEME_LABELS: Record<ChartTheme, string> = { at24: "AT24", mt5: "Black", "mt5-green": "Green on Black", light: "Light" };
+export const CHART_THEME_LABELS: Record<ChartTheme, string> = { at24: "AT24", mt5: "Black", "mt5-green": "Green on Black", light: "Light", pro: "Pro (dark)" };
 
 const FALLBACK_COLORS: ChartColors = {
   background: "#131826", // --ink-2
@@ -133,6 +133,24 @@ const MT5_GREEN_COLORS: ChartColors = {
 // `accent` deliberately isn't `gold` (#d4af37 has ~1.6:1 contrast against
 // white, failing WCAG AA) - a saturated blue reads clearly as a distinct
 // "current price" marker against a white background instead.
+// Professional Mode palette (2026-11-19), matched to the owner's reference screenshot: near-black charcoal canvas,
+// teal up / red down FILLED candles, faint grid, light-grey axis text, teal current-price highlight.
+const PRO_COLORS: ChartColors = {
+  background: "#131419",
+  grid: "#1b1e26",
+  border: "#2a2e39",
+  textPrimary: "#d1d4dc",
+  textTertiary: "#787b86",
+  bullish: "#26a69a",
+  bearish: "#ef5350",
+  bearishOutline: "#ef5350",
+  gold: "#26a69a",
+  accent: "#26a69a",
+  volume: "#26a69a",
+  buyLine: "#26a69a",
+  sellLine: "#ef5350",
+};
+
 const LIGHT_COLORS: ChartColors = {
   background: "#ffffff",
   grid: "#e5e7eb",
@@ -148,7 +166,7 @@ const LIGHT_COLORS: ChartColors = {
   sellLine: "#d1594a",
 };
 
-let cached: Record<ChartTheme, ChartColors | null> = { at24: null, mt5: null, "mt5-green": null, light: null };
+let cached: Record<ChartTheme, ChartColors | null> = { at24: null, mt5: null, "mt5-green": null, light: null, pro: null };
 
 function readVar(styles: CSSStyleDeclaration, name: string, fallback: string): string {
   const value = styles.getPropertyValue(name).trim();
@@ -159,6 +177,7 @@ export function resolveChartColors(theme: ChartTheme = "at24"): ChartColors {
   if (theme === "mt5") return MT5_COLORS;
   if (theme === "mt5-green") return MT5_GREEN_COLORS;
   if (theme === "light") return LIGHT_COLORS;
+  if (theme === "pro") return PRO_COLORS;
 
   if (cached.at24) return cached.at24;
   if (typeof document === "undefined") return FALLBACK_COLORS;
@@ -183,7 +202,7 @@ export function resolveChartColors(theme: ChartTheme = "at24"): ChartColors {
 
 /** Test/dev-only reset so a test can simulate a fresh module load. */
 export function resetColorCacheForTests(): void {
-  cached = { at24: null, mt5: null, "mt5-green": null, light: null };
+  cached = { at24: null, mt5: null, "mt5-green": null, light: null, pro: null };
   indicatorColorCache.clear();
 }
 

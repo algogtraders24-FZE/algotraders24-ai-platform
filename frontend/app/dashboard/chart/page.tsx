@@ -5,14 +5,14 @@
 import { useState } from "react";
 import { WorkspaceProvider, useWorkspace } from "@/context/WorkspaceContext";
 import { PaperTradingProvider } from "@/context/PaperTradingContext";
-import GlobalSymbolSelector from "@/components/workspace/GlobalSymbolSelector";
+import ProSymbolPicker from "@/components/chart-engine/ProSymbolPicker";
 import NativeChart from "@/components/chart-engine/NativeChart";
 import { DEFAULT_INDICATOR_CONFIGS } from "@/lib/chart-engine/indicators/panel-registry";
 import { getMarket } from "@/lib/market-data/market-registry";
 import type { SignalTimeframe } from "@/types/signal";
 
 function ProChart() {
-  const { symbol } = useWorkspace();
+  const { symbol, setSymbol } = useWorkspace();
   const [timeframe, setTimeframe] = useState<SignalTimeframe>("1h");
   const [keys, setKeys] = useState<Set<string>>(new Set());
   const known = new Set(DEFAULT_INDICATOR_CONFIGS.map((c) => c.key));
@@ -20,7 +20,7 @@ function ProChart() {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-xl font-medium">Pro Chart</h1>
-        <GlobalSymbolSelector />
+        <ProSymbolPicker value={symbol} onChange={setSymbol} />
       </div>
       <NativeChart
         proLayout
