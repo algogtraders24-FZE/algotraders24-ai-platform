@@ -32,7 +32,7 @@
 // (lib/chart-engine/indicators/*, sub-panel-renderer.ts, panel-layout.ts),
 // and a crosshair readout that includes volume + every active indicator's
 // real value at the hovered candle - never interpolated.
-import { ProModeBar } from "./ProModeBar";
+import { ProModeBar, PlanOverlay } from "./ProModeBar";
 import { buildTradePlan, type TradePlan } from "@/lib/chart-engine/annotations/plan";
 import { computeAnnotations } from "@/lib/chart-engine/annotations/compute";
 import { ALL_LAYERS_ON, ALL_LAYERS_OFF, type AnnotationLayers, type AnnotationResult } from "@/lib/chart-engine/annotations/types";
@@ -1413,9 +1413,6 @@ export default function NativeChart({
         analysis={proState.analysis}
         layers={proState.layers}
         onAnalyze={() => { setProState({ analysis: computeAnnotations(candles), layers: ALL_LAYERS_ON }); setProPlan(buildTradePlan(candles)); }}
-        plan={proPlan}
-        onExecute={(side) => paperTradingRef.current?.quickTrade(side)}
-        formatPrice={(n) => formatPrice(n, { maxDecimals: 5 })}
         onToggleLayer={(g) => setProState((p) => ({ ...p, layers: { ...p.layers, [g]: !p.layers[g] } }))}
         onCleanChart={() => setProState((p) => ({ ...p, layers: ALL_LAYERS_OFF }))}
         onShowAll={() => setProState((p) => ({ ...p, layers: ALL_LAYERS_ON }))}
@@ -1448,6 +1445,7 @@ export default function NativeChart({
           onDoubleClick={handleDoubleClick}
           onKeyDown={handleKeyDown}
         />
+        <PlanOverlay plan={proPlan} onExecute={(side) => paperTradingRef.current?.quickTrade(side)} onClose={() => setProPlan(null)} formatPrice={(n) => formatPrice(n, { maxDecimals: 5 })} />
       </div>
       {result.series && result.series.rejectedCount > 0 && (
         <p className="text-xs text-text-3">
