@@ -13,14 +13,11 @@ interface Props {
   onToggleLayer: (group: keyof AnnotationLayers) => void;
   onCleanChart: () => void;
   onShowAll: () => void;
-  plan: TradePlan | null;
-  onExecute: (side: "buy" | "sell") => void;
-  formatPrice: (n: number) => string;
 }
 
 const BTN = "rounded-control border border-border bg-ink-3 px-2.5 py-1 text-xs text-text-2 transition hover:border-gold/50 hover:text-text";
 
-export function ProModeBar({ analysis, layers, onAnalyze, onToggleLayer, onCleanChart, onShowAll, plan, onExecute, formatPrice }: Props) {
+export function ProModeBar({ analysis, layers, onAnalyze, onToggleLayer, onCleanChart, onShowAll }: Props) {
   const [layersOpen, setLayersOpen] = useState(false);
   const [listOpen, setListOpen] = useState(false);
   const c = analysis?.counts;
@@ -40,35 +37,6 @@ export function ProModeBar({ analysis, layers, onAnalyze, onToggleLayer, onClean
         <button type="button" onClick={() => setListOpen((v) => !v)} className={BTN} aria-expanded={listOpen}>
           {c.total} annotations detected {listOpen ? "▴" : "▾"}
         </button>
-      )}
-
-      {plan && (
-        <div className="w-full rounded-panel border border-border bg-ink-2 p-3 text-xs text-text-2">
-          {plan.state === "standAside" ? (
-            <p><span className="font-medium text-text">Stand aside.</span> {plan.reason}</p>
-          ) : (
-            <>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                <span className={`rounded-control px-2 py-0.5 text-[11px] font-semibold uppercase ${plan.dir === "long" ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"}`}>{plan.dir}</span>
-                <span>Score {plan.score}/{plan.scoreMax}</span>
-                <span>ENTRY {formatPrice(plan.entry)}</span>
-                <span>STOP {formatPrice(plan.stop)}</span>
-                <span>TARGET {formatPrice(plan.target)}</span>
-                <span>R:R 1:{plan.rr}</span>
-                <button type="button" onClick={() => onExecute(plan.dir === "long" ? "buy" : "sell")} className="ml-auto rounded-control border border-gold/50 bg-gold/10 px-3 py-1 font-medium text-gold hover:bg-gold/20">
-                  Execute (paper)
-                </button>
-              </div>
-              <p className="mt-2 text-[11px] text-text-3">{plan.source}. Confluences: {plan.confluences.join(", ") || "none"}. Score counts rules that agree; it is not a probability.</p>
-              <p className="mt-1 text-[11px] text-text-3">
-                {plan.record
-                  ? `Measured on this chart's ${plan.record.bars} loaded candles, same rule replayed: ${plan.record.n} trades, average ${plan.record.avgR >= 0 ? "+" : ""}${plan.record.avgR.toFixed(2)} R, target reached first in ${(plan.record.targetShare * 100).toFixed(0)} % (before spread and commission; past results do not predict future ones).`
-                  : "Too little history on this chart to measure this rule - no record is shown rather than an invented one."}
-              </p>
-              <p className="mt-1 text-[11px] text-text-3">Execute opens the paper order ticket for you to confirm; set the stop and target shown above. Educational, not financial advice.</p>
-            </>
-          )}
-        </div>
       )}
 
       {layersOpen && (
@@ -100,6 +68,76 @@ export function ProModeBar({ analysis, layers, onAnalyze, onToggleLayer, onClean
           <p className="mt-2 text-[11px] text-text-3">
             Rule set: swing size {analysis.params.swingBars} bars, ATR(14) {analysis.params.atr.toPrecision(5)}. These are descriptive structure maps of what price already did; they are not a prediction.
           </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface PlanOverlayProps {
+  plan: TradePlan | null;
+  onExecute: (side: "buy" | "sell") => void;
+  onClose: () => void;
+  formatPrice: (n: number) => string;
+}
+
+/** Floating trade card in the top-left of the chart (Pipflow-style): compact, details on demand. */
+export function PlanOverlay({ plan, onExecute, onClose, formatPrice }: PlanOverlayProps) {
+  const [open, setOpen] = useState(false);
+  if (!plan) return null;
+  const shell = "absolute left-3 top-3 z-10 w-64 rounded-panel border border-border bg-ink-2/95 p-3 text-xs text-text-2 shadow-lg backdrop-blur";
+  const close = (
+    <button type="button" onClick={onClose} aria-label="Close plan" className="text-text-3 hover:text-text">×</button>
+  );
+  if (plan.state === "standAside") {
+    return (
+      <div className={shell}>
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-text-3">Stand aside</span>
+          {close}
+        </div>
+        <p className="mt-1.5 leading-snug">{plan.reason}</p>
+      </div>
+    );
+  }
+  const long = plan.dir === "long";
+  const row = (label: string, value: number, cls: string) => (
+    <div className="flex items-center justify-between py-0.5">
+      <span className="text-text-3">{label}</span>
+      <span className={`font-mono text-[13px] font-medium ${cls}`}>{formatPrice(value)}</span>
+    </div>
+  );
+  return (
+    <div className={shell}>
+      <div className="flex items-center justify-between">
+        <span className={`rounded-control px-2 py-0.5 text-[11px] font-semibold uppercase ${long ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"}`}>{plan.dir}</span>
+        <span className="text-[11px] text-text-3">Score {plan.score}/{plan.scoreMax} · R:R 1:{plan.rr}</span>
+        {close}
+      </div>
+      <div className="mt-2 border-t border-border pt-1.5">
+        {row("ENTRY", plan.entry, "text-text")}
+        {row("STOP", plan.stop, "text-red-400")}
+        {row("TARGET", plan.target, "text-green-400")}
+      </div>
+      <button
+        type="button"
+        onClick={() => onExecute(long ? "buy" : "sell")}
+        className={`mt-2 w-full rounded-control py-1.5 text-xs font-semibold ${long ? "bg-green-500/20 text-green-300 hover:bg-green-500/30" : "bg-red-500/20 text-red-300 hover:bg-red-500/30"}`}
+      >
+        Execute (paper)
+      </button>
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="mt-2 w-full text-left text-[11px] text-text-3 hover:text-text">
+        Evidence {open ? "▴" : "▾"}
+      </button>
+      {open && (
+        <div className="mt-1 space-y-1.5 text-[11px] leading-snug text-text-3">
+          <p>{plan.source}. Confluences: {plan.confluences.join(", ") || "none"}. Score counts rules that agree; it is not a probability.</p>
+          <p>
+            {plan.record
+              ? `Same rule replayed on this chart's ${plan.record.bars} loaded candles: ${plan.record.n} trades, average ${plan.record.avgR >= 0 ? "+" : ""}${plan.record.avgR.toFixed(2)} R, target first in ${(plan.record.targetShare * 100).toFixed(0)} % (before spread and commission; past results do not predict future ones).`
+              : "Too little history on this chart to measure this rule, so no record is shown rather than an invented one."}
+          </p>
+          <p>Execute opens the paper ticket for you to confirm; set the stop and target shown. Educational, not financial advice.</p>
         </div>
       )}
     </div>
