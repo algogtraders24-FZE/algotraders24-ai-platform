@@ -22,22 +22,15 @@ export interface ForbiddenPhrase {
 }
 
 export const FORBIDDEN_PHRASES: readonly ForbiddenPhrase[] = [
-  { phrase: "Buy Now", alternative: "Bullish scenario", autoScan: true },
-  { phrase: "Sell Now", alternative: "Bearish structure", autoScan: true },
+  // Policy change 2026-11-19 (docs/architecture/POLICY-CHANGE-2026-11-19-trade-plans-allowed.md): trade plans and
+  // signals (direction, entry, stop, target) are allowed. What stays forbidden are fraud-type claims: promises of
+  // profit and certainty. "Buy Now" / "Sell Now" / "Best Entry" and the bare words Entry / Exit / Target / Stop Loss
+  // were removed from this list.
   { phrase: "Guaranteed Profit", autoScan: true },
   { phrase: "100% Accuracy", autoScan: true },
   { phrase: "Sure Shot", autoScan: true },
   { phrase: "Risk Free", autoScan: true },
   { phrase: "Guaranteed", autoScan: true },
-  { phrase: "Best Entry", alternative: "Higher-probability conditions", autoScan: true },
-  // Directive-only forbidden (bare word has legitimate educational uses,
-  // e.g. "what is an entry order" or "explain what a stop-loss is") - the
-  // prompt instructs the AI to avoid these AS DIRECTIVES; not auto-scanned.
-  { phrase: "Entry", autoScan: false },
-  { phrase: "Exit", autoScan: false },
-  { phrase: "Target", autoScan: false },
-  { phrase: "Stoploss", autoScan: false },
-  { phrase: "Stop Loss", autoScan: false },
 ];
 
 export function autoScanPhrases(): readonly ForbiddenPhrase[] {
