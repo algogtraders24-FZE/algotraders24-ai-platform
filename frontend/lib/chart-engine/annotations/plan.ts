@@ -19,7 +19,7 @@ import type { ZoneAnnotation } from "./types";
 export const PLAN_RR = 2;
 const MAX_HOLD = 48;
 const STOP_BUFFER_ATR = 0.25;
-const LOOKBACK = 200;
+const LOOKBACK = 120;
 const STEP = 3;
 
 export interface PlanRecord { n: number; avgR: number; targetShare: number; bars: number }
@@ -74,10 +74,12 @@ export function planAt(candles: ChartCandle[]): TradePlan {
   const recentSweep = res.annotations.some((a) => a.type === "marker" && a.bias === bias && a.time >= candles[Math.max(0, candles.length - 15)].time);
   if (recentSweep) conf.push("Liquidity sweep in the same direction");
 
+  const step = Math.pow(10, Math.floor(Math.log10(atr)) - 2); // price rounding derived from volatility (gold 0.1, EURUSD 0.000001)
+  const rnd = (v: number) => Math.round(v / step) * step;
   return {
     state: "plan",
     dir: bias === "bullish" ? "long" : "short",
-    entry, stop, target,
+    entry: rnd(entry), stop: rnd(stop), target: rnd(target),
     rr: PLAN_RR,
     score: conf.length,
     scoreMax: 5,

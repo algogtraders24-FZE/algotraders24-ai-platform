@@ -26,7 +26,10 @@ export interface ComputeOptions {
 interface Swing { index: number; time: number; price: number; broken: boolean }
 
 const MAX_OB = 3;
-const MAX_FVG = 5;
+const MAX_FVG = 3;
+const MAX_STRUCTURE = 5;
+const MAX_SWEEPS = 3;
+const MAX_SESSIONS = 2;
 
 export function atr14(c: ChartCandle[], end = c.length - 1, n = 14): number {
   const from = Math.max(1, end - n + 1);
@@ -167,7 +170,7 @@ export function computeAnnotations(all: ChartCandle[], opts: ComputeOptions = {}
   }
   const last = c[c.length - 1].close;
   clusters.filter((x) => x.n >= 2)
-    .sort((a, b) => Math.abs(a.sum / a.n - last) - Math.abs(b.sum / b.n - last)).slice(0, 4)
+    .sort((a, b) => Math.abs(a.sum / a.n - last) - Math.abs(b.sum / b.n - last)).slice(0, 3)
     .forEach((x) => out.push({ id: `sr${id++}`, type: "level", group: "levels", price: x.sum / x.n, touches: x.n, startTime: x.first, label: `S/R ×${x.n}` }));
 
   // double top / bottom (most recent pair)
@@ -205,11 +208,20 @@ export function computeAnnotations(all: ChartCandle[], opts: ComputeOptions = {}
           found.push({ id: `se${id++}`, type: "session", group: "sessions", session, time: T(i), label: session });
         }
       }
-      out.push(...found.slice(-6));
+      out.push(...found);
     }
   }
 
-  return { annotations: out, counts: countOf(out), params: { swingBars: k, atr } };
+  // Declutter (Pipflow-style): keep only the most recent / relevant items of each kind so the chart stays readable.
+  const keep = new Set<string>();
+  const newest = <T extends ChartAnnotation>(items: T[], n: number, time: (x: T) => number) => [...items].sort((a, b) => time(b) - time(a)).slice(0, n).forEach((x) => keep.add(x.id));
+  newest(out.filter((a): a is Extract<ChartAnnotation, { type: "structure" }> => a.type === "structure"), MAX_STRUCTURE, (x) => x.toTime);
+  newest(out.filter((a): a is Extract<ChartAnnotation, { type: "marker" }> => a.type === "marker"), MAX_SWEEPS, (x) => x.time);
+  newest(out.filter((a): a is Extract<ChartAnnotation, { type: "pattern" }> => a.type === "pattern"), 1, (x) => x.t2);
+  for (const sess of ["LDN", "NY"] as const) newest(out.filter((a): a is Extract<ChartAnnotation, { type: "session" }> => a.type === "session" && a.session === sess), MAX_SESSIONS, (x) => x.time);
+  const final = out.filter((a) => keep.has(a.id) || (a.type !== "structure" && a.type !== "marker" && a.type !== "pattern" && a.type !== "session"));
+
+  return { annotations: final, counts: countOf(final), params: { swingBars: k, atr } };
 }
 
 export function countOf(a: ChartAnnotation[]): AnnotationCounts {

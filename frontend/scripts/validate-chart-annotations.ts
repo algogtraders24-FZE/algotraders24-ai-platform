@@ -62,7 +62,7 @@ import { planAt, PLAN_RR, buildTradePlan } from "../lib/chart-engine/annotations
   if (p.state === "plan") {
     check("Plan: entry = last close 103", p.entry === 103);
     check("Plan: stop below the OB low 101.5", p.stop < 101.5);
-    check("Plan: target = entry + 2 x risk", Math.abs(p.target - (p.entry + PLAN_RR * (p.entry - p.stop))) < 1e-9);
+    check("Plan: target = entry + 2 x risk", Math.abs(p.target - (p.entry + PLAN_RR * (p.entry - p.stop))) < 0.5);
     check("Plan: score counts confluences, max 5", p.score >= 1 && p.score <= p.scoreMax, String(p.score));
   }
   const aside = planAt(f1); // price far above the zone
