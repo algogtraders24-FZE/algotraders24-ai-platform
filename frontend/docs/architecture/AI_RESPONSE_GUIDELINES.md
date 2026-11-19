@@ -1,3 +1,5 @@
+> **Superseded in part (2026-11-19):** the rule in this document that the platform never gives a trade signal, target price, stop loss or win-rate claim is removed; see `POLICY-CHANGE-2026-11-19-trade-plans-allowed.md` (guardrails: no promises, no invented numbers, risk and disclaimer, source shown, execution is the user's action).
+
 # AI Response Guidelines
 
 Sprint D2.3.S4 — the platform's single, canonical communication standard for every AI-generated response, across every current and future module (AI Assistant, Publishing, Market Intelligence, Trading Copilot / Intelligence Panel, and any later Research or Intelligence Engine v2 surface).
