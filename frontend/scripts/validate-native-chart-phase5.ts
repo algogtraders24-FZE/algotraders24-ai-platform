@@ -235,7 +235,7 @@ function wiringTests(): void {
     // fields (and their own explanatory comment) pushed it further still.
     // D2.9.2/D2.9.4 - widened to 4000: externalCrosshairTime/equityCurve (and
     // their own explanatory comments) pushed it further still.
-    const drawBlock = src.slice(src.indexOf("const draw = useMemo"), src.indexOf("const draw = useMemo") + 4000);
+    const drawBlock = src.slice(src.indexOf("const draw = useMemo"), src.indexOf("const draw = useMemo") + 5000);
     assert.ok(drawBlock.includes("chartType,"), "renderChart(...) call must pass chartType");
     assert.ok(
       // Post-completion phase - activeSymbol joined the deps array so
@@ -246,7 +246,7 @@ function wiringTests(): void {
       // redraws - same "never a stale canvas" guarantee, one more real input.
       // D2.9.2 - externalCrosshairTime joined too, so a cross-pane crosshair
       // sync update actually redraws the ghost line.
-      /\[candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme, activeSymbol, algoTestOverlay, selectedAlgoTestTradeId, externalCrosshairTime\]/.test(
+      /\[candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme, activeSymbol, algoTestOverlay, selectedAlgoTestTradeId, externalCrosshairTime, proState]/.test(
         drawBlock,
       ),
       "deps array must include chartType/showGrid/showPeriodSeparators/colorScheme/activeSymbol/algoTestOverlay/selectedAlgoTestTradeId/externalCrosshairTime",

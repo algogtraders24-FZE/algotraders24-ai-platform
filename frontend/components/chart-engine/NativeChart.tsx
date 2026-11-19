@@ -32,6 +32,9 @@
 // (lib/chart-engine/indicators/*, sub-panel-renderer.ts, panel-layout.ts),
 // and a crosshair readout that includes volume + every active indicator's
 // real value at the hovered candle - never interpolated.
+import { ProModeBar } from "./ProModeBar";
+import { computeAnnotations } from "@/lib/chart-engine/annotations/compute";
+import { ALL_LAYERS_ON, ALL_LAYERS_OFF, type AnnotationLayers, type AnnotationResult } from "@/lib/chart-engine/annotations/types";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { formatPrice, formatTimestamp, formatCompactVolume, formatDuration } from "@/lib/financial-format";
@@ -423,6 +426,11 @@ export default function NativeChart({
     return Array.from(panels);
   }, [indicatorSeries, algoTestOverlay]);
 
+  // Professional Mode - computed on demand by the "Analyze chart" button; layers are per-group toggles.
+  const [proState, setProState] = useState<{ analysis: AnnotationResult | null; layers: AnnotationLayers }>({ analysis: null, layers: ALL_LAYERS_ON });
+  const proRef = useRef(proState);
+  proRef.current = proState;
+
   const draw = useMemo(
     () => () => {
       const canvas = canvasRef.current;
@@ -481,9 +489,11 @@ export default function NativeChart({
         algoTestTrades: algoTestOverlay?.trades,
         equityCurve: algoTestOverlay?.equityCurve,
         selectedAlgoTestTradeId,
+        annotations: proRef.current.analysis?.annotations,
+        annotationLayers: proRef.current.layers,
       });
     },
-    [candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme, activeSymbol, algoTestOverlay, selectedAlgoTestTradeId, externalCrosshairTime],
+    [candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme, activeSymbol, algoTestOverlay, selectedAlgoTestTradeId, externalCrosshairTime, proState],
   );
 
   // Resize: keep the canvas's real pixel buffer matched to its CSS size *
@@ -1396,6 +1406,15 @@ export default function NativeChart({
       ) : (
         <span className={FIN_LABEL}>Native chart</span>
       )}
+
+      <ProModeBar
+        analysis={proState.analysis}
+        layers={proState.layers}
+        onAnalyze={() => setProState({ analysis: computeAnnotations(candles), layers: ALL_LAYERS_ON })}
+        onToggleLayer={(g) => setProState((p) => ({ ...p, layers: { ...p.layers, [g]: !p.layers[g] } }))}
+        onCleanChart={() => setProState((p) => ({ ...p, layers: ALL_LAYERS_OFF }))}
+        onShowAll={() => setProState((p) => ({ ...p, layers: ALL_LAYERS_ON }))}
+      />
 
       <div
         ref={containerRef}

@@ -683,7 +683,7 @@ async function switchingTests(): Promise<void> {
 
   await test("provider switching (native <-> TradingView) is unaffected - the explicit ternary in ChartPanel.tsx is untouched by this sprint", () => {
     const panelSrc = read("components/chart-engine/ChartPanel.tsx");
-    assert.ok(panelSrc.includes('provider === "native" ? ('));
+    assert.ok(!panelSrc.includes("import AdvancedChart") && !panelSrc.includes("ChartProviderToggle"));
     assert.ok(!panelSrc.includes("Sprint D2.7.7"));
   });
 

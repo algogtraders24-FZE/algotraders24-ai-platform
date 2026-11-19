@@ -45,6 +45,8 @@ import {
 import type { IndicatorSeries, ChartPanelId } from "./indicators/types";
 import { drawDrawingObjects, drawDrawingPreview } from "./drawing/drawing-renderer";
 import type { DrawingObject, DrawingPreview } from "./drawing/types";
+import { drawAnnotations } from "./annotations/render";
+import type { AnnotationLayers, ChartAnnotation } from "./annotations/types";
 
 export interface RenderParams {
   ctx: CanvasRenderingContext2D;
@@ -111,6 +113,9 @@ export interface RenderParams {
   selectedAlgoTestTradeId?: string | null;
   /** Sprint D2.9.4 - a completed Algo Test run's own real running-balance series (AlgoTestChartOverlay.equityCurve). Renders as its own dedicated "equity" sub-panel (added to activePanels by NativeChart.tsx only while this is present and non-empty) - never derived/re-simulated here, just plotted. */
   equityCurve?: ChartEquityPoint[];
+  /** Professional Mode: computed market-structure annotations + which groups are visible (empty / omitted = byte-for-byte unchanged). */
+  annotations?: ChartAnnotation[];
+  annotationLayers?: AnnotationLayers;
 }
 
 /** P3.2B - one completed trade's chart-plottable fields (a strict subset of AlgoTestTradeView - the renderer never needs pnl/fees/etc.). */
@@ -159,6 +164,8 @@ export function renderChart(params: RenderParams): void {
     algoTestTrades = [],
     selectedAlgoTestTradeId = null,
     equityCurve,
+    annotations = [],
+    annotationLayers,
   } = params;
   const plotWidth = Math.max(0, dims.width - dims.priceAxisWidth);
   const plotHeight = Math.max(0, dims.height - dims.timeAxisHeight);
@@ -204,6 +211,7 @@ export function renderChart(params: RenderParams): void {
   if (chartType === "bar") drawBars(ctx, candles, indexRange, viewport, plotWidth, priceRow, colors);
   else if (chartType === "line") drawLine(ctx, candles, indexRange, viewport, plotWidth, priceRow, colors);
   else drawCandles(ctx, candles, indexRange, viewport, plotWidth, priceRow, colors);
+  if (annotations.length > 0 && annotationLayers) drawAnnotations(ctx, annotations, annotationLayers, candles, indexRange, viewport, plotWidth, priceRow);
   drawOverlays(ctx, indicatorSeries, candles, indexRange, viewport, plotWidth, priceRow);
   drawPriceAxis(ctx, priceTicks, viewport, plotWidth, priceRow, colors);
   drawLatestPriceMarker(ctx, candles, viewport, plotWidth, priceRow, colors, priceTicks, liveQuote);
