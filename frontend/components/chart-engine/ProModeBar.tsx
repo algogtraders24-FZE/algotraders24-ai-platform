@@ -95,10 +95,10 @@ export function PlanOverlay({ plan, onExecute, onClose, formatPrice, inline }: P
     return (
       <div className={shell}>
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-text-3">Stand aside</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-text-3">No clean setup, stand aside</span>
           {close}
         </div>
-        <p className="mt-1.5 leading-snug">{plan.reason}</p>
+        <p className="mt-1.5 leading-snug">{plan.reason} See the analysis below.</p>
       </div>
     );
   }
@@ -146,25 +146,43 @@ export function PlanOverlay({ plan, onExecute, onClose, formatPrice, inline }: P
   );
 }
 
-/** Side-panel "Annotations detected" with per-kind counts (Pipflow-style). */
-export function AnnotationSummary({ analysis }: { analysis: AnnotationResult | null }) {
+/** Side-panel "Annotations detected": per-kind counts, each expandable to its items with price ranges (Pipflow-style). */
+export function AnnotationSummary({ analysis, formatPrice }: { analysis: AnnotationResult | null; formatPrice: (n: number) => string }) {
   if (!analysis) return <p className="text-xs text-text-3">Press Analyze chart to map the structure.</p>;
   const c = analysis.counts;
-  const rows: [string, number][] = [["Lines (BOS / CHoCH)", c.lines], ["Zones (OB / FVG / P-D / OTE)", c.zones], ["Markers (sweeps)", c.markers], ["Levels (S/R)", c.levels], ["Patterns", c.patterns], ["Sessions", c.sessions]];
+  const list = analysis.annotations;
+  const range = (lo: number, hi: number) => `${formatPrice(lo)} - ${formatPrice(hi)}`;
+  const groups: { label: string; n: number; items: { name: string; value: string }[] }[] = [
+    { label: "Lines", n: c.lines, items: list.flatMap((x) => (x.type === "structure" ? [{ name: `${x.kind} ${x.bias}`, value: formatPrice(x.price) }] : [])) },
+    { label: "Zones", n: c.zones, items: list.flatMap((x) => (x.type === "zone" ? [{ name: x.label, value: range(x.low, x.high) }] : [])) },
+    { label: "Markers", n: c.markers, items: list.flatMap((x) => (x.type === "marker" ? [{ name: `Sweep ${x.bias}`, value: formatPrice(x.price) }] : [])) },
+    { label: "Levels", n: c.levels, items: list.flatMap((x) => (x.type === "level" ? [{ name: `S/R, ${x.touches} touches`, value: formatPrice(x.price) }] : [])) },
+    { label: "Patterns", n: c.patterns, items: list.flatMap((x) => (x.type === "pattern" ? [{ name: x.label, value: `neckline ${formatPrice(x.neckline)}` }] : [])) },
+    { label: "Sessions", n: c.sessions, items: list.flatMap((x) => (x.type === "session" ? [{ name: x.session, value: new Date(x.time).toISOString().slice(0, 16).replace("T", " ") + " UTC" }] : [])) },
+  ];
   return (
     <div className="text-xs text-text-2">
       <div className="mb-1 flex items-center justify-between">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-text-3">Annotations detected</span>
         <span className="rounded-full bg-ink-3 px-2 py-0.5 text-[11px]">{c.total}</span>
       </div>
-      <ul>
-        {rows.map(([label, n]) => (
-          <li key={label} className="flex items-center justify-between border-b border-border/60 py-1">
-            <span>{label}</span>
-            <span className="text-text-3">{n}</span>
-          </li>
-        ))}
-      </ul>
+      {groups.map((g) => (
+        <details key={g.label} className="border-b border-border/60 py-1" open={g.label === "Zones"}>
+          <summary className="flex cursor-pointer list-none items-center justify-between">
+            <span className="font-medium text-text">{g.label}</span>
+            <span className="text-text-3">{g.n}</span>
+          </summary>
+          <ul className="mt-1 space-y-0.5 pl-2">
+            {g.items.map((it, i) => (
+              <li key={`${it.name}-${i}`} className="flex items-center justify-between gap-2 text-[11px]">
+                <span>{it.name}</span>
+                <span className="font-mono text-text-3">{it.value}</span>
+              </li>
+            ))}
+            {g.items.length === 0 && <li className="text-[11px] text-text-3">None</li>}
+          </ul>
+        </details>
+      ))}
       <p className="mt-2 text-[11px] text-text-3">Swing size {analysis.params.swingBars} bars, ATR(14) {analysis.params.atr.toPrecision(5)}. Descriptive map of what price already did, not a prediction.</p>
     </div>
   );

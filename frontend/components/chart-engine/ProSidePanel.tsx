@@ -7,8 +7,9 @@ import Link from "next/link";
 import type { TradePlan } from "@/lib/chart-engine/annotations/plan";
 import type { AnnotationResult } from "@/lib/chart-engine/annotations/types";
 import { AnnotationSummary, PlanOverlay } from "./ProModeBar";
+import ProChat from "./ProChat";
 
-export type ProTab = "analysis" | "trade" | "strategies";
+export type ProTab = "analysis" | "chat" | "trade" | "strategies";
 
 interface Props {
   tab: ProTab;
@@ -27,6 +28,7 @@ interface Props {
 
 const TABS: { key: ProTab; label: string }[] = [
   { key: "analysis", label: "Analysis" },
+  { key: "chat", label: "Chat" },
   { key: "trade", label: "Trade" },
   { key: "strategies", label: "Strategies" },
 ];
@@ -51,6 +53,9 @@ export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, on
       </div>
 
       <div className={tab === "analysis" ? "flex flex-col gap-3" : "hidden"}>
+        <button type="button" onClick={onAnalyze} className="w-full rounded-control border border-border bg-ink-3 py-2 text-xs font-semibold text-text hover:border-gold/50">
+          {analysis ? "Re-analyze" : "Analyze chart"}
+        </button>
         {plan ? (
           <PlanOverlay inline plan={plan} onExecute={onExecute} onClose={onClosePlan} formatPrice={formatPrice} />
         ) : (
@@ -59,9 +64,11 @@ export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, on
           </div>
         )}
         <div className="rounded-panel border border-border bg-ink-2 p-3">
-          <AnnotationSummary analysis={analysis} />
+          <AnnotationSummary analysis={analysis} formatPrice={formatPrice} />
         </div>
       </div>
+
+      {tab === "chat" && <ProChat symbol={symbol} timeframe={timeframe} />}
 
       <div className={tab === "trade" ? "block" : "hidden"}>{trade}</div>
 
