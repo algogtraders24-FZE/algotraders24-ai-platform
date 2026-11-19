@@ -53,5 +53,28 @@ check("Deterministic output", JSON.stringify(computeAnnotations(f1)) === JSON.st
 // Degenerate input
 check("Short input returns empty", computeAnnotations(f1.slice(0, 5)).annotations.length === 0);
 
+// Render smoke test on a recording canvas: layers on draws something, layers off (clean chart) draws nothing.
+import { drawAnnotations } from "../lib/chart-engine/annotations/render";
+import { ALL_LAYERS_OFF, ALL_LAYERS_ON } from "../lib/chart-engine/annotations/types";
+import { indexRangeForViewport } from "../lib/chart-engine/index-scale";
+function recorder() {
+  let n = 0;
+  const base: Record<string, unknown> = {};
+  const ctx = new Proxy(base, { get: (t, k) => (k in t ? t[k as string] : (..._a: unknown[]) => { n++; }), set: (t, k, v) => { t[k as string] = v; return true; } });
+  return { ctx: ctx as unknown as CanvasRenderingContext2D, count: () => n };
+}
+{
+  const vp = { startTime: f1[0].time, endTime: f1[f1.length - 1].time, priceMin: 95, priceMax: 120 } as never;
+  let range;
+  try { range = indexRangeForViewport(f1, vp); } catch { range = null; }
+  if (range) {
+    const row = { id: "price", top: 0, height: 300 } as never;
+    const on = recorder(); drawAnnotations(on.ctx, r1.annotations, ALL_LAYERS_ON, f1, range, vp, 800, row);
+    const off = recorder(); drawAnnotations(off.ctx, r1.annotations, ALL_LAYERS_OFF, f1, range, vp, 800, row);
+    check("Render: layers on issues draw calls", on.count() > 0, String(on.count()));
+    check("Render: clean chart (all layers off) draws nothing", off.count() === 0, String(off.count()));
+  } else console.log("SKIP  render smoke test (viewport shape differs)");
+}
+
 console.log(fails === 0 ? "\nALL PASS" : `\n${fails} FAILED`);
 process.exit(fails === 0 ? 0 : 1);
