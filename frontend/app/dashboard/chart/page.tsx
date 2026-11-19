@@ -12,7 +12,8 @@ import { getMarket } from "@/lib/market-data/market-registry";
 import type { SignalTimeframe } from "@/types/signal";
 
 function ProChart() {
-  const { symbol, setSymbol } = useWorkspace();
+  const { symbol: initialSymbol } = useWorkspace();
+  const [symbol, setSymbol] = useState<string>(initialSymbol);
   const [timeframe, setTimeframe] = useState<SignalTimeframe>("1h");
   const [keys, setKeys] = useState<Set<string>>(new Set());
   const known = new Set(DEFAULT_INDICATOR_CONFIGS.map((c) => c.key));

@@ -123,6 +123,11 @@ export interface ExnessApiClientOptions {
   sleep?: (ms: number) => Promise<void>;
 }
 
+export interface ExnessInstrumentInfo {
+  symbol: string;
+  description?: string;
+}
+
 export class ExnessApiClient {
   private readonly env: ExnessApiEnv | null;
   private readonly fetchImpl: ExnessFetch;
@@ -279,6 +284,35 @@ export class ExnessApiClient {
       if (rows.length < 50) break;
     }
     return [...byTime.values()].sort((a, b) => Date.parse(a.datetime) - Date.parse(b.datetime)).slice(-total);
+  }
+
+  /**
+   * Every instrument the account lists (read-only configuration call). The response shape is parsed defensively: an array of strings or of
+   * objects, at the top level or under instruments / items / data; the symbol is the first of name / symbol / instrument / id that is a string.
+   */
+  async listInstruments(): Promise<ExnessInstrumentInfo[]> {
+    const env = this.env;
+    if (!env) throw new ExnessApiError("disabled", "Exness API is not enabled");
+    const base = await this.getAccessPoint();
+    const body = (await this.get(base, `/v1/configuration/accounts/${encodeURIComponent(env.accountId)}/instruments`)) as unknown;
+    const container = body as { instruments?: unknown; items?: unknown; data?: unknown };
+    const rows: unknown[] = Array.isArray(body) ? body : Array.isArray(container?.instruments) ? container.instruments : Array.isArray(container?.items) ? container.items : Array.isArray(container?.data) ? container.data : [];
+    const out: ExnessInstrumentInfo[] = [];
+    for (const row of rows) {
+      if (typeof row === "string") {
+        if (/^[A-Za-z0-9._#-]{2,20}$/.test(row)) out.push({ symbol: row });
+        continue;
+      }
+      if (row && typeof row === "object") {
+        const o = row as Record<string, unknown>;
+        const symbol = ["name", "symbol", "instrument", "id"].map((k) => o[k]).find((v): v is string => typeof v === "string" && /^[A-Za-z0-9._#-]{2,20}$/.test(v));
+        if (!symbol) continue;
+        const description = ["description", "title", "full_name", "label"].map((k) => o[k]).find((v): v is string => typeof v === "string" && v.length > 0);
+        out.push({ symbol, description });
+      }
+    }
+    if (out.length === 0) throw new ExnessApiError("shape", "Exness instruments response has no usable instruments");
+    return out;
   }
 
   /** Latest bid/ask taken from the most recent M1 candle (both sides). Its timestamp is that candle's open time, so it can be up to a minute old. */
