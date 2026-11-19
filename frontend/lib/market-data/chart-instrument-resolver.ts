@@ -106,6 +106,10 @@ function deriveDiscoveredChartResolution(instrument: CanonicalInstrument): Chart
   const source = instrument.discovery?.source;
 
   if (mapping) {
+    if (source === "exness-api") {
+      // Instruments listed by the Exness Trading API are charted by the native chart from the mt5 provider's candles; the chartSymbol is just the Exness symbol.
+      return { ...base, chartSymbol: mapping.providerSymbol, supported: true };
+    }
     if (source === "binance") {
       // TradingView's own documented BINANCE: exchange prefix for spot
       // pairs - the exact providerSymbol Binance itself returned, never

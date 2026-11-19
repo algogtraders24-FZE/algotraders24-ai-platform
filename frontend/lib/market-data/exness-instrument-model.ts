@@ -58,7 +58,7 @@ export function buildExnessCanonical(entry: ExnessInstrumentDto): CanonicalInstr
   return {
     id: entry.symbol,
     symbol: entry.label,
-    displayName: entry.name,
+    displayName: entry.name === entry.symbol ? entry.label : entry.name,
     assetClass: ASSET_CLASS[entry.group],
     marketCategory: MARKET_CATEGORY[entry.group],
     currency: /^[A-Z]{6}$/.test(entry.symbol) ? entry.symbol.slice(3) : "USD",
