@@ -33,6 +33,7 @@
 // and a crosshair readout that includes volume + every active indicator's
 // real value at the hovered candle - never interpolated.
 import { ProModeBar } from "./ProModeBar";
+import { buildTradePlan, type TradePlan } from "@/lib/chart-engine/annotations/plan";
 import { computeAnnotations } from "@/lib/chart-engine/annotations/compute";
 import { ALL_LAYERS_ON, ALL_LAYERS_OFF, type AnnotationLayers, type AnnotationResult } from "@/lib/chart-engine/annotations/types";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -428,6 +429,7 @@ export default function NativeChart({
 
   // Professional Mode - computed on demand by the "Analyze chart" button; layers are per-group toggles.
   const [proState, setProState] = useState<{ analysis: AnnotationResult | null; layers: AnnotationLayers }>({ analysis: null, layers: ALL_LAYERS_ON });
+  const [proPlan, setProPlan] = useState<TradePlan | null>(null);
   const proRef = useRef(proState);
   proRef.current = proState;
 
@@ -1410,7 +1412,10 @@ export default function NativeChart({
       <ProModeBar
         analysis={proState.analysis}
         layers={proState.layers}
-        onAnalyze={() => setProState({ analysis: computeAnnotations(candles), layers: ALL_LAYERS_ON })}
+        onAnalyze={() => { setProState({ analysis: computeAnnotations(candles), layers: ALL_LAYERS_ON }); setProPlan(buildTradePlan(candles)); }}
+        plan={proPlan}
+        onExecute={(side) => paperTradingRef.current?.quickTrade(side)}
+        formatPrice={(n) => formatPrice(n, { maxDecimals: 5 })}
         onToggleLayer={(g) => setProState((p) => ({ ...p, layers: { ...p.layers, [g]: !p.layers[g] } }))}
         onCleanChart={() => setProState((p) => ({ ...p, layers: ALL_LAYERS_OFF }))}
         onShowAll={() => setProState((p) => ({ ...p, layers: ALL_LAYERS_ON }))}
