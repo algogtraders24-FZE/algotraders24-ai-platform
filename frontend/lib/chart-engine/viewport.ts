@@ -68,6 +68,16 @@ export function fitToData(candles: ChartCandle[]): Viewport {
   return { minTime, maxTime, minPrice, maxPrice };
 }
 
+/** Like fitToData but frames only the most recent `recent` candles (Pro Chart default: the latest ~180 bars, with the rest of the loaded history reachable by panning left). */
+export function fitToRecent(candles: ChartCandle[], recent: number): Viewport {
+  if (candles.length <= recent) return fitToData(candles);
+  const step = candleStepMs(candles);
+  const minTime = candles[candles.length - recent].time;
+  const maxTime = candles[candles.length - 1].time + step * DEFAULT_TIME_PADDING_CANDLES;
+  const { minPrice, maxPrice } = priceRangeForWindow(candles, minTime, maxTime);
+  return { minTime, maxTime, minPrice, maxPrice };
+}
+
 /** Horizontal pan by a real time delta (the caller converts a pixel drag distance to milliseconds via the plot width / visible span ratio) - shifts both bounds together, so span (zoom level) is unaffected by a pan. */
 export function panViewport(viewport: Viewport, deltaMs: number): Viewport {
   return { ...viewport, minTime: viewport.minTime + deltaMs, maxTime: viewport.maxTime + deltaMs };

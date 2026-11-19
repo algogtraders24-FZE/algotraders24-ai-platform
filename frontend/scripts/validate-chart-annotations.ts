@@ -77,6 +77,15 @@ import { planAt, PLAN_RR, buildTradePlan } from "../lib/chart-engine/annotations
   console.log("      random-walk record (expected ~ -0.1..0 R, no edge):", JSON.stringify(r1m));
 }
 
+// fitToRecent frames only the latest N candles
+import { fitToRecent, fitToData } from "../lib/chart-engine/viewport";
+{
+  const big = build(Array.from({ length: 400 }, (_, i) => 100 + (i % 10)));
+  const v = fitToRecent(big, 100);
+  check("fitToRecent starts at candle len-100", v.minTime === big[300].time);
+  check("fitToRecent with fewer candles = fitToData", JSON.stringify(fitToRecent(big.slice(0, 50), 100)) === JSON.stringify(fitToData(big.slice(0, 50))));
+}
+
 // Render smoke test on a recording canvas: layers on draws something, layers off (clean chart) draws nothing.
 import { drawAnnotations } from "../lib/chart-engine/annotations/render";
 import { ALL_LAYERS_OFF, ALL_LAYERS_ON } from "../lib/chart-engine/annotations/types";
