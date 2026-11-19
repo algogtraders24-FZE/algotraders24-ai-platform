@@ -65,8 +65,12 @@ import { planAt, PLAN_RR, buildTradePlan } from "../lib/chart-engine/annotations
     check("Plan: target = entry + 2 x risk", Math.abs(p.target - (p.entry + PLAN_RR * (p.entry - p.stop))) < 0.5);
     check("Plan: score counts confluences, max 5", p.score >= 1 && p.score <= p.scoreMax, String(p.score));
   }
-  const aside = planAt(f1); // price far above the zone
-  check("Plan: stand aside when price is not at a zone", aside.state === "standAside", JSON.stringify(aside));
+  const lim = planAt(f1); // price above the zones: a limit plan at the nearest bullish zone on the way back down
+  check("Plan: limit entry below price when price is away from the zone", lim.state === "plan" && lim.entryType === "limit" && lim.dir === "long" && lim.entry < 117, JSON.stringify(lim));
+  if (lim.state === "plan") check("Plan: limit plan stop below entry, target = entry + 2 x risk", lim.stop < lim.entry && Math.abs(lim.target - (lim.entry + PLAN_RR * (lim.entry - lim.stop))) < 0.5);
+  const far = build([100, 101, 102, 103, 105, 110, 106, 104, 103, 102, 104, 106, 108, 112, 111, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140]);
+  const aside = planAt(far);
+  check("Plan: stand aside when the nearest zone is more than 3 ATR away", aside.state === "standAside", JSON.stringify(aside));
   check("Plan: record is null (honest) when history is too short", buildTradePlan(f5).state !== "plan" || (buildTradePlan(f5) as { record: unknown }).record === null);
   // Long random-walk history: record must be computed deterministically and never invent a number from nothing
   let x = 12345; const rnd = () => ((x = (x * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
@@ -75,6 +79,19 @@ import { planAt, PLAN_RR, buildTradePlan } from "../lib/chart-engine/annotations
   const r1m = measurePlanRecord(walk), r2m = measurePlanRecord(walk);
   check("Record: deterministic", JSON.stringify(r1m) === JSON.stringify(r2m));
   console.log("      random-walk record (expected ~ -0.1..0 R, no edge):", JSON.stringify(r1m));
+}
+
+// Luck baseline: shuffled copy keeps length, times and total candle shapes; the record carries a standard error
+import { shuffledCopy, measureWithBaseline } from "../lib/chart-engine/annotations/plan";
+{
+  let x = 777; const rnd = () => ((x = (x * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  let px = 100; const walk = build(Array.from({ length: 600 }, () => (px += (rnd() - 0.5) * 2)));
+  const sh = shuffledCopy(walk, 20261118);
+  check("shuffledCopy keeps length and times", sh.length === walk.length && sh.every((c, i) => c.time === walk[i].time));
+  check("shuffledCopy keeps every candle internally valid (low <= open,close <= high)", sh.every((c) => c.low <= Math.min(c.open, c.close) + 1e-9 && c.high >= Math.max(c.open, c.close) - 1e-9));
+  check("shuffledCopy is repeatable", JSON.stringify(shuffledCopy(walk, 20261118)) === JSON.stringify(sh));
+  const m = measureWithBaseline(walk);
+  check("record has se and a baseline", !!m && m.se > 0 && m.baselineAvgR !== undefined, JSON.stringify(m));
 }
 
 // fitToRecent frames only the latest N candles

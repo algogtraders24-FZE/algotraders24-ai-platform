@@ -117,7 +117,7 @@ export function PlanOverlay({ plan, onExecute, onClose, formatPrice, inline }: P
         {close}
       </div>
       <div className="mt-2 border-t border-border pt-1.5">
-        {row("ENTRY", plan.entry, "text-text")}
+        {row(plan.entryType === "limit" ? "ENTRY (limit)" : "ENTRY (market)", plan.entry, "text-text")}
         {row("STOP", plan.stop, "text-red-400")}
         {row("TARGET", plan.target, "text-green-400")}
       </div>
@@ -126,7 +126,7 @@ export function PlanOverlay({ plan, onExecute, onClose, formatPrice, inline }: P
         onClick={() => onExecute(long ? "buy" : "sell")}
         className={`mt-2 w-full rounded-control py-1.5 text-xs font-semibold ${long ? "bg-green-500/20 text-green-300 hover:bg-green-500/30" : "bg-red-500/20 text-red-300 hover:bg-red-500/30"}`}
       >
-        Execute (paper)
+        {plan.entryType === "limit" ? "Open paper ticket (limit entry)" : "Execute (paper)"}
       </button>
       <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="mt-2 w-full text-left text-[11px] text-text-3 hover:text-text">
         Evidence {open ? "▴" : "▾"}
@@ -136,10 +136,15 @@ export function PlanOverlay({ plan, onExecute, onClose, formatPrice, inline }: P
           <p>{plan.source}. Confluences: {plan.confluences.join(", ") || "none"}. Score counts rules that agree; it is not a probability.</p>
           <p>
             {plan.record
-              ? `Same rule replayed on this chart's ${plan.record.bars} loaded candles: ${plan.record.n} trades, average ${plan.record.avgR >= 0 ? "+" : ""}${plan.record.avgR.toFixed(2)} R, target first in ${(plan.record.targetShare * 100).toFixed(0)} % (before spread and commission; past results do not predict future ones).`
+              ? `Same rule replayed on this chart's ${plan.record.bars} loaded candles: ${plan.record.n} trades, average ${plan.record.avgR >= 0 ? "+" : ""}${plan.record.avgR.toFixed(2)} R (±${plan.record.se.toFixed(2)}), target first in ${(plan.record.targetShare * 100).toFixed(0)} % (before spread and commission; past results do not predict future ones).`
               : "Too little history on this chart to measure this rule, so no record is shown rather than an invented one."}
           </p>
-          <p>Execute opens the paper ticket for you to confirm; set the stop and target shown. Educational, not financial advice.</p>
+          <p>
+            {plan.record && plan.record.baselineAvgR !== undefined
+              ? `Luck check: the same rule on shuffled copies of this chart scores ${plan.record.baselineAvgR >= 0 ? "+" : ""}${plan.record.baselineAvgR.toFixed(2)} R, so the edge over luck is ${(plan.record.avgR - plan.record.baselineAvgR) >= 0 ? "+" : ""}${(plan.record.avgR - plan.record.baselineAvgR).toFixed(2)} R${Math.abs(plan.record.avgR - plan.record.baselineAvgR) < 2 * plan.record.se ? " (within noise)" : ""}.`
+              : ""}
+          </p>
+          <p>{plan.entryType === "limit" ? "Limit entry: the price is not at the zone yet; the plan is valid only if price retraces to the entry. " : ""}The button opens the paper ticket for you to confirm; set the stop and target shown. Educational, not financial advice.</p>
         </div>
       )}
     </div>

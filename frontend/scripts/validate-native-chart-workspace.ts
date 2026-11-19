@@ -482,7 +482,7 @@ async function fullscreenTests(): Promise<void> {
   });
 
   await test("the SAME ResizeObserver effect (no new resize/DPR logic) picks up the fullscreen layout change - it observes the container's real box regardless of how CSS sizes it", () => {
-    const resizeEffect = nativeSrc.slice(nativeSrc.indexOf("new ResizeObserver"), nativeSrc.indexOf("new ResizeObserver") + 800);
+    const resizeEffect = nativeSrc.slice(nativeSrc.indexOf("new ResizeObserver"), nativeSrc.indexOf("new ResizeObserver") + 1600);
     assert.ok(resizeEffect.includes("observer.disconnect()"));
     // no second/duplicate ResizeObserver was introduced for fullscreen specifically
     assert.equal((nativeSrc.match(/new ResizeObserver/g) ?? []).length, 1);

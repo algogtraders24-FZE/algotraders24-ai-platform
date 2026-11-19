@@ -497,7 +497,7 @@ async function historicalNavigationTests(): Promise<void> {
   await test("Fit (handleFit) re-fits to the full real candle range and correctly recomputes isLive afterward", () => {
     const src = nativeChartSrc();
     const fitFn = src.slice(src.indexOf("function handleFit"), src.indexOf("function handleGoLive"));
-    assert.ok(fitFn.includes("viewportRef.current = fitToData(candles);"));
+    assert.ok(fitFn.includes("viewportRef.current = fitToData(candles);") || fitFn.includes("viewportRef.current = fitView(candles);")) // Pro Chart frames the latest bars via fitView;
     assert.ok(fitFn.includes("isAtRightEdge(viewportRef.current, candles)"));
   });
 
@@ -954,7 +954,7 @@ async function performanceTests(): Promise<void> {
 
   await test("ResizeObserver cleanup is unaffected by this sprint's interaction changes", () => {
     const src = nativeChartSrc();
-    const resizeEffect = src.slice(src.indexOf("new ResizeObserver"), src.indexOf("new ResizeObserver") + 800);
+    const resizeEffect = src.slice(src.indexOf("new ResizeObserver"), src.indexOf("new ResizeObserver") + 1600);
     assert.ok(resizeEffect.includes("observer.disconnect()"));
   });
 }

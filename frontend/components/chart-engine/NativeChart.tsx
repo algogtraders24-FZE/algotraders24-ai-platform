@@ -1542,6 +1542,7 @@ export default function NativeChart({
           }}
           onClosePlan={() => setProPlan(null)}
           formatPrice={(n) => formatPrice(n, { maxDecimals: 5 })}
+          lastPrice={livePrice}
           trade={paperNode}
           onAnalyze={() => { setProState({ analysis: computeAnnotations(candles), layers: ALL_LAYERS_ON }); setProPlan(buildTradePlan(candles)); }}
         />

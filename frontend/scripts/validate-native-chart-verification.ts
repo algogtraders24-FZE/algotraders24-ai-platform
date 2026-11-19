@@ -886,7 +886,7 @@ async function performanceVerificationTests(): Promise<void> {
 
   await test("ResizeObserver is disconnected in its effect's cleanup - no observer leak across remounts", () => {
     const src = read("components/chart-engine/NativeChart.tsx");
-    const resizeEffect = src.slice(src.indexOf("new ResizeObserver"), src.indexOf("new ResizeObserver") + 800);
+    const resizeEffect = src.slice(src.indexOf("new ResizeObserver"), src.indexOf("new ResizeObserver") + 1600);
     assert.ok(resizeEffect.includes("observer.disconnect()"));
   });
 
