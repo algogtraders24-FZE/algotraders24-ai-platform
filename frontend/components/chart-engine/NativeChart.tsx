@@ -32,7 +32,8 @@
 // (lib/chart-engine/indicators/*, sub-panel-renderer.ts, panel-layout.ts),
 // and a crosshair readout that includes volume + every active indicator's
 // real value at the hovered candle - never interpolated.
-import { ProModeBar, PlanOverlay, AnnotationSummary } from "./ProModeBar";
+import { ProModeBar, PlanOverlay } from "./ProModeBar";
+import { ProSidePanel, type ProTab } from "./ProSidePanel";
 import { buildTradePlan, type TradePlan } from "@/lib/chart-engine/annotations/plan";
 import { computeAnnotations } from "@/lib/chart-engine/annotations/compute";
 import { ALL_LAYERS_ON, ALL_LAYERS_OFF, type AnnotationLayers, type AnnotationResult } from "@/lib/chart-engine/annotations/types";
@@ -110,7 +111,7 @@ const PAN_KEY_STEP_CANDLES = 5;
 // an MT5-grounded one, but offered alongside them since all three are
 // equally chart-only preferences independent of the (permanently dark)
 // app chrome.
-const COLOR_SCHEMES: ChartTheme[] = ["mt5", "mt5-green", "light"];
+const COLOR_SCHEMES: ChartTheme[] = ["pro", "mt5", "mt5-green", "light"];
 
 export interface NativeChartProps {
   /**
@@ -211,7 +212,7 @@ export default function NativeChart({
   // rendered before this phase (resolveChartColors("mt5") was previously
   // hardcoded below), so this is zero visual change until a user actually
   // opens Properties and picks something else.
-  const [colorScheme, setColorScheme] = useState<ChartTheme>("mt5");
+  const [colorScheme, setColorScheme] = useState<ChartTheme>(proLayout ? "pro" : "mt5");
   const [propertiesModalOpen, setPropertiesModalOpen] = useState(false);
   // Sprint D2.7.5, Phase 9 - a CSS-driven focus mode (not the browser
   // Fullscreen API): toggling this class alone naturally re-triggers the
@@ -433,6 +434,7 @@ export default function NativeChart({
   // Professional Mode - computed on demand by the "Analyze chart" button; layers are per-group toggles.
   const [proState, setProState] = useState<{ analysis: AnnotationResult | null; layers: AnnotationLayers }>({ analysis: null, layers: ALL_LAYERS_ON });
   const [proPlan, setProPlan] = useState<TradePlan | null>(null);
+  const [proTab, setProTab] = useState<ProTab>("analysis");
   const proRef = useRef(proState);
   proRef.current = proState;
 
@@ -1266,10 +1268,11 @@ export default function NativeChart({
   const hoveredCandle = hoveredIndex >= 0 && hoveredIndex < candles.length ? candles[hoveredIndex] : null;
   const trend = hoveredCandle ? classifyCandle(hoveredCandle) : null;
 
+  const paperNode = <PaperTradingPanel ref={paperTradingRef} symbol={symbol} isActive={symbol === activeSymbol} />;
   const panelBlock = (
     <>
       <MicrostructurePanel symbol={symbol} hypothesisType={symbol === activeSymbol ? hypothesisType : undefined} />
-      <PaperTradingPanel ref={paperTradingRef} symbol={symbol} isActive={symbol === activeSymbol} />
+      {!proLayout && paperNode}
       <AlgoTestPanel
         ref={algoTestRef}
         symbol={symbol}
@@ -1474,16 +1477,23 @@ export default function NativeChart({
       {result.series && <ProvenanceDisclosure series={result.series} />}
       </div>
       {proLayout && (
-        <aside className="flex w-full shrink-0 flex-col gap-3 xl:w-80">
-          {proPlan ? (
-            <PlanOverlay inline plan={proPlan} onExecute={(side) => paperTradingRef.current?.quickTrade(side)} onClose={() => setProPlan(null)} formatPrice={(n) => formatPrice(n, { maxDecimals: 5 })} />
-          ) : (
-            <div className="rounded-panel border border-border bg-ink-2 p-3 text-xs text-text-3">Press <span className="text-gold">Analyze chart</span> to get the structure map and a trade plan (or stand aside).</div>
-          )}
-          <div className="rounded-panel border border-border bg-ink-2 p-3">
-            <AnnotationSummary analysis={proState.analysis} />
-          </div>
-        </aside>
+        <ProSidePanel
+          tab={proTab}
+          onTab={setProTab}
+          symbol={resolution.displaySymbol}
+          timeframe={timeframe}
+          plan={proPlan}
+          analysis={proState.analysis}
+          onExecute={(side) => {
+            // the order ticket lives in the Trade tab: open it first, then let it show its confirmation
+            setProTab("trade");
+            setTimeout(() => paperTradingRef.current?.quickTrade(side), 60);
+          }}
+          onClosePlan={() => setProPlan(null)}
+          formatPrice={(n) => formatPrice(n, { maxDecimals: 5 })}
+          trade={paperNode}
+          onAnalyze={() => { setProState({ analysis: computeAnnotations(candles), layers: ALL_LAYERS_ON }); setProPlan(buildTradePlan(candles)); }}
+        />
       )}
       </div>
       {proLayout && panelBlock}
