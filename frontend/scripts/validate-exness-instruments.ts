@@ -4,6 +4,8 @@
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
 import { ExnessApiClient, ExnessApiError, type ExnessFetch } from "../lib/market-data/exness-api";
+import { resolveChartInstrument } from "../lib/market-data/chart-instrument-resolver";
+import { registerDiscoveredInstrument } from "../lib/market-data/instrument-catalog";
 import { buildExnessCanonical, classifyExnessSymbol, labelForSymbol, toExnessDto } from "../lib/market-data/exness-instrument-model";
 
 let passed = 0;
@@ -48,6 +50,14 @@ async function main() {
     assert.equal(c.providerMappings[0].providerSymbol, "GBPJPY");
     assert.deepEqual(c.providerMappings[0].supportedCapabilities, ["quote", "candles"]);
     assert.equal(c.discovery?.source, "exness-api");
+  });
+  await test("a registered Exness instrument resolves as a supported chart (native chart, no TradingView)", () => {
+    registerDiscoveredInstrument(buildExnessCanonical(toExnessDto("US30")));
+    const r = resolveChartInstrument("US30");
+    assert.equal(r.supported, true);
+    assert.equal(r.displaySymbol, "US30");
+    registerDiscoveredInstrument(buildExnessCanonical(toExnessDto("GBPJPY")));
+    assert.equal(resolveChartInstrument("GBPJPY").displaySymbol, "GBP/JPY");
   });
   await test("listInstruments: array of objects (name + description)", async () => {
     const list = await client([{ name: "EURUSD", description: "Euro vs US Dollar" }, { name: "XAUUSD" }]).listInstruments();
