@@ -50,6 +50,7 @@ import {
   candleStepMs,
   clampViewportToCandleBounds,
   fitToData,
+  fitToRecent,
   followLatest,
   isAtRightEdge,
   panViewport,
@@ -228,7 +229,8 @@ export default function NativeChart({
   // full-viewport overlay doesn't already provide just as reliably.
   const [isFullscreen, setIsFullscreen] = useState(false);
   const resolution = resolveChartInstrument(symbol);
-  const result = useChartCandles(symbol, timeframe);
+  // Pro Chart loads a deep history (2000 bars) and frames the latest ~180; the classic workspace chart keeps its 300-bar default.
+  const result = useChartCandles(symbol, timeframe, proLayout ? 2000 : undefined);
   // This session - the price panel's current-price marker prefers this
   // live bid/ask over the last candle's close (see useLiveQuote.ts's own
   // header comment). Independent of the candles fetch/poll above - a slow
@@ -519,6 +521,9 @@ export default function NativeChart({
       const { width, height } = entry.contentRect;
       const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
       dimsRef.current = { width, height };
+      // Safety net for the blank-chart-on-first-load race: if the viewport shows none of the loaded candles (e.g. data arrived while the canvas was still being sized), re-frame it.
+      const vp = viewportRef.current;
+      if (vp && candles.length > 0 && !candles.some((c) => c.time >= vp.minTime && c.time <= vp.maxTime)) viewportRef.current = fitView(candles);
       canvas.width = Math.max(1, Math.round(width * dpr));
       canvas.height = Math.max(1, Math.round(height * dpr));
       canvas.style.width = `${width}px`;
@@ -561,7 +566,7 @@ export default function NativeChart({
     const previousViewport = viewportRef.current;
     const alreadyFittedForThisKey = fittedKeyRef.current === key;
     if (!alreadyFittedForThisKey || !previousViewport) {
-      viewportRef.current = fitToData(candles);
+      viewportRef.current = fitView(candles);
       fittedKeyRef.current = key;
       setCrosshairState(null);
       setHoveredIndex(-1);
@@ -1017,9 +1022,13 @@ export default function NativeChart({
     handleFit();
   }
 
+  function fitView(cs: ChartCandle[]) {
+    return proLayout ? fitToRecent(cs, 180) : fitToData(cs);
+  }
+
   function handleFit() {
     if (candles.length === 0) return;
-    viewportRef.current = fitToData(candles);
+    viewportRef.current = fitView(candles);
     const live = isAtRightEdge(viewportRef.current, candles);
     isLiveRef.current = live;
     setIsLive(live);

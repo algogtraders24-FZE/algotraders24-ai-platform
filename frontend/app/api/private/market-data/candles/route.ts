@@ -44,7 +44,7 @@ import type { TimeSeriesResult } from "@/types/market-candle";
 
 const DEFAULT_OUTPUT_SIZE = 300;
 const MIN_OUTPUT_SIZE = 10;
-const MAX_OUTPUT_SIZE = 1000;
+const MAX_OUTPUT_SIZE = 5000; // the MT5 bridge accepts up to 5000 bars (Pro Chart asks for 2000)
 const DEFAULT_TIMEFRAME: SignalTimeframe = "1h";
 // Sprint D2.7.3 - short enough that a chart never shows meaningfully stale
 // data on a fresh symbol/timeframe switch, long enough to absorb the
