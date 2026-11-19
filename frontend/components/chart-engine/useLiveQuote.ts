@@ -11,6 +11,7 @@
 // never a second/duplicate provider call. A background poll failure
 // never disrupts what's already showing - the same "last good data
 // keeps showing" discipline useChartCandles established.
+import { isEnabledMarket } from "@/lib/market-data/market-registry";
 import { useEffect, useState } from "react";
 
 const POLL_INTERVAL_MS = 15_000;
@@ -32,10 +33,12 @@ export function useLiveQuote(symbol: string): LiveQuote | undefined {
     async function fetchOnce() {
       try {
         const params = new URLSearchParams({ symbol });
-        const res = await fetch(`/api/private/market-data/snapshot?${params.toString()}`, { signal: controller.signal });
+        // Instruments outside the registry's enabled markets (the Exness account's other instruments) use the light Exness quote route.
+        const exnessOnly = !isEnabledMarket(symbol);
+        const res = await fetch(`/api/private/market-data/${exnessOnly ? "quote" : "snapshot"}?${params.toString()}`, { signal: controller.signal });
         const json = await res.json();
         if (cancelled || !res.ok || json?.status !== "ok") return;
-        const snapshot = json.data?.snapshot;
+        const snapshot = exnessOnly ? json.data : json.data?.snapshot;
         const bid = typeof snapshot?.bid === "number" && Number.isFinite(snapshot.bid) ? snapshot.bid : undefined;
         const ask = typeof snapshot?.ask === "number" && Number.isFinite(snapshot.ask) ? snapshot.ask : undefined;
         if (bid !== undefined && ask !== undefined && ask >= bid) setQuote({ bid, ask });

@@ -24,6 +24,7 @@ interface Props {
   /** The paper-trading panel; always mounted (hidden when another tab is open) so its order ticket keeps working. */
   trade: ReactNode;
   onAnalyze: () => void;
+  lastPrice?: number;
 }
 
 const TABS: { key: ProTab; label: string }[] = [
@@ -33,7 +34,7 @@ const TABS: { key: ProTab; label: string }[] = [
   { key: "strategies", label: "Strategies" },
 ];
 
-export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, trade, onAnalyze }: Props) {
+export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, trade, onAnalyze, lastPrice }: Props) {
   const watching = plan ? 1 : 0;
   return (
     <aside className="flex w-full shrink-0 flex-col gap-3 border-t border-border p-3 xl:w-80 xl:border-l xl:border-t-0">
@@ -66,6 +67,19 @@ export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, on
         <div className="rounded-panel border border-border bg-ink-2 p-3">
           <AnnotationSummary analysis={analysis} formatPrice={formatPrice} />
         </div>
+        {analysis && (
+          <details className="rounded-panel border border-border bg-ink-2 p-3 text-xs text-text-2">
+            <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-text-3">Market analysis</summary>
+            <ul className="mt-2 space-y-1.5">
+              {readout(analysis, plan, lastPrice, formatPrice).map((r) => (
+                <li key={r.title}>
+                  <span className="font-medium text-text">{r.title}</span>
+                  <span className="text-text-3"> {r.text}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
       </div>
 
       {tab === "chat" && <ProChat symbol={symbol} timeframe={timeframe} />}
@@ -109,4 +123,27 @@ export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, on
       </div>
     </aside>
   );
+}
+
+/** Plain-language readout built only from the numbers already on the chart (structure, levels, ATR, the plan). */
+function readout(analysis: AnnotationResult, plan: TradePlan | null, last: number | undefined, fmt: (n: number) => string): { title: string; text: string }[] {
+  const rows: { title: string; text: string }[] = [];
+  const breaks = analysis.annotations.filter((a) => a.type === "structure").sort((a, b) => (a.type === "structure" && b.type === "structure" ? b.toTime - a.toTime : 0));
+  const b = breaks[0];
+  rows.push({ title: "Trend:", text: b && b.type === "structure" ? `latest structure break is a ${b.kind} ${b.bias} at ${fmt(b.price)}.` : "no structure break in the loaded candles." });
+  const levels = analysis.annotations.flatMap((a) => (a.type === "level" ? [a] : []));
+  if (last !== undefined && levels.length > 0) {
+    const above = levels.filter((l) => l.price > last).sort((x, y) => x.price - y.price)[0];
+    const below = levels.filter((l) => l.price < last).sort((x, y) => y.price - x.price)[0];
+    rows.push({ title: "Key levels:", text: `${above ? `resistance ${fmt(above.price)} (${above.touches} touches)` : "no resistance mapped above"}; ${below ? `support ${fmt(below.price)} (${below.touches} touches)` : "no support mapped below"}.` });
+  }
+  const atr = analysis.params.atr;
+  rows.push({ title: "Volatility:", text: `ATR(14) ${fmt(atr)}${last ? ` (${((atr / last) * 100).toFixed(2)} % of price)` : ""}.` });
+  if (plan && plan.state === "plan") {
+    const risk = Math.abs(plan.entry - plan.stop);
+    rows.push({ title: "Risk:", text: `stop is ${(risk / atr).toFixed(1)} ATR from entry (${fmt(risk)}); target is ${plan.rr} x that distance. Losing trades lose 1 R, winners make ${plan.rr} R.` });
+  } else if (plan) {
+    rows.push({ title: "Risk:", text: "no plan, so no risk is taken." });
+  }
+  return rows;
 }
