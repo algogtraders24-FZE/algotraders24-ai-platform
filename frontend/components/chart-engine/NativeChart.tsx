@@ -162,6 +162,8 @@ export interface NativeChartProps {
   externalCrosshairTime?: number | null;
   /** Professional Mode layout: big chart + right side panel (plan card, annotations), account/test panels below. */
   proLayout?: boolean;
+  /** Pro layout: the symbol picker shown at the start of the single top bar. */
+  symbolPicker?: React.ReactNode;
 }
 
 export default function NativeChart({
@@ -175,6 +177,7 @@ export default function NativeChart({
   onCrosshairTimeChange,
   externalCrosshairTime = null,
   proLayout = false,
+  symbolPicker,
 }: NativeChartProps) {
   // Sprint D2.8.13 - `hypothesisType` is the real, already-fetched active
   // hypothesis WorkspaceResearch found for this same symbol (D2.8.13's own
@@ -468,7 +471,7 @@ export default function NativeChart({
         colors: resolveChartColors(colorScheme),
         activePanels,
         indicatorSeries,
-        symbolLabel: `${symbol}, ${timeframe.toUpperCase()}: ${name ?? symbol}`,
+        symbolLabel: proLayout ? undefined : `${symbol}, ${timeframe.toUpperCase()}: ${name ?? symbol}`,
         // Read from refs, not the drawingObjects/selectedObjectId STATE
         // variables - the same reason viewport/crosshair are read via
         // viewportRef.current/crosshairRef.current above, not React
@@ -1284,11 +1287,53 @@ export default function NativeChart({
     </>
   );
 
+  const ohlcStrip = (
+    <>
+{hoveredCandle ? (
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          <span className={FIN_LABEL}>{formatTimestamp(hoveredCandle.time, "datetime")}</span>
+          <OhlcField label="O" value={hoveredCandle.open} />
+          <OhlcField label="H" value={hoveredCandle.high} />
+          <OhlcField label="L" value={hoveredCandle.low} />
+          <span className={`${FIN_PRIMARY} ${trend ? financialDirectionClass(trend === "bullish" ? "up" : trend === "bearish" ? "down" : "neutral") : ""}`}>
+            C {formatPrice(hoveredCandle.close, { maxDecimals: 5 })}
+          </span>
+          {hoveredCandle.volume !== undefined && <span className={FIN_SECONDARY}>V {formatCompactVolume(hoveredCandle.volume)}</span>}
+          {indicatorSeries.map((series) => {
+            const values = valueAtIndex(series, hoveredIndex);
+            return series.lines.map((line, i) =>
+              values[i] === undefined ? null : (
+                <span key={line.name} className={FIN_SECONDARY}>
+                  {line.name.toUpperCase()} {formatPrice(values[i] as number, { maxDecimals: 5 })}
+                </span>
+              ),
+            );
+          })}
+        </div>
+      ) : (
+        liveQuote ? (
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <span className={FIN_LABEL}>BID {formatPrice(liveQuote.bid, { maxDecimals: 5 })}</span>
+            <span className={FIN_LABEL}>ASK {formatPrice(liveQuote.ask, { maxDecimals: 5 })}</span>
+            <span className={FIN_LABEL}>SPREAD {formatPrice(Math.abs(liveQuote.ask - liveQuote.bid), { maxDecimals: 5 })}</span>
+          </div>
+        ) : (
+          <span className={FIN_LABEL}>Native chart</span>
+        )
+      )}
+    </>
+  );
+  const livePrice = liveQuote ? (liveQuote.bid + liveQuote.ask) / 2 : candles[candles.length - 1]?.close;
+
   return (
     <div className={isFullscreen ? "fixed inset-0 z-50 flex flex-col gap-2 bg-ink p-4" : "flex flex-col gap-2"}>
-      <ChartHeader displaySymbol={resolution.displaySymbol} instrumentName={name} timeframe={timeframe} series={result.series} />
+      {!proLayout && <ChartHeader displaySymbol={resolution.displaySymbol} instrumentName={name} timeframe={timeframe} series={result.series} />}
       {!proLayout && panelBlock}
+      <div className={proLayout ? "rounded-panel border border-border bg-[#131419]" : "contents"}>
+      <div className={proLayout ? "flex flex-col gap-2 border-b border-border px-3 py-2" : "contents"}>
       <ChartToolbar
+        compact={proLayout}
+        leading={symbolPicker}
         displaySymbol={resolution.displaySymbol}
         timeframe={timeframe}
         onTimeframeChange={onTimeframeChange}
@@ -1309,6 +1354,15 @@ export default function NativeChart({
         onSaveAsPicture={handleSaveAsPicture}
         onOpenAlgoTest={() => algoTestRef.current?.openConfig()}
       />
+      <ProModeBar
+        analysis={proState.analysis}
+        layers={proState.layers}
+        onAnalyze={() => { setProState({ analysis: computeAnnotations(candles), layers: ALL_LAYERS_ON }); setProPlan(buildTradePlan(candles)); }}
+        onToggleLayer={(g) => setProState((p) => ({ ...p, layers: { ...p.layers, [g]: !p.layers[g] } }))}
+        onCleanChart={() => setProState((p) => ({ ...p, layers: ALL_LAYERS_OFF }))}
+        onShowAll={() => setProState((p) => ({ ...p, layers: ALL_LAYERS_ON }))}
+      />
+      </div>
 
       <Modal open={saveModalOpen} onClose={() => setSaveModalOpen(false)} title="Save as Template">
         <p className="text-xs text-text-3">
@@ -1379,6 +1433,7 @@ export default function NativeChart({
         </div>
       </Modal>
 
+      {!proLayout && (
       <DrawingToolbar
         activeTool={activeTool}
         onSelectTool={handleSelectDrawingTool}
@@ -1391,55 +1446,32 @@ export default function NativeChart({
         onSelectObject={handleSelectObjectFromList}
         onDeleteObject={handleDeleteObjectFromList}
       />
+      )}
 
       {result.status === "stale" && (
         <p className={FIN_TERTIARY}>Showing the most recently available data - a live refresh could not be confirmed as fresh.</p>
       )}
 
-      {hoveredCandle ? (
-        <div className="flex flex-wrap items-center gap-3 text-xs">
-          <span className={FIN_LABEL}>{formatTimestamp(hoveredCandle.time, "datetime")}</span>
-          <OhlcField label="O" value={hoveredCandle.open} />
-          <OhlcField label="H" value={hoveredCandle.high} />
-          <OhlcField label="L" value={hoveredCandle.low} />
-          <span className={`${FIN_PRIMARY} ${trend ? financialDirectionClass(trend === "bullish" ? "up" : trend === "bearish" ? "down" : "neutral") : ""}`}>
-            C {formatPrice(hoveredCandle.close, { maxDecimals: 5 })}
-          </span>
-          {hoveredCandle.volume !== undefined && <span className={FIN_SECONDARY}>V {formatCompactVolume(hoveredCandle.volume)}</span>}
-          {indicatorSeries.map((series) => {
-            const values = valueAtIndex(series, hoveredIndex);
-            return series.lines.map((line, i) =>
-              values[i] === undefined ? null : (
-                <span key={line.name} className={FIN_SECONDARY}>
-                  {line.name.toUpperCase()} {formatPrice(values[i] as number, { maxDecimals: 5 })}
-                </span>
-              ),
-            );
-          })}
-        </div>
-      ) : (
-        liveQuote ? (
-          <div className="flex flex-wrap items-center gap-3 text-xs">
-            <span className={FIN_LABEL}>BID {formatPrice(liveQuote.bid, { maxDecimals: 5 })}</span>
-            <span className={FIN_LABEL}>ASK {formatPrice(liveQuote.ask, { maxDecimals: 5 })}</span>
-            <span className={FIN_LABEL}>SPREAD {formatPrice(Math.abs(liveQuote.ask - liveQuote.bid), { maxDecimals: 5 })}</span>
-          </div>
-        ) : (
-          <span className={FIN_LABEL}>Native chart</span>
-        )
-      )}
+      {!proLayout && ohlcStrip}
 
-      <ProModeBar
-        analysis={proState.analysis}
-        layers={proState.layers}
-        onAnalyze={() => { setProState({ analysis: computeAnnotations(candles), layers: ALL_LAYERS_ON }); setProPlan(buildTradePlan(candles)); }}
-        onToggleLayer={(g) => setProState((p) => ({ ...p, layers: { ...p.layers, [g]: !p.layers[g] } }))}
-        onCleanChart={() => setProState((p) => ({ ...p, layers: ALL_LAYERS_OFF }))}
-        onShowAll={() => setProState((p) => ({ ...p, layers: ALL_LAYERS_ON }))}
+
+      <div className={proLayout ? "flex flex-col xl:flex-row" : "contents"}>
+      {proLayout && <div className="flex shrink-0 flex-row justify-center gap-1.5 border-b border-border p-2 xl:w-12 xl:flex-col xl:items-center xl:border-b-0 xl:border-r">
+      <DrawingToolbar
+          vertical
+        activeTool={activeTool}
+        onSelectTool={handleSelectDrawingTool}
+        hasSelection={selectedObjectId !== null}
+        onDeleteSelected={handleDeleteSelectedDrawing}
+        objectCount={drawingObjects.length}
+        onClearAll={handleClearAllDrawings}
+        drawingObjects={drawingObjects}
+        selectedObjectId={selectedObjectId}
+        onSelectObject={handleSelectObjectFromList}
+        onDeleteObject={handleDeleteObjectFromList}
       />
-
-      <div className={proLayout ? "flex flex-col gap-3 xl:flex-row" : "contents"}>
-      <div className={proLayout ? "flex min-w-0 flex-1 flex-col gap-2" : "contents"}>
+      </div>}
+      <div className={proLayout ? "flex min-w-0 flex-1 flex-col" : "contents"}>
       <div
         ref={containerRef}
         className={isFullscreen ? "relative w-full min-h-0 flex-1" : "relative w-full"}
@@ -1467,6 +1499,16 @@ export default function NativeChart({
           onDoubleClick={handleDoubleClick}
           onKeyDown={handleKeyDown}
         />
+        {proLayout && (
+          <div className="pointer-events-none absolute left-3 top-2 z-10 flex flex-col gap-0.5">
+            <div className="flex items-baseline gap-2">
+              <span className="text-sm font-semibold text-text">{resolution.displaySymbol}</span>
+              <span className="text-[11px] text-text-3">{timeframe.toUpperCase()}{name ? ` · ${name}` : ""}</span>
+              {livePrice !== undefined && <span className="font-mono text-sm font-semibold text-text">{formatPrice(livePrice, { maxDecimals: 5 })}</span>}
+            </div>
+            <div className="flex flex-wrap items-center gap-3 text-[11px]">{ohlcStrip}</div>
+          </div>
+        )}
         {!proLayout && <PlanOverlay plan={proPlan} onExecute={(side) => paperTradingRef.current?.quickTrade(side)} onClose={() => setProPlan(null)} formatPrice={(n) => formatPrice(n, { maxDecimals: 5 })} />}
       </div>
       {result.series && result.series.rejectedCount > 0 && (
@@ -1495,6 +1537,7 @@ export default function NativeChart({
           onAnalyze={() => { setProState({ analysis: computeAnnotations(candles), layers: ALL_LAYERS_ON }); setProPlan(buildTradePlan(candles)); }}
         />
       )}
+      </div>
       </div>
       {proLayout && panelBlock}
     </div>

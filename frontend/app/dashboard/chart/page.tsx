@@ -18,12 +18,9 @@ function ProChart() {
   const known = new Set(DEFAULT_INDICATOR_CONFIGS.map((c) => c.key));
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-xl font-medium">Pro Chart</h1>
-        <ProSymbolPicker value={symbol} onChange={setSymbol} />
-      </div>
       <NativeChart
         proLayout
+        symbolPicker={<ProSymbolPicker value={symbol} onChange={setSymbol} />}
         symbol={symbol}
         name={getMarket(symbol)?.name}
         timeframe={timeframe}

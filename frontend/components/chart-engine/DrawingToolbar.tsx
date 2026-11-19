@@ -35,6 +35,7 @@ const TOOLS: { id: DrawingToolId; label: string; glyph: string }[] = [
 ];
 
 export default function DrawingToolbar({
+  vertical = false,
   activeTool,
   onSelectTool,
   hasSelection,
@@ -45,7 +46,7 @@ export default function DrawingToolbar({
   selectedObjectId,
   onSelectObject,
   onDeleteObject,
-}: DrawingToolbarProps) {
+}: DrawingToolbarProps & { vertical?: boolean }) {
   const [listOpen, setListOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -73,7 +74,7 @@ export default function DrawingToolbar({
   const orderedObjects = [...drawingObjects].sort((a, b) => a.createdAt - b.createdAt);
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5" role="toolbar" aria-label="Chart drawing tools">
+    <div className={vertical ? "flex flex-col items-center gap-1.5" : "flex flex-wrap items-center gap-1.5"} role="toolbar" aria-label="Chart drawing tools">
       <ToolButton
         active={activeTool === null}
         label="Cursor (Esc)"
@@ -89,7 +90,7 @@ export default function DrawingToolbar({
           glyph={tool.glyph}
         />
       ))}
-      <span className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
+      <span className={vertical ? "my-1 h-px w-5 bg-border" : "mx-1 h-4 w-px bg-border"} aria-hidden="true" />
       <button
         type="button"
         onClick={onDeleteSelected}
@@ -97,7 +98,7 @@ export default function DrawingToolbar({
         title="Delete the selected object (Delete key)"
         className="rounded-control border border-border bg-ink-3 px-2 py-1 text-[11px] font-medium text-text-3 transition hover:bg-ink-4 hover:text-text disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-ink-3 disabled:hover:text-text-3"
       >
-        Delete
+        {vertical ? "✕" : "Delete"}
       </button>
       <button
         type="button"
@@ -106,7 +107,7 @@ export default function DrawingToolbar({
         title="Remove every drawn object from this chart"
         className="rounded-control border border-border bg-ink-3 px-2 py-1 text-[11px] font-medium text-text-3 transition hover:bg-ink-4 hover:text-text disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-ink-3 disabled:hover:text-text-3"
       >
-        Clear all{objectCount > 0 ? ` (${objectCount})` : ""}
+        {vertical ? "⌫" : `Clear all${objectCount > 0 ? ` (${objectCount})` : ""}`}
       </button>
 
       <div className="relative" ref={listRef}>
@@ -118,10 +119,10 @@ export default function DrawingToolbar({
           title="Object List - every drawn object on this chart (Ctrl+B in real MT5)"
           className="rounded-control border border-border bg-ink-3 px-2 py-1 text-[11px] font-medium text-text-3 transition hover:bg-ink-4 hover:text-text"
         >
-          Objects{objectCount > 0 ? ` (${objectCount})` : ""}
+          {vertical ? `☰${objectCount > 0 ? objectCount : ""}` : `Objects${objectCount > 0 ? ` (${objectCount})` : ""}`}
         </button>
         {listOpen && (
-          <div role="menu" aria-label="Object list" className="absolute left-0 top-full z-10 mt-1 w-60 rounded-panel border border-border bg-ink-2 p-1.5 shadow-raised">
+          <div role="menu" aria-label="Object list" className={`absolute z-10 w-60 rounded-panel border border-border bg-ink-2 p-1.5 shadow-raised ${vertical ? "left-full top-0 ml-2" : "left-0 top-full mt-1"}`}>
             {orderedObjects.length === 0 ? (
               <p className={`${FIN_LABEL} px-2 py-1.5`}>No objects drawn yet</p>
             ) : (
