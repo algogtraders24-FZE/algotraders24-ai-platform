@@ -69,13 +69,10 @@
 // Every OTHER pane owns a fully independent symbol with no such sync.
 import { useEffect, useRef, useState } from "react";
 import { useWorkspace } from "@/context/WorkspaceContext";
-import AdvancedChart from "@/components/workspace/tradingview/AdvancedChart";
 import { DEFAULT_INDICATOR_CONFIGS } from "@/lib/chart-engine/indicators/panel-registry";
 import type { ChartLayout } from "@/lib/chart-engine/chart-session-state";
 import { readChartWorkspaceLayout, writeChartWorkspaceLayout } from "@/lib/chart-engine/chart-workspace-layout-store";
-import type { ChartProviderKind } from "@/types/chart-data";
 import type { SignalTimeframe } from "@/types/signal";
-import ChartProviderToggle from "./ChartProviderToggle";
 import ChartPane, { type ChartPaneState } from "./ChartPane";
 
 const DEFAULT_NATIVE_TIMEFRAME: SignalTimeframe = "1h";
@@ -98,7 +95,6 @@ function layoutForRestoredCount(count: number): ChartLayout {
 
 export default function ChartPanel() {
   const { symbol: contextSymbol, setSymbol: setContextSymbol } = useWorkspace();
-  const [provider, setProvider] = useState<ChartProviderKind>("native");
   const [layout, setLayoutState] = useState<ChartLayout>(1);
   const [panes, setPanes] = useState<ChartPaneState[]>(() => [makePane(contextSymbol)]);
   const [primaryPaneId, setPrimaryPaneId] = useState<string>(() => panes[0].id);
@@ -124,7 +120,6 @@ export default function ChartPanel() {
     const controller = new AbortController();
     readChartWorkspaceLayout(controller.signal).then((saved) => {
       if (controller.signal.aborted) return; // unmounted before the fetch resolved - never apply a stale restore
-      if (saved.provider) setProvider(saved.provider);
       if (saved.panes && saved.panes.length > 0) {
         const restored = saved.panes.map((p) => ({ id: newPaneId(), symbol: p.symbol, timeframe: p.timeframe, activeIndicatorKeys: new Set(p.indicatorKeys) }));
         setPanes(restored);
@@ -158,13 +153,14 @@ export default function ChartPanel() {
   useEffect(() => {
     if (!hydratedRef.current) return; // don't overwrite a not-yet-restored saved value with the still-default initial state
     const primaryIndex = Math.max(0, panes.findIndex((p) => p.id === primaryPaneId));
+    // TradingView removed 2026-11-19 (owner decision) - the native chart is the only chart.
     writeChartWorkspaceLayout({
-      provider,
+      provider: "native",
       layout,
       panes: panes.map((p) => ({ symbol: p.symbol, timeframe: p.timeframe, indicatorKeys: Array.from(p.activeIndicatorKeys) })),
       primaryPaneIndex: primaryIndex,
     });
-  }, [provider, layout, panes, primaryPaneId]);
+  }, [layout, panes, primaryPaneId]);
 
   function setLayout(next: ChartLayout) {
     setPanes((prev) => {
@@ -220,7 +216,7 @@ export default function ChartPanel() {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        {provider === "native" && (
+        {(
           <div role="group" aria-label="Chart layout" className="flex items-center gap-0.5 rounded-control border border-border bg-ink-3 p-0.5">
             {LAYOUTS.map((n) => (
               <button
@@ -238,11 +234,8 @@ export default function ChartPanel() {
             ))}
           </div>
         )}
-        <div className="ml-auto">
-          <ChartProviderToggle value={provider} onChange={setProvider} />
-        </div>
       </div>
-      {provider === "native" ? (
+      {(
         <div className={`grid gap-3 ${gridClass}`}>
           {panes.map((pane) => (
             <ChartPane
@@ -260,8 +253,6 @@ export default function ChartPanel() {
             />
           ))}
         </div>
-      ) : (
-        <AdvancedChart />
       )}
     </div>
   );

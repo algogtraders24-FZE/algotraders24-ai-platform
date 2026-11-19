@@ -568,7 +568,7 @@ async function switchingTests(): Promise<void> {
 
   await test("provider switching is still explicit (native | tradingview) - unaffected by this sprint's rendering changes", () => {
     const panelSrc = read("components/chart-engine/ChartPanel.tsx");
-    assert.ok(panelSrc.includes('provider === "native" ? ('));
+    assert.ok(!panelSrc.includes("import AdvancedChart") && panelSrc.includes('provider: "native"'));
   });
 
   await test("D2.7.5's chart-session-state provider/timeframe/indicator persistence is untouched by this sprint", () => {

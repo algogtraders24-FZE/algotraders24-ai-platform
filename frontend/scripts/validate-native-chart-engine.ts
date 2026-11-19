@@ -646,7 +646,7 @@ function regressionGuardTests(): void {
     const src = read("app/dashboard/workspace/page.tsx");
     const chartPanelOccurrences = (src.match(/ChartPanel/g) ?? []).length;
     assert.ok(chartPanelOccurrences >= 2); // import + usage
-    assert.ok(!src.includes("<AdvancedChart"));
+    assert.ok(!src.includes("import AdvancedChart"));
   });
 }
 

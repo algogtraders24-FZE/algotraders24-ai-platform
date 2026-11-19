@@ -41,11 +41,9 @@ import { collectMicrostructureRealNumbers } from "@/lib/microstructure/microstru
 // duplicating them - "extend, never rebuild" applied to this file's own
 // internals, not just its public API.
 export const GUARANTEED_PROFIT_PATTERNS: RegExp[] = [
-  /buy now/i,
-  /sell now/i,
+  // 2026-11-19 (owner): "Buy Now" / "Sell Now" / "Best Entry" and Entry / Exit / Target / Stop Loss are no longer
+  // blocked - a trade plan with evidence, risk and a measured record is allowed. Promises stay blocked.
   /\d+%\s*win rate/i,
-  /target\s*=/i,
-  /stop loss\s*=/i,
   /\d+%\s*chance/i,
   /\d+%\s*probability/i,
   /probability of profit\s*[:=]\s*\d/i,

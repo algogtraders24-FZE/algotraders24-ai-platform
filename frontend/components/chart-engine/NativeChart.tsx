@@ -493,7 +493,7 @@ export default function NativeChart({
         annotationLayers: proRef.current.layers,
       });
     },
-    [proState, candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme, activeSymbol, algoTestOverlay, selectedAlgoTestTradeId, externalCrosshairTime],
+    [candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme, activeSymbol, algoTestOverlay, selectedAlgoTestTradeId, externalCrosshairTime, proState],
   );
 
   // Resize: keep the canvas's real pixel buffer matched to its CSS size *
