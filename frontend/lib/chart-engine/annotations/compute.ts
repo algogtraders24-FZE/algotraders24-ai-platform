@@ -124,7 +124,7 @@ export function computeAnnotations(all: ChartCandle[], opts: ComputeOptions = {}
     }
   }
   const active = obZones.filter((z) => z.endTime === null);
-  const keepIds = new Set(active.slice(-MAX_OB * 2).map((z) => z.id));
+  const keepIds = new Set(active.slice(-MAX_OB).map((z) => z.id));
   for (const z of obZones) if (z.endTime !== null || keepIds.has(z.id)) { if (z.endTime === null || keepIds.has(z.id)) out.push(z); }
   // ended OBs are history clutter: drop the ones that ended (keep breakers which are active)
   for (let i = out.length - 1; i >= 0; i--) { const a = out[i]; if (a.type === "zone" && a.kind === "orderBlock" && a.endTime !== null) out.splice(i, 1); }
