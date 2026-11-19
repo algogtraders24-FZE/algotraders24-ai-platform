@@ -287,7 +287,8 @@ export class Mt5Provider implements MarketDataProvider, SnapshotProvider, TimeSe
     if (!candles) {
       if (this.exness.isEnabled()) {
         try {
-          candles = await this.exness.getCandles(spec.mt5Symbol, interval, outputSize);
+          // more than one Exness page (1000 candles): page back through the history
+          candles = outputSize > 1000 ? await this.exness.getCandlesPaged(spec.mt5Symbol, interval, outputSize) : await this.exness.getCandles(spec.mt5Symbol, interval, outputSize);
           this.lastSource = "exness";
         } catch {
           candles = undefined; // any Exness API problem: fall back to the VPS bridge below

@@ -34,6 +34,7 @@ import { marketData } from "@/services/market-data/shared-instance";
 import { MarketDataProviderError } from "@/lib/market-data/errors";
 import { toMarketDataErrorDTO, statusCodeForReason } from "@/lib/market-data/error-dto";
 import { getCanonicalInstrument } from "@/lib/market-data/instrument-catalog";
+import { ensureExnessInstrumentRegistered } from "@/lib/market-data/exness-instruments";
 import { TtlCache } from "@/lib/market-data/cache";
 import { assessFreshness } from "@/services/market-data/freshness-policy.service";
 import { isSignalTimeframe, type SignalTimeframe } from "@/types/signal";
@@ -73,6 +74,8 @@ export const GET = withContext(async (req, ctx) => {
   const timeframeRaw = url.searchParams.get("timeframe");
   const outputSize = parseOutputSize(url.searchParams.get("outputSize"));
 
+  // an instrument Exness lists but the static catalog does not know is registered on the fly (read-only, from the Exness API)
+  if (typeof symbol === "string" && !getCanonicalInstrument(symbol)) await ensureExnessInstrumentRegistered(symbol);
   const instrument = typeof symbol === "string" ? getCanonicalInstrument(symbol) : undefined;
   if (typeof symbol !== "string" || !instrument) {
     return ApiResponse.error(
