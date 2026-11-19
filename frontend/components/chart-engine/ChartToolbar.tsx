@@ -32,6 +32,9 @@ const CHART_TYPES: { value: ChartRenderType; label: string; title: string }[] = 
 ];
 
 export interface ChartToolbarProps {
+  /** Pro layout: slot shown first (the symbol picker) and the plain symbol label is hidden. */
+  leading?: React.ReactNode;
+  compact?: boolean;
   displaySymbol: string;
   timeframe: SignalTimeframe;
   onTimeframeChange: (timeframe: SignalTimeframe) => void;
@@ -62,6 +65,8 @@ const OVERLAY_CONFIGS = DEFAULT_INDICATOR_CONFIGS.filter((cfg) => INDICATOR_PANE
 const PANEL_CONFIGS = DEFAULT_INDICATOR_CONFIGS.filter((cfg) => INDICATOR_PANEL_ID[cfg.id] !== "price");
 
 export default function ChartToolbar({
+  leading,
+  compact = false,
   displaySymbol,
   timeframe,
   onTimeframeChange,
@@ -129,7 +134,8 @@ export default function ChartToolbar({
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div className="flex flex-wrap items-center gap-2">
-        <span className={`${FIN_LABEL} rounded-control border border-border bg-ink-3 px-2 py-1`}>{displaySymbol}</span>
+        {leading}
+        {!compact && <span className={`${FIN_LABEL} rounded-control border border-border bg-ink-3 px-2 py-1`}>{displaySymbol}</span>}
         <ChartTimeframeSelector value={timeframe} onChange={onTimeframeChange} />
       </div>
 

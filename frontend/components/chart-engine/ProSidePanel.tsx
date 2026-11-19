@@ -36,7 +36,7 @@ const TABS: { key: ProTab; label: string }[] = [
 export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, trade, onAnalyze }: Props) {
   const watching = plan ? 1 : 0;
   return (
-    <aside className="flex w-full shrink-0 flex-col gap-3 xl:w-80">
+    <aside className="flex w-full shrink-0 flex-col gap-3 border-t border-border p-3 xl:w-80 xl:border-l xl:border-t-0">
       <div role="tablist" aria-label="Pro chart panel" className="flex items-center gap-1 rounded-control border border-border bg-ink-3 p-0.5">
         {TABS.map((t) => (
           <button
