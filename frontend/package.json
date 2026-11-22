@@ -10,6 +10,7 @@
     "lint": "eslint",
     "validate:arena-fx": "tsx scripts/validate-arena-fx.ts",
     "validate:brief-chart": "tsx scripts/validate-brief-chart.ts",
+    "validate:brief-render": "tsx scripts/validate-brief-render.ts",
     "validate:market-brief": "tsx scripts/validate-market-brief.ts",
     "validate:swing-lab": "tsx scripts/validate-swing-lab.ts && tsx scripts/validate-swing-lab-scoreboard.ts",
     "validate:crypto-flow": "tsx scripts/validate-crypto-flow.ts && tsx scripts/validate-crypto-flow-zones.ts && tsx scripts/validate-crypto-flow-scoreboard.ts && tsx scripts/validate-crypto-flow-derivatives.ts",

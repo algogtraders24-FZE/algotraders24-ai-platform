@@ -35,10 +35,19 @@ export interface BlogPostSummary {
   canonicalUrl: string;
 }
 
+export type BlogSectionKind = "headline" | "chips" | "hero" | "bullets" | "fit" | "scenarios" | "plan" | "check" | "learn" | "footer";
+
 export interface BlogPostSection {
   heading: string;
   /** sanitized plain text (lib/publishing/sanitize-text.ts) */
   body: string;
+  /** Market Brief 2.0 (optional): how the page presents the section. Absent on every older article. Reader output is sanitized. */
+  kind?: BlogSectionKind;
+  bullets?: string[];
+  chips?: { value: string; label: string }[];
+  cards?: { title: string; body: string; tone: "up" | "down" | "neutral" }[];
+  /** url is only kept when it points to our own storage / site (see blog-reader.service.ts) */
+  image?: { url: string; alt: string; caption: string };
 }
 
 export interface BlogPost {

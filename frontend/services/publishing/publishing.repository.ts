@@ -453,10 +453,16 @@ type PublishedJobWithArticleRow = {
 function toBlogSections(raw: unknown): BlogPostSection[] {
   if (!Array.isArray(raw)) return [];
   return raw
-    .filter((s): s is { heading: unknown; body: unknown } => !!s && typeof s === "object")
+    .filter((s): s is Record<string, unknown> => !!s && typeof s === "object")
     .map((s) => ({
       heading: typeof s.heading === "string" ? s.heading : "",
       body: typeof s.body === "string" ? s.body : "",
+      // Market Brief 2.0 optional fields: passed through raw, the reader service sanitizes and whitelists them.
+      ...(typeof s.kind === "string" ? { kind: s.kind as BlogPostSection["kind"] } : {}),
+      ...(Array.isArray(s.bullets) ? { bullets: s.bullets as BlogPostSection["bullets"] } : {}),
+      ...(Array.isArray(s.chips) ? { chips: s.chips as BlogPostSection["chips"] } : {}),
+      ...(Array.isArray(s.cards) ? { cards: s.cards as BlogPostSection["cards"] } : {}),
+      ...(s.image && typeof s.image === "object" ? { image: s.image as BlogPostSection["image"] } : {}),
     }));
 }
 

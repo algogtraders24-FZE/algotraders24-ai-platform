@@ -21,6 +21,7 @@ import { cachedBlogList } from "./blog-list-cache";
 import { serializeArticleBody } from "./article-serializer";
 import { computeContentHash } from "./content-hash";
 import { toSafeInline, toSafePlainText } from "@/lib/publishing/sanitize-text";
+import { toSafeSection } from "@/lib/publishing/brief/safe-section";
 import type {
   BlogPost,
   BlogPostSeo,
@@ -127,10 +128,7 @@ function toPost(r: PublishedInternalBlogRecord): BlogPost {
     summary: toSafePlainText(r.summary),
     category: r.category,
     disclaimer: toSafePlainText(r.disclaimer),
-    sections: r.sections.map((s) => ({
-      heading: toSafeInline(s.heading),
-      body: toSafePlainText(s.body),
-    })),
+    sections: r.sections.map(toSafeSection),
     publishedAt: r.publishedAt,
     seo: buildSeo(r),
   };
