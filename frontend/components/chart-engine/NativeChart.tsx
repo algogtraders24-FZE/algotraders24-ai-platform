@@ -443,6 +443,7 @@ export default function NativeChart({
   // Professional Mode - computed on demand by the "Analyze chart" button; layers are per-group toggles.
   const [proState, setProState] = useState<{ analysis: AnnotationResult | null; layers: ChartLayers }>({ analysis: null, layers: PRO_LAYERS_DEFAULT });
   const [proPlan, setProPlan] = useState<TradePlan | null>(null);
+  const prevCandlesRef = useRef<ChartCandle[]>([]);
   const proPlanRef = useRef<TradePlan | null>(null);
   proPlanRef.current = proPlan;
   const [scan, setScan] = useState<{ points: [number, number][]; finish: () => void } | null>(null);
@@ -586,13 +587,28 @@ export default function NativeChart({
       setHoveredIndex(-1);
       setIsLive(true);
     } else if (isAtRightEdge(previousViewport, candles)) {
-      const followed = followLatest(previousViewport, candles);
-      const { minPrice, maxPrice } = priceRangeForWindow(candles, followed.minTime, followed.maxTime);
-      viewportRef.current = { ...followed, minPrice, maxPrice };
-      setIsLive(true);
+      const previousCandles = prevCandlesRef.current;
+      if (previousCandles === candles) {
+        // only the draw callback changed (e.g. Analyze toggled a layer): the viewport stays exactly as the user left it
+        setIsLive(true);
+      } else if (proLayout && previousCandles.length > 0) {
+        // new candles arrived: slide the window by the same time, keeping its width and the free space on the right (room for the plan box)
+        const shift = candles[candles.length - 1].time - previousCandles[previousCandles.length - 1].time;
+        const minTime = previousViewport.minTime + shift;
+        const maxTime = previousViewport.maxTime + shift;
+        const { minPrice, maxPrice } = priceRangeForWindow(candles, minTime, maxTime);
+        viewportRef.current = { minTime, maxTime, minPrice, maxPrice };
+        setIsLive(true);
+      } else {
+        const followed = followLatest(previousViewport, candles);
+        const { minPrice, maxPrice } = priceRangeForWindow(candles, followed.minTime, followed.maxTime);
+        viewportRef.current = { ...followed, minPrice, maxPrice };
+        setIsLive(true);
+      }
     } else {
       setIsLive(false);
     }
+    prevCandlesRef.current = candles;
     draw();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setCrosshairState is a plain function recreated every render (not memoized, since it closes over the current candles/onCrosshairTimeChange); including it would re-run this effect on every render, breaking its deliberate "only on a real symbol/timeframe/candles change" scope.
   }, [candles, symbol, timeframe, draw]);
@@ -1531,7 +1547,7 @@ export default function NativeChart({
       )}
 
       {result.status === "stale" && (
-        <p className={FIN_TERTIARY}>Showing the most recently available data - a live refresh could not be confirmed as fresh.</p>
+        <p className={proLayout ? "px-3 py-1 text-[11px] text-text-3" : FIN_TERTIARY}>{proLayout ? "Last available data (the market may be closed)." : "Showing the most recently available data - a live refresh could not be confirmed as fresh."}</p>
       )}
 
       {!proLayout && ohlcStrip}
