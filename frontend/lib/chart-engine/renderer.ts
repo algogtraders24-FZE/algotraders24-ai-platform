@@ -20,7 +20,7 @@ import type { ChartCandle } from "@/types/chart-data";
 import type { SignalTimeframe } from "@/types/signal";
 import { formatTimestamp } from "@/lib/financial-format";
 import type { ChartColors } from "./canvas-colors";
-import { canvasMonoFont } from "./canvas-typography";
+import { canvasMonoFont, setCanvasFontKind } from "./canvas-typography";
 import { classifyCandle } from "./candle-classifier";
 import { priceToY, yToPrice } from "./coordinate-system";
 import { computePriceTicks, targetPriceTickCountForHeight, type PriceAxisTick } from "./price-axis";
@@ -119,6 +119,8 @@ export interface RenderParams {
   /** Professional Mode: the plan drawn as an entry / stop / target box from the last candle to the right edge, with its price formatter. */
   planBox?: PlanBox | null;
   formatPlanPrice?: (n: number) => string;
+  /** Canvas text family: "mono" (default) or "sans" (Pro Chart). */
+  fontKind?: "mono" | "sans";
 }
 
 /** P3.2B - one completed trade's chart-plottable fields (a strict subset of AlgoTestTradeView - the renderer never needs pnl/fees/etc.). */
@@ -171,7 +173,9 @@ export function renderChart(params: RenderParams): void {
     annotationLayers,
     planBox = null,
     formatPlanPrice = (n: number) => String(n),
+    fontKind = "mono",
   } = params;
+  setCanvasFontKind(fontKind);
   const plotWidth = Math.max(0, dims.width - dims.priceAxisWidth);
   const plotHeight = Math.max(0, dims.height - dims.timeAxisHeight);
 
@@ -215,6 +219,7 @@ export function renderChart(params: RenderParams): void {
 
   if (chartType === "bar") drawBars(ctx, candles, indexRange, viewport, plotWidth, priceRow, colors);
   else if (chartType === "line") drawLine(ctx, candles, indexRange, viewport, plotWidth, priceRow, colors);
+  else if (chartType === "area") drawArea(ctx, candles, indexRange, viewport, plotWidth, priceRow, colors);
   else drawCandles(ctx, candles, indexRange, viewport, plotWidth, priceRow, colors);
   if (annotations.length > 0 && annotationLayers) drawAnnotations(ctx, annotations, annotationLayers, candles, indexRange, viewport, plotWidth, priceRow);
   if (planBox) drawPlanBox(ctx, planBox, candles, indexRange, viewport, plotWidth, priceRow, formatPlanPrice);
@@ -462,6 +467,36 @@ function drawLine(ctx: CanvasRenderingContext2D, candles: ChartCandle[], indexRa
     else ctx.lineTo(x, y);
   }
   ctx.stroke();
+}
+
+/** Area chart: the close line plus a soft fill down to the bottom of the price panel. */
+function drawArea(ctx: CanvasRenderingContext2D, candles: ChartCandle[], indexRange: IndexRange, viewport: Viewport, plotWidth: number, row: PanelRow, colors: ChartColors): void {
+  if (candles.length === 0) return;
+  const from = Math.max(0, Math.floor(indexRange.minIndex) - 1);
+  const to = Math.min(candles.length - 1, Math.ceil(indexRange.maxIndex) + 1);
+  if (to < from) return;
+  const bottom = row.top + row.height;
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (let i = from; i <= to; i++) {
+    xs.push(indexToX(i, indexRange, plotWidth));
+    ys.push(row.top + priceToY(candles[i].close, viewport, row.height));
+  }
+  if (xs.length > 1 && typeof ctx.fill === "function") {
+    ctx.beginPath();
+    ctx.moveTo(xs[0], bottom);
+    for (let k = 0; k < xs.length; k++) ctx.lineTo(xs[k], ys[k]);
+    ctx.lineTo(xs[xs.length - 1], bottom);
+    ctx.closePath();
+    const g = typeof ctx.createLinearGradient === "function" ? ctx.createLinearGradient(0, row.top, 0, bottom) : null;
+    if (g) {
+      g.addColorStop(0, "rgba(38, 166, 154, 0.32)");
+      g.addColorStop(1, "rgba(38, 166, 154, 0)");
+      ctx.fillStyle = g;
+    } else ctx.fillStyle = "rgba(38, 166, 154, 0.12)";
+    ctx.fill();
+  }
+  drawLine(ctx, candles, indexRange, viewport, plotWidth, row, colors);
 }
 
 // MT5-style in-chart label (this session), matching the top-left

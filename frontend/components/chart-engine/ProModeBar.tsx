@@ -239,18 +239,18 @@ export function ProToolbarExtras({ layers, onLayers, onAnalyze, scanning, analyz
         type="button"
         onClick={onAnalyze}
         disabled={scanning}
-        className="rounded-control border border-gold/50 bg-gold/10 px-3 py-1 text-[11px] font-semibold text-gold transition hover:bg-gold/20 disabled:opacity-60"
+        className="h-8 rounded-md bg-gold px-3.5 text-[13px] font-semibold text-ink transition hover:brightness-110 disabled:opacity-60"
       >
         {scanning ? "Analyzing…" : analyzed ? "Re-analyze" : "Analyze chart"}
       </button>
-      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="Layers" title="Layers" className={BTN}>
-        ☰ Layers
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="Layers" title="Layers" className={`h-8 rounded-md px-2.5 text-[13px] font-medium transition ${open ? "bg-white/[0.12] text-white" : "text-[#9aa0ae] hover:bg-white/[0.07] hover:text-white"}`}>
+        <span className="inline-flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5M3 17l9 5 9-5" /></svg>Layers</span>
       </button>
-      <button type="button" onClick={() => onSound(!soundOn)} aria-pressed={soundOn} aria-label={soundOn ? "Mute analysis sound" : "Unmute analysis sound"} title={soundOn ? "Sound on" : "Sound off"} className={BTN}>
+      <button type="button" onClick={() => onSound(!soundOn)} aria-pressed={soundOn} aria-label={soundOn ? "Mute analysis sound" : "Unmute analysis sound"} title={soundOn ? "Sound on" : "Sound off"} className="h-8 rounded-md px-2 text-[14px] text-[#9aa0ae] transition hover:bg-white/[0.07] hover:text-white">
         {soundOn ? "🔊" : "🔇"}
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-30 mt-2 w-72 rounded-panel border border-border bg-ink-2 p-3 shadow-xl">
+        <div className="absolute right-0 top-full z-40 mt-2 w-72 rounded-lg border border-white/10 bg-[#13141a] p-3 shadow-2xl">
           <p className="mb-2 text-[11px] uppercase tracking-wide text-text-3">Layers</p>
           <div className="flex items-center justify-between py-1.5 text-xs font-semibold text-text">
             Drawings

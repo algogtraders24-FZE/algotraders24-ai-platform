@@ -29,7 +29,7 @@ export default function RangeBar({ active, onRange }: { active: RangeKey | null;
     return () => clearInterval(id);
   }, []);
   return (
-    <div className="flex items-center justify-between border-t border-border px-3 py-1.5 text-[11px]">
+    <div className="flex h-9 shrink-0 items-center justify-between border-t border-white/[0.06] bg-[#0d0e12] px-3 text-[12px]">
       <div role="group" aria-label="Chart range" className="flex items-center gap-1">
         {RANGE_KEYS.map((k) => (
           <button
@@ -37,13 +37,13 @@ export default function RangeBar({ active, onRange }: { active: RangeKey | null;
             type="button"
             onClick={() => onRange(k)}
             aria-pressed={active === k}
-            className={`rounded-full px-2.5 py-1 font-medium transition ${active === k ? "bg-ink-4 text-text" : "text-text-3 hover:text-text"}`}
+            className={`rounded-md px-2.5 py-1 font-medium transition ${active === k ? "bg-white/[0.12] text-white" : "text-[#9aa0ae] hover:bg-white/[0.07] hover:text-white"}`}
           >
             {k}
           </button>
         ))}
       </div>
-      <span className="font-mono text-text-3">{now}</span>
+      <span className="tabular-nums text-[#6b7280]">{now}</span>
     </div>
   );
 }

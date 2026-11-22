@@ -65,14 +65,14 @@ export default function ProSymbolPicker({ value, onChange }: Props) {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="listbox"
-        className="inline-flex items-center gap-2 rounded-full border border-border bg-ink-3 px-4 py-1.5 text-sm font-semibold text-text hover:border-gold/50"
+        className="inline-flex h-8 items-center gap-2 rounded-full border border-white/10 bg-[#13141a] px-3.5 text-[13px] font-semibold text-white hover:border-white/25"
       >
         <span aria-hidden>⌕</span>
         {current ? current.label : value}
         <span aria-hidden className="text-text-3">⌄</span>
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-30 mt-2 w-80 rounded-panel border border-border bg-ink-2 p-3 shadow-xl">
+        <div className="absolute left-0 top-full z-40 mt-2 w-80 rounded-lg border border-white/10 bg-[#13141a] p-3 shadow-2xl">
           <input
             autoFocus
             value={query}

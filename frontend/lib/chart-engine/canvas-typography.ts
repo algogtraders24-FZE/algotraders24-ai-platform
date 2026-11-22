@@ -20,12 +20,32 @@ export function resolveMonoFontFamily(): string {
   return cachedFamily;
 }
 
-/** Canvas 2D `ctx.font` string at a given pixel size, using the resolved AT24 mono font stack. */
-export function canvasMonoFont(sizePx: number): string {
-  return `${sizePx}px ${resolveMonoFontFamily()}`;
+const FALLBACK_SANS = "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+let cachedSans: string | null = null;
+
+export function resolveSansFontFamily(): string {
+  if (cachedSans) return cachedSans;
+  if (typeof document === "undefined") return FALLBACK_SANS;
+  const value = getComputedStyle(document.documentElement).getPropertyValue("--font-sans").trim();
+  cachedSans = value.length > 0 ? value : FALLBACK_SANS;
+  return cachedSans;
+}
+
+/** Which family every chart canvas text uses for the current frame: "mono" (default, MT5 style) or "sans" (the Pro Chart, like the reference chart). Set once per frame by renderChart. */
+let fontKind: "mono" | "sans" = "mono";
+export function setCanvasFontKind(kind: "mono" | "sans"): void {
+  fontKind = kind;
+}
+
+/** Canvas 2D `ctx.font` string at a given pixel size, using the resolved AT24 mono font stack (or the sans stack when the frame was set to "sans"). */
+export function canvasMonoFont(sizePx: number, weight: number | string = 400): string {
+  if (fontKind === "sans") return `${weight} ${sizePx}px ${resolveSansFontFamily()}`;
+  return `${weight === 400 ? "" : weight + " "}${sizePx}px ${resolveMonoFontFamily()}`;
 }
 
 /** Test/dev-only reset so a test can simulate a fresh module load. */
 export function resetFontCacheForTests(): void {
   cachedFamily = null;
+  cachedSans = null;
+  fontKind = "mono";
 }

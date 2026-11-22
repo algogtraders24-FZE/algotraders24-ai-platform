@@ -18,7 +18,7 @@ function ProChart() {
   const [keys, setKeys] = useState<Set<string>>(new Set());
   const known = new Set(DEFAULT_INDICATOR_CONFIGS.map((c) => c.key));
   return (
-    <div className="space-y-3">
+    <div className="fixed inset-0 z-[60] bg-[#0b0c10]">
       <NativeChart
         proLayout
         symbolPicker={<ProSymbolPicker value={symbol} onChange={setSymbol} />}

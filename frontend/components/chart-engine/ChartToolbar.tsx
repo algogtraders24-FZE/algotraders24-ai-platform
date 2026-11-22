@@ -390,3 +390,30 @@ function IndicatorGroup({
     </div>
   );
 }
+
+/** Self-contained Indicators button + dropdown (used by the Pro Chart top bar). */
+export function IndicatorsMenu({ activeIndicatorKeys, onToggleIndicator, buttonClassName }: { activeIndicatorKeys: ReadonlySet<string>; onToggleIndicator: (key: string) => void; buttonClassName?: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("pointerdown", onDown); document.removeEventListener("keydown", onKey); };
+  }, [open]);
+  return (
+    <div className="relative" ref={ref}>
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-haspopup="true" className={buttonClassName ?? "rounded-control border border-border bg-ink-3 px-2.5 py-1 text-[11px] font-medium text-text-3"}>
+        Indicators{activeIndicatorKeys.size > 0 ? ` (${activeIndicatorKeys.size})` : ""}
+      </button>
+      {open && (
+        <div role="menu" aria-label="Chart indicators" className="absolute left-0 top-full z-40 mt-1 w-60 rounded-lg border border-white/10 bg-[#13141a] p-1.5 shadow-2xl">
+          <IndicatorGroup label="Overlays" configs={OVERLAY_CONFIGS} activeIndicatorKeys={activeIndicatorKeys} onToggleIndicator={onToggleIndicator} />
+          <IndicatorGroup label="Panels" configs={PANEL_CONFIGS} activeIndicatorKeys={activeIndicatorKeys} onToggleIndicator={onToggleIndicator} />
+        </div>
+      )}
+    </div>
+  );
+}

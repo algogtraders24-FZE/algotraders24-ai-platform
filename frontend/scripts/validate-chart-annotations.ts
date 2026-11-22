@@ -155,6 +155,17 @@ import { ema, rsi, buildReadout } from "../lib/chart-engine/annotations/readout"
   check("Readout: null for too few candles", buildReadout(walk.slice(0, 30), an, null, (n) => String(n)) === null);
 }
 
+// Pro Chart fonts: the canvas uses the sans stack only when the frame asks for it
+import { canvasMonoFont, setCanvasFontKind, resetFontCacheForTests } from "../lib/chart-engine/canvas-typography";
+{
+  resetFontCacheForTests();
+  check("Font: default is the mono stack", /mono|Consolas/i.test(canvasMonoFont(12)), canvasMonoFont(12));
+  setCanvasFontKind("sans");
+  check("Font: sans frames use the sans stack with the weight", /sans|Segoe|Roboto|Arial/i.test(canvasMonoFont(12, 600)) && canvasMonoFont(12, 600).startsWith("600 12px"), canvasMonoFont(12, 600));
+  resetFontCacheForTests();
+  check("Font: reset returns to mono", /mono|Consolas/i.test(canvasMonoFont(12)));
+}
+
 // fitToRecent frames only the latest N candles
 import { fitToRecent, fitToData } from "../lib/chart-engine/viewport";
 {
