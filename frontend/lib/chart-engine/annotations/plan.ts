@@ -14,6 +14,7 @@
 
 import type { ChartCandle } from "@/types/chart-data";
 import { computeAnnotations } from "./compute";
+import { ema } from "./readout";
 import type { ZoneAnnotation } from "./types";
 
 export const PLAN_RR = 2;
@@ -55,7 +56,11 @@ export type TradePlan =
 
 type RawPlan = Exclude<TradePlan, { state: "standAside" }>;
 
-export function planAt(candles: ChartCandle[]): TradePlan {
+/** A signal needs at least this many of the SCORE_MAX confluences; anything weaker is "no clean setup" (stand aside). */
+export const PLAN_MIN_SCORE = 3;
+export const PLAN_SCORE_MAX = 6;
+
+export function planAt(candles: ChartCandle[], minScore: number = PLAN_MIN_SCORE): TradePlan {
   const res = computeAnnotations(candles);
   const atr = res.params.atr;
   if (!(atr > 0) || candles.length < 20) return { state: "standAside", reason: "Not enough candles to read structure." };
@@ -115,6 +120,12 @@ export function planAt(candles: ChartCandle[]): TradePlan {
   if (!bull && prem && entry >= prem.low) conf.push("Entry in premium");
   const recentSweep = res.annotations.some((a) => a.type === "marker" && a.bias === bias && a.time >= candles[Math.max(0, candles.length - 15)].time);
   if (recentSweep) conf.push("Liquidity sweep in the same direction");
+  const closes = candles.map((c) => c.close);
+  const e20 = ema(closes, 20), e50 = ema(closes, 50);
+  if (e20 !== null && e50 !== null && (bull ? e20 > e50 : e20 < e50)) conf.push("EMA20 / EMA50 trend aligned");
+  if (conf.length < minScore) {
+    return { state: "standAside", reason: `Bias is ${bias} (${biasText}) but only ${conf.length} of ${PLAN_SCORE_MAX} confluences line up${conf.length > 0 ? ` (${conf.join(", ")})` : ""}; a signal needs at least ${minScore}. No clean entry right now.` };
+  }
 
   const step = Math.pow(10, Math.floor(Math.log10(atr)) - 2); // price rounding derived from volatility (gold 0.1, EURUSD 0.000001)
   const rnd = (v: number) => Math.round(v / step) * step;
@@ -125,7 +136,7 @@ export function planAt(candles: ChartCandle[]): TradePlan {
     entry: rnd(entry), stop: rnd(stop), target: rnd(target),
     rr: PLAN_RR,
     score: conf.length,
-    scoreMax: 5,
+    scoreMax: PLAN_SCORE_MAX,
     confluences: conf,
     source: entryType === "market"
       ? `Structure retest rule: ${biasText}, price inside ${baseZones.map((z) => z.label).join(" + ")}`
@@ -135,7 +146,7 @@ export function planAt(candles: ChartCandle[]): TradePlan {
 }
 
 /** Replays planAt() over history. A limit plan only counts if price actually reaches its entry within FILL_WINDOW bars. Deterministic; null when there are too few trades to say anything. */
-export function measurePlanRecord(candles: ChartCandle[]): PlanRecord | null {
+export function measurePlanRecord(candles: ChartCandle[], minScore: number = PLAN_MIN_SCORE): PlanRecord | null {
   const total = candles.length;
   if (total < LOOKBACK + 60) return null;
   const rs: number[] = [];
@@ -143,7 +154,7 @@ export function measurePlanRecord(candles: ChartCandle[]): PlanRecord | null {
   let i = LOOKBACK;
   while (i < total - 2) {
     const window = candles.slice(Math.max(0, i - LOOKBACK + 1), i + 1);
-    const p = planAt(window);
+    const p = planAt(window, minScore);
     if (p.state !== "plan") { i += STEP; continue; }
     const risk = Math.abs(p.entry - p.stop);
     const long = p.dir === "long";

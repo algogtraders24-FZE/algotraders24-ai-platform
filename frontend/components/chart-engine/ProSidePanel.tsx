@@ -27,16 +27,17 @@ interface Props {
   trade: ReactNode;
   onAnalyze: () => void;
   candles: ChartCandle[];
+  pragya: { status: "idle" | "loading" | "ready" | "error"; text: string };
 }
 
 const TABS: { key: ProTab; label: string }[] = [
   { key: "analysis", label: "Analysis" },
-  { key: "chat", label: "Chat" },
+  { key: "chat", label: "PRAGYA" },
   { key: "trade", label: "Trade" },
   { key: "strategies", label: "Strategies" },
 ];
 
-export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, trade, onAnalyze, candles }: Props) {
+export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, trade, onAnalyze, candles, pragya }: Props) {
   const watching = plan ? 1 : 0;
   return (
     <aside className="flex w-full shrink-0 flex-col gap-3 border-t border-border p-3 xl:w-80 xl:border-l xl:border-t-0">
@@ -71,7 +72,13 @@ export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, on
         </div>
         {analysis && (
           <div className="rounded-panel border border-border bg-ink-2 p-3 text-xs text-text-2">
-            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-3">Market analysis</p>
+            {pragya.status !== "idle" && pragya.status !== "error" && (
+              <div className="mb-3 rounded-control border border-violet-500/30 bg-violet-500/5 p-2.5">
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-violet-300">✦ PRAGYA</p>
+                {pragya.status === "loading" ? <p className="text-text-3">PRAGYA is writing the analysis…</p> : <p className="leading-relaxed text-text-2">{pragya.text}</p>}
+              </div>
+            )}
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-3">Measured readout</p>
             <p className="leading-relaxed">{buildReadout(candles, analysis, plan, formatPrice)?.paragraph ?? "Not enough candles for a readout."}</p>
             <p className="mt-2 text-[11px] text-text-3">Measured on the loaded candles. A description of the chart, not a prediction.</p>
           </div>

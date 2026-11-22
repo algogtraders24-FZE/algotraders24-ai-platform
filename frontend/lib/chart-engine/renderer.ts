@@ -131,7 +131,7 @@ export interface AlgoTestTradeMarker {
   exitPrice: number;
 }
 
-const AXIS_FONT_SIZE = 11;
+const AXIS_FONT_SIZE = 12;
 const BODY_WIDTH_RATIO = 0.7;
 const MIN_BODY_WIDTH_PX = 1;
 // Sprint D2.7.6, Phase 4 - a real, previously-missing zoom-level cap.

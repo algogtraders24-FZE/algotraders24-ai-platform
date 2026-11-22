@@ -103,6 +103,7 @@ export function PlanOverlay({ plan, onExecute, onClose, formatPrice, inline }: P
     );
   }
   const long = plan.dir === "long";
+  const tint = long ? "border-green-500/40 bg-gradient-to-b from-green-500/15 to-ink-2" : "border-red-500/40 bg-gradient-to-b from-red-500/15 to-ink-2";
   const row = (label: string, value: number, cls: string) => (
     <div className="flex items-center justify-between py-0.5">
       <span className="text-text-3">{label}</span>
@@ -110,7 +111,7 @@ export function PlanOverlay({ plan, onExecute, onClose, formatPrice, inline }: P
     </div>
   );
   return (
-    <div className={shell}>
+    <div className={shell.replace("border-border bg-ink-2/95", tint)}>
       <div className="flex items-center justify-between">
         <span className={`rounded-control px-2 py-0.5 text-[11px] font-semibold uppercase ${long ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"}`}>{plan.dir}</span>
         <span className="text-[11px] text-text-3">Score {plan.score}/{plan.scoreMax} · R:R 1:{plan.rr}</span>

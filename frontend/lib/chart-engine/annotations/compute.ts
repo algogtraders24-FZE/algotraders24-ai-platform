@@ -29,8 +29,8 @@ interface Swing { index: number; time: number; price: number; broken: boolean }
 
 const MAX_OB = 2;
 const MAX_FVG = 2;
-const MAX_STRUCTURE = 5;
-const MAX_SWEEPS = 3;
+const MAX_STRUCTURE = 2;
+const MAX_SWEEPS = 1;
 const MAX_SESSIONS = 2;
 
 export function atr14(c: ChartCandle[], end = c.length - 1, n = 14): number {
@@ -121,8 +121,7 @@ export function computeAnnotations(all: ChartCandle[], opts: ComputeOptions = {}
     }
     if (endIdx < 0) obZones.push(z);
     else {
-      obZones.push({ ...z, endTime: T(endIdx) });
-      obZones.push({ ...z, id: `br${id++}`, kind: "breaker", bias: z.bias === "bullish" ? "bearish" : "bullish", startTime: T(endIdx), endTime: null, label: "Breaker" });
+      obZones.push({ ...z, endTime: T(endIdx) }); // a violated order block simply ends (breakers are not drawn: they only added clutter)
     }
   }
   const active = obZones.filter((z) => z.endTime === null);

@@ -52,7 +52,7 @@ export default function ProChat({ symbol, timeframe }: { symbol: string; timefra
   return (
     <div className="flex flex-col gap-3 text-xs">
       <div className="max-h-[420px] space-y-3 overflow-y-auto">
-        {turns.length === 0 && <p className="text-text-3">Ask about {symbol}. Answers use the platform&apos;s verified data and state their sources.</p>}
+        {turns.length === 0 && <p className="text-text-3">Ask PRAGYA about {symbol}. Answers use the platform&apos;s verified data and state their sources.</p>}
         {turns.map((t) =>
           t.role === "user" ? (
             <div key={t.id} className="ml-auto max-w-[90%] rounded-card bg-ink-3 px-3 py-2 text-text">{t.text}</div>
@@ -80,7 +80,7 @@ export default function ProChat({ symbol, timeframe }: { symbol: string; timefra
             if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(input); }
           }}
           rows={1}
-          placeholder="Ask anything..."
+          placeholder="Ask PRAGYA anything..."
           className="flex-1 resize-none rounded-control border border-border bg-ink px-3 py-2 text-text outline-none focus:border-gold/50"
         />
         <button type="button" onClick={() => send(input)} disabled={sending || !input.trim()} className="rounded-control bg-gold px-3 py-2 font-semibold text-ink disabled:opacity-40">Send</button>

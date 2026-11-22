@@ -8,6 +8,7 @@ import type { ChartCandle } from "../types/chart-data";
 
 const DIR = "E:/at24_kill/live";
 const BARS = 2000;
+const MIN = Number(process.env.MINSCORE ?? 3);
 const files = readdirSync(DIR).filter((f) => /^KX_.*_H1\.csv$/.test(f) && !f.includes("XAUEUR")).sort();
 
 function load(f: string): ChartCandle[] {
@@ -44,6 +45,7 @@ function placebo(c: ChartCandle[], seed: number): ChartCandle[] {
 let pooledN = 0, pooledR = 0, pooledHits = 0, symbolsWithRecord = 0, positive = 0;
 let cards = { market: 0, limit: 0, aside: 0 };
 let geometryBad = 0, geometryChecked = 0;
+console.log("MIN SCORE =", MIN);
 console.log("symbol".padEnd(10), "card now".padEnd(30), "trades", "avg R", "target-first");
 for (const f of files) {
   const sym = f.split("_")[1];
@@ -52,7 +54,7 @@ for (const f of files) {
   const c = all.slice(-BARS);
   // geometry + card frequency on sampled bars (every 20th of the last 1000 bars)
   for (let i = Math.max(200, c.length - 1000); i < c.length; i += 20) {
-    const p = planAt(c.slice(Math.max(0, i - 199), i + 1));
+    const p = planAt(c.slice(Math.max(0, i - 199), i + 1), MIN);
     if (p.state === "standAside") { cards.aside++; continue; }
     p.entryType === "market" ? cards.market++ : cards.limit++;
     geometryChecked++;
@@ -61,8 +63,8 @@ for (const f of files) {
     const rr = Math.abs(p.target - p.entry) / Math.abs(p.entry - p.stop);
     if (!ok || Math.abs(rr - PLAN_RR) > 0.05) geometryBad++;
   }
-  const now = planAt(c);
-  const rec = measurePlanRecord(c);
+  const now = planAt(c, MIN);
+  const rec = measurePlanRecord(c, MIN);
   const nowText = now.state === "plan" ? `${now.dir} ${now.entryType} score ${now.score}` : "stand aside";
   console.log(sym.padEnd(10), nowText.padEnd(30), rec ? String(rec.n).padEnd(6) : "-".padEnd(6), rec ? rec.avgR.toFixed(2).padStart(5) : "  -  ", rec ? (rec.targetShare * 100).toFixed(0) + " %" : "");
   if (rec) { pooledN += rec.n; pooledR += rec.avgR * rec.n; pooledHits += rec.targetShare * rec.n; symbolsWithRecord++; if (rec.avgR > 0) positive++; }
@@ -75,7 +77,7 @@ let pn = 0, pr = 0, ph = 0;
 for (const f of files) {
   const all = load(f);
   if (all.length < 400) continue;
-  const rec = measurePlanRecord(placebo(all.slice(-BARS), 20261119));
+  const rec = measurePlanRecord(placebo(all.slice(-BARS), 20261119), MIN);
   if (rec) { pn += rec.n; pr += rec.avgR * rec.n; ph += rec.targetShare * rec.n; }
 }
 console.log(`PLACEBO (same candle shapes shuffled in time, structure destroyed): ${pn} trades, avg ${(pr / pn).toFixed(3)} R, target first ${(ph / pn * 100).toFixed(1)} %`);
