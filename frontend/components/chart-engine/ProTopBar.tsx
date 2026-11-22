@@ -64,14 +64,22 @@ export default function ProTopBar(p: Props) {
   );
 
   return (
-    <div className="flex h-12 shrink-0 items-center gap-1.5 border-b border-border bg-ink-2 px-3 text-text-2">
+    <div className="flex h-12 shrink-0 items-center gap-1.5 border-b border-border bg-ink-2 px-2 text-text-2 sm:px-3">
       {p.onBack && (
-        <button type="button" onClick={p.onBack} aria-label="Back to the dashboard" title="Back to the dashboard" className="flex h-8 w-8 items-center justify-center rounded-md text-text-3 hover:bg-ink-4 hover:text-text">
+        <button type="button" onClick={p.onBack} aria-label="Back to the dashboard" title="Back to the dashboard" className="hidden h-8 w-8 items-center sm:flex justify-center rounded-md text-text-3 hover:bg-ink-4 hover:text-text">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
         </button>
       )}
       {p.leading}
-      <div role="group" aria-label="Chart timeframe" className="ml-1 flex items-center gap-0.5">
+      <select
+        aria-label="Chart timeframe"
+        value={p.timeframe}
+        onChange={(e) => p.onTimeframeChange(e.target.value as SignalTimeframe)}
+        className="h-8 rounded-md border border-border bg-ink-3 px-1.5 text-[13px] font-semibold text-text md:hidden"
+      >
+        {SIGNAL_TIMEFRAMES.map((tf) => <option key={tf} value={tf}>{TF_LABEL[tf]}</option>)}
+      </select>
+      <div role="group" aria-label="Chart timeframe" className="ml-1 hidden items-center gap-0.5 md:flex">
         {SIGNAL_TIMEFRAMES.map((tf) => (
           <button
             key={tf}
@@ -85,7 +93,7 @@ export default function ProTopBar(p: Props) {
         ))}
       </div>
 
-      <div className="relative ml-1" ref={typeRef}>
+      <div className="relative ml-1 hidden md:block" ref={typeRef}>
         <button type="button" onClick={() => setTypeOpen((v) => !v)} aria-expanded={typeOpen} aria-haspopup="menu" aria-label="Chart type" title="Chart type" className={`${GHOST} gap-1.5`}>
           <Icon>{current.icon}</Icon>
         </button>
@@ -109,7 +117,7 @@ export default function ProTopBar(p: Props) {
 
       <div className="flex-1" />
       {p.extra}
-      <button type="button" onClick={p.onGoLive} aria-pressed={p.isLive} title={p.isLive ? "Live: following the latest candle" : "Go to the latest candle"} className={`${GHOST} gap-1.5`}>
+      <button type="button" onClick={p.onGoLive} aria-pressed={p.isLive} title={p.isLive ? "Live: following the latest candle" : "Go to the latest candle"} className={`${GHOST} gap-1.5 max-sm:!hidden`}>
         <span className={`h-2 w-2 rounded-full ${p.isLive ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]" : "bg-[#6b7280]"}`} />
         <span className="text-[12px]">{p.isLive ? "Live" : "Latest"}</span>
       </button>

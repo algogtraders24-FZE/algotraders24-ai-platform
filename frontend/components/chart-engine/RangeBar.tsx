@@ -30,14 +30,14 @@ export default function RangeBar({ active, onRange, info, testerOpen, onToggleTe
   }, []);
   return (
     <div className="flex h-9 shrink-0 items-center justify-between border-t border-border bg-ink-2 px-3 text-[12px]">
-      <div role="group" aria-label="Chart range" className="flex items-center gap-1">
+      <div role="group" aria-label="Chart range" className="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none]">
         {RANGE_KEYS.map((k) => (
           <button
             key={k}
             type="button"
             onClick={() => onRange(k)}
             aria-pressed={active === k}
-            className={`rounded-md px-2.5 py-1 font-medium transition ${active === k ? "bg-ink-4 text-text" : "text-text-3 hover:bg-ink-4 hover:text-text"}`}
+            className={`shrink-0 rounded-md px-2.5 py-1 font-medium transition ${active === k ? "bg-ink-4 text-text" : "text-text-3 hover:bg-ink-4 hover:text-text"}`}
           >
             {k}
           </button>
@@ -48,13 +48,13 @@ export default function RangeBar({ active, onRange, info, testerOpen, onToggleTe
             onClick={onToggleTester}
             aria-pressed={testerOpen}
             title="Backtest a strategy on this chart"
-            className={`ml-3 rounded-md border px-3 py-1 font-semibold transition ${testerOpen ? "border-gold/50 bg-gold/15 text-gold" : "border-border text-text-2 hover:bg-ink-4 hover:text-text"}`}
+            className={`ml-3 shrink-0 whitespace-nowrap rounded-md border px-3 py-1 font-semibold transition ${testerOpen ? "border-gold/50 bg-gold/15 text-gold" : "border-border text-text-2 hover:bg-ink-4 hover:text-text"}`}
           >
-            Strategy Tester {testerOpen ? "▾" : "▴"}
+            <span className="hidden sm:inline">Strategy </span>Tester {testerOpen ? "▾" : "▴"}
           </button>
         )}
       </div>
-      <span className="flex items-center gap-3 tabular-nums text-text-3">
+      <span className="hidden items-center gap-3 tabular-nums text-text-3 sm:flex">
         {info && <span className="hidden sm:inline">{info}</span>}
         {now}
       </span>

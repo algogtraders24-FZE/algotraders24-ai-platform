@@ -59,6 +59,7 @@ export function drawAnnotations(
   // Active zones stop just after the last candle, so the space to the right stays clear for the trade plan box (clean chart).
   const lastX = Math.min(plotWidth, X(candles[candles.length - 1].time) + 12);
 
+  const placed: { l: number; r: number; t: number; b: number }[] = [];
   for (const a of annotations) {
     if (!layers[a.group]) continue;
 
@@ -76,7 +77,19 @@ export function drawAnnotations(
       line(x1, yTop, x2, yTop, rgb, 0.7);
       line(x1, yBot, x2, yBot, rgb, 0.7);
       const zoneName = a.kind === "fvg" && a.bias ? `${a.bias === "bullish" ? "Bullish" : "Bearish"} FVG` : a.label;
-      if (yBot - yTop > 13) label(zoneName, x1 + 4, yTop + 13, rgb);
+      if (yBot - yTop > 13) {
+        // keep zone labels from sitting on top of each other: slide a colliding label down (up to 3 rows), else leave it out
+        const lw = zoneName.length * 6.8 + 10;
+        const lx = x1 + 4;
+        let ly = yTop + 13;
+        let tries = 0;
+        const hits = () => placed.some((r) => lx < r.r && lx + lw > r.l && ly - 11 < r.b && ly + 5 > r.t);
+        while (tries < 3 && hits()) { ly += 17; tries++; }
+        if (!hits() && ly - 11 < yBot) {
+          placed.push({ l: lx, r: lx + lw, t: ly - 11, b: ly + 5 });
+          label(zoneName, lx, ly, rgb);
+        }
+      }
     } else if (a.type === "level") {
       const y = Y(a.price);
       if (!inRow(y)) continue;

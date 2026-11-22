@@ -241,12 +241,13 @@ export function ProToolbarExtras({ layers, onLayers, onAnalyze, scanning, analyz
         disabled={scanning}
         className="h-8 rounded-md bg-gold px-3.5 text-[13px] font-semibold text-ink transition hover:brightness-110 disabled:opacity-60"
       >
-        {scanning ? "Analyzing…" : analyzed ? "Re-analyze" : "Analyze chart"}
+        <span className="sm:hidden">{scanning ? "Analyzing…" : "Analyze"}</span>
+        <span className="hidden sm:inline">{scanning ? "Analyzing…" : analyzed ? "Re-analyze" : "Analyze chart"}</span>
       </button>
-      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="Layers" title="Layers" className={`h-8 rounded-md px-2.5 text-[13px] font-medium transition ${open ? "bg-ink-4 text-text" : "text-text-3 hover:bg-ink-4 hover:text-text"}`}>
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="Layers" title="Layers" className={`h-8 rounded-md px-2.5 max-sm:!hidden text-[13px] font-medium transition ${open ? "bg-ink-4 text-text" : "text-text-3 hover:bg-ink-4 hover:text-text"}`}>
         <span className="inline-flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5M3 17l9 5 9-5" /></svg>Layers</span>
       </button>
-      <button type="button" onClick={() => onSound(!soundOn)} aria-pressed={soundOn} aria-label={soundOn ? "Mute analysis sound" : "Unmute analysis sound"} title={soundOn ? "Sound on" : "Sound off"} className="h-8 rounded-md px-2 text-[14px] text-text-3 transition hover:bg-ink-4 hover:text-text">
+      <button type="button" onClick={() => onSound(!soundOn)} aria-pressed={soundOn} aria-label={soundOn ? "Mute analysis sound" : "Unmute analysis sound"} title={soundOn ? "Sound on" : "Sound off"} className="h-8 rounded-md px-2 max-sm:!hidden text-[14px] text-text-3 transition hover:bg-ink-4 hover:text-text">
         {soundOn ? "🔊" : "🔇"}
       </button>
       {open && (
