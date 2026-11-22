@@ -522,7 +522,7 @@ export default function NativeChart({
         planBox: proRef.current.layers.plan && proPlanRef.current && proPlanRef.current.state === "plan"
           ? { dir: proPlanRef.current.dir, entryType: proPlanRef.current.entryType, entry: proPlanRef.current.entry, stop: proPlanRef.current.stop, target: proPlanRef.current.target, rr: proPlanRef.current.rr }
           : null,
-        formatPlanPrice: (n: number) => formatPrice(n, { maxDecimals: 5 }),
+        formatPlanPrice: (n: number) => fmtP(n),
       });
     },
     [candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme, activeSymbol, algoTestOverlay, selectedAlgoTestTradeId, externalCrosshairTime, proState],
@@ -1113,23 +1113,22 @@ export default function NativeChart({
     playScanSweep(2200);
   }
 
-  /** PRAGYA (the platform's Gemini assistant) writes the short market analysis from the measured facts; the measured readout stays as the fallback. */
+  /** PRAGYA (the platform's Gemini assistant) turns the measured facts into a short analysis; its answer is checked server-side (no invented numbers, no promises) and the measured readout stays as the fallback. */
   async function askPragya(analysis: AnnotationResult, plan: TradePlan) {
-    const facts = buildReadout(candles, analysis, plan, (n) => formatPrice(n, { maxDecimals: 5 }));
+    const facts = buildReadout(candles, analysis, plan, (n) => fmtP(n));
     if (!facts) return;
     setPragya({ status: "loading", text: "" });
     const record = plan.state === "plan" && plan.record
       ? ` Measured record of the plan rule on this chart: ${plan.record.n} trades, average ${plan.record.avgR.toFixed(2)} R${plan.record.baselineAvgR !== undefined ? `, shuffled-data baseline ${plan.record.baselineAvgR.toFixed(2)} R` : ""} (before spread and commission).`
       : "";
-    const query = `You are PRAGYA, the market assistant of AT24. Write a market analysis of 4 to 5 short sentences for ${resolution.displaySymbol} on the ${timeframe.toUpperCase()} chart, using ONLY these measured facts and no other numbers: ${facts.paragraph}${record} If there is a plan, state its entry, stop and target as an educational plan with its risk. If there is no plan, explain why waiting is sensible. Do not promise or guarantee anything and do not quote any percentage of winning trades.`;
     try {
-      const res = await fetch("/api/private/knowledge/chat", {
+      const res = await fetch("/api/private/pragya/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, symbol, useSearch: false, stream: false }),
+        body: JSON.stringify({ symbol: resolution.displaySymbol, timeframe, facts: `${facts.paragraph}${record}` }),
       });
       const json = await res.json();
-      if (json?.status === "ok" && typeof json.data?.content === "string" && json.data.content.trim().length > 0) setPragya({ status: "ready", text: json.data.content.trim() });
+      if (json?.status === "ok" && typeof json.data?.text === "string" && json.data.text.length > 0) setPragya({ status: "ready", text: json.data.text });
       else setPragya({ status: "error", text: "" });
     } catch {
       setPragya({ status: "error", text: "" });
@@ -1473,6 +1472,7 @@ export default function NativeChart({
       )}
     </>
   );
+  const fmtP = (n: number) => formatPrice(n, { maxDecimals: Math.abs(n) >= 1000 ? 2 : Math.abs(n) >= 100 ? 3 : Math.abs(n) >= 10 ? 4 : 5 });
   const livePrice = liveQuote ? (liveQuote.bid + liveQuote.ask) / 2 : candles[candles.length - 1]?.close;
 
   return (
@@ -1680,7 +1680,7 @@ export default function NativeChart({
             <div className="flex flex-wrap items-center gap-3 text-[11px]">{ohlcStrip}</div>
           </div>
         )}
-        {!proLayout && <PlanOverlay plan={proPlan} onExecute={(side) => paperTradingRef.current?.quickTrade(side)} onClose={closePlan} formatPrice={(n) => formatPrice(n, { maxDecimals: 5 })} />}
+        {!proLayout && <PlanOverlay plan={proPlan} onExecute={(side) => paperTradingRef.current?.quickTrade(side)} onClose={closePlan} formatPrice={(n) => fmtP(n)} />}
       </div>
       {proLayout && <RangeBar active={rangeKey} onRange={handleRange} />}
       {result.series && result.series.rejectedCount > 0 && (
@@ -1704,7 +1704,7 @@ export default function NativeChart({
             setTimeout(() => paperTradingRef.current?.quickTrade(side), 60);
           }}
           onClosePlan={closePlan}
-          formatPrice={(n) => formatPrice(n, { maxDecimals: 5 })}
+          formatPrice={(n) => fmtP(n)}
           candles={candles}
           pragya={pragya}
           trade={paperNode}
