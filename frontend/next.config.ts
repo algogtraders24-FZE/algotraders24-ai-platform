@@ -23,6 +23,8 @@ const nextConfig: NextConfig = {
   // though the .ex5 files are committed to the repo.
   outputFileTracingIncludes: {
     "/*": ["data/marketplace-evidence/**/*", "private-releases/**/*"],
+    // Market Brief 2.0: the server-rendered chart images draw text with these bundled fonts (read via process.cwd(), a dynamic path the tracer cannot see).
+    "/api/private/publishing/**": ["assets/fonts/**/*"],
   },
 
   async redirects() {
