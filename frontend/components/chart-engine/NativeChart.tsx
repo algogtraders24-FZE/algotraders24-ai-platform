@@ -44,6 +44,7 @@ import { PRO_LAYERS_DEFAULT, PRO_LAYERS_CLEAN, type ChartLayers, type Annotation
 import ScanOverlay from "./ScanOverlay";
 import RangeBar, { rangeSpanMs, type RangeKey } from "./RangeBar";
 import { computeScanCurves } from "@/lib/chart-engine/scan-path";
+import { PULSE_MS, makePulse, pickPulseTarget } from "@/lib/chart-engine/annotations/pulse";
 import { buildReadout } from "@/lib/chart-engine/annotations/readout";
 import { isSoundOn, setSoundOn, playScanSweep, playAnalysisComplete } from "@/lib/chart-engine/analyze-sound";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -527,6 +528,8 @@ export default function NativeChart({
   const [proTab, setProTab] = useState<ProTab>("chat");
   const proRef = useRef(proState);
   proRef.current = proState;
+  const pulseRef = useRef<{ phase: (id: string, t: number) => number; start: number } | null>(null);
+  const drawLatestRef = useRef<() => void>(() => {});
 
   const draw = useMemo(
     () => () => {
@@ -588,6 +591,7 @@ export default function NativeChart({
         selectedAlgoTestTradeId,
         annotations: proRef.current.analysis?.annotations,
         annotationLayers: proRef.current.layers,
+        annotationPulse: pulseRef.current ? { phaseFor: (id: string) => pulseRef.current ? pulseRef.current.phase(id, performance.now() - pulseRef.current.start) : 0 } : null,
         planBox: proRef.current.layers.plan && proPlanRef.current && proPlanRef.current.state === "plan"
           ? { dir: proPlanRef.current.dir, entryType: proPlanRef.current.entryType, entry: proPlanRef.current.entry, stop: proPlanRef.current.stop, target: proPlanRef.current.target, rr: proPlanRef.current.rr }
           : null,
@@ -597,6 +601,8 @@ export default function NativeChart({
     },
     [candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme, activeSymbol, algoTestOverlay, selectedAlgoTestTradeId, externalCrosshairTime, proState],
   );
+
+  drawLatestRef.current = draw;
 
   // Resize: keep the canvas's real pixel buffer matched to its CSS size *
   // devicePixelRatio - Phase 15/13, no hardcoded dimensions, ResizeObserver-driven.
@@ -1176,7 +1182,24 @@ export default function NativeChart({
     handleFit();
   }
 
-  /** Runs the analysis; on the Pro Chart the result is revealed after a scan that keeps sweeping until PRAGYA has answered (at least a few seconds, with sound). */
+  /** Right after the scan every element of the fresh result flashes in turn; the plan's fair value gap (else the nearest gap or support line) blinks the most. */
+  function startPulse(analysis: AnnotationResult, plan: TradePlan) {
+    if (typeof window === "undefined" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const last = candles[candles.length - 1];
+    if (!last) return;
+    const primary = pickPulseTarget(analysis.annotations, last.close, plan.state === "plan" ? plan.entry : undefined);
+    if (analysis.annotations.length === 0) return;
+    const start = performance.now();
+    pulseRef.current = { phase: makePulse(analysis.annotations, primary), start };
+    const loop = () => {
+      drawLatestRef.current();
+      if (performance.now() - start < PULSE_MS) requestAnimationFrame(loop);
+      else { pulseRef.current = null; drawLatestRef.current(); }
+    };
+    requestAnimationFrame(loop);
+  }
+
+  /** Runs the analysis; on the Pro Chart the result is revealed after one scan sweep that then waits for PRAGYA to answer (with sound). */
   function runAnalyze() {
     if (scan) return;
     const analysis = computeAnnotations(candles);
@@ -1185,6 +1208,7 @@ export default function NativeChart({
       setProState({ analysis, layers: PRO_LAYERS_DEFAULT });
       setProPlan(plan);
       proPlanRef.current = plan;
+      startPulse(analysis, plan);
     };
     const viewport = viewportRef.current;
     if (!proLayout || !viewport) {
@@ -1195,7 +1219,7 @@ export default function NativeChart({
     setScanReady(false);
     void askPragya(analysis, plan).finally(() => setScanReady(true));
     setScan({ curves: computeScanCurves(candles, viewport, { width: dimsRef.current.width, height: dimsRef.current.height, priceAxisWidth: PRICE_AXIS_WIDTH, timeAxisHeight: TIME_AXIS_HEIGHT }), finish: reveal });
-    playScanSweep(4500);
+    playScanSweep(2800);
   }
 
   /** The measured facts PRAGYA answers chat questions from: EMA / RSI / ATR, structure, levels and the plan (no record replay, so it is instant). */

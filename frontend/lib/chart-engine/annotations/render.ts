@@ -27,6 +27,7 @@ export function drawAnnotations(
   viewport: Viewport,
   plotWidth: number,
   row: PanelRow,
+  pulse: { phaseFor: (id: string) => number } | null = null,
 ): void {
   if (candles.length === 0) return;
   const X = (t: number) => Math.max(0, Math.min(plotWidth, indexToX(fractionalIndexForTime(candles, t), indexRange, plotWidth)));
@@ -62,6 +63,7 @@ export function drawAnnotations(
   const placed: { l: number; r: number; t: number; b: number }[] = [];
   for (const a of annotations) {
     if (!layers[a.group]) continue;
+    const flash = pulse ? pulse.phaseFor(a.id) : 0;
 
     if (a.type === "zone") {
       // Premium / discount are listed in the side panel only: a full-width tint behind the candles made the chart noisy.
@@ -76,6 +78,12 @@ export function drawAnnotations(
       ctx.fillRect(x1, yTop, x2 - x1, yBot - yTop);
       line(x1, yTop, x2, yTop, rgb, 0.7);
       line(x1, yBot, x2, yBot, rgb, 0.7);
+      if (flash > 0.01) {
+        ctx.fillStyle = `rgba(${rgb}, ${0.32 * flash})`;
+        ctx.fillRect(x1, yTop, x2 - x1, yBot - yTop);
+        line(x1, yTop, x2, yTop, "255,240,200", 0.95 * flash, 2.5);
+        line(x1, yBot, x2, yBot, "255,240,200", 0.95 * flash, 2.5);
+      }
       const zoneName = a.kind === "fvg" && a.bias ? `${a.bias === "bullish" ? "Bullish" : "Bearish"} FVG` : a.label;
       if (yBot - yTop > 13) {
         // keep zone labels from sitting on top of each other: slide a colliding label down (up to 3 rows), else leave it out
@@ -96,6 +104,7 @@ export function drawAnnotations(
       ctx.setLineDash?.([4, 4]);
       line(X(a.startTime), y, plotWidth, y, GREY, 0.55);
       ctx.setLineDash?.([]);
+      if (flash > 0.01) line(X(a.startTime), y, plotWidth, y, "255,240,200", 0.95 * flash, 3);
       // unlabelled dotted line (the touch count is in the side panel list)
     } else if (a.type === "structure") {
       const y = Y(a.price);
@@ -106,6 +115,7 @@ export function drawAnnotations(
       ctx.setLineDash?.([5, 3]);
       line(x1, y, x2, y, rgb, 0.9);
       ctx.setLineDash?.([]);
+      if (flash > 0.01) line(x1, y, x2, y, "255,240,200", 0.95 * flash, 2.5);
       label(a.label, (x1 + x2) / 2, a.bias === "bullish" ? y - 4 : y + 12, rgb, "center");
     } else if (a.type === "marker") {
       const y = Y(a.price);
@@ -115,6 +125,7 @@ export function drawAnnotations(
       // small triangle drawn as a filled rectangle stem + label - no path fills needed
       ctx.fillStyle = `rgba(${rgb}, 0.9)`;
       ctx.fillRect(x - 3, a.bias === "bullish" ? y + 3 : y - 8, 6, 5);
+      if (flash > 0.01) { ctx.fillStyle = `rgba(255,240,200, ${0.5 * flash})`; ctx.fillRect(x - 22, (a.bias === "bullish" ? y + 20 : y - 12) - 14, 44, 20); }
       label("Sweep", x, a.bias === "bullish" ? y + 20 : y - 12, rgb, "center");
     } else if (a.type === "pattern") {
       const rgb = a.kind === "doubleTop" ? RED : GREEN;

@@ -103,6 +103,7 @@ import { indexRangeForViewport } from "../lib/chart-engine/index-scale";
 // Pro Chart pieces: plan box, recency, scan path, range presets, layer presets
 import { drawPlanBox } from "../lib/chart-engine/annotations/render";
 import { computeScanPath, computeScanCurves } from "../lib/chart-engine/scan-path";
+import { pickPulseTarget, pulsePhase, makePulse, PULSE_MS } from "../lib/chart-engine/annotations/pulse";
 import { rangeSpanMs } from "../components/chart-engine/RangeBar";
 import { PRO_LAYERS_CLEAN, PRO_LAYERS_DEFAULT } from "../lib/chart-engine/annotations/types";
 {
@@ -135,6 +136,16 @@ import { PRO_LAYERS_CLEAN, PRO_LAYERS_DEFAULT } from "../lib/chart-engine/annota
   check("Scan curves: four layered curves, each inside the plot with x ascending", curves.length === 4 && curves.every((c) => c.length > 20 && c.every((p, i) => (i === 0 || p[0] >= c[i - 1][0]) && p[1] >= 0 && p[1] <= 300)), String(curves.length));
   check("Scan curves: upper envelope sits above the lower envelope on average", (() => { const u = curves[1], l = curves[2]; const n = Math.min(u.length, l.length); let up = 0; for (let i = 0; i < n; i++) up += l[i][1] - u[i][1]; return up > 0; })());
   check("Scan curves: none for no candles", computeScanCurves([], vp, { width: 900, height: 340, priceAxisWidth: 100, timeAxisHeight: 40 }).length === 0);
+
+  // blink target + phase
+  const fvgA = { id: "a", type: "zone", group: "zones", kind: "fvg", bias: "bullish", startTime: 1, endTime: null, low: 10, high: 11, label: "FVG" } as const;
+  const fvgB = { id: "b", type: "zone", group: "zones", kind: "fvg", bias: "bullish", startTime: 1, endTime: null, low: 20, high: 21, label: "FVG" } as const;
+  const lvl = { id: "l", type: "level", group: "levels", price: 15, touches: 2, startTime: 1, label: "S/R" } as const;
+  check("Pulse: the fair value gap the plan enters from wins", pickPulseTarget([fvgA, fvgB, lvl], 15, 20.5) === "b");
+  check("Pulse: else the fair value gap nearest to price", pickPulseTarget([fvgA, fvgB, lvl], 12) === "a");
+  check("Pulse: else the support level nearest to price; nothing when nothing exists", pickPulseTarget([lvl], 14) === "l" && pickPulseTarget([], 14) === null);
+  check("Pulse: phase stays in 0..1, a 4-blink element peaks four times, and is 0 outside its window", (() => { let max = 0, peaks = 0, prev = 0, rising = false; for (let t = 0; t < 2400; t += 10) { const p = pulsePhase(t, { blinks: 4 }); if (p < 0 || p > 1) return false; max = Math.max(max, p); if (p > prev) rising = true; else if (rising && p < prev) { peaks++; rising = false; } prev = p; } return max > 0.9 && peaks >= 3 && pulsePhase(-5) === 0 && pulsePhase(2401, { blinks: 4 }) === 0; })());
+  check("Pulse: every annotation flashes, later ones start later, the primary blinks longer, everything is over by PULSE_MS", (() => { const f = makePulse([fvgA, fvgB, lvl], "a"); const first = (id: string) => { for (let t = 0; t < PULSE_MS; t += 10) if (f(id, t) > 0.05) return t; return -1; }; const last = (id: string) => { let l = -1; for (let t = 0; t < PULSE_MS + 50; t += 10) if (f(id, t) > 0.05) l = t; return l; }; return first("a") >= 0 && first("b") > first("a") && first("l") > first("b") && last("a") > last("b") && f("a", PULSE_MS) === 0 && f("zzz", 100) === 0; })());
 
   // range presets
   const now = Date.UTC(2026, 10, 22, 9, 0, 0);

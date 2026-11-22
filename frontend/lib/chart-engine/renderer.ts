@@ -116,6 +116,8 @@ export interface RenderParams {
   /** Professional Mode: computed market-structure annotations + which groups are visible (empty / omitted = byte-for-byte unchanged). */
   annotations?: ChartAnnotation[];
   annotationLayers?: AnnotationLayers;
+  /** Right after an Analyze every annotation flashes in turn: id -> 0..1 brightness. */
+  annotationPulse?: { phaseFor: (id: string) => number } | null;
   /** Professional Mode: the plan drawn as an entry / stop / target box from the last candle to the right edge, with its price formatter. */
   planBox?: PlanBox | null;
   formatPlanPrice?: (n: number) => string;
@@ -171,6 +173,7 @@ export function renderChart(params: RenderParams): void {
     equityCurve,
     annotations = [],
     annotationLayers,
+    annotationPulse = null,
     planBox = null,
     formatPlanPrice = (n: number) => String(n),
     fontKind = "mono",
@@ -221,7 +224,7 @@ export function renderChart(params: RenderParams): void {
   else if (chartType === "line") drawLine(ctx, candles, indexRange, viewport, plotWidth, priceRow, colors);
   else if (chartType === "area") drawArea(ctx, candles, indexRange, viewport, plotWidth, priceRow, colors);
   else drawCandles(ctx, candles, indexRange, viewport, plotWidth, priceRow, colors);
-  if (annotations.length > 0 && annotationLayers) drawAnnotations(ctx, annotations, annotationLayers, candles, indexRange, viewport, plotWidth, priceRow);
+  if (annotations.length > 0 && annotationLayers) drawAnnotations(ctx, annotations, annotationLayers, candles, indexRange, viewport, plotWidth, priceRow, annotationPulse);
   if (planBox) drawPlanBox(ctx, planBox, candles, indexRange, viewport, plotWidth, priceRow, formatPlanPrice);
   drawOverlays(ctx, indicatorSeries, candles, indexRange, viewport, plotWidth, priceRow);
   drawPriceAxis(ctx, priceTicks, viewport, plotWidth, priceRow, colors);
