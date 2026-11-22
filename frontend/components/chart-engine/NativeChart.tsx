@@ -43,7 +43,7 @@ import { computeAnnotations } from "@/lib/chart-engine/annotations/compute";
 import { PRO_LAYERS_DEFAULT, PRO_LAYERS_CLEAN, type ChartLayers, type AnnotationResult } from "@/lib/chart-engine/annotations/types";
 import ScanOverlay from "./ScanOverlay";
 import RangeBar, { rangeSpanMs, type RangeKey } from "./RangeBar";
-import { computeScanPath } from "@/lib/chart-engine/scan-path";
+import { computeScanCurves } from "@/lib/chart-engine/scan-path";
 import { buildReadout } from "@/lib/chart-engine/annotations/readout";
 import { isSoundOn, setSoundOn, playScanSweep, playAnalysisComplete } from "@/lib/chart-engine/analyze-sound";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -517,7 +517,8 @@ export default function NativeChart({
   const [pragya, setPragya] = useState<{ status: "idle" | "loading" | "ready" | "error"; text: string }>({ status: "idle", text: "" });
   const proPlanRef = useRef<TradePlan | null>(null);
   proPlanRef.current = proPlan;
-  const [scan, setScan] = useState<{ points: [number, number][]; finish: () => void } | null>(null);
+  const [scan, setScan] = useState<{ curves: [number, number][][]; finish: () => void } | null>(null);
+  const [scanReady, setScanReady] = useState(false);
   const [soundOn, setSoundOnState] = useState(true);
   useEffect(() => setSoundOnState(isSoundOn()), []);
   const [rangeKey, setRangeKey] = useState<RangeKey | null>(null);
@@ -1175,24 +1176,26 @@ export default function NativeChart({
     handleFit();
   }
 
-  /** Runs the analysis; on the Pro Chart the result is revealed after a short scan animation with sound. */
+  /** Runs the analysis; on the Pro Chart the result is revealed after a scan that keeps sweeping until PRAGYA has answered (at least a few seconds, with sound). */
   function runAnalyze() {
     if (scan) return;
     const analysis = computeAnnotations(candles);
     const plan = buildTradePlan(candles);
-    const finish = () => {
+    const reveal = () => {
       setProState({ analysis, layers: PRO_LAYERS_DEFAULT });
       setProPlan(plan);
       proPlanRef.current = plan;
-      void askPragya(analysis, plan);
     };
     const viewport = viewportRef.current;
     if (!proLayout || !viewport) {
-      finish();
+      reveal();
+      void askPragya(analysis, plan);
       return;
     }
-    setScan({ points: computeScanPath(candles, viewport, { width: dimsRef.current.width, height: dimsRef.current.height, priceAxisWidth: PRICE_AXIS_WIDTH, timeAxisHeight: TIME_AXIS_HEIGHT }), finish });
-    playScanSweep(2200);
+    setScanReady(false);
+    void askPragya(analysis, plan).finally(() => setScanReady(true));
+    setScan({ curves: computeScanCurves(candles, viewport, { width: dimsRef.current.width, height: dimsRef.current.height, priceAxisWidth: PRICE_AXIS_WIDTH, timeAxisHeight: TIME_AXIS_HEIGHT }), finish: reveal });
+    playScanSweep(4500);
   }
 
   /** The measured facts PRAGYA answers chat questions from: EMA / RSI / ATR, structure, levels and the plan (no record replay, so it is instant). */
@@ -1843,7 +1846,8 @@ export default function NativeChart({
         />
         <ScanOverlay
           active={scan !== null}
-          points={scan?.points ?? []}
+          curves={scan?.curves ?? []}
+          ready={scanReady}
           width={Math.max(0, dimsRef.current.width - PRICE_AXIS_WIDTH)}
           height={Math.max(0, dimsRef.current.height - TIME_AXIS_HEIGHT)}
           onDone={() => { scan?.finish(); setScan(null); playAnalysisComplete(); if (typeof window !== "undefined" && window.matchMedia?.("(max-width: 767px)").matches) setMobilePanel(true); }}
@@ -1891,6 +1895,7 @@ export default function NativeChart({
           pragya={pragya}
           onOpenTester={() => setTesterOpen(true)}
           onAnalyze={runAnalyze}
+          scanning={scan !== null}
         />
       )}
       {proLayout && !mobilePanel && (
