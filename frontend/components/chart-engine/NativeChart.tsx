@@ -40,6 +40,7 @@ import { PRO_LAYERS_DEFAULT, PRO_LAYERS_CLEAN, type ChartLayers, type Annotation
 import ScanOverlay from "./ScanOverlay";
 import RangeBar, { rangeSpanMs, type RangeKey } from "./RangeBar";
 import { computeScanPath } from "@/lib/chart-engine/scan-path";
+import { buildReadout } from "@/lib/chart-engine/annotations/readout";
 import { isSoundOn, setSoundOn, playScanSweep, playAnalysisComplete } from "@/lib/chart-engine/analyze-sound";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useWorkspace } from "@/context/WorkspaceContext";
@@ -101,7 +102,7 @@ import { listTemplates, saveTemplate, deleteTemplate } from "@/lib/chart-engine/
 import type { ChartTemplate } from "@/lib/chart-engine/templates/types";
 import Modal from "@/components/ui/Modal";
 
-const PRICE_AXIS_WIDTH = 64;
+const PRICE_AXIS_WIDTH = 74;
 const TIME_AXIS_HEIGHT = 22;
 const ZOOM_IN_FACTOR = 0.9;
 const ZOOM_OUT_FACTOR = 1.1;
@@ -444,6 +445,10 @@ export default function NativeChart({
   const [proState, setProState] = useState<{ analysis: AnnotationResult | null; layers: ChartLayers }>({ analysis: null, layers: PRO_LAYERS_DEFAULT });
   const [proPlan, setProPlan] = useState<TradePlan | null>(null);
   const prevCandlesRef = useRef<ChartCandle[]>([]);
+  // price-axis zoom: while true the visible price range is the user's (set by dragging / wheeling on the right-hand price axis); Fit or a new symbol resets it
+  const manualPriceRef = useRef(false);
+  const axisDragRef = useRef<{ startY: number; min: number; max: number } | null>(null);
+  const [pragya, setPragya] = useState<{ status: "idle" | "loading" | "ready" | "error"; text: string }>({ status: "idle", text: "" });
   const proPlanRef = useRef<TradePlan | null>(null);
   proPlanRef.current = proPlan;
   const [scan, setScan] = useState<{ points: [number, number][]; finish: () => void } | null>(null);
@@ -581,6 +586,7 @@ export default function NativeChart({
     const previousViewport = viewportRef.current;
     const alreadyFittedForThisKey = fittedKeyRef.current === key;
     if (!alreadyFittedForThisKey || !previousViewport) {
+      manualPriceRef.current = false;
       viewportRef.current = fitView(candles);
       fittedKeyRef.current = key;
       setCrosshairState(null);
@@ -596,7 +602,9 @@ export default function NativeChart({
         const shift = candles[candles.length - 1].time - previousCandles[previousCandles.length - 1].time;
         const minTime = previousViewport.minTime + shift;
         const maxTime = previousViewport.maxTime + shift;
-        const { minPrice, maxPrice } = priceRangeForWindow(candles, minTime, maxTime);
+        const auto = priceRangeForWindow(candles, minTime, maxTime);
+        const minPrice = manualPriceRef.current ? previousViewport.minPrice : auto.minPrice;
+        const maxPrice = manualPriceRef.current ? previousViewport.maxPrice : auto.maxPrice;
         viewportRef.current = { minTime, maxTime, minPrice, maxPrice };
         setIsLive(true);
       } else {
@@ -703,7 +711,10 @@ export default function NativeChart({
   // changed, rather than invoking it unconditionally on every single
   // pointer-move tick of a drag/zoom gesture.
   function applyViewport(next: Viewport, coalesce = false) {
-    const { minPrice, maxPrice } = priceRangeForWindow(candles, next.minTime, next.maxTime);
+    const auto = priceRangeForWindow(candles, next.minTime, next.maxTime);
+    const keep = manualPriceRef.current ? viewportRef.current : null;
+    const minPrice = keep ? keep.minPrice : auto.minPrice;
+    const maxPrice = keep ? keep.maxPrice : auto.maxPrice;
     viewportRef.current = { ...next, minPrice, maxPrice };
     const live = isAtRightEdge(viewportRef.current, candles);
     if (live !== isLiveRef.current) {
@@ -721,6 +732,15 @@ export default function NativeChart({
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
     const x = e.clientX - rect.left;
+    if (x > plotWidth()) {
+      // wheel over the price axis: scale the price range around its middle
+      const mid = (viewport.minPrice + viewport.maxPrice) / 2;
+      const half = ((viewport.maxPrice - viewport.minPrice) / 2) * (e.deltaY < 0 ? 0.9 : 1.1);
+      manualPriceRef.current = true;
+      viewportRef.current = { ...viewport, minPrice: mid - half, maxPrice: mid + half };
+      scheduleDraw();
+      return;
+    }
     // Gapless x-axis (this session) - the zoom anchor must agree with what's
     // actually rendered at this pixel (index-based), not plain linear-time
     // math, or zooming near a compressed real-time gap would center on the
@@ -829,6 +849,13 @@ export default function NativeChart({
     const y = e.clientY - rect.top;
     activePointersRef.current.set(e.pointerId, { x, y });
 
+    // dragging on the right-hand price axis rescales the price range (up = zoom in, down = zoom out)
+    if (activePointersRef.current.size === 1 && x > plotWidth() && viewportRef.current) {
+      axisDragRef.current = { startY: y, min: viewportRef.current.minPrice, max: viewportRef.current.maxPrice };
+      e.preventDefault();
+      return;
+    }
+
     // MT5 feature-parity Phase 1 - drawing-tool placement/selection is a
     // single-pointer-only interaction that always takes priority over
     // pan/pinch when applicable, and returns early to skip them entirely.
@@ -925,6 +952,18 @@ export default function NativeChart({
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     if (activePointersRef.current.has(e.pointerId)) activePointersRef.current.set(e.pointerId, { x, y });
+    if (canvasRef.current) canvasRef.current.style.cursor = axisDragRef.current || x > plotWidth() ? "ns-resize" : "";
+    if (axisDragRef.current && viewportRef.current) {
+      const a = axisDragRef.current;
+      const mid = (a.min + a.max) / 2;
+      const half = ((a.max - a.min) / 2) * Math.exp((y - a.startY) * 0.006);
+      if (half > 0 && Number.isFinite(half)) {
+        manualPriceRef.current = true;
+        viewportRef.current = { ...viewportRef.current, minPrice: mid - half, maxPrice: mid + half };
+        scheduleDraw();
+      }
+      return;
+    }
 
     // MT5 feature-parity Phase 1 - live "rubber band" preview while a
     // 2-click tool's first point is placed but the second hasn't landed.
@@ -1028,10 +1067,12 @@ export default function NativeChart({
   }
 
   function handlePointerUp(e: React.PointerEvent<HTMLCanvasElement>) {
+    axisDragRef.current = null;
     releasePointer(e);
   }
 
   function handlePointerCancel(e: React.PointerEvent<HTMLCanvasElement>) {
+    axisDragRef.current = null;
     releasePointer(e);
   }
 
@@ -1061,6 +1102,7 @@ export default function NativeChart({
       setProState({ analysis, layers: PRO_LAYERS_DEFAULT });
       setProPlan(plan);
       proPlanRef.current = plan;
+      void askPragya(analysis, plan);
     };
     const viewport = viewportRef.current;
     if (!proLayout || !viewport) {
@@ -1069,6 +1111,29 @@ export default function NativeChart({
     }
     setScan({ points: computeScanPath(candles, viewport, { width: dimsRef.current.width, height: dimsRef.current.height, priceAxisWidth: PRICE_AXIS_WIDTH, timeAxisHeight: TIME_AXIS_HEIGHT }), finish });
     playScanSweep(2200);
+  }
+
+  /** PRAGYA (the platform's Gemini assistant) writes the short market analysis from the measured facts; the measured readout stays as the fallback. */
+  async function askPragya(analysis: AnnotationResult, plan: TradePlan) {
+    const facts = buildReadout(candles, analysis, plan, (n) => formatPrice(n, { maxDecimals: 5 }));
+    if (!facts) return;
+    setPragya({ status: "loading", text: "" });
+    const record = plan.state === "plan" && plan.record
+      ? ` Measured record of the plan rule on this chart: ${plan.record.n} trades, average ${plan.record.avgR.toFixed(2)} R${plan.record.baselineAvgR !== undefined ? `, shuffled-data baseline ${plan.record.baselineAvgR.toFixed(2)} R` : ""} (before spread and commission).`
+      : "";
+    const query = `You are PRAGYA, the market assistant of AT24. Write a market analysis of 4 to 5 short sentences for ${resolution.displaySymbol} on the ${timeframe.toUpperCase()} chart, using ONLY these measured facts and no other numbers: ${facts.paragraph}${record} If there is a plan, state its entry, stop and target as an educational plan with its risk. If there is no plan, explain why waiting is sensible. Do not promise or guarantee anything and do not quote any percentage of winning trades.`;
+    try {
+      const res = await fetch("/api/private/knowledge/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, symbol, useSearch: false, stream: false }),
+      });
+      const json = await res.json();
+      if (json?.status === "ok" && typeof json.data?.content === "string" && json.data.content.trim().length > 0) setPragya({ status: "ready", text: json.data.content.trim() });
+      else setPragya({ status: "error", text: "" });
+    } catch {
+      setPragya({ status: "error", text: "" });
+    }
   }
 
   function closePlan() {
@@ -1102,6 +1167,7 @@ export default function NativeChart({
 
   function handleFit() {
     if (candles.length === 0) return;
+    manualPriceRef.current = false;
     setRangeKey(null);
     viewportRef.current = fitView(candles);
     const live = isAtRightEdge(viewportRef.current, candles);
@@ -1640,6 +1706,7 @@ export default function NativeChart({
           onClosePlan={closePlan}
           formatPrice={(n) => formatPrice(n, { maxDecimals: 5 })}
           candles={candles}
+          pragya={pragya}
           trade={paperNode}
           onAnalyze={runAnalyze}
         />

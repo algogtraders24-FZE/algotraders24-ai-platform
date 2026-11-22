@@ -112,8 +112,8 @@ export const ALL_LAYERS_OFF: AnnotationLayers = { zones: false, levels: false, s
 /** Everything the Layers popup controls: the annotation groups, the on-chart trade plan box, and the user's own drawings. */
 export type ChartLayers = AnnotationLayers & { plan: boolean; drawings: boolean };
 
-/** Default after Analyze: the structure map and the plan box on; session lines off (they clutter the chart, one click turns them on). */
-export const PRO_LAYERS_DEFAULT: ChartLayers = { zones: true, levels: true, structure: true, pdOte: true, sessions: false, patterns: true, plan: true, drawings: true };
+/** Default after Analyze: the structure map and the plan box on; session lines and chart patterns off (they clutter the chart, one click turns them on). */
+export const PRO_LAYERS_DEFAULT: ChartLayers = { zones: true, levels: true, structure: true, pdOte: true, sessions: false, patterns: false, plan: true, drawings: true };
 
 /** "Clean chart": every AI layer off, the user's own drawings stay. */
 export const PRO_LAYERS_CLEAN: ChartLayers = { zones: false, levels: false, structure: false, pdOte: false, sessions: false, patterns: false, plan: false, drawings: true };

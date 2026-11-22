@@ -57,7 +57,7 @@ check("Short input returns empty", computeAnnotations(f1.slice(0, 5)).annotation
 import { planAt, PLAN_RR, buildTradePlan } from "../lib/chart-engine/annotations/plan";
 {
   const f5 = build([100, 101, 102, 103, 105, 110, 106, 104, 103, 102, 104, 106, 108, 112, 111, 113, 114, 115, 116, 117, 110, 105, 103]);
-  const p = planAt(f5);
+  const p = planAt(f5, 1);
   check("Plan: long on demand-OB retest", p.state === "plan" && p.dir === "long", JSON.stringify(p));
   if (p.state === "plan") {
     check("Plan: entry = last close 103", p.entry === 103);
@@ -65,12 +65,16 @@ import { planAt, PLAN_RR, buildTradePlan } from "../lib/chart-engine/annotations
     check("Plan: target = entry + 2 x risk", Math.abs(p.target - (p.entry + PLAN_RR * (p.entry - p.stop))) < 0.5);
     check("Plan: score counts confluences, max 5", p.score >= 1 && p.score <= p.scoreMax, String(p.score));
   }
-  const lim = planAt(f1); // price above the zones: a limit plan at the nearest bullish zone on the way back down
+  const lim = planAt(f1, 1); // price above the zones: a limit plan at the nearest bullish zone on the way back down
   check("Plan: limit entry below price when price is away from the zone", lim.state === "plan" && lim.entryType === "limit" && lim.dir === "long" && lim.entry < 117, JSON.stringify(lim));
   if (lim.state === "plan") check("Plan: limit plan stop below entry, target = entry + 2 x risk", lim.stop < lim.entry && Math.abs(lim.target - (lim.entry + PLAN_RR * (lim.entry - lim.stop))) < 0.5);
   const far = build([100, 101, 102, 103, 105, 110, 106, 104, 103, 102, 104, 106, 108, 112, 111, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140]);
   const aside = planAt(far);
   check("Plan: stand aside when the nearest zone is more than 3 ATR away", aside.state === "standAside", JSON.stringify(aside));
+  // signal gate: the default needs 3 of 6 confluences; the fixture has 2 (demand OB + entry in discount) -> stand aside with the reason
+  const gated = planAt(f5);
+  check("Plan gate: fewer than 3 confluences = stand aside, reason lists them", gated.state === "standAside" && /2 of 6 confluences/.test(gated.reason) && /Demand order block/.test(gated.reason), JSON.stringify(gated));
+  check("Plan gate: the same setup is a plan when the minimum is 2", planAt(f5, 2).state === "plan");
   check("Plan: record is null (honest) when history is too short", buildTradePlan(f5).state !== "plan" || (buildTradePlan(f5) as { record: unknown }).record === null);
   // Long random-walk history: record must be computed deterministically and never invent a number from nothing
   let x = 12345; const rnd = () => ((x = (x * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
