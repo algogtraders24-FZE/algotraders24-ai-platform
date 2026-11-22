@@ -2,7 +2,6 @@
 // components/chart-engine/ProSidePanel.tsx
 // Right-hand panel of the Pro Chart, laid out like the reference chart: Chat (analysis + PRAGYA chat with quick prompts),
 // PRAGYA (voice), Trade (MT5 connection), Strategies (watching cards, build, gallery). Presentational; NativeChart owns the state.
-import type { ReactNode } from "react";
 import Link from "next/link";
 import type { TradePlan } from "@/lib/chart-engine/annotations/plan";
 import type { AnnotationResult } from "@/lib/chart-engine/annotations/types";
@@ -28,8 +27,8 @@ interface Props {
   candles: ChartCandle[];
   getChatFacts: () => string | null;
   pragya: { status: "idle" | "loading" | "ready" | "error"; text: string };
-  /** The Algo Test panel (opened from the more menu); lives in the Strategies tab. */
-  algo: ReactNode;
+  /** Opens the Strategy Tester drawer under the chart. */
+  onOpenTester: () => void;
 }
 
 const TABS: { key: ProTab; label: string }[] = [
@@ -56,7 +55,7 @@ function Mt5Panel({ plan, formatPrice }: { plan: TradePlan | null; formatPrice: 
   );
 }
 
-export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, onAnalyze, candles, pragya, getChatFacts, algo }: Props) {
+export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, onAnalyze, candles, pragya, getChatFacts, onOpenTester }: Props) {
   const watching = plan ? 1 : 0;
   return (
     <aside className="flex h-full w-[380px] shrink-0 flex-col gap-3 overflow-y-auto border-l border-border bg-ink-2 p-3 text-text-2">
@@ -152,7 +151,7 @@ export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, on
         </div>
         <Link href="/dashboard/quant-chat" className="rounded-lg bg-gold px-3 py-2.5 text-center text-[14px] font-semibold text-ink hover:brightness-110">Build with AI</Link>
         <Link href="/dashboard/algo-test-library" className="rounded-lg border border-border bg-ink-3 px-3 py-2.5 text-center text-[14px] text-text-2 hover:bg-ink-4">Gallery</Link>
-        <div className="mt-2">{algo}</div>
+        <button type="button" onClick={onOpenTester} className="rounded-lg border border-gold/40 bg-gold/10 px-3 py-2.5 text-center text-[14px] font-semibold text-gold hover:bg-gold/20">Open Strategy Tester</button>
       </div>
     </aside>
   );

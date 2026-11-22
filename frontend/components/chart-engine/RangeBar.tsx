@@ -20,7 +20,7 @@ export function rangeSpanMs(key: RangeKey, nowMs: number): number | null {
   }
 }
 
-export default function RangeBar({ active, onRange, info }: { active: RangeKey | null; onRange: (k: RangeKey) => void; info?: string }) {
+export default function RangeBar({ active, onRange, info, testerOpen, onToggleTester }: { active: RangeKey | null; onRange: (k: RangeKey) => void; info?: string; testerOpen?: boolean; onToggleTester?: () => void }) {
   const [now, setNow] = useState<string>("");
   useEffect(() => {
     const tick = () => setNow(new Date().toISOString().slice(11, 19) + " UTC");
@@ -42,6 +42,17 @@ export default function RangeBar({ active, onRange, info }: { active: RangeKey |
             {k}
           </button>
         ))}
+        {onToggleTester && (
+          <button
+            type="button"
+            onClick={onToggleTester}
+            aria-pressed={testerOpen}
+            title="Backtest a strategy on this chart"
+            className={`ml-3 rounded-md border px-3 py-1 font-semibold transition ${testerOpen ? "border-gold/50 bg-gold/15 text-gold" : "border-border text-text-2 hover:bg-ink-4 hover:text-text"}`}
+          >
+            Strategy Tester {testerOpen ? "▾" : "▴"}
+          </button>
+        )}
       </div>
       <span className="flex items-center gap-3 tabular-nums text-text-3">
         {info && <span className="hidden sm:inline">{info}</span>}
