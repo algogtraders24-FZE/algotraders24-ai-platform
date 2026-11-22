@@ -30,6 +30,8 @@ const HANDLE_SIZE_PX = 6;
 const SELECTED_LINE_WIDTH = 2;
 const DEFAULT_LINE_WIDTH = 1;
 const RECT_FILL_ALPHA = 0.12;
+/** Width of the object being drawn right now (set per object by drawDrawingObjects). */
+let activeWidth = DEFAULT_LINE_WIDTH;
 
 function toPx(point: DrawingPoint, candles: readonly ChartCandle[], indexRange: IndexRange, viewport: Viewport, plotWidth: number, row: PanelRow): { x: number; y: number } {
   const index = fractionalIndexForTime(candles, point.time);
@@ -65,7 +67,7 @@ function drawHorizontalLine(ctx: CanvasRenderingContext2D, price: number, color:
   const y = row.top + priceToY(price, viewport, row.height);
   if (y < row.top - 1 || y > row.top + row.height + 1) return; // off-panel - never draw outside its own panel
   ctx.strokeStyle = color;
-  ctx.lineWidth = selected ? SELECTED_LINE_WIDTH : DEFAULT_LINE_WIDTH;
+  ctx.lineWidth = selected ? activeWidth + 1 : activeWidth;
   ctx.beginPath();
   ctx.moveTo(0, y);
   ctx.lineTo(plotWidth, y);
@@ -97,7 +99,7 @@ function drawTrendLine(
   const a = toPx(p1, candles, indexRange, viewport, plotWidth, row);
   const b = toPx(p2, candles, indexRange, viewport, plotWidth, row);
   ctx.strokeStyle = color;
-  ctx.lineWidth = selected ? SELECTED_LINE_WIDTH : DEFAULT_LINE_WIDTH;
+  ctx.lineWidth = selected ? activeWidth + 1 : activeWidth;
   ctx.beginPath();
   ctx.moveTo(a.x, a.y);
   ctx.lineTo(b.x, b.y);
@@ -130,7 +132,7 @@ function drawRectangle(
   ctx.fillStyle = hexToRgba(color, RECT_FILL_ALPHA);
   ctx.fillRect(left, top, width, height);
   ctx.strokeStyle = color;
-  ctx.lineWidth = selected ? SELECTED_LINE_WIDTH : DEFAULT_LINE_WIDTH;
+  ctx.lineWidth = selected ? activeWidth + 1 : activeWidth;
   strokeQuad(ctx, left, top, width, height);
   if (selected) {
     drawHandle(ctx, a.x, a.y, color);
@@ -163,7 +165,7 @@ function drawFibonacci(
   const left = Math.min(a.x, b.x);
   const right = Math.max(a.x, b.x);
 
-  ctx.lineWidth = selected ? SELECTED_LINE_WIDTH : DEFAULT_LINE_WIDTH;
+  ctx.lineWidth = selected ? activeWidth + 1 : activeWidth;
   ctx.font = canvasMonoFont(10);
   ctx.textBaseline = "middle";
   ctx.textAlign = "left";
@@ -202,6 +204,7 @@ export function drawDrawingObjects(
 ): void {
   for (const obj of objects) {
     const selected = obj.id === selectedObjectId;
+    activeWidth = obj.width ?? DEFAULT_LINE_WIDTH;
     if (obj.tool === "horizontal-line") drawHorizontalLine(ctx, obj.price, obj.color, plotWidth, viewport, row, selected);
     else if (obj.tool === "trendline") drawTrendLine(ctx, obj.p1, obj.p2, obj.color, candles, indexRange, viewport, plotWidth, row, selected);
     else if (obj.tool === "fibonacci") drawFibonacci(ctx, obj.p1, obj.p2, obj.color, candles, indexRange, viewport, plotWidth, row, selected);
