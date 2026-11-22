@@ -147,7 +147,6 @@ import { fitToRecent, fitToData } from "../lib/chart-engine/viewport";
 // Render smoke test on a recording canvas: layers on draws something, layers off (clean chart) draws nothing.
 import { drawAnnotations } from "../lib/chart-engine/annotations/render";
 import { ALL_LAYERS_OFF, ALL_LAYERS_ON } from "../lib/chart-engine/annotations/types";
-import { indexRangeForViewport } from "../lib/chart-engine/index-scale";
 function recorder() {
   let n = 0;
   const base: Record<string, unknown> = {};
