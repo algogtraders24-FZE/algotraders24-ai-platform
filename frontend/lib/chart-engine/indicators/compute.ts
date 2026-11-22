@@ -12,8 +12,8 @@ import {
   emaSeries,
   rsiSeries,
   bollingerSeries,
-  macdSeries,
-  atrSeries,
+  macdSeriesMt5,
+  atrSmaSeries,
   stochasticSeries,
   adxSeries,
   cciSeries,
@@ -77,7 +77,7 @@ export function computeIndicatorSeries(candles: ChartCandle[], config: Indicator
       const fast = config.fastPeriod ?? 12;
       const slow = config.slowPeriod ?? 26;
       const signal = config.signalPeriod ?? 9;
-      const results = macdSeries(closes, fast, slow, signal);
+      const results = macdSeriesMt5(closes, fast, slow, signal);
       const macdLine = toPoints(candles, results.map((r) => r?.macd));
       const signalLine = toPoints(candles, results.map((r) => r?.signal));
       const histogram = toPoints(candles, results.map((r) => r?.histogram));
@@ -97,7 +97,7 @@ export function computeIndicatorSeries(candles: ChartCandle[], config: Indicator
       return { config, panel: "volume", lines: [line] };
     }
     case "atr": {
-      const values = atrSeries(candles, config.period);
+      const values = atrSmaSeries(candles, config.period);
       const line: IndicatorLine = { name: config.key, points: toPoints(candles, values), color: config.color };
       return { config, panel: "atr", lines: [line] };
     }

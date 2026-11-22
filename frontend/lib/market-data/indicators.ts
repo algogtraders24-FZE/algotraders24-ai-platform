@@ -270,6 +270,49 @@ export function atrSeries(candles: readonly OhlcCandle[], period = ATR_PERIOD_DE
   return alignToLength(raw, candles.length);
 }
 
+/**
+ * MetaTrader 5's own ATR (MQL5\\Indicators\\Examples\\ATR.mq5): the SIMPLE moving average of the true range, not Wilder's smoothing. The chart's ATR
+ * panel uses this one so its numbers match what a trader sees in MT5; atrSeries() above (Wilder, the TradingView convention) is kept unchanged for
+ * the intelligence pipeline. The first value is at index `period`, like MT5.
+ */
+export function atrSmaSeries(candles: readonly OhlcCandle[], period = ATR_PERIOD_DEFAULT): (number | undefined)[] {
+  const out: (number | undefined)[] = new Array(candles.length).fill(undefined);
+  if (candles.length < period + 1 || period <= 0) return out;
+  const tr: number[] = [0];
+  for (let i = 1; i < candles.length; i++) {
+    const prevClose = candles[i - 1].close;
+    tr.push(Math.max(candles[i].high - candles[i].low, Math.abs(candles[i].high - prevClose), Math.abs(candles[i].low - prevClose)));
+  }
+  let sum = 0;
+  for (let i = 1; i < candles.length; i++) {
+    sum += tr[i];
+    if (i > period) sum -= tr[i - period];
+    if (i >= period) out[i] = sum / period;
+  }
+  return out;
+}
+
+/**
+ * MetaTrader 5's MACD (MQL5\\Indicators\\Examples\\MACD.mq5): MACD line = EMA(fast) - EMA(slow); the signal line is the SIMPLE moving average of the
+ * MACD line (not an EMA as in macdSeries() above / TradingView); histogram = MACD - signal. Used by the chart's MACD panel.
+ */
+export function macdSeriesMt5(values: readonly number[], fast = MACD_FAST_DEFAULT, slow = MACD_SLOW_DEFAULT, signal = MACD_SIGNAL_DEFAULT): (MACDResult | undefined)[] {
+  const out: (MACDResult | undefined)[] = new Array(values.length).fill(undefined);
+  const fastSeries = emaSeries(values, fast);
+  const slowSeries = emaSeries(values, slow);
+  if (!fastSeries || !slowSeries) return out;
+  const line: (number | undefined)[] = new Array(values.length).fill(undefined);
+  const offset = fastSeries.length - slowSeries.length;
+  const slowStart = values.length - slowSeries.length;
+  for (let i = 0; i < slowSeries.length; i++) line[slowStart + i] = fastSeries[i + offset] - slowSeries[i];
+  const sig = smaOverOptional(line, signal);
+  for (let i = 0; i < values.length; i++) {
+    const m = line[i], g = sig[i];
+    if (m !== undefined && g !== undefined) out[i] = { macd: m, signal: g, histogram: m - g };
+  }
+  return out;
+}
+
 export const STOCHASTIC_K_PERIOD_DEFAULT = 5;
 export const STOCHASTIC_SLOWING_DEFAULT = 3;
 export const STOCHASTIC_D_PERIOD_DEFAULT = 3;
@@ -521,13 +564,14 @@ export function parabolicSarSeries(
     if (uptrend && candles[i].low < nextSar) {
       uptrend = false;
       reversed = true;
-      nextSar = ep; // SAR jumps to the extreme the just-ended trend reached
+      // SAR jumps to the highest high since the last reversal, INCLUDING the reversing bar (MetaQuotes' ParabolicSAR.mq5 does the same via GetHigh)
+      nextSar = Math.max(ep, candles[i].high);
       ep = candles[i].low;
       af = step;
     } else if (!uptrend && candles[i].high > nextSar) {
       uptrend = true;
       reversed = true;
-      nextSar = ep;
+      nextSar = Math.min(ep, candles[i].low);
       ep = candles[i].high;
       af = step;
     }
