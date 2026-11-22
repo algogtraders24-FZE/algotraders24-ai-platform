@@ -288,6 +288,8 @@ export interface DailyAutoPublisherDeps {
   publishNow: (articleId: string) => Promise<void>;
   /** This week's calendar events (all impacts; the builder filters). */
   getCalendarEvents: () => Promise<readonly EconomicEvent[]>;
+  /** Market Brief 2.0 (optional). Returns null when the brief is off for this symbol or cannot be built: the normal report is then used. */
+  buildBrief?: (symbol: string) => Promise<{ title: string; summary: string; sections: ArticleSection[] } | null>;
   now?: () => Date;
 }
 
@@ -347,6 +349,16 @@ export class DailyAutoPublisherService {
       }
       const content = buildWeeklyContent(spec, date, parts);
       return content ? { content } : { skip: "fewer than 2 assets analysed" };
+    }
+
+    if (kind === "analysis" && this.deps.buildBrief) {
+      try {
+        const brief = await this.deps.buildBrief(spec.symbol);
+        // the title stays the dated report title: unique per day (the slug is the idempotency key) and the Telegram link matches it
+        if (brief) return { content: { ...brief, title: reportTitle(spec, date) } };
+      } catch {
+        /* fall through to the normal report */
+      }
     }
 
     const question =
