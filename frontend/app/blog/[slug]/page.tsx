@@ -5,6 +5,7 @@
 // version). Content is sanitized plain text; rendered as plain React text
 // children - the reader never injects raw HTML. The one exception is the
 // schema.org JSON-LD <script>, built with JSON.stringify and "<"-escaped.
+import { BriefSections, hasBriefSections } from "@/components/publishing/BriefSections";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -118,14 +119,20 @@ export default async function BlogArticlePage({
 
         {post.summary && <p className="mt-6 text-lg leading-8 text-text-2">{post.summary}</p>}
 
-        <div className="mt-8 space-y-6">
-          {post.sections.map((section, i) => (
-            <section key={i}>
-              {section.heading && <h2 className="text-xl font-semibold text-text">{section.heading}</h2>}
-              <p className="mt-2 whitespace-pre-wrap leading-8 text-text-2">{section.body}</p>
-            </section>
-          ))}
-        </div>
+        {hasBriefSections(post.sections) ? (
+          <div className="mt-8">
+            <BriefSections sections={post.sections} />
+          </div>
+        ) : (
+          <div className="mt-8 space-y-6">
+            {post.sections.map((section, i) => (
+              <section key={i}>
+                {section.heading && <h2 className="text-xl font-semibold text-text">{section.heading}</h2>}
+                <p className="mt-2 whitespace-pre-wrap leading-8 text-text-2">{section.body}</p>
+              </section>
+            ))}
+          </div>
+        )}
 
         <Disclaimer text={post.disclaimer} className="mt-10" />
 
