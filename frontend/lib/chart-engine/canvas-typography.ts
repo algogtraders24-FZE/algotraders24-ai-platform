@@ -37,6 +37,12 @@ export function setCanvasFontKind(kind: "mono" | "sans"): void {
   fontKind = kind;
 }
 
+/** Price / time axis text: the mono stack as before, or (Pro Chart) a larger medium-weight sans like the reference chart. */
+export function canvasAxisFont(sizePx: number): string {
+  if (fontKind === "sans") return `500 ${sizePx + 2}px ${resolveSansFontFamily()}`;
+  return `${sizePx}px ${resolveMonoFontFamily()}`;
+}
+
 /** Canvas 2D `ctx.font` string at a given pixel size, using the resolved AT24 mono font stack (or the sans stack when the frame was set to "sans"). */
 export function canvasMonoFont(sizePx: number, weight: number | string = 400): string {
   if (fontKind === "sans") return `${weight} ${sizePx}px ${resolveSansFontFamily()}`;

@@ -87,7 +87,7 @@ interface PlanOverlayProps {
 export function PlanOverlay({ plan, onExecute, onClose, formatPrice, inline }: PlanOverlayProps) {
   const [open, setOpen] = useState(false);
   if (!plan) return null;
-  const shell = (inline ? "w-full " : "absolute left-3 top-3 z-10 w-64 ") + "rounded-panel border border-border bg-ink-2/95 p-3 text-xs text-text-2 shadow-lg backdrop-blur";
+  const shell = (inline ? "w-full " : "absolute left-3 top-3 z-10 w-64 ") + "rounded-panel border border-border bg-ink-2/95 p-3 text-[14px] text-text-2 shadow-lg backdrop-blur";
   const close = (
     <button type="button" onClick={onClose} aria-label="Close plan" className="text-text-3 hover:text-text">×</button>
   );
@@ -95,7 +95,7 @@ export function PlanOverlay({ plan, onExecute, onClose, formatPrice, inline }: P
     return (
       <div className={shell}>
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-text-3">No clean setup, stand aside</span>
+          <span className="text-[12.5px] font-semibold uppercase tracking-wide text-text-3">No clean setup, stand aside</span>
           {close}
         </div>
         <p className="mt-1.5 leading-snug">{plan.reason} See the analysis below.</p>
@@ -107,14 +107,14 @@ export function PlanOverlay({ plan, onExecute, onClose, formatPrice, inline }: P
   const row = (label: string, value: number, cls: string) => (
     <div className="flex items-center justify-between py-0.5">
       <span className="text-text-3">{label}</span>
-      <span className={`font-mono text-[13px] font-medium ${cls}`}>{formatPrice(value)}</span>
+      <span className={`text-[15px] font-semibold tabular-nums ${cls}`}>{formatPrice(value)}</span>
     </div>
   );
   return (
     <div className={shell.replace("border-border bg-ink-2/95", tint)}>
       <div className="flex items-center justify-between">
-        <span className={`rounded-control px-2 py-0.5 text-[11px] font-semibold uppercase ${long ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"}`}>{plan.dir}</span>
-        <span className="text-[11px] text-text-3">Score {plan.score}/{plan.scoreMax} · R:R 1:{plan.rr}</span>
+        <span className={`rounded-control px-2 py-0.5 text-[12.5px] font-semibold uppercase ${long ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"}`}>{plan.dir}</span>
+        <span className="text-[12.5px] text-text-3">Score {plan.score}/{plan.scoreMax} · R:R 1:{plan.rr}</span>
         {close}
       </div>
       <div className="mt-2 border-t border-border pt-1.5">
@@ -125,15 +125,15 @@ export function PlanOverlay({ plan, onExecute, onClose, formatPrice, inline }: P
       <button
         type="button"
         onClick={() => onExecute(long ? "buy" : "sell")}
-        className={`mt-2 w-full rounded-control py-1.5 text-xs font-semibold ${long ? "bg-green-500/20 text-green-300 hover:bg-green-500/30" : "bg-red-500/20 text-red-300 hover:bg-red-500/30"}`}
+        className={`mt-2 w-full rounded-control py-1.5 text-[14px] font-semibold ${long ? "bg-green-500/20 text-green-300 hover:bg-green-500/30" : "bg-red-500/20 text-red-300 hover:bg-red-500/30"}`}
       >
         {plan.entryType === "limit" ? "Open paper ticket (limit entry)" : "Execute (paper)"}
       </button>
-      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="mt-2 w-full text-left text-[11px] text-text-3 hover:text-text">
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="mt-2 w-full text-left text-[12.5px] text-text-3 hover:text-text">
         Evidence {open ? "▴" : "▾"}
       </button>
       {open && (
-        <div className="mt-1 space-y-1.5 text-[11px] leading-snug text-text-3">
+        <div className="mt-1 space-y-1.5 text-[12.5px] leading-snug text-text-3">
           <p>{plan.source}. Confluences: {plan.confluences.join(", ") || "none"}. Score counts rules that agree; it is not a probability.</p>
           <p>
             {plan.record
@@ -154,7 +154,7 @@ export function PlanOverlay({ plan, onExecute, onClose, formatPrice, inline }: P
 
 /** Side-panel "Annotations detected": per-kind counts, each expandable to its items with price ranges (Pipflow-style). */
 export function AnnotationSummary({ analysis, formatPrice }: { analysis: AnnotationResult | null; formatPrice: (n: number) => string }) {
-  if (!analysis) return <p className="text-xs text-text-3">Press Analyze chart to map the structure.</p>;
+  if (!analysis) return <p className="text-[14px] text-text-3">Press Analyze chart to map the structure.</p>;
   const c = analysis.counts;
   const list = analysis.annotations;
   const range = (lo: number, hi: number) => `${formatPrice(lo)} - ${formatPrice(hi)}`;
@@ -167,10 +167,10 @@ export function AnnotationSummary({ analysis, formatPrice }: { analysis: Annotat
     { label: "Sessions", n: c.sessions, items: list.flatMap((x) => (x.type === "session" ? [{ name: x.session, value: new Date(x.time).toISOString().slice(0, 16).replace("T", " ") + " UTC" }] : [])) },
   ];
   return (
-    <div className="text-xs text-text-2">
+    <div className="text-[14px] text-text-2">
       <div className="mb-1 flex items-center justify-between">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-text-3">Annotations detected</span>
-        <span className="rounded-full bg-ink-3 px-2 py-0.5 text-[11px]">{c.total}</span>
+        <span className="text-[12.5px] font-semibold uppercase tracking-wide text-text-3">Annotations detected</span>
+        <span className="rounded-full bg-ink-3 px-2 py-0.5 text-[12.5px]">{c.total}</span>
       </div>
       {groups.map((g) => (
         <details key={g.label} className="border-b border-border/60 py-1" open={g.label === "Zones"}>
@@ -180,16 +180,16 @@ export function AnnotationSummary({ analysis, formatPrice }: { analysis: Annotat
           </summary>
           <ul className="mt-1 space-y-0.5 pl-2">
             {g.items.map((it, i) => (
-              <li key={`${it.name}-${i}`} className="flex items-center justify-between gap-2 text-[11px]">
+              <li key={`${it.name}-${i}`} className="flex items-center justify-between gap-2 text-[12.5px]">
                 <span>{it.name}</span>
                 <span className="font-mono text-text-3">{it.value}</span>
               </li>
             ))}
-            {g.items.length === 0 && <li className="text-[11px] text-text-3">None</li>}
+            {g.items.length === 0 && <li className="text-[12.5px] text-text-3">None</li>}
           </ul>
         </details>
       ))}
-      <p className="mt-2 text-[11px] text-text-3">Swing size {analysis.params.swingBars} bars, ATR(14) {analysis.params.atr.toPrecision(5)}. Descriptive map of what price already did, not a prediction.</p>
+      <p className="mt-2 text-[12.5px] text-text-3">Swing size {analysis.params.swingBars} bars, ATR(14) {analysis.params.atr.toPrecision(5)}. Descriptive map of what price already did, not a prediction.</p>
     </div>
   );
 }
@@ -251,26 +251,26 @@ export function ProToolbarExtras({ layers, onLayers, onAnalyze, scanning, analyz
       </button>
       {open && (
         <div className="absolute right-0 top-full z-40 mt-2 w-72 rounded-lg border border-white/10 bg-[#13141a] p-3 shadow-2xl">
-          <p className="mb-2 text-[11px] uppercase tracking-wide text-text-3">Layers</p>
-          <div className="flex items-center justify-between py-1.5 text-xs font-semibold text-text">
+          <p className="mb-2 text-[12.5px] uppercase tracking-wide text-text-3">Layers</p>
+          <div className="flex items-center justify-between py-1.5 text-[14px] font-semibold text-text">
             Drawings
             <Switch on={layers.drawings} onChange={(v) => onLayers({ drawings: v })} label="Drawings" />
           </div>
-          <div className="flex items-center justify-between py-1.5 text-xs font-semibold text-text">
+          <div className="flex items-center justify-between py-1.5 text-[14px] font-semibold text-text">
             Analysis
             <Switch on={analysisOn} onChange={(v) => onLayers(Object.fromEntries(ANALYSIS_CHILDREN.map((c) => [c.key, v && c.key !== "sessions"])) as Partial<ChartLayers>)} label="Analysis" />
           </div>
           {ANALYSIS_CHILDREN.map((c) => (
-            <div key={c.key} className="flex items-center justify-between py-1 pl-3 text-[11px] text-text-2">
+            <div key={c.key} className="flex items-center justify-between py-1 pl-3 text-[12.5px] text-text-2">
               {c.label}
               <Switch on={layers[c.key]} onChange={(v) => onLayers({ [c.key]: v })} label={c.label} />
             </div>
           ))}
-          <div className="flex items-center justify-between py-1.5 text-xs font-semibold text-text">
+          <div className="flex items-center justify-between py-1.5 text-[14px] font-semibold text-text">
             Trades
             <Switch on={layers.plan} onChange={(v) => onLayers({ plan: v })} label="Trade plan" />
           </div>
-          <button type="button" onClick={() => { onClean(); setOpen(false); }} className="mt-2 w-full rounded-control border border-border bg-ink-3 py-1.5 text-xs text-text-2 hover:text-text">
+          <button type="button" onClick={() => { onClean(); setOpen(false); }} className="mt-2 w-full rounded-control border border-border bg-ink-3 py-1.5 text-[14px] text-text-2 hover:text-text">
             ✦ Clean chart
           </button>
         </div>

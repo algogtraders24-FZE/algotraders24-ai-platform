@@ -52,6 +52,8 @@ export interface ChartColors {
    */
   buyLine: string;
   sellLine: string;
+  /** Optional brighter colour for the price / time axis text (the Pro Chart uses near-white like the reference chart). */
+  axisText?: string;
 }
 
 export type ChartTheme = "at24" | "mt5" | "mt5-green" | "light" | "pro";
@@ -136,11 +138,12 @@ const MT5_GREEN_COLORS: ChartColors = {
 // Professional Mode palette (2026-11-19), matched to the owner's reference screenshot: near-black charcoal canvas,
 // teal up / red down FILLED candles, faint grid, light-grey axis text, teal current-price highlight.
 const PRO_COLORS: ChartColors = {
+  axisText: "#e6e8ee",
   background: "#131419",
   grid: "#1b1e26",
   border: "#2a2e39",
-  textPrimary: "#d1d4dc",
-  textTertiary: "#787b86",
+  textPrimary: "#ffffff",
+  textTertiary: "#9aa0ae",
   bullish: "#26a69a",
   bearish: "#ef5350",
   bearishOutline: "#ef5350",

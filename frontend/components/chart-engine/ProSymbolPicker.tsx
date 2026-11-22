@@ -65,7 +65,7 @@ export default function ProSymbolPicker({ value, onChange }: Props) {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="listbox"
-        className="inline-flex h-8 items-center gap-2 rounded-full border border-white/10 bg-[#13141a] px-3.5 text-[13px] font-semibold text-white hover:border-white/25"
+        className="inline-flex h-9 items-center gap-2 rounded-full border border-white/15 bg-[#13141a] px-4 text-[15px] font-bold text-white hover:border-white/25"
       >
         <span aria-hidden>⌕</span>
         {current ? current.label : value}
