@@ -27,8 +27,8 @@ export interface ComputeOptions {
 
 interface Swing { index: number; time: number; price: number; broken: boolean }
 
-const MAX_OB = 3;
-const MAX_FVG = 3;
+const MAX_OB = 2;
+const MAX_FVG = 2;
 const MAX_STRUCTURE = 5;
 const MAX_SWEEPS = 3;
 const MAX_SESSIONS = 2;
