@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "validate:arena-fx": "tsx scripts/validate-arena-fx.ts",
+    "validate:brief-chart": "tsx scripts/validate-brief-chart.ts",
     "validate:market-brief": "tsx scripts/validate-market-brief.ts",
     "validate:swing-lab": "tsx scripts/validate-swing-lab.ts && tsx scripts/validate-swing-lab-scoreboard.ts",
     "validate:crypto-flow": "tsx scripts/validate-crypto-flow.ts && tsx scripts/validate-crypto-flow-zones.ts && tsx scripts/validate-crypto-flow-scoreboard.ts && tsx scripts/validate-crypto-flow-derivatives.ts",
@@ -231,6 +232,7 @@
   "dependencies": {
     "@google/genai": "^2.12.0",
     "@modelcontextprotocol/sdk": "^1.32.1",
+    "@napi-rs/canvas": "^0.1.80",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@supabase/ssr": "^0.12.0",
