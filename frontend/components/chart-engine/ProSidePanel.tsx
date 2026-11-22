@@ -7,6 +7,7 @@ import type { TradePlan } from "@/lib/chart-engine/annotations/plan";
 import type { AnnotationResult } from "@/lib/chart-engine/annotations/types";
 import { AnnotationSummary, PlanOverlay } from "./ProModeBar";
 import ProChat from "./ProChat";
+import BrokerPanel from "./BrokerPanel";
 import { buildReadout } from "@/lib/chart-engine/annotations/readout";
 import type { ChartCandle } from "@/types/chart-data";
 
@@ -125,7 +126,7 @@ export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, on
       </div>
 
       <div className={tab === "trade" ? "block" : "hidden"}>
-        <Mt5Panel plan={plan} formatPrice={formatPrice} />
+        <BrokerPanel active={tab === "trade"} symbol={symbol} plan={plan} formatPrice={formatPrice} fallback={<Mt5Panel plan={plan} formatPrice={formatPrice} />} />
       </div>
 
       <div className={tab === "strategies" ? "flex flex-col gap-3" : "hidden"}>
