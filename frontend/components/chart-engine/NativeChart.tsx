@@ -49,6 +49,7 @@ import { useWorkspace } from "@/context/WorkspaceContext";
 import { formatPrice, formatTimestamp, formatCompactVolume, formatDuration } from "@/lib/financial-format";
 import { FIN_LABEL, FIN_PRIMARY, FIN_SECONDARY, FIN_TERTIARY, financialDirectionClass } from "@/components/ui/financial-typography";
 import { resolveChartInstrument } from "@/lib/market-data/chart-instrument-resolver";
+import { getCanonicalInstrument } from "@/lib/market-data/instrument-catalog";
 import { resolveChartColors, CHART_THEME_LABELS, type ChartTheme } from "@/lib/chart-engine/canvas-colors";
 import { nearestCandleIndex } from "@/lib/chart-engine/crosshair";
 import { priceToY } from "@/lib/chart-engine/coordinate-system";
@@ -1484,6 +1485,9 @@ export default function NativeChart({
       )}
     </>
   );
+  const canonical = getCanonicalInstrument(symbol);
+  const pairLabel = canonical?.symbol ?? resolution.displaySymbol;
+  const categoryLabel = canonical ? ({ forex: "Forex", crypto: "Crypto", commodity: "Commodity", index: "Index", equity: "Stock", etf: "ETF", futures: "Futures", other: "" } as Record<string, string>)[canonical.assetClass] ?? "" : "";
   const fmtP = (n: number) => formatPrice(n, { maxDecimals: Math.abs(n) >= 1000 ? 2 : Math.abs(n) >= 100 ? 3 : Math.abs(n) >= 10 ? 4 : 5 });
   const livePrice = liveQuote ? (liveQuote.bid + liveQuote.ask) / 2 : candles[candles.length - 1]?.close;
 
@@ -1719,8 +1723,8 @@ export default function NativeChart({
         {proLayout && (
           <div className="pointer-events-none absolute left-3 top-2 z-10 flex flex-col gap-0.5">
             <div className="flex items-baseline gap-2">
-              <span className="text-[18px] font-bold text-white">{resolution.displaySymbol}</span>
-              <span className="text-[13px] text-[#9aa0ae]">{timeframe.toUpperCase()}{name ? ` · ${name}` : ""}</span>
+              <span className="text-[18px] font-bold text-white">{pairLabel}</span>
+              <span className="text-[13px] text-[#9aa0ae]">{timeframe.toUpperCase()}{categoryLabel ? ` · ${categoryLabel}` : ""}</span>
               {livePrice !== undefined && <span className="text-[18px] font-bold tabular-nums text-white">{fmtP(livePrice)}</span>}
             </div>
             <div className="flex flex-wrap items-center gap-3 text-[12px] text-[#c9ccd6]">{ohlcStrip}</div>
