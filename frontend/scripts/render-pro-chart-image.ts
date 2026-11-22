@@ -12,6 +12,7 @@ import { buildTradePlan } from "../lib/chart-engine/annotations/plan";
 import { PRO_LAYERS_DEFAULT } from "../lib/chart-engine/annotations/types";
 import { fitToRecent } from "../lib/chart-engine/viewport";
 import { resolveChartColors } from "../lib/chart-engine/canvas-colors";
+import { buildReadout } from "../lib/chart-engine/annotations/readout";
 import { formatPrice } from "../lib/financial-format";
 import type { ChartCandle } from "../types/chart-data";
 
@@ -40,7 +41,17 @@ function loadCsv(symbol: string): ChartCandle[] {
   return out.sort((a, b) => a.time - b.time);
 }
 
-const candles = loadCsv(SYMBOL).slice(-2000);
+// Live source for crypto (public Binance klines, same venue as Crypto Flow); CSV exports for Exness symbols.
+async function loadBinance(symbol: string): Promise<ChartCandle[]> {
+  const pair = symbol.replace(/USD$/, "USDT");
+  const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${pair}&interval=1h&limit=1000`);
+  if (!res.ok) throw new Error(`binance ${res.status}`);
+  const rows = (await res.json()) as unknown[][];
+  return rows.map((r) => ({ time: Number(r[0]), open: +(r[1] as string), high: +(r[2] as string), low: +(r[3] as string), close: +(r[4] as string) }));
+}
+const LIVE = process.env.SOURCE === "binance" || /^(BTC|ETH|SOL|XRP)USD$/.test(SYMBOL);
+async function main() {
+const candles = (LIVE ? await loadBinance(SYMBOL) : loadCsv(SYMBOL)).slice(-2000);
 if (candles.length < 300) throw new Error(`not enough candles for ${SYMBOL}`);
 
 const analysis = computeAnnotations(candles);
@@ -94,4 +105,11 @@ ctx.textAlign = "left";
 
 mkdirSync(dirname(OUT), { recursive: true });
 writeFileSync(OUT, canvas.toBuffer("image/png"));
+const readout = buildReadout(candles, analysis, plan, fmtP);
+if (readout) console.log("READOUT:", readout.paragraph, JSON.stringify(readout.facts));
+console.log("ANNOTATIONS:", analysis.annotations.map((a) => `${a.type}:${"kind" in a ? a.kind : ""}:${a.label}`).join(", "));
+console.log("PLAN:", JSON.stringify(plan).slice(0, 400));
 console.log(`wrote ${OUT}  ${W}x${H} @${SCALE}x  candles=${candles.length}  annotations=${analysis.annotations.length}  plan=${plan.state}`);
+
+}
+main().catch((e) => { console.error(e); process.exit(1); });
