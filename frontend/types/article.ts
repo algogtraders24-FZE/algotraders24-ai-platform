@@ -12,6 +12,15 @@ export type ArticleSourceType = "ai" | "manual" | "imported" | "research";
 export interface ArticleSection {
   heading: string;
   body: string;
+  /**
+   * Market Brief 2.0 (optional, additive): how the blog page should present this section. Old articles have none of these fields and
+   * render as plain text exactly as before; `body` is ALWAYS a readable plain-text version so any older renderer still works.
+   */
+  kind?: "headline" | "chips" | "hero" | "bullets" | "fit" | "scenarios" | "plan" | "check" | "learn" | "footer";
+  bullets?: string[];
+  chips?: { value: string; label: string }[];
+  cards?: { title: string; body: string; tone: "up" | "down" | "neutral" }[];
+  image?: { url: string; alt: string; caption: string };
 }
 
 // Sprint D2.3.S1 - Publishing Activation. Append-only audit trail; one entry
