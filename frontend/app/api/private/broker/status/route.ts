@@ -31,6 +31,10 @@ export const GET = withContext(async (_req, ctx) => {
       ctx.requestId, 200, ctx.startedAt,
     );
   } catch (e) {
-    return ApiResponse.error({ code: "BROKER_UNAVAILABLE", message: e instanceof Error ? e.message : "Broker connection failed." }, ctx.requestId, upstreamStatus(e), ctx.startedAt);
+    const timedOut = upstreamStatus(e) === 504;
+    return ApiResponse.success(
+      { configured: true, unavailable: true, message: timedOut ? "MetaApi did not answer in time. The MetaApi account is probably not connected to the broker (check its login, password and server in MetaApi)." : e instanceof Error ? e.message : "Broker connection failed." },
+      ctx.requestId, 200, ctx.startedAt,
+    );
   }
 });

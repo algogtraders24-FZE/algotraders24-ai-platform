@@ -45,6 +45,6 @@ export const POST = withContext(async (req, ctx) => {
     if (!tradeSucceeded(result)) return err("REJECTED", result.message ?? "The broker rejected the order.", 422);
     return ApiResponse.success({ ok: true, orderId: result.orderId, positionId: result.positionId, message: result.message }, ctx.requestId, 200, ctx.startedAt);
   } catch (e) {
-    return err("BROKER_UNAVAILABLE", e instanceof Error ? e.message : "Broker connection failed.", upstreamStatus(e));
+    return err("BROKER_UNAVAILABLE", upstreamStatus(e) === 504 ? "MetaApi did not answer in time; the account may not be connected to the broker." : e instanceof Error ? e.message : "Broker connection failed.", 409);
   }
 });
