@@ -15,6 +15,8 @@ const RED = "239,68,68";
 const BLUE = "96,165,250";
 const AMBER = "245,158,11";
 const GREY = "148,163,184";
+const AMBER_ZONE = "217,150,60";
+const INDIGO = "110,120,220";
 
 export function drawAnnotations(
   ctx: CanvasRenderingContext2D,
@@ -32,15 +34,17 @@ export function drawAnnotations(
   const inRow = (y: number) => y >= row.top - 2 && y <= row.top + row.height + 2;
   const clampY = (y: number) => Math.max(row.top, Math.min(row.top + row.height, y));
 
-  const label = (text: string, x: number, y: number, rgb: string, align: CanvasTextAlign = "left") => {
-    ctx.font = canvasMonoFont(10);
-    const w = text.length * 6.2 + 8;
+  const label = (text: string, x: number, y: number, rgb: string, align: CanvasTextAlign = "left", textRgb = "236,238,244") => {
+    ctx.font = canvasMonoFont(11, 600);
+    const w = text.length * 6.8 + 10;
     const left = align === "right" ? x - w : align === "center" ? x - w / 2 : x;
-    ctx.fillStyle = "rgba(15, 18, 24, 0.82)"; // dark pill behind the text, like Pipflow
-    ctx.fillRect(left, y - 10, w, 14);
+    ctx.fillStyle = "rgba(15, 18, 24, 0.92)"; // dark pill behind the text, like the reference chart
+    ctx.fillRect(left, y - 11, w, 16);
+    ctx.fillStyle = `rgba(${rgb}, 0.9)`; // thin accent bar on the pill's left edge carries the zone colour
+    ctx.fillRect(left, y - 11, 2, 16);
     ctx.textAlign = "left";
-    ctx.fillStyle = `rgba(${rgb}, 1)`;
-    ctx.fillText(text, left + 4, y);
+    ctx.fillStyle = `rgba(${textRgb}, 1)`;
+    ctx.fillText(text, left + 6, y + 1);
     ctx.textAlign = "left";
   };
   const line = (x1: number, y1: number, x2: number, y2: number, rgb: string, alpha: number, width = 1) => {
@@ -52,24 +56,27 @@ export function drawAnnotations(
     ctx.stroke();
   };
 
+  // Active zones stop just after the last candle, so the space to the right stays clear for the trade plan box (clean chart).
+  const lastX = Math.min(plotWidth, X(candles[candles.length - 1].time) + 12);
+
   for (const a of annotations) {
     if (!layers[a.group]) continue;
 
     if (a.type === "zone") {
-      const rgb = a.kind === "premium" ? RED : a.kind === "discount" ? GREEN : a.kind === "ote" ? AMBER : a.kind === "fvg" ? BLUE : a.bias === "bullish" ? GREEN : RED;
+      // Premium / discount are listed in the side panel only: a full-width tint behind the candles made the chart noisy.
+      if (a.kind === "premium" || a.kind === "discount") continue;
+      const rgb = a.kind === "ote" ? INDIGO : AMBER_ZONE;
       const x1 = X(a.startTime);
-      const x2 = a.endTime === null ? plotWidth : X(a.endTime);
+      const x2 = a.endTime === null ? lastX : X(a.endTime);
       const yTop = clampY(Y(a.high));
       const yBot = clampY(Y(a.low));
       if (x2 <= x1 || yBot <= yTop) continue;
-      const soft = a.kind === "premium" || a.kind === "discount";
-      ctx.fillStyle = `rgba(${rgb}, ${soft ? 0.05 : a.kind === "ote" ? 0.14 : 0.16})`;
+      ctx.fillStyle = `rgba(${rgb}, ${a.kind === "ote" ? 0.16 : 0.12})`;
       ctx.fillRect(x1, yTop, x2 - x1, yBot - yTop);
-      if (!soft) {
-        line(x1, yTop, x2, yTop, rgb, 0.55);
-        line(x1, yBot, x2, yBot, rgb, 0.55);
-      }
-      if (!soft && yBot - yTop > 11) label(a.label, x1 + 4, yTop + 11, rgb);
+      line(x1, yTop, x2, yTop, rgb, 0.7);
+      line(x1, yBot, x2, yBot, rgb, 0.7);
+      const zoneName = a.kind === "fvg" && a.bias ? `${a.bias === "bullish" ? "Bullish" : "Bearish"} FVG` : a.label;
+      if (yBot - yTop > 13) label(zoneName, x1 + 4, yTop + 13, rgb);
     } else if (a.type === "level") {
       const y = Y(a.price);
       if (!inRow(y)) continue;
@@ -144,7 +151,7 @@ export function drawPlanBox(
   if (candles.length === 0) return;
   const lastIndex = candles.length - 1;
   const x0 = Math.max(0, Math.min(plotWidth - 40, indexToX(lastIndex, indexRange, plotWidth) + 8));
-  const x1 = plotWidth - 2;
+  const x1 = Math.min(plotWidth - 2, x0 + Math.max(150, Math.min(240, plotWidth * 0.24)));
   if (x1 - x0 < 40) return;
   const Y = (p: number) => row.top + priceToY(p, viewport, row.height);
   const yE = Y(plan.entry), yS = Y(plan.stop), yT = Y(plan.target);
@@ -196,7 +203,7 @@ export function drawPlanBox(
     pill(`R:R ${plan.rr.toFixed(1)}`, x1 - 2, yE - 3, "209,212,220", "right");
   }
   // target pill above (long) / below (short) the target line
-  if (yT >= top && yT <= bottom) pill(`TP ${fmt(plan.target)} (${plan.rr.toFixed(1)}R)`, x0 + 2, long ? yT - 6 : yT + 17, "209,212,220");
+  if (yT >= top && yT <= bottom) pill(`TP1 ${fmt(plan.target)} (${plan.rr.toFixed(1)}R)`, x0 + 2, long ? yT - 6 : yT + 17, "209,212,220");
   // stop text
   if (yS >= top && yS <= bottom) {
     ctx.font = canvasMonoFont(10);
