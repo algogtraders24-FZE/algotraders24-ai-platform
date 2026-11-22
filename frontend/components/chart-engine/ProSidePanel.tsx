@@ -33,6 +33,8 @@ interface Props {
   /** Phones: the panel is a bottom sheet that is opened and closed on demand. */
   mobileOpen?: boolean;
   onMobileClose?: () => void;
+  /** The Analyze scan is running: the Chat tab shows a loader instead of its content. */
+  scanning?: boolean;
 }
 
 const TABS: { key: ProTab; label: string }[] = [
@@ -59,7 +61,7 @@ function Mt5Panel({ plan, formatPrice }: { plan: TradePlan | null; formatPrice: 
   );
 }
 
-export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, onAnalyze, candles, pragya, getChatFacts, onOpenTester, mobileOpen = false, onMobileClose }: Props) {
+export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, onAnalyze, candles, pragya, getChatFacts, onOpenTester, mobileOpen = false, onMobileClose, scanning = false }: Props) {
   const watching = plan ? 1 : 0;
   return (
     <aside className={`${mobileOpen ? "flex" : "hidden"} fixed inset-x-0 bottom-0 z-[70] h-[52vh] w-full flex-col gap-3 overflow-y-auto rounded-t-2xl border-t border-border bg-ink-2 p-3 text-text-2 max-md:pb-20 shadow-2xl md:static md:z-auto md:flex md:h-full md:w-[380px] md:shrink-0 md:rounded-none md:border-l md:border-t-0 md:shadow-none`}>
@@ -82,7 +84,15 @@ export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, on
         ))}
       </div>
 
-      <div className={tab === "chat" ? "flex flex-col gap-3" : "hidden"}>
+      <div className={tab === "chat" && scanning ? "flex flex-col items-center gap-4 pt-20 text-center" : "hidden"} role="status" aria-live="polite">
+        <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gold/10 text-2xl text-gold">
+          <span className="absolute inset-0 animate-spin rounded-full border-2 border-gold/20 border-t-gold" aria-hidden="true" />
+          ✦
+        </span>
+        <p className="text-[14px] text-text-3">Scanning price action…</p>
+      </div>
+
+      <div className={tab === "chat" && !scanning ? "flex flex-col gap-3" : "hidden"}>
         {!analysis ? (
           <div className="flex flex-col items-center gap-1 pt-3 text-center">
             <p className="text-[15px] font-semibold text-text">{symbol} · {timeframe.toUpperCase()}</p>

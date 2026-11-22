@@ -102,7 +102,7 @@ import { shuffledCopy, measureWithBaseline } from "../lib/chart-engine/annotatio
 import { indexRangeForViewport } from "../lib/chart-engine/index-scale";
 // Pro Chart pieces: plan box, recency, scan path, range presets, layer presets
 import { drawPlanBox } from "../lib/chart-engine/annotations/render";
-import { computeScanPath } from "../lib/chart-engine/scan-path";
+import { computeScanPath, computeScanCurves } from "../lib/chart-engine/scan-path";
 import { rangeSpanMs } from "../components/chart-engine/RangeBar";
 import { PRO_LAYERS_CLEAN, PRO_LAYERS_DEFAULT } from "../lib/chart-engine/annotations/types";
 {
@@ -130,6 +130,11 @@ import { PRO_LAYERS_CLEAN, PRO_LAYERS_DEFAULT } from "../lib/chart-engine/annota
   const path = computeScanPath(walk, vp, { width: 900, height: 340, priceAxisWidth: 100, timeAxisHeight: 40 });
   check("Scan path: has points, x ascending, y inside the plot", path.length > 20 && path.every((p, i) => (i === 0 || p[0] >= path[i - 1][0]) && p[1] >= 0 && p[1] <= 300), String(path.length));
   check("Scan path: empty for no candles", computeScanPath([], vp, { width: 900, height: 340, priceAxisWidth: 100, timeAxisHeight: 40 }).length === 0);
+
+  const curves = computeScanCurves(walk, vp, { width: 900, height: 340, priceAxisWidth: 100, timeAxisHeight: 40 });
+  check("Scan curves: four layered curves, each inside the plot with x ascending", curves.length === 4 && curves.every((c) => c.length > 20 && c.every((p, i) => (i === 0 || p[0] >= c[i - 1][0]) && p[1] >= 0 && p[1] <= 300)), String(curves.length));
+  check("Scan curves: upper envelope sits above the lower envelope on average", (() => { const u = curves[1], l = curves[2]; const n = Math.min(u.length, l.length); let up = 0; for (let i = 0; i < n; i++) up += l[i][1] - u[i][1]; return up > 0; })());
+  check("Scan curves: none for no candles", computeScanCurves([], vp, { width: 900, height: 340, priceAxisWidth: 100, timeAxisHeight: 40 }).length === 0);
 
   // range presets
   const now = Date.UTC(2026, 10, 22, 9, 0, 0);
