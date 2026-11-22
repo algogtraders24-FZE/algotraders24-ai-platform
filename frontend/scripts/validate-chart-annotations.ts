@@ -135,6 +135,22 @@ import { PRO_LAYERS_CLEAN, PRO_LAYERS_DEFAULT } from "../lib/chart-engine/annota
   check("Layers: default has sessions off and plan on; clean keeps drawings only", PRO_LAYERS_DEFAULT.sessions === false && PRO_LAYERS_DEFAULT.plan === true && PRO_LAYERS_CLEAN.drawings === true && Object.entries(PRO_LAYERS_CLEAN).filter(([k, v]) => k !== "drawings" && v).length === 0);
 }
 
+// Readout maths (hand-checked): EMA of a constant is the constant; RSI of a strictly rising series is 100, falling is 0; Wilder RSI worked example
+import { ema, rsi, buildReadout } from "../lib/chart-engine/annotations/readout";
+{
+  check("EMA(constant) = constant", Math.abs((ema(Array(60).fill(5), 20) ?? 0) - 5) < 1e-12);
+  check("EMA needs `period` values", ema([1, 2, 3], 20) === null);
+  check("RSI(rising) = 100 and RSI(falling) = 0", rsi(Array.from({ length: 40 }, (_, i) => i), 14) === 100 && rsi(Array.from({ length: 40 }, (_, i) => 100 - i), 14) === 0);
+  // 14 up-moves of +1 then one -1: avg gain 1, avg loss 0 -> then smoothed: gain = (1*13+0)/14, loss = (0*13+1)/14 -> RS = 13 -> RSI = 100 - 100/14
+  const mix = [...Array.from({ length: 15 }, (_, i) => i), 13];
+  check("RSI Wilder worked example = 100 - 100/14", Math.abs((rsi(mix, 14) ?? 0) - (100 - 100 / 14)) < 1e-9, String(rsi(mix, 14)));
+  const walk = build(Array.from({ length: 200 }, (_, i) => 100 + Math.sin(i / 9) * 5 + i * 0.05));
+  const an = computeAnnotations(walk);
+  const ro = buildReadout(walk, an, planAt(walk), (n) => n.toFixed(2));
+  check("Readout: has EMA / RSI / ATR sentences and no forecast words", !!ro && /EMA20/.test(ro.paragraph) && /RSI\(14\)/.test(ro.paragraph) && /ATR\(14\)/.test(ro.paragraph) && !/will (rise|fall)|guarantee|sure/i.test(ro.paragraph), ro?.paragraph);
+  check("Readout: null for too few candles", buildReadout(walk.slice(0, 30), an, null, (n) => String(n)) === null);
+}
+
 // fitToRecent frames only the latest N candles
 import { fitToRecent, fitToData } from "../lib/chart-engine/viewport";
 {

@@ -1639,7 +1639,7 @@ export default function NativeChart({
           }}
           onClosePlan={closePlan}
           formatPrice={(n) => formatPrice(n, { maxDecimals: 5 })}
-          lastPrice={livePrice}
+          candles={candles}
           trade={paperNode}
           onAnalyze={runAnalyze}
         />

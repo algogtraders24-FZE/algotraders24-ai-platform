@@ -69,14 +69,14 @@ export function drawAnnotations(
         line(x1, yTop, x2, yTop, rgb, 0.55);
         line(x1, yBot, x2, yBot, rgb, 0.55);
       }
-      if (yBot - yTop > 11) label(a.label, x1 + 4, yTop + 11, rgb);
+      if (!soft && yBot - yTop > 11) label(a.label, x1 + 4, yTop + 11, rgb);
     } else if (a.type === "level") {
       const y = Y(a.price);
       if (!inRow(y)) continue;
       ctx.setLineDash?.([4, 4]);
       line(X(a.startTime), y, plotWidth, y, GREY, 0.55);
       ctx.setLineDash?.([]);
-      label(a.label, plotWidth - 4, y - 3, GREY, "right");
+      // unlabelled dotted line (the touch count is in the side panel list)
     } else if (a.type === "structure") {
       const y = Y(a.price);
       if (!inRow(y)) continue;
