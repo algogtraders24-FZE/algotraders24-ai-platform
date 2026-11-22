@@ -20,7 +20,7 @@ import type { ChartCandle } from "@/types/chart-data";
 import type { SignalTimeframe } from "@/types/signal";
 import { formatTimestamp } from "@/lib/financial-format";
 import type { ChartColors } from "./canvas-colors";
-import { canvasMonoFont, setCanvasFontKind } from "./canvas-typography";
+import { canvasMonoFont, canvasAxisFont, setCanvasFontKind } from "./canvas-typography";
 import { classifyCandle } from "./candle-classifier";
 import { priceToY, yToPrice } from "./coordinate-system";
 import { computePriceTicks, targetPriceTickCountForHeight, type PriceAxisTick } from "./price-axis";
@@ -513,8 +513,8 @@ function drawSymbolLabel(ctx: CanvasRenderingContext2D, label: string, priceRow:
 }
 
 function drawPriceAxis(ctx: CanvasRenderingContext2D, ticks: PriceAxisTick[], viewport: Viewport, plotWidth: number, row: PanelRow, colors: ChartColors): void {
-  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
-  ctx.fillStyle = colors.textTertiary;
+  ctx.font = canvasAxisFont(AXIS_FONT_SIZE);
+  ctx.fillStyle = (colors.axisText ?? colors.textTertiary);
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
   for (const tick of ticks) {
@@ -582,7 +582,7 @@ function drawLatestPriceMarker(
   const boxWidth = Math.max(58, label.length * AXIS_CHAR_WIDTH_PX + 8);
   ctx.fillStyle = colors.accent;
   ctx.fillRect(plotWidth, y - 7, boxWidth, 14);
-  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  ctx.font = canvasAxisFont(AXIS_FONT_SIZE);
   ctx.fillStyle = colors.background;
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
@@ -630,7 +630,7 @@ function drawTradeLine(ctx: CanvasRenderingContext2D, plotWidth: number, row: Pa
   const TAG_WIDTH_PX = 34;
   ctx.fillStyle = color;
   ctx.fillRect(4, y - 7, TAG_WIDTH_PX, 14);
-  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  ctx.font = canvasAxisFont(AXIS_FONT_SIZE);
   // Always white text: buyLine/sellLine are both real, mid-saturation
   // greens/reds (never a pale/light tone), so white stays legible against
   // either without needing per-color contrast math.
@@ -738,7 +738,7 @@ function drawTradeCluster(ctx: CanvasRenderingContext2D, members: { x: number; y
   ctx.arc(x, y, TRADE_CLUSTER_RADIUS_PX, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  ctx.font = canvasAxisFont(AXIS_FONT_SIZE);
   ctx.fillStyle = colors.background;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -813,8 +813,8 @@ function drawTimeAxis(
   plotHeight: number,
   colors: ChartColors,
 ): void {
-  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
-  ctx.fillStyle = colors.textTertiary;
+  ctx.font = canvasAxisFont(AXIS_FONT_SIZE);
+  ctx.fillStyle = (colors.axisText ?? colors.textTertiary);
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   for (const tick of ticks) {
@@ -852,7 +852,7 @@ function drawCrosshair(
   ctx.stroke();
   ctx.setLineDash([]);
 
-  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  ctx.font = canvasAxisFont(AXIS_FONT_SIZE);
   ctx.fillStyle = colors.accent;
   ctx.textAlign = "center";
   ctx.textBaseline = "top";

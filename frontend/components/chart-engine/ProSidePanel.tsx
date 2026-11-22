@@ -49,7 +49,7 @@ export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, on
             type="button"
             aria-selected={tab === t.key}
             onClick={() => onTab(t.key)}
-            className={`flex-1 rounded-[4px] px-2 py-1.5 text-xs font-medium transition ${tab === t.key ? "bg-ink-4 text-text" : "text-text-3 hover:text-text"}`}
+            className={`flex-1 rounded-[4px] px-2 py-1.5 text-[14px] font-medium transition ${tab === t.key ? "bg-ink-4 text-text" : "text-text-3 hover:text-text"}`}
           >
             {t.label}
           </button>
@@ -57,13 +57,13 @@ export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, on
       </div>
 
       <div className={tab === "analysis" ? "flex flex-col gap-3" : "hidden"}>
-        <button type="button" onClick={onAnalyze} className="w-full rounded-control border border-border bg-ink-3 py-2 text-xs font-semibold text-text hover:border-gold/50">
+        <button type="button" onClick={onAnalyze} className="w-full rounded-control border border-border bg-ink-3 py-2 text-[14px] font-semibold text-text hover:border-gold/50">
           {analysis ? "Re-analyze" : "Analyze chart"}
         </button>
         {plan ? (
           <PlanOverlay inline plan={plan} onExecute={onExecute} onClose={onClosePlan} formatPrice={formatPrice} />
         ) : (
-          <div className="rounded-panel border border-border bg-ink-2 p-3 text-xs text-text-3">
+          <div className="rounded-panel border border-border bg-ink-2 p-3 text-[14px] text-text-3">
             Press <button type="button" onClick={onAnalyze} className="text-gold underline">Analyze chart</button> to get the structure map and a trade plan (or stand aside).
           </div>
         )}
@@ -71,16 +71,16 @@ export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, on
           <AnnotationSummary analysis={analysis} formatPrice={formatPrice} />
         </div>
         {analysis && (
-          <div className="rounded-panel border border-border bg-ink-2 p-3 text-xs text-text-2">
+          <div className="rounded-panel border border-border bg-ink-2 p-3 text-[14px] text-text-2">
             {pragya.status !== "idle" && pragya.status !== "error" && (
               <div className="mb-3 rounded-control border border-violet-500/30 bg-violet-500/5 p-2.5">
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-violet-300">✦ PRAGYA</p>
-                {pragya.status === "loading" ? <p className="text-text-3">PRAGYA is writing the analysis…</p> : <p className="leading-relaxed text-text-2">{pragya.text}</p>}
+                <p className="mb-1 text-[12.5px] font-semibold uppercase tracking-wide text-violet-300">✦ PRAGYA</p>
+                {pragya.status === "loading" ? <p className="text-text-3">PRAGYA is writing the analysis…</p> : <p className="leading-relaxed text-[#d1d4dc]">{pragya.text}</p>}
               </div>
             )}
-            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-3">Measured readout</p>
+            <p className="mb-1.5 text-[12.5px] font-semibold uppercase tracking-wide text-text-3">Measured readout</p>
             <p className="leading-relaxed">{buildReadout(candles, analysis, plan, formatPrice)?.paragraph ?? "Not enough candles for a readout."}</p>
-            <p className="mt-2 text-[11px] text-text-3">Measured on the loaded candles. A description of the chart, not a prediction.</p>
+            <p className="mt-2 text-[12.5px] text-text-3">Measured on the loaded candles. A description of the chart, not a prediction.</p>
           </div>
         )}
       </div>
@@ -90,16 +90,16 @@ export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, on
       <div className={tab === "trade" ? "block" : "hidden"}>{trade}</div>
 
       <div className={tab === "strategies" ? "flex flex-col gap-3" : "hidden"}>
-        <div className="flex items-center justify-between text-[11px] uppercase tracking-wide text-text-3">
+        <div className="flex items-center justify-between text-[12.5px] uppercase tracking-wide text-text-3">
           <span>Watching {symbol} · {timeframe.toUpperCase()}</span>
           <span>{watching} {watching === 1 ? "card" : "cards"}</span>
         </div>
-        <div className="rounded-panel border border-border bg-ink-2 p-3 text-xs text-text-2">
+        <div className="rounded-panel border border-border bg-ink-2 p-3 text-[14px] text-text-2">
           <div className="flex items-center justify-between">
             <span className="font-medium text-text">Structure Retest</span>
-            <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-green-400">Free</span>
+            <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-[11.5px] font-semibold uppercase text-green-400">Free</span>
           </div>
-          <p className="mt-1 text-[11px] text-text-3">Waits for a BOS / CHoCH, then a retest of an order block or OTE zone. Stop beyond the zone, target 2R.</p>
+          <p className="mt-1 text-[12.5px] text-text-3">Waits for a BOS / CHoCH, then a retest of an order block or OTE zone. Stop beyond the zone, target 2R.</p>
           <p className="mt-2">
             {!plan ? (
               <>Status: not analysed yet. <button type="button" onClick={onAnalyze} className="text-gold underline">Analyze chart</button></>
@@ -110,17 +110,17 @@ export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, on
             )}
           </p>
         </div>
-        <div className="rounded-panel border border-dashed border-border bg-ink-2/60 p-3 text-xs text-text-3">
+        <div className="rounded-panel border border-dashed border-border bg-ink-2/60 p-3 text-[14px] text-text-3">
           <div className="flex items-center justify-between">
             <span className="font-medium text-text-2">Auto-trading bots</span>
-            <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-gold">Advanced plan</span>
+            <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[11.5px] font-semibold uppercase text-gold">Advanced plan</span>
           </div>
           <p className="mt-1">Coming to the advanced plan. Strategies you build or pick from the gallery will appear here as watching cards.</p>
         </div>
-        <Link href="/dashboard/quant-chat" className="rounded-control bg-gold px-3 py-2 text-center text-xs font-semibold text-ink hover:opacity-90">
+        <Link href="/dashboard/quant-chat" className="rounded-control bg-gold px-3 py-2 text-center text-[14px] font-semibold text-ink hover:opacity-90">
           Build with AI
         </Link>
-        <Link href="/dashboard/algo-test-library" className="rounded-control border border-border bg-ink-3 px-3 py-2 text-center text-xs text-text-2 hover:text-text">
+        <Link href="/dashboard/algo-test-library" className="rounded-control border border-border bg-ink-3 px-3 py-2 text-center text-[14px] text-text-2 hover:text-text">
           Gallery
         </Link>
       </div>

@@ -1719,11 +1719,11 @@ export default function NativeChart({
         {proLayout && (
           <div className="pointer-events-none absolute left-3 top-2 z-10 flex flex-col gap-0.5">
             <div className="flex items-baseline gap-2">
-              <span className="text-[15px] font-semibold text-white">{resolution.displaySymbol}</span>
-              <span className="text-[12px] text-[#6b7280]">{timeframe.toUpperCase()}{name ? ` · ${name}` : ""}</span>
-              {livePrice !== undefined && <span className="text-[15px] font-semibold tabular-nums text-white">{fmtP(livePrice)}</span>}
+              <span className="text-[18px] font-bold text-white">{resolution.displaySymbol}</span>
+              <span className="text-[13px] text-[#9aa0ae]">{timeframe.toUpperCase()}{name ? ` · ${name}` : ""}</span>
+              {livePrice !== undefined && <span className="text-[18px] font-bold tabular-nums text-white">{fmtP(livePrice)}</span>}
             </div>
-            <div className="flex flex-wrap items-center gap-3 text-[11px]">{ohlcStrip}</div>
+            <div className="flex flex-wrap items-center gap-3 text-[12px] text-[#c9ccd6]">{ohlcStrip}</div>
           </div>
         )}
         {!proLayout && <PlanOverlay plan={proPlan} onExecute={(side) => paperTradingRef.current?.quickTrade(side)} onClose={closePlan} formatPrice={(n) => fmtP(n)} />}

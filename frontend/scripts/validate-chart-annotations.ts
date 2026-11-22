@@ -156,12 +156,13 @@ import { ema, rsi, buildReadout } from "../lib/chart-engine/annotations/readout"
 }
 
 // Pro Chart fonts: the canvas uses the sans stack only when the frame asks for it
-import { canvasMonoFont, setCanvasFontKind, resetFontCacheForTests } from "../lib/chart-engine/canvas-typography";
+import { canvasMonoFont, canvasAxisFont, setCanvasFontKind, resetFontCacheForTests } from "../lib/chart-engine/canvas-typography";
 {
   resetFontCacheForTests();
   check("Font: default is the mono stack", /mono|Consolas/i.test(canvasMonoFont(12)), canvasMonoFont(12));
   setCanvasFontKind("sans");
   check("Font: sans frames use the sans stack with the weight", /sans|Segoe|Roboto|Arial/i.test(canvasMonoFont(12, 600)) && canvasMonoFont(12, 600).startsWith("600 12px"), canvasMonoFont(12, 600));
+  check("Font: Pro axis text is 14px medium sans (12 + 2), mono frames keep 12px", canvasAxisFont(12).startsWith("500 14px") && (setCanvasFontKind("mono"), canvasAxisFont(12).startsWith("12px")));
   resetFontCacheForTests();
   check("Font: reset returns to mono", /mono|Consolas/i.test(canvasMonoFont(12)));
 }
