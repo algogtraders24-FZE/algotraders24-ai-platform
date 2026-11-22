@@ -12,13 +12,20 @@ const SECTION_KINDS = new Set(["headline", "chips", "hero", "bullets", "fit", "s
 export function isAllowedImageUrl(url: string): boolean {
   try {
     const u = new URL(url);
-    if (u.protocol !== "https:") return false;
-    const hosts = new Set<string>(["algotraders24.ai", "www.algotraders24.ai"]);
-    for (const base of [process.env.NEXT_PUBLIC_SUPABASE_URL, SITE_URL]) {
-      if (!base) continue;
-      try { hosts.add(new URL(base).host); } catch { /* ignore a malformed env value */ }
+    if (u.protocol !== "https:" || u.username || u.password) return false;
+    if (!/\.(png|jpe?g|webp)$/i.test(u.pathname)) return false; // an image file only
+    if (u.pathname.includes("..")) return false;
+    // our own Supabase project: only the public brief-charts bucket (never another bucket of the same project)
+    const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (supabase) {
+      try {
+        if (u.host === new URL(supabase).host) return u.pathname.startsWith("/storage/v1/object/public/brief-charts/");
+      } catch { /* ignore a malformed env value */ }
     }
-    return hosts.has(u.host);
+    // our own site (brand and marketplace images)
+    const siteHosts = new Set<string>(["algotraders24.ai", "www.algotraders24.ai"]);
+    try { siteHosts.add(new URL(SITE_URL).host); } catch { /* ignore */ }
+    return siteHosts.has(u.host);
   } catch {
     return false;
   }

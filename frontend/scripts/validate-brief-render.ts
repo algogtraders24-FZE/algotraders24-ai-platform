@@ -31,6 +31,10 @@ ok(isAllowedImageUrl("https://www.algotraders24.ai/brand/x.png"), "own site allo
 ok(!isAllowedImageUrl("https://evil.example.com/a.png"), "foreign host rejected");
 ok(!isAllowedImageUrl("http://abc123.supabase.co/a.png"), "http rejected");
 ok(!isAllowedImageUrl("javascript:alert(1)"), "javascript: rejected");
+ok(!isAllowedImageUrl("https://abc123.supabase.co/storage/v1/object/public/marketplace-media/x.png"), "other bucket of our project rejected");
+ok(!isAllowedImageUrl("https://abc123.supabase.co/storage/v1/object/public/brief-charts/x.svg"), "non-image extension rejected");
+ok(!isAllowedImageUrl("https://abc123.supabase.co/storage/v1/object/public/brief-charts/../x.png"), "path traversal rejected");
+ok(!isAllowedImageUrl("https://user:pw@abc123.supabase.co/storage/v1/object/public/brief-charts/x.png"), "credentials in URL rejected");
 
 // sanitization
 const hostile = toSafeSection({
