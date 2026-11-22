@@ -45,7 +45,7 @@ import {
 import type { IndicatorSeries, ChartPanelId } from "./indicators/types";
 import { drawDrawingObjects, drawDrawingPreview } from "./drawing/drawing-renderer";
 import type { DrawingObject, DrawingPreview } from "./drawing/types";
-import { drawAnnotations } from "./annotations/render";
+import { drawAnnotations, drawPlanBox, type PlanBox } from "./annotations/render";
 import type { AnnotationLayers, ChartAnnotation } from "./annotations/types";
 
 export interface RenderParams {
@@ -116,6 +116,9 @@ export interface RenderParams {
   /** Professional Mode: computed market-structure annotations + which groups are visible (empty / omitted = byte-for-byte unchanged). */
   annotations?: ChartAnnotation[];
   annotationLayers?: AnnotationLayers;
+  /** Professional Mode: the plan drawn as an entry / stop / target box from the last candle to the right edge, with its price formatter. */
+  planBox?: PlanBox | null;
+  formatPlanPrice?: (n: number) => string;
 }
 
 /** P3.2B - one completed trade's chart-plottable fields (a strict subset of AlgoTestTradeView - the renderer never needs pnl/fees/etc.). */
@@ -166,6 +169,8 @@ export function renderChart(params: RenderParams): void {
     equityCurve,
     annotations = [],
     annotationLayers,
+    planBox = null,
+    formatPlanPrice = (n: number) => String(n),
   } = params;
   const plotWidth = Math.max(0, dims.width - dims.priceAxisWidth);
   const plotHeight = Math.max(0, dims.height - dims.timeAxisHeight);
@@ -212,6 +217,7 @@ export function renderChart(params: RenderParams): void {
   else if (chartType === "line") drawLine(ctx, candles, indexRange, viewport, plotWidth, priceRow, colors);
   else drawCandles(ctx, candles, indexRange, viewport, plotWidth, priceRow, colors);
   if (annotations.length > 0 && annotationLayers) drawAnnotations(ctx, annotations, annotationLayers, candles, indexRange, viewport, plotWidth, priceRow);
+  if (planBox) drawPlanBox(ctx, planBox, candles, indexRange, viewport, plotWidth, priceRow, formatPlanPrice);
   drawOverlays(ctx, indicatorSeries, candles, indexRange, viewport, plotWidth, priceRow);
   drawPriceAxis(ctx, priceTicks, viewport, plotWidth, priceRow, colors);
   drawLatestPriceMarker(ctx, candles, viewport, plotWidth, priceRow, colors, priceTicks, liveQuote);

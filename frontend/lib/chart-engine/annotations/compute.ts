@@ -21,6 +21,8 @@ export interface ComputeOptions {
   swingBars?: number;
   /** Only the last N candles are analysed (keeps it fast and the chart readable). */
   maxBars?: number;
+  /** Only structure, sweeps, patterns and imbalance/order-block zones that formed within the last N candles are kept (default 120, the plan lookback), so the chart stays readable. */
+  recentBars?: number;
 }
 
 interface Swing { index: number; time: number; price: number; broken: boolean }
@@ -219,7 +221,16 @@ export function computeAnnotations(all: ChartCandle[], opts: ComputeOptions = {}
   newest(out.filter((a): a is Extract<ChartAnnotation, { type: "marker" }> => a.type === "marker"), MAX_SWEEPS, (x) => x.time);
   newest(out.filter((a): a is Extract<ChartAnnotation, { type: "pattern" }> => a.type === "pattern"), 1, (x) => x.t2);
   for (const sess of ["LDN", "NY"] as const) newest(out.filter((a): a is Extract<ChartAnnotation, { type: "session" }> => a.type === "session" && a.session === sess), MAX_SESSIONS, (x) => x.time);
-  const final = out.filter((a) => keep.has(a.id) || (a.type !== "structure" && a.type !== "marker" && a.type !== "pattern" && a.type !== "session"));
+  const recent = opts.recentBars ?? 120;
+  const cutoff = c[Math.max(0, c.length - recent)].time;
+  const final = out.filter((a) => {
+    if (a.type === "structure") return keep.has(a.id) && a.toTime >= cutoff;
+    if (a.type === "marker") return keep.has(a.id) && a.time >= cutoff;
+    if (a.type === "pattern") return keep.has(a.id) && a.t2 >= cutoff;
+    if (a.type === "session") return keep.has(a.id);
+    if (a.type === "zone" && (a.kind === "orderBlock" || a.kind === "breaker" || a.kind === "fvg")) return a.startTime >= cutoff;
+    return true;
+  });
 
   return { annotations: final, counts: countOf(final), params: { swingBars: k, atr } };
 }

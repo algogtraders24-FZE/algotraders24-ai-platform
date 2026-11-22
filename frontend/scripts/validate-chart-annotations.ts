@@ -94,6 +94,47 @@ import { shuffledCopy, measureWithBaseline } from "../lib/chart-engine/annotatio
   check("record has se and a baseline", !!m && m.se > 0 && m.baselineAvgR !== undefined, JSON.stringify(m));
 }
 
+
+import { indexRangeForViewport } from "../lib/chart-engine/index-scale";
+// Pro Chart pieces: plan box, recency, scan path, range presets, layer presets
+import { drawPlanBox } from "../lib/chart-engine/annotations/render";
+import { computeScanPath } from "../lib/chart-engine/scan-path";
+import { rangeSpanMs } from "../components/chart-engine/RangeBar";
+import { PRO_LAYERS_CLEAN, PRO_LAYERS_DEFAULT } from "../lib/chart-engine/annotations/types";
+{
+  const walk = build(Array.from({ length: 400 }, (_, i) => 100 + Math.sin(i / 7) * 6 + i * 0.02));
+  const vp = { minTime: walk[290].time, maxTime: walk[399].time + 30 * 3600_000, minPrice: 90, maxPrice: 120 } as never;
+  const range = indexRangeForViewport(walk, vp);
+  const row = { id: "price", top: 0, height: 300 } as never;
+  const rec = (() => { let n = 0; const base: Record<string, unknown> = {}; const ctx = new Proxy(base, { get: (t, k) => (k in t ? t[k as string] : (..._a: unknown[]) => { n++; }), set: (t, k, v) => { t[k as string] = v; return true; } }); return { ctx: ctx as unknown as CanvasRenderingContext2D, count: () => n }; })();
+  drawPlanBox(rec.ctx, { dir: "long", entryType: "limit", entry: 104, stop: 101, target: 110, rr: 2 }, walk, range, vp, 800, row, (n) => n.toFixed(2));
+  check("Plan box: draws zones, lines and pills", rec.count() > 10, String(rec.count()));
+  const tiny = (() => { let n = 0; const base: Record<string, unknown> = {}; const ctx = new Proxy(base, { get: (t, k) => (k in t ? t[k as string] : (..._a: unknown[]) => { n++; }), set: (t, k, v) => { t[k as string] = v; return true; } }); return { ctx: ctx as unknown as CanvasRenderingContext2D, count: () => n }; })();
+  drawPlanBox(tiny.ctx, { dir: "long", entryType: "market", entry: 104, stop: 101, target: 110, rr: 2 }, walk, range, vp, 30, row, (n) => n.toFixed(2));
+  check("Plan box: nothing drawn when there is no room on the right", tiny.count() === 0, String(tiny.count()));
+
+  // recency: annotations older than the last 120 candles are dropped
+  const wavy = build(Array.from({ length: 480 }, (_, i) => 100 + Math.sin(i / 5) * 8));
+  const all = computeAnnotations(wavy, { recentBars: 100000 });
+  const recent = computeAnnotations(wavy);
+  const cutoff = wavy[wavy.length - 120].time;
+  const oldIn = recent.annotations.filter((a) => (a.type === "structure" && a.toTime < cutoff) || (a.type === "marker" && a.time < cutoff) || (a.type === "zone" && (a.kind === "fvg" || a.kind === "orderBlock" || a.kind === "breaker") && a.startTime < cutoff));
+  check("Recency: nothing older than 120 candles among structure / sweeps / OB / FVG", oldIn.length === 0, String(oldIn.length));
+  check("Recency: the unfiltered run had more annotations", all.annotations.length >= recent.annotations.length);
+
+  // scan path stays inside the plot and moves left to right
+  const path = computeScanPath(walk, vp, { width: 900, height: 340, priceAxisWidth: 100, timeAxisHeight: 40 });
+  check("Scan path: has points, x ascending, y inside the plot", path.length > 20 && path.every((p, i) => (i === 0 || p[0] >= path[i - 1][0]) && p[1] >= 0 && p[1] <= 300), String(path.length));
+  check("Scan path: empty for no candles", computeScanPath([], vp, { width: 900, height: 340, priceAxisWidth: 100, timeAxisHeight: 40 }).length === 0);
+
+  // range presets
+  const now = Date.UTC(2026, 10, 22, 9, 0, 0);
+  check("Range: 5D = 5 days, ALL = null, YTD = since 1 Jan", rangeSpanMs("5D", now) === 5 * 86_400_000 && rangeSpanMs("ALL", now) === null && rangeSpanMs("YTD", now) === now - Date.UTC(2026, 0, 1));
+
+  // layer presets
+  check("Layers: default has sessions off and plan on; clean keeps drawings only", PRO_LAYERS_DEFAULT.sessions === false && PRO_LAYERS_DEFAULT.plan === true && PRO_LAYERS_CLEAN.drawings === true && Object.entries(PRO_LAYERS_CLEAN).filter(([k, v]) => k !== "drawings" && v).length === 0);
+}
+
 // fitToRecent frames only the latest N candles
 import { fitToRecent, fitToData } from "../lib/chart-engine/viewport";
 {
