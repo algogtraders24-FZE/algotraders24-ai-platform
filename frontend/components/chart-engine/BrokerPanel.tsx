@@ -9,6 +9,8 @@ import type { TradePlan } from "@/lib/chart-engine/annotations/plan";
 interface StatusPosition { id: string; type?: string; symbol: string; volume: number; openPrice?: number; currentPrice?: number; profit?: number; stopLoss?: number; takeProfit?: number }
 interface Status {
   configured: boolean;
+  unavailable?: boolean;
+  message?: string;
   tradingEnabled?: boolean;
   live?: boolean;
   liveAllowed?: boolean;
@@ -72,6 +74,15 @@ export default function BrokerPanel({ active, symbol, plan, formatPrice, fallbac
   const s = load.data;
   if (!s.configured) {
     return <p className="px-2 pt-10 text-center text-[13px] text-text-3">The MetaTrader connection is not configured on this server yet.</p>;
+  }
+  if (s.unavailable) {
+    return (
+      <div className="flex flex-col items-center gap-3 px-2 pt-10 text-center">
+        <p className="text-[14px] font-semibold text-text">Account not reachable</p>
+        <p className="text-[13px] leading-relaxed text-text-3">{s.message}</p>
+        <button type="button" onClick={() => void refresh()} className="rounded-lg border border-border bg-ink-3 px-4 py-2 text-[13px] text-text-2 hover:bg-ink-4">Retry</button>
+      </div>
+    );
   }
   const acc = s.account ?? {};
   const live = s.live === true;
