@@ -8,7 +8,7 @@ interface Turn { id: string; role: "user" | "assistant"; text: string }
 
 const uid = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
 
-export default function ProChat({ symbol, timeframe, getFacts }: { symbol: string; timeframe: string; getFacts: () => string | null }) {
+export default function ProChat({ symbol, timeframe, getFacts, onAnalyze }: { symbol: string; timeframe: string; getFacts: () => string | null; onAnalyze?: () => void }) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -52,7 +52,25 @@ export default function ProChat({ symbol, timeframe, getFacts }: { symbol: strin
   return (
     <div className="flex flex-col gap-3 text-[14px]">
       <div className="max-h-[calc(100vh-260px)] space-y-3 overflow-y-auto">
-        {turns.length === 0 && <p className="text-[#9aa0ae]">Ask PRAGYA about {symbol}. Answers are written from this chart&apos;s measured numbers (EMA, RSI, ATR, structure, levels, plan) and never invent a number.</p>}
+        {turns.length === 0 && (
+          <ul className="flex flex-col">
+            {([
+              ["Analyze the chart", null],
+              ["Where's the entry?", "Where is a sensible entry area right now, with the stop and the target, and what is the risk?"],
+              ["What's the trend?", "What is the current trend and structure?"],
+              ["What's my risk here?", "What are the main risks right now?"],
+              ["Show me key levels", "Which support and resistance levels matter right now?"],
+              ["Any patterns forming?", "Is any chart pattern forming (double top, double bottom, structure)?"],
+            ] as [string, string | null][]).map(([label, q]) => (
+              <li key={label}>
+                <button type="button" onClick={() => (q ? send(q) : onAnalyze?.())} className="flex w-full items-center gap-3 rounded-md px-2 py-2.5 text-left text-[14px] text-[#d1d4dc] hover:bg-white/[0.06]">
+                  <span className="text-violet-300">✦</span>
+                  {label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
         {turns.map((t) =>
           t.role === "user" ? (
             <div key={t.id} className="ml-auto max-w-[90%] rounded-lg bg-white/[0.08] px-3 py-2 text-white">{t.text}</div>

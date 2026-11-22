@@ -127,7 +127,7 @@ export function PlanOverlay({ plan, onExecute, onClose, formatPrice, inline }: P
         onClick={() => onExecute(long ? "buy" : "sell")}
         className={`mt-2 w-full rounded-control py-1.5 text-[14px] font-semibold ${long ? "bg-green-500/20 text-green-300 hover:bg-green-500/30" : "bg-red-500/20 text-red-300 hover:bg-red-500/30"}`}
       >
-        {plan.entryType === "limit" ? "Open paper ticket (limit entry)" : "Execute (paper)"}
+        {plan.entryType === "limit" ? (long ? "Place Long limit" : "Place Short limit") : (long ? "Execute Long" : "Execute Short")}
       </button>
       <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="mt-2 w-full text-left text-[12.5px] text-text-3 hover:text-text">
         Evidence {open ? "▴" : "▾"}
@@ -145,7 +145,7 @@ export function PlanOverlay({ plan, onExecute, onClose, formatPrice, inline }: P
               ? `Luck check: the same rule on shuffled copies of this chart scores ${plan.record.baselineAvgR >= 0 ? "+" : ""}${plan.record.baselineAvgR.toFixed(2)} R, so the edge over luck is ${(plan.record.avgR - plan.record.baselineAvgR) >= 0 ? "+" : ""}${(plan.record.avgR - plan.record.baselineAvgR).toFixed(2)} R${Math.abs(plan.record.avgR - plan.record.baselineAvgR) < 2 * plan.record.se ? " (within noise)" : ""}.`
               : ""}
           </p>
-          <p>{plan.entryType === "limit" ? "Limit entry: the price is not at the zone yet; the plan is valid only if price retraces to the entry. " : ""}The button opens the paper ticket for you to confirm; set the stop and target shown. Educational, not financial advice.</p>
+          <p>{plan.entryType === "limit" ? "Limit entry: the price is not at the zone yet; the plan is valid only if price retraces to the entry. " : ""}The button opens the Trade tab: nothing is sent until an MT5 account is connected and you confirm. Educational, not financial advice.</p>
         </div>
       )}
     </div>
