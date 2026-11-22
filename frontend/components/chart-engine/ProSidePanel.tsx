@@ -27,6 +27,7 @@ interface Props {
   trade: ReactNode;
   onAnalyze: () => void;
   candles: ChartCandle[];
+  getChatFacts: () => string | null;
   pragya: { status: "idle" | "loading" | "ready" | "error"; text: string };
 }
 
@@ -37,7 +38,7 @@ const TABS: { key: ProTab; label: string }[] = [
   { key: "strategies", label: "Strategies" },
 ];
 
-export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, trade, onAnalyze, candles, pragya }: Props) {
+export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, trade, onAnalyze, candles, pragya, getChatFacts }: Props) {
   const watching = plan ? 1 : 0;
   return (
     <aside className="flex h-full w-[380px] shrink-0 flex-col gap-3 overflow-y-auto border-l border-white/[0.06] bg-[#0d0e12] p-3 text-[#d1d4dc]">
@@ -85,7 +86,7 @@ export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, on
         )}
       </div>
 
-      {tab === "chat" && <ProChat symbol={symbol} timeframe={timeframe} />}
+      {tab === "chat" && <ProChat symbol={symbol} timeframe={timeframe} getFacts={getChatFacts} />}
 
       <div className={tab === "trade" ? "block" : "hidden"}>{trade}</div>
 
