@@ -521,6 +521,7 @@ export default function NativeChart({
   const [soundOn, setSoundOnState] = useState(true);
   useEffect(() => setSoundOnState(isSoundOn()), []);
   const [rangeKey, setRangeKey] = useState<RangeKey | null>(null);
+  const [testerOpen, setTesterOpen] = useState(false);
   const [proTab, setProTab] = useState<ProTab>("chat");
   const proRef = useRef(proState);
   proRef.current = proState;
@@ -1641,7 +1642,7 @@ export default function NativeChart({
           onOpenSaveTemplate={() => setSaveModalOpen(true)}
           onOpenProperties={() => setPropertiesModalOpen(true)}
           onSaveAsPicture={handleSaveAsPicture}
-          onOpenAlgoTest={() => { setProTab("strategies"); setTimeout(() => algoTestRef.current?.openConfig(), 80); }}
+          onOpenAlgoTest={() => { setTesterOpen(true); setTimeout(() => algoTestRef.current?.openConfig(), 80); }}
         />
       ) : (
       <ChartToolbar
@@ -1858,7 +1859,12 @@ export default function NativeChart({
         )}
         {!proLayout && <PlanOverlay plan={proPlan} onExecute={(side) => paperTradingRef.current?.quickTrade(side)} onClose={closePlan} formatPrice={(n) => fmtP(n)} />}
       </div>
-      {proLayout && <RangeBar active={rangeKey} onRange={handleRange} />}
+      {proLayout && (
+        <div className={testerOpen ? "h-[340px] shrink-0 overflow-y-auto border-t border-border bg-ink-2 p-3" : "hidden"} aria-label="Strategy Tester">
+          {algoNode}
+        </div>
+      )}
+      {proLayout && <RangeBar active={rangeKey} onRange={handleRange} testerOpen={testerOpen} onToggleTester={() => setTesterOpen((v) => !v)} />}
       {!proLayout && result.series && result.series.rejectedCount > 0 && (
         <p className="text-xs text-text-3">
           {result.series.rejectedCount} candle{result.series.rejectedCount === 1 ? "" : "s"} were excluded for failing data-integrity checks.
@@ -1880,7 +1886,7 @@ export default function NativeChart({
           candles={candles}
           getChatFacts={buildChatFacts}
           pragya={pragya}
-          algo={algoNode}
+          onOpenTester={() => setTesterOpen(true)}
           onAnalyze={runAnalyze}
         />
       )}
