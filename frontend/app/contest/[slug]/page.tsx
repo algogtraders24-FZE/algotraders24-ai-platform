@@ -1,5 +1,4 @@
 // app/contest/[slug]/page.tsx - the demo contest: prizes, rules, how to enter, the live leaderboard (and the winners once finalized).
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { prisma } from "@/lib/prisma";
@@ -105,8 +104,8 @@ export default async function ContestPage({ params }: { params: Promise<{ slug: 
               <p className="text-sm text-text-2">Entries are closed.</p>
             ) : !hasLicence ? (
               <div className="space-y-2 text-sm text-text-2">
-                <p>The contest is for people running the XXX US30 demo. Start your free demo first.</p>
-                <ButtonLink href="/demo" size="sm">Start the free demo</ButtonLink>
+                <p>This contest is for people who already hold a demo licence.</p>
+                <ButtonLink href="/marketplace" size="sm">Browse the marketplace</ButtonLink>
               </div>
             ) : accounts.length === 0 ? (
               <div className="space-y-2 text-sm text-text-2">
@@ -159,7 +158,7 @@ export default async function ContestPage({ params }: { params: Promise<{ slug: 
           </p>
           <p>
             A demo is not live trading; results on a real account can be different. Past results do not predict future results. Trading leveraged products
-            is risky; this is not financial advice. <Link href="/demo" className="text-gold hover:underline">About the free demo</Link>
+            is risky; this is not financial advice.
           </p>
         </section>
       </div>

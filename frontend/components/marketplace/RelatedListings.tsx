@@ -61,8 +61,6 @@ export default function RelatedListings({ slug }: { slug: string }) {
       ))}
       <p className="mt-6 text-sm text-text-3">
         <Link href="/marketplace" className="text-gold hover:underline">Browse the whole marketplace</Link>
-        {" · "}
-        <Link href="/demo" className="text-gold hover:underline">Free 30-day XXX US30 demo</Link>
       </p>
     </nav>
   );

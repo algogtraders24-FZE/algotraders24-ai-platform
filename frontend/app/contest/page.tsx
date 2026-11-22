@@ -8,5 +8,5 @@ export default async function ContestIndex() {
   const c =
     (await prisma.contest.findFirst({ where: { status: "OPEN" }, orderBy: { endsAt: "asc" } }).catch(() => null)) ??
     (await prisma.contest.findFirst({ where: { status: { in: ["CLOSED", "FINALIZED"] } }, orderBy: { endsAt: "desc" } }).catch(() => null));
-  redirect(c ? `/contest/${c.slug}` : "/demo");
+  redirect(c ? `/contest/${c.slug}` : "/marketplace");
 }

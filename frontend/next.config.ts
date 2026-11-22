@@ -29,6 +29,8 @@ const nextConfig: NextConfig = {
     // The guided "first 15 minutes" page used to live at /beta.
     return [
       { source: "/beta", destination: "/getting-started", permanent: true },
+      // The XXX US30 free 30-day demo page was removed (2026-11-22); old links and emails go to the marketplace.
+      { source: "/demo", destination: "/marketplace", permanent: false },
       // Two legacy catalogue slugs never got a marketplace listing, so /products/<slug> -> /marketplace/<slug> ended in a 404
       // (Search Console "Not found"). Send them straight to the catalogue with a permanent redirect instead.
       { source: "/products/ai-trend-master-ea", destination: "/marketplace", permanent: true },
