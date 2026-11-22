@@ -1417,16 +1417,16 @@ export default function NativeChart({
   }
 
   if (result.status === "loading") {
-    return <StateMessage primary="Loading chart data…" height={containerHeight} />;
+    return <StateMessage primary="Loading chart data…" height={proLayout ? "100%" : containerHeight} />;
   }
   if (result.status === "unsupported") {
-    return <StateMessage primary="Native chart data is unavailable for this instrument." secondary={result.message} height={containerHeight} />;
+    return <StateMessage primary="Native chart data is unavailable for this instrument." secondary={result.message} height={proLayout ? "100%" : containerHeight} />;
   }
   if (result.status === "error") {
-    return <StateMessage primary="Chart data is temporarily unavailable." secondary={result.message} height={containerHeight} />;
+    return <StateMessage primary="Chart data is temporarily unavailable." secondary={result.message} height={proLayout ? "100%" : containerHeight} />;
   }
   if (result.status === "empty") {
-    return <StateMessage primary="No candle data is available yet for this symbol and timeframe." height={containerHeight} />;
+    return <StateMessage primary="No candle data is available yet for this symbol and timeframe." height={proLayout ? "100%" : containerHeight} />;
   }
 
   const hoveredCandle = hoveredIndex >= 0 && hoveredIndex < candles.length ? candles[hoveredIndex] : null;
@@ -1658,8 +1658,8 @@ export default function NativeChart({
       />
       )}
 
-      {result.status === "stale" && (
-        <p className={proLayout ? "px-3 py-1 text-[11px] text-text-3" : FIN_TERTIARY}>{proLayout ? "Last available data (the market may be closed)." : "Showing the most recently available data - a live refresh could not be confirmed as fresh."}</p>
+      {!proLayout && result.status === "stale" && (
+        <p className={FIN_TERTIARY}>Showing the most recently available data - a live refresh could not be confirmed as fresh.</p>
       )}
 
       {!proLayout && ohlcStrip}
@@ -1729,12 +1729,12 @@ export default function NativeChart({
         {!proLayout && <PlanOverlay plan={proPlan} onExecute={(side) => paperTradingRef.current?.quickTrade(side)} onClose={closePlan} formatPrice={(n) => fmtP(n)} />}
       </div>
       {proLayout && <RangeBar active={rangeKey} onRange={handleRange} />}
-      {result.series && result.series.rejectedCount > 0 && (
+      {!proLayout && result.series && result.series.rejectedCount > 0 && (
         <p className="text-xs text-text-3">
           {result.series.rejectedCount} candle{result.series.rejectedCount === 1 ? "" : "s"} were excluded for failing data-integrity checks.
         </p>
       )}
-      {result.series && <ProvenanceDisclosure series={result.series} />}
+      {!proLayout && result.series && <ProvenanceDisclosure series={result.series} />}
       </div>
       {proLayout && (
         <ProSidePanel
@@ -1785,7 +1785,7 @@ function OhlcField({ label, value }: { label: string; value: number }) {
   );
 }
 
-function StateMessage({ primary, secondary, height }: { primary: string; secondary?: string; height: number }) {
+function StateMessage({ primary, secondary, height }: { primary: string; secondary?: string; height: number | string }) {
   return (
     <div
       className="flex w-full flex-col items-center justify-center gap-1.5 rounded-panel border border-border bg-ink-2 px-4 text-center"
