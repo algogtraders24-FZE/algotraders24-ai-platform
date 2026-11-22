@@ -22,6 +22,8 @@ interface DrawingObjectBase {
   id: string;
   color: string;
   createdAt: number;
+  /** Line width in px (1-8). Optional, so drawings saved before this field existed stay valid. */
+  width?: number;
 }
 
 export interface TrendLineObject extends DrawingObjectBase {

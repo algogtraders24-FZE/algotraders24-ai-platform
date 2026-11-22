@@ -19,7 +19,22 @@ interface Props {
   onSelectObject: (id: string) => void;
   onDeleteObject: (id: string) => void;
   onZoom: (direction: "in" | "out") => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
+  locked: boolean;
+  onToggleLock: () => void;
+  eraser: boolean;
+  onToggleEraser: () => void;
+  magnet: boolean;
+  onToggleMagnet: () => void;
+  style: { color: string | null; width: number };
+  onStyle: (patch: { color?: string | null; width?: number }) => void;
 }
+
+const COLORS = ["#2962ff", "#26a69a", "#ef5350", "#f59e0b", "#a78bfa", "#f472b6", "#ffffff", "#9aa0ae"];
+const WIDTHS = [1, 2, 3, 4];
 
 const SVG = (p: { children: ReactNode }) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{p.children}</svg>
@@ -34,6 +49,12 @@ const ICONS = {
   zoomOut: <SVG><circle cx="11" cy="11" r="6" /><path d="M20 20l-4.2-4.2M8 11h6" /></SVG>,
   del: <SVG><path d="M6 6l12 12M18 6L6 18" /></SVG>,
   trash: <SVG><path d="M5 7h14M10 11v6M14 11v6M7 7l1 12h8l1-12M9 7V4h6v3" /></SVG>,
+  magnet: <SVG><path d="M6 4v8a6 6 0 0012 0V4M6 8h4M14 8h4" /></SVG>,
+  undo: <SVG><path d="M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3" /></SVG>,
+  redo: <SVG><path d="M15 14l5-5-5-5M20 9H10a6 6 0 000 12h3" /></SVG>,
+  lock: <SVG><rect x="6" y="11" width="12" height="9" rx="1.5" /><path d="M9 11V8a3 3 0 016 0v3" /></SVG>,
+  unlock: <SVG><rect x="6" y="11" width="12" height="9" rx="1.5" /><path d="M9 11V8a3 3 0 015.6-1.5" /></SVG>,
+  eraser: <SVG><path d="M14 4l6 6-9 9H6l-3-3 11-12zM9 9l6 6M12 19h8" /></SVG>,
   list: <SVG><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" /></SVG>,
 };
 
@@ -54,15 +75,16 @@ const GROUPS: Group[] = [
 export default function ProLeftRail(p: Props) {
   const [open, setOpen] = useState<string | null>(null);
   const [list, setList] = useState(false);
+  const [pop, setPop] = useState<null | "color" | "width">(null);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!open && !list) return;
-    const onDown = (e: PointerEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(null); setList(false); } };
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { setOpen(null); setList(false); } };
+    if (!open && !list && !pop) return;
+    const onDown = (e: PointerEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(null); setList(false); setPop(null); } };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { setOpen(null); setList(false); setPop(null); } };
     document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);
     return () => { document.removeEventListener("pointerdown", onDown); document.removeEventListener("keydown", onKey); };
-  }, [open, list]);
+  }, [open, list, pop]);
 
   const groupActive = (g: Group) => g.items.some((i) => i.id === p.activeTool);
   const lastPicked = useRef<Record<string, FlyItem>>({});
@@ -70,6 +92,7 @@ export default function ProLeftRail(p: Props) {
 
   return (
     <div ref={ref} role="toolbar" aria-label="Chart drawing tools" className="relative flex h-full w-12 shrink-0 flex-col items-center gap-1 border-r border-white/[0.06] bg-[#0d0e12] py-2">
+      <button type="button" title="Magnet: snap to open / high / low / close" aria-label="Magnet" aria-pressed={p.magnet} onClick={p.onToggleMagnet} className={`${BTN} ${p.magnet ? ACTIVE : ""}`}>{ICONS.magnet}</button>
       <button type="button" title="Cursor (Esc)" aria-label="Cursor" aria-pressed={p.activeTool === null} onClick={() => p.onSelectTool(null)} className={`${BTN} ${p.activeTool === null ? ACTIVE : ""}`}>{ICONS.cursor}</button>
       {GROUPS.map((g) => (
         <div key={g.key} className="relative">
@@ -109,6 +132,43 @@ export default function ProLeftRail(p: Props) {
       <span className="my-1 h-px w-6 bg-white/[0.08]" aria-hidden="true" />
       <button type="button" title="Zoom in" aria-label="Zoom in" onClick={() => p.onZoom("in")} className={BTN}>{ICONS.zoomIn}</button>
       <button type="button" title="Zoom out" aria-label="Zoom out" onClick={() => p.onZoom("out")} className={BTN}>{ICONS.zoomOut}</button>
+
+      <span className="my-1 h-px w-6 bg-white/[0.08]" aria-hidden="true" />
+      <div className="relative">
+        <button type="button" title="Colour" aria-label="Drawing colour" aria-expanded={pop === "color"} onClick={() => setPop(pop === "color" ? null : "color")} className={BTN}>
+          <span className="h-4 w-4 rounded-[4px] border border-white/30" style={{ backgroundColor: p.style.color ?? "#2962ff" }} />
+        </button>
+        {pop === "color" && (
+          <div className="absolute left-full top-0 z-40 ml-1 w-40 rounded-lg border border-white/10 bg-[#13141a] p-2 shadow-2xl">
+            <div className="grid grid-cols-4 gap-1.5">
+              {COLORS.map((c) => (
+                <button key={c} type="button" aria-label={`Colour ${c}`} onClick={() => { p.onStyle({ color: c }); setPop(null); }} className={`h-7 w-7 rounded-md border ${p.style.color === c ? "border-white" : "border-white/20"}`} style={{ backgroundColor: c }} />
+              ))}
+            </div>
+            <button type="button" onClick={() => { p.onStyle({ color: null }); setPop(null); }} className="mt-2 w-full rounded-md py-1 text-[12px] text-[#9aa0ae] hover:bg-white/[0.07] hover:text-white">Tool default colour</button>
+          </div>
+        )}
+      </div>
+      <div className="relative">
+        <button type="button" title="Line width" aria-label="Line width" aria-expanded={pop === "width"} onClick={() => setPop(pop === "width" ? null : "width")} className={BTN}>
+          <span className="block w-5 rounded bg-current" style={{ height: p.style.width + 1 }} />
+        </button>
+        {pop === "width" && (
+          <div className="absolute left-full top-0 z-40 ml-1 w-32 rounded-lg border border-white/10 bg-[#13141a] p-1.5 shadow-2xl">
+            {WIDTHS.map((w) => (
+              <button key={w} type="button" onClick={() => { p.onStyle({ width: w }); setPop(null); }} className={`flex w-full items-center gap-3 rounded-md px-2 py-2 text-[13px] text-[#d1d4dc] hover:bg-white/[0.07] ${p.style.width === w ? "bg-white/[0.1]" : ""}`}>
+                <span className="block w-8 rounded bg-current" style={{ height: w + 1 }} />
+                {w}px
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <span className="my-1 h-px w-6 bg-white/[0.08]" aria-hidden="true" />
+      <button type="button" title="Undo (Ctrl+Z)" aria-label="Undo" disabled={!p.canUndo} onClick={p.onUndo} className={`${BTN} disabled:cursor-not-allowed disabled:opacity-30`}>{ICONS.undo}</button>
+      <button type="button" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled={!p.canRedo} onClick={p.onRedo} className={`${BTN} disabled:cursor-not-allowed disabled:opacity-30`}>{ICONS.redo}</button>
+      <button type="button" title={p.locked ? "Unlock drawings" : "Lock drawings (no select, move or delete)"} aria-label="Lock drawings" aria-pressed={p.locked} onClick={p.onToggleLock} className={`${BTN} ${p.locked ? ACTIVE : ""}`}>{p.locked ? ICONS.lock : ICONS.unlock}</button>
+      <button type="button" title="Eraser: click a drawing to remove it" aria-label="Eraser" aria-pressed={p.eraser} onClick={p.onToggleEraser} className={`${BTN} ${p.eraser ? ACTIVE : ""}`}>{ICONS.eraser}</button>
 
       <div className="flex-1" />
       <div className="relative">

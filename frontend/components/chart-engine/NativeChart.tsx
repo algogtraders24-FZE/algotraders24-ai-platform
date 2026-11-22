@@ -36,6 +36,8 @@ import { ProModeBar, PlanOverlay, ProToolbarExtras } from "./ProModeBar";
 import { ProSidePanel, type ProTab } from "./ProSidePanel";
 import ProTopBar from "./ProTopBar";
 import ProLeftRail from "./ProLeftRail";
+import { DrawingHistory } from "@/lib/chart-engine/drawing/history";
+import { snapToOhlc } from "@/lib/chart-engine/drawing/snap";
 import { buildTradePlan, type TradePlan } from "@/lib/chart-engine/annotations/plan";
 import { computeAnnotations } from "@/lib/chart-engine/annotations/compute";
 import { PRO_LAYERS_DEFAULT, PRO_LAYERS_CLEAN, type ChartLayers, type AnnotationResult } from "@/lib/chart-engine/annotations/types";
@@ -355,9 +357,68 @@ export default function NativeChart({
   // pattern in this same file.
   const drawingsLoadedKeyRef = useRef<string>("");
 
-  function commitDrawingObjects(objects: DrawingObject[]) {
+  // Pro Chart drawing engine (Stage 2): undo / redo, lock, eraser, magnet, colour + width
+  const historyRef = useRef(new DrawingHistory());
+  const committedDrawingsRef = useRef<DrawingObject[]>([]);
+  const [historyFlags, setHistoryFlags] = useState({ undo: false, redo: false });
+  const [drawingsLocked, setDrawingsLocked] = useState(false);
+  const drawingsLockedRef = useRef(false);
+  drawingsLockedRef.current = drawingsLocked;
+  const [eraserOn, setEraserOn] = useState(false);
+  const eraserOnRef = useRef(false);
+  eraserOnRef.current = eraserOn;
+  const [magnetOn, setMagnetOn] = useState(false);
+  const magnetRef = useRef(false);
+  magnetRef.current = magnetOn;
+  const [drawStyle, setDrawStyle] = useState<{ color: string | null; width: number }>({ color: null, width: 1 });
+  const drawStyleRef = useRef(drawStyle);
+  drawStyleRef.current = drawStyle;
+
+  /** record=false for loads from the server and for undo / redo themselves. */
+  function commitDrawingObjects(objects: DrawingObject[], record = true) {
+    if (record) historyRef.current.record(committedDrawingsRef.current);
+    committedDrawingsRef.current = objects;
     drawingObjectsRef.current = objects;
     setDrawingObjectsState(objects);
+    setHistoryFlags({ undo: historyRef.current.canUndo(), redo: historyRef.current.canRedo() });
+  }
+
+  function handleUndo() {
+    const prev = historyRef.current.undo(committedDrawingsRef.current);
+    if (!prev) return;
+    commitDrawingObjects(prev, false);
+    setSelectedObjectId(null);
+    draw();
+  }
+
+  function handleRedo() {
+    const next = historyRef.current.redo(committedDrawingsRef.current);
+    if (!next) return;
+    commitDrawingObjects(next, false);
+    setSelectedObjectId(null);
+    draw();
+  }
+
+  /** Colour / width changes apply to the selected object (if any) and to the next drawings. */
+  function handleDrawStyle(patch: { color?: string | null; width?: number }) {
+    const next = { ...drawStyleRef.current, ...patch };
+    setDrawStyle(next);
+    const id = selectedObjectIdRef.current;
+    if (id && !drawingsLockedRef.current) {
+      commitDrawingObjects(drawingObjectsRef.current.map((o) => (o.id === id ? { ...o, ...(next.color ? { color: next.color } : {}), width: next.width } : o)));
+      draw();
+    }
+  }
+
+  function styled<T extends DrawingObject>(obj: T): T {
+    const st = drawStyleRef.current;
+    return { ...obj, color: st.color ?? obj.color, width: st.width };
+  }
+
+  /** Magnet: snap to the O/H/L/C of the candle under the pointer when close enough. */
+  function snapped(point: DrawingPoint, x: number, yLocal: number, viewport: Viewport, range: { minIndex: number; maxIndex: number }, rowHeight: number): DrawingPoint {
+    if (!magnetRef.current) return point;
+    return snapToOhlc(candles, point, xToIndex(x, range, plotWidth()), yLocal, (price) => priceToY(price, viewport, rowHeight));
   }
 
   function setSelectedObjectId(id: string | null) {
@@ -643,7 +704,8 @@ export default function NativeChart({
     let cancelled = false;
     const key = `${symbol}|${timeframe}`;
     drawingsLoadedKeyRef.current = "";
-    commitDrawingObjects([]);
+    historyRef.current.reset();
+    commitDrawingObjects([], false);
     setSelectedObjectId(null);
     pendingPlacementRef.current = null;
     drawingPreviewRef.current = null;
@@ -651,7 +713,8 @@ export default function NativeChart({
 
     readDrawingObjects(symbol, timeframe).then((objects) => {
       if (cancelled) return;
-      commitDrawingObjects(objects);
+      historyRef.current.reset();
+      commitDrawingObjects(objects, false);
       drawingsLoadedKeyRef.current = key;
     });
 
@@ -810,11 +873,11 @@ export default function NativeChart({
     const row = priceRow();
     if (y < row.top || y > row.top + row.height) return;
     const range = indexRangeForViewport(candles, viewport);
-    const point = pixelToPoint(x, y - row.top, candles, range, viewport, plotWidth(), row.height);
+    const point = snapped(pixelToPoint(x, y - row.top, candles, range, viewport, plotWidth(), row.height), x, y - row.top, viewport, range, row.height);
     const nowMs = Date.now();
 
     if (activeTool === "horizontal-line") {
-      const obj = createHorizontalLine(point.price, nowMs);
+      const obj = styled(createHorizontalLine(point.price, nowMs));
       commitDrawingObjects([...drawingObjectsRef.current, obj]);
       setSelectedObjectId(obj.id);
       setActiveTool(null);
@@ -830,12 +893,13 @@ export default function NativeChart({
     }
 
     const p1 = pendingPlacementRef.current;
-    const obj =
+    const obj = styled(
       activeTool === "trendline"
         ? createTrendLine(p1, point, nowMs)
         : activeTool === "fibonacci"
           ? createFibonacci(p1, point, nowMs)
-          : createRectangle(p1, point, nowMs);
+          : createRectangle(p1, point, nowMs),
+    );
     commitDrawingObjects([...drawingObjectsRef.current, obj]);
     setSelectedObjectId(obj.id);
     pendingPlacementRef.current = null;
@@ -904,7 +968,16 @@ export default function NativeChart({
           }
         }
         const range = indexRangeForViewport(candles, viewport);
-        const hit = hitTestObjects(drawingObjectsRef.current, x, y - row.top, candles, range, viewport, plotWidth(), row.height);
+        const hit = drawingsLockedRef.current ? null : hitTestObjects(drawingObjectsRef.current, x, y - row.top, candles, range, viewport, plotWidth(), row.height);
+        if (eraserOnRef.current) {
+          // eraser: a click on a drawing removes it (nothing happens while drawings are locked)
+          if (hit) {
+            commitDrawingObjects(drawingObjectsRef.current.filter((o) => o.id !== hit.objectId));
+            if (selectedObjectIdRef.current === hit.objectId) setSelectedObjectId(null);
+            draw();
+          }
+          return;
+        }
         if (hit) {
           const target = drawingObjectsRef.current.find((o) => o.id === hit.objectId);
           if (target) {
@@ -974,7 +1047,7 @@ export default function NativeChart({
     if (pendingPlacementRef.current && drawingPreviewRef.current && viewportRef.current) {
       const row = priceRow();
       const range = indexRangeForViewport(candles, viewportRef.current);
-      const point = pixelToPoint(x, y - row.top, candles, range, viewportRef.current, plotWidth(), row.height);
+      const point = snapped(pixelToPoint(x, y - row.top, candles, range, viewportRef.current, plotWidth(), row.height), x, y - row.top, viewportRef.current, range, row.height);
       drawingPreviewRef.current = { tool: drawingPreviewRef.current.tool, p1: pendingPlacementRef.current, p2: point };
       scheduleDraw();
       return;
@@ -991,7 +1064,7 @@ export default function NativeChart({
       const { objectId, handle, startPoint, original } = objectDragRef.current;
       const row = priceRow();
       const range = indexRangeForViewport(candles, viewportRef.current);
-      const current = pixelToPoint(x, y - row.top, candles, range, viewportRef.current, plotWidth(), row.height);
+      const current = snapped(pixelToPoint(x, y - row.top, candles, range, viewportRef.current, plotWidth(), row.height), x, y - row.top, viewportRef.current, range, row.height);
       const deltaTime = current.time - startPoint.time;
       const deltaPrice = current.price - startPoint.price;
       const updated = applyDrag(original, handle, deltaTime, deltaPrice);
@@ -1251,7 +1324,7 @@ export default function NativeChart({
   // buttons, sharing the exact same commit path as the keyboard Delete
   // handler above (never a second/divergent deletion code path).
   function handleDeleteSelectedDrawing() {
-    if (!selectedObjectIdRef.current) return;
+    if (!selectedObjectIdRef.current || drawingsLockedRef.current) return;
     const id = selectedObjectIdRef.current;
     commitDrawingObjects(drawingObjectsRef.current.filter((o) => o.id !== id));
     setSelectedObjectId(null);
@@ -1275,13 +1348,14 @@ export default function NativeChart({
   }
 
   function handleClearAllDrawings() {
-    if (drawingObjectsRef.current.length === 0) return;
+    if (drawingObjectsRef.current.length === 0 || drawingsLockedRef.current) return;
     commitDrawingObjects([]);
     setSelectedObjectId(null);
     draw();
   }
 
   function handleSelectDrawingTool(tool: DrawingToolId | null) {
+    if (tool) setEraserOn(false);
     // Switching tools (or back to cursor) mid-placement abandons whatever
     // was pending - never silently completes a trendline with the WRONG
     // second tool's semantics.
@@ -1346,7 +1420,23 @@ export default function NativeChart({
     // MT5 feature-parity Phase 1 - Delete/Backspace removes the currently
     // selected drawn object. Independent of the viewport/candles guard
     // below - deleting a selection doesn't need either.
-    if ((e.key === "Delete" || e.key === "Backspace") && selectedObjectIdRef.current) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+      e.preventDefault();
+      if (e.shiftKey) handleRedo();
+      else handleUndo();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
+      e.preventDefault();
+      handleRedo();
+      return;
+    }
+    if (e.altKey && e.key.toLowerCase() === "h") {
+      e.preventDefault();
+      handleSelectDrawingTool("horizontal-line");
+      return;
+    }
+    if ((e.key === "Delete" || e.key === "Backspace") && selectedObjectIdRef.current && !drawingsLockedRef.current) {
       e.preventDefault();
       const id = selectedObjectIdRef.current;
       commitDrawingObjects(drawingObjectsRef.current.filter((o) => o.id !== id));
@@ -1683,6 +1773,18 @@ export default function NativeChart({
           onSelectObject={handleSelectObjectFromList}
           onDeleteObject={handleDeleteObjectFromList}
           onZoom={(dir) => zoomByButton(dir)}
+          canUndo={historyFlags.undo}
+          canRedo={historyFlags.redo}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          locked={drawingsLocked}
+          onToggleLock={() => setDrawingsLocked((v) => !v)}
+          eraser={eraserOn}
+          onToggleEraser={() => { setEraserOn((v) => !v); setActiveTool(null); pendingPlacementRef.current = null; drawingPreviewRef.current = null; }}
+          magnet={magnetOn}
+          onToggleMagnet={() => setMagnetOn((v) => !v)}
+          style={drawStyle}
+          onStyle={handleDrawStyle}
         />
       )}
       <div className={proLayout ? "flex min-h-0 min-w-0 flex-1 flex-col" : "contents"}>
