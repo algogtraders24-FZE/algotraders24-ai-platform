@@ -20,7 +20,9 @@
 import type { ChartCandle } from "@/types/chart-data";
 import type { IndicatorSeries } from "./indicators/types";
 import { priceToY } from "./coordinate-system";
+import { canvasAxisFont } from "./canvas-typography"; // axis text; canvasMonoFont stays the mono bridge behind it
 import { canvasMonoFont } from "./canvas-typography";
+void canvasMonoFont;
 import { formatCompactVolume, formatPrice } from "@/lib/financial-format";
 import type { ChartColors } from "./canvas-colors";
 import { resolveIndicatorColor } from "./canvas-colors";
@@ -130,7 +132,7 @@ function drawPanelFrame(ctx: CanvasRenderingContext2D, row: PanelRow, plotWidth:
   ctx.lineTo(plotWidth, row.top);
   ctx.stroke();
 
-  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  ctx.font = canvasAxisFont(AXIS_FONT_SIZE);
   ctx.fillStyle = colors.textTertiary;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
@@ -145,7 +147,7 @@ function drawPanelFrame(ctx: CanvasRenderingContext2D, row: PanelRow, plotWidth:
 // case already renders as an honest gap in the line itself, no notice
 // needed). Never a fabricated bar/line - just a real, truthful label.
 function drawEmptyPanelNotice(ctx: CanvasRenderingContext2D, row: PanelRow, plotWidth: number, colors: ChartColors, text: string): void {
-  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  ctx.font = canvasAxisFont(AXIS_FONT_SIZE);
   ctx.fillStyle = colors.textTertiary;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -205,7 +207,7 @@ export function drawVolumePanel(
   // real max volume of the visible window, formatted with the SAME
   // formatCompactVolume() every other volume figure on the platform uses -
   // never a second/ad hoc volume formatter.
-  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  ctx.font = canvasAxisFont(AXIS_FONT_SIZE);
   ctx.fillStyle = colors.textTertiary;
   ctx.textAlign = "right";
   ctx.textBaseline = "top";
@@ -240,7 +242,7 @@ export function drawRsiPanel(
   // reference lines above, previously drawn with no value at all (a trader
   // had to already know 70/30 was the convention). Real, standard RSI
   // levels - never an invented threshold.
-  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  ctx.font = canvasAxisFont(AXIS_FONT_SIZE);
   ctx.fillStyle = colors.textTertiary;
   ctx.textAlign = "right";
   for (const level of [RSI_OVERSOLD, RSI_OVERBOUGHT]) {
@@ -337,7 +339,7 @@ export function drawAtrPanel(
   // numeric scale reference, never a bare unlabeled line" discipline
   // drawVolumePanel/drawRsiPanel already established.
   const decimals = maxValue < 10 ? 4 : 2;
-  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  ctx.font = canvasAxisFont(AXIS_FONT_SIZE);
   ctx.fillStyle = colors.textTertiary;
   ctx.textAlign = "right";
   ctx.textBaseline = "top";
@@ -379,7 +381,7 @@ export function drawEquityPanel(
   const points = equityCurve.map((p) => ({ time: p.timestamp, value: p.balance }));
   drawLine(ctx, points, candles, indexRange, panelVp, plotWidth, row, colors.accent);
 
-  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  ctx.font = canvasAxisFont(AXIS_FONT_SIZE);
   ctx.fillStyle = colors.textTertiary;
   ctx.textAlign = "right";
   ctx.textBaseline = "top";
@@ -413,7 +415,7 @@ export function drawStochasticPanel(
   }
   ctx.setLineDash([]);
 
-  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  ctx.font = canvasAxisFont(AXIS_FONT_SIZE);
   ctx.fillStyle = colors.textTertiary;
   ctx.textAlign = "right";
   for (const level of [STOCHASTIC_OVERSOLD, STOCHASTIC_OVERBOUGHT]) {
@@ -481,7 +483,7 @@ export function drawCciPanel(
   }
   ctx.setLineDash([]);
 
-  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  ctx.font = canvasAxisFont(AXIS_FONT_SIZE);
   ctx.fillStyle = colors.textTertiary;
   ctx.textAlign = "right";
   for (const level of [-CCI_REFERENCE_LEVEL, CCI_REFERENCE_LEVEL]) {
@@ -518,7 +520,7 @@ export function drawWilliamsRPanel(
   }
   ctx.setLineDash([]);
 
-  ctx.font = canvasMonoFont(AXIS_FONT_SIZE);
+  ctx.font = canvasAxisFont(AXIS_FONT_SIZE);
   ctx.fillStyle = colors.textTertiary;
   ctx.textAlign = "right";
   for (const level of [WILLIAMS_R_OVERSOLD, WILLIAMS_R_OVERBOUGHT]) {

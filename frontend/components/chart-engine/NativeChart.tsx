@@ -38,7 +38,7 @@ import ProTopBar from "./ProTopBar";
 import ProLeftRail from "./ProLeftRail";
 import { DrawingHistory } from "@/lib/chart-engine/drawing/history";
 import { snapToOhlc } from "@/lib/chart-engine/drawing/snap";
-import { buildTradePlan, type TradePlan } from "@/lib/chart-engine/annotations/plan";
+import { buildTradePlan, planAt, type TradePlan } from "@/lib/chart-engine/annotations/plan";
 import { computeAnnotations } from "@/lib/chart-engine/annotations/compute";
 import { PRO_LAYERS_DEFAULT, PRO_LAYERS_CLEAN, type ChartLayers, type AnnotationResult } from "@/lib/chart-engine/annotations/types";
 import ScanOverlay from "./ScanOverlay";
@@ -573,7 +573,7 @@ export default function NativeChart({
         // activeSymbol}, NativeChart.tsx below) shows the Buy/Sell trade
         // lines - a non-active tiled pane has no order form to open, so
         // drawing clickable-looking lines there would be misleading.
-        showTradeLines: symbol === activeSymbol,
+        showTradeLines: proLayout || symbol === activeSymbol,
         // P3.2B - only the pane whose AlgoTestPanel is actually mounted
         // (isActive={symbol === activeSymbol}) can have an active overlay
         // in the first place (algoTestOverlay is only ever set from that
@@ -634,6 +634,8 @@ export default function NativeChart({
   // "previous viewport" to follow from.
   useEffect(() => {
     const key = `${symbol}|${timeframe}`;
+    // right after a timeframe / symbol switch the previous series can still be here for one render: never fit (or stamp the key) against it
+    const seriesIsCurrent = algoTestOverlay !== null || (result.series?.symbol === symbol && result.series?.timeframe === timeframe);
 
     if (candles.length === 0) {
       // Nothing real to fit yet - show the honest empty/placeholder
@@ -644,6 +646,11 @@ export default function NativeChart({
       setCrosshairState(null);
       setHoveredIndex(-1);
       setIsLive(true);
+      draw();
+      return;
+    }
+
+    if (!seriesIsCurrent) {
       draw();
       return;
     }
@@ -946,7 +953,7 @@ export default function NativeChart({
         // PaperTradingPanel is actually mounted, and only takes priority
         // over drawing-object hit-testing when it genuinely hits a line -
         // falls through to the existing object hit-test otherwise.
-        if (symbol === activeSymbol && liveQuote) {
+        if ((proLayout || symbol === activeSymbol) && liveQuote) {
           const askY = row.top + priceToY(liveQuote.ask, viewport, row.height);
           const bidY = row.top + priceToY(liveQuote.bid, viewport, row.height);
           const TRADE_LINE_HIT_PX = 6;
@@ -1188,6 +1195,12 @@ export default function NativeChart({
     }
     setScan({ points: computeScanPath(candles, viewport, { width: dimsRef.current.width, height: dimsRef.current.height, priceAxisWidth: PRICE_AXIS_WIDTH, timeAxisHeight: TIME_AXIS_HEIGHT }), finish });
     playScanSweep(2200);
+  }
+
+  /** The measured facts PRAGYA answers chat questions from: EMA / RSI / ATR, structure, levels and the plan (no record replay, so it is instant). */
+  function buildChatFacts(): string | null {
+    const analysis = computeAnnotations(candles);
+    return buildReadout(candles, analysis, planAt(candles), (n) => fmtP(n))?.paragraph ?? null;
   }
 
   /** PRAGYA (the platform's Gemini assistant) turns the measured facts into a short analysis; its answer is checked server-side (no invented numbers, no promises) and the measured readout stays as the fallback. */
@@ -1523,7 +1536,7 @@ export default function NativeChart({
   const hoveredCandle = hoveredIndex >= 0 && hoveredIndex < candles.length ? candles[hoveredIndex] : null;
   const trend = hoveredCandle ? classifyCandle(hoveredCandle) : null;
 
-  const paperNode = <PaperTradingPanel ref={paperTradingRef} symbol={symbol} isActive={symbol === activeSymbol} />;
+  const paperNode = <PaperTradingPanel ref={paperTradingRef} symbol={symbol} isActive={proLayout || symbol === activeSymbol} />;
   const panelBlock = (
     <>
       <MicrostructurePanel symbol={symbol} hypothesisType={symbol === activeSymbol ? hypothesisType : undefined} />
@@ -1531,7 +1544,7 @@ export default function NativeChart({
       <AlgoTestPanel
         ref={algoTestRef}
         symbol={symbol}
-        isActive={symbol === activeSymbol}
+        isActive={proLayout || symbol === activeSymbol}
         onOverlayChange={handleAlgoTestOverlayChange}
         selectedTradeId={selectedAlgoTestTradeId}
         onSelectTrade={handleSelectAlgoTestTrade}
@@ -1858,6 +1871,7 @@ export default function NativeChart({
           onClosePlan={closePlan}
           formatPrice={(n) => fmtP(n)}
           candles={candles}
+          getChatFacts={buildChatFacts}
           pragya={pragya}
           trade={<>{paperNode}{panelBlock}</>}
           onAnalyze={runAnalyze}

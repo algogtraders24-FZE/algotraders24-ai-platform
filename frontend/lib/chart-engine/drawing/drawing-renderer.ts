@@ -21,6 +21,12 @@
 import type { ChartCandle } from "@/types/chart-data";
 import { priceToY } from "../coordinate-system";
 import { canvasMonoFont } from "../canvas-typography";
+
+/** Price text for drawing labels: decimals by magnitude (BTC 2, FX 5), trailing zeros trimmed. */
+export function drawingPriceText(price: number): string {
+  const d = Math.abs(price) >= 1000 ? 2 : Math.abs(price) >= 100 ? 3 : Math.abs(price) >= 10 ? 4 : 5;
+  return price.toFixed(d).replace(/0+$/, "").replace(/\.$/, "");
+}
 import type { PanelRow } from "../panel-layout";
 import type { Viewport } from "../types";
 import { fractionalIndexForTime, indexToX, type IndexRange } from "../index-scale";
@@ -77,11 +83,11 @@ function drawHorizontalLine(ctx: CanvasRenderingContext2D, price: number, color:
   // The real price value in the axis gutter, matching the latest-price
   // marker's own "always show the real number, never just a bare line"
   // convention.
-  ctx.font = canvasMonoFont(11);
+  ctx.font = canvasMonoFont(12);
   ctx.fillStyle = color;
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
-  ctx.fillText(price.toFixed(5).replace(/0+$/, "").replace(/\.$/, ""), plotWidth + 4, y);
+  ctx.fillText(drawingPriceText(price), plotWidth + 4, y);
 }
 
 function drawTrendLine(
@@ -166,7 +172,7 @@ function drawFibonacci(
   const right = Math.max(a.x, b.x);
 
   ctx.lineWidth = selected ? activeWidth + 1 : activeWidth;
-  ctx.font = canvasMonoFont(10);
+  ctx.font = canvasMonoFont(12);
   ctx.textBaseline = "middle";
   ctx.textAlign = "left";
 
@@ -182,7 +188,7 @@ function drawFibonacci(
     ctx.stroke();
 
     ctx.fillStyle = color;
-    const priceLabel = price.toFixed(5).replace(/0+$/, "").replace(/\.$/, "");
+    const priceLabel = drawingPriceText(price);
     ctx.fillText(`${(level * 100).toFixed(1)}%  ${priceLabel}`, right + 4, y);
   }
 

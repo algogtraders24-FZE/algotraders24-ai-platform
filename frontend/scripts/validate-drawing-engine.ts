@@ -4,7 +4,8 @@ import assert from "node:assert/strict";
 import { DrawingHistory, MAX_HISTORY } from "../lib/chart-engine/drawing/history";
 import { snapToOhlc } from "../lib/chart-engine/drawing/snap";
 import { isValidDrawingObject } from "../lib/chart-engine/drawing/validation";
-import { drawDrawingObjects } from "../lib/chart-engine/drawing/drawing-renderer";
+import { drawDrawingObjects, drawingPriceText } from "../lib/chart-engine/drawing/drawing-renderer";
+import { readFileSync } from "node:fs";
 import { createHorizontalLine, createTrendLine, type DrawingObject } from "../lib/chart-engine/drawing/types";
 import type { ChartCandle } from "../types/chart-data";
 
