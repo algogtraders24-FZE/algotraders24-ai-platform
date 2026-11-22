@@ -20,7 +20,7 @@ export function rangeSpanMs(key: RangeKey, nowMs: number): number | null {
   }
 }
 
-export default function RangeBar({ active, onRange }: { active: RangeKey | null; onRange: (k: RangeKey) => void }) {
+export default function RangeBar({ active, onRange, info }: { active: RangeKey | null; onRange: (k: RangeKey) => void; info?: string }) {
   const [now, setNow] = useState<string>("");
   useEffect(() => {
     const tick = () => setNow(new Date().toISOString().slice(11, 19) + " UTC");
@@ -43,7 +43,10 @@ export default function RangeBar({ active, onRange }: { active: RangeKey | null;
           </button>
         ))}
       </div>
-      <span className="tabular-nums text-[#6b7280]">{now}</span>
+      <span className="flex items-center gap-3 tabular-nums text-[#6b7280]">
+        {info && <span className="hidden sm:inline">{info}</span>}
+        {now}
+      </span>
     </div>
   );
 }
