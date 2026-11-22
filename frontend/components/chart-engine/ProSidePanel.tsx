@@ -29,6 +29,9 @@ interface Props {
   pragya: { status: "idle" | "loading" | "ready" | "error"; text: string };
   /** Opens the Strategy Tester drawer under the chart. */
   onOpenTester: () => void;
+  /** Phones: the panel is a bottom sheet that is opened and closed on demand. */
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 const TABS: { key: ProTab; label: string }[] = [
@@ -55,10 +58,14 @@ function Mt5Panel({ plan, formatPrice }: { plan: TradePlan | null; formatPrice: 
   );
 }
 
-export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, onAnalyze, candles, pragya, getChatFacts, onOpenTester }: Props) {
+export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, onAnalyze, candles, pragya, getChatFacts, onOpenTester, mobileOpen = false, onMobileClose }: Props) {
   const watching = plan ? 1 : 0;
   return (
-    <aside className="flex h-full w-[380px] shrink-0 flex-col gap-3 overflow-y-auto border-l border-border bg-ink-2 p-3 text-text-2">
+    <aside className={`${mobileOpen ? "flex" : "hidden"} fixed inset-x-0 bottom-0 z-[70] h-[68vh] w-full flex-col gap-3 overflow-y-auto rounded-t-2xl border-t border-border bg-ink-2 p-3 text-text-2 shadow-2xl md:static md:z-auto md:flex md:h-full md:w-[380px] md:shrink-0 md:rounded-none md:border-l md:border-t-0 md:shadow-none`}>
+      <div className="flex items-center justify-between md:hidden">
+        <span className="mx-auto h-1 w-10 rounded-full bg-ink-4" aria-hidden="true" />
+        <button type="button" onClick={onMobileClose} aria-label="Close panel" className="absolute right-3 top-2 flex h-8 w-8 items-center justify-center rounded-md text-text-3 hover:bg-ink-4 hover:text-text">✕</button>
+      </div>
       <div role="tablist" aria-label="Pro chart panel" className="flex items-center gap-1 rounded-lg bg-ink-3 p-0.5">
         {TABS.map((t) => (
           <button

@@ -522,6 +522,7 @@ export default function NativeChart({
   useEffect(() => setSoundOnState(isSoundOn()), []);
   const [rangeKey, setRangeKey] = useState<RangeKey | null>(null);
   const [testerOpen, setTesterOpen] = useState(false);
+  const [mobilePanel, setMobilePanel] = useState(false);
   const [proTab, setProTab] = useState<ProTab>("chat");
   const proRef = useRef(proState);
   proRef.current = proState;
@@ -1845,22 +1846,22 @@ export default function NativeChart({
           points={scan?.points ?? []}
           width={Math.max(0, dimsRef.current.width - PRICE_AXIS_WIDTH)}
           height={Math.max(0, dimsRef.current.height - TIME_AXIS_HEIGHT)}
-          onDone={() => { scan?.finish(); setScan(null); playAnalysisComplete(); }}
+          onDone={() => { scan?.finish(); setScan(null); playAnalysisComplete(); if (typeof window !== "undefined" && window.matchMedia?.("(max-width: 767px)").matches) setMobilePanel(true); }}
         />
         {proLayout && (
           <div className="pointer-events-none absolute left-3 top-2 z-10 flex flex-col gap-0.5">
             <div className="flex items-baseline gap-2">
-              <span className="text-[18px] font-bold text-white">{pairLabel}</span>
+              <span className="text-[16px] font-bold text-white sm:text-[18px]">{pairLabel}</span>
               <span className="text-[13px] text-[#9aa0ae]">{timeframe.toUpperCase()}{categoryLabel ? ` · ${categoryLabel}` : ""}</span>
               {livePrice !== undefined && <span className="text-[18px] font-bold tabular-nums text-white">{fmtP(livePrice)}</span>}
             </div>
-            <div className="flex flex-wrap items-center gap-3 text-[12px] text-[#c9ccd6]">{ohlcStrip}</div>
+            <div className="hidden flex-wrap items-center gap-3 text-[12px] text-[#c9ccd6] md:flex">{ohlcStrip}</div>
           </div>
         )}
         {!proLayout && <PlanOverlay plan={proPlan} onExecute={(side) => paperTradingRef.current?.quickTrade(side)} onClose={closePlan} formatPrice={(n) => fmtP(n)} />}
       </div>
       {proLayout && (
-        <div className={testerOpen ? "h-[340px] shrink-0 overflow-y-auto border-t border-border bg-ink-2 p-3" : "hidden"} aria-label="Strategy Tester">
+        <div className={testerOpen ? "h-[48vh] shrink-0 md:h-[340px] overflow-y-auto border-t border-border bg-ink-2 p-3" : "hidden"} aria-label="Strategy Tester">
           {algoNode}
         </div>
       )}
@@ -1876,6 +1877,8 @@ export default function NativeChart({
         <ProSidePanel
           tab={proTab}
           onTab={setProTab}
+          mobileOpen={mobilePanel}
+          onMobileClose={() => setMobilePanel(false)}
           symbol={resolution.displaySymbol}
           timeframe={timeframe}
           plan={proPlan}
@@ -1889,6 +1892,11 @@ export default function NativeChart({
           onOpenTester={() => setTesterOpen(true)}
           onAnalyze={runAnalyze}
         />
+      )}
+      {proLayout && !mobilePanel && (
+        <button type="button" onClick={() => setMobilePanel(true)} className="fixed bottom-14 right-3 z-30 rounded-full bg-gold px-4 py-2.5 text-[13px] font-semibold text-ink shadow-lg md:hidden">
+          ✦ Plan &amp; Chat
+        </button>
       )}
       </div>
       </div>
