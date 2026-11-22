@@ -30,7 +30,7 @@ export function drawingPriceText(price: number): string {
 import type { PanelRow } from "../panel-layout";
 import type { Viewport } from "../types";
 import { fractionalIndexForTime, indexToX, type IndexRange } from "../index-scale";
-import { FIBONACCI_LEVELS, type DrawingObject, type DrawingPoint, type DrawingPreview } from "./types";
+import { FIBONACCI_LEVELS, createDrawing, measureStats, type DrawingObject, type DrawingPoint, type DrawingPreview } from "./types";
 
 const HANDLE_SIZE_PX = 6;
 const SELECTED_LINE_WIDTH = 2;
@@ -198,6 +198,66 @@ function drawFibonacci(
   }
 }
 
+function strokeSeg(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number): void {
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+}
+
+/** Ray (from a through b, forever) or extended line (both ways): the segment is stretched far beyond the plot and clipped by the canvas. */
+function drawInfiniteLine(ctx: CanvasRenderingContext2D, a: { x: number; y: number }, b: { x: number; y: number }, both: boolean, color: string, plotWidth: number, selected: boolean): void {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy);
+  if (len === 0) return;
+  const k = (plotWidth * 6) / len;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = selected ? activeWidth + 1 : activeWidth;
+  strokeSeg(ctx, both ? a.x - dx * k : a.x, both ? a.y - dy * k : a.y, a.x + dx * k, a.y + dy * k);
+  if (selected) { drawHandle(ctx, a.x, a.y, color); drawHandle(ctx, b.x, b.y, color); }
+}
+
+function drawArrow(ctx: CanvasRenderingContext2D, a: { x: number; y: number }, b: { x: number; y: number }, color: string, selected: boolean): void {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = selected ? activeWidth + 1 : activeWidth;
+  strokeSeg(ctx, a.x, a.y, b.x, b.y);
+  const ang = Math.atan2(b.y - a.y, b.x - a.x);
+  const head = 10 + activeWidth * 2;
+  for (const side of [-1, 1]) strokeSeg(ctx, b.x, b.y, b.x - head * Math.cos(ang + side * 0.45), b.y - head * Math.sin(ang + side * 0.45));
+  if (selected) { drawHandle(ctx, a.x, a.y, color); drawHandle(ctx, b.x, b.y, color); }
+}
+
+function fmtDelta(n: number): string {
+  return (n >= 0 ? "+" : "-") + drawingPriceText(Math.abs(n));
+}
+
+function drawMeasure(ctx: CanvasRenderingContext2D, p1: DrawingPoint, p2: DrawingPoint, candles: readonly ChartCandle[], indexRange: IndexRange, viewport: Viewport, plotWidth: number, row: PanelRow, selected: boolean): void {
+  const a = toPx(p1, candles, indexRange, viewport, plotWidth, row);
+  const b = toPx(p2, candles, indexRange, viewport, plotWidth, row);
+  const up = p2.price >= p1.price;
+  const rgb = up ? "34,197,94" : "239,68,68";
+  const left = Math.min(a.x, b.x), top = Math.min(a.y, b.y), w = Math.abs(b.x - a.x), h = Math.abs(b.y - a.y);
+  ctx.fillStyle = `rgba(${rgb}, 0.14)`;
+  ctx.fillRect(left, top, w, h);
+  ctx.strokeStyle = `rgba(${rgb}, 0.9)`;
+  ctx.lineWidth = selected ? activeWidth + 1 : activeWidth;
+  strokeSeg(ctx, a.x, a.y, b.x, b.y);
+  const s = measureStats(p1, p2, (t) => fractionalIndexForTime(candles, t));
+  const text = `${fmtDelta(s.dPrice)} (${s.pct >= 0 ? "+" : ""}${s.pct.toFixed(2)}%)  ${s.bars} bars`;
+  ctx.font = canvasMonoFont(12);
+  const tw = text.length * 6.6 + 12;
+  const lx = Math.max(2, Math.min(plotWidth - tw - 2, (a.x + b.x) / 2 - tw / 2));
+  const ly = up ? top - 22 : top + h + 6;
+  ctx.fillStyle = "rgba(15, 18, 24, 0.92)";
+  ctx.fillRect(lx, ly, tw, 18);
+  ctx.fillStyle = `rgb(${rgb})`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, lx + 6, ly + 9);
+  if (selected) { drawHandle(ctx, a.x, a.y, `rgb(${rgb})`); drawHandle(ctx, b.x, b.y, `rgb(${rgb})`); }
+}
+
 export function drawDrawingObjects(
   ctx: CanvasRenderingContext2D,
   objects: readonly DrawingObject[],
@@ -214,7 +274,28 @@ export function drawDrawingObjects(
     if (obj.tool === "horizontal-line") drawHorizontalLine(ctx, obj.price, obj.color, plotWidth, viewport, row, selected);
     else if (obj.tool === "trendline") drawTrendLine(ctx, obj.p1, obj.p2, obj.color, candles, indexRange, viewport, plotWidth, row, selected);
     else if (obj.tool === "fibonacci") drawFibonacci(ctx, obj.p1, obj.p2, obj.color, candles, indexRange, viewport, plotWidth, row, selected);
-    else drawRectangle(ctx, obj.p1, obj.p2, obj.color, candles, indexRange, viewport, plotWidth, row, selected);
+    else if (obj.tool === "ray" || obj.tool === "extended-line") drawInfiniteLine(ctx, toPx(obj.p1, candles, indexRange, viewport, plotWidth, row), toPx(obj.p2, candles, indexRange, viewport, plotWidth, row), obj.tool === "extended-line", obj.color, plotWidth, selected);
+    else if (obj.tool === "arrow") drawArrow(ctx, toPx(obj.p1, candles, indexRange, viewport, plotWidth, row), toPx(obj.p2, candles, indexRange, viewport, plotWidth, row), obj.color, selected);
+    else if (obj.tool === "measure") drawMeasure(ctx, obj.p1, obj.p2, candles, indexRange, viewport, plotWidth, row, selected);
+    else if (obj.tool === "vertical-line") {
+      const x = indexToX(fractionalIndexForTime(candles, obj.time), indexRange, plotWidth);
+      ctx.strokeStyle = obj.color;
+      ctx.lineWidth = selected ? activeWidth + 1 : activeWidth;
+      strokeSeg(ctx, x, row.top, x, row.top + row.height);
+    } else if (obj.tool === "cross-line") {
+      const c = toPx(obj.p1, candles, indexRange, viewport, plotWidth, row);
+      ctx.strokeStyle = obj.color;
+      ctx.lineWidth = selected ? activeWidth + 1 : activeWidth;
+      strokeSeg(ctx, c.x, row.top, c.x, row.top + row.height);
+      strokeSeg(ctx, 0, c.y, plotWidth, c.y);
+      if (selected) drawHandle(ctx, c.x, c.y, obj.color);
+    } else if (obj.tool === "horizontal-ray") {
+      const c = toPx(obj.p1, candles, indexRange, viewport, plotWidth, row);
+      ctx.strokeStyle = obj.color;
+      ctx.lineWidth = selected ? activeWidth + 1 : activeWidth;
+      strokeSeg(ctx, c.x, c.y, plotWidth, c.y);
+      if (selected) drawHandle(ctx, c.x, c.y, obj.color);
+    } else drawRectangle(ctx, obj.p1, obj.p2, obj.color, candles, indexRange, viewport, plotWidth, row, selected);
   }
 }
 
@@ -229,20 +310,8 @@ export function drawDrawingPreview(
   plotWidth: number,
   row: PanelRow,
 ): void {
-  const a = toPx(preview.p1, candles, indexRange, viewport, plotWidth, row);
-  const b = toPx(preview.p2, candles, indexRange, viewport, plotWidth, row);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = DEFAULT_LINE_WIDTH;
+  const obj = { ...createDrawing(preview.tool, preview.p1, preview.p2, 0), color };
   ctx.setLineDash([4, 3]);
-  if (preview.tool === "trendline") {
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.stroke();
-  } else {
-    const left = Math.min(a.x, b.x);
-    const top = Math.min(a.y, b.y);
-    strokeQuad(ctx, left, top, Math.abs(b.x - a.x), Math.abs(b.y - a.y));
-  }
+  drawDrawingObjects(ctx, [obj], candles, indexRange, viewport, plotWidth, row, null);
   ctx.setLineDash([]);
 }

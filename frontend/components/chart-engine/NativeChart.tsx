@@ -99,6 +99,8 @@ import {
   type DrawingPoint,
   type DrawingPreview,
   type DrawingToolId,
+  createDrawing,
+  isOnePointTool,
 } from "@/lib/chart-engine/drawing/types";
 // Sprint D2.7.11 Phase 4 - saved chart templates (MT5's own real Template
 // feature). See docs/architecture/D2.7.11-native-chart-mt5-feature-parity-
@@ -883,8 +885,8 @@ export default function NativeChart({
     const point = snapped(pixelToPoint(x, y - row.top, candles, range, viewport, plotWidth(), row.height), x, y - row.top, viewport, range, row.height);
     const nowMs = Date.now();
 
-    if (activeTool === "horizontal-line") {
-      const obj = styled(createHorizontalLine(point.price, nowMs));
+    if (isOnePointTool(activeTool)) {
+      const obj = styled(createDrawing(activeTool, point, point, nowMs));
       commitDrawingObjects([...drawingObjectsRef.current, obj]);
       setSelectedObjectId(obj.id);
       setActiveTool(null);
@@ -900,13 +902,7 @@ export default function NativeChart({
     }
 
     const p1 = pendingPlacementRef.current;
-    const obj = styled(
-      activeTool === "trendline"
-        ? createTrendLine(p1, point, nowMs)
-        : activeTool === "fibonacci"
-          ? createFibonacci(p1, point, nowMs)
-          : createRectangle(p1, point, nowMs),
-    );
+    const obj = styled(createDrawing(activeTool, p1, point, nowMs));
     commitDrawingObjects([...drawingObjectsRef.current, obj]);
     setSelectedObjectId(obj.id);
     pendingPlacementRef.current = null;
@@ -1442,6 +1438,11 @@ export default function NativeChart({
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
       e.preventDefault();
       handleRedo();
+      return;
+    }
+    if (e.altKey && e.key.toLowerCase() === "v") {
+      e.preventDefault();
+      handleSelectDrawingTool("vertical-line");
       return;
     }
     if (e.altKey && e.key.toLowerCase() === "h") {

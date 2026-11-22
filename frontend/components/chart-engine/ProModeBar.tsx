@@ -202,7 +202,7 @@ function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boolean) =
       aria-checked={on}
       aria-label={label}
       onClick={() => onChange(!on)}
-      className={`relative h-5 w-9 shrink-0 rounded-full transition ${on ? "bg-violet-500" : "bg-ink-4"}`}
+      className={`relative h-5 w-9 shrink-0 rounded-full transition ${on ? "bg-gold" : "bg-ink-4"}`}
     >
       <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${on ? "left-[18px]" : "left-0.5"}`} />
     </button>
@@ -243,14 +243,14 @@ export function ProToolbarExtras({ layers, onLayers, onAnalyze, scanning, analyz
       >
         {scanning ? "Analyzing…" : analyzed ? "Re-analyze" : "Analyze chart"}
       </button>
-      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="Layers" title="Layers" className={`h-8 rounded-md px-2.5 text-[13px] font-medium transition ${open ? "bg-white/[0.12] text-white" : "text-[#9aa0ae] hover:bg-white/[0.07] hover:text-white"}`}>
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="Layers" title="Layers" className={`h-8 rounded-md px-2.5 text-[13px] font-medium transition ${open ? "bg-ink-4 text-text" : "text-text-3 hover:bg-ink-4 hover:text-text"}`}>
         <span className="inline-flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5M3 17l9 5 9-5" /></svg>Layers</span>
       </button>
-      <button type="button" onClick={() => onSound(!soundOn)} aria-pressed={soundOn} aria-label={soundOn ? "Mute analysis sound" : "Unmute analysis sound"} title={soundOn ? "Sound on" : "Sound off"} className="h-8 rounded-md px-2 text-[14px] text-[#9aa0ae] transition hover:bg-white/[0.07] hover:text-white">
+      <button type="button" onClick={() => onSound(!soundOn)} aria-pressed={soundOn} aria-label={soundOn ? "Mute analysis sound" : "Unmute analysis sound"} title={soundOn ? "Sound on" : "Sound off"} className="h-8 rounded-md px-2 text-[14px] text-text-3 transition hover:bg-ink-4 hover:text-text">
         {soundOn ? "🔊" : "🔇"}
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-40 mt-2 w-72 rounded-lg border border-white/10 bg-[#13141a] p-3 shadow-2xl">
+        <div className="absolute right-0 top-full z-40 mt-2 w-72 rounded-lg border border-border bg-ink-3 p-3 shadow-2xl">
           <p className="mb-2 text-[12.5px] uppercase tracking-wide text-text-3">Layers</p>
           <div className="flex items-center justify-between py-1.5 text-[14px] font-semibold text-text">
             Drawings
