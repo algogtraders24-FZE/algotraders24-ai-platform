@@ -20,6 +20,7 @@ import { sendTelegramToUser } from "@/services/telegram/deliver";
 import { createTelegramClient } from "@/services/telegram/client";
 import { prismaTelegramStore } from "@/services/telegram/store";
 import { telegramConfig } from "@/services/telegram/config";
+import { briefEnabledFor, buildDailyBrief } from "@/lib/publishing/brief/brief-pipeline";
 import { DailyAutoPublisherService, blogGroupMessage, dailyRunTelegramMessage } from "@/services/publishing/daily-auto-publisher.service";
 
 // Up to ~6 sequential live-data + AI analyses (Sunday weekly review = 3, plus the daily crypto report).
@@ -42,6 +43,7 @@ async function runDaily(): Promise<Awaited<ReturnType<DailyAutoPublisherService[
     publishNow: async (articleId) => {
       await publishingService.publishArticleNow(ownerId, articleId);
     },
+    buildBrief: async (symbol) => (briefEnabledFor(symbol) ? buildDailyBrief(symbol) : null),
     getCalendarEvents: async () => (await getEconomicCalendar({ week: "this" })).events,
   });
   const report = await service.run();

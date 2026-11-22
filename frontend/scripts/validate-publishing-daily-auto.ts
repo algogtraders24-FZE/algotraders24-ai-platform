@@ -166,6 +166,22 @@ async function main(): Promise<void> {
     assert.equal(created.length, 3);
   });
 
+  await test("Market Brief 2.0: a brief replaces the report, keeps the dated title; null or a thrown error falls back to the normal report", async () => {
+    const brief = { title: "Headline", summary: "A summary of the brief that is long enough.", sections: [{ heading: "H", body: "b".repeat(60) }] };
+    const asked: string[] = [];
+    const a = makeDeps({ buildBrief: async (sym: string) => { asked.push(sym); return sym === "XAUUSD" ? brief : null; } });
+    const outA = await new DailyAutoPublisherService(a.deps).run();
+    assert.ok(asked.includes("XAUUSD"));
+    assert.deepEqual(outA.results.map((r) => r.status), ["published", "published", "published"]);
+    const gold = a.created.find((c) => c.sections === 1);
+    assert.ok(gold && /Analysis - \d/.test(gold.title) && gold.title !== "Headline", "dated report title, not the brief headline");
+    assert.equal(a.created.filter((c) => c.sections === 1).length, 1, "null brief falls back for the other symbols");
+    const b = makeDeps({ buildBrief: async () => { throw new Error("chart failed"); } });
+    const outB = await new DailyAutoPublisherService(b.deps).run();
+    assert.deepEqual(outB.results.map((r) => r.status), ["published", "published", "published"]);
+    assert.equal(b.created.length, 3);
+  });
+
   await test("re-running the same day creates nothing (idempotent)", async () => {
     const store = new Set<string>();
     await new DailyAutoPublisherService(makeDeps({}, store).deps).run();
