@@ -63,8 +63,8 @@ export default function ProChat({ symbol, timeframe, getFacts, onAnalyze }: { sy
               ["Any patterns forming?", "Is any chart pattern forming (double top, double bottom, structure)?"],
             ] as [string, string | null][]).map(([label, q]) => (
               <li key={label}>
-                <button type="button" onClick={() => (q ? send(q) : onAnalyze?.())} className="flex w-full items-center gap-3 rounded-md px-2 py-2.5 text-left text-[14px] text-[#d1d4dc] hover:bg-white/[0.06]">
-                  <span className="text-violet-300">✦</span>
+                <button type="button" onClick={() => (q ? send(q) : onAnalyze?.())} className="flex w-full items-center gap-3 rounded-md px-2 py-2.5 text-left text-[14px] text-text-2 hover:bg-ink-4">
+                  <span className="text-gold">✦</span>
                   {label}
                 </button>
               </li>
@@ -73,17 +73,17 @@ export default function ProChat({ symbol, timeframe, getFacts, onAnalyze }: { sy
         )}
         {turns.map((t) =>
           t.role === "user" ? (
-            <div key={t.id} className="ml-auto max-w-[90%] rounded-lg bg-white/[0.08] px-3 py-2 text-white">{t.text}</div>
+            <div key={t.id} className="ml-auto max-w-[90%] rounded-lg bg-ink-4 px-3 py-2 text-text">{t.text}</div>
           ) : (
-            <div key={t.id} className="rounded-lg border border-violet-500/30 bg-violet-500/5 px-3 py-2 leading-relaxed text-[#d1d4dc]"><span className="mb-1 block text-[11.5px] font-semibold uppercase tracking-wide text-violet-300">✦ PRAGYA</span>{t.text}</div>
+            <div key={t.id} className="rounded-lg border border-gold/30 bg-gold/5 px-3 py-2 leading-relaxed text-text-2"><span className="mb-1 block text-[11.5px] font-semibold uppercase tracking-wide text-gold">✦ PRAGYA</span>{t.text}</div>
           ),
         )}
-        {sending && <p className="text-[#9aa0ae]">PRAGYA is reading the chart…</p>}
+        {sending && <p className="text-text-3">PRAGYA is reading the chart…</p>}
         {error && <p className="text-red-400">{error}</p>}
       </div>
       <div className="flex gap-1.5">
         {chips.map(([label, q]) => (
-          <button key={label} type="button" disabled={sending} onClick={() => send(q)} className="flex-1 rounded-md border border-white/10 bg-white/[0.04] px-2 py-1.5 text-[#d1d4dc] hover:bg-white/[0.09] disabled:opacity-40">
+          <button key={label} type="button" disabled={sending} onClick={() => send(q)} className="flex-1 rounded-md border border-border bg-ink-3 px-2 py-1.5 text-text-2 hover:bg-ink-4 disabled:opacity-40">
             {label}
           </button>
         ))}
@@ -97,7 +97,7 @@ export default function ProChat({ symbol, timeframe, getFacts, onAnalyze }: { sy
           }}
           rows={1}
           placeholder="Ask PRAGYA anything..."
-          className="flex-1 resize-none rounded-md border border-white/10 bg-[#0b0c10] px-3 py-2 text-white outline-none focus:border-white/30"
+          className="flex-1 resize-none rounded-md border border-border bg-ink px-3 py-2 text-text outline-none focus:border-text-3"
         />
         <button type="button" onClick={() => send(input)} disabled={sending || !input.trim()} className="rounded-md bg-gold px-3 py-2 font-semibold text-ink disabled:opacity-40">Send</button>
       </div>

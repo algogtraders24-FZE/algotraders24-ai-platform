@@ -22,6 +22,8 @@ export function isValidDrawingObject(value: unknown): value is DrawingObject {
   if (typeof v.createdAt !== "number" || !Number.isFinite(v.createdAt)) return false;
   if (v.width !== undefined && !(typeof v.width === "number" && Number.isFinite(v.width) && v.width >= 1 && v.width <= 8)) return false;
   if (v.tool === "horizontal-line") return typeof v.price === "number" && Number.isFinite(v.price);
-  if (v.tool === "trendline" || v.tool === "rectangle" || v.tool === "fibonacci") return isValidDrawingPoint(v.p1) && isValidDrawingPoint(v.p2);
+  if (v.tool === "vertical-line") return typeof v.time === "number" && Number.isFinite(v.time);
+  if (v.tool === "cross-line" || v.tool === "horizontal-ray") return isValidDrawingPoint(v.p1);
+  if (v.tool === "trendline" || v.tool === "rectangle" || v.tool === "fibonacci" || v.tool === "ray" || v.tool === "extended-line" || v.tool === "arrow" || v.tool === "measure") return isValidDrawingPoint(v.p1) && isValidDrawingPoint(v.p2);
   return false;
 }

@@ -60,22 +60,22 @@ export default function ScanOverlay({ active, points, width, height, durationMs 
         <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden" aria-hidden="true">
           <div
             className="absolute top-0 h-full"
-            style={{ left: x - 40, width: 80, background: "linear-gradient(90deg, rgba(38,166,154,0) 0%, rgba(38,230,170,0.22) 50%, rgba(38,166,154,0) 100%)" }}
+            style={{ left: x - 40, width: 80, background: "linear-gradient(90deg, rgba(212,175,55,0) 0%, rgba(212,175,55,0.22) 50%, rgba(212,175,55,0) 100%)" }}
           />
-          <div className="absolute top-0 h-full w-px" style={{ left: x, background: "rgba(80,255,190,0.9)", boxShadow: "0 0 12px 2px rgba(60,255,180,0.7)" }} />
+          <div className="absolute top-0 h-full w-px" style={{ left: x, background: "rgba(240,205,90,0.9)", boxShadow: "0 0 12px 2px rgba(212,175,55,0.7)" }} />
           <svg width={width} height={height} className="absolute left-0 top-0">
-            <path d={path} fill="none" stroke="rgba(38,230,170,0.35)" strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" />
-            <path d={path} fill="none" stroke="rgba(80,255,190,0.95)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-            {head && <circle cx={head[0]} cy={head[1]} r={5} fill="#eafff6" style={{ filter: "drop-shadow(0 0 6px rgba(80,255,190,1))" }} />}
+            <path d={path} fill="none" stroke="rgba(212,175,55,0.35)" strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" />
+            <path d={path} fill="none" stroke="rgba(240,205,90,0.95)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+            {head && <circle cx={head[0]} cy={head[1]} r={5} fill="#fff4cf" style={{ filter: "drop-shadow(0 0 6px rgba(240,205,90,1))" }} />}
           </svg>
-          <div className="absolute bottom-2 right-3 font-mono text-[11px] tracking-wider" style={{ color: "rgb(80,255,190)" }}>
+          <div className="absolute bottom-2 right-3 font-mono text-[11px] tracking-wider" style={{ color: "rgb(230,195,90)" }}>
             SCANNING: {pct}%
           </div>
-          <div className="absolute bottom-0 left-0 h-[3px]" style={{ width: x, background: "linear-gradient(90deg, rgba(38,166,154,0), rgba(80,255,190,1))", boxShadow: "0 0 8px rgba(60,255,180,0.8)" }} />
+          <div className="absolute bottom-0 left-0 h-[3px]" style={{ width: x, background: "linear-gradient(90deg, rgba(212,175,55,0), rgba(240,205,90,1))", boxShadow: "0 0 8px rgba(212,175,55,0.8)" }} />
         </div>
       )}
       {toast && (
-        <div role="status" className="pointer-events-none absolute left-1/2 top-3 z-30 -translate-x-1/2 rounded-panel border border-emerald-500/40 bg-emerald-900/70 px-4 py-2 text-xs font-medium text-emerald-100 shadow-lg backdrop-blur">
+        <div role="status" className="pointer-events-none absolute left-1/2 top-3 z-30 -translate-x-1/2 rounded-panel border border-gold/40 bg-ink-2/90 px-4 py-2 text-xs font-medium text-gold shadow-lg backdrop-blur">
           ✓ Analysis complete
         </div>
       )}

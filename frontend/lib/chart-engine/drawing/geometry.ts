@@ -40,6 +40,17 @@ export function distancePointToSegmentPx(px: number, py: number, ax: number, ay:
   return Math.hypot(px - projX, py - projY);
 }
 
+/** Distance from a point to the infinite line through a-b ("line") or to the ray starting at a through b ("ray"). */
+export function distancePointToLinePx(px: number, py: number, ax: number, ay: number, bx: number, by: number, mode: "line" | "ray"): number {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lengthSq = dx * dx + dy * dy;
+  if (lengthSq === 0) return Math.hypot(px - ax, py - ay);
+  let t = ((px - ax) * dx + (py - ay) * dy) / lengthSq;
+  if (mode === "ray") t = Math.max(0, t);
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
 function hitTestOne(
   obj: DrawingObject,
   px: number,
@@ -55,13 +66,30 @@ function hitTestOne(
     return Math.abs(py - y) <= BODY_TOLERANCE_PX ? "body" : null;
   }
 
+  if (obj.tool === "vertical-line") {
+    const x = indexToX(fractionalIndexForTime(candles, obj.time), indexRange, plotWidth);
+    return Math.abs(px - x) <= BODY_TOLERANCE_PX ? "body" : null;
+  }
+  if (obj.tool === "cross-line") {
+    const c = pointToPixel(obj.p1, candles, indexRange, viewport, plotWidth, plotHeight);
+    return Math.abs(px - c.x) <= BODY_TOLERANCE_PX || Math.abs(py - c.y) <= BODY_TOLERANCE_PX ? "body" : null;
+  }
+  if (obj.tool === "horizontal-ray") {
+    const c = pointToPixel(obj.p1, candles, indexRange, viewport, plotWidth, plotHeight);
+    if (Math.hypot(px - c.x, py - c.y) <= HANDLE_RADIUS_PX) return "p1";
+    return px >= c.x - BODY_TOLERANCE_PX && Math.abs(py - c.y) <= BODY_TOLERANCE_PX ? "body" : null;
+  }
+
   const a = pointToPixel(obj.p1, candles, indexRange, viewport, plotWidth, plotHeight);
   const b = pointToPixel(obj.p2, candles, indexRange, viewport, plotWidth, plotHeight);
   if (Math.hypot(px - a.x, py - a.y) <= HANDLE_RADIUS_PX) return "p1";
   if (Math.hypot(px - b.x, py - b.y) <= HANDLE_RADIUS_PX) return "p2";
 
-  if (obj.tool === "trendline") {
+  if (obj.tool === "trendline" || obj.tool === "arrow") {
     return distancePointToSegmentPx(px, py, a.x, a.y, b.x, b.y) <= BODY_TOLERANCE_PX ? "body" : null;
+  }
+  if (obj.tool === "ray" || obj.tool === "extended-line") {
+    return distancePointToLinePx(px, py, a.x, a.y, b.x, b.y, obj.tool === "ray" ? "ray" : "line") <= BODY_TOLERANCE_PX ? "body" : null;
   }
 
   // Rectangle and Fibonacci Retracement both hit-test as their bounding
@@ -100,6 +128,8 @@ export function applyDrag(obj: DrawingObject, handle: DrawingHit["handle"], delt
   if (obj.tool === "horizontal-line") {
     return { ...obj, price: obj.price + deltaPrice };
   }
+  if (obj.tool === "vertical-line") return { ...obj, time: obj.time + deltaTime };
+  if (obj.tool === "cross-line" || obj.tool === "horizontal-ray") return { ...obj, p1: { time: obj.p1.time + deltaTime, price: obj.p1.price + deltaPrice } };
   if (handle === "p1") return { ...obj, p1: { time: obj.p1.time + deltaTime, price: obj.p1.price + deltaPrice } };
   if (handle === "p2") return { ...obj, p2: { time: obj.p2.time + deltaTime, price: obj.p2.price + deltaPrice } };
   // "body" - translate both endpoints together, preserving shape/length.

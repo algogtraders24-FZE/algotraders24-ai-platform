@@ -11,7 +11,14 @@
 // types.ts) - so an object drawn on a candle stays anchored to that same
 // candle through every pan/zoom, exactly like MT5's own drawn objects do.
 
-export type DrawingToolId = "trendline" | "horizontal-line" | "rectangle" | "fibonacci";
+export type TwoPointToolId = "trendline" | "ray" | "extended-line" | "arrow" | "rectangle" | "fibonacci" | "measure";
+export type OnePointToolId = "horizontal-line" | "vertical-line" | "cross-line" | "horizontal-ray";
+export type DrawingToolId = TwoPointToolId | OnePointToolId;
+
+const ONE_POINT_TOOLS: readonly string[] = ["horizontal-line", "vertical-line", "cross-line", "horizontal-ray"];
+export function isOnePointTool(tool: DrawingToolId): tool is OnePointToolId {
+  return ONE_POINT_TOOLS.includes(tool);
+}
 
 export interface DrawingPoint {
   time: number;
@@ -50,7 +57,25 @@ export interface FibonacciObject extends DrawingObjectBase {
   p2: DrawingPoint;
 }
 
-export type DrawingObject = TrendLineObject | HorizontalLineObject | RectangleObject | FibonacciObject;
+export interface RayObject extends DrawingObjectBase { tool: "ray"; p1: DrawingPoint; p2: DrawingPoint }
+export interface ExtendedLineObject extends DrawingObjectBase { tool: "extended-line"; p1: DrawingPoint; p2: DrawingPoint }
+export interface ArrowObject extends DrawingObjectBase { tool: "arrow"; p1: DrawingPoint; p2: DrawingPoint }
+export interface MeasureObject extends DrawingObjectBase { tool: "measure"; p1: DrawingPoint; p2: DrawingPoint }
+/** A vertical line is time-only. */
+export interface VerticalLineObject extends DrawingObjectBase { tool: "vertical-line"; time: number }
+export interface CrossLineObject extends DrawingObjectBase { tool: "cross-line"; p1: DrawingPoint }
+/** From p1 to the right edge at p1's price. */
+export interface HorizontalRayObject extends DrawingObjectBase { tool: "horizontal-ray"; p1: DrawingPoint }
+
+export type DrawingObject =
+  | TrendLineObject | HorizontalLineObject | RectangleObject | FibonacciObject
+  | RayObject | ExtendedLineObject | ArrowObject | MeasureObject | VerticalLineObject | CrossLineObject | HorizontalRayObject;
+
+/** Numbers shown by the Measure tool, from two anchors. Bars use the gapless candle index, so weekends never count as bars. */
+export function measureStats(p1: DrawingPoint, p2: DrawingPoint, indexOf: (time: number) => number): { dPrice: number; pct: number; bars: number; ms: number } {
+  const dPrice = p2.price - p1.price;
+  return { dPrice, pct: p1.price !== 0 ? (dPrice / p1.price) * 100 : 0, bars: Math.round(Math.abs(indexOf(p2.time) - indexOf(p1.time))), ms: Math.abs(p2.time - p1.time) };
+}
 
 /**
  * MT5's own real OBJ_FIBO default retracement ratios (verified against
@@ -72,12 +97,19 @@ export interface DrawingHit {
 
 /** The in-progress state of a 2-click placement (trendline/rectangle/fibonacci) between the first click and the second - rendered as a live "rubber band" preview, never persisted until the second click commits it. */
 export interface DrawingPreview {
-  tool: "trendline" | "rectangle" | "fibonacci";
+  tool: TwoPointToolId;
   p1: DrawingPoint;
   p2: DrawingPoint;
 }
 
 export const DRAWING_TOOL_DEFAULT_COLOR: Record<DrawingToolId, string> = {
+  ray: "#f59e0b",
+  "extended-line": "#f59e0b",
+  arrow: "#e5e7eb",
+  measure: "#60a5fa",
+  "vertical-line": "#60a5fa",
+  "cross-line": "#9aa0ae",
+  "horizontal-ray": "#f472b6",
   trendline: "#f59e0b",
   "horizontal-line": "#f472b6",
   rectangle: "#60a5fa",
@@ -85,6 +117,13 @@ export const DRAWING_TOOL_DEFAULT_COLOR: Record<DrawingToolId, string> = {
 };
 
 export const DRAWING_TOOL_LABEL: Record<DrawingToolId, string> = {
+  ray: "Ray",
+  "extended-line": "Extended Line",
+  arrow: "Arrow",
+  measure: "Measure",
+  "vertical-line": "Vertical Line",
+  "cross-line": "Cross Line",
+  "horizontal-ray": "Horizontal Ray",
   trendline: "Trend Line",
   "horizontal-line": "Horizontal Line",
   rectangle: "Rectangle",
@@ -110,4 +149,16 @@ export function createRectangle(p1: DrawingPoint, p2: DrawingPoint, nowMs: numbe
 
 export function createFibonacci(p1: DrawingPoint, p2: DrawingPoint, nowMs: number): FibonacciObject {
   return { id: newId(), tool: "fibonacci", p1, p2, color: DRAWING_TOOL_DEFAULT_COLOR.fibonacci, createdAt: nowMs };
+}
+
+/** One factory for every tool: one-point tools use p1 only (vertical-line uses its time). */
+export function createDrawing(tool: DrawingToolId, p1: DrawingPoint, p2: DrawingPoint, nowMs: number): DrawingObject {
+  const base = { id: newId(), color: DRAWING_TOOL_DEFAULT_COLOR[tool], createdAt: nowMs };
+  switch (tool) {
+    case "horizontal-line": return { ...base, tool, price: p1.price };
+    case "vertical-line": return { ...base, tool, time: p1.time };
+    case "cross-line": return { ...base, tool, p1 };
+    case "horizontal-ray": return { ...base, tool, p1 };
+    default: return { ...base, tool, p1, p2 };
+  }
 }

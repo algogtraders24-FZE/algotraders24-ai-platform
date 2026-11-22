@@ -29,7 +29,7 @@ export default function RangeBar({ active, onRange, info }: { active: RangeKey |
     return () => clearInterval(id);
   }, []);
   return (
-    <div className="flex h-9 shrink-0 items-center justify-between border-t border-white/[0.06] bg-[#0d0e12] px-3 text-[12px]">
+    <div className="flex h-9 shrink-0 items-center justify-between border-t border-border bg-ink-2 px-3 text-[12px]">
       <div role="group" aria-label="Chart range" className="flex items-center gap-1">
         {RANGE_KEYS.map((k) => (
           <button
@@ -37,13 +37,13 @@ export default function RangeBar({ active, onRange, info }: { active: RangeKey |
             type="button"
             onClick={() => onRange(k)}
             aria-pressed={active === k}
-            className={`rounded-md px-2.5 py-1 font-medium transition ${active === k ? "bg-white/[0.12] text-white" : "text-[#9aa0ae] hover:bg-white/[0.07] hover:text-white"}`}
+            className={`rounded-md px-2.5 py-1 font-medium transition ${active === k ? "bg-ink-4 text-text" : "text-text-3 hover:bg-ink-4 hover:text-text"}`}
           >
             {k}
           </button>
         ))}
       </div>
-      <span className="flex items-center gap-3 tabular-nums text-[#6b7280]">
+      <span className="flex items-center gap-3 tabular-nums text-text-3">
         {info && <span className="hidden sm:inline">{info}</span>}
         {now}
       </span>

@@ -51,7 +51,7 @@ function useDismiss(open: boolean, close: () => void) {
   return ref;
 }
 
-const GHOST = "flex h-8 items-center rounded-md px-2.5 text-[13px] font-medium text-[#9aa0ae] transition hover:bg-white/[0.07] hover:text-white";
+const GHOST = "flex h-8 items-center rounded-md px-2.5 text-[13px] font-medium text-text-3 transition hover:bg-ink-4 hover:text-text";
 
 export default function ProTopBar(p: Props) {
   const [typeOpen, setTypeOpen] = useState(false);
@@ -64,9 +64,9 @@ export default function ProTopBar(p: Props) {
   );
 
   return (
-    <div className="flex h-12 shrink-0 items-center gap-1.5 border-b border-white/[0.06] bg-[#0d0e12] px-3 text-[#d1d4dc]">
+    <div className="flex h-12 shrink-0 items-center gap-1.5 border-b border-border bg-ink-2 px-3 text-text-2">
       {p.onBack && (
-        <button type="button" onClick={p.onBack} aria-label="Back to the dashboard" title="Back to the dashboard" className="flex h-8 w-8 items-center justify-center rounded-md text-[#9aa0ae] hover:bg-white/[0.07] hover:text-white">
+        <button type="button" onClick={p.onBack} aria-label="Back to the dashboard" title="Back to the dashboard" className="flex h-8 w-8 items-center justify-center rounded-md text-text-3 hover:bg-ink-4 hover:text-text">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
         </button>
       )}
@@ -78,7 +78,7 @@ export default function ProTopBar(p: Props) {
             type="button"
             onClick={() => p.onTimeframeChange(tf)}
             aria-pressed={p.timeframe === tf}
-            className={`h-8 min-w-[34px] rounded-md px-2 text-[13px] font-medium transition ${p.timeframe === tf ? "bg-white text-[#0d0e12]" : "text-[#9aa0ae] hover:bg-white/[0.07] hover:text-white"}`}
+            className={`h-8 min-w-[34px] rounded-md px-2 text-[13px] font-medium transition ${p.timeframe === tf ? "bg-gold text-ink" : "text-text-3 hover:bg-ink-4 hover:text-text"}`}
           >
             {TF_LABEL[tf]}
           </button>
@@ -90,15 +90,15 @@ export default function ProTopBar(p: Props) {
           <Icon>{current.icon}</Icon>
         </button>
         {typeOpen && (
-          <div role="menu" className="absolute left-0 top-full z-40 mt-1 w-64 rounded-lg border border-white/10 bg-[#13141a] p-1.5 shadow-2xl">
+          <div role="menu" className="absolute left-0 top-full z-40 mt-1 w-64 rounded-lg border border-border bg-ink-3 p-1.5 shadow-2xl">
             {TYPES.map((t) => (
-              <button key={t.value} type="button" role="menuitemradio" aria-checked={p.chartType === t.value} onClick={() => { p.onChartTypeChange(t.value); setTypeOpen(false); }} className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-white/[0.07]">
-                <span className="text-[#9aa0ae]"><Icon>{t.icon}</Icon></span>
+              <button key={t.value} type="button" role="menuitemradio" aria-checked={p.chartType === t.value} onClick={() => { p.onChartTypeChange(t.value); setTypeOpen(false); }} className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-ink-4">
+                <span className="text-text-3"><Icon>{t.icon}</Icon></span>
                 <span className="flex-1">
-                  <span className="block text-[13px] font-medium text-white">{t.label}</span>
-                  <span className="block text-[11px] text-[#6b7280]">{t.desc}</span>
+                  <span className="block text-[13px] font-medium text-text">{t.label}</span>
+                  <span className="block text-[11px] text-text-3">{t.desc}</span>
                 </span>
-                {p.chartType === t.value && <span className="text-violet-400">✓</span>}
+                {p.chartType === t.value && <span className="text-gold">✓</span>}
               </button>
             ))}
           </div>
@@ -119,7 +119,7 @@ export default function ProTopBar(p: Props) {
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="19" cy="12" r="1.7" /></svg>
         </button>
         {moreOpen && (
-          <div role="menu" className="absolute right-0 top-full z-40 mt-1 w-60 rounded-lg border border-white/10 bg-[#13141a] p-1.5 shadow-2xl">
+          <div role="menu" className="absolute right-0 top-full z-40 mt-1 w-60 rounded-lg border border-border bg-ink-3 p-1.5 shadow-2xl">
             {[
               ["Fit chart to data", p.onFit],
               ["Algo Test", p.onOpenAlgoTest],
@@ -127,13 +127,13 @@ export default function ProTopBar(p: Props) {
               ["Screenshot", p.onSaveAsPicture],
               ["Save current as template…", p.onOpenSaveTemplate],
             ].map(([label, fn]) => (
-              <button key={label as string} type="button" role="menuitem" onClick={() => { setMoreOpen(false); (fn as () => void)(); }} className="w-full rounded-md px-2 py-2 text-left text-[13px] text-[#d1d4dc] hover:bg-white/[0.07]">{label as string}</button>
+              <button key={label as string} type="button" role="menuitem" onClick={() => { setMoreOpen(false); (fn as () => void)(); }} className="w-full rounded-md px-2 py-2 text-left text-[13px] text-text-2 hover:bg-ink-4">{label as string}</button>
             ))}
             {p.templates.length > 0 && (
-              <div className="mt-1 border-t border-white/[0.08] pt-1">
-                <p className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wider text-[#6b7280]">Saved setups</p>
+              <div className="mt-1 border-t border-border pt-1">
+                <p className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wider text-text-3">Saved setups</p>
                 {p.templates.map((t) => (
-                  <button key={t.id} type="button" role="menuitem" onClick={() => { setMoreOpen(false); p.onApplyTemplate(t); }} className="w-full truncate rounded-md px-2 py-2 text-left text-[13px] text-[#d1d4dc] hover:bg-white/[0.07]">{t.name}</button>
+                  <button key={t.id} type="button" role="menuitem" onClick={() => { setMoreOpen(false); p.onApplyTemplate(t); }} className="w-full truncate rounded-md px-2 py-2 text-left text-[13px] text-text-2 hover:bg-ink-4">{t.name}</button>
                 ))}
               </div>
             )}

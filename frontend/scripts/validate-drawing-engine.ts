@@ -6,7 +6,8 @@ import { snapToOhlc } from "../lib/chart-engine/drawing/snap";
 import { isValidDrawingObject } from "../lib/chart-engine/drawing/validation";
 import { drawDrawingObjects, drawingPriceText } from "../lib/chart-engine/drawing/drawing-renderer";
 import { readFileSync } from "node:fs";
-import { createHorizontalLine, createTrendLine, type DrawingObject } from "../lib/chart-engine/drawing/types";
+import { createHorizontalLine, createTrendLine, createDrawing, isOnePointTool, measureStats, DRAWING_TOOL_LABEL, type DrawingObject } from "../lib/chart-engine/drawing/types";
+import { distancePointToLinePx, hitTestObjects, applyDrag } from "../lib/chart-engine/drawing/geometry";
 import type { ChartCandle } from "../types/chart-data";
 
 let passed = 0, failed = 0;
@@ -107,6 +108,61 @@ test("renderer: each object is stroked with its own width (selected = +1)", () =
   const range = { minIndex: 0, maxIndex: 2 };
   drawDrawingObjects(ctx, [{ ...A, price: 100, width: 3 }, { ...createHorizontalLine(110, 3), width: 1 }], candles, range, vp, 800, row, A.id);
   assert.deepEqual(widths.slice(0, 2), [4, 1], JSON.stringify(widths)); // first is selected: 3 + 1, second plain 1
+});
+
+test("every tool can be created, is valid, and has a label", () => {
+  for (const tool of Object.keys(DRAWING_TOOL_LABEL) as Array<keyof typeof DRAWING_TOOL_LABEL>) {
+    const o = createDrawing(tool, { time: 1000, price: 100 }, { time: 2000, price: 110 }, 1);
+    assert.equal(isValidDrawingObject(o), true, tool);
+    assert.equal(o.tool, tool);
+  }
+  assert.equal(isOnePointTool("vertical-line") && isOnePointTool("cross-line") && isOnePointTool("horizontal-ray") && isOnePointTool("horizontal-line"), true);
+  assert.equal(isOnePointTool("ray") || isOnePointTool("measure") || isOnePointTool("arrow"), false);
+  assert.equal(isValidDrawingObject({ id: "x", color: "#fff", createdAt: 1, tool: "vertical-line" }), false); // time missing
+});
+
+test("measure: price delta, percent, bars (hand-worked)", () => {
+  const m = measureStats({ time: 1000, price: 100 }, { time: 4000, price: 110 }, (t) => t / 1000);
+  assert.equal(m.dPrice, 10);
+  assert.equal(m.pct, 10);
+  assert.equal(m.bars, 3);
+  assert.equal(m.ms, 3000);
+  const down = measureStats({ time: 5000, price: 200 }, { time: 2000, price: 150 }, (t) => t / 1000);
+  assert.equal(down.dPrice, -50);
+  assert.equal(down.pct, -25);
+  assert.equal(down.bars, 3);
+});
+
+test("ray hit-test only forward of its start; extended line both ways", () => {
+  assert.equal(distancePointToLinePx(-20, 0, 0, 0, 10, 0, "line"), 0);
+  assert.equal(distancePointToLinePx(-20, 0, 0, 0, 10, 0, "ray"), 20);
+  assert.equal(distancePointToLinePx(50, 3, 0, 0, 10, 0, "ray"), 3);
+});
+
+test("one-point tools: vertical line, cross line, horizontal ray hit-test and drag", () => {
+  const range = { minIndex: 0, maxIndex: 2 };
+  const vp = { minTime: 1000, maxTime: 3000, minPrice: 80, maxPrice: 130 } as never;
+  const v = createDrawing("vertical-line", { time: 2000, price: 0 }, { time: 2000, price: 0 }, 1);
+  assert.deepEqual(hitTestObjects([v], 402, 50, candles, range, vp, 800, 300), { objectId: v.id, handle: "body" }); // candle 1 sits at x = 400
+  assert.equal(hitTestObjects([v], 450, 50, candles, range, vp, 800, 300), null);
+  assert.equal((applyDrag(v, "body", 500, 99) as { time: number }).time, 2500);
+  const c = createDrawing("cross-line", { time: 2000, price: 105 }, { time: 2000, price: 105 }, 1);
+  assert.notEqual(hitTestObjects([c], 400, 5, candles, range, vp, 800, 300), null); // on the vertical arm
+  const h = createDrawing("horizontal-ray", { time: 2000, price: 105 }, { time: 2000, price: 105 }, 1);
+  assert.equal(hitTestObjects([h], 100, 150, candles, range, vp, 800, 300), null); // left of the ray's start
+});
+
+test("drawing price labels: decimals by magnitude, trailing zeros trimmed", () => {
+  assert.equal(drawingPriceText(60442.65439), "60442.65");
+  assert.equal(drawingPriceText(1.0987654321), "1.09877");
+  assert.equal(drawingPriceText(61000), "61000");
+  assert.equal(drawingPriceText(3735.3), "3735.3");
+});
+
+test("NativeChart: a stale series never stamps the fit key, and the Pro Chart pane is the active pane for the algo test", () => {
+  const src = readFileSync("components/chart-engine/NativeChart.tsx", "utf8");
+  assert.ok(src.includes("const seriesIsCurrent = algoTestOverlay !== null || (result.series?.symbol === symbol && result.series?.timeframe === timeframe);"));
+  assert.ok(src.includes("isActive={proLayout || symbol === activeSymbol}"));
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
