@@ -4,7 +4,6 @@ import Hero from "@/sections/Hero";
 import TrustStrip from "@/sections/TrustStrip";
 import PlatformOverview from "@/sections/PlatformOverview";
 import FeaturedMarketplace from "@/sections/FeaturedMarketplace";
-import XxxLineStrip from "@/sections/XxxLineStrip";
 import PricingTeaser from "@/sections/PricingTeaser";
 import FAQ from "@/sections/FAQ";
 import CTA from "@/sections/CTA";
@@ -66,7 +65,6 @@ export default function Home() {
       <PlatformOverview />
       <PricingTeaser />
       <FeaturedMarketplace />
-      <XxxLineStrip />
       <FAQ limit={5} />
       <CTA />
       <Footer />
