@@ -147,7 +147,7 @@ export default function TutorialsPage() {
         <div className="mx-auto max-w-3xl">
           <h2 className="text-xl font-semibold">Watch: the Beginner Guide</h2>
           <p className="mt-2 text-sm leading-6 text-text-2">
-            Short videos that take a new user from sign-up to the free demo, one tool at a time. Educational content, not financial advice.
+            Short videos that take a new user from sign-up to your first analysis, one tool at a time. Educational content, not financial advice.
           </p>
           <div className="mt-4 aspect-video w-full overflow-hidden rounded-card border border-border bg-ink-2">
             <iframe
