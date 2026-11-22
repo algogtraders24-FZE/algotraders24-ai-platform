@@ -34,6 +34,8 @@
 // real value at the hovered candle - never interpolated.
 import { ProModeBar, PlanOverlay, ProToolbarExtras } from "./ProModeBar";
 import { ProSidePanel, type ProTab } from "./ProSidePanel";
+import ProTopBar from "./ProTopBar";
+import ProLeftRail from "./ProLeftRail";
 import { buildTradePlan, type TradePlan } from "@/lib/chart-engine/annotations/plan";
 import { computeAnnotations } from "@/lib/chart-engine/annotations/compute";
 import { PRO_LAYERS_DEFAULT, PRO_LAYERS_CLEAN, type ChartLayers, type AnnotationResult } from "@/lib/chart-engine/annotations/types";
@@ -523,6 +525,7 @@ export default function NativeChart({
           ? { dir: proPlanRef.current.dir, entryType: proPlanRef.current.entryType, entry: proPlanRef.current.entry, stop: proPlanRef.current.stop, target: proPlanRef.current.target, rr: proPlanRef.current.rr }
           : null,
         formatPlanPrice: (n: number) => fmtP(n),
+        fontKind: proLayout ? "sans" : "mono",
       });
     },
     [candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme, activeSymbol, algoTestOverlay, selectedAlgoTestTradeId, externalCrosshairTime, proState],
@@ -1141,6 +1144,15 @@ export default function NativeChart({
     setProState((p) => ({ ...p })); // redraw without the plan box
   }
 
+  /** Rail zoom buttons: zoom the time axis around the middle of the visible window. */
+  function zoomByButton(direction: "in" | "out") {
+    const viewport = viewportRef.current;
+    if (!viewport || candles.length === 0) return;
+    const anchor = (viewport.minTime + viewport.maxTime) / 2;
+    const zoomed = zoomViewport(viewport, direction === "in" ? ZOOM_IN_FACTOR : ZOOM_OUT_FACTOR, anchor, candleStepMs(candles), candles.length);
+    applyViewport(clampViewportToCandleBounds(zoomed, candles));
+  }
+
   function handleRange(key: RangeKey) {
     if (candles.length === 0) return;
     setRangeKey(key);
@@ -1476,13 +1488,46 @@ export default function NativeChart({
   const livePrice = liveQuote ? (liveQuote.bid + liveQuote.ask) / 2 : candles[candles.length - 1]?.close;
 
   return (
-    <div className={isFullscreen ? "fixed inset-0 z-50 flex flex-col gap-2 bg-ink p-4" : "flex flex-col gap-2"}>
+    <div className={proLayout ? "flex h-full min-h-0 w-full flex-col bg-[#0b0c10] text-[#d1d4dc]" : isFullscreen ? "fixed inset-0 z-50 flex flex-col gap-2 bg-ink p-4" : "flex flex-col gap-2"}>
       {!proLayout && <ChartHeader displaySymbol={resolution.displaySymbol} instrumentName={name} timeframe={timeframe} series={result.series} />}
       {!proLayout && panelBlock}
-      <div className={proLayout ? "rounded-panel border border-border bg-[#131419]" : "contents"}>
-      <div className={proLayout ? "flex flex-col gap-2 border-b border-border px-3 py-2" : "contents"}>
+      <div className={proLayout ? "flex min-h-0 flex-1 flex-col" : "contents"}>
+      <div className="contents">
+      {proLayout ? (
+        <ProTopBar
+          leading={symbolPicker}
+          onBack={() => { window.location.href = "/dashboard"; }}
+          timeframe={timeframe}
+          onTimeframeChange={onTimeframeChange}
+          chartType={chartType}
+          onChartTypeChange={setChartType}
+          activeIndicatorKeys={activeIndicatorKeys}
+          onToggleIndicator={onToggleIndicator}
+          extra={(
+            <ProToolbarExtras
+              layers={proState.layers}
+              onLayers={(patch) => setProState((p) => ({ ...p, layers: { ...p.layers, ...patch } }))}
+              onAnalyze={runAnalyze}
+              scanning={scan !== null}
+              analyzed={proState.analysis !== null}
+              onClean={() => setProState((p) => ({ ...p, layers: PRO_LAYERS_CLEAN }))}
+              soundOn={soundOn}
+              onSound={(v) => { setSoundOn(v); setSoundOnState(v); }}
+            />
+          )}
+          isLive={isLive}
+          onGoLive={handleGoLive}
+          onFit={handleFit}
+          templates={templates}
+          onApplyTemplate={handleApplyTemplate}
+          onOpenSaveTemplate={() => setSaveModalOpen(true)}
+          onOpenProperties={() => setPropertiesModalOpen(true)}
+          onSaveAsPicture={handleSaveAsPicture}
+          onOpenAlgoTest={() => { setProTab("trade"); setTimeout(() => algoTestRef.current?.openConfig(), 80); }}
+        />
+      ) : (
       <ChartToolbar
-        compact={proLayout}
+        compact={false}
         leading={symbolPicker}
         extra={proLayout ? (
           <ProToolbarExtras
@@ -1516,6 +1561,7 @@ export default function NativeChart({
         onSaveAsPicture={handleSaveAsPicture}
         onOpenAlgoTest={() => algoTestRef.current?.openConfig()}
       />
+      )}
       {!proLayout && (
         <ProModeBar
           analysis={proState.analysis}
@@ -1619,27 +1665,27 @@ export default function NativeChart({
       {!proLayout && ohlcStrip}
 
 
-      <div className={proLayout ? "flex flex-col xl:flex-row" : "contents"}>
-      {proLayout && <div className="flex shrink-0 flex-row justify-center gap-1.5 border-b border-border p-2 xl:w-12 xl:flex-col xl:items-center xl:border-b-0 xl:border-r">
-      <DrawingToolbar
-          vertical
-        activeTool={activeTool}
-        onSelectTool={handleSelectDrawingTool}
-        hasSelection={selectedObjectId !== null}
-        onDeleteSelected={handleDeleteSelectedDrawing}
-        objectCount={drawingObjects.length}
-        onClearAll={handleClearAllDrawings}
-        drawingObjects={drawingObjects}
-        selectedObjectId={selectedObjectId}
-        onSelectObject={handleSelectObjectFromList}
-        onDeleteObject={handleDeleteObjectFromList}
-      />
-      </div>}
-      <div className={proLayout ? "flex min-w-0 flex-1 flex-col" : "contents"}>
+      <div className={proLayout ? "flex min-h-0 flex-1" : "contents"}>
+      {proLayout && (
+        <ProLeftRail
+          activeTool={activeTool}
+          onSelectTool={handleSelectDrawingTool}
+          hasSelection={selectedObjectId !== null}
+          onDeleteSelected={handleDeleteSelectedDrawing}
+          objectCount={drawingObjects.length}
+          onClearAll={handleClearAllDrawings}
+          drawingObjects={drawingObjects}
+          selectedObjectId={selectedObjectId}
+          onSelectObject={handleSelectObjectFromList}
+          onDeleteObject={handleDeleteObjectFromList}
+          onZoom={(dir) => zoomByButton(dir)}
+        />
+      )}
+      <div className={proLayout ? "flex min-h-0 min-w-0 flex-1 flex-col" : "contents"}>
       <div
         ref={containerRef}
-        className={isFullscreen ? "relative w-full min-h-0 flex-1" : "relative w-full"}
-        style={isFullscreen ? undefined : { height: proLayout ? "max(520px, calc(100vh - 330px))" : containerHeight }}
+        className={proLayout ? "relative min-h-0 w-full flex-1" : isFullscreen ? "relative w-full min-h-0 flex-1" : "relative w-full"}
+        style={proLayout || isFullscreen ? undefined : { height: containerHeight }}
       >
         <canvas
           ref={canvasRef}
@@ -1673,9 +1719,9 @@ export default function NativeChart({
         {proLayout && (
           <div className="pointer-events-none absolute left-3 top-2 z-10 flex flex-col gap-0.5">
             <div className="flex items-baseline gap-2">
-              <span className="text-sm font-semibold text-text">{resolution.displaySymbol}</span>
-              <span className="text-[11px] text-text-3">{timeframe.toUpperCase()}{name ? ` · ${name}` : ""}</span>
-              {livePrice !== undefined && <span className="font-mono text-sm font-semibold text-text">{formatPrice(livePrice, { maxDecimals: 5 })}</span>}
+              <span className="text-[15px] font-semibold text-white">{resolution.displaySymbol}</span>
+              <span className="text-[12px] text-[#6b7280]">{timeframe.toUpperCase()}{name ? ` · ${name}` : ""}</span>
+              {livePrice !== undefined && <span className="text-[15px] font-semibold tabular-nums text-white">{fmtP(livePrice)}</span>}
             </div>
             <div className="flex flex-wrap items-center gap-3 text-[11px]">{ohlcStrip}</div>
           </div>
@@ -1707,13 +1753,12 @@ export default function NativeChart({
           formatPrice={(n) => fmtP(n)}
           candles={candles}
           pragya={pragya}
-          trade={paperNode}
+          trade={<>{paperNode}{panelBlock}</>}
           onAnalyze={runAnalyze}
         />
       )}
       </div>
       </div>
-      {proLayout && panelBlock}
     </div>
   );
 }

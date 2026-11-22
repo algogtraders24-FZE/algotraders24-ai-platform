@@ -19,6 +19,8 @@
 // convention (store.ts's own header comment).
 import { prisma } from "@/lib/prisma";
 import { isKnownMarket } from "@/lib/market-data/market-registry";
+import { getCanonicalInstrument } from "@/lib/market-data/instrument-catalog";
+import { ensureExnessInstrumentRegistered } from "@/lib/market-data/exness-instruments";
 import { isSignalTimeframe } from "@/types/signal";
 import { isValidDrawingObject } from "@/lib/chart-engine/drawing/validation";
 import { Errors } from "@/services/backend/ErrorHandler";
@@ -27,9 +29,16 @@ import type { DrawingObject } from "@/lib/chart-engine/drawing/types";
 
 const MAX_OBJECTS_PER_CHART = 200;
 
+/** A symbol drawings can be saved for: a registry market, a catalog instrument, or an instrument the Exness account lists. */
+async function isChartableSymbol(symbol: string): Promise<boolean> {
+  if (isKnownMarket(symbol) || getCanonicalInstrument(symbol)) return true;
+  if (!/^[A-Za-z0-9._#-]{2,20}$/.test(symbol)) return false;
+  return ensureExnessInstrumentRegistered(symbol);
+}
+
 export class ChartDrawingService {
   async get(userId: string, symbol: string, timeframe: string): Promise<DrawingObject[]> {
-    if (!isKnownMarket(symbol)) throw Errors.validation("Unknown symbol", { symbol });
+    if (!(await isChartableSymbol(symbol))) throw Errors.validation("Unknown symbol", { symbol });
     if (!isSignalTimeframe(timeframe)) throw Errors.validation("Unknown timeframe", { timeframe });
 
     const row = await prisma.chartDrawingSet.findUnique({
@@ -42,7 +51,7 @@ export class ChartDrawingService {
   }
 
   async save(userId: string, symbol: string, timeframe: string, objects: unknown): Promise<DrawingObject[]> {
-    if (!isKnownMarket(symbol)) throw Errors.validation("Unknown symbol", { symbol });
+    if (!(await isChartableSymbol(symbol))) throw Errors.validation("Unknown symbol", { symbol });
     if (!isSignalTimeframe(timeframe)) throw Errors.validation("Unknown timeframe", { timeframe });
     if (!Array.isArray(objects)) throw Errors.validation("objects must be an array");
 
