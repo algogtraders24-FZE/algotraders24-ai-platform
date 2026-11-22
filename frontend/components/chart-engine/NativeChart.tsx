@@ -519,7 +519,7 @@ export default function NativeChart({
   const [soundOn, setSoundOnState] = useState(true);
   useEffect(() => setSoundOnState(isSoundOn()), []);
   const [rangeKey, setRangeKey] = useState<RangeKey | null>(null);
-  const [proTab, setProTab] = useState<ProTab>("analysis");
+  const [proTab, setProTab] = useState<ProTab>("chat");
   const proRef = useRef(proState);
   proRef.current = proState;
 
@@ -573,7 +573,7 @@ export default function NativeChart({
         // activeSymbol}, NativeChart.tsx below) shows the Buy/Sell trade
         // lines - a non-active tiled pane has no order form to open, so
         // drawing clickable-looking lines there would be misleading.
-        showTradeLines: proLayout || symbol === activeSymbol,
+        showTradeLines: !proLayout && symbol === activeSymbol,
         // P3.2B - only the pane whose AlgoTestPanel is actually mounted
         // (isActive={symbol === activeSymbol}) can have an active overlay
         // in the first place (algoTestOverlay is only ever set from that
@@ -953,7 +953,7 @@ export default function NativeChart({
         // PaperTradingPanel is actually mounted, and only takes priority
         // over drawing-object hit-testing when it genuinely hits a line -
         // falls through to the existing object hit-test otherwise.
-        if ((proLayout || symbol === activeSymbol) && liveQuote) {
+        if (!proLayout && symbol === activeSymbol && liveQuote) {
           const askY = row.top + priceToY(liveQuote.ask, viewport, row.height);
           const bidY = row.top + priceToY(liveQuote.bid, viewport, row.height);
           const TRADE_LINE_HIT_PX = 6;
@@ -1536,7 +1536,17 @@ export default function NativeChart({
   const hoveredCandle = hoveredIndex >= 0 && hoveredIndex < candles.length ? candles[hoveredIndex] : null;
   const trend = hoveredCandle ? classifyCandle(hoveredCandle) : null;
 
-  const paperNode = <PaperTradingPanel ref={paperTradingRef} symbol={symbol} isActive={proLayout || symbol === activeSymbol} />;
+  const paperNode = <PaperTradingPanel ref={paperTradingRef} symbol={symbol} isActive={proLayout || symbol === activeSymbol} compact={proLayout} />;
+  const algoNode = (
+    <AlgoTestPanel
+      ref={algoTestRef}
+      symbol={symbol}
+      isActive={proLayout || symbol === activeSymbol}
+      onOverlayChange={handleAlgoTestOverlayChange}
+      selectedTradeId={selectedAlgoTestTradeId}
+      onSelectTrade={handleSelectAlgoTestTrade}
+    />
+  );
   const panelBlock = (
     <>
       <MicrostructurePanel symbol={symbol} hypothesisType={symbol === activeSymbol ? hypothesisType : undefined} />
@@ -1630,7 +1640,7 @@ export default function NativeChart({
           onOpenSaveTemplate={() => setSaveModalOpen(true)}
           onOpenProperties={() => setPropertiesModalOpen(true)}
           onSaveAsPicture={handleSaveAsPicture}
-          onOpenAlgoTest={() => { setProTab("trade"); setTimeout(() => algoTestRef.current?.openConfig(), 80); }}
+          onOpenAlgoTest={() => { setProTab("strategies"); setTimeout(() => algoTestRef.current?.openConfig(), 80); }}
         />
       ) : (
       <ChartToolbar
@@ -1863,17 +1873,13 @@ export default function NativeChart({
           timeframe={timeframe}
           plan={proPlan}
           analysis={proState.analysis}
-          onExecute={(side) => {
-            // the order ticket lives in the Trade tab: open it first, then let it show its confirmation
-            setProTab("trade");
-            setTimeout(() => paperTradingRef.current?.quickTrade(side), 60);
-          }}
+          onExecute={() => setProTab("trade")}
           onClosePlan={closePlan}
           formatPrice={(n) => fmtP(n)}
           candles={candles}
           getChatFacts={buildChatFacts}
           pragya={pragya}
-          trade={<>{paperNode}{panelBlock}</>}
+          algo={algoNode}
           onAnalyze={runAnalyze}
         />
       )}

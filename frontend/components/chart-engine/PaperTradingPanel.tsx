@@ -54,6 +54,8 @@ import type { PaperOrderType, PaperPositionSide, PaperPositionView } from "@/typ
 export interface PaperTradingPanelProps {
   symbol: string;
   isActive: boolean;
+  /** Narrow host (the Pro Chart side panel): stat cards in 3 columns instead of 6. */
+  compact?: boolean;
 }
 
 // Phase P2 - the common, well-documented MT5 industry-standard Margin
@@ -136,7 +138,7 @@ function PendingOrderRow({ position, onCancel, cancelling }: { position: PaperPo
   );
 }
 
-const PaperTradingPanel = forwardRef<PaperTradingPanelHandle, PaperTradingPanelProps>(function PaperTradingPanel({ symbol, isActive }, ref) {
+const PaperTradingPanel = forwardRef<PaperTradingPanelHandle, PaperTradingPanelProps>(function PaperTradingPanel({ symbol, isActive, compact = false }, ref) {
   const { account, loaded, openPosition, closePosition, cancelPosition, reset } = usePaperTrading();
   const quote = useLiveQuote(symbol);
 
@@ -287,7 +289,7 @@ const PaperTradingPanel = forwardRef<PaperTradingPanelHandle, PaperTradingPanelP
         </button>
       </div>
 
-      <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-6">
+      <div className={`mt-2 grid gap-2 ${compact ? "grid-cols-3" : "grid-cols-2 sm:grid-cols-6"}`}>
         <StatField label="Balance">
           <span className={FIN_PRIMARY}>{formatPrice(account.balance, { maxDecimals: 2 })}</span>
         </StatField>
