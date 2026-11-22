@@ -69,11 +69,11 @@ export function fitToData(candles: ChartCandle[]): Viewport {
 }
 
 /** Like fitToData but frames only the most recent `recent` candles (Pro Chart default: the latest ~180 bars, with the rest of the loaded history reachable by panning left). */
-export function fitToRecent(candles: ChartCandle[], recent: number): Viewport {
+export function fitToRecent(candles: ChartCandle[], recent: number, padCandles = DEFAULT_TIME_PADDING_CANDLES): Viewport {
   if (candles.length <= recent) return fitToData(candles);
   const step = candleStepMs(candles);
   const minTime = candles[candles.length - recent].time;
-  const maxTime = candles[candles.length - 1].time + step * DEFAULT_TIME_PADDING_CANDLES;
+  const maxTime = candles[candles.length - 1].time + step * padCandles;
   const { minPrice, maxPrice } = priceRangeForWindow(candles, minTime, maxTime);
   return { minTime, maxTime, minPrice, maxPrice };
 }

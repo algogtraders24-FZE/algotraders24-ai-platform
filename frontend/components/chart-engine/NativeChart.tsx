@@ -32,11 +32,15 @@
 // (lib/chart-engine/indicators/*, sub-panel-renderer.ts, panel-layout.ts),
 // and a crosshair readout that includes volume + every active indicator's
 // real value at the hovered candle - never interpolated.
-import { ProModeBar, PlanOverlay } from "./ProModeBar";
+import { ProModeBar, PlanOverlay, ProToolbarExtras } from "./ProModeBar";
 import { ProSidePanel, type ProTab } from "./ProSidePanel";
 import { buildTradePlan, type TradePlan } from "@/lib/chart-engine/annotations/plan";
 import { computeAnnotations } from "@/lib/chart-engine/annotations/compute";
-import { ALL_LAYERS_ON, ALL_LAYERS_OFF, type AnnotationLayers, type AnnotationResult } from "@/lib/chart-engine/annotations/types";
+import { PRO_LAYERS_DEFAULT, PRO_LAYERS_CLEAN, type ChartLayers, type AnnotationResult } from "@/lib/chart-engine/annotations/types";
+import ScanOverlay from "./ScanOverlay";
+import RangeBar, { rangeSpanMs, type RangeKey } from "./RangeBar";
+import { computeScanPath } from "@/lib/chart-engine/scan-path";
+import { isSoundOn, setSoundOn, playScanSweep, playAnalysisComplete } from "@/lib/chart-engine/analyze-sound";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { formatPrice, formatTimestamp, formatCompactVolume, formatDuration } from "@/lib/financial-format";
@@ -437,8 +441,14 @@ export default function NativeChart({
   }, [indicatorSeries, algoTestOverlay]);
 
   // Professional Mode - computed on demand by the "Analyze chart" button; layers are per-group toggles.
-  const [proState, setProState] = useState<{ analysis: AnnotationResult | null; layers: AnnotationLayers }>({ analysis: null, layers: ALL_LAYERS_ON });
+  const [proState, setProState] = useState<{ analysis: AnnotationResult | null; layers: ChartLayers }>({ analysis: null, layers: PRO_LAYERS_DEFAULT });
   const [proPlan, setProPlan] = useState<TradePlan | null>(null);
+  const proPlanRef = useRef<TradePlan | null>(null);
+  proPlanRef.current = proPlan;
+  const [scan, setScan] = useState<{ points: [number, number][]; finish: () => void } | null>(null);
+  const [soundOn, setSoundOnState] = useState(true);
+  useEffect(() => setSoundOnState(isSoundOn()), []);
+  const [rangeKey, setRangeKey] = useState<RangeKey | null>(null);
   const [proTab, setProTab] = useState<ProTab>("analysis");
   const proRef = useRef(proState);
   proRef.current = proState;
@@ -481,7 +491,7 @@ export default function NativeChart({
         // scheduleDraw(), and re-reading fresh refs here (rather than
         // closing over a stale state value from whenever `draw` was last
         // recreated) is what makes that live update actually visible.
-        drawingObjects: drawingObjectsRef.current,
+        drawingObjects: proRef.current.layers.drawings ? drawingObjectsRef.current : [],
         selectedDrawingObjectId: selectedObjectIdRef.current,
         drawingPreview: drawingPreviewRef.current,
         liveQuote,
@@ -503,6 +513,10 @@ export default function NativeChart({
         selectedAlgoTestTradeId,
         annotations: proRef.current.analysis?.annotations,
         annotationLayers: proRef.current.layers,
+        planBox: proRef.current.layers.plan && proPlanRef.current && proPlanRef.current.state === "plan"
+          ? { dir: proPlanRef.current.dir, entryType: proPlanRef.current.entryType, entry: proPlanRef.current.entry, stop: proPlanRef.current.stop, target: proPlanRef.current.target, rr: proPlanRef.current.rr }
+          : null,
+        formatPlanPrice: (n: number) => formatPrice(n, { maxDecimals: 5 }),
       });
     },
     [candles, timeframe, activePanels, indicatorSeries, symbol, name, liveQuote, chartType, showGrid, showPeriodSeparators, colorScheme, activeSymbol, algoTestOverlay, selectedAlgoTestTradeId, externalCrosshairTime, proState],
@@ -1022,12 +1036,57 @@ export default function NativeChart({
     handleFit();
   }
 
+  /** Runs the analysis; on the Pro Chart the result is revealed after a short scan animation with sound. */
+  function runAnalyze() {
+    if (scan) return;
+    const analysis = computeAnnotations(candles);
+    const plan = buildTradePlan(candles);
+    const finish = () => {
+      setProState({ analysis, layers: PRO_LAYERS_DEFAULT });
+      setProPlan(plan);
+      proPlanRef.current = plan;
+    };
+    const viewport = viewportRef.current;
+    if (!proLayout || !viewport) {
+      finish();
+      return;
+    }
+    setScan({ points: computeScanPath(candles, viewport, { width: dimsRef.current.width, height: dimsRef.current.height, priceAxisWidth: PRICE_AXIS_WIDTH, timeAxisHeight: TIME_AXIS_HEIGHT }), finish });
+    playScanSweep(2200);
+  }
+
+  function closePlan() {
+    setProPlan(null);
+    proPlanRef.current = null;
+    setProState((p) => ({ ...p })); // redraw without the plan box
+  }
+
+  function handleRange(key: RangeKey) {
+    if (candles.length === 0) return;
+    setRangeKey(key);
+    const span = rangeSpanMs(key, Date.now());
+    if (span === null) viewportRef.current = fitToData(candles);
+    else {
+      const last = candles[candles.length - 1];
+      const step = candles.length > 1 ? last.time - candles[candles.length - 2].time : 3_600_000;
+      const maxTime = last.time + step * 30;
+      const minTime = Math.max(candles[0].time, last.time - span);
+      const { minPrice, maxPrice } = priceRangeForWindow(candles, minTime, maxTime);
+      viewportRef.current = { minTime, maxTime, minPrice, maxPrice };
+    }
+    const live = isAtRightEdge(viewportRef.current as Viewport, candles);
+    isLiveRef.current = live;
+    setIsLive(live);
+    draw();
+  }
+
   function fitView(cs: ChartCandle[]) {
-    return proLayout ? fitToRecent(cs, 180) : fitToData(cs);
+    return proLayout ? fitToRecent(cs, 110, 30) : fitToData(cs);
   }
 
   function handleFit() {
     if (candles.length === 0) return;
+    setRangeKey(null);
     viewportRef.current = fitView(candles);
     const live = isAtRightEdge(viewportRef.current, candles);
     isLiveRef.current = live;
@@ -1343,6 +1402,18 @@ export default function NativeChart({
       <ChartToolbar
         compact={proLayout}
         leading={symbolPicker}
+        extra={proLayout ? (
+          <ProToolbarExtras
+            layers={proState.layers}
+            onLayers={(patch) => setProState((p) => ({ ...p, layers: { ...p.layers, ...patch } }))}
+            onAnalyze={runAnalyze}
+            scanning={scan !== null}
+            analyzed={proState.analysis !== null}
+            onClean={() => setProState((p) => ({ ...p, layers: PRO_LAYERS_CLEAN }))}
+            soundOn={soundOn}
+            onSound={(v) => { setSoundOn(v); setSoundOnState(v); }}
+          />
+        ) : undefined}
         displaySymbol={resolution.displaySymbol}
         timeframe={timeframe}
         onTimeframeChange={onTimeframeChange}
@@ -1363,14 +1434,16 @@ export default function NativeChart({
         onSaveAsPicture={handleSaveAsPicture}
         onOpenAlgoTest={() => algoTestRef.current?.openConfig()}
       />
-      <ProModeBar
-        analysis={proState.analysis}
-        layers={proState.layers}
-        onAnalyze={() => { setProState({ analysis: computeAnnotations(candles), layers: ALL_LAYERS_ON }); setProPlan(buildTradePlan(candles)); }}
-        onToggleLayer={(g) => setProState((p) => ({ ...p, layers: { ...p.layers, [g]: !p.layers[g] } }))}
-        onCleanChart={() => setProState((p) => ({ ...p, layers: ALL_LAYERS_OFF }))}
-        onShowAll={() => setProState((p) => ({ ...p, layers: ALL_LAYERS_ON }))}
-      />
+      {!proLayout && (
+        <ProModeBar
+          analysis={proState.analysis}
+          layers={proState.layers}
+          onAnalyze={runAnalyze}
+          onToggleLayer={(g) => setProState((p) => ({ ...p, layers: { ...p.layers, [g]: !p.layers[g] } }))}
+          onCleanChart={() => setProState((p) => ({ ...p, layers: PRO_LAYERS_CLEAN }))}
+          onShowAll={() => setProState((p) => ({ ...p, layers: PRO_LAYERS_DEFAULT }))}
+        />
+      )}
       </div>
 
       <Modal open={saveModalOpen} onClose={() => setSaveModalOpen(false)} title="Save as Template">
@@ -1508,6 +1581,13 @@ export default function NativeChart({
           onDoubleClick={handleDoubleClick}
           onKeyDown={handleKeyDown}
         />
+        <ScanOverlay
+          active={scan !== null}
+          points={scan?.points ?? []}
+          width={Math.max(0, dimsRef.current.width - PRICE_AXIS_WIDTH)}
+          height={Math.max(0, dimsRef.current.height - TIME_AXIS_HEIGHT)}
+          onDone={() => { scan?.finish(); setScan(null); playAnalysisComplete(); }}
+        />
         {proLayout && (
           <div className="pointer-events-none absolute left-3 top-2 z-10 flex flex-col gap-0.5">
             <div className="flex items-baseline gap-2">
@@ -1518,8 +1598,9 @@ export default function NativeChart({
             <div className="flex flex-wrap items-center gap-3 text-[11px]">{ohlcStrip}</div>
           </div>
         )}
-        {!proLayout && <PlanOverlay plan={proPlan} onExecute={(side) => paperTradingRef.current?.quickTrade(side)} onClose={() => setProPlan(null)} formatPrice={(n) => formatPrice(n, { maxDecimals: 5 })} />}
+        {!proLayout && <PlanOverlay plan={proPlan} onExecute={(side) => paperTradingRef.current?.quickTrade(side)} onClose={closePlan} formatPrice={(n) => formatPrice(n, { maxDecimals: 5 })} />}
       </div>
+      {proLayout && <RangeBar active={rangeKey} onRange={handleRange} />}
       {result.series && result.series.rejectedCount > 0 && (
         <p className="text-xs text-text-3">
           {result.series.rejectedCount} candle{result.series.rejectedCount === 1 ? "" : "s"} were excluded for failing data-integrity checks.
@@ -1540,11 +1621,11 @@ export default function NativeChart({
             setProTab("trade");
             setTimeout(() => paperTradingRef.current?.quickTrade(side), 60);
           }}
-          onClosePlan={() => setProPlan(null)}
+          onClosePlan={closePlan}
           formatPrice={(n) => formatPrice(n, { maxDecimals: 5 })}
           lastPrice={livePrice}
           trade={paperNode}
-          onAnalyze={() => { setProState({ analysis: computeAnnotations(candles), layers: ALL_LAYERS_ON }); setProPlan(buildTradePlan(candles)); }}
+          onAnalyze={runAnalyze}
         />
       )}
       </div>

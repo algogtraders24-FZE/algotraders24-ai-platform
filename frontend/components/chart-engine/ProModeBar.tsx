@@ -4,7 +4,7 @@
 // "Clean chart"), and the expandable "Annotations detected" list. State lives in NativeChart; this is presentational.
 import { useState } from "react";
 import type { TradePlan } from "@/lib/chart-engine/annotations/plan";
-import { ANNOTATION_GROUPS, ANNOTATION_GROUP_LABELS, type AnnotationLayers, type AnnotationResult } from "@/lib/chart-engine/annotations/types";
+import { ANNOTATION_GROUPS, ANNOTATION_GROUP_LABELS, type AnnotationLayers, type AnnotationResult, type ChartLayers } from "@/lib/chart-engine/annotations/types";
 
 interface Props {
   analysis: AnnotationResult | null;
@@ -189,6 +189,91 @@ export function AnnotationSummary({ analysis, formatPrice }: { analysis: Annotat
         </details>
       ))}
       <p className="mt-2 text-[11px] text-text-3">Swing size {analysis.params.swingBars} bars, ATR(14) {analysis.params.atr.toPrecision(5)}. Descriptive map of what price already did, not a prediction.</p>
+    </div>
+  );
+}
+
+function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      onClick={() => onChange(!on)}
+      className={`relative h-5 w-9 shrink-0 rounded-full transition ${on ? "bg-violet-500" : "bg-ink-4"}`}
+    >
+      <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${on ? "left-[18px]" : "left-0.5"}`} />
+    </button>
+  );
+}
+
+const ANALYSIS_CHILDREN: { key: keyof ChartLayers; label: string }[] = [
+  { key: "zones", label: "Zones (OB / FVG)" },
+  { key: "levels", label: "S/R levels" },
+  { key: "structure", label: "Structure (BOS / CHoCH / sweeps)" },
+  { key: "pdOte", label: "Premium / discount / OTE" },
+  { key: "patterns", label: "Patterns" },
+  { key: "sessions", label: "Sessions (London / New York)" },
+];
+
+interface ExtrasProps {
+  layers: ChartLayers;
+  onLayers: (patch: Partial<ChartLayers>) => void;
+  onAnalyze: () => void;
+  scanning: boolean;
+  analyzed: boolean;
+  onClean: () => void;
+  soundOn: boolean;
+  onSound: (on: boolean) => void;
+}
+
+/** Pro Chart top-bar controls: Analyze, Layers popup (toggle switches), Clean chart, sound switch. */
+export function ProToolbarExtras({ layers, onLayers, onAnalyze, scanning, analyzed, onClean, soundOn, onSound }: ExtrasProps) {
+  const [open, setOpen] = useState(false);
+  const analysisOn = ANALYSIS_CHILDREN.some((c) => layers[c.key]);
+  return (
+    <div className="relative flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={onAnalyze}
+        disabled={scanning}
+        className="rounded-control border border-gold/50 bg-gold/10 px-3 py-1 text-[11px] font-semibold text-gold transition hover:bg-gold/20 disabled:opacity-60"
+      >
+        {scanning ? "Analyzing…" : analyzed ? "Re-analyze" : "Analyze chart"}
+      </button>
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="Layers" title="Layers" className={BTN}>
+        ☰ Layers
+      </button>
+      <button type="button" onClick={() => onSound(!soundOn)} aria-pressed={soundOn} aria-label={soundOn ? "Mute analysis sound" : "Unmute analysis sound"} title={soundOn ? "Sound on" : "Sound off"} className={BTN}>
+        {soundOn ? "🔊" : "🔇"}
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-30 mt-2 w-72 rounded-panel border border-border bg-ink-2 p-3 shadow-xl">
+          <p className="mb-2 text-[11px] uppercase tracking-wide text-text-3">Layers</p>
+          <div className="flex items-center justify-between py-1.5 text-xs font-semibold text-text">
+            Drawings
+            <Switch on={layers.drawings} onChange={(v) => onLayers({ drawings: v })} label="Drawings" />
+          </div>
+          <div className="flex items-center justify-between py-1.5 text-xs font-semibold text-text">
+            Analysis
+            <Switch on={analysisOn} onChange={(v) => onLayers(Object.fromEntries(ANALYSIS_CHILDREN.map((c) => [c.key, v && c.key !== "sessions"])) as Partial<ChartLayers>)} label="Analysis" />
+          </div>
+          {ANALYSIS_CHILDREN.map((c) => (
+            <div key={c.key} className="flex items-center justify-between py-1 pl-3 text-[11px] text-text-2">
+              {c.label}
+              <Switch on={layers[c.key]} onChange={(v) => onLayers({ [c.key]: v })} label={c.label} />
+            </div>
+          ))}
+          <div className="flex items-center justify-between py-1.5 text-xs font-semibold text-text">
+            Trades
+            <Switch on={layers.plan} onChange={(v) => onLayers({ plan: v })} label="Trade plan" />
+          </div>
+          <button type="button" onClick={() => { onClean(); setOpen(false); }} className="mt-2 w-full rounded-control border border-border bg-ink-3 py-1.5 text-xs text-text-2 hover:text-text">
+            ✦ Clean chart
+          </button>
+        </div>
+      )}
     </div>
   );
 }

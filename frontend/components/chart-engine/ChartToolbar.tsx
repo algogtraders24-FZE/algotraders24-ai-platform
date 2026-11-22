@@ -34,6 +34,8 @@ const CHART_TYPES: { value: ChartRenderType; label: string; title: string }[] = 
 export interface ChartToolbarProps {
   /** Pro layout: slot shown first (the symbol picker) and the plain symbol label is hidden. */
   leading?: React.ReactNode;
+  /** Pro layout: extra controls shown right after the Indicators menu (Analyze, Layers ...). */
+  extra?: React.ReactNode;
   compact?: boolean;
   displaySymbol: string;
   timeframe: SignalTimeframe;
@@ -66,6 +68,7 @@ const PANEL_CONFIGS = DEFAULT_INDICATOR_CONFIGS.filter((cfg) => INDICATOR_PANEL_
 
 export default function ChartToolbar({
   leading,
+  extra,
   compact = false,
   displaySymbol,
   timeframe,
@@ -91,6 +94,23 @@ export default function ChartToolbar({
   const menuRef = useRef<HTMLDivElement>(null);
   const [templatesMenuOpen, setTemplatesMenuOpen] = useState(false);
   const templatesMenuRef = useRef<HTMLDivElement>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!moreOpen) return;
+    function onDown(e: PointerEvent) {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMoreOpen(false);
+    }
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [moreOpen]);
 
   // Sprint D2.7.5 - close on Escape and on an outside click, the two
   // dismissal paths every other dropdown in this codebase already supports
@@ -179,6 +199,9 @@ export default function ChartToolbar({
           )}
         </div>
 
+        {extra}
+        {!compact && (
+          <>
         <div className="relative" ref={templatesMenuRef}>
           <button
             type="button"
@@ -263,6 +286,40 @@ export default function ChartToolbar({
         >
           Save Image
         </button>
+
+          </>
+        )}
+        {compact && (
+          <div className="relative" ref={moreRef}>
+            <button
+              type="button"
+              onClick={() => setMoreOpen((v) => !v)}
+              aria-expanded={moreOpen}
+              aria-haspopup="true"
+              aria-label="More"
+              title="More"
+              className="rounded-control border border-border bg-ink-3 px-2.5 py-1 text-[11px] font-medium text-text-3 transition hover:bg-ink-4 hover:text-text"
+            >
+              ⋯
+            </button>
+            {moreOpen && (
+              <div role="menu" aria-label="More chart options" className="absolute right-0 top-full z-20 mt-1 w-60 rounded-panel border border-border bg-ink-2 p-1.5 shadow-raised">
+                <button type="button" onClick={() => { setMoreOpen(false); onOpenAlgoTest(); }} className="w-full rounded-control px-2 py-1.5 text-left text-xs font-medium text-gold hover:bg-ink-3">Algo Test</button>
+                <button type="button" onClick={() => { setMoreOpen(false); onOpenProperties(); }} className="w-full rounded-control px-2 py-1.5 text-left text-xs text-text-2 hover:bg-ink-3">Chart properties</button>
+                <button type="button" onClick={() => { setMoreOpen(false); onSaveAsPicture(); }} className="w-full rounded-control px-2 py-1.5 text-left text-xs text-text-2 hover:bg-ink-3">Save image</button>
+                <button type="button" onClick={() => { setMoreOpen(false); onOpenSaveTemplate(); }} className="w-full rounded-control px-2 py-1.5 text-left text-xs text-text-2 hover:bg-ink-3">Save current as template…</button>
+                {templates.length > 0 && (
+                  <div className="mt-1 border-t border-border pt-1">
+                    <p className={`${FIN_LABEL} px-2 pb-1 pt-1`}>Templates</p>
+                    {templates.map((tpl) => (
+                      <button key={tpl.id} type="button" onClick={() => { setMoreOpen(false); onApplyTemplate(tpl); }} className="w-full truncate rounded-control px-2 py-1.5 text-left text-xs text-text-2 hover:bg-ink-3">{tpl.name}</button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <button
           type="button"

@@ -116,3 +116,94 @@ export function drawAnnotations(
     }
   }
 }
+
+/** The plan as drawn on the chart (Pipflow-style position box). */
+export interface PlanBox {
+  dir: "long" | "short";
+  entryType: "market" | "limit";
+  entry: number;
+  stop: number;
+  target: number;
+  rr: number;
+}
+
+/**
+ * Entry / stop / target box from the last candle to the right edge: green dashed target zone, red dashed stop zone, solid entry line with
+ * a direction pill, an R:R pill on the right, "TP" pill above the target and "Stop" / "Risk" text under the stop.
+ */
+export function drawPlanBox(
+  ctx: CanvasRenderingContext2D,
+  plan: PlanBox,
+  candles: readonly ChartCandle[],
+  indexRange: IndexRange,
+  viewport: Viewport,
+  plotWidth: number,
+  row: PanelRow,
+  fmt: (n: number) => string,
+): void {
+  if (candles.length === 0) return;
+  const lastIndex = candles.length - 1;
+  const x0 = Math.max(0, Math.min(plotWidth - 40, indexToX(lastIndex, indexRange, plotWidth) + 8));
+  const x1 = plotWidth - 2;
+  if (x1 - x0 < 40) return;
+  const Y = (p: number) => row.top + priceToY(p, viewport, row.height);
+  const yE = Y(plan.entry), yS = Y(plan.stop), yT = Y(plan.target);
+  const top = row.top, bottom = row.top + row.height;
+  const clamp = (y: number) => Math.max(top, Math.min(bottom, y));
+  const long = plan.dir === "long";
+  const TEAL = "38,166,154", RED_ = "239,83,80";
+
+  const pill = (text: string, x: number, y: number, rgb: string, align: CanvasTextAlign = "left") => {
+    ctx.font = canvasMonoFont(10);
+    const w = text.length * 6.2 + 10;
+    const left = align === "right" ? x - w : x;
+    ctx.fillStyle = "rgba(15, 18, 24, 0.9)";
+    ctx.fillRect(left, y - 10, w, 15);
+    ctx.textAlign = "left";
+    ctx.fillStyle = `rgba(${rgb}, 1)`;
+    ctx.fillText(text, left + 5, y + 1);
+  };
+  const dashed = (y: number, rgb: string) => {
+    if (y < top || y > bottom) return;
+    ctx.setLineDash?.([5, 4]);
+    ctx.strokeStyle = `rgba(${rgb}, 0.9)`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x0, y);
+    ctx.lineTo(x1, y);
+    ctx.stroke();
+    ctx.setLineDash?.([]);
+  };
+
+  // zones: target side green, stop side red
+  const tz1 = clamp(Math.min(yE, yT)), tz2 = clamp(Math.max(yE, yT));
+  if (tz2 > tz1) { ctx.fillStyle = `rgba(${TEAL}, 0.13)`; ctx.fillRect(x0, tz1, x1 - x0, tz2 - tz1); }
+  const sz1 = clamp(Math.min(yE, yS)), sz2 = clamp(Math.max(yE, yS));
+  if (sz2 > sz1) { ctx.fillStyle = `rgba(${RED_}, 0.10)`; ctx.fillRect(x0, sz1, x1 - x0, sz2 - sz1); }
+  dashed(yT, TEAL);
+  dashed(yS, RED_);
+
+  // entry line
+  if (yE >= top && yE <= bottom) {
+    ctx.strokeStyle = `rgba(${TEAL}, 1)`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x0, yE);
+    ctx.lineTo(x1, yE);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+    pill(`${long ? "LONG" : "SHORT"}${plan.entryType === "limit" ? " LIMIT" : ""} ${fmt(plan.entry)}`, x0 + 2, yE - 3, TEAL);
+    pill(`R:R ${plan.rr.toFixed(1)}`, x1 - 2, yE - 3, "209,212,220", "right");
+  }
+  // target pill above (long) / below (short) the target line
+  if (yT >= top && yT <= bottom) pill(`TP ${fmt(plan.target)} (${plan.rr.toFixed(1)}R)`, x0 + 2, long ? yT - 6 : yT + 17, "209,212,220");
+  // stop text
+  if (yS >= top && yS <= bottom) {
+    ctx.font = canvasMonoFont(10);
+    ctx.textAlign = "left";
+    ctx.fillStyle = `rgba(${RED_}, 1)`;
+    ctx.fillText(`Stop ${fmt(plan.stop)}`, x0 + 4, long ? yS + 13 : yS - 14);
+    ctx.fillStyle = "rgba(148, 163, 184, 1)";
+    ctx.fillText(`Risk ${fmt(Math.abs(plan.entry - plan.stop))}`, x0 + 4, long ? yS + 26 : yS - 27);
+  }
+}
