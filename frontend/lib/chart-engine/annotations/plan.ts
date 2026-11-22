@@ -60,6 +60,10 @@ type RawPlan = Exclude<TradePlan, { state: "standAside" }>;
 export const PLAN_MIN_SCORE = 3;
 export const PLAN_SCORE_MAX = 6;
 
+function sweepWindowStart(candles: ChartCandle[]): number {
+  return candles[Math.max(0, candles.length - 15)].time;
+}
+
 export function planAt(candles: ChartCandle[], minScore: number = PLAN_MIN_SCORE): TradePlan {
   const res = computeAnnotations(candles);
   const atr = res.params.atr;
@@ -86,43 +90,52 @@ export function planAt(candles: ChartCandle[], minScore: number = PLAN_MIN_SCORE
   const biasZones = zones.filter((z) => z.bias === bias && kinds.has(z.kind));
   const inside = biasZones.filter((z) => last.close >= z.low && last.close <= z.high);
 
-  let entryType: "market" | "limit";
-  let entry: number;
-  let farEdge: number;
-  let baseZones: ZoneAnnotation[];
-  if (inside.length > 0) {
-    entryType = "market";
-    entry = last.close;
-    baseZones = inside;
-    farEdge = bull ? Math.min(...inside.map((z) => z.low)) : Math.max(...inside.map((z) => z.high));
-  } else {
-    // wait for a retest: a limit order at the nearest active zone on the retracement side of price
-    const candidates = bull ? biasZones.filter((z) => z.high < last.close) : biasZones.filter((z) => z.low > last.close);
-    if (candidates.length === 0) return { state: "standAside", reason: `Bias is ${bias} (${biasText}), but there is no active order block / OTE / FVG zone on the retracement side to enter from.` };
-    const nearest = candidates.sort((x, y) => (bull ? y.high - x.high : x.low - y.low))[0];
-    entryType = "limit";
-    entry = bull ? nearest.high : nearest.low;
-    if (Math.abs(last.close - entry) > 3 * atr) return { state: "standAside", reason: `Bias is ${bias} (${biasText}), but the nearest zone (${nearest.label}) is ${(Math.abs(last.close - entry) / atr).toFixed(1)} ATR away, too far to plan an entry.` };
-    baseZones = biasZones.filter((z) => entry >= z.low - 1e-9 && entry <= z.high + 1e-9);
-    farEdge = bull ? Math.min(...baseZones.map((z) => z.low)) : Math.max(...baseZones.map((z) => z.high));
-  }
-  const stop = bull ? farEdge - STOP_BUFFER_ATR * atr : farEdge + STOP_BUFFER_ATR * atr;
-  const risk = Math.abs(entry - stop);
-  if (!(risk > 0) || risk > 4 * atr) return { state: "standAside", reason: "The zone is too wide for a sensible stop (more than 4 ATR)." };
-  const target = bull ? entry + PLAN_RR * risk : entry - PLAN_RR * risk;
-
-  const conf: string[] = [];
-  if (baseZones.some((z) => z.kind === "orderBlock" || z.kind === "breaker")) conf.push(bull ? "Demand order block" : "Supply order block");
-  if (zones.some((z) => z.kind === "ote" && z.bias === bias && entry >= z.low && entry <= z.high)) conf.push("Inside OTE (61.8-78.6 %)");
-  if (baseZones.some((z) => z.kind === "fvg") || zones.some((z) => z.kind === "fvg" && z.bias === bias && entry >= z.low && entry <= z.high)) conf.push("Overlaps a fair value gap");
-  const prem = zones.find((z) => z.kind === "premium"), disc = zones.find((z) => z.kind === "discount");
-  if (bull && disc && entry <= disc.high) conf.push("Entry in discount");
-  if (!bull && prem && entry >= prem.low) conf.push("Entry in premium");
-  const recentSweep = res.annotations.some((a) => a.type === "marker" && a.bias === bias && a.time >= candles[Math.max(0, candles.length - 15)].time);
-  if (recentSweep) conf.push("Liquidity sweep in the same direction");
   const closes = candles.map((c) => c.close);
   const e20 = ema(closes, 20), e50 = ema(closes, 50);
-  if (e20 !== null && e50 !== null && (bull ? e20 > e50 : e20 < e50)) conf.push("EMA20 / EMA50 trend aligned");
+  const prem = zones.find((z) => z.kind === "premium"), disc = zones.find((z) => z.kind === "discount");
+  const recentSweep = res.annotations.some((a) => a.type === "marker" && a.bias === bias && a.time >= sweepWindowStart(candles));
+
+  /** Geometry + confluences for one possible entry. Returns null when the stop would be absurdly wide. */
+  const build = (entryType: "market" | "limit", entry: number, baseZones: ZoneAnnotation[]) => {
+    const farEdge = bull ? Math.min(...baseZones.map((z) => z.low)) : Math.max(...baseZones.map((z) => z.high));
+    const stop = bull ? farEdge - STOP_BUFFER_ATR * atr : farEdge + STOP_BUFFER_ATR * atr;
+    const risk = Math.abs(entry - stop);
+    if (!(risk > 0) || risk > 4 * atr) return null;
+    const conf: string[] = [];
+    if (baseZones.some((z) => z.kind === "orderBlock" || z.kind === "breaker")) conf.push(bull ? "Demand order block" : "Supply order block");
+    if (zones.some((z) => z.kind === "ote" && z.bias === bias && entry >= z.low && entry <= z.high)) conf.push("Inside OTE (61.8-78.6 %)");
+    if (baseZones.some((z) => z.kind === "fvg") || zones.some((z) => z.kind === "fvg" && z.bias === bias && entry >= z.low && entry <= z.high)) conf.push("Overlaps a fair value gap");
+    if (bull && disc && entry <= disc.high) conf.push("Entry in discount");
+    if (!bull && prem && entry >= prem.low) conf.push("Entry in premium");
+    if (recentSweep) conf.push("Liquidity sweep in the same direction");
+    if (e20 !== null && e50 !== null && (bull ? e20 > e50 : e20 < e50)) conf.push("EMA20 / EMA50 trend aligned");
+    return { entryType, entry, baseZones, stop, risk, conf };
+  };
+
+  type Cand = NonNullable<ReturnType<typeof build>>;
+  let best: Cand | null = null;
+  if (inside.length > 0) {
+    best = build("market", last.close, inside);
+    if (!best) return { state: "standAside", reason: "The zone is too wide for a sensible stop (more than 4 ATR)." };
+  } else {
+    // wait for a retest: every active zone on the retracement side of price within 3 ATR is a possible limit entry. The one with the
+    // most confluences wins (ties: the nearest to price), instead of blindly taking the nearest zone.
+    const side = bull ? biasZones.filter((z) => z.high < last.close) : biasZones.filter((z) => z.low > last.close);
+    if (side.length === 0) return { state: "standAside", reason: `Bias is ${bias} (${biasText}), but there is no active order block / OTE / FVG zone on the retracement side to enter from.` };
+    const entries = [...new Set(side.map((z) => (bull ? z.high : z.low)))].filter((e) => Math.abs(last.close - e) <= 3 * atr);
+    if (entries.length === 0) {
+      const nearest = side.sort((x, y) => (bull ? y.high - x.high : x.low - y.low))[0];
+      return { state: "standAside", reason: `Bias is ${bias} (${biasText}), but the nearest zone (${nearest.label}) is ${(Math.abs(last.close - (bull ? nearest.high : nearest.low)) / atr).toFixed(1)} ATR away, too far to plan an entry.` };
+    }
+    const cands = entries
+      .map((e) => build("limit", e, biasZones.filter((z) => e >= z.low - 1e-9 && e <= z.high + 1e-9)))
+      .filter((x): x is Cand => x !== null);
+    if (cands.length === 0) return { state: "standAside", reason: "The zone is too wide for a sensible stop (more than 4 ATR)." };
+    cands.sort((x, y) => y.conf.length - x.conf.length || Math.abs(last.close - x.entry) - Math.abs(last.close - y.entry));
+    best = cands[0];
+  }
+  const { entryType, entry, baseZones, stop, risk, conf } = best;
+  const target = bull ? entry + PLAN_RR * risk : entry - PLAN_RR * risk;
   if (conf.length < minScore) {
     return { state: "standAside", reason: `Bias is ${bias} (${biasText}) but only ${conf.length} of ${PLAN_SCORE_MAX} confluences line up${conf.length > 0 ? ` (${conf.join(", ")})` : ""}; a signal needs at least ${minScore}. No clean entry right now.` };
   }

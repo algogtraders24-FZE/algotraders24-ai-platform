@@ -148,13 +148,25 @@ export function computeAnnotations(all: ChartCandle[], opts: ComputeOptions = {}
 
   // premium / discount / OTE from the last confirmed swing range
   if (lastHigh && lastLow) {
-    const hi = lastHigh.price, lo = lastLow.price, r = hi - lo;
+    // The dealing range follows the leg that made the latest structure break: after a bullish break it runs from the last swing low up to the
+    // highest high since (the running extreme, even if not yet confirmed as a swing); after a bearish break, from the last swing high down to
+    // the lowest low since. So the OTE retraces the impulse that matches the bias. With no break yet, the last two confirmed swings are used.
+    let hi = lastHigh.price, lo = lastLow.price;
+    let legUpOverride: boolean | null = null;
+    if (trend === "bullish") {
+      hi = Math.max(lastHigh.price, ...c.slice(lastLow.index).map((x) => x.high));
+      legUpOverride = true;
+    } else if (trend === "bearish") {
+      lo = Math.min(lastLow.price, ...c.slice(lastHigh.index).map((x) => x.low));
+      legUpOverride = false;
+    }
+    const r = hi - lo;
     if (r > 0) {
       const start = Math.min(lastHigh.time, lastLow.time);
       const mid = lo + r / 2;
       out.push({ id: `pd${id++}`, type: "zone", group: "pdOte", kind: "premium", bias: null, startTime: start, endTime: null, low: mid, high: hi, label: "Premium" });
       out.push({ id: `pd${id++}`, type: "zone", group: "pdOte", kind: "discount", bias: null, startTime: start, endTime: null, low: lo, high: mid, label: "Discount" });
-      const legUp = lastHigh.index > lastLow.index;
+      const legUp = legUpOverride ?? lastHigh.index > lastLow.index;
       out.push(legUp
         ? { id: `ot${id++}`, type: "zone", group: "pdOte", kind: "ote", bias: "bullish", startTime: start, endTime: null, low: hi - 0.786 * r, high: hi - 0.618 * r, label: "OTE" }
         : { id: `ot${id++}`, type: "zone", group: "pdOte", kind: "ote", bias: "bearish", startTime: start, endTime: null, low: lo + 0.618 * r, high: lo + 0.786 * r, label: "OTE" });
