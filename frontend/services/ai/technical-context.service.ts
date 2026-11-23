@@ -15,7 +15,7 @@ import type {
   VolatilityBand,
   ConfidenceBand,
 } from "@/types/technical-context";
-import { closes, rsi, ema, sma, atr, macd, bollinger, volumeMetrics, recentPriceRange, keyPriceLevels } from "@/lib/market-data/indicators";
+import { closes, rsi, ema, sma, atrMt5, macdMt5, bollinger, volumeMetrics, recentPriceRange, keyPriceLevels } from "@/lib/market-data/indicators";
 
 // Enough candles for the core set (RSI-14, SMA-20, ATR-14, Bollinger-20).
 const CORE_MIN_CANDLES = 20;
@@ -30,8 +30,8 @@ export class TechnicalContextService {
       ema20: ema(cl, 20),
       ema50: ema(cl, 50),
       sma20: sma(cl, 20),
-      atr14: atr(candles, 14),
-      macd: macd(cl),
+      atr14: atrMt5(candles, 14),
+      macd: macdMt5(cl),
       bollinger: bollinger(cl, 20, 2),
       volume: volumeMetrics(candles, 20),
     };
