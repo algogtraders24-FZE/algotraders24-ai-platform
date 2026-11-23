@@ -20,6 +20,7 @@ import PublishPanel from "@/components/live-results/PublishPanel";
 import AlertsPanel from "@/components/live-sync/AlertsPanel";
 import TelegramPanel from "@/components/telegram/TelegramPanel";
 import DeviceNotificationsPanel from "@/components/pwa/DeviceNotificationsPanel";
+import ExecEaCard from "@/components/exec-bridge/ExecEaCard";
 
 interface DeviceRow {
   id: string;
@@ -145,6 +146,8 @@ export default function LiveSyncPage() {
 
       {error && <Alert tone="danger">{error}</Alert>}
       {unavailable && <Alert tone="info">Live Sync is not switched on yet. You will be able to connect a terminal here as soon as it is.</Alert>}
+
+      <ExecEaCard />
 
       <Card className="space-y-3">
         <p className="text-sm font-semibold text-text">How to connect (about 3 minutes)</p>
