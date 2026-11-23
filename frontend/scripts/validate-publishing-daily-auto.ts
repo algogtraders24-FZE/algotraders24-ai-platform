@@ -182,6 +182,27 @@ async function main(): Promise<void> {
     assert.equal(b.created.length, 3);
   });
 
+  await test("Market Brief 2.0 report types: calendar, weekly and fundamental use the brief when present and fall back when it returns null or throws", async () => {
+    const nb = { title: "T", summary: "A summary that is long enough for the check.", sections: [{ heading: "H", body: "b".repeat(60) }] };
+    const mkBrief = (kind: "ok" | "null" | "throw") => ({
+      calendar: () => (kind === "ok" ? nb : null),
+      weekly: async () => { if (kind === "throw") throw new Error("chart"); return kind === "ok" ? nb : null; },
+      fundamental: async () => { if (kind === "throw") throw new Error("chart"); return kind === "ok" ? nb : null; },
+    });
+    const days: [string, Date][] = [["calendar (Mon)", MON], ["fundamental (Tue)", TUE], ["weekly (Sun)", SUN]];
+    for (const [label, day] of days) {
+      const withBrief = makeDeps({ now: () => day, brief: mkBrief("ok") });
+      await new DailyAutoPublisherService(withBrief.deps).run();
+      assert.ok(withBrief.created.some((c) => c.sections === 1), `${label}: brief used`);
+      for (const k of ["null", "throw"] as const) {
+        const fb = makeDeps({ now: () => day, brief: mkBrief(k) });
+        const out = await new DailyAutoPublisherService(fb.deps).run();
+        assert.ok(out.results.every((r) => r.status === "published"), `${label}/${k}: still published`);
+        assert.ok(!fb.created.some((c) => c.sections === 1), `${label}/${k}: normal report used`);
+      }
+    }
+  });
+
   await test("re-running the same day creates nothing (idempotent)", async () => {
     const store = new Set<string>();
     await new DailyAutoPublisherService(makeDeps({}, store).deps).run();

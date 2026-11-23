@@ -290,6 +290,13 @@ export interface DailyAutoPublisherDeps {
   getCalendarEvents: () => Promise<readonly EconomicEvent[]>;
   /** Market Brief 2.0 (optional). Returns null when the brief is off for this symbol or cannot be built: the normal report is then used. */
   buildBrief?: (symbol: string) => Promise<{ title: string; summary: string; sections: ArticleSection[] } | null>;
+  /** Market Brief 2.0 for the other report types. Present only when the brief is on; each returns null to fall back to the normal report. */
+  brief?: {
+    calendar: (date: Date, events: readonly EconomicEvent[]) => { title: string; summary: string; sections: ArticleSection[] } | null;
+    /** symbols to include in the weekly review (the caller loads charts + facts) */
+    weekly: (date: Date, symbols: string[]) => Promise<{ title: string; summary: string; sections: ArticleSection[] } | null>;
+    fundamental: (symbol: string, outcome: Extract<MarketAnalysisOutcome, { status: "completed" }>) => Promise<{ title: string; summary: string; sections: ArticleSection[] } | null>;
+  };
   now?: () => Date;
 }
 
@@ -334,11 +341,22 @@ export class DailyAutoPublisherService {
     const kind = spec.kind ?? "analysis";
 
     if (kind === "calendar") {
-      const content = buildCalendarContent(spec, date, await this.deps.getCalendarEvents());
+      const events = await this.deps.getCalendarEvents();
+      const nb = this.deps.brief?.calendar(date, events);
+      if (nb) return { content: { ...nb, title: reportTitle(spec, date) } };
+      const content = buildCalendarContent(spec, date, events);
       return content ? { content } : { skip: "fewer than 3 high-impact events in the feed" };
     }
 
     if (kind === "weekly") {
+      if (this.deps.brief) {
+        try {
+          const nb = await this.deps.brief.weekly(date, WEEKLY_ASSETS.map((a) => a.symbol));
+          if (nb) return { content: { ...nb, title: reportTitle(spec, date) } };
+        } catch {
+          /* fall through to the normal weekly review */
+        }
+      }
       const parts: { label: string; outcome: CompletedOutcome }[] = [];
       for (const asset of WEEKLY_ASSETS) {
         const outcome = await this.deps.analyze(
@@ -367,6 +385,14 @@ export class DailyAutoPublisherService {
         : `Write today's market report for ${spec.label}: current structure, key levels, what could change the picture, and risks. Use hedged, evidence-based language - never a directive to buy or sell.`;
     const outcome = await this.deps.analyze(spec.symbol, question);
     if (outcome.status !== "completed") return { skip: `analysis ${outcome.status}` };
+    if (kind === "fundamental" && this.deps.brief) {
+      try {
+        const nb = await this.deps.brief.fundamental(spec.symbol, outcome);
+        if (nb) return { content: { ...nb, title: reportTitle(spec, date) } };
+      } catch {
+        /* fall through to the normal fundamental report */
+      }
+    }
     const content = buildReportContent(spec, date, outcome);
     return content ? { content } : { skip: "analysis had no usable content" };
   }
