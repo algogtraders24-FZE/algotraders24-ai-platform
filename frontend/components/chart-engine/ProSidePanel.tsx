@@ -20,6 +20,8 @@ interface Props {
   tab: ProTab;
   onTab: (t: ProTab) => void;
   symbol: string;
+  /** the chart's raw instrument id (e.g. BTCUSD), used for broker orders; falls back to symbol */
+  tradeSymbol?: string;
   timeframe: string;
   plan: TradePlan | null;
   analysis: AnnotationResult | null;
@@ -66,7 +68,7 @@ function Mt5Panel({ plan, formatPrice }: { plan: TradePlan | null; formatPrice: 
   );
 }
 
-export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, onAnalyze, candles, pragya, getChatFacts, onOpenTester, mobileOpen = false, onMobileClose, scanning = false, signalNote = null }: Props) {
+export function ProSidePanel({ tab, onTab, symbol, tradeSymbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, onAnalyze, candles, pragya, getChatFacts, onOpenTester, mobileOpen = false, onMobileClose, scanning = false, signalNote = null }: Props) {
   const watching = plan ? 1 : 0;
   const [execOn, setExecOn] = useState(false); // the Execute bridge is open to this account: the Trade tab shows it instead of the coming-soon card
   return (
@@ -143,8 +145,8 @@ export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, on
       </div>
 
       <div className={tab === "trade" ? "block" : "hidden"}>
-        <ExecPanel active={tab === "trade"} symbol={symbol} plan={plan} formatPrice={formatPrice} onEnabled={setExecOn} />
-        <BrokerPanel active={tab === "trade"} symbol={symbol} plan={plan} formatPrice={formatPrice} fallback={execOn ? null : <Mt5Panel plan={plan} formatPrice={formatPrice} />} />
+        <ExecPanel active={tab === "trade"} symbol={tradeSymbol ?? symbol} plan={plan} formatPrice={formatPrice} onEnabled={setExecOn} />
+        <BrokerPanel active={tab === "trade"} symbol={tradeSymbol ?? symbol} plan={plan} formatPrice={formatPrice} fallback={execOn ? null : <Mt5Panel plan={plan} formatPrice={formatPrice} />} />
       </div>
 
       <div className={tab === "strategies" ? "flex flex-col gap-3" : "hidden"}>

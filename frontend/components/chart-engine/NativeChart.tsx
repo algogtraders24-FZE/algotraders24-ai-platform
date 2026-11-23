@@ -1929,6 +1929,7 @@ export default function NativeChart({
           mobileOpen={mobilePanel}
           onMobileClose={() => setMobilePanel(false)}
           symbol={resolution.displaySymbol}
+          tradeSymbol={canonical?.symbol ?? symbol}
           timeframe={timeframe}
           plan={proPlan}
           analysis={proState.analysis}
