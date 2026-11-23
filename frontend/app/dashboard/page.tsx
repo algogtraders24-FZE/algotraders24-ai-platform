@@ -24,6 +24,7 @@ import type { PlanId } from "@/types/billing";
 import ResendVerificationButton from "@/components/auth/ResendVerificationButton";
 import Card from "@/components/ui/Card";
 import BonusCreditsCard from "@/components/dashboard/BonusCreditsCard";
+import ProChartPreview from "@/components/dashboard/ProChartPreview";
 import { getBonusSummary } from "@/services/credits/bonusCredits";
 
 export default async function DashboardHome() {
@@ -74,6 +75,8 @@ export default async function DashboardHome() {
           </ButtonLink>
         }
       />
+
+      <ProChartPreview />
 
       {isNewUser && <GetStarted />}
 

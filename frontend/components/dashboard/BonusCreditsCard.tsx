@@ -2,7 +2,6 @@
 // Checklist of the verification steps that earn one-time bonus AI credits, plus what is left. Server component (no state).
 // Hidden once every step is done and nothing is left to spend. Rules and amounts: lib/credits/bonus.ts.
 import Link from "next/link";
-import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import { BONUS_EXPIRY_DAYS, BONUS_RULES, CHECKLIST_KINDS, type BonusKind } from "@/lib/credits/bonus";
 import type { BonusSummary } from "@/services/credits/bonusCredits";
@@ -17,8 +16,20 @@ export default function BonusCreditsCard({ summary, emailVerified }: { summary: 
   const allDone = CHECKLIST_KINDS.every(done);
   if (allDone && summary.remaining === 0) return null;
 
+  const left = CHECKLIST_KINDS.filter((k) => !done(k));
+  const leftCredits = left.reduce((sum, k) => sum + BONUS_RULES[k].amount, 0);
   return (
-    <Card padding="lg" className="space-y-4">
+    <details className="group rounded-panel border border-border bg-ink-2">
+      <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm marker:hidden">
+        <span className="font-semibold text-text">Bonus AI credits</span>
+        <span className="text-text-2">
+          {left.length > 0 ? `${left.length} step${left.length === 1 ? "" : "s"} left (+${leftCredits} credits)` : "All steps done"}
+          {summary.remaining > 0 ? ` · ${summary.remaining} credits left` : ""}
+        </span>
+        <span className="text-gold group-open:hidden">View steps</span>
+        <span className="hidden text-gold group-open:inline">Hide</span>
+      </summary>
+      <div className="space-y-4 border-t border-border p-4">
       <div>
         <h2 className="text-base font-semibold text-text">Earn bonus AI credits</h2>
         <p className="mt-1 text-sm text-text-2">Complete these steps for extra AI messages. Each step pays once.</p>
@@ -54,6 +65,7 @@ export default function BonusCreditsCard({ summary, emailVerified }: { summary: 
           : ""}
         One credit is one AI message. Bonus credits are used only after your monthly allowance runs out, expire {BONUS_EXPIRY_DAYS} days after you earn them, and cannot be exchanged for cash or transferred.
       </p>
-    </Card>
+      </div>
+    </details>
   );
 }
