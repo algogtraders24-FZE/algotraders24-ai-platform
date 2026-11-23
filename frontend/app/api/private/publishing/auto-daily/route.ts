@@ -20,6 +20,7 @@ import { sendTelegramToUser } from "@/services/telegram/deliver";
 import { createTelegramClient } from "@/services/telegram/client";
 import { prismaTelegramStore } from "@/services/telegram/store";
 import { telegramConfig } from "@/services/telegram/config";
+import { buildSeo } from "@/services/ai/publishing/seo.service";
 import { briefEnabledFor, buildDailyBrief } from "@/lib/publishing/brief/brief-pipeline";
 import { DailyAutoPublisherService, blogGroupMessage, dailyRunTelegramMessage } from "@/services/publishing/daily-auto-publisher.service";
 
@@ -39,7 +40,14 @@ async function runDaily(): Promise<Awaited<ReturnType<DailyAutoPublisherService[
   const service = new DailyAutoPublisherService({
     analyze: (symbol, question) => productionAnalysisOrchestrator.analyze({ userId: ownerId, symbol, question }),
     slugExists: async (slug) => (await prisma.article.findFirst({ where: { userId: ownerId, slug, deletedAt: null }, select: { id: true } })) !== null,
-    createDraft: (input) => articleService.createDraft(ownerId, input),
+    createDraft: async (input) => {
+      // A deleted draft (soft delete) still holds its slug under the (userId, slug) unique index, which would make today's report fail
+      // to re-create. Rename the deleted rows' slug out of the way first (they stay deleted, nothing visible changes).
+      const slug = buildSeo(input.custom.title, input.keywords).slug;
+      const stale = await prisma.article.findMany({ where: { userId: ownerId, slug, deletedAt: { not: null } }, select: { id: true } });
+      for (const row of stale) await prisma.article.update({ where: { id: row.id }, data: { slug: `${slug}-deleted-${row.id.slice(-6)}` } });
+      return articleService.createDraft(ownerId, input);
+    },
     publishNow: async (articleId) => {
       await publishingService.publishArticleNow(ownerId, articleId);
     },
