@@ -1,6 +1,6 @@
 import type { SimulationTrade } from "../../domain/simulation/trade.js";
 import type { Position } from "../../domain/position.js";
-import { computeRealizedR, tryComputeR } from "../risk/r-multiple.js";
+import { tryComputeR } from "../risk/r-multiple.js";
 
 export interface RecordTradeInput {
   readonly tradeId: string;
@@ -20,11 +20,11 @@ export interface RecordTradeInput {
 }
 
 /**
- * `rMultiple` reuses Q0.3's `computeRealizedR` (r-multiple.ts) — no
- * second R formula (Q0.5.24). It is `null`, never 0/NaN, when the
- * position carries no stopLoss (R is undefined without a risk distance;
- * `computeRealizedR` would throw in that case, so this function checks
- * for a stop first rather than swallowing the throw).
+ * `rMultiple` reuses Q0.3's R formula via `tryComputeR` (r-multiple.ts, the
+ * same primitives as `computeRealizedR`) — no second R formula (Q0.5.24). It
+ * is `null`, never 0/NaN, when the position carries no stopLoss OR when its
+ * initial risk distance is not positive (R is undefined without a positive
+ * risk distance; previously `computeRealizedR` threw in the second case).
  *
  * Q0.10: R-multiple is computed from `initialStopLoss` (the stop AT ENTRY,
  * never moved) when present, falling back to `stopLoss` for a position
@@ -69,9 +69,12 @@ function buildExcursion(position: Position, riskBasisStop: number | undefined): 
 
 export function buildTrade(input: RecordTradeInput): SimulationTrade {
   const riskBasisStop = input.position.initialStopLoss ?? input.position.stopLoss;
+  // R is undefined (null) when there is no stop OR when the initial risk distance is not positive: a pyramided position's volume-weighted-average
+  // entry can sit past the fixed initial stop, and a gap can fill an entry beyond its own stop. That used to throw and abort the whole run
+  // ("riskDistance must be > 0 ..."); the trade is now recorded with rMultiple null, exactly like a trade without a stop.
   const rMultiple =
     riskBasisStop !== undefined
-      ? computeRealizedR(input.position.side, input.position.entryPrice, riskBasisStop, input.exitPrice)
+      ? tryComputeR(input.position.side, input.position.entryPrice, riskBasisStop, input.exitPrice)
       : null;
   const excursion = buildExcursion(input.position, riskBasisStop);
 
