@@ -35,6 +35,7 @@ export function buildBriefSections(f: BriefFacts, opts: BriefBuildOptions = {}):
   /** Writes a price into the text and records it. Prices above 100 are shown without decimals for readability (the value recorded keeps the tolerance). */
   const P = (n: number) => {
     used.push(n);
+    if (f.category === "forex") return fmtP(n); // pips matter: 1.15734, 155.43
     const a = Math.abs(n);
     return a >= 100 ? Math.round(n).toLocaleString("en-US") : a >= 10 ? n.toFixed(2) : a >= 1 ? n.toFixed(3) : fmtP(n);
   };

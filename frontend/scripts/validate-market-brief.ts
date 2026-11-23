@@ -22,6 +22,8 @@ function fixture(name: string): ChartCandle[] { return JSON.parse(readFileSync(`
 const MARKETS: { input: Omit<BriefInput, "candles">; file: string; macro?: BriefInput["macro"]; events?: BriefInput["events"] }[] = [
   { file: "BTCUSD", input: { symbol: "BTCUSD", displayName: "Bitcoin", pair: "BTC/USD", category: "crypto", timeframeLabel: "H1" }, macro: { alignmentPct: 35, label: "Mixed", driversWithData: 5, driversTotal: 5 } },
   { file: "XAUUSD", input: { symbol: "XAUUSD", displayName: "Gold", pair: "XAU/USD", category: "metal", timeframeLabel: "H1" }, events: [{ whenIst: "Thu 19 Nov, 12:30 AM IST", title: "FOMC Meeting Minutes", currency: "USD" }] },
+  { file: "EURUSD", input: { symbol: "EURUSD", displayName: "EUR/USD", pair: "EUR/USD", category: "forex", timeframeLabel: "H1" } },
+  { file: "USDJPY", input: { symbol: "USDJPY", displayName: "USD/JPY", pair: "USD/JPY", category: "forex", timeframeLabel: "H1" } },
 ];
 
 function numbersIn(text: string): number[] {
