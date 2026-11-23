@@ -71,12 +71,12 @@ export function buildBriefSections(f: BriefFacts, opts: BriefBuildOptions = {}):
   ];
   if (f.macro) chips.push({ value: f.macro.label, label: `macro alignment (${Math.round(f.macro.alignmentPct)}%)` });
   used.push(...(f.macro ? [Math.round(f.macro.alignmentPct)] : []));
-  sections.push({ heading: "", kind: "chips", chips, body: chips.map((c) => `${c.value}: ${c.label}`).join(" | ") });
+  sections.push({ heading: "Key numbers", kind: "chips", chips, body: chips.map((c) => `${c.value}: ${c.label}`).join(" | ") });
 
   // ---- hero chart -----------------------------------------------------------------------------------------------------------
   if (opts.chartUrl) {
     sections.push({
-      heading: "",
+      heading: "Chart",
       kind: "hero",
       body: `Chart: ${f.pair} ${f.timeframeLabel} drawn by the Pro Chart engine.`,
       image: {

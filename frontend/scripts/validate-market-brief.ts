@@ -5,6 +5,9 @@
 import { readFileSync } from "node:fs";
 import { buildBriefFacts, type BriefInput } from "../lib/publishing/brief/facts";
 import { buildBriefSections, type PreviousBrief } from "../lib/publishing/brief/templates";
+import { validateArticle } from "../services/ai/publishing/article-validator.service";
+import { buildSeo } from "../services/ai/publishing/seo.service";
+import type { Article } from "../types/article";
 import type { ChartCandle } from "../types/chart-data";
 
 let failures = 0;
@@ -70,6 +73,13 @@ for (const m of MARKETS) {
   ok(!FORBIDDEN.test(text), `${m.file}: forbidden wording found: ${text.match(FORBIDDEN)?.[0]}`);
   ok(/not financial advice/i.test(text), `${m.file}: disclaimer present`);
   ok(/rule-based/i.test(text), `${m.file}: names the source (rule-based system)`);
+
+  // the publishing validator (the same one publish runs): unique non-empty headings, summary length, etc.
+  const hd = built.sections.map((s) => s.heading.trim().toLowerCase());
+  ok(hd.every((h) => h.length > 0) && new Set(hd).size === hd.length, `${m.file}: headings must be non-empty and unique`);
+  const seo = buildSeo(`${m.input.displayName} Analysis - 23 Nov 2026`, ["x analysis", "x forecast", "x levels"]);
+  const vr = validateArticle({ sections: built.sections, disclaimer: "d", summary: built.summary, seo } as unknown as Article);
+  ok(vr.issues.filter((i) => !/SEO|keywords/i.test(i)).length === 0, `${m.file}: publish validator issues: ${vr.issues.join("; ")}`);
 
   // number tracing: ignore the date/time line and the readable lesson names
   const traceText = built.sections.filter((s) => s.kind !== "headline" && s.kind !== "learn" && s.kind !== "footer").map((s) => s.body).join("\n").replace(/Thu 19 Nov, 12:30 AM IST/g, " ").replace(/\b\d{1,2}:\d{2}\b/g, " ");
