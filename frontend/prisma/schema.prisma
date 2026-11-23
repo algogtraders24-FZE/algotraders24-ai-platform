@@ -2968,6 +2968,57 @@ model EdgeAnalysis {
 // identified only by accountKey = SHA-256(login|server|per-user salt) computed
 // by the EA. Everything is per-user isolated and deletable by the user.
 // ============================================================================
+// Execute bridge (Plan B): a token for the user's own "AT24 Execute" EA, and the orders the user confirmed in the Pro Chart that this EA picks up
+// and places in the user's own MT5. Separate from the Live Sync devices on purpose: a read-only sync token can never receive orders.
+model ExecDevice {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String
+  /// sha256 hex of the raw device token (never the token itself).
+  tokenHash  String    @unique
+  prefix     String
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+  lastSeenAt DateTime?
+
+  @@index([userId, createdAt])
+  @@map("exec_devices")
+}
+
+model ExecOrder {
+  id          String    @id @default(cuid())
+  userId      String
+  /// the user's own idempotency key: pressing Confirm twice (or a retried request) is one order
+  clientNonce String
+  symbol      String
+  side        String
+  kind        String
+  volume      Float
+  price       Float?
+  stopLoss    Float
+  takeProfit  Float?
+  /// queued -> sent (claimed by the EA) -> filled | placed | refused | error ; or expired | cancelled
+  status      String    @default("queued")
+  expiresAt   DateTime
+  confirmedAt DateTime  @default(now())
+  claimedAt   DateTime?
+  claimedBy   String?
+  reportedAt  DateTime?
+  ticket      String?
+  fillPrice   Float?
+  retcode     Int?
+  reason      String?
+  /// the plan exactly as the user saw it when pressing Confirm
+  planSnapshot Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, clientNonce])
+  @@index([userId, status])
+  @@index([status, expiresAt])
+  @@map("exec_orders")
+}
+
 model LiveSyncDevice {
   id         String    @id @default(cuid())
   userId     String

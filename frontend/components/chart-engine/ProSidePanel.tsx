@@ -8,6 +8,8 @@ import type { AnnotationResult } from "@/lib/chart-engine/annotations/types";
 import { AnnotationSummary, PlanOverlay } from "./ProModeBar";
 import ProChat from "./ProChat";
 import BrokerPanel from "./BrokerPanel";
+import ExecPanel from "./ExecPanel";
+import { useState } from "react";
 import SignalLog from "./SignalLog";
 import { buildReadout } from "@/lib/chart-engine/annotations/readout";
 import type { ChartCandle } from "@/types/chart-data";
@@ -66,6 +68,7 @@ function Mt5Panel({ plan, formatPrice }: { plan: TradePlan | null; formatPrice: 
 
 export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, onAnalyze, candles, pragya, getChatFacts, onOpenTester, mobileOpen = false, onMobileClose, scanning = false, signalNote = null }: Props) {
   const watching = plan ? 1 : 0;
+  const [execOn, setExecOn] = useState(false); // the Execute bridge is open to this account: the Trade tab shows it instead of the coming-soon card
   return (
     <aside className={`${mobileOpen ? "flex" : "hidden"} fixed inset-x-0 bottom-0 z-[70] h-[52vh] w-full flex-col gap-3 overflow-y-auto rounded-t-2xl border-t border-border bg-ink-2 p-3 text-text-2 max-md:pb-20 shadow-2xl md:static md:z-auto md:flex md:h-full md:w-[380px] md:shrink-0 md:rounded-none md:border-l md:border-t-0 md:shadow-none`}>
       <div className="flex items-center justify-between md:hidden">
@@ -140,7 +143,8 @@ export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, on
       </div>
 
       <div className={tab === "trade" ? "block" : "hidden"}>
-        <BrokerPanel active={tab === "trade"} symbol={symbol} plan={plan} formatPrice={formatPrice} fallback={<Mt5Panel plan={plan} formatPrice={formatPrice} />} />
+        <ExecPanel active={tab === "trade"} symbol={symbol} plan={plan} formatPrice={formatPrice} onEnabled={setExecOn} />
+        <BrokerPanel active={tab === "trade"} symbol={symbol} plan={plan} formatPrice={formatPrice} fallback={execOn ? null : <Mt5Panel plan={plan} formatPrice={formatPrice} />} />
       </div>
 
       <div className={tab === "strategies" ? "flex flex-col gap-3" : "hidden"}>

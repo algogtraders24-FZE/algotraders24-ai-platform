@@ -1,0 +1,10 @@
+{
+  "name": "AT24Execute",
+  "version": "1.00",
+  "source": "AT24Execute.mq5",
+  "sourceSha256": "58a8cd9c36c74b607e789f1e1e8850bcc42c71a26648e589cc5a8561ead754fb",
+  "ex5": "AT24Execute.ex5",
+  "ex5Sha256": "9f61dbf455beb20bf9cf7b757b4eafa2352afddccae60f8094c454070565de88",
+  "ex5Bytes": 57782,
+  "metaEditorBuild": null
+}
