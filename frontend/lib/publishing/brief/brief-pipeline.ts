@@ -5,6 +5,7 @@
 import type { ArticleSection } from "@/types/article";
 import { marketData } from "@/services/market-data/shared-instance";
 import { getCanonicalInstrument } from "@/lib/market-data/instrument-catalog";
+import { ensureExnessInstrumentRegistered } from "@/lib/market-data/exness-instruments";
 import { PROVIDER_INTERVAL } from "@/services/intelligence/hypothesis/hypothesis-outcome-evaluator.service";
 import { normalizeCandles } from "@/lib/chart-engine/candle-normalizer";
 import { buildBriefFacts, type BriefInput } from "./facts";
@@ -14,22 +15,30 @@ import { uploadBriefChart } from "./brief-storage";
 
 export interface BriefMarket { displayName: string; pair: string; category: BriefInput["category"] }
 
-/** Markets the brief supports so far (phase 4 starts with Gold and Bitcoin). */
+/** Every market the daily analysis rotation covers. */
 export const BRIEF_MARKETS: Record<string, BriefMarket> = {
   XAUUSD: { displayName: "Gold", pair: "XAU/USD", category: "metal" },
   BTCUSD: { displayName: "Bitcoin", pair: "BTC/USD", category: "crypto" },
+  ETHUSD: { displayName: "Ethereum", pair: "ETH/USD", category: "crypto" },
+  SOLUSD: { displayName: "Solana", pair: "SOL/USD", category: "crypto" },
+  XRPUSD: { displayName: "XRP", pair: "XRP/USD", category: "crypto" },
+  EURUSD: { displayName: "EUR/USD", pair: "EUR/USD", category: "forex" },
+  GBPUSD: { displayName: "GBP/USD", pair: "GBP/USD", category: "forex" },
+  USDJPY: { displayName: "USD/JPY", pair: "USD/JPY", category: "forex" },
 };
 
-/** BRIEF_V2=on enables the brief; BRIEF_V2_SYMBOLS (comma list, default XAUUSD,BTCUSD) narrows it. */
+/** BRIEF_V2=on enables the brief; BRIEF_V2_SYMBOLS (comma list, default: all of BRIEF_MARKETS) narrows it. */
 export function briefEnabledFor(symbol: string, env: NodeJS.ProcessEnv = process.env): boolean {
   if ((env.BRIEF_V2 ?? "").trim().toLowerCase() !== "on") return false;
-  const list = (env.BRIEF_V2_SYMBOLS ?? "XAUUSD,BTCUSD").split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
+  const list = (env.BRIEF_V2_SYMBOLS?.trim() ? env.BRIEF_V2_SYMBOLS : Object.keys(BRIEF_MARKETS).join(",")).split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
   return list.includes(symbol.toUpperCase()) && symbol.toUpperCase() in BRIEF_MARKETS;
 }
 
 export async function buildDailyBrief(symbol: string): Promise<{ title: string; summary: string; sections: ArticleSection[] } | null> {
   const market = BRIEF_MARKETS[symbol.toUpperCase()];
-  if (!market || !getCanonicalInstrument(symbol)) return null;
+  if (!market) return null;
+  if (!getCanonicalInstrument(symbol)) await ensureExnessInstrumentRegistered(symbol);
+  if (!getCanonicalInstrument(symbol)) return null;
   const series = await marketData.getTimeSeriesWithProvenance({ symbol, interval: PROVIDER_INTERVAL["1h"], outputSize: 1000 });
   const { candles } = normalizeCandles(series.candles);
   if (candles.length < 324) return null;
