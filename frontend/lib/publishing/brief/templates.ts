@@ -156,7 +156,7 @@ export function buildBriefSections(f: BriefFacts, opts: BriefBuildOptions = {}):
   const p = f.plan;
   if (p.state === "plan") {
     const risk = Math.abs(p.entry - p.stop);
-    const rec = p.record && p.record.n >= 30 ? ` Measured record of the same rule on this chart's history: ${p.record.n} cases, average ${Q(p.record.avgR, 2)} R before costs${p.record.baselineAvgR !== undefined ? ` (the same rule on shuffled data scores ${Q(p.record.baselineAvgR, 2)} R)` : ""}.` : " The measured record has too few cases to quote.";
+    const rec = p.record && p.record.n >= 30 ? ` Measured record of the same rule on this chart's history: ${p.record.n} cases, average ${Q(p.record.avgR, 2)} R before costs.` : " The measured record has too few cases to quote.";
     planText = `A ${p.dir} plan is mapped: ${p.entryType === "limit" ? "wait for a retrace to" : "enter at"} ${P(p.entry)}, stop ${P(p.stop)} (${Q(risk / f.atr, 1)} ATR), target ${P(p.target)} (${p.rr} R). ${p.score} of ${p.scoreMax} confluences line up.${rec} A plan is a stated set of levels, not a prediction. Size it to your own risk limit.`;
   } else {
     planText = `No clean setup right now: waiting for a cleaner area. ${p.reason} When a plan appears it is shown on the chart with entry, stop and target, together with its measured record.`;
