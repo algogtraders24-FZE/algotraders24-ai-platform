@@ -8,7 +8,8 @@ import { getCanonicalInstrument } from "@/lib/market-data/instrument-catalog";
 import { ensureExnessInstrumentRegistered } from "@/lib/market-data/exness-instruments";
 import { PROVIDER_INTERVAL } from "@/services/intelligence/hypothesis/hypothesis-outcome-evaluator.service";
 import { normalizeCandles } from "@/lib/chart-engine/candle-normalizer";
-import { buildBriefFacts, type BriefInput } from "./facts";
+import { buildBriefFacts, type BriefEventInput, type BriefFacts, type BriefInput } from "./facts";
+import type { WeekStats } from "./report-builders";
 import { buildBriefSections, type PreviousBrief } from "./templates";
 import { renderBriefChartPng } from "./brief-chart";
 import { uploadBriefChart } from "./brief-storage";
@@ -34,7 +35,15 @@ export function briefEnabledFor(symbol: string, env: NodeJS.ProcessEnv = process
   return list.includes(symbol.toUpperCase()) && symbol.toUpperCase() in BRIEF_MARKETS;
 }
 
-export async function buildDailyBrief(symbol: string): Promise<{ title: string; summary: string; sections: ArticleSection[] } | null> {
+export interface BriefAssets {
+  facts: BriefFacts;
+  previous: PreviousBrief | null;
+  chartUrl: string;
+  week: WeekStats;
+}
+
+/** Loads candles, builds the facts, renders and uploads the chart. Null when anything needed is missing. */
+export async function loadBriefAssets(symbol: string, events: BriefEventInput[] = []): Promise<BriefAssets | null> {
   const market = BRIEF_MARKETS[symbol.toUpperCase()];
   if (!market) return null;
   if (!getCanonicalInstrument(symbol)) await ensureExnessInstrumentRegistered(symbol);
@@ -44,7 +53,7 @@ export async function buildDailyBrief(symbol: string): Promise<{ title: string; 
   if (candles.length < 324) return null;
 
   const input: Omit<BriefInput, "candles"> = { symbol, displayName: market.displayName, pair: market.pair, category: market.category, timeframeLabel: "H1" };
-  const facts = buildBriefFacts({ ...input, candles });
+  const facts = buildBriefFacts({ ...input, candles, events });
   if (!facts) return null;
 
   // "yesterday's check": the levels the brief would have shown 24 hours ago, against what price did since (all from the same candles)
@@ -56,8 +65,18 @@ export async function buildDailyBrief(symbol: string): Promise<{ title: string; 
     previous = { levels: prevFacts.scenarioLevels, high: Math.max(...after.map((k) => k.high)), low: Math.min(...after.map((k) => k.low)), close: after[after.length - 1].close };
   }
 
+  // the last 5 trading days (120 hourly bars) for the weekly review
+  const wk = candles.slice(-120);
+  const week: WeekStats = { high: Math.max(...wk.map((k) => k.high)), low: Math.min(...wk.map((k) => k.low)), changePct: ((wk[wk.length - 1].close - wk[0].open) / wk[0].open) * 100, bars: wk.length };
+
   const chart = await renderBriefChartPng({ candles, pair: market.pair, timeframeLabel: "H1", size: "blog" });
   const chartUrl = await uploadBriefChart({ symbol, dateIso: new Date(facts.asOfMs).toISOString(), size: "blog", png: chart.png });
-  const built = buildBriefSections(facts, { chartUrl, previous });
+  return { facts, previous, chartUrl, week };
+}
+
+export async function buildDailyBrief(symbol: string, events: BriefEventInput[] = []): Promise<{ title: string; summary: string; sections: ArticleSection[] } | null> {
+  const a = await loadBriefAssets(symbol, events);
+  if (!a) return null;
+  const built = buildBriefSections(a.facts, { chartUrl: a.chartUrl, previous: a.previous });
   return { title: built.title, summary: built.summary, sections: built.sections };
 }

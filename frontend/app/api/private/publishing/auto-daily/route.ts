@@ -21,8 +21,9 @@ import { createTelegramClient } from "@/services/telegram/client";
 import { prismaTelegramStore } from "@/services/telegram/store";
 import { telegramConfig } from "@/services/telegram/config";
 import { buildSeo } from "@/services/ai/publishing/seo.service";
-import { briefEnabledFor, buildDailyBrief } from "@/lib/publishing/brief/brief-pipeline";
-import { DailyAutoPublisherService, blogGroupMessage, dailyRunTelegramMessage } from "@/services/publishing/daily-auto-publisher.service";
+import { BRIEF_MARKETS, briefEnabledFor, buildDailyBrief, loadBriefAssets } from "@/lib/publishing/brief/brief-pipeline";
+import { buildCalendarBrief, buildFundamentalBrief, eventsForSymbol, buildWeeklyBrief, type WeeklyPart } from "@/lib/publishing/brief/report-builders";
+import { DailyAutoPublisherService, blogGroupMessage, dailyRunTelegramMessage, toPlainText } from "@/services/publishing/daily-auto-publisher.service";
 
 // Up to ~6 sequential live-data + AI analyses (Sunday weekly review = 3, plus the daily crypto report).
 export const maxDuration = 300;
@@ -37,6 +38,9 @@ async function resolveOwnerId(): Promise<string> {
 
 async function runDaily(): Promise<Awaited<ReturnType<DailyAutoPublisherService["run"]>>> {
   const ownerId = await resolveOwnerId();
+  let eventsMemo: Awaited<ReturnType<typeof getEconomicCalendar>>["events"] | null = null;
+  const getEvents = async () => (eventsMemo ??= (await getEconomicCalendar({ week: "this" })).events);
+  const briefOn = (process.env.BRIEF_V2 ?? "").trim().toLowerCase() === "on";
   const service = new DailyAutoPublisherService({
     analyze: (symbol, question) => productionAnalysisOrchestrator.analyze({ userId: ownerId, symbol, question }),
     slugExists: async (slug) => (await prisma.article.findFirst({ where: { userId: ownerId, slug, deletedAt: null }, select: { id: true } })) !== null,
@@ -51,8 +55,37 @@ async function runDaily(): Promise<Awaited<ReturnType<DailyAutoPublisherService[
     publishNow: async (articleId) => {
       await publishingService.publishArticleNow(ownerId, articleId);
     },
-    buildBrief: async (symbol) => (briefEnabledFor(symbol) ? buildDailyBrief(symbol) : null),
-    getCalendarEvents: async () => (await getEconomicCalendar({ week: "this" })).events,
+    buildBrief: async (symbol) => (briefEnabledFor(symbol) ? buildDailyBrief(symbol, eventsForSymbol(symbol, await getEvents(), new Date())) : null),
+    brief: briefOn
+      ? {
+          calendar: (date, events) => buildCalendarBrief(date, events),
+          weekly: async (date, symbols) => {
+            const parts: WeeklyPart[] = [];
+            for (const symbol of symbols) {
+              const a = await loadBriefAssets(symbol, []);
+              if (a) parts.push({ label: BRIEF_MARKETS[symbol].displayName, facts: a.facts, chartUrl: a.chartUrl, week: a.week });
+            }
+            return buildWeeklyBrief(date, parts);
+          },
+          fundamental: async (symbol, outcome) => {
+            if (!briefEnabledFor(symbol)) return null;
+            const a = await loadBriefAssets(symbol, eventsForSymbol(symbol, await getEvents(), new Date()));
+            if (!a) return null;
+            const ex = outcome.result.explainable;
+            return buildFundamentalBrief({
+              facts: a.facts,
+              chartUrl: a.chartUrl,
+              overview: toPlainText(outcome.result.summary),
+              supporting: ex.supportingEvidence.map((i) => toPlainText(i.text)).filter(Boolean),
+              opposing: ex.opposingEvidence.map((i) => toPlainText(i.text)).filter(Boolean),
+              unknown: ex.unknownFactors.map((u) => toPlainText(u)).filter(Boolean),
+              risk: [ex.riskSummary, ex.confidenceSummary, ...ex.limitations.map((l) => `Limitation: ${l}`)].map((r) => toPlainText(r ?? "")).filter((r) => r.length > 0),
+              events: a.facts.events,
+            });
+          },
+        }
+      : undefined,
+    getCalendarEvents: getEvents,
   });
   const report = await service.run();
   // Owner-only summary to the Telegram chat linked on /dashboard/live-sync (best effort: never throws, never blocks).
