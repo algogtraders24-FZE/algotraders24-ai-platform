@@ -1,13 +1,14 @@
 "use client";
 // components/chart-engine/ScanOverlay.tsx
-// The "Analyze" reveal on the Pro Chart: ONE glowing beam sweeps the chart left to right and draws the layered curves (price, upper and lower
-// envelope, trend) together, with a glowing head, "ANALYSING nn %" and a progress track at the bottom. After the sweep the curves stay and a soft
+// The "Analyze" reveal on the Pro Chart: ONE glowing beam sweeps the chart left to right and draws the two real EMA lines (EMA 20 and EMA 50)
+// together, with a glowing head, "ANALYSING nn %" and a progress track at the bottom. After the sweep the curves stay and a soft
 // pulse waits for the analysis (PRAGYA) - at least `minMs`, at most `maxMs` - then an "Analysis complete" toast. Gold = the AT24 accent.
 import { useEffect, useRef, useState } from "react";
+import { SCAN_CURVE_LABELS } from "@/lib/chart-engine/scan-path";
 
 interface Props {
   active: boolean;
-  /** Layered curves in chart pixels (x ascending); sweep n draws curve n. */
+  /** The two EMA lines in chart pixels (x ascending), in the order of SCAN_CURVE_LABELS. */
   curves: [number, number][][];
   width: number;
   height: number;
@@ -78,6 +79,19 @@ export default function ScanOverlay({ active, curves, width, height, ready, minM
                 <g key={k}>
                   <path d={d} fill="none" stroke={`rgba(${GOLD},0.28)`} strokeWidth={7} strokeLinecap="round" strokeLinejoin="round" />
                   <path d={d} fill="none" stroke={`rgba(${BRIGHT},${k === 0 ? 0.95 : 0.75})`} strokeWidth={k === 0 ? 2.2 : 1.6} strokeLinecap="round" strokeLinejoin="round" />
+                </g>
+              );
+            })}
+            {!sweeping && curves.map((pts, k) => {
+              const end = pts[pts.length - 1];
+              if (!end) return null;
+              const text = SCAN_CURVE_LABELS[k] ?? "";
+              const w = text.length * 6.8 + 10;
+              const lx = Math.min(width - w - 4, end[0] + 6);
+              return (
+                <g key={`l${k}`}>
+                  <rect x={lx} y={end[1] - 9 + (k === 1 ? 10 : -10)} width={w} height={16} rx={3} fill="rgba(15,18,24,0.92)" />
+                  <text x={lx + 5} y={end[1] + 3 + (k === 1 ? 10 : -10)} fontSize={11} fontWeight={600} fill={`rgb(${BRIGHT})`}>{text}</text>
                 </g>
               );
             })}
