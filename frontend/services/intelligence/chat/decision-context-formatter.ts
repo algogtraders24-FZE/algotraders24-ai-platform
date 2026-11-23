@@ -21,6 +21,11 @@ function formatEvidenceItem(item: { claim: string; source: string; asOf: string 
   return `- ${item.claim} (source: ${item.source}, as of ${item.asOf})`;
 }
 
+/** ATR printed with enough digits for its size (4 significant digits when below 1): a fixed 4 decimals turned a 5-digit FX ATR like 0.000937 into 0.0009, 4 % off the real value the integrity check compares against. */
+function formatAtr(v: number): string {
+  return v >= 1 ? v.toFixed(4) : v.toPrecision(4);
+}
+
 export function formatDecisionContextAsText(dc: IntelligenceDecisionContext): string {
   const lines: string[] = [];
 
@@ -31,7 +36,7 @@ export function formatDecisionContextAsText(dc: IntelligenceDecisionContext): st
   lines.push(`Price: ${dc.currentState.price}`);
   if (dc.currentState.trendDirection) lines.push(`Trend: ${dc.currentState.trendDirection}`);
   if (dc.currentState.rsi14 !== undefined) lines.push(`RSI(14): ${dc.currentState.rsi14.toFixed(2)}`);
-  if (dc.currentState.atr14 !== undefined) lines.push(`ATR(14): ${dc.currentState.atr14.toFixed(4)}`);
+  if (dc.currentState.atr14 !== undefined) lines.push(`ATR(14): ${formatAtr(dc.currentState.atr14)}`);
   if (dc.currentState.volatilityBand) lines.push(`Volatility: ${dc.currentState.volatilityBand}`);
   if (dc.currentState.breakoutSignal) lines.push(`Breakout signal: ${dc.currentState.breakoutSignal}`);
   for (const b of dc.currentState.basis) lines.push(`- ${b}`);

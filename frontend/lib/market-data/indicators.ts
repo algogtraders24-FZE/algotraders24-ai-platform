@@ -313,6 +313,18 @@ export function macdSeriesMt5(values: readonly number[], fast = MACD_FAST_DEFAUL
   return out;
 }
 
+/** The latest ATR the way MetaTrader 5 computes it (simple average of the true range): what the chart panel shows, what PRAGYA's readout uses, and now what the AI intelligence layer reads. */
+export function atrMt5(candles: readonly OhlcCandle[], period = ATR_PERIOD_DEFAULT): number | undefined {
+  const series = atrSmaSeries(candles, period);
+  return series.length > 0 ? series[series.length - 1] : undefined;
+}
+
+/** The latest MACD the way MetaTrader 5 computes it (signal = SMA of the MACD line). Same value the chart's MACD panel shows at the last candle. */
+export function macdMt5(values: readonly number[], fast = MACD_FAST_DEFAULT, slow = MACD_SLOW_DEFAULT, signal = MACD_SIGNAL_DEFAULT): MACDResult | undefined {
+  const series = macdSeriesMt5(values, fast, slow, signal);
+  return series.length > 0 ? series[series.length - 1] : undefined;
+}
+
 export const STOCHASTIC_K_PERIOD_DEFAULT = 5;
 export const STOCHASTIC_SLOWING_DEFAULT = 3;
 export const STOCHASTIC_D_PERIOD_DEFAULT = 3;

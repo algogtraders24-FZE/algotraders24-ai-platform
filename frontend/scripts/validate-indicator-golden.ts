@@ -3,7 +3,7 @@
 // Indicators that start from a seed (EMA, RSI, ATR, MACD, ADX, SAR) are compared only after a warm-up, because a different seed converges away
 // (error shrinks geometrically); windowed ones (SMA, Bollinger, CCI, Williams %R, AO, Ichimoku, Stochastic) are compared from their first value.
 import { readFileSync } from "node:fs";
-import { adxSeries, atrSeries, atrSmaSeries, macdSeriesMt5, awesomeOscillatorSeries, bollingerSeries, cciSeries, emaSeries, ichimokuSeries, macdSeries, parabolicSarSeries, rsiSeries, smaSeries, stochasticSeries, williamsPercentRSeries } from "../lib/market-data/indicators";
+import { adxSeries, atrMt5, macdMt5, atrSeries, atrSmaSeries, macdSeriesMt5, awesomeOscillatorSeries, bollingerSeries, cciSeries, emaSeries, ichimokuSeries, macdSeries, parabolicSarSeries, rsiSeries, smaSeries, stochasticSeries, williamsPercentRSeries } from "../lib/market-data/indicators";
 
 type Golden = { symbol: string; candles: { time: number; open: number; high: number; low: number; close: number }[]; ref: Record<string, (number | null)[]> };
 
@@ -49,6 +49,10 @@ for (const file of process.argv.slice(2)) {
   const mm = macdSeriesMt5(closes, 12, 26, 9);
   compare("MACD sig (MT5)", mm.map((x) => x?.signal), R.macd_signal_mt5, WARM, 1e-6, scale);
   compare("MACD hist (MT5)", mm.map((x) => x?.histogram), R.macd_hist_mt5, WARM, 1e-6, scale);
+  // the scalar values the AI layer reads are the chart's last values (one convention everywhere)
+  const lastAtr = atrSmaSeries(cs, 14).at(-1), lastMacd = macdSeriesMt5(closes, 12, 26, 9).at(-1);
+  rows.push(`${atrMt5(cs, 14) === lastAtr && macdMt5(closes)?.signal === lastMacd?.signal && macdMt5(closes)?.macd === lastMacd?.macd ? "ok  " : "FAIL"} AI-layer scalars equal the chart's last ATR / MACD (MT5)`);
+  if (atrMt5(cs, 14) !== lastAtr || macdMt5(closes)?.signal !== lastMacd?.signal) fails++;
   const b = bollingerSeries(closes, 20, 2);
   compare("BB upper", b.map((x) => x?.upper), R.bb_upper, 0, 1e-9, scale);
   compare("BB middle", b.map((x) => x?.middle), R.bb_mid, 0, 1e-9, scale);
