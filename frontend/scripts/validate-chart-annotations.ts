@@ -133,9 +133,9 @@ import { PRO_LAYERS_CLEAN, PRO_LAYERS_DEFAULT } from "../lib/chart-engine/annota
   check("Scan path: empty for no candles", computeScanPath([], vp, { width: 900, height: 340, priceAxisWidth: 100, timeAxisHeight: 40 }).length === 0);
 
   const curves = computeScanCurves(walk, vp, { width: 900, height: 340, priceAxisWidth: 100, timeAxisHeight: 40 });
-  check("Scan curves: four layered curves, each inside the plot with x ascending", curves.length === 4 && curves.every((c) => c.length > 20 && c.every((p, i) => (i === 0 || p[0] >= c[i - 1][0]) && p[1] >= 0 && p[1] <= 300)), String(curves.length));
-  check("Scan curves: upper envelope sits above the lower envelope on average", (() => { const u = curves[1], l = curves[2]; const n = Math.min(u.length, l.length); let up = 0; for (let i = 0; i < n; i++) up += l[i][1] - u[i][1]; return up > 0; })());
-  check("Scan curves: none for no candles", computeScanCurves([], vp, { width: 900, height: 340, priceAxisWidth: 100, timeAxisHeight: 40 }).length === 0);
+  check("Scan lines: two EMA lines (20 and 50), each inside the plot with x ascending", curves.length === 2 && curves.every((c) => c.length > 20 && c.every((p, i) => (i === 0 || p[0] >= c[i - 1][0]) && p[1] >= 0 && p[1] <= 300)), String(curves.length));
+  check("Scan lines: the EMA 50 starts later than the EMA 20 (needs more candles)", curves.length === 2 && curves[1].length <= curves[0].length);
+  check("Scan lines: none for no candles", computeScanCurves([], vp, { width: 900, height: 340, priceAxisWidth: 100, timeAxisHeight: 40 }).length === 0);
 
   // blink target + phase
   const fvgA = { id: "a", type: "zone", group: "zones", kind: "fvg", bias: "bullish", startTime: 1, endTime: null, low: 10, high: 11, label: "FVG" } as const;
