@@ -209,7 +209,7 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
   // P4.1's own compiler contract (the intent IS the input).
   const [intent, setIntent] = useState("");
 
-  const [startDate, setStartDate] = useState(() => isoDateNDaysAgo(7));
+  const [startDate, setStartDate] = useState(() => isoDateNDaysAgo(MAX_RANGE_DAYS)); // the longest window the data provider allows (end date below is yesterday)
   // Live-verification finding (P3.2B): defaulting to isoDateNDaysAgo(0)
   // ("today") looked right but always failed - the server converts endDate
   // to end-of-day UTC (toEngineTimestamp's endOfDay=true, "23:59:59Z"), which
@@ -542,6 +542,7 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
               />
             </label>
           </div>
+          <p className="text-[11px] text-text-3">The default is the longest window allowed: {MAX_RANGE_DAYS} days. The historical data provider returns up to 5,000 bars per request, so longer windows are not available yet.</p>
           <label className="flex flex-col gap-0.5">
             <span className={FIN_LABEL}>Initial Balance</span>
             <input
