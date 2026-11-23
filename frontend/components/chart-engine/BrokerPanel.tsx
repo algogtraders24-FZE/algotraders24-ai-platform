@@ -11,6 +11,7 @@ interface Status {
   configured: boolean;
   unavailable?: boolean;
   message?: string;
+  detail?: string;
   tradingEnabled?: boolean;
   live?: boolean;
   liveAllowed?: boolean;
@@ -80,6 +81,7 @@ export default function BrokerPanel({ active, symbol, plan, formatPrice, fallbac
       <div className="flex flex-col items-center gap-3 px-2 pt-10 text-center">
         <p className="text-[14px] font-semibold text-text">Account not reachable</p>
         <p className="text-[13px] leading-relaxed text-text-3">{s.message}</p>
+        {s.detail && <p className="break-all rounded-md border border-border bg-ink-3 px-2 py-1.5 text-left font-mono text-[11px] text-text-3">{s.detail}</p>}
         <button type="button" onClick={() => void refresh()} className="rounded-lg border border-border bg-ink-3 px-4 py-2 text-[13px] text-text-2 hover:bg-ink-4">Retry</button>
       </div>
     );

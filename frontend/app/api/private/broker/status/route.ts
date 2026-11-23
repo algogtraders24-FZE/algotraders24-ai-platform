@@ -4,7 +4,7 @@
 import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { requireAdmin } from "@/lib/auth/adminRoute";
-import { getAccountInformation, getOrders, getPositions, isLiveAccount, maskLogin, upstreamStatus, readConfig } from "@/lib/broker/metaapi";
+import { getAccountInformation, getOrders, getPositions, isLiveAccount, maskLogin, MetaApiError, upstreamStatus, readConfig } from "@/lib/broker/metaapi";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -33,7 +33,7 @@ export const GET = withContext(async (_req, ctx) => {
   } catch (e) {
     const timedOut = upstreamStatus(e) === 504;
     return ApiResponse.success(
-      { configured: true, unavailable: true, message: timedOut ? "MetaApi did not answer in time. The MetaApi account is probably not connected to the broker (check its login, password and server in MetaApi)." : e instanceof Error ? e.message : "Broker connection failed." },
+      { configured: true, unavailable: true, detail: e instanceof MetaApiError ? e.detail : undefined, message: timedOut ? "MetaApi did not answer in time. The MetaApi account is probably not connected to the broker (check its login, password and server in MetaApi)." : e instanceof Error ? e.message : "Broker connection failed." },
       ctx.requestId, 200, ctx.startedAt,
     );
   }
