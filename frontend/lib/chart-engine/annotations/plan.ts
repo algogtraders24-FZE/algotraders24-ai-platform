@@ -10,7 +10,7 @@
 // Score = number of confluences present (max 5): order block, OTE overlap, FVG overlap, price in discount (long) /
 // premium (short), and a recent sweep in the same direction. It is a count of rules that agree, NOT a probability.
 // Record = the same rule replayed bar by bar on the loaded candles (no look-ahead; stop first if both hit in one
-// bar; open trades marked to market after MAX_HOLD bars): n, average R, share that reached the target first.
+// bar; open trades marked to market after PLAN_MAX_HOLD bars): n, average R, share that reached the target first.
 
 import type { ChartCandle } from "@/types/chart-data";
 import { computeAnnotations } from "./compute";
@@ -18,11 +18,12 @@ import { ema } from "./readout";
 import type { ZoneAnnotation } from "./types";
 
 export const PLAN_RR = 2;
-const MAX_HOLD = 48;
+/** Bars a limit entry may wait for its fill, and bars a live trade is held before it is marked to market (shared by the replay and by recorded signals). */
+export const PLAN_MAX_HOLD = 48;
 const STOP_BUFFER_ATR = 0.25;
 const LOOKBACK = 120;
 const STEP = 3;
-const FILL_WINDOW = 24;
+export const PLAN_FILL_WINDOW = 24;
 
 export interface PlanRecord {
   n: number;
@@ -158,7 +159,7 @@ export function planAt(candles: ChartCandle[], minScore: number = PLAN_MIN_SCORE
   };
 }
 
-/** Replays planAt() over history. A limit plan only counts if price actually reaches its entry within FILL_WINDOW bars. Deterministic; null when there are too few trades to say anything. */
+/** Replays planAt() over history. A limit plan only counts if price actually reaches its entry within PLAN_FILL_WINDOW bars. Deterministic; null when there are too few trades to say anything. */
 export function measurePlanRecord(candles: ChartCandle[], minScore: number = PLAN_MIN_SCORE): PlanRecord | null {
   const total = candles.length;
   if (total < LOOKBACK + 60) return null;
@@ -174,7 +175,7 @@ export function measurePlanRecord(candles: ChartCandle[], minScore: number = PLA
     let start = i + 1; // first bar in which the trade is live
     if (p.entryType === "limit") {
       let filled = -1;
-      for (let j = i + 1; j < Math.min(total, i + 1 + FILL_WINDOW); j++) {
+      for (let j = i + 1; j < Math.min(total, i + 1 + PLAN_FILL_WINDOW); j++) {
         const c = candles[j];
         if (long ? c.low <= p.stop : c.high >= p.stop) break; // went through the stop zone without a fill: cancelled
         if (long ? c.low <= p.entry : c.high >= p.entry) { filled = j; break; }
@@ -184,7 +185,7 @@ export function measurePlanRecord(candles: ChartCandle[], minScore: number = PLA
     }
     let r: number | null = null;
     let j = start;
-    for (; j < Math.min(total, start + MAX_HOLD); j++) {
+    for (; j < Math.min(total, start + PLAN_MAX_HOLD); j++) {
       const c = candles[j];
       const stopHit = long ? c.low <= p.stop : c.high >= p.stop;
       // on the bar a limit order fills, the order of high and low inside the bar is unknown: the target is only credited from the next bar (conservative)
@@ -193,7 +194,7 @@ export function measurePlanRecord(candles: ChartCandle[], minScore: number = PLA
       if (tgtHit) { r = PLAN_RR; hits++; break; }
     }
     if (r === null) {
-      const endIdx = Math.min(total - 1, start + MAX_HOLD);
+      const endIdx = Math.min(total - 1, start + PLAN_MAX_HOLD);
       const exitPrice = candles[endIdx].close;
       r = ((long ? exitPrice - p.entry : p.entry - exitPrice) / risk);
       j = endIdx;
