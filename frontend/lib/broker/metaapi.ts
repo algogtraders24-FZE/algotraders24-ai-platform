@@ -38,6 +38,8 @@ export function readConfig(): MetaApiConfig | null {
 }
 
 export class MetaApiError extends Error {
+  /** Which call failed and what MetaApi answered (no token, no account id): for the admin diagnostic line and for a support ticket. */
+  detail?: string;
   constructor(message: string, readonly status: number, readonly code?: string) {
     super(message);
   }
@@ -60,12 +62,16 @@ async function call<T>(cfg: MetaApiConfig, path: string, init?: { method?: strin
     try { json = text ? JSON.parse(text) : null; } catch { /* non-JSON error body */ }
     if (!res.ok) {
       const msg = (json && typeof json === "object" && "message" in json && typeof (json as { message: unknown }).message === "string") ? (json as { message: string }).message : `MetaApi HTTP ${res.status}`;
-      throw new MetaApiError(msg, res.status);
+      const err = new MetaApiError(msg, res.status);
+      err.detail = `${init?.method ?? "GET"} ${path} -> HTTP ${res.status}${text ? ` ${text.replace(/\s+/g, " ").slice(0, 240)}` : " (empty body)"}`;
+      throw err;
     }
     return json as T;
   } catch (e) {
     if (e instanceof MetaApiError) throw e;
-    throw new MetaApiError(e instanceof Error && e.name === "AbortError" ? "MetaApi did not answer in time" : "MetaApi is unreachable", 502);
+    const failure = new MetaApiError(e instanceof Error && e.name === "AbortError" ? "MetaApi did not answer in time" : "MetaApi is unreachable", 502);
+    failure.detail = `${init?.method ?? "GET"} ${path} -> ${failure.message} (host ${new URL(cfg.baseUrl).host})`;
+    throw failure;
   } finally {
     clearTimeout(timer);
   }
