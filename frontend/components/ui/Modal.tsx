@@ -37,7 +37,7 @@ export default function Modal({
         aria-modal="true"
         aria-labelledby="modal-title"
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-panel border border-border bg-ink-2 p-6 text-text shadow-overlay"
+        className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-panel border border-border bg-ink-2 p-6 text-text shadow-overlay"
       >
         <div className="flex items-center justify-between">
           <h2 id="modal-title" className="text-lg font-semibold">
