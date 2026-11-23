@@ -308,7 +308,7 @@ test("B7 (documents a verified reachability finding, proves the underlying primi
 //    around or claims to have solved.
 // ============================================================================
 
-test("C1 (documents a known limitation, does not claim it is fixed): a pyramid that pushes the weighted-average entryPrice past the fixed initialStopLoss makes riskDistance <= 0 for BOTH rMultiple and mfeR/maeR (they share the identical risk-distance computation) - and rMultiple's own pre-existing, unguarded computation throws FIRST, before mfeR/maeR's own null-guard is ever reached. This is the deferred rMultiple defect this phase's audit found and explicitly declined to fix; it is NOT a P4.6 regression, and this test does not claim runSimulation() completes in this scenario - only that buildTrade(), called directly, throws at the expected line, for the expected reason.", () => {
+test("C1 (the formerly deferred rMultiple defect, now fixed): a pyramid that pushes the weighted-average entryPrice past the fixed initialStopLoss makes riskDistance <= 0; buildTrade() no longer throws - rMultiple, mfeR and maeR are all null (R is undefined without a positive risk distance), so runSimulation() completes instead of aborting.", () => {
   const pyramidedPosition: Position = fakePosition({
     side: "BUY",
     entryPrice: 76, // volume-weighted average AFTER a pyramid add at a low price
@@ -317,25 +317,24 @@ test("C1 (documents a known limitation, does not claim it is fixed): a pyramid t
     highestPriceSinceEntry: 80,
     lowestPriceSinceEntry: 48,
   });
-  assert.throws(
-    () =>
-      buildTrade({
-        tradeId: "t1",
-        strategyVersion: "1.0.0",
-        position: pyramidedPosition,
-        exitPrice: 50,
-        exitTimestamp: 1000,
-        quantity: 2,
-        grossPnl: -52,
-        fees: 0,
-        fillModel: "BarFillModel",
-        spreadModel: "ZeroSpread",
-        slippageModel: "ZeroSlippage",
-        feeModel: "ZeroFee",
-      }),
-    /riskDistance must be > 0/,
-    "buildTrade() throws via the PRE-EXISTING rMultiple computation, before mfeR/maeR's own tryComputeR-based guard ever runs - proving the coupling this phase disclosed, not silently working around it",
-  );
+  const trade = buildTrade({
+    tradeId: "t1",
+    strategyVersion: "1.0.0",
+    position: pyramidedPosition,
+    exitPrice: 50,
+    exitTimestamp: 1000,
+    quantity: 2,
+    grossPnl: -52,
+    fees: 0,
+    fillModel: "BarFillModel",
+    spreadModel: "ZeroSpread",
+    slippageModel: "ZeroSlippage",
+    feeModel: "ZeroFee",
+  });
+  assert.equal(trade.rMultiple, null);
+  assert.equal(trade.mfeR, null);
+  assert.equal(trade.maeR, null);
+  assert.equal(trade.grossPnl, -52, "the money result of the trade is untouched");
 });
 
 test("C2 (the guard itself, in isolation): tryComputeR alone - the exact same entry/stop pair from C1 - correctly returns null and never throws, proving mfeR/maeR's OWN logic is correct even though it cannot be observed through buildTrade() today", () => {
