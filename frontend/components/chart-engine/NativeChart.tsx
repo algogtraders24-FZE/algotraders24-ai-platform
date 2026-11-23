@@ -525,6 +525,7 @@ export default function NativeChart({
   const [rangeKey, setRangeKey] = useState<RangeKey | null>(null);
   const [testerOpen, setTesterOpen] = useState(false);
   const [mobilePanel, setMobilePanel] = useState(false);
+  const [signalNote, setSignalNote] = useState<"saved" | "error" | null>(null);
   const [proTab, setProTab] = useState<ProTab>("chat");
   const proRef = useRef(proState);
   proRef.current = proState;
@@ -1182,6 +1183,21 @@ export default function NativeChart({
     handleFit();
   }
 
+  /** Every trade plan Analyze generates is saved once to the user's signal record, so its outcome can be measured later (idempotent per plan + candle). */
+  function recordSignal(plan: TradePlan) {
+    setSignalNote(null);
+    if (plan.state !== "plan") return;
+    const last = candles[candles.length - 1];
+    if (!last) return;
+    fetch("/api/private/signals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbol, timeframe, dir: plan.dir, entryType: plan.entryType, entry: plan.entry, stop: plan.stop, target: plan.target, rr: plan.rr, score: plan.score, scoreMax: plan.scoreMax, confluences: plan.confluences, source: plan.source, signalTime: last.time, lastClose: last.close }),
+    })
+      .then((r) => setSignalNote(r.ok ? "saved" : "error"))
+      .catch(() => setSignalNote("error"));
+  }
+
   /** Right after the scan every element of the fresh result flashes in turn; the plan's fair value gap (else the nearest gap or support line) blinks the most. */
   function startPulse(analysis: AnnotationResult, plan: TradePlan) {
     if (typeof window === "undefined" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
@@ -1209,6 +1225,7 @@ export default function NativeChart({
       setProPlan(plan);
       proPlanRef.current = plan;
       startPulse(analysis, plan);
+      recordSignal(plan);
     };
     const viewport = viewportRef.current;
     if (!proLayout || !viewport) {
@@ -1920,6 +1937,7 @@ export default function NativeChart({
           onOpenTester={() => setTesterOpen(true)}
           onAnalyze={runAnalyze}
           scanning={scan !== null}
+          signalNote={signalNote}
         />
       )}
       {proLayout && !mobilePanel && (

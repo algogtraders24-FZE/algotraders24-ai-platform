@@ -679,6 +679,40 @@ model ChartDrawingSet {
   @@index([userId])
 }
 
+// Pro Chart signal record: every trade plan the Pro Chart generated for a user (Analyze), stored once, then followed on later candles until the
+// target, the stop, a cancel or an expiry decides it (lib/chart-engine/signals/outcome.ts). Purpose: to MEASURE how the signal rule really does.
+model ChartSignal {
+  id              String    @id @default(cuid())
+  userId          String
+  symbol          String
+  timeframe       String
+  dir             String
+  entryType       String
+  entry           Float
+  stop            Float
+  target          Float
+  rr              Float
+  score           Int
+  scoreMax        Int
+  confluences     Json      @default("[]")
+  source          String?
+  signalTime      DateTime
+  lastClose       Float
+  dedupeKey       String
+  status          String    @default("open")
+  filledAt        DateTime?
+  closedAt        DateTime?
+  resultR         Float?
+  resolvedThrough DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, createdAt])
+  @@index([status])
+  @@index([symbol, timeframe])
+}
+
 // Sprint D2.7.11 Phase 4 - saved chart templates (MT5's own real Template
 // feature: a named, reusable bundle of active indicators + drawn objects).
 // Deliberately NOT scoped by symbol/timeframe (unlike ChartDrawingSet

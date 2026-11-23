@@ -8,6 +8,7 @@ import type { AnnotationResult } from "@/lib/chart-engine/annotations/types";
 import { AnnotationSummary, PlanOverlay } from "./ProModeBar";
 import ProChat from "./ProChat";
 import BrokerPanel from "./BrokerPanel";
+import SignalLog from "./SignalLog";
 import { buildReadout } from "@/lib/chart-engine/annotations/readout";
 import type { ChartCandle } from "@/types/chart-data";
 
@@ -35,6 +36,8 @@ interface Props {
   onMobileClose?: () => void;
   /** The Analyze scan is running: the Chat tab shows a loader instead of its content. */
   scanning?: boolean;
+  /** The plan was saved to the user's signal record (or saving failed). */
+  signalNote?: "saved" | "error" | null;
 }
 
 const TABS: { key: ProTab; label: string }[] = [
@@ -61,7 +64,7 @@ function Mt5Panel({ plan, formatPrice }: { plan: TradePlan | null; formatPrice: 
   );
 }
 
-export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, onAnalyze, candles, pragya, getChatFacts, onOpenTester, mobileOpen = false, onMobileClose, scanning = false }: Props) {
+export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, onAnalyze, candles, pragya, getChatFacts, onOpenTester, mobileOpen = false, onMobileClose, scanning = false, signalNote = null }: Props) {
   const watching = plan ? 1 : 0;
   return (
     <aside className={`${mobileOpen ? "flex" : "hidden"} fixed inset-x-0 bottom-0 z-[70] h-[52vh] w-full flex-col gap-3 overflow-y-auto rounded-t-2xl border-t border-border bg-ink-2 p-3 text-text-2 max-md:pb-20 shadow-2xl md:static md:z-auto md:flex md:h-full md:w-[380px] md:shrink-0 md:rounded-none md:border-l md:border-t-0 md:shadow-none`}>
@@ -104,6 +107,7 @@ export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, on
           <>
             <button type="button" onClick={onAnalyze} className="w-full rounded-lg border border-border bg-ink-3 py-2 text-[14px] font-semibold text-text hover:bg-ink-4">Re-analyze</button>
             {plan && <PlanOverlay inline plan={plan} onExecute={onExecute} onClose={onClosePlan} formatPrice={formatPrice} />}
+            {plan && plan.state === "plan" && signalNote === "saved" && <p className="-mt-1 px-1 text-[12px] text-text-3">✓ Saved to My signals (Strategies tab). Its outcome is measured on the candles that follow.</p>}
             <div className="rounded-lg border border-border bg-ink-3/60 p-3">
               <AnnotationSummary analysis={analysis} formatPrice={formatPrice} />
             </div>
@@ -140,6 +144,7 @@ export function ProSidePanel({ tab, onTab, symbol, timeframe, plan, analysis, on
       </div>
 
       <div className={tab === "strategies" ? "flex flex-col gap-3" : "hidden"}>
+        <SignalLog active={tab === "strategies"} />
         <div className="flex items-center justify-between text-[12.5px] uppercase tracking-wide text-text-3">
           <span>Watching {symbol} · {timeframe.toUpperCase()}</span>
           <span>{watching} {watching === 1 ? "card" : "cards"}</span>

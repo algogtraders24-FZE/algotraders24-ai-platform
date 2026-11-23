@@ -30,7 +30,7 @@ import type { DrawingObject } from "@/lib/chart-engine/drawing/types";
 const MAX_OBJECTS_PER_CHART = 200;
 
 /** A symbol drawings can be saved for: a registry market, a catalog instrument, or an instrument the Exness account lists. */
-async function isChartableSymbol(symbol: string): Promise<boolean> {
+export async function isChartableSymbol(symbol: string): Promise<boolean> {
   if (isKnownMarket(symbol) || getCanonicalInstrument(symbol)) return true;
   if (!/^[A-Za-z0-9._#-]{2,20}$/.test(symbol)) return false;
   return ensureExnessInstrumentRegistered(symbol);
