@@ -178,6 +178,8 @@ export interface NativeChartProps {
   proLayout?: boolean;
   /** Pro layout: the symbol picker shown at the start of the single top bar. */
   symbolPicker?: React.ReactNode;
+  /** Pro layout shown inside a page (the dashboard preview): no back button, no floating panel button, and the wheel only zooms with Ctrl / Cmd so the page can still scroll. */
+  embedded?: boolean;
 }
 
 export default function NativeChart({
@@ -192,6 +194,7 @@ export default function NativeChart({
   externalCrosshairTime = null,
   proLayout = false,
   symbolPicker,
+  embedded = false,
 }: NativeChartProps) {
   // Sprint D2.8.13 - `hypothesisType` is the real, already-fetched active
   // hypothesis WorkspaceResearch found for this same symbol (D2.8.13's own
@@ -812,6 +815,7 @@ export default function NativeChart({
   }
 
   function handleWheel(e: WheelEvent) {
+    if (embedded && !(e.ctrlKey || e.metaKey)) return; // let the page scroll
     e.preventDefault();
     const viewport = viewportRef.current;
     if (!viewport || candles.length === 0) return;
@@ -1660,7 +1664,7 @@ export default function NativeChart({
       {proLayout ? (
         <ProTopBar
           leading={symbolPicker}
-          onBack={() => { window.location.href = "/dashboard"; }}
+          onBack={embedded ? undefined : () => { window.location.href = "/dashboard"; }}
           timeframe={timeframe}
           onTimeframeChange={onTimeframeChange}
           chartType={chartType}
@@ -1940,7 +1944,7 @@ export default function NativeChart({
           signalNote={signalNote}
         />
       )}
-      {proLayout && !mobilePanel && (
+      {proLayout && !embedded && !mobilePanel && (
         <button type="button" onClick={() => setMobilePanel(true)} className="fixed bottom-14 right-3 z-30 rounded-full bg-gold px-4 py-2.5 text-[13px] font-semibold text-ink shadow-lg md:hidden">
           ✦ Plan &amp; Chat
         </button>
