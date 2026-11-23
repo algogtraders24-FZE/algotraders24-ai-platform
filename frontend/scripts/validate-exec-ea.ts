@@ -90,6 +90,31 @@ async function main() {
   check("an empty queue answers the literal order:null which the EA does not treat as an order", (async () => true)() instanceof Promise && (await (await handleExecRequest(new Request("https://x.test/p", { method: "POST", headers: { authorization: `Bearer ${tok.raw}` }, body: "{}" }), "poll", { enabled: true, store })).text()).includes('"order":null') && code.includes('StringFind(resp, "\\"order\\":{")'));
   check("the report keys the EA sends are the ones the server accepts", ["orderId", "outcome", "ticket", "price", "retcode", "reason"].every((k) => bodyOf(code, "void Report(").includes(`\\"${k}\\"`) || bodyOf(code, "void Report(").includes(`"${k}`)));
 
+  // ---- the MetaTrader 4 version carries the same guarantees
+  const mt4Path = join(DL, "AT24Execute-MT4.mq4");
+  const mt4Manifest = join(DL, "AT24Execute-MT4.manifest.json");
+  check("the MT4 source, compiled .ex4 and manifest exist", existsSync(mt4Path) && existsSync(join(DL, "AT24Execute-MT4.ex4")) && existsSync(mt4Manifest));
+  if (existsSync(mt4Path) && existsSync(mt4Manifest)) {
+    const t4 = readFileSync(mt4Path, "utf8").split("\r\n").join("\n");
+    const m4 = JSON.parse(readFileSync(mt4Manifest, "utf8")) as { sourceSha256: string; ex4Sha256: string };
+    check("MT4 manifest hashes match the source and the compiled file (rebuild with scripts/build-exec-ea-ex4.ts)", m4.sourceSha256 === sha(t4) && m4.ex4Sha256 === sha(readFileSync(join(DL, "AT24Execute-MT4.ex4"))));
+    const c4 = stripComments(t4);
+    const exec4 = bodyOf(c4, "bool ExecuteOrder(");
+    const outside4 = c4.replace(exec4, "");
+    check("MT4: OrderSend appears inside ExecuteOrder only", /\bOrderSend\s*\(/.test(exec4) && !/\bOrderSend\s*\(/.test(outside4));
+    check("MT4: never closes, modifies or deletes anything", !/\b(OrderClose|OrderCloseBy|OrderModify|OrderDelete)\s*\(/.test(c4));
+    check("MT4: ExecuteOrder is called once, after Check, in ProcessOrder", (c4.match(/\bExecuteOrder\s*\(/g) ?? []).length === 2 && /const string why = Check\([\s\S]*?ExecuteOrder\(/.test(bodyOf(c4, "void ProcessOrder(")));
+    const chk4 = bodyOf(c4, "string Check(");
+    check("MT4: dry run is the first check", chk4.indexOf("DryRun") >= 0 && chk4.indexOf("DryRun") < chk4.indexOf("secondsToLive"));
+    check("MT4: Check refuses the same cases", ["secondsToLive <= 0", "IsTradeAllowed", "SymbolSelect", "sl <= 0.0", "MaxLots", "MaxSpreadPoints", "MaxOpenPositions", "MaxDailyLossPercent", "sl < ref", "tp > ref", "MaxSlippagePoints", "price < ask"].every((x) => chk4.includes(x)));
+    check("MT4: safe defaults and demo-only start", /input\s+bool\s+AllowLiveAccount\s*=\s*false/.test(c4) && /input\s+bool\s+DryRun\s*=\s*false/.test(c4) && /input\s+double\s+MaxLots\s*=\s*0\.10/.test(c4) && /ModeText\(\)\s*==\s*"REAL"\s*&&\s*!AllowLiveAccount/.test(bodyOf(c4, "int OnInit(")));
+    const proc4 = bodyOf(c4, "void ProcessOrder(");
+    check("MT4: order id marked before anything is sent", proc4.indexOf("GlobalVariableSet(gv, (double)TimeCurrent())") > 0 && proc4.indexOf("GlobalVariableSet(gv, (double)TimeCurrent())") < proc4.indexOf("ExecuteOrder("));
+    check("MT4: no identity is read or sent, one WebRequest only", !/AccountNumber|AccountName|AccountServer|AccountCompany/.test(c4) && (c4.match(/\bWebRequest\s*\(/g) ?? []).length === 1);
+    for (const key of ["id", "symbol", "side", "kind", "expiresAt"]) check(`MT4 reads the string key "${key}"`, proc4.includes(`"${key}"`));
+    for (const key of ["volume", "price", "stopLoss", "takeProfit"]) check(`MT4 reads the number key "${key}"`, proc4.includes(`"${key}"`));
+  }
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail === 0 ? 0 : 1);
 }

@@ -61,7 +61,7 @@ export default function ExecEaCard() {
       <div>
         <h2 className="text-base font-semibold text-text">AT24 Execute EA: send confirmed orders to your own MT5</h2>
         <p className="mt-1 text-sm text-text-2">
-          A small Expert Advisor that runs inside <b>your</b> MetaTrader 5. When you press <b>Confirm</b> on a trade plan in the Pro Chart, it places that one order in your terminal.
+          A small Expert Advisor that runs inside <b>your</b> MetaTrader 5 or 4. When you press <b>Confirm</b> on a trade plan in the Pro Chart, it places that one order in your terminal.
           It never opens a trade on its own, never sees your password, and applies its own safety checks first (stop loss required, lot cap, symbol, price, open-position and daily-loss limits).
           Demo accounts only unless you switch on <code>AllowLiveAccount</code> in its inputs.
         </p>
@@ -72,6 +72,9 @@ export default function ExecEaCard() {
         <li>
           Download <a className="font-semibold text-gold hover:underline" href="/downloads/AT24Execute.ex5" download>AT24Execute.ex5</a> into your terminal&apos;s <code>MQL5\Experts</code> folder (File → Open Data Folder), refresh the Navigator.
           <span className="block text-xs text-text-3">Source to read or compile yourself: <a className="font-semibold text-gold hover:underline" href="/downloads/AT24Execute.mq5" download>AT24Execute.mq5</a> · <a className="hover:underline" href="/downloads/AT24Execute.manifest.json" target="_blank" rel="noreferrer">checksums</a></span>
+          <span className="block text-xs text-text-3">
+            MetaTrader 4: download <a className="font-semibold text-gold hover:underline" href="/downloads/AT24Execute-MT4.ex4" download>AT24Execute-MT4.ex4</a> into <code>MQL4\Experts</code> instead, then follow the same steps. Source: <a className="font-semibold text-gold hover:underline" href="/downloads/AT24Execute-MT4.mq4" download>AT24Execute-MT4.mq4</a> · <a className="hover:underline" href="/downloads/AT24Execute-MT4.manifest.json" target="_blank" rel="noreferrer">checksums</a>
+          </span>
         </li>
         <li>MetaTrader: Tools → Options → Expert Advisors → tick <b>Allow WebRequest for listed URL</b> and add <code>https://www.algotraders24.ai</code>.</li>
         <li>Attach <b>AT24Execute</b> to ONE chart, paste the token into its inputs, switch <b>Algo Trading</b> on. Start with a demo account; set <code>DryRun=true</code> first if you want to see it read and refuse an order without placing anything.</li>
