@@ -32,6 +32,15 @@ test("promises and win-rate claims are flagged", () => {
 test("plain educational wording passes the claim check", () => {
   assert.equal(containsForbiddenClaim("The plan is educational: a retrace to 59,556 with a stop at 58,989. Risk is one ATR."), false);
 });
+test("Hinglish promises and win-rate claims are flagged", () => {
+  for (const bad of ["Ye trade pakka profit dega.", "Is setup mein loss nahi hoga.", "Yahan risk nahi hai.", "Isme 80% jeet ka chance hai.", "Paisa double ho jayega.", "Ye sure shot entry hai.", "Guarantee hai ki price badhega.", "यह पक्का मुनाफा है।"]) {
+    assert.equal(containsForbiddenClaim(bad), true, bad);
+  }
+});
+test("plain educational Hinglish passes the claim check", () => {
+  assert.equal(containsForbiddenClaim("Price EMA20 ke upar hai, plan mein entry 59,556, stop 58,989 aur target 60,689 hai. Risk ek ATR ke barabar hai."), false);
+  assert.equal(containsForbiddenClaim("Abhi wait karna sahi lagta hai kyunki nearest zone door hai."), false);
+});
 test("cleanProse strips markdown and joins lines", () => {
   assert.equal(cleanProse("**Price** is above\nthe `EMA20`.\n\n# Next"), "Price is above the EMA20. Next");
 });
