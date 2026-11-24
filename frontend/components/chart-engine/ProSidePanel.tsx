@@ -7,7 +7,6 @@ import type { TradePlan } from "@/lib/chart-engine/annotations/plan";
 import type { AnnotationResult } from "@/lib/chart-engine/annotations/types";
 import { AnnotationSummary, PlanOverlay } from "./ProModeBar";
 import ProChat from "./ProChat";
-import BrokerPanel from "./BrokerPanel";
 import ExecPanel from "./ExecPanel";
 import { useState } from "react";
 import SignalLog from "./SignalLog";
@@ -55,9 +54,9 @@ function Mt5Panel({ plan, formatPrice }: { plan: TradePlan | null; formatPrice: 
   return (
     <div className="flex flex-col items-center gap-3 px-2 pt-16 text-center">
       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h14a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2V7zM4 7l12-3v3M16 13h2" /></svg>
-      <p className="text-[16px] font-semibold text-text">No MT5 account connected</p>
-      <p className="text-[13px] leading-relaxed text-text-3">Connect your MetaTrader 5 account to send this chart&apos;s trades to your broker. An order is only ever sent when you press the button yourself.</p>
-      <button type="button" disabled className="mt-1 w-full cursor-not-allowed rounded-lg bg-gold/40 px-4 py-2.5 text-[14px] font-semibold text-ink/80">Connect MT5 (coming soon)</button>
+      <p className="text-[16px] font-semibold text-text">No MetaTrader connected</p>
+      <p className="text-[13px] leading-relaxed text-text-3">Send this chart&apos;s trades to your own MetaTrader 4 or 5 with the AT24 Execute EA. An order is only ever sent when you press the button yourself.</p>
+      <button type="button" disabled className="mt-1 w-full cursor-not-allowed rounded-lg bg-gold/40 px-4 py-2.5 text-[14px] font-semibold text-ink/80">Execute EA (coming soon)</button>
       {plan && plan.state === "plan" && (
         <div className="mt-4 w-full rounded-lg border border-border bg-ink-3 p-3 text-left text-[13px] text-text-2">
           <p className="mb-1 text-[11.5px] font-semibold uppercase tracking-wide text-text-3">Current plan (not sent anywhere)</p>
@@ -146,7 +145,7 @@ export function ProSidePanel({ tab, onTab, symbol, tradeSymbol, timeframe, plan,
 
       <div className={tab === "trade" ? "block" : "hidden"}>
         <ExecPanel active={tab === "trade"} symbol={tradeSymbol ?? symbol} plan={plan} formatPrice={formatPrice} onEnabled={setExecOn} />
-        <BrokerPanel active={tab === "trade"} symbol={tradeSymbol ?? symbol} plan={plan} formatPrice={formatPrice} fallback={execOn ? null : <Mt5Panel plan={plan} formatPrice={formatPrice} />} />
+        {!execOn && <Mt5Panel plan={plan} formatPrice={formatPrice} />}
       </div>
 
       <div className={tab === "strategies" ? "flex flex-col gap-3" : "hidden"}>

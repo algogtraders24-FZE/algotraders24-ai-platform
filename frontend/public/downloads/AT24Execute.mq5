@@ -24,7 +24,7 @@ input int    MaxSlippagePoints  = 30;                           // Market orders
 input int    MaxSpreadPoints    = 0;                            // Refuse when the spread is wider than this (0 = no spread filter)
 input int    MaxOpenPositions   = 5;                            // Open positions plus pending orders of this EA allowed at the same time
 input double MaxDailyLossPercent = 5.0;                         // Refuse new orders once equity fell this % since the first check of the UTC day (0 = off)
-input string SymbolSuffix       = "";                           // Your broker's symbol suffix, e.g. "m" turns BTCUSD into BTCUSDm
+input string SymbolSuffix       = "";                           // Optional. Leave empty: the EA finds your broker's name by itself (BTCUSDm, EURUSD.a, #EURUSD ...)
 input long   MagicNumber        = 240024;                       // Magic number put on every order of this EA
 input bool   DryRun             = false;                        // Test mode: every order is read, checked and REFUSED with "dry run" (nothing is placed)
 
@@ -177,6 +177,60 @@ void NoteFailure()
    g_backoffUntil = TimeCurrent() + wait;
   }
 
+
+bool SymbolExistsIn(const string name)
+  {
+   return SymbolInfoInteger(name, SYMBOL_EXIST) != 0;
+  }
+
+// Finds this broker's name for a plain instrument id (BTCUSD -> BTCUSDm, EURUSD.a, #EURUSD ...). Tried in order: the SymbolSuffix input, the plain name,
+// then the broker's symbol list: the name must contain the id, and the characters next to it must not be capitals or digits (so EURUSDT is never taken for EURUSD).
+string ResolveSymbol(const string base)
+  {
+   if(StringLen(SymbolSuffix) > 0 && SymbolExistsIn(base + SymbolSuffix))
+      return base + SymbolSuffix;
+   if(SymbolExistsIn(base))
+      return base;
+   string want = base;
+   StringToUpper(want);
+   string best = "";
+   int bestExtra = 1000;
+   const int total = SymbolsTotal(false);
+   for(int i = 0; i < total; i++)
+     {
+      const string name = SymbolName(i, false);
+      string up = name;
+      StringToUpper(up);
+      const int at = StringFind(up, want);
+      if(at < 0)
+         continue;
+      const int extra = StringLen(name) - StringLen(base);
+      if(extra <= 0 || extra > 8)
+         continue;
+      if(at > 0)
+        {
+         const int before = StringGetCharacter(name, at - 1);
+         if((before >= 'A' && before <= 'Z') || (before >= '0' && before <= '9'))
+            continue;
+        }
+      const int endAt = at + StringLen(base);
+      if(endAt < StringLen(name))
+        {
+         const int after = StringGetCharacter(name, endAt);
+         if((after >= 'A' && after <= 'Z') || (after >= '0' && after <= '9'))
+            continue;
+        }
+      if(extra < bestExtra)
+        {
+         best = name;
+         bestExtra = extra;
+        }
+     }
+   if(StringLen(best) > 0)
+      Print("AT24 Execute: using the broker symbol ", best, " for ", base);
+   return best;
+  }
+
 //+------------------------------------------------------------------+
 //| report the result of one order back to AT24                      |
 //+------------------------------------------------------------------+
@@ -271,7 +325,7 @@ string Check(const string sym, const bool isBuy, const bool isLimit, const doubl
    if(!TerminalInfoInteger(TERMINAL_TRADE_ALLOWED) || !MQLInfoInteger(MQL_TRADE_ALLOWED))
       return "algo trading is switched off in this terminal or for this EA";
    if(!SymbolSelect(sym, true))
-      return "symbol " + sym + " was not found at this broker (set SymbolSuffix?)";
+      return "symbol " + sym + " was not found at this broker";
    if((ENUM_SYMBOL_TRADE_MODE)SymbolInfoInteger(sym, SYMBOL_TRADE_MODE) != SYMBOL_TRADE_MODE_FULL)
       return "trading is not fully enabled for " + sym + " right now";
    if(sl <= 0.0)
@@ -346,7 +400,13 @@ void ProcessOrder(const string orderJson)
       Report(id, "refused", "", 0.0, 0, "the order could not be read");
       return;
      }
-   const string sym = symRaw + SymbolSuffix;
+   const string sym = ResolveSymbol(symRaw);
+   if(StringLen(sym) == 0)
+     {
+      g_lastResult = "refused: symbol not found at this broker";
+      Report(id, "refused", "", 0.0, 0, "symbol " + symRaw + " was not found at this broker");
+      return;
+     }
    const bool isBuy = (side == "buy");
    const bool isLimit = (kind == "limit");
 
