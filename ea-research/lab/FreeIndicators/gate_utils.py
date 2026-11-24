@@ -26,3 +26,7 @@ make("PropGuard", "AT24_Prop_Firm_Guard", "AT24-PROP-FIRM-GUARD", [
     ("int OnInit()\n  {\n", "int OnInit()\n  {\n   if(!AT24Gate_Init(InpLicenseKey))\n      return INIT_FAILED;\n"),
     ("void OnTimer()\n  {\n   Cycle();", "void OnTimer()\n  {\n   AT24Gate_Timer(InpLicenseKey);   // the guard keeps watching the account even if the licence check fails later\n   Cycle();"),
 ])
+make("BasketCloser", "AT24_Basket_Closer", "AT24-BASKET-CLOSER", [
+    ("int OnInit()\n  {\n", "int OnInit()\n  {\n   if(!AT24Gate_Init(InpLicenseKey))\n      return INIT_FAILED;\n"),
+    ("void OnTimer()\n  {\n", "void OnTimer()\n  {\n   AT24Gate_Timer(InpLicenseKey);   // closing is never blocked\n"),
+])
