@@ -1,0 +1,24 @@
+AT24 Basket Closer closes a group of open trades with one click, or automatically at a profit target, a loss limit or a trailing basket profit.
+<br><br>
+<b>What it does</b>
+<ul>
+<li>Panel on the chart with the number of positions, buys and sells, total lots, net profit or loss in money and in percent of balance, winners and losers, and the best and worst position.</li>
+<li>One-click buttons: close all, close winners, close losers, close buys, close sells. Every close button asks for a second click within four seconds, so nothing closes by accident.</li>
+<li>The basket can be all trades, the trades of the chart symbol, or the trades of one magic number. The scope button on the panel changes it at any time. Trades outside the basket are not touched.</li>
+<li>Automatic rules, switched on and off from the panel: close the basket at a profit amount or a percent of balance, at a loss amount or a percent of balance, or with a trailing basket profit that closes when the profit falls a set percent below its peak.</li>
+<li>When everything is closed, pending orders of the basket can be deleted as well.</li>
+<li>Alert and push message when an automatic rule closes the basket. The result of each close is written on the panel and to the Experts log, including trades that could not be closed.</li>
+</ul>
+<b>Points to know</b>
+<ul>
+<li>It opens no trades. It only closes trades that already exist.</li>
+<li>Net profit includes swap. Brokers that charge commission per deal may show a slightly different final result.</li>
+<li>Trades are closed one after another at market price. In a fast market the prices can differ from the panel, and a close can be rejected by the broker. A trade that could not be closed is reported on the panel.</li>
+<li>Automatic rules work only while the chart is open and the terminal is connected. They are not a replacement for a stop loss on each trade.</li>
+<li>Algo trading must be allowed for the EA.</li>
+</ul>
+<b>Inputs</b>
+<br>
+Starting scope and magic number, delete pending orders, slippage, automatic rules (profit and loss amounts and percents, trailing start and give-back), alerts, panel position.
+<br><br>
+Utility for managing existing trades. Not financial advice.

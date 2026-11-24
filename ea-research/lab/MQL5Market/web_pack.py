@@ -19,6 +19,8 @@ P = [
   "Lot size from risk, the order with its stop and target lines, the partial close then break-even move and the daily loss lock were tested in the Strategy Tester on a broker demo feed. The same logic was tested live on a demo account in the MT4 edition, which is not part of this download."),
  ("prop_firm_guard", "PropGuard", "AT24_Prop_Firm_Guard_Licensed", "at24-prop-firm-guard", "AT24 Prop Firm Guard", "AT24-PROP-FIRM-GUARD", 59, "prop_firm_guard", "AT24_Prop_Firm_Guard_XAUUSD_H1", "prop_firm_guard", False,
   "The daily loss lock and the limit warnings were tested in the Strategy Tester on a broker demo feed. Closing positions at a limit has not been tested on a live account."),
+ ("basket_closer", "BasketCloser", "AT24_Basket_Closer_Licensed", "at24-basket-closer", "AT24 Basket Closer", "AT24-BASKET-CLOSER", 39, "basket_closer", "AT24_Basket_Closer_XAUUSD_H1", "basket_closer", False,
+  "Closing winners, losers, buys, sells and everything, the profit target and loss limit in money and in percent, the trailing basket profit, deleting pending orders and the magic number scope were tested in the Strategy Tester on a broker demo feed and on an MT5 demo account. The same close logic was run live on a demo account in the MT4 edition, which is not part of this download."),
 ]
 def plain(h):
     h = re.sub(r"<li>", "- ", h); h = re.sub(r"</li>|</ul>|<br\s*/?>", "\n", h); h = re.sub(r"<b>(.*?)</b>", r"\n\1\n", h); h = re.sub(r"<[^>]+>", "", h)
