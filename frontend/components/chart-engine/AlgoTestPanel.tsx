@@ -443,9 +443,12 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
       {reopening && <p className={`${FIN_TERTIARY} mt-1`}>Reopening the saved result…</p>}
 
       {!reopening && !run && (
-        <p className={`${FIN_TERTIARY} mt-1`}>
-          Run a real backtest against historical data - a Strategy Registry entry, or a natural-language AI strategy. Click &quot;Algo Test&quot; in the chart toolbar to configure a run.
-        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-3">
+          <p className={`${FIN_TERTIARY} max-w-xl`}>
+            Run a real backtest against historical data - a Strategy Registry entry, or a natural-language AI strategy. Windows of up to two years are available for H1 and slower timeframes.
+          </p>
+          <button type="button" onClick={() => setConfigOpen(true)} className="rounded-md bg-gold px-3 py-1.5 text-[13px] font-semibold text-ink hover:brightness-110">Configure a run</button>
+        </div>
       )}
 
       {!reopening && run && (
