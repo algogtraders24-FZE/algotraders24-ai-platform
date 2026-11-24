@@ -109,6 +109,7 @@ import {
 import { listTemplates, saveTemplate, deleteTemplate } from "@/lib/chart-engine/templates/store";
 import type { ChartTemplate } from "@/lib/chart-engine/templates/types";
 import Modal from "@/components/ui/Modal";
+import type { QuotaDecision } from "@/lib/access/chart-quota";
 
 const PRICE_AXIS_WIDTH = 74;
 const TIME_AXIS_HEIGHT = 22;
@@ -532,6 +533,17 @@ export default function NativeChart({
   const [testerOpen, setTesterOpen] = useState(false);
   const [mobilePanel, setMobilePanel] = useState(false);
   const [signalNote, setSignalNote] = useState<"saved" | "error" | null>(null);
+  // free period / daily Analyze limits (lib/access/chart-quota.ts): shown in the Chat tab, enforced by /api/private/chart/analyze-quota
+  const [quota, setQuota] = useState<QuotaDecision | null>(null);
+  useEffect(() => {
+    if (!proLayout || embedded) return;
+    let alive = true;
+    fetch("/api/private/chart/analyze-quota", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => { if (alive && j?.status === "ok") setQuota(j.data as QuotaDecision); })
+      .catch(() => undefined);
+    return () => { alive = false; };
+  }, [proLayout, embedded]);
   const [proTab, setProTab] = useState<ProTab>("chat");
   const proRef = useRef(proState);
   proRef.current = proState;
@@ -1223,8 +1235,20 @@ export default function NativeChart({
   }
 
   /** Runs the analysis; on the Pro Chart the result is revealed after one scan sweep that then waits for PRAGYA to answer (with sound). */
-  function runAnalyze() {
+  async function runAnalyze() {
     if (scan) return;
+    if (proLayout && !embedded) {
+      // one run is used up on the server first; a refused run shows the upgrade note instead of scanning. If the check itself fails the chart still works.
+      try {
+        const r = await fetch("/api/private/chart/analyze-quota", { method: "POST" });
+        const j = await r.json();
+        if (j?.status === "ok") {
+          const q = j.data as QuotaDecision;
+          setQuota(q);
+          if (!q.allowed) { setProTab("chat"); return; }
+        }
+      } catch { /* quota service unreachable: do not block the trader */ }
+    }
     const analysis = computeAnnotations(candles);
     const plan = buildTradePlan(candles);
     const reveal = () => {
@@ -1944,6 +1968,7 @@ export default function NativeChart({
           pragya={pragya}
           onOpenTester={() => setTesterOpen(true)}
           onAnalyze={runAnalyze}
+          quota={quota}
           onTimeframe={onTimeframeChange}
           onSymbol={onSymbolChange}
           scanning={scan !== null}

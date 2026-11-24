@@ -6,22 +6,11 @@ import { withContext } from "@/services/backend/Middleware";
 import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { GeminiProvider } from "@/lib/ai/providers/gemini.provider";
+import { chartQuotaService } from "@/services/chart/chart-quota.service";
 import { cleanProse, containsForbiddenClaim, numbersAreSupported } from "@/lib/ai/pragya-guard";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
-
-const DAILY_LIMIT = 30;
-const usage = new Map<string, { day: string; n: number }>();
-
-function underLimit(userId: string): boolean {
-  const day = new Date().toISOString().slice(0, 10);
-  const u = usage.get(userId);
-  if (!u || u.day !== day) { usage.set(userId, { day, n: 1 }); return true; }
-  if (u.n >= DAILY_LIMIT) return false;
-  u.n += 1;
-  return true;
-}
 
 export const POST = withContext(async (req, ctx) => {
   const user = await getUserOrNull();
@@ -34,7 +23,13 @@ export const POST = withContext(async (req, ctx) => {
   const hinglish = body.language === "hinglish";
   const question = typeof body.question === "string" ? body.question.trim().slice(0, 300) : "";
   if (!symbol || !timeframe || facts.length < 40) return ApiResponse.error({ code: "VALIDATION", message: "symbol, timeframe and facts are required." }, ctx.requestId, 400, ctx.startedAt);
-  if (!underLimit(user.authId)) return ApiResponse.error({ code: "RATE_LIMITED", message: "Daily PRAGYA analysis limit reached." }, ctx.requestId, 429, ctx.startedAt);
+  // free users: 30 days free then a paid plan; daily caps for everyone (lib/access/chart-quota.ts). Counted in the database, so it holds across serverless instances.
+  const quota = await chartQuotaService.consume(user.profile.id, user.profile.role, "pragya_answer");
+  if (!quota.allowed) {
+    return quota.reason === "trial_ended"
+      ? ApiResponse.error({ code: "PRO_REQUIRED", message: "Your 30 free days are over. PRAGYA needs a paid plan." }, ctx.requestId, 403, ctx.startedAt)
+      : ApiResponse.error({ code: "RATE_LIMITED", message: "Daily PRAGYA limit reached." }, ctx.requestId, 429, ctx.startedAt);
+  }
 
   const prompt = [
     question

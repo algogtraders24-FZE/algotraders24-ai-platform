@@ -40,7 +40,8 @@ export default function ProChat({ symbol, timeframe, getFacts, onAnalyze }: { sy
       });
       const json = await res.json();
       if (json?.status === "ok" && typeof json.data?.text === "string") setTurns((p) => [...p, { id: uid(), role: "assistant", text: json.data.text as string }]);
-      else if (res.status === 429) setError("Daily PRAGYA limit reached. Try again tomorrow.");
+      else if (res.status === 403) setError("Your 30 free days are over. PRAGYA is part of the Pro plan (see Pro plans on the Chat tab).");
+      else if (res.status === 429) setError("Daily PRAGYA limit reached. It resets at 00:00 UTC.");
       else setError("PRAGYA could not answer that from the chart's measured facts. Try rephrasing the question.");
     } catch {
       setError("PRAGYA is not reachable right now. Please try again.");
