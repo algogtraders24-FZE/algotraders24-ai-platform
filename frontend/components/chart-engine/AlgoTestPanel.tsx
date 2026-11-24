@@ -578,7 +578,7 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
             </p>
           )}
           <p className={FIN_TERTIARY}>
-            Real historical data via Twelve Data. Execution assumptions (spread/slippage/fees are zero-cost placeholders; margin is not enforced) are shown with every result - never
+            Real historical data (Exness feed, or Twelve Data when the Exness feed is not available). Execution assumptions (spread/slippage/fees are zero-cost placeholders; margin is not enforced) are shown with every result - never
             claimed to be broker-realistic.
           </p>
           {/* Both a thrown exception (`error`) and the last HANDLED failed run's own real errorMessage surface here, so the modal itself always explains a failed attempt without needing to be closed first - the fuller failure detail (lifecycle, compiled-strategy-if-any) is in AlgoTestResults, below the modal, once closed. */}
