@@ -14,6 +14,7 @@ import SignalLog from "./SignalLog";
 import { buildReadout } from "@/lib/chart-engine/annotations/readout";
 import type { ChartCandle } from "@/types/chart-data";
 import type { SignalTimeframe } from "@/types/signal";
+import type { QuotaDecision } from "@/lib/access/chart-quota";
 
 export type ProTab = "chat" | "voice" | "trade" | "strategies";
 
@@ -31,6 +32,8 @@ interface Props {
   onClosePlan: () => void;
   formatPrice: (n: number) => string;
   onAnalyze: () => void;
+  /** Free period / daily Analyze limits for this user. */
+  quota?: QuotaDecision | null;
   /** Voice commands: change the chart's timeframe / symbol. */
   onTimeframe?: (tf: SignalTimeframe) => void;
   onSymbol?: (symbol: string) => void;
@@ -55,6 +58,33 @@ const TABS: { key: ProTab; label: string }[] = [
   { key: "strategies", label: "Strategies" },
 ];
 
+/** Free period / daily limit line, and the upgrade note once the free period is over or the day is used up. */
+function QuotaNote({ quota }: { quota: QuotaDecision }) {
+  if (quota.reason === "trial_ended") {
+    return (
+      <div className="rounded-lg border border-gold/40 bg-gold/5 p-3 text-[13px] text-text-2" role="status">
+        <p className="font-semibold text-text">Your 30 free days are over</p>
+        <p className="mt-1">Analyze and PRAGYA are part of the Pro plan. The chart, indicators and drawing tools stay free.</p>
+        <Link href="/pricing" className="mt-2 inline-block rounded-md bg-gold px-3 py-1.5 font-semibold text-ink hover:brightness-110">See Pro plans</Link>
+      </div>
+    );
+  }
+  if (!quota.allowed) {
+    return (
+      <div className="rounded-lg border border-gold/40 bg-gold/5 p-3 text-[13px] text-text-2" role="status">
+        <p className="font-semibold text-text">Daily Analyze limit reached ({quota.dailyLimit} a day)</p>
+        <p className="mt-1">It resets at 00:00 UTC.{quota.isPro ? "" : " Pro has a higher daily limit."}</p>
+        {!quota.isPro && <Link href="/pricing" className="mt-2 inline-block rounded-md bg-gold px-3 py-1.5 font-semibold text-ink hover:brightness-110">See Pro plans</Link>}
+      </div>
+    );
+  }
+  return (
+    <p className="px-1 text-center text-[12px] text-text-3">
+      {quota.remainingToday} of {quota.dailyLimit} analyses left today{quota.trialDaysLeft !== null ? ` · free period: ${quota.trialDaysLeft} day${quota.trialDaysLeft === 1 ? "" : "s"} left` : ""}
+    </p>
+  );
+}
+
 function Mt5Panel({ plan, formatPrice }: { plan: TradePlan | null; formatPrice: (n: number) => string }) {
   return (
     <div className="flex flex-col items-center gap-3 px-2 pt-16 text-center">
@@ -72,7 +102,7 @@ function Mt5Panel({ plan, formatPrice }: { plan: TradePlan | null; formatPrice: 
   );
 }
 
-export function ProSidePanel({ tab, onTab, symbol, tradeSymbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, onAnalyze, onTimeframe, onSymbol, candles, pragya, getChatFacts, onOpenTester, mobileOpen = false, onMobileClose, scanning = false, signalNote = null }: Props) {
+export function ProSidePanel({ tab, onTab, symbol, tradeSymbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, onAnalyze, quota, onTimeframe, onSymbol, candles, pragya, getChatFacts, onOpenTester, mobileOpen = false, onMobileClose, scanning = false, signalNote = null }: Props) {
   const watching = plan ? 1 : 0;
   const [execOn, setExecOn] = useState(false); // the Execute bridge is open to this account: the Trade tab shows it instead of the coming-soon card
   return (
@@ -105,6 +135,7 @@ export function ProSidePanel({ tab, onTab, symbol, tradeSymbol, timeframe, plan,
       </div>
 
       <div className={tab === "chat" && !scanning ? "flex flex-col gap-3" : "hidden"}>
+        {quota && <QuotaNote quota={quota} />}
         {!analysis ? (
           <div className="flex flex-col items-center gap-1 pt-3 text-center">
             <p className="text-[15px] font-semibold text-text">{symbol} · {timeframe.toUpperCase()}</p>

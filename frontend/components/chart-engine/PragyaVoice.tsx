@@ -122,7 +122,8 @@ export default function PragyaVoice({ active, symbol, timeframe, getFacts, onAna
       const res = await fetch("/api/private/pragya/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol, timeframe, facts, question: q, language: hi ? "hinglish" : "en" }) });
       const json = await res.json();
       if (json?.status === "ok" && typeof json.data?.text === "string") reply(json.data.text as string);
-      else if (res.status === 429) { setError("Daily PRAGYA limit reached. Try again tomorrow."); setPhase("idle"); }
+      else if (res.status === 403) { setError("Your 30 free days are over. PRAGYA is part of the Pro plan."); setPhase("idle"); }
+      else if (res.status === 429) { setError("Daily PRAGYA limit reached. It resets at 00:00 UTC."); setPhase("idle"); }
       else { setError("PRAGYA could not answer that from the chart's measured facts. Try asking it another way."); setPhase("idle"); }
     } catch {
       setError("PRAGYA is not reachable right now. Please try again.");
