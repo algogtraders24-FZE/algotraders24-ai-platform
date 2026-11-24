@@ -7,6 +7,7 @@ import type { TradePlan } from "@/lib/chart-engine/annotations/plan";
 import type { AnnotationResult } from "@/lib/chart-engine/annotations/types";
 import { AnnotationSummary, PlanOverlay } from "./ProModeBar";
 import ProChat from "./ProChat";
+import PragyaVoice from "./PragyaVoice";
 import ExecPanel from "./ExecPanel";
 import { useState } from "react";
 import SignalLog from "./SignalLog";
@@ -131,16 +132,8 @@ export function ProSidePanel({ tab, onTab, symbol, tradeSymbol, timeframe, plan,
         <ProChat symbol={symbol} timeframe={timeframe} getFacts={getChatFacts} onAnalyze={onAnalyze} />
       </div>
 
-      <div className={tab === "voice" ? "flex flex-col items-center gap-4 pt-16 text-center" : "hidden"}>
-        <div className="flex gap-1 rounded-full bg-ink-3 p-0.5 text-[13px]">
-          <span className="rounded-full bg-gold px-4 py-1.5 font-medium text-text">Voice</span>
-          <button type="button" onClick={() => onTab("chat")} className="rounded-full px-4 py-1.5 text-text-3 hover:text-text">Text</button>
-        </div>
-        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gold/15 text-3xl text-gold">✦</div>
-        <p className="text-[16px] font-semibold text-text">PRAGYA</p>
-        <p className="text-[13px] text-text-3">Your voice-powered trading assistant</p>
-        <button type="button" disabled className="w-full cursor-not-allowed rounded-lg bg-gold/40 px-4 py-2.5 text-[14px] font-semibold text-ink/80">Start Conversation (coming soon)</button>
-        <p className="text-[12.5px] text-text-3">Voice is not available yet. The Text tab and the Chat tab already answer from this chart.</p>
+      <div className={tab === "voice" ? "block" : "hidden"}>
+        <PragyaVoice active={tab === "voice"} symbol={symbol} timeframe={timeframe} getFacts={getChatFacts} onAnalyze={onAnalyze} />
       </div>
 
       <div className={tab === "trade" ? "block" : "hidden"}>
