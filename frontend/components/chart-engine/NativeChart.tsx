@@ -159,6 +159,8 @@ export interface NativeChartProps {
    */
   timeframe: SignalTimeframe;
   onTimeframeChange: (timeframe: SignalTimeframe) => void;
+  /** Pro layout: lets PRAGYA voice commands change the symbol. */
+  onSymbolChange?: (symbol: string) => void;
   activeIndicatorKeys: ReadonlySet<string>;
   onToggleIndicator: (key: string) => void;
   /** Sprint D2.7.11 Phase 4 - replaces the WHOLE active indicator set at once (applying a saved template), never a series of individual toggles. */
@@ -187,6 +189,7 @@ export default function NativeChart({
   name,
   timeframe,
   onTimeframeChange,
+  onSymbolChange,
   activeIndicatorKeys,
   onToggleIndicator,
   onApplyIndicatorKeys,
@@ -1941,6 +1944,8 @@ export default function NativeChart({
           pragya={pragya}
           onOpenTester={() => setTesterOpen(true)}
           onAnalyze={runAnalyze}
+          onTimeframe={onTimeframeChange}
+          onSymbol={onSymbolChange}
           scanning={scan !== null}
           signalNote={signalNote}
         />

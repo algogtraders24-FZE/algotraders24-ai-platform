@@ -13,6 +13,7 @@ import { useState } from "react";
 import SignalLog from "./SignalLog";
 import { buildReadout } from "@/lib/chart-engine/annotations/readout";
 import type { ChartCandle } from "@/types/chart-data";
+import type { SignalTimeframe } from "@/types/signal";
 
 export type ProTab = "chat" | "voice" | "trade" | "strategies";
 
@@ -30,6 +31,9 @@ interface Props {
   onClosePlan: () => void;
   formatPrice: (n: number) => string;
   onAnalyze: () => void;
+  /** Voice commands: change the chart's timeframe / symbol. */
+  onTimeframe?: (tf: SignalTimeframe) => void;
+  onSymbol?: (symbol: string) => void;
   candles: ChartCandle[];
   getChatFacts: () => string | null;
   pragya: { status: "idle" | "loading" | "ready" | "error"; text: string };
@@ -68,7 +72,7 @@ function Mt5Panel({ plan, formatPrice }: { plan: TradePlan | null; formatPrice: 
   );
 }
 
-export function ProSidePanel({ tab, onTab, symbol, tradeSymbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, onAnalyze, candles, pragya, getChatFacts, onOpenTester, mobileOpen = false, onMobileClose, scanning = false, signalNote = null }: Props) {
+export function ProSidePanel({ tab, onTab, symbol, tradeSymbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, onAnalyze, onTimeframe, onSymbol, candles, pragya, getChatFacts, onOpenTester, mobileOpen = false, onMobileClose, scanning = false, signalNote = null }: Props) {
   const watching = plan ? 1 : 0;
   const [execOn, setExecOn] = useState(false); // the Execute bridge is open to this account: the Trade tab shows it instead of the coming-soon card
   return (
@@ -133,7 +137,7 @@ export function ProSidePanel({ tab, onTab, symbol, tradeSymbol, timeframe, plan,
       </div>
 
       <div className={tab === "voice" ? "block" : "hidden"}>
-        <PragyaVoice active={tab === "voice"} symbol={symbol} timeframe={timeframe} getFacts={getChatFacts} onAnalyze={onAnalyze} />
+        <PragyaVoice active={tab === "voice"} symbol={symbol} timeframe={timeframe} getFacts={getChatFacts} onAnalyze={onAnalyze} onTimeframe={onTimeframe} onSymbol={onSymbol} />
       </div>
 
       <div className={tab === "trade" ? "block" : "hidden"}>

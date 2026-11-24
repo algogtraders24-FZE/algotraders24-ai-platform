@@ -3,8 +3,12 @@
 // PRAGYA tab: talk to PRAGYA about the chart. The browser's own speech recognition turns the voice into text (tap to talk, never always listening,
 // nothing is recorded or uploaded as audio by AT24) and the answer is read aloud with the browser's speech synthesis.
 // The question goes to the same /api/private/pragya/analyze route as the Chat tab (measured facts only, claim rules, daily cap).
-// Voice can ask questions and start the chart analysis. It can NEVER place an order: trades are sent only from the Trade tab with an explicit Confirm.
+// Voice can ask questions, start the chart analysis and change the chart's timeframe or symbol (lib/chart-engine/voice-commands.ts). It can NEVER place an order: trades are sent only from the Trade tab with an explicit Confirm.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { parseVoiceCommand, resolveInstrument, type VoiceInstrument } from "@/lib/chart-engine/voice-commands";
+import { registerDiscoveredInstrument } from "@/lib/market-data/instrument-catalog";
+import { buildExnessCanonical, type ExnessInstrumentDto } from "@/lib/market-data/exness-instrument-model";
+import type { SignalTimeframe } from "@/types/signal";
 
 interface Turn { id: string; role: "user" | "assistant"; text: string }
 type Phase = "idle" | "listening" | "thinking" | "speaking";
@@ -26,10 +30,7 @@ const getCtor = (): RecCtor | null => {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 };
 
-const ANALYZE = /\b(analy[sz]e|analysis|re-?analy[sz]e)\b|विश्लेषण|chart (dekh|dikha)/i;
-const ORDER_NOW = /^\s*(please\s+)?(place|execute|send|buy|sell|open|close)\b|\b(order (kar|laga|bhej)|khareed|becho|trade (kar|laga))/i;
-
-export default function PragyaVoice({ active, symbol, timeframe, getFacts, onAnalyze }: { active: boolean; symbol: string; timeframe: string; getFacts: () => string | null; onAnalyze: () => void }) {
+export default function PragyaVoice({ active, symbol, timeframe, getFacts, onAnalyze, onTimeframe, onSymbol }: { active: boolean; symbol: string; timeframe: string; getFacts: () => string | null; onAnalyze: () => void; onTimeframe?: (tf: SignalTimeframe) => void; onSymbol?: (symbol: string) => void }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [turns, setTurns] = useState<Turn[]>([]);
   const [lang, setLang] = useState<"en-IN" | "hi-IN">("en-IN");
@@ -38,6 +39,7 @@ export default function PragyaVoice({ active, symbol, timeframe, getFacts, onAna
   const [error, setError] = useState<string | null>(null);
   const [supported, setSupported] = useState(true);
   const recRef = useRef<Rec | null>(null);
+  const listRef = useRef<ExnessInstrumentDto[] | null>(null);
   const phaseRef = useRef<Phase>("idle");
   phaseRef.current = phase;
 
@@ -57,16 +59,17 @@ export default function PragyaVoice({ active, symbol, timeframe, getFacts, onAna
   const speak = useCallback((text: string) => {
     if (muted || typeof window === "undefined" || !window.speechSynthesis) { setPhase("idle"); return; }
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = "en-IN";
+    const hi = lang === "hi-IN";
+    u.lang = hi ? "hi-IN" : "en-IN";
     const voices = window.speechSynthesis.getVoices();
-    const v = voices.find((x) => x.lang === "en-IN") ?? voices.find((x) => x.lang.startsWith("en"));
+    const v = hi ? (voices.find((x) => x.lang === "hi-IN") ?? voices.find((x) => x.lang.startsWith("en-IN"))) : (voices.find((x) => x.lang === "en-IN") ?? voices.find((x) => x.lang.startsWith("en")));
     if (v) u.voice = v;
     u.rate = 1;
     u.onend = () => setPhase("idle");
     u.onerror = () => setPhase("idle");
     setPhase("speaking");
     window.speechSynthesis.speak(u);
-  }, [muted]);
+  }, [muted, lang]);
 
   const reply = useCallback((text: string) => {
     setTurns((p) => [...p, { id: uid(), role: "assistant", text }]);
@@ -77,20 +80,46 @@ export default function PragyaVoice({ active, symbol, timeframe, getFacts, onAna
     const q = said.trim();
     if (!q) { setPhase("idle"); return; }
     setTurns((p) => [...p, { id: uid(), role: "user", text: q }]);
-    if (ORDER_NOW.test(q)) {
-      reply("I cannot place or change orders by voice. Open the Trade tab, review the order and press Confirm yourself.");
+    const hi = lang === "hi-IN";
+    const cmd = parseVoiceCommand(q);
+    if (cmd?.kind === "order") {
+      reply(hi ? "Main voice se order nahi laga sakta. Trade tab kholiye, order review kijiye aur khud Confirm dabaiye." : "I cannot place or change orders by voice. Open the Trade tab, review the order and press Confirm yourself.");
       return;
     }
-    if (ANALYZE.test(q) && q.split(/\s+/).length <= 6) {
+    if (cmd?.kind === "analyze") {
       onAnalyze();
-      reply("Analysing the chart now. The result appears in the Chat tab.");
+      reply(hi ? "Chart ka analysis shuru kar raha hoon. Result Chat tab mein aayega." : "Analysing the chart now. The result appears in the Chat tab.");
+      return;
+    }
+    if (cmd?.kind === "timeframe" && onTimeframe) {
+      onTimeframe(cmd.timeframe);
+      reply(hi ? "Timeframe " + cmd.timeframe.toUpperCase() + " kar diya." : "Timeframe set to " + cmd.timeframe.toUpperCase() + ".");
+      return;
+    }
+    if (cmd?.kind === "symbol" && onSymbol) {
+      setPhase("thinking");
+      try {
+        if (!listRef.current) {
+          const r = await fetch("/api/private/instruments/exness");
+          const j = await r.json();
+          listRef.current = j?.status === "ok" && Array.isArray(j.data?.instruments) ? (j.data.instruments as ExnessInstrumentDto[]) : [];
+        }
+      } catch { listRef.current = []; }
+      const found = resolveInstrument(cmd.phrase, (listRef.current ?? []) as VoiceInstrument[]) as ExnessInstrumentDto | null;
+      if (found) {
+        registerDiscoveredInstrument(buildExnessCanonical(found));
+        onSymbol(found.symbol);
+        reply(hi ? "Chart " + found.label + " par kar diya." : "Showing " + found.label + ".");
+      } else {
+        reply(hi ? "Mujhe " + cmd.phrase + " naam ka instrument nahi mila." : "I could not find an instrument called " + cmd.phrase + ".");
+      }
       return;
     }
     const facts = getFacts();
     if (!facts) { reply("There are not enough candles on this chart yet for me to read it."); return; }
     setPhase("thinking");
     try {
-      const res = await fetch("/api/private/pragya/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol, timeframe, facts, question: q }) });
+      const res = await fetch("/api/private/pragya/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol, timeframe, facts, question: q, language: hi ? "hinglish" : "en" }) });
       const json = await res.json();
       if (json?.status === "ok" && typeof json.data?.text === "string") reply(json.data.text as string);
       else if (res.status === 429) { setError("Daily PRAGYA limit reached. Try again tomorrow."); setPhase("idle"); }
@@ -99,7 +128,7 @@ export default function PragyaVoice({ active, symbol, timeframe, getFacts, onAna
       setError("PRAGYA is not reachable right now. Please try again.");
       setPhase("idle");
     }
-  }, [getFacts, onAnalyze, reply, symbol, timeframe]);
+  }, [getFacts, lang, onAnalyze, onSymbol, onTimeframe, reply, symbol, timeframe]);
 
   function listen() {
     if (phaseRef.current === "listening") { try { recRef.current?.stop(); } catch { /* ignore */ } return; }
@@ -174,7 +203,7 @@ export default function PragyaVoice({ active, symbol, timeframe, getFacts, onAna
       {error && <p className="text-[12.5px] text-red-400">{error}</p>}
 
       {turns.length === 0 ? (
-        <p className="px-2 text-[12.5px] leading-relaxed text-text-3">Try: &quot;What is the trend?&quot;, &quot;Where is the entry?&quot;, &quot;What is my risk?&quot; or &quot;Analyze the chart&quot;. Voice never places orders: trades are sent only from the Trade tab with your Confirm.</p>
+        <p className="px-2 text-[12.5px] leading-relaxed text-text-3">Try: &quot;What is the trend?&quot;, &quot;Where is the entry?&quot;, &quot;Analyze the chart&quot;, &quot;Show gold&quot; or &quot;4 hour chart&quot;. Voice never places orders: trades are sent only from the Trade tab with your Confirm.</p>
       ) : (
         <div className="max-h-[calc(100vh-420px)] w-full space-y-2 overflow-y-auto text-left text-[13.5px]">
           {turns.slice(-6).map((t) => t.role === "user"

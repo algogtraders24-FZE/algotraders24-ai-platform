@@ -30,9 +30,13 @@ export function numbersAreSupported(answer: string, facts: string, tolerance = 0
 const PROMISES = /\b(guarantee[sd]?|sure[- ]?shot|risk[- ]?free|can'?t lose|will (?:definitely|certainly|surely) (?:rise|fall|reach|win)|100 ?% (?:accurate|certain|sure|win))\b/i;
 const WIN_RATE = /\b\d{1,3}\s?%\s*(?:win|success|accuracy|chance|probab)/i;
 
+// the same promises in Hinglish (Hindi in Roman letters) and Hindi: a Hinglish answer is held to the same rules as an English one
+const PROMISES_HI = /\b(pakka|pakki|guarantee|gaurantee|sure ?shot|loss nahi|nuksan nahi|nukasan nahi|risk nahi|risk free|zaroor (?:badhega|girega|jeetega|profit)|(?:paisa|paise) (?:double|doguna|dugna)|pakka profit|jeet pakki|kabhi loss nahi)\b|100 ?% ?(?:pakka|sahi|sure|profit)|गारंटी|पक्का मुनाफ़ा|पक्का मुनाफा|नुकसान नहीं/i;
+const WIN_RATE_HI = /\b\d{1,3}\s?%\s*(?:jeet|safal|safalta|chance|sambhavna|accuracy|sahi)|\b(?:jeet|safalta|accuracy) (?:dar|rate)\b/i;
+
 /** True when the answer contains a promise, a win-rate / probability claim or any phrase the platform's terminology rules forbid. */
 export function containsForbiddenClaim(answer: string): boolean {
-  if (PROMISES.test(answer) || WIN_RATE.test(answer)) return true;
+  if (PROMISES.test(answer) || WIN_RATE.test(answer) || PROMISES_HI.test(answer) || WIN_RATE_HI.test(answer)) return true;
   const lower = answer.toLowerCase();
   return autoScanPhrases().some((p) => lower.includes(p.phrase.toLowerCase()));
 }

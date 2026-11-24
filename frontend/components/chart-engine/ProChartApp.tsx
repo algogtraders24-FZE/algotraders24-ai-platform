@@ -35,6 +35,7 @@ function ProChartInner({ embedded }: { embedded: boolean }) {
       name={getMarket(symbol)?.name}
       timeframe={timeframe}
       onTimeframeChange={setTimeframe}
+      onSymbolChange={setSymbol}
       activeIndicatorKeys={keys}
       onToggleIndicator={(k) => {
         if (!known.has(k)) return;
