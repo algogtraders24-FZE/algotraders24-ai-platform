@@ -21,6 +21,13 @@ t("what is the trend on gold", "null"); t("where is the entry", "null"); t("what
 t("gold ka trend kya hai", "null"); t("should I buy the dip on the daily chart", "null"); t("why is the daily trend down", "null"); t("how risky is the 4 hour setup", "null");
 t("kya abhi entry sahi hai", "null"); t("tell me about the market structure and key levels on this chart", "null");
 
+// Hindi (Devanagari) as the recogniser returns it in the Hindi mode
+t("सोना दिखाओ", "sym:XAUUSD"); t("बिटकॉइन", "sym:BTCUSD"); t("चांदी का चार्ट दिखाओ", "sym:XAGUSD"); t("दैनिक चार्ट खोलो", "tf:1d"); t("चार घंटे का चार्ट दिखाओ", "tf:4h");
+t("विश्लेषण करो", "analyze"); t("सोने का ट्रेंड क्या है", "null");
+// questions that merely contain command words stay questions
+t("what is the analysis", "null"); t("send me the key levels", "null"); t("open interest on gold", "null"); t("sell off risk on the daily chart", "null");
+t("send an order", "order"); t("close the position", "order");
+
 const list = [{ symbol: "EURUSD", label: "EUR/USD", name: "Euro vs US Dollar" }, { symbol: "XAUUSD", label: "XAU/USD", name: "Gold vs US Dollar" }, { symbol: "US30", label: "US30", name: "Dow Jones" }];
 const r = (p: string) => resolveInstrument(p, list)?.symbol ?? "none";
 for (const [p, want] of [["EURUSD", "EURUSD"], ["eurusd", "EURUSD"], ["XAUUSD", "XAUUSD"], ["US30", "US30"], ["ZZZUSD", "none"], ["EUR/USD", "EURUSD"]] as const) { if (r(p) === want) pass++; else { fail++; console.log(`  FAIL - resolve ${p} -> ${r(p)} (wanted ${want})`); } }

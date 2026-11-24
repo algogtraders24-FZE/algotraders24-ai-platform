@@ -53,18 +53,24 @@ export class ChartSignalService {
     const exists = await prisma.chartSignal.findUnique({ where: { userId_dedupeKey: { userId, dedupeKey } }, select: { id: true } });
     if (exists) return { recorded: false };
     if (today >= MAX_SIGNALS_PER_USER_PER_DAY) throw Errors.validation("Daily signal record limit reached.");
-    await prisma.chartSignal.create({
-      data: {
+    try {
+      await prisma.chartSignal.create({
+        data: {
         userId, symbol: input.symbol, timeframe: input.timeframe, dir: input.dir, entryType: input.entryType, entry: input.entry, stop: input.stop, target: input.target, rr: input.rr,
         score: input.score, scoreMax: input.scoreMax, confluences: input.confluences, source: input.source ?? null, signalTime: new Date(input.signalTime), lastClose: input.lastClose, dedupeKey,
-      },
-    });
+        },
+      });
+    } catch (e) {
+      // two identical requests at once (double Analyze, two tabs): the unique key stopped the second one, which is the same signal
+      if ((e as { code?: string })?.code === "P2002") return { recorded: false };
+      throw e;
+    }
     return { recorded: true };
   }
 
   /** Follows unfinished signals on the candles after them. One candle fetch per symbol + timeframe. Returns how many rows changed. */
   async resolveOpen(where: { userId?: string }): Promise<number> {
-    const rows = await prisma.chartSignal.findMany({ where: { ...where, status: { in: ["open", "live"] } }, orderBy: { createdAt: "asc" }, take: MAX_ROWS_PER_RESOLVE });
+    const rows = await prisma.chartSignal.findMany({ where: { ...where, status: { in: ["open", "live"] } }, orderBy: { createdAt: "desc" }, take: MAX_ROWS_PER_RESOLVE });
     const groups = new Map<string, Row[]>();
     for (const r of rows) {
       const k = `${r.symbol}|${r.timeframe}`;
@@ -82,6 +88,9 @@ export class ChartSignalService {
         continue; // data unavailable right now: the signals simply stay unresolved, nothing is guessed
       }
       for (const r of list) {
+        // the fetched window must reach back to the signal candle: a signal older than the window cannot be followed from its start, and judging it from the
+        // window's first candle would skip what happened in between. It is left unresolved rather than measured wrongly.
+        if (candles.length === 0 || candles[0].time > r.signalTime.getTime()) continue;
         const o = resolveOutcome({ dir: r.dir as "long" | "short", entryType: r.entryType as "market" | "limit", entry: r.entry, stop: r.stop, target: r.target, rr: r.rr, signalTime: r.signalTime.getTime() }, candles);
         const same = o.status === r.status && (o.resolvedThrough ?? null) === (r.resolvedThrough ? r.resolvedThrough.getTime() : null);
         if (same) continue;

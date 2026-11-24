@@ -45,7 +45,7 @@ export class ExecOrderService {
     if (existing) return { ok: true, order: toView(existing, now), created: false };
 
     if (!(await this.store.hasFreshDevice(userId, new Date(now.getTime() - EXEC.deviceFreshSec * 1000)))) {
-      return { ok: false, code: "NO_EA", message: "Your AT24 Execute EA is not connected. Open MT5, attach the EA with your token, then try again." };
+      return { ok: false, code: "NO_EA", message: "Your AT24 Execute EA is not connected. Open MT5 or MT4, attach the EA with your token, then try again." };
     }
     await this.store.expireDue(userId, now);
     if ((await this.store.countQueued(userId, now)) >= EXEC.maxQueuedPerUser) return { ok: false, code: "QUEUE_FULL", message: "You already have orders waiting. Wait for them or cancel one." };
