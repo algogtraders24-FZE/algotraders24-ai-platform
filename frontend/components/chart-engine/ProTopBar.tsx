@@ -53,15 +53,17 @@ function useDismiss(open: boolean, close: () => void) {
 
 const GHOST = "flex h-8 items-center rounded-md px-2.5 text-[13px] font-medium text-text-3 transition hover:bg-ink-4 hover:text-text";
 
+// module level on purpose: a component created inside ProTopBar would be a new type on every render and remount its svg each time
+const Icon = ({ children }: { children: ReactNode }) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
+);
+
 export default function ProTopBar(p: Props) {
   const [typeOpen, setTypeOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const typeRef = useDismiss(typeOpen, () => setTypeOpen(false));
   const moreRef = useDismiss(moreOpen, () => setMoreOpen(false));
   const current = TYPES.find((t) => t.value === p.chartType) ?? TYPES[0];
-  const Icon = ({ children }: { children: ReactNode }) => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
-  );
 
   return (
     <div className="flex h-12 shrink-0 items-center gap-1.5 border-b border-border bg-ink-2 px-2 text-text-2 sm:px-3">

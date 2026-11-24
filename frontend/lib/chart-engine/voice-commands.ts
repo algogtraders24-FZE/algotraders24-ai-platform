@@ -13,6 +13,12 @@ export type VoiceCommand =
   | { kind: "analyze" }
   | { kind: "order" };
 
+// JavaScript's \b only treats ASCII letters as word characters, so Hindi (Devanagari) words never matched. U() rewrites every \b of a pattern into a boundary
+// that understands letters, marks (vowel signs) and digits of any script, and turns on the u flag.
+const WORD = "[\\p{L}\\p{M}\\p{N}_]";
+const UB = "(?:(?<!" + WORD + ")(?=" + WORD + ")|(?<=" + WORD + ")(?!" + WORD + "))";
+const U = (re: RegExp): RegExp => new RegExp(re.source.split("\\b").join(UB), re.flags.includes("u") ? re.flags : re.flags + "u");
+
 const norm = (s: string) => s.toLowerCase().replace(/[.,!?;:"“”']/g, " ").replace(/\s+/g, " ").trim();
 
 const NUMBER_WORDS: Record<string, number> = {
@@ -23,13 +29,13 @@ const NUMBER_WORDS: Record<string, number> = {
 /** "4h", "h4", "4 hour", "four hours", "chaar ghante", "15 minute", "daily", "weekly" -> a chart timeframe, or null. */
 export function parseTimeframe(textRaw: string): SignalTimeframe | null {
   const t = norm(textRaw);
-  if (/\b(daily|day chart|din ka|रोज|दैनिक|1d|d1)\b/.test(t) || /\b(one|1|ek) (day|din)\b/.test(t)) return "1d";
-  if (/\b(weekly|week chart|hafta|हफ्ता|साप्ताहिक|1w|w1)\b/.test(t) || /\b(one|1|ek) (week|hafte)\b/.test(t)) return "1w";
-  const hc = /\bh\s?(1|4)\b/.exec(t) ?? /\b(1|4)\s?h\b/.exec(t);
+  if (U(/\b(daily|day chart|din ka|रोज|दैनिक|1d|d1)\b/).test(t) || U(/\b(one|1|ek) (day|din)\b/).test(t)) return "1d";
+  if (U(/\b(weekly|week chart|hafta|हफ्ता|साप्ताहिक|1w|w1)\b/).test(t) || U(/\b(one|1|ek) (week|hafte)\b/).test(t)) return "1w";
+  const hc = U(/\bh\s?(1|4)\b/).exec(t) ?? U(/\b(1|4)\s?h\b/).exec(t);
   if (hc) return hc[1] === "4" ? "4h" : "1h";
-  const mc = /\bm\s?(1|5|15|30)\b/.exec(t) ?? /\b(1|5|15|30)\s?m\b/.exec(t);
+  const mc = U(/\bm\s?(1|5|15|30)\b/).exec(t) ?? U(/\b(1|5|15|30)\s?m\b/).exec(t);
   if (mc) return (mc[1] + "m") as SignalTimeframe;
-  const m = /\b(\d+|[a-zA-Zऀ-ॿ]+)\s?(hours?|hrs?|ghante|ghanta|घंटे|घंटा|minutes?|mins?|minute|मिनट)\b/.exec(t);
+  const m = U(/\b(\d+|[a-zA-Zऀ-ॿ]+)\s?(hours?|hrs?|ghante|ghanta|घंटे|घंटा|minutes?|mins?|minute|मिनट)\b/).exec(t);
   if (m) {
     const n = /^\d+$/.test(m[1]) ? Number(m[1]) : NUMBER_WORDS[m[1]];
     const hours = /^(hours?|hrs?|ghante|ghanta|घंटे|घंटा)$/.test(m[2]);
@@ -44,21 +50,27 @@ export function parseTimeframe(textRaw: string): SignalTimeframe | null {
 
 // everyday names -> the symbol phrase the instrument list is searched with
 const ALIASES: [RegExp, string][] = [
-  [/\b(gold|sona|सोना|xau)\b/, "XAUUSD"],
-  [/\b(silver|chandi|चांदी|xag)\b/, "XAGUSD"],
-  [/\b(bitcoin|btc|बिटकॉइन)\b/, "BTCUSD"],
-  [/\b(ethereum|ether|eth)\b/, "ETHUSD"],
-  [/\b(crude|oil|wti|तेल)\b/, "USOIL"],
-  [/\b(nasdaq|nas ?100|ustec)\b/, "USTEC"],
-  [/\b(s ?and ?p|s&p|sp ?500|us ?500)\b/, "US500"],
-  [/\b(dow|us ?30)\b/, "US30"],
-  [/\b(euro ?dollar|eur ?usd|euro)\b/, "EURUSD"],
-  [/\b(pound ?dollar|gbp ?usd|cable|pound)\b/, "GBPUSD"],
-  [/\b(dollar ?yen|usd ?jpy|yen)\b/, "USDJPY"],
+  [U(/\b(gold|sona|सोना|xau)\b/), "XAUUSD"],
+  [U(/\b(silver|chandi|चांदी|xag)\b/), "XAGUSD"],
+  [U(/\b(bitcoin|btc|बिटकॉइन)\b/), "BTCUSD"],
+  [U(/\b(ethereum|ether|eth)\b/), "ETHUSD"],
+  [U(/\b(crude|oil|wti|तेल)\b/), "USOIL"],
+  [U(/\b(nasdaq|nas ?100|ustec)\b/), "USTEC"],
+  [U(/\b(s ?and ?p|s&p|sp ?500|us ?500)\b/), "US500"],
+  [U(/\b(dow|us ?30)\b/), "US30"],
+  [U(/\b(euro ?dollar|eur ?usd|euro)\b/), "EURUSD"],
+  [U(/\b(pound ?dollar|gbp ?usd|cable|pound)\b/), "GBPUSD"],
+  [U(/\b(dollar ?yen|usd ?jpy|yen)\b/), "USDJPY"],
 ];
 
-const CHANGE_VERB = /^(please |pls )?(show|open|switch|change|go|take|load|display|chart|dikhao|dikha|kholo|khol|lagao|laga|badlo|badal|chalo|jao|dekho)\b|\b(dikhao|dikha do|kholo|lagao|badlo|badal do|par jao|pe jao|per jao|ka chart|chart (do|dikhao|kholo)|chart$|ka chart dikhao)\b|(दिखाओ|खोलो|लगाओ|बदलो|चार्ट)/;
-const QUESTION = /\b(what|why|how|where|when|which|is|are|should|can|could|kya|kyun|kaise|kahan|kab|kaun|kitna|batao|bata)\b|\?|क्या|क्यों|कैसे/;
+const CHANGE_VERB = U(/^(please |pls )?(show|open|switch|change|go|take|load|display|chart|dikhao|dikha|kholo|khol|lagao|laga|badlo|badal|chalo|jao|dekho)\b|\b(dikhao|dikha do|kholo|lagao|badlo|badal do|par jao|pe jao|per jao|ka chart|chart (do|dikhao|kholo)|chart$|ka chart dikhao)\b|(दिखाओ|खोलो|लगाओ|बदलो|चार्ट)/);
+// words that may surround a command without changing its meaning; anything else left over means it is a sentence, not a command ("open interest on gold")
+const FILLER = new Set(["please", "pls", "show", "open", "switch", "change", "go", "to", "the", "me", "a", "chart", "charts", "take", "load", "display", "now", "dikhao", "dikha", "do", "kholo", "khol", "lagao", "laga", "badlo", "badal", "par", "pe", "per", "ka", "ko", "ki", "ke", "jao", "chalo", "dekho", "दिखाओ", "दिखा", "दो", "खोलो", "लगाओ", "बदलो", "का", "की", "के", "पर", "में", "चार्ट", "को"]);
+const onlyFiller = (rest: string) => rest.split(" ").filter((w) => w && !FILLER.has(w)).length === 0;
+const TF_WORDS = new Set(["daily", "weekly", "day", "week", "d1", "w1", "h1", "h4", "m1", "m5", "m15", "m30", "1d", "1w", "1h", "4h", "1m", "5m", "15m", "30m", "one", "two", "three", "four", "five", "fifteen", "thirty", "ek", "teen", "chaar", "char", "paanch", "panch", "hour", "hours", "hrs", "hr", "ghante", "ghanta", "minute", "minutes", "mins", "min", "timeframe", "time", "frame", "din", "hafta", "hafte", "रोज", "दैनिक", "हफ्ता", "साप्ताहिक", "एक", "चार", "पाँच", "पांच", "घंटे", "घंटा", "मिनट", "टाइमफ्रेम", "टाइम", "फ्रेम", "दिन"]);
+/** Every word of a timeframe command is a timeframe word, a number or a filler word: anything else makes it a sentence ("sell off risk on the daily chart"). */
+const onlyTimeframeWords = (t: string) => t.split(" ").filter((w) => w && !FILLER.has(w) && !TF_WORDS.has(w) && !/^\d+$/.test(w)).length === 0;
+const QUESTION = U(/\b(what|why|how|where|when|which|is|are|should|can|could|kya|kyun|kaise|kahan|kab|kaun|kitna|batao|bata)\b|\?|क्या|क्यों|कैसे/);
 
 export function parseVoiceCommand(textRaw: string): VoiceCommand | null {
   const t = norm(textRaw);
@@ -66,23 +78,23 @@ export function parseVoiceCommand(textRaw: string): VoiceCommand | null {
   const words = t.split(" ").length;
 
   // trades are never placed by voice: recognised only so PRAGYA can refuse them
-  if (/^(please |pls )?(place|execute|send|buy|sell|open a|close)\b/.test(t) || /\b(order (kar|laga|bhej)|khareed(o| lo)|becho|trade (kar|laga))/.test(t)) return { kind: "order" };
+  if (words <= 8 && (U(/^(please |pls )?(place|execute|buy|sell(?![- ]off)|close)\b/).test(t) || U(/^(please |pls )?(send|open) (an? )?(order|trade|position)\b/).test(t) || U(/\b(order (kar|laga|bhej)|khareed(o| lo)|becho|trade (kar|laga))/).test(t))) return { kind: "order" };
 
-  if (words <= 6 && (/\b(re-?analy[sz]e|analy[sz]e|analysis)\b|विश्लेषण|chart scan/.test(t))) return { kind: "analyze" };
+  if (words <= 6 && (U(/^(please |pls )?(re-?analy[sz]e|analy[sz]e|run (the )?analysis)\b|\banalysis (kar|karo|do|chalao)\b|^analysis$|विश्लेषण (करो|कर)|^विश्लेषण$|chart scan/).test(t))) return { kind: "analyze" };
 
   const tf = parseTimeframe(t);
-  if (tf && words <= 7 && (CHANGE_VERB.test(t) || words <= 3 || /\b(chart|timeframe|time frame)\b/.test(t)) && !(QUESTION.test(t) && !CHANGE_VERB.test(t))) return { kind: "timeframe", timeframe: tf };
+  if (tf && words <= 7 && onlyTimeframeWords(t) && (CHANGE_VERB.test(t) || words <= 3 || U(/\b(chart|timeframe|time frame)\b/).test(t)) && !(QUESTION.test(t) && !CHANGE_VERB.test(t))) return { kind: "timeframe", timeframe: tf };
 
   if (words <= 6 && !tf) {
     const asksQuestion = QUESTION.test(t) && !CHANGE_VERB.test(t);
     if (!asksQuestion) {
-      for (const [re, sym] of ALIASES) if (re.test(t)) return { kind: "symbol", phrase: sym };
+      for (const [re, sym] of ALIASES) if (re.test(t) && onlyFiller(t.replace(re, " "))) return { kind: "symbol", phrase: sym };
       // a plain instrument id said aloud: "EURUSD", "eur usd", "US30", "show USDCAD"
-      const id = /\b([a-z]{3}) ?([a-z]{3})\b/.exec(t);
-      const idOne = /\b([a-z]{3,8}\d{0,3})\b/.exec(t.replace(/^(please |pls )?(show|open|switch to|change to|go to|load|chart)\s+/, ""));
+      const id = U(/\b([a-z]{3}) ?([a-z]{3})\b/).exec(t);
+      const idOne = U(/\b([a-z]{3,8}\d{0,3})\b/).exec(t.replace(/^(please |pls )?(show|open|switch to|change to|go to|load|chart)\s+/, ""));
       if (CHANGE_VERB.test(t) || words <= 2) {
-        if (id && words <= 3) return { kind: "symbol", phrase: (id[1] + id[2]).toUpperCase() };
-        if (idOne && words <= 3) return { kind: "symbol", phrase: idOne[1].toUpperCase() };
+        if (id && words <= 3 && onlyFiller(t.replace(id[0], " "))) return { kind: "symbol", phrase: (id[1] + id[2]).toUpperCase() };
+        if (idOne && words <= 3 && onlyFiller(t.replace(idOne[0], " "))) return { kind: "symbol", phrase: idOne[1].toUpperCase() };
       }
     }
   }
