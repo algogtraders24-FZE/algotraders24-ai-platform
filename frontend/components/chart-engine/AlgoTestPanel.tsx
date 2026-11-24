@@ -31,7 +31,7 @@
 //      P3.8 evidence and the compiled StrategySpec, both of which were
 //      already computed server-side and simply never rendered before
 //      this sprint.
-import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import Link from "next/link";
 import Badge, { type BadgeTone } from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
@@ -210,6 +210,17 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
   const [intent, setIntent] = useState("");
 
   const [startDate, setStartDate] = useState(() => isoDateNDaysAgo(MAX_RANGE_DAYS)); // the longest window the data provider allows (end date below is yesterday)
+  // the longest window per timeframe, asked from the server (two years for H1 and slower with the Exness history feed, 14 days of M5 otherwise)
+  const [limits, setLimits] = useState<Record<string, number> | null>(null);
+  const startTouched = useRef(false);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/private/algo-test/range-limits", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => { if (alive && j?.status === "ok" && j.data?.limits) setLimits(j.data.limits as Record<string, number>); })
+      .catch(() => undefined);
+    return () => { alive = false; };
+  }, []);
   // Live-verification finding (P3.2B): defaulting to isoDateNDaysAgo(0)
   // ("today") looked right but always failed - the server converts endDate
   // to end-of-day UTC (toEngineTimestamp's endOfDay=true, "23:59:59Z"), which
@@ -324,7 +335,11 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
   const rangeDays = (new Date(endDate).getTime() - new Date(startDate).getTime()) / 86_400_000;
   const parsedBalance = Number(initialBalance);
   const balanceValid = Number.isFinite(parsedBalance) && parsedBalance > 0;
-  const rangeValid = rangeDays > 0 && rangeDays <= MAX_RANGE_DAYS;
+  // registry strategies declare their timeframe; AI strategies pick theirs while compiling, so the tightest common limit (5m) is used for the form and the server decides the rest
+  const limitKey = mode === "registry" ? strategyDef?.supportedTimeframes[0] ?? "5m" : "5m";
+  const maxRangeDays = limits?.[limitKey] ?? MAX_RANGE_DAYS;
+  useEffect(() => { if (!startTouched.current) setStartDate(isoDateNDaysAgo(maxRangeDays)); }, [maxRangeDays]);
+  const rangeValid = rangeDays > 0 && rangeDays <= maxRangeDays;
   const intentValid = mode === "ai" ? intent.trim().length > 0 && intent.length <= MAX_INTENT_LENGTH : true;
   const canSubmit = balanceValid && rangeValid && intentValid && (mode === "registry" ? parametersValid : true) && !submitting;
 
@@ -528,7 +543,7 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
               <input
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(e) => { startTouched.current = true; setStartDate(e.target.value); }}
                 className="w-full rounded-control border border-border bg-ink px-2 py-1.5 text-sm text-text"
               />
             </label>
@@ -542,7 +557,7 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
               />
             </label>
           </div>
-          <p className="text-[11px] text-text-3">The default is the longest window allowed: {MAX_RANGE_DAYS} days. The historical data provider returns up to 5,000 bars per request, so longer windows are not available yet.</p>
+          <p className="text-[11px] text-text-3">The default is the longest window allowed for this timeframe: {maxRangeDays} days{maxRangeDays > MAX_RANGE_DAYS ? " (history from the Exness feed, loaded page by page, so a long run can take a little while to start)" : ""}.</p>
           <label className="flex flex-col gap-0.5">
             <span className={FIN_LABEL}>Initial Balance</span>
             <input
@@ -556,7 +571,7 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
           </label>
           {!rangeValid && (
             <p className="text-[11px] text-danger">
-              {rangeDays <= 0 ? "Start date must be before end date." : `Range must be ${MAX_RANGE_DAYS} days or less (currently ${rangeDays.toFixed(1)}).`}
+              {rangeDays <= 0 ? "Start date must be before end date." : `Range must be ${maxRangeDays} days or less (currently ${rangeDays.toFixed(1)}).`}
             </p>
           )}
           <p className={FIN_TERTIARY}>
