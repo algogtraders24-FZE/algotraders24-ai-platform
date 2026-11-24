@@ -185,7 +185,7 @@ bool SymbolExistsIn(const string name)
 
 // Finds this broker's name for a plain instrument id (BTCUSD -> BTCUSDm, EURUSD.a, #EURUSD ...). Tried in order: the SymbolSuffix input, the plain name,
 // then the broker's symbol list: the name must contain the id, and the characters next to it must not be capitals or digits (so EURUSDT is never taken for EURUSD).
-string ResolveSymbol(const string base)
+string ResolveOne(const string base)
   {
    if(StringLen(SymbolSuffix) > 0 && SymbolExistsIn(base + SymbolSuffix))
       return base + SymbolSuffix;
@@ -229,6 +229,46 @@ string ResolveSymbol(const string base)
    if(StringLen(best) > 0)
       Print("AT24 Execute: using the broker symbol ", best, " for ", base);
    return best;
+  }
+
+// Other names brokers use for the same instrument (the id AT24 sends -> alternatives, comma separated)
+string AliasesOf(const string base)
+  {
+   string b = base;
+   StringToUpper(b);
+   if(b == "XAUUSD") return "GOLD,XAUUSD.,GOLDUSD";
+   if(b == "XAGUSD") return "SILVER,SILVERUSD";
+   if(b == "USOIL")  return "WTI,XTIUSD,USOUSD,USOILCash,CL-OIL,WTIUSD";
+   if(b == "UKOIL")  return "BRENT,XBRUSD,UKOUSD,BRENTUSD";
+   if(b == "US30")   return "DJ30,DJI30,WS30,US30Cash,DOW30";
+   if(b == "US500")  return "SPX500,SP500,US500Cash,SPX";
+   if(b == "USTEC")  return "NAS100,NDX100,USTECH,NAS100Cash,US100,USTECH100";
+   if(b == "US100")  return "NAS100,USTEC,NDX100,USTECH";
+   if(b == "DE40")   return "GER40,DAX40,DE40Cash,DAX,GER30";
+   if(b == "UK100")  return "FTSE100,UK100Cash,FTSE";
+   if(b == "JP225")  return "JPN225,NIKKEI225,Nikkei225,JP225Cash";
+   if(b == "BTCUSD") return "BITCOIN,BTCUSD.";
+   if(b == "ETHUSD") return "ETHEREUM,ETHUSD.";
+   return "";
+  }
+
+string ResolveSymbol(const string base)
+  {
+   string r = ResolveOne(base);
+   if(StringLen(r) > 0)
+      return r;
+   string parts[];
+   const int n = StringSplit(AliasesOf(base), ',', parts);
+   for(int i = 0; i < n; i++)
+     {
+      r = ResolveOne(parts[i]);
+      if(StringLen(r) > 0)
+        {
+         Print("AT24 Execute: ", base, " is called ", r, " at this broker");
+         return r;
+        }
+     }
+   return "";
   }
 
 //+------------------------------------------------------------------+
