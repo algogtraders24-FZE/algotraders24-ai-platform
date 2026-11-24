@@ -22,14 +22,34 @@ export function escapeHtml(s: string): string {
 
 const inline = (escaped: string): string => escaped.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
 
-type Block = { kind: "p"; text: string } | { kind: "ul"; items: string[] };
+type Block = { kind: "p"; text: string } | { kind: "ul"; items: string[] } | { kind: "callout"; text: string } | { kind: "img"; url: string; alt: string };
+
+const IMG_LINE = /^!\[([^\]\n]{0,140})\]\((https:\/\/[^)\s]+)\)$/;
+
+/** Email images must be https, on our own domain, under /marketing/ or /marketplace/, and be a png/jpg/webp file. Anything else is shown as plain text. */
+export function isAllowedImageUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:" || u.username || u.password || u.search || u.hash) return false;
+    if (!(u.hostname === "algotraders24.ai" || u.hostname.endsWith(".algotraders24.ai"))) return false;
+    if (u.pathname.includes("..")) return false;
+    return /^\/(marketing|marketplace)\//.test(u.pathname) && /\.(png|jpe?g|webp)$/i.test(u.pathname);
+  } catch {
+    return false;
+  }
+}
 
 export function parseBody(bodyText: string): Block[] {
   const blocks: Block[] = [];
   for (const chunk of bodyText.replace(/\r\n/g, "\n").split(/\n{2,}/)) {
     const lines = chunk.split("\n").map((l) => l.trimEnd()).filter((l) => l.trim().length > 0);
     if (lines.length === 0) continue;
-    if (lines.every((l) => /^\s*-\s+/.test(l))) {
+    const im = lines.length === 1 ? IMG_LINE.exec(lines[0].trim()) : null;
+    if (im && isAllowedImageUrl(im[2])) {
+      blocks.push({ kind: "img", url: im[2], alt: im[1] });
+    } else if (lines.every((l) => /^>\s?/.test(l))) {
+      blocks.push({ kind: "callout", text: lines.map((l) => l.replace(/^>\s?/, "")).join("\n") });
+    } else if (lines.every((l) => /^\s*-\s+/.test(l))) {
       blocks.push({ kind: "ul", items: lines.map((l) => l.replace(/^\s*-\s+/, "")) });
     } else {
       blocks.push({ kind: "p", text: lines.join("\n") });
@@ -52,11 +72,18 @@ export function renderAnnouncementEmail(c: AnnouncementContent, unsubscribeUrl: 
   const GOLD = "#d4af37";
   const blocks = parseBody(c.bodyText);
   const bodyHtml = blocks
-    .map((b) =>
-      b.kind === "p"
-        ? `<p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#2a2a2e;">${inline(escapeHtml(b.text)).replace(/\n/g, "<br>")}</p>`
-        : `<ul style="margin:0 0 16px;padding-left:20px;font-size:15px;line-height:1.65;color:#2a2a2e;">${b.items.map((i) => `<li style="margin-bottom:6px;">${inline(escapeHtml(i))}</li>`).join("")}</ul>`,
-    )
+    .map((b) => {
+      switch (b.kind) {
+        case "img":
+          return `<p style="margin:0 0 18px;"><img src="${escapeHtml(b.url)}" alt="${escapeHtml(b.alt)}" width="504" style="display:block;width:100%;max-width:504px;height:auto;border-radius:10px;border:0;"></p>`;
+        case "callout":
+          return `<div style="margin:0 0 18px;padding:14px 16px;background:#fbf4de;border-left:4px solid ${GOLD};border-radius:6px;font-size:15px;line-height:1.6;color:#2a2410;">${inline(escapeHtml(b.text)).replace(/\n/g, "<br>")}</div>`;
+        case "p":
+          return `<p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#2a2a2e;">${inline(escapeHtml(b.text)).replace(/\n/g, "<br>")}</p>`;
+        case "ul":
+          return `<ul style="margin:0 0 16px;padding-left:20px;font-size:15px;line-height:1.65;color:#2a2a2e;">${b.items.map((i) => `<li style="margin-bottom:6px;">${inline(escapeHtml(i))}</li>`).join("")}</ul>`;
+      }
+    })
     .join("");
   const hasCta = !!(c.ctaLabel && c.ctaUrl && isAllowedCtaUrl(c.ctaUrl));
   const cta = hasCta
@@ -92,7 +119,10 @@ ${pre}
 </td></tr></table>
 </body></html>`;
 
-  const textBody = blocks.map((b) => (b.kind === "p" ? b.text.replace(/\*\*(.+?)\*\*/g, "$1") : b.items.map((i) => `- ${i.replace(/\*\*(.+?)\*\*/g, "$1")}`).join("\n"))).join("\n\n");
+  const plain = (t: string) => t.replace(/\*\*(.+?)\*\*/g, "$1");
+  const textBody = blocks
+    .flatMap((b) => (b.kind === "img" ? [] : [b.kind === "ul" ? b.items.map((i) => `- ${plain(i)}`).join("\n") : plain(b.text)]))
+    .join("\n\n");
   const text = [
     c.subject,
     "",
