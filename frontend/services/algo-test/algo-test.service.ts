@@ -54,6 +54,7 @@ import type {
 } from "@/types/algo-test";
 import type { ChartCandle } from "@/types/chart-data";
 import { twelveDataHistoricalDataProvider } from "./historical-data/twelve-data-provider";
+import { defaultHistoricalDataProvider, exnessHistoryEnabled, exnessMaxRangeDaysFor } from "./historical-data/exness-provider";
 import type { HistoricalDataProvider } from "./historical-data/types";
 import { runBacktest } from "./run-backtest";
 import { getStrategyDefinition, listAvailableStrategies, validateParameterValues, type StrategyDefinition } from "./strategy-registry";
@@ -130,6 +131,11 @@ const DAY_BUDGET_BARS = BARS_PER_DAY.M5! * HISTORICAL_M5_MAX_RANGE_DAYS; // 4,03
  * producing a meaningless range cap.
  */
 export function maxRangeDaysFor(engineTimeframe: Timeframe): number {
+  // With the Exness API enabled, history is paged from Exness (up to two years for H1 and slower timeframes, see exness-provider.ts)
+  if (exnessHistoryEnabled()) {
+    const exness = exnessMaxRangeDaysFor(engineTimeframe);
+    if (exness !== undefined) return exness;
+  }
   const barsPerDay = BARS_PER_DAY[engineTimeframe];
   if (barsPerDay === undefined) {
     throw new Error(`maxRangeDaysFor: no bar-count data for Timeframe "${engineTimeframe}" - this program's historical-data provider does not support it.`);
@@ -660,7 +666,7 @@ export const algoTestService = {
           strategySpec,
           buildIndicatorSeries: strategy.buildIndicatorSeries,
         },
-        twelveDataHistoricalDataProvider,
+        defaultHistoricalDataProvider,
       );
 
       const metrics = toMetricsView(outcome.result);
@@ -934,7 +940,7 @@ export const algoTestService = {
     if (!Number.isFinite(initialBalance) || initialBalance <= 0) return fail("INVALID_INITIAL_BALANCE", "initialBalance must be a finite, positive number.");
 
     const provider = deps?.provider ?? new ClaudeProvider();
-    const historicalDataProvider = deps?.historicalDataProvider ?? twelveDataHistoricalDataProvider;
+    const historicalDataProvider = deps?.historicalDataProvider ?? defaultHistoricalDataProvider;
     const compiledAt = Date.now();
     const compilation = await compileNaturalLanguageStrategy(request.intent, provider, {
       userId,
