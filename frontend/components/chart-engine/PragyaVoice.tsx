@@ -1,10 +1,11 @@
 "use client";
 // components/chart-engine/PragyaVoice.tsx
-// PRAGYA tab: talk to PRAGYA about the chart. The browser's own speech recognition turns the voice into text (tap to talk, never always listening,
-// nothing is recorded or uploaded as audio by AT24) and the answer is read aloud with the browser's speech synthesis.
+// PRAGYA tab: talk to PRAGYA about the chart. The browser's own speech recognition turns the voice into text (tap to talk; or, only if the user switches it on,
+// "Hey PRAGYA" listening while the chart is open: lib/chart-engine/voice-wake.ts; nothing is recorded or uploaded as audio by AT24) and the answer is read aloud with the browser's speech synthesis.
 // The question goes to the same /api/private/pragya/analyze route as the Chat tab (measured facts only, claim rules, daily cap).
 // Voice can ask questions, start the chart analysis and change the chart's timeframe or symbol (lib/chart-engine/voice-commands.ts). It can NEVER place an order: trades are sent only from the Trade tab with an explicit Confirm.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { extractWake } from "@/lib/chart-engine/voice-wake";
 import { parseVoiceCommand, resolveInstrument, type VoiceInstrument } from "@/lib/chart-engine/voice-commands";
 import { registerDiscoveredInstrument } from "@/lib/market-data/instrument-catalog";
 import { buildExnessCanonical, type ExnessInstrumentDto } from "@/lib/market-data/exness-instrument-model";
@@ -15,7 +16,8 @@ type Phase = "idle" | "listening" | "thinking" | "speaking";
 
 // minimal typing of the browser speech API (not in every TS lib)
 interface RecAlt { transcript: string }
-interface RecEvent { results: ArrayLike<ArrayLike<RecAlt>> }
+interface RecResult extends ArrayLike<RecAlt> { isFinal?: boolean }
+interface RecEvent { resultIndex?: number; results: ArrayLike<RecResult> }
 interface Rec {
   lang: string; interimResults: boolean; continuous: boolean; maxAlternatives: number;
   onresult: ((e: RecEvent) => void) | null; onerror: ((e: { error: string }) => void) | null; onend: (() => void) | null;
@@ -41,7 +43,23 @@ export default function PragyaVoice({ active, symbol, timeframe, getFacts, onAna
   const recRef = useRef<Rec | null>(null);
   const listRef = useRef<ExnessInstrumentDto[] | null>(null);
   const phaseRef = useRef<Phase>("idle");
-  phaseRef.current = phase;
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
+  // "Hey PRAGYA" (off until the user switches it on; the choice is remembered in this browser)
+  const [wakeOn, setWakeOn] = useState(false);
+  const [wakeState, setWakeState] = useState<"off" | "listening" | "awake">("off");
+  const awakeUntilRef = useRef(0);
+  const [wakeCycle, setWakeCycle] = useState(0); // bumped after a wake-up so the listener restarts even when PRAGYA stays silent (voice replies off)
+  const [pageVisible, setPageVisible] = useState(true);
+  useEffect(() => {
+    try { setWakeOn(localStorage.getItem("at24.pragya.wake") === "1"); } catch { /* storage blocked: stays off */ }
+    const onVis = () => setPageVisible(!document.hidden);
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+  const setWake = (on: boolean) => {
+    setWakeOn(on);
+    try { localStorage.setItem("at24.pragya.wake", on ? "1" : "0"); } catch { /* not remembered */ }
+  };
 
   useEffect(() => { setSupported(getCtor() !== null && typeof window.speechSynthesis !== "undefined"); }, []);
 
@@ -131,6 +149,57 @@ export default function PragyaVoice({ active, symbol, timeframe, getFacts, onAna
     }
   }, [getFacts, lang, onAnalyze, onSymbol, onTimeframe, reply, symbol, timeframe]);
 
+  // "Hey PRAGYA": a continuous recognition that only reacts to the wake phrase at the start of a sentence. It pauses while PRAGYA thinks or speaks (so she never hears
+  // herself), stops when the page is hidden or the user switches it off, and restarts by itself when the browser ends the session.
+  useEffect(() => {
+    const Ctor = getCtor();
+    if (!wakeOn || !supported || !pageVisible || !Ctor || phase !== "idle") { if (!wakeOn) setWakeState("off"); return; }
+    let stopped = false;
+    let rec: Rec | null = null;
+    let restart: ReturnType<typeof setTimeout> | undefined;
+    const begin = () => {
+      if (stopped) return;
+      rec = new Ctor();
+      rec.lang = lang;
+      rec.continuous = true;
+      rec.interimResults = false;
+      rec.maxAlternatives = 1;
+      rec.onresult = (e) => {
+        for (let i = e.resultIndex ?? 0; i < e.results.length; i++) {
+          const r = e.results[i];
+          if (r.isFinal === false) continue;
+          const said = (r[0]?.transcript ?? "").trim();
+          if (!said) continue;
+          if (Date.now() < awakeUntilRef.current) { awakeUntilRef.current = 0; setWakeState("listening"); stopped = true; try { rec?.abort(); } catch { /* stopped */ } setWakeCycle((c) => c + 1); void handle(said); return; }
+          const w = extractWake(said);
+          if (!w.woke) continue;
+          stopped = true;
+          try { rec?.abort(); } catch { /* stopped */ }
+          setWakeCycle((c) => c + 1);
+          if (w.rest) { void handle(w.rest); return; }
+          // only the name was said: answer "Yes?" and take the next sentence as the command
+          awakeUntilRef.current = Date.now() + 9000;
+          setWakeState("awake");
+          setHeard("");
+          reply(lang === "hi-IN" ? "Ji?" : "Yes?");
+          return;
+        }
+      };
+      rec.onerror = (e) => {
+        if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+          stopped = true;
+          setWake(false);
+          setError("Microphone access is blocked, so Hey PRAGYA is off. Allow the microphone for this site and switch it on again.");
+        }
+      };
+      rec.onend = () => { if (!stopped) restart = setTimeout(begin, 400); };
+      try { rec.start(); setWakeState(Date.now() < awakeUntilRef.current ? "awake" : "listening"); } catch { restart = setTimeout(begin, 1500); }
+    };
+    begin();
+    return () => { stopped = true; if (restart) clearTimeout(restart); try { rec?.abort(); } catch { /* stopped */ } };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wakeOn, supported, pageVisible, lang, phase, wakeCycle]);
+
   function listen() {
     if (phaseRef.current === "listening") { try { recRef.current?.stop(); } catch { /* ignore */ } return; }
     stopAll();
@@ -188,6 +257,16 @@ export default function PragyaVoice({ active, symbol, timeframe, getFacts, onAna
           ))}
         </div>
         <button type="button" onClick={() => { setMuted((m) => !m); try { window.speechSynthesis?.cancel(); } catch { /* none */ } }} className="rounded-full border border-border px-3 py-1 text-text-3 hover:text-text">{muted ? "Voice replies off" : "Voice replies on"}</button>
+      </div>
+
+      <div className="flex w-full flex-col items-center gap-1 rounded-lg border border-border bg-ink-3/60 px-3 py-2 text-[12.5px]">
+        <label className="flex cursor-pointer items-center gap-2 text-text-2">
+          <input type="checkbox" checked={wakeOn} onChange={(e) => setWake(e.target.checked)} />
+          <span>Hands-free: say &quot;Hey PRAGYA&quot;</span>
+        </label>
+        {wakeOn
+          ? <p className="text-text-3" aria-live="polite">{wakeState === "awake" ? "Yes? Say your command now…" : phase === "idle" ? "Listening for \"Hey PRAGYA\" while this page is open. Your browser's microphone light stays on." : "Paused while PRAGYA answers."}</p>
+          : <p className="text-text-3">Off. When on, your browser listens for the wake phrase while this page is open; AT24 stores no audio.</p>}
       </div>
 
       <button
