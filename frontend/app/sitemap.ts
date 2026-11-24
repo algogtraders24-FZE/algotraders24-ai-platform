@@ -15,6 +15,8 @@ import { blogReaderService } from "@/services/publishing/blog-reader.service";
 // `robots: { index: false }` metadata is what keeps a not-yet-real page out
 // of search results, not an omission here masking a 404. /platform/research
 // is a redirect, not a distinct page, so it's excluded too.
+import { TOOL_PAGES } from "@/lib/tools/pages";
+
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://algotraders24.ai";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -36,6 +38,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/platform/knowledge-base`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${SITE_URL}/pricing`, changeFrequency: "weekly", priority: 0.9 },
     { url: `${SITE_URL}/blog`, changeFrequency: "daily", priority: 0.7 },
+    { url: `${SITE_URL}/tools`, changeFrequency: "monthly", priority: 0.7 },
+    ...TOOL_PAGES.map((t) => ({ url: `${SITE_URL}/tools/${t.slug}`, changeFrequency: "monthly" as const, priority: 0.7 })),
     { url: `${SITE_URL}/methodology`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${SITE_URL}/calibration`, changeFrequency: "daily", priority: 0.6 },
     { url: `${SITE_URL}/markets`, changeFrequency: "daily", priority: 0.8 },
