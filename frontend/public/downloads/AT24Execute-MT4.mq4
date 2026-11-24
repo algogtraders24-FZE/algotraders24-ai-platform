@@ -259,6 +259,8 @@ string Check(const string sym, const bool isBuy, const bool isLimit, const doubl
       return "dry run: nothing was placed";
    if(secondsToLive <= 0)
       return "the order expired before this EA could place it";
+   if(ModeText() == "REAL" && !AllowLiveAccount)
+      return "this is a REAL account and AllowLiveAccount is off";
    if(!IsTradeAllowed() || !IsExpertEnabled())
       return "algo trading is switched off in this terminal or for this EA";
    if(!SymbolSelect(sym, true))
@@ -448,17 +450,11 @@ int OnInit()
       g_fatal = true;
      }
    else
-      if(ModeText() == "REAL" && !AllowLiveAccount)
+      if(MaxLots <= 0.0 || MaxSlippagePoints < 0)
         {
-         SetStatus("this is a REAL account: set AllowLiveAccount=true only if you really want orders placed here");
+         SetStatus("check the inputs: MaxLots must be above 0");
          g_fatal = true;
         }
-      else
-         if(MaxLots <= 0.0 || MaxSlippagePoints < 0)
-           {
-            SetStatus("check the inputs: MaxLots must be above 0");
-            g_fatal = true;
-           }
    if(!IsTradeAllowed())
       Print("AT24 Execute: 'Allow live trading' is off for this EA; orders will be refused until it is on.");
    EventSetTimer(1);
@@ -474,7 +470,14 @@ void OnDeinit(const int reason)
 
 void OnTimer()
   {
-   if(!g_fatal)
+   // MT4 reports "real" until the login has finished, so the account mode is judged only once the terminal is connected, on every cycle
+   if(!g_fatal && !IsConnected())
+      SetStatus("waiting for the terminal to connect to the broker");
+   else
+      if(!g_fatal && ModeText() == "REAL" && !AllowLiveAccount)
+         SetStatus("this is a REAL account: set AllowLiveAccount=true only if you really want orders placed here");
+      else
+         if(!g_fatal)
      {
       const datetime now = TimeCurrent();
       const int every = (PollSeconds < 2) ? 2 : PollSeconds;

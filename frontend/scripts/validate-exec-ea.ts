@@ -107,7 +107,7 @@ async function main() {
     const chk4 = bodyOf(c4, "string Check(");
     check("MT4: dry run is the first check", chk4.indexOf("DryRun") >= 0 && chk4.indexOf("DryRun") < chk4.indexOf("secondsToLive"));
     check("MT4: Check refuses the same cases", ["secondsToLive <= 0", "IsTradeAllowed", "SymbolSelect", "sl <= 0.0", "MaxLots", "MaxSpreadPoints", "MaxOpenPositions", "MaxDailyLossPercent", "sl < ref", "tp > ref", "MaxSlippagePoints", "price < ask"].every((x) => chk4.includes(x)));
-    check("MT4: safe defaults and demo-only start", /input\s+bool\s+AllowLiveAccount\s*=\s*false/.test(c4) && /input\s+bool\s+DryRun\s*=\s*false/.test(c4) && /input\s+double\s+MaxLots\s*=\s*0\.10/.test(c4) && /ModeText\(\)\s*==\s*"REAL"\s*&&\s*!AllowLiveAccount/.test(bodyOf(c4, "int OnInit(")));
+    check("MT4: safe defaults and demo-only start", /input\s+bool\s+AllowLiveAccount\s*=\s*false/.test(c4) && /input\s+bool\s+DryRun\s*=\s*false/.test(c4) && /input\s+double\s+MaxLots\s*=\s*0\.10/.test(c4) && /ModeText\(\)\s*==\s*"REAL"\s*&&\s*!AllowLiveAccount/.test(bodyOf(c4, "void OnTimer(")) && /ModeText\(\)\s*==\s*"REAL"\s*&&\s*!AllowLiveAccount/.test(chk4) && c4.includes("IsConnected()"));
     const proc4 = bodyOf(c4, "void ProcessOrder(");
     check("MT4: order id marked before anything is sent", proc4.indexOf("GlobalVariableSet(gv, (double)TimeCurrent())") > 0 && proc4.indexOf("GlobalVariableSet(gv, (double)TimeCurrent())") < proc4.indexOf("ExecuteOrder("));
     check("MT4: no identity is read or sent, one WebRequest only", !/AccountNumber|AccountName|AccountServer|AccountCompany/.test(c4) && (c4.match(/\bWebRequest\s*\(/g) ?? []).length === 1);

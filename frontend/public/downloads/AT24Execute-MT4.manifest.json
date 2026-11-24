@@ -2,8 +2,8 @@
   "name": "AT24Execute-MT4",
   "version": "1.00",
   "source": "AT24Execute-MT4.mq4",
-  "sourceSha256": "af081be458c9539be4e79876fb92fc0a6604d3ec649940c79924adbfc4ee096d",
+  "sourceSha256": "0fd33e4cc071735260fc4c857c7d69f4b46817e86127632a01a1ae554c4ada3b",
   "ex4": "AT24Execute-MT4.ex4",
-  "ex4Sha256": "4497930f14c3ab124739e45718eaa655d02780394846e1d9edd2418f51c011b1",
-  "ex4Bytes": 35052
+  "ex4Sha256": "ce6da5d912204f03b8cece73e1ae07222046c2c8cdddbb78eec6e911319d470f",
+  "ex4Bytes": 36090
 }
