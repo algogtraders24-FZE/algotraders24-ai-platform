@@ -98,7 +98,7 @@ export default function ExecPanel({ active, symbol, plan, formatPrice, onEnabled
     <div className="mb-3 flex flex-col gap-3 text-[13px] text-text-2">
       <div className="rounded-lg border border-border bg-ink-3/60 p-3">
         <div className="flex items-center justify-between">
-          <span className="font-semibold text-text">Send to my MT5</span>
+          <span className="font-semibold text-text">Send to my MT5 / MT4</span>
           <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase ${connected ? "bg-green-500/15 text-green-400" : "bg-ink-4 text-text-3"}`}>{connected ? "EA connected" : "EA not connected"}</span>
         </div>
         <p className="mt-1 text-text-3">
