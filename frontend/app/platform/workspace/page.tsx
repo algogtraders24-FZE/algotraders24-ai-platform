@@ -79,7 +79,7 @@ export default function WorkspacePlatformPage() {
         </div>
       </section>
 
-      <PlatformCTA dashboardHref="/dashboard/workspace" dashboardLabel="Open the Workspace" />
+      <PlatformCTA dashboardHref="/dashboard/chart" dashboardLabel="Open the Pro Chart" />
       <Footer />
     </main>
   );

@@ -159,7 +159,7 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       // discoverability, not a removed capability.
       {
         label: "Algo Testing Pro",
-        href: "/dashboard/workspace",
+        href: "/dashboard/chart",
         icon: FlaskConical,
         // Quant Pro production launch - Quant Chat (QP-0->QP-5, the
         // natural-language AI strategy builder) is the other real surface
@@ -242,7 +242,7 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       // backoffice, real per-symbol research evidence does exist - the
       // Workspace's own "Research" section - so this links straight to it
       // instead of duplicating that content on a second page.
-      { label: "AI Research", href: "/dashboard/workspace#research", icon: Microscope },
+      { label: "AI Research", href: "/dashboard/chart", icon: Microscope },
       // The real A1-A15 Agent Framework run console. /dashboard/agents (the
       // older agent-builder scaffold) now redirects here, so the nav points
       // straight at it - one "AI Agents" destination, the framework itself.
