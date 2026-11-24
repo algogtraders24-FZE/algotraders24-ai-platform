@@ -59,7 +59,7 @@ export default function ExecEaCard() {
   return (
     <Card className="space-y-4">
       <div>
-        <h2 className="text-base font-semibold text-text">AT24 Execute EA: send confirmed orders to your own MT5</h2>
+        <h2 className="text-base font-semibold text-text">AT24 Execute EA: send confirmed orders to your own MT5 or MT4</h2>
         <p className="mt-1 text-sm text-text-2">
           A small Expert Advisor that runs inside <b>your</b> MetaTrader 5 or 4. When you press <b>Confirm</b> on a trade plan in the Pro Chart, it places that one order in your terminal.
           It never opens a trade on its own, never sees your password, and applies its own safety checks first (stop loss required, lot cap, symbol, price, open-position and daily-loss limits).
