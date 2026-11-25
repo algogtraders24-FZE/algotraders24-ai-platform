@@ -36,7 +36,7 @@ import type { Candle, TimeSeriesRequest } from "@/types/market-candle";
 import { getMarket } from "../market-registry";
 import { mappingsForProvider } from "../instrument-catalog";
 import { loadMt5BridgeEnv, type Mt5BridgeEnv } from "../env";
-import { ExnessApiClient, getSharedExnessClient } from "../exness-api";
+import { ExnessApiClient, ExnessApiError, getSharedExnessClient } from "../exness-api";
 import { MarketDataProviderError } from "../errors";
 import { TtlCache, systemClock, type Clock } from "../cache";
 
@@ -284,19 +284,27 @@ export class Mt5Provider implements MarketDataProvider, SnapshotProvider, TimeSe
     const cacheKey = `${spec.mt5Symbol}|${interval}|${outputSize}`;
 
     let candles = this.candleCache.get(cacheKey);
+    let exnessBusy = false;
     if (!candles) {
       if (this.exness.isEnabled()) {
         try {
           // more than one Exness page (1000 candles): page back through the history
           candles = outputSize > 1000 ? await this.exness.getCandlesPaged(spec.mt5Symbol, interval, outputSize) : await this.exness.getCandles(spec.mt5Symbol, interval, outputSize);
           this.lastSource = "exness";
-        } catch {
+        } catch (error) {
           candles = undefined; // any Exness API problem: fall back to the VPS bridge below
+          exnessBusy = error instanceof ExnessApiError && (error.kind === "blocked" || error.kind === "rate_limit" || error.kind === "http");
         }
       }
       if (!candles) {
-        candles = await this.fetchCandles(this.requireEnv(), spec.mt5Symbol, interval, outputSize);
-        this.lastSource = "bridge";
+        try {
+          candles = await this.fetchCandles(this.requireEnv(), spec.mt5Symbol, interval, outputSize);
+          this.lastSource = "bridge";
+        } catch (bridgeError) {
+          // the bridge only knows a few symbols: when Exness was merely busy or paused, say so instead of calling a good symbol unsupported
+          if (exnessBusy) throw new MarketDataProviderError("http_error", "Market data is busy for a moment. Reload the chart in a few seconds.", PROVIDER_NAME, bridgeError);
+          throw bridgeError;
+        }
       }
       this.candleCache.set(cacheKey, candles);
     }
