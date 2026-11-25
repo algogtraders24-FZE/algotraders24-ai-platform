@@ -285,6 +285,7 @@ export class Mt5Provider implements MarketDataProvider, SnapshotProvider, TimeSe
 
     let candles = this.candleCache.get(cacheKey);
     let exnessBusy = false;
+    let exnessMissing = false;
     if (!candles) {
       if (this.exness.isEnabled()) {
         try {
@@ -295,7 +296,8 @@ export class Mt5Provider implements MarketDataProvider, SnapshotProvider, TimeSe
           candles = undefined; // any Exness API problem: fall back to the VPS bridge below
           // visible in the server logs (no secrets: kind and message of our own error class), so a pair that fails can be traced
           console.warn("[mt5] Exness candles failed", { symbol: spec.mt5Symbol, interval, outputSize, kind: error instanceof ExnessApiError ? error.kind : "other", message: error instanceof Error ? error.message.slice(0, 160) : "" });
-          exnessBusy = error instanceof ExnessApiError && (error.kind === "blocked" || error.kind === "rate_limit" || error.kind === "http");
+          exnessMissing = error instanceof ExnessApiError && error.kind === "http" && /HTTP 404/.test(error.message);
+          exnessBusy = !exnessMissing && error instanceof ExnessApiError && (error.kind === "blocked" || error.kind === "rate_limit" || error.kind === "http");
         }
       }
       if (!candles) {
@@ -304,6 +306,8 @@ export class Mt5Provider implements MarketDataProvider, SnapshotProvider, TimeSe
           this.lastSource = "bridge";
         } catch (bridgeError) {
           // the bridge only knows a few symbols: when Exness was merely busy or paused, say so instead of calling a good symbol unsupported
+          // Exness answered 404: it has no candles for this instrument (some index symbols on this account); the bridge could not help either
+          if (exnessMissing) throw new MarketDataProviderError("unsupported_symbol", "The Exness feed has no candles for this instrument right now.", PROVIDER_NAME, bridgeError);
           if (exnessBusy) throw new MarketDataProviderError("http_error", "Market data is busy for a moment. Reload the chart in a few seconds.", PROVIDER_NAME, bridgeError);
           throw bridgeError;
         }
