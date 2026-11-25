@@ -14,7 +14,7 @@ export const LIMITS = {
   maxDealsPerBatch: 500,
   maxPositions: 50,
   maxPendingOrders: 50,
-  maxAccountsPerUser: 5,
+  maxAccountsPerUser: 10,
   maxDevicesPerUser: 5,
   /** Minimum seconds between accepted snapshots per account (extra ones are dropped, not errors). */
   minSnapshotIntervalSec: 30,
