@@ -53,6 +53,8 @@ export type TradePlan =
       confluences: string[];
       source: string;
       record: PlanRecord | null;
+      /** The 50-period EMA at the time of the plan (a mean-reversion reference shown beside the targets), when it can be computed. */
+      ema50?: number;
     };
 
 type RawPlan = Exclude<TradePlan, { state: "standAside" }>;
@@ -156,6 +158,7 @@ export function planAt(candles: ChartCandle[], minScore: number = PLAN_MIN_SCORE
       ? `Structure retest rule: ${biasText}, price inside ${baseZones.map((z) => z.label).join(" + ")}`
       : `Structure retest rule: ${biasText}; limit entry at the nearest ${baseZones.map((z) => z.label).join(" + ")} (${(Math.abs(last.close - entry) / atr).toFixed(1)} ATR from price)`,
     record: null,
+    ...(e50 !== null ? { ema50: rnd(e50) } : {}),
   };
 }
 

@@ -124,6 +124,18 @@ export function PlanOverlay({ plan, onExecute, onClose, formatPrice, inline, sta
         {row("STOP", plan.stop, "text-red-400")}
         {row("TARGET", plan.target, "text-green-400")}
       </div>
+      {plan.record && (
+        <p className="mt-1 text-[12px] text-text-3">
+          Measured on this chart: {plan.record.n} trades, avg {plan.record.avgR >= 0 ? "+" : ""}{plan.record.avgR.toFixed(2)} R, {(plan.record.targetShare * 100).toFixed(0)}% reached the target first (break-even at 2R is 33%).
+        </p>
+      )}
+      <div className="mt-1.5 border-t border-border pt-1.5 text-[12px] text-text-3">
+        <p className="font-semibold uppercase tracking-wide">Additional targets</p>
+        <p className="mt-0.5 tabular-nums">
+          TP2 {formatPrice(long ? plan.entry + 3 * Math.abs(plan.entry - plan.stop) : plan.entry - 3 * Math.abs(plan.entry - plan.stop))} (3R)
+          {plan.ema50 !== undefined && (long ? plan.ema50 > plan.entry : plan.ema50 < plan.entry) ? ` · EMA50 ${formatPrice(plan.ema50)} (mean-reversion level)` : ""}
+        </p>
+      </div>
       <button
         type="button"
         onClick={() => onExecute(long ? "buy" : "sell")}
