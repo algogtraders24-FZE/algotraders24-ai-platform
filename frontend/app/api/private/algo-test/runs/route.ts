@@ -13,6 +13,7 @@ import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { Errors } from "@/services/backend/ErrorHandler";
 import { algoTestService, DEFAULT_INITIAL_BALANCE } from "@/services/algo-test/algo-test.service";
 import type { AlgoTestRunRequest } from "@/types/algo-test";
+import { backtestQuotaService } from "@/services/chart/chart-quota.service";
 
 export const GET = withContext(async (_req, ctx) => {
   const sessionUser = await getUserOrNull();
@@ -60,7 +61,26 @@ export const POST = withContext(async (req, ctx) => {
     initialBalance: typeof initialBalance === "number" ? initialBalance : DEFAULT_INITIAL_BALANCE,
   };
 
+  // One free backtest, then a paid plan (lib/access/chart-quota.ts). Checked before the run; counted only when the run completes, so a rejected or failed
+  // request does not use up the free test.
+  const quota = await backtestQuotaService.status(sessionUser.profile.id, sessionUser.profile.role);
+  if (!quota.allowed) {
+    return ApiResponse.error(
+      quota.reason === "free_limit_reached"
+        ? { code: "PRO_REQUIRED", message: "Your free backtest has been used. More backtests are part of the Pro plan." }
+        : { code: "RATE_LIMITED", message: "Daily backtest limit reached. It resets at 00:00 UTC." },
+      ctx.requestId, quota.reason === "free_limit_reached" ? 403 : 429, ctx.startedAt,
+    );
+  }
+  if (quota.maxRangeDays !== null) {
+    const days = (Date.parse(endTime) - Date.parse(startTime)) / 86_400_000;
+    if (Number.isFinite(days) && days > quota.maxRangeDays) {
+      return ApiResponse.error({ code: "RANGE_TOO_LARGE", message: `The free backtest covers up to ${quota.maxRangeDays} days. Longer windows are part of the Pro plan.` }, ctx.requestId, 400, ctx.startedAt);
+    }
+  }
+
   const run = await algoTestService.runAlgoTest(sessionUser.profile.id, request);
+  if (run.testId !== "" && run.status === "completed") await backtestQuotaService.recordCompleted(sessionUser.profile.id).catch(() => undefined);
 
   // A run that was never even attempted (rejected before any AlgoTestRun
   // row was created - testId === "") is a client input error, HTTP 400.

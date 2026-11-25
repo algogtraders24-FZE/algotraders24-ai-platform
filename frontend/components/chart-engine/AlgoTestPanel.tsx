@@ -31,10 +31,11 @@
 //      P3.8 evidence and the compiled StrategySpec, both of which were
 //      already computed server-side and simply never rendered before
 //      this sprint.
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import Link from "next/link";
 import Badge, { type BadgeTone } from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
+import type { BacktestDecision } from "@/lib/access/chart-quota";
 import StatField from "@/components/workspace/StatField";
 import CompiledStrategyCard from "@/components/algo-test/CompiledStrategyCard";
 import { FIN_LABEL, FIN_PRIMARY, FIN_SECONDARY, FIN_TERTIARY } from "@/components/ui/financial-typography";
@@ -212,15 +213,25 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
   const [startDate, setStartDate] = useState(() => isoDateNDaysAgo(MAX_RANGE_DAYS)); // the longest window the data provider allows (end date below is yesterday)
   // the longest window per timeframe, asked from the server (two years for H1 and slower with the Exness history feed, 14 days of M5 otherwise)
   const [limits, setLimits] = useState<Record<string, number> | null>(null);
+  // one free backtest, then a paid plan (lib/access/chart-quota.ts): how many backtests this user has left
+  const [backtestQuota, setBacktestQuota] = useState<BacktestDecision | null>(null);
   const startTouched = useRef(false);
-  useEffect(() => {
-    let alive = true;
+  const aliveRef = useRef(true);
+  const loadLimits = useCallback(() => {
     fetch("/api/private/algo-test/range-limits", { cache: "no-store" })
       .then((r) => r.json())
-      .then((j) => { if (alive && j?.status === "ok" && j.data?.limits) setLimits(j.data.limits as Record<string, number>); })
+      .then((j) => {
+        if (!aliveRef.current || j?.status !== "ok") return;
+        if (j.data?.limits) setLimits(j.data.limits as Record<string, number>);
+        if (j.data?.backtest) setBacktestQuota(j.data.backtest as BacktestDecision);
+      })
       .catch(() => undefined);
-    return () => { alive = false; };
   }, []);
+  useEffect(() => {
+    aliveRef.current = true;
+    loadLimits();
+    return () => { aliveRef.current = false; };
+  }, [loadLimits]);
   // Live-verification finding (P3.2B): defaulting to isoDateNDaysAgo(0)
   // ("today") looked right but always failed - the server converts endDate
   // to end-of-day UTC (toEngineTimestamp's endOfDay=true, "23:59:59Z"), which
@@ -343,7 +354,8 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
   const balanceValid = Number.isFinite(parsedBalance) && parsedBalance > 0;
   const rangeValid = rangeDays > 0 && rangeDays <= maxRangeDays;
   const intentValid = mode === "ai" ? intent.trim().length > 0 && intent.length <= MAX_INTENT_LENGTH : true;
-  const canSubmit = balanceValid && rangeValid && intentValid && (mode === "registry" ? parametersValid : true) && !submitting;
+  const backtestBlocked = mode === "registry" && backtestQuota !== null && !backtestQuota.allowed;
+  const canSubmit = balanceValid && rangeValid && intentValid && (mode === "registry" ? parametersValid : true) && !submitting && !backtestBlocked;
 
   function handleResetParameters() {
     setParamValues(defaultFormValues(parameters));
@@ -361,6 +373,7 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
         equityCurve: result.equityCurve,
       });
       setConfigOpen(false);
+      loadLimits(); // a completed run used up part of the quota
       // P3.3 - round-trip this completed run's id through the URL so a
       // browser refresh reopens the exact same persisted result (see the
       // reopen effect above) instead of losing it.
@@ -373,6 +386,7 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
       // silently dropped: results still render below, just not
       // overlaid on a mismatched chart.
       setConfigOpen(false);
+      loadLimits(); // a completed run used up part of the quota
     }
     // A handled `status: "failed"` result is NOT set as the top-level
     // `error` (a real bug this phase's own visual QA caught: doing so
@@ -563,6 +577,19 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
             </label>
           </div>
           <p className="text-[11px] text-text-3">The default is the longest window allowed for this timeframe: {maxRangeDays} days{maxRangeDays > MAX_RANGE_DAYS ? " (history from the Exness feed, loaded page by page, so a long run can take a little while to start)" : ""}.</p>
+          {mode === "registry" && backtestQuota && backtestQuota.limit !== null && (
+            backtestBlocked ? (
+              <div className="rounded-md border border-gold/40 bg-gold/5 p-2.5 text-[12px] text-text-2" role="status">
+                <p className="font-semibold text-text">{backtestQuota.reason === "free_limit_reached" ? "Your free backtest has been used" : "Daily backtest limit reached"}</p>
+                <p className="mt-0.5">{backtestQuota.reason === "free_limit_reached" ? "More backtests, longer windows and AI strategies are part of the Pro plan." : "It resets at 00:00 UTC."}</p>
+                {backtestQuota.reason === "free_limit_reached" && <a href="/pricing" className="mt-1.5 inline-block rounded-md bg-gold px-3 py-1 font-semibold text-ink hover:brightness-110">See Pro plans</a>}
+              </div>
+            ) : (
+              <p className="text-[11px] text-text-3">
+                {backtestQuota.isPro ? `${backtestQuota.remaining} of ${backtestQuota.limit} backtests left today.` : `Free plan: ${backtestQuota.remaining} of ${backtestQuota.limit} included backtest left, up to ${backtestQuota.maxRangeDays} days.`}
+              </p>
+            )
+          )}
           <label className="flex flex-col gap-0.5">
             <span className={FIN_LABEL}>Initial Balance</span>
             <input
