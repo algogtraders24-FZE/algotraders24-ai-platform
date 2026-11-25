@@ -33,6 +33,27 @@ export interface PlanLike {
   target: number;
 }
 
+export interface MarketCheck {
+  ok: boolean;
+  entry: number;
+  risk: number;
+  reward: number;
+  rr: number;
+  reason: string | null;
+}
+
+/** A market order at the live price with the plan's own stop and target: valid only while the price is still between them. */
+export function marketOrderCheck(plan: { dir: "long" | "short"; stop: number; target: number }, quote: { bid: number; ask: number }): MarketCheck {
+  const long = plan.dir === "long";
+  const entry = long ? quote.ask : quote.bid; // a buy fills at the ask, a sell at the bid
+  const risk = Math.abs(entry - plan.stop);
+  const reward = Math.abs(plan.target - entry);
+  const between = long ? plan.stop < entry && entry < plan.target : plan.target < entry && entry < plan.stop;
+  if (!Number.isFinite(entry) || entry <= 0) return { ok: false, entry, risk: 0, reward: 0, rr: 0, reason: "No live price yet." };
+  if (!between) return { ok: false, entry, risk, reward, rr: risk > 0 ? reward / risk : 0, reason: long ? (entry <= plan.stop ? "Price is already at or below the stop." : "Price is already at or above the target.") : (entry >= plan.stop ? "Price is already at or above the stop." : "Price is already at or below the target.") };
+  return { ok: true, entry, risk, reward, rr: reward / risk, reason: null };
+}
+
 export interface Freshness {
   ok: boolean;
   /** Plain words for the trader when the plan is no longer valid. */

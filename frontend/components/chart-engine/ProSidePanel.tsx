@@ -36,6 +36,8 @@ interface Props {
   quota?: QuotaDecision | null;
   /** Why the current plan no longer fits the live price (null = it still does). */
   planStale?: string | null;
+  /** Live bid / ask, for the market-order option of the Trade tab. */
+  quote?: { bid: number; ask: number } | null;
   /** Voice commands: change the chart's timeframe / symbol. */
   onTimeframe?: (tf: SignalTimeframe) => void;
   onSymbol?: (symbol: string) => void;
@@ -104,7 +106,7 @@ function Mt5Panel({ plan, formatPrice }: { plan: TradePlan | null; formatPrice: 
   );
 }
 
-export function ProSidePanel({ tab, onTab, symbol, tradeSymbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, onAnalyze, quota, planStale, onTimeframe, onSymbol, candles, pragya, getChatFacts, onOpenTester, mobileOpen = false, onMobileClose, scanning = false, signalNote = null }: Props) {
+export function ProSidePanel({ tab, onTab, symbol, tradeSymbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, onAnalyze, quota, planStale, quote, onTimeframe, onSymbol, candles, pragya, getChatFacts, onOpenTester, mobileOpen = false, onMobileClose, scanning = false, signalNote = null }: Props) {
   const watching = plan ? 1 : 0;
   const [execOn, setExecOn] = useState(false); // the Execute bridge is open to this account: the Trade tab shows it instead of the coming-soon card
   return (
@@ -180,7 +182,7 @@ export function ProSidePanel({ tab, onTab, symbol, tradeSymbol, timeframe, plan,
       </div>
 
       <div className={tab === "trade" ? "block" : "hidden"}>
-        <ExecPanel active={tab === "trade"} symbol={tradeSymbol ?? symbol} plan={plan} formatPrice={formatPrice} onEnabled={setExecOn} staleReason={planStale ?? null} />
+        <ExecPanel active={tab === "trade"} symbol={tradeSymbol ?? symbol} plan={plan} formatPrice={formatPrice} onEnabled={setExecOn} quote={quote ?? null} />
         {!execOn && <Mt5Panel plan={plan} formatPrice={formatPrice} />}
       </div>
 

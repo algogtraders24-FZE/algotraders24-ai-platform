@@ -2,9 +2,9 @@
   "name": "AT24Execute",
   "version": "1.00",
   "source": "AT24Execute.mq5",
-  "sourceSha256": "a711ae79d02dcf520837d328dbc4315668a09a72b33a42ae2aa17c7cd46b38ec",
+  "sourceSha256": "ea7ed0b0ceaa789855e4738a6a279750fa082a523bee39eb5d4ed2fd75e74574",
   "ex5": "AT24Execute.ex5",
-  "ex5Sha256": "3147b7252fee1ea4834cbe407adebe1bdc7870d2c18c32982a88d64d178ee0c6",
-  "ex5Bytes": 64360,
+  "ex5Sha256": "6731af14f93420eee5ecee3ec0a534521dd8c52ecaf6d7587eff359dc32127bf",
+  "ex5Bytes": 64766,
   "metaEditorBuild": null
 }

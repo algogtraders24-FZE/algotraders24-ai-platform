@@ -1,7 +1,7 @@
 // scripts/validate-live-price.ts - the forming candle follows the live quote, and a plan the price has run away from is flagged.
 // Run: npx tsx scripts/validate-live-price.ts
 import assert from "node:assert/strict";
-import { applyLiveQuote, planFreshness } from "../lib/chart-engine/live-price";
+import { applyLiveQuote, marketOrderCheck, planFreshness } from "../lib/chart-engine/live-price";
 import type { ChartCandle } from "../types/chart-data";
 
 let passed = 0, failed = 0;
@@ -62,6 +62,22 @@ test("a market plan is stale when price ran more than a quarter of the risk from
 });
 test("an unusable live price never blocks a plan", () => {
   assert.equal(planFreshness(longLimit, NaN).ok, true);
+});
+
+test("market order now: a buy fills at the ask, a sell at the bid, with the plan's own stop and target", () => {
+  const buy = marketOrderCheck({ dir: "long", stop: 3487, target: 3560 }, { bid: 3518.5, ask: 3518.6 });
+  assert.equal(buy.ok, true);
+  assert.equal(buy.entry, 3518.6);
+  assert.ok(Math.abs(buy.rr - (3560 - 3518.6) / (3518.6 - 3487)) < 1e-9);
+  const sell = marketOrderCheck({ dir: "short", stop: 3551.3, target: 3488.4 }, { bid: 3518.5, ask: 3518.6 });
+  assert.equal(sell.ok, true);
+  assert.equal(sell.entry, 3518.5);
+});
+test("market order now: refused once price is beyond the stop or the target", () => {
+  assert.equal(marketOrderCheck({ dir: "long", stop: 3487, target: 3560 }, { bid: 3486, ask: 3486.1 }).ok, false);
+  assert.equal(marketOrderCheck({ dir: "long", stop: 3487, target: 3560 }, { bid: 3561, ask: 3561.1 }).ok, false);
+  assert.equal(marketOrderCheck({ dir: "short", stop: 3551.3, target: 3488.4 }, { bid: 3560, ask: 3560.1 }).ok, false);
+  assert.equal(marketOrderCheck({ dir: "short", stop: 3551.3, target: 3488.4 }, { bid: 3480, ask: 3480.1 }).ok, false);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
