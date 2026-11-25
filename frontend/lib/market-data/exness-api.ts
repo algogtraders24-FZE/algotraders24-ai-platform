@@ -21,6 +21,10 @@ import { loadExnessApiEnv, type ExnessApiEnv } from "./env";
 const USER_AGENT = "AT24-ReadOnlyClient/0.1 (own-account market data)";
 const ACCESS_POINT_TTL_MS = 6 * 60 * 60 * 1000;
 const BLOCK_AFTER_FAILURE_MS = 60_000;
+/** After a second 429 in a row the API is left alone for this long (a short pause: the chart should recover quickly). */
+const BLOCK_AFTER_RATE_LIMIT_MS = 15_000;
+/** Requests of one server instance are spaced at least this far apart (the account key has a small burst allowance shared by every user). */
+const MIN_GAP_BETWEEN_REQUESTS_MS = 300;
 const MAX_CANDLES_PER_REQUEST = 1000;
 /** Paging pace: a short gap between pages, and up to this many waits-and-retries when the API answers 429. */
 const PAGE_GAP_MS = 1200;
@@ -136,6 +140,8 @@ export class ExnessApiClient {
   private key: KeyObject | null = null;
   private accessPoint: { url: string; at: number } | null = null;
   private blockedUntil = 0;
+  private lastCallAt = 0;
+  private paceChain: Promise<void> = Promise.resolve();
 
   constructor(options: ExnessApiClientOptions) {
     this.env = options.env;
@@ -153,12 +159,24 @@ export class ExnessApiClient {
     return this.key;
   }
 
-  private async get(base: string, pathWithQuery: string, opts: { noBreaker?: boolean } = {}): Promise<unknown> {
+  /** Spaces this instance's requests (a queue): bursts from a chart that loads several things at once no longer trip the rate limit. */
+  private pace(): Promise<void> {
+    const run = this.paceChain.then(async () => {
+      const wait = this.lastCallAt + MIN_GAP_BETWEEN_REQUESTS_MS - this.clock.now();
+      if (wait > 0) await this.sleep(wait);
+      this.lastCallAt = this.clock.now();
+    });
+    this.paceChain = run.catch(() => undefined);
+    return run;
+  }
+
+  private async get(base: string, pathWithQuery: string, opts: { noBreaker?: boolean; retried?: boolean } = {}): Promise<unknown> {
     const env = this.env;
     if (!env) throw new ExnessApiError("disabled", "Exness API is not enabled");
     const now = this.clock.now();
     if (now < this.blockedUntil) throw new ExnessApiError("blocked", "Exness API temporarily paused after a failure");
 
+    await this.pace();
     let res: FetchLikeResponse;
     try {
       res = await this.fetchImpl(base + pathWithQuery, { method: "GET", headers: signedHeaders(this.getKey(env), env.apiKey, pathWithQuery, now) });
@@ -168,9 +186,14 @@ export class ExnessApiClient {
       throw new ExnessApiError("http", "Failed to reach the Exness API");
     }
     if (res.status === 429) {
-      // the caller may be paging through history and will wait and retry itself: then no global pause is opened
-      if (!opts.noBreaker) this.blockedUntil = now + BLOCK_AFTER_FAILURE_MS;
       const header = Number(res.headers?.get("retry-after") ?? "");
+      // a single request waits a moment and tries once more before the API is left alone (the limit is a short burst window)
+      if (!opts.noBreaker && !opts.retried) {
+        await this.sleep(Number.isFinite(header) && header > 0 ? Math.min(header * 1000, 2500) : 1500);
+        return this.get(base, pathWithQuery, { ...opts, retried: true });
+      }
+      // the caller may be paging through history and will wait and retry itself: then no global pause is opened
+      if (!opts.noBreaker) this.blockedUntil = this.clock.now() + BLOCK_AFTER_RATE_LIMIT_MS;
       throw new ExnessApiError("rate_limit", "Exness API rate limit", Number.isFinite(header) && header > 0 ? header * 1000 : 5000);
     }
     if (res.status === 401 || res.status === 403) {

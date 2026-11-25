@@ -226,20 +226,43 @@ async function clientTests(): Promise<void> {
     await assert.rejects(c.getCandles("XAUUSD", "1h", 5000), (e: unknown) => e instanceof ExnessApiError && e.kind === "unsupported");
   });
 
-  await test("429 opens a 60 s circuit breaker (no hammering), then recovers", async () => {
+  await test("429: one retry, then a 15 s pause (no hammering), then it recovers", async () => {
     const ref = { t: 1_000_000 };
     let calls = 0;
     const f: ExnessFetch = async () => {
       calls += 1;
       return json(429, {});
     };
-    const c = new ExnessApiClient({ env: ENV, fetchImpl: f, clock: clockAt(ref) });
+    const c = new ExnessApiClient({ env: ENV, fetchImpl: f, clock: clockAt(ref), sleep: async (ms) => { ref.t += ms; } });
     await assert.rejects(c.getCandles("XAUUSD", "1h", 5), (e: unknown) => e instanceof ExnessApiError && e.kind === "rate_limit");
+    assert.equal(calls, 2, "the request is tried twice");
     await assert.rejects(c.getCandles("XAUUSD", "1h", 5), (e: unknown) => e instanceof ExnessApiError && e.kind === "blocked");
-    assert.equal(calls, 1);
-    ref.t += 61_000;
+    assert.equal(calls, 2, "paused: nothing is sent");
+    ref.t += 16_000;
     await assert.rejects(c.getCandles("XAUUSD", "1h", 5), (e: unknown) => e instanceof ExnessApiError && e.kind === "rate_limit");
-    assert.equal(calls, 2);
+    assert.equal(calls, 4);
+  });
+
+  await test("a 429 that clears on the retry is served normally", async () => {
+    const ref = { t: 1_000_000 };
+    let n = 0;
+    const f: ExnessFetch = async (url, init) => {
+      if (String(url).includes("/market-data/accounts/")) { n += 1; if (n === 1) return json(429, {}); }
+      return exnessFetch([])(url, init);
+    };
+    const c = new ExnessApiClient({ env: ENV, fetchImpl: f, clock: clockAt(ref), sleep: async (ms) => { ref.t += ms; } });
+    const rows = await c.getCandles("XAUUSD", "1h", 5);
+    assert.ok(rows.length > 0);
+  });
+
+  await test("requests are spaced at least 300 ms apart", async () => {
+    const ref = { t: 1_000_000 };
+    const times: number[] = [];
+    const f: ExnessFetch = async (url, init) => { if (String(url).includes("/market-data/accounts/")) times.push(ref.t); return exnessFetch([])(url, init); };
+    const c = new ExnessApiClient({ env: ENV, fetchImpl: f, clock: clockAt(ref), sleep: async (ms) => { ref.t += ms; } });
+    await Promise.all([c.getCandles("XAUUSD", "1h", 5), c.getCandles("EURUSD", "1h", 5), c.getCandles("GBPUSD", "1h", 5)]);
+    assert.equal(times.length, 3);
+    assert.ok(times[1] - times[0] >= 300 && times[2] - times[1] >= 300, JSON.stringify(times));
   });
 
   await test("one instrument answered with a 4xx does not pause the other instruments; a 5xx does", async () => {
