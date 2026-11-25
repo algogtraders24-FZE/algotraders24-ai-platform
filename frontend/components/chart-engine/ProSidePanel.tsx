@@ -34,6 +34,8 @@ interface Props {
   onAnalyze: () => void;
   /** Free period / daily Analyze limits for this user. */
   quota?: QuotaDecision | null;
+  /** Why the current plan no longer fits the live price (null = it still does). */
+  planStale?: string | null;
   /** Voice commands: change the chart's timeframe / symbol. */
   onTimeframe?: (tf: SignalTimeframe) => void;
   onSymbol?: (symbol: string) => void;
@@ -102,7 +104,7 @@ function Mt5Panel({ plan, formatPrice }: { plan: TradePlan | null; formatPrice: 
   );
 }
 
-export function ProSidePanel({ tab, onTab, symbol, tradeSymbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, onAnalyze, quota, onTimeframe, onSymbol, candles, pragya, getChatFacts, onOpenTester, mobileOpen = false, onMobileClose, scanning = false, signalNote = null }: Props) {
+export function ProSidePanel({ tab, onTab, symbol, tradeSymbol, timeframe, plan, analysis, onExecute, onClosePlan, formatPrice, onAnalyze, quota, planStale, onTimeframe, onSymbol, candles, pragya, getChatFacts, onOpenTester, mobileOpen = false, onMobileClose, scanning = false, signalNote = null }: Props) {
   const watching = plan ? 1 : 0;
   const [execOn, setExecOn] = useState(false); // the Execute bridge is open to this account: the Trade tab shows it instead of the coming-soon card
   return (
@@ -146,7 +148,13 @@ export function ProSidePanel({ tab, onTab, symbol, tradeSymbol, timeframe, plan,
         ) : (
           <>
             <button type="button" onClick={onAnalyze} className="w-full rounded-lg border border-border bg-ink-3 py-2 text-[14px] font-semibold text-text hover:bg-ink-4">Re-analyze</button>
-            {plan && <PlanOverlay inline plan={plan} onExecute={onExecute} onClose={onClosePlan} formatPrice={formatPrice} />}
+            {plan && planStale && (
+              <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 text-[12.5px] text-amber-200" role="status">
+                <p className="font-semibold">This plan is out of date</p>
+                <p className="mt-0.5">{planStale} Press Re-analyze for a plan at the current price.</p>
+              </div>
+            )}
+            {plan && <PlanOverlay inline plan={plan} onExecute={onExecute} onClose={onClosePlan} formatPrice={formatPrice} stale={Boolean(planStale)} />}
             {plan && plan.state === "plan" && signalNote === "saved" && <p className="-mt-1 px-1 text-[12px] text-text-3">✓ Saved to My signals (Strategies tab). Its outcome is measured on the candles that follow.</p>}
             <div className="rounded-lg border border-border bg-ink-3/60 p-3">
               <AnnotationSummary analysis={analysis} formatPrice={formatPrice} />
@@ -172,7 +180,7 @@ export function ProSidePanel({ tab, onTab, symbol, tradeSymbol, timeframe, plan,
       </div>
 
       <div className={tab === "trade" ? "block" : "hidden"}>
-        <ExecPanel active={tab === "trade"} symbol={tradeSymbol ?? symbol} plan={plan} formatPrice={formatPrice} onEnabled={setExecOn} />
+        <ExecPanel active={tab === "trade"} symbol={tradeSymbol ?? symbol} plan={plan} formatPrice={formatPrice} onEnabled={setExecOn} staleReason={planStale ?? null} />
         {!execOn && <Mt5Panel plan={plan} formatPrice={formatPrice} />}
       </div>
 

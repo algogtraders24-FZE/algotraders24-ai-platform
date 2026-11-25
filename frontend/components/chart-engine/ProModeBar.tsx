@@ -81,10 +81,12 @@ interface PlanOverlayProps {
   formatPrice: (n: number) => string;
   /** Pro layout: render in the side panel instead of floating over the chart. */
   inline?: boolean;
+  /** The price has moved away from this plan: the order button is switched off until a fresh analysis. */
+  stale?: boolean;
 }
 
 /** Floating trade card in the top-left of the chart (Pipflow-style): compact, details on demand. */
-export function PlanOverlay({ plan, onExecute, onClose, formatPrice, inline }: PlanOverlayProps) {
+export function PlanOverlay({ plan, onExecute, onClose, formatPrice, inline, stale }: PlanOverlayProps) {
   const [open, setOpen] = useState(false);
   if (!plan) return null;
   const shell = (inline ? "w-full " : "absolute left-3 top-3 z-10 w-64 ") + "rounded-panel border border-border bg-ink-2/95 p-3 text-[14px] text-text-2 shadow-lg backdrop-blur";
@@ -125,7 +127,8 @@ export function PlanOverlay({ plan, onExecute, onClose, formatPrice, inline }: P
       <button
         type="button"
         onClick={() => onExecute(long ? "buy" : "sell")}
-        className={`mt-2 w-full rounded-control py-1.5 text-[14px] font-semibold ${long ? "bg-green-500/20 text-green-300 hover:bg-green-500/30" : "bg-red-500/20 text-red-300 hover:bg-red-500/30"}`}
+        disabled={stale}
+        className={`mt-2 w-full rounded-control py-1.5 text-[14px] font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${long ? "bg-green-500/20 text-green-300 hover:bg-green-500/30" : "bg-red-500/20 text-red-300 hover:bg-red-500/30"}`}
       >
         {plan.entryType === "limit" ? (long ? "Place Long limit" : "Place Short limit") : (long ? "Execute Long" : "Execute Short")}
       </button>
