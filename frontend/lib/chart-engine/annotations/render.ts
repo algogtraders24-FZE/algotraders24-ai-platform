@@ -140,10 +140,13 @@ export function drawAnnotations(
     } else if (a.type === "session") {
       const x = X(a.time);
       const rgb = a.session === "LDN" ? BLUE : AMBER;
-      ctx.setLineDash?.([2, 4]);
-      line(x, row.top, x, row.top + row.height, rgb, 0.35);
-      ctx.setLineDash?.([]);
-      label(a.session, x + 3, row.top + 11, rgb);
+      // reference-chart style: a small tag at the bottom of the plot with a coloured underline, where the session opens (no full-height line through the candles)
+      const y = row.top + row.height - 14;
+      const w = a.session.length * 6.8 + 10;
+      if (x + 3 + w < plotWidth) {
+        label(a.session, x + 3, y, rgb);
+        line(x + 3, y + 7, x + 3 + w, y + 7, rgb, 0.95, 2);
+      }
     }
   }
 }
