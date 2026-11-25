@@ -19,7 +19,7 @@ input string AT24_BaseUrl       = "https://www.algotraders24.ai"; // Must be on 
 input int    PollSeconds        = 3;                            // Seconds between checks for a confirmed order (minimum 2)
 input bool   AllowLiveAccount   = false;                        // Demo only by default. Enable only if you understand this can place orders on a REAL account
 input double MaxLots            = 0.10;                         // Largest lot size this EA will ever send, whatever AT24 says
-input int    MaxSlippagePoints  = 30;                           // Market orders: refused when the price moved more than this from the plan
+input int    MaxSlippagePoints  = 100;                          // Market orders: the most the fill price may differ from the live price when the order is sent (broker deviation, in points). Fast markets need room: a tight value makes fills fail
 input int    MaxSpreadPoints    = 0;                            // Refuse when the spread is wider than this (0 = no spread filter)
 input int    MaxOpenPositions   = 5;                            // Open positions plus pending orders of this EA allowed at the same time
 input double MaxDailyLossPercent = 5.0;                         // Refuse new orders once equity fell this % since the first check of the UTC day (0 = off)

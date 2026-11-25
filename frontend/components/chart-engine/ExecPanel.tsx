@@ -6,6 +6,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TradePlan } from "@/lib/chart-engine/annotations/plan";
+import { marketOrderCheck, planFreshness } from "@/lib/chart-engine/live-price";
 
 interface OrderView { id: string; symbol: string; side: string; kind: string; volume: number; price: number | null; stopLoss: number; takeProfit: number | null; status: string; createdAt: string; ticket: string | null; fillPrice: number | null; reason: string | null }
 interface State { enabled: boolean; connected?: boolean; maxLots?: number; orders?: OrderView[] }
@@ -25,13 +26,15 @@ const CHIP: Record<string, { label: string; cls: string }> = {
 const nonce = () => `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 const fmtP = (n: number) => (Math.abs(n) >= 100 ? n.toFixed(2) : Math.abs(n) >= 10 ? n.toFixed(3) : n.toFixed(5));
 
-export default function ExecPanel({ active, symbol, plan, formatPrice, onEnabled, staleReason }: { active: boolean; symbol: string; plan: TradePlan | null; formatPrice: (n: number) => string; onEnabled?: (enabled: boolean) => void; staleReason?: string | null }) {
+export default function ExecPanel({ active, symbol, plan, formatPrice, onEnabled, quote }: { active: boolean; symbol: string; plan: TradePlan | null; formatPrice: (n: number) => string; onEnabled?: (enabled: boolean) => void; quote?: { bid: number; ask: number } | null }) {
   const [state, setState] = useState<State | null>(null);
   const [lots, setLots] = useState("0.01");
   const [review, setReview] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const nonceRef = useRef<string>(nonce());
+  // "plan" = wait at the plan's price (a limit order when the plan is a limit); "market" = enter now at the current price with the plan's stop and target
+  const [mode, setMode] = useState<"plan" | "market">("market");
 
   const refresh = useCallback(async () => {
     try {
@@ -54,7 +57,7 @@ export default function ExecPanel({ active, symbol, plan, formatPrice, onEnabled
 
   // a different plan or lot size is a different confirmation
   const p = plan && plan.state === "plan" ? plan : null;
-  useEffect(() => { nonceRef.current = nonce(); setReview(false); }, [symbol, p?.entry, p?.stop, p?.target, lots]);
+  useEffect(() => { nonceRef.current = nonce(); setReview(false); }, [symbol, p?.entry, p?.stop, p?.target, lots, mode]);
 
   if (!state || !state.enabled) return null;
 
@@ -63,6 +66,13 @@ export default function ExecPanel({ active, symbol, plan, formatPrice, onEnabled
   const maxLots = state.maxLots ?? 0.1;
   const lotsOk = Number.isFinite(lotsNum) && lotsNum >= 0.01 && lotsNum <= maxLots && Math.round(lotsNum * 100) / 100 === lotsNum;
   const connected = state.connected === true;
+  // what is actually sent: a market order is never given a price (the EA then uses the live price: a plan price that is a few seconds old made it refuse with 'price moved')
+  const isLimitPlan = p?.entryType === "limit";
+  const sendKind: "market" | "limit" = isLimitPlan && mode === "plan" ? "limit" : "market";
+  const mid = quote ? (quote.bid + quote.ask) / 2 : undefined;
+  const mkt = p && quote ? marketOrderCheck({ dir: p.dir, stop: p.stop, target: p.target }, quote) : null;
+  // why this order cannot be sent right now (null = fine)
+  const blockReason: string | null = !p ? null : sendKind === "market" ? (mkt && !mkt.ok ? mkt.reason : null) : (mid !== undefined ? planFreshness(p, mid).reason : null);
 
   async function send() {
     if (!p) return;
@@ -73,7 +83,7 @@ export default function ExecPanel({ active, symbol, plan, formatPrice, onEnabled
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          symbol: plainSymbol, side: p.dir === "long" ? "buy" : "sell", kind: p.entryType, volume: lotsNum, price: p.entry, stopLoss: p.stop, takeProfit: p.target,
+          symbol: plainSymbol, side: p.dir === "long" ? "buy" : "sell", kind: sendKind, volume: lotsNum, ...(sendKind === "limit" ? { price: p.entry } : {}), stopLoss: p.stop, takeProfit: p.target,
           clientNonce: nonceRef.current, confirm: true, plan: { score: p.score, scoreMax: p.scoreMax, rr: p.rr, source: p.source },
         }),
       });
@@ -111,17 +121,24 @@ export default function ExecPanel({ active, symbol, plan, formatPrice, onEnabled
       {p ? (
         <div className="rounded-lg border border-border bg-ink-3/60 p-3">
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-text-3">Order from the current plan</p>
-          <p className="text-text">{p.dir === "long" ? "BUY" : "SELL"} {p.entryType === "limit" ? "LIMIT" : "MARKET"} {plainSymbol} · entry {formatPrice(p.entry)} · stop {formatPrice(p.stop)} · target {formatPrice(p.target)}</p>
+          {isLimitPlan && (
+            <div className="mb-2 flex gap-1 rounded-md bg-ink-4 p-0.5 text-[12.5px]" role="tablist" aria-label="Order type">
+              <button type="button" role="tab" aria-selected={mode === "market"} onClick={() => setMode("market")} className={`flex-1 rounded px-2 py-1 ${mode === "market" ? "bg-gold font-semibold text-ink" : "text-text-2"}`}>{p.dir === "long" ? "Buy now (market)" : "Sell now (market)"}</button>
+              <button type="button" role="tab" aria-selected={mode === "plan"} onClick={() => setMode("plan")} className={`flex-1 rounded px-2 py-1 ${mode === "plan" ? "bg-gold font-semibold text-ink" : "text-text-2"}`}>Wait at plan price (limit)</button>
+            </div>
+          )}
+          <p className="text-text">{p.dir === "long" ? "BUY" : "SELL"} {sendKind === "limit" ? "LIMIT" : "MARKET"} {plainSymbol} · entry {sendKind === "limit" ? formatPrice(p.entry) : mkt ? `now ~${formatPrice(mkt.entry)}` : "at the current price"} · stop {formatPrice(p.stop)} · target {formatPrice(p.target)}</p>
+          {sendKind === "market" && mkt && mkt.ok && <p className="mt-1 text-[12.5px] text-text-3">At the current price the risk is {formatPrice(mkt.risk)} and the reward is {formatPrice(mkt.reward)} (R:R 1:{mkt.rr.toFixed(2)}{p.entryType === "limit" ? `, the plan at its own price is 1:${p.rr}` : ""}). A market order fills at the broker's price within seconds, so there is no waiting for a zone.</p>}
           <label className="mt-3 flex flex-col gap-1 text-[11px] uppercase text-text-3">Lots (max {maxLots})
             <input value={lots} inputMode="decimal" onChange={(e) => setLots(e.target.value)} className="w-28 rounded-md border border-border bg-ink-3 px-2 py-1.5 text-[13px] text-text focus:border-gold focus:outline-none" />
           </label>
-          {staleReason && <p className="mt-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-[12.5px] text-amber-200">{staleReason} Run Re-analyze on the Chat tab, then send the new plan.</p>}
+          {blockReason && <p className="mt-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-[12.5px] text-amber-200">{blockReason} {sendKind === "limit" && isLimitPlan ? "Switch to Buy / Sell now, or run Re-analyze on the Chat tab." : "Run Re-analyze on the Chat tab, then send the new plan."}</p>}
           {!review ? (
-            <button type="button" disabled={!connected || !lotsOk || Boolean(staleReason)} onClick={() => setReview(true)} className="mt-3 w-full rounded-lg bg-gold py-2.5 text-[14px] font-semibold text-ink hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40">Review order</button>
+            <button type="button" disabled={!connected || !lotsOk || Boolean(blockReason)} onClick={() => setReview(true)} className="mt-3 w-full rounded-lg bg-gold py-2.5 text-[14px] font-semibold text-ink hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40">Review order</button>
           ) : (
             <div className="mt-3 rounded-lg border border-gold/40 bg-gold/5 p-3">
               <p className="font-semibold text-text">Review</p>
-              <p className="mt-1">{p.dir === "long" ? "Buy" : "Sell"} {lotsNum} lot {plainSymbol} ({p.entryType}). Entry {formatPrice(p.entry)}, stop {formatPrice(p.stop)}, target {formatPrice(p.target)}. Your EA places it in your own MetaTrader and refuses it if the price moved or any of its limits is hit.</p>
+              <p className="mt-1">{p.dir === "long" ? "Buy" : "Sell"} {lotsNum} lot {plainSymbol} ({sendKind}). Entry {sendKind === "limit" ? formatPrice(p.entry) : "at the current market price"}, stop {formatPrice(p.stop)}, target {formatPrice(p.target)}. Your EA places it in your own MetaTrader and refuses it if any of its limits is hit.{sendKind === "limit" ? " A limit order waits for price to come to the entry and may never fill." : ""}</p>
               <p className="mt-1 text-[12px] text-text-3">The order is queued only when you press Confirm. A stop loss limits the loss but is not a guarantee, and you can lose the amount at risk.</p>
               <div className="mt-3 flex gap-2">
                 <button type="button" disabled={busy} onClick={() => void send()} className="flex-1 rounded-lg bg-gold py-2 text-[14px] font-semibold text-ink hover:brightness-110 disabled:opacity-50">{busy ? "Sending…" : "Confirm and send"}</button>

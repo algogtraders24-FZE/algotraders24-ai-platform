@@ -1974,6 +1974,7 @@ export default function NativeChart({
           onOpenTester={() => setTesterOpen(true)}
           onAnalyze={runAnalyze}
           quota={quota}
+          quote={liveQuote ?? null}
           planStale={proPlan && proPlan.state === "plan" && liveQuote ? planFreshness(proPlan, (liveQuote.bid + liveQuote.ask) / 2).reason : null}
           onTimeframe={onTimeframeChange}
           onSymbol={onSymbolChange}
