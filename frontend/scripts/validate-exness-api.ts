@@ -242,6 +242,27 @@ async function clientTests(): Promise<void> {
     assert.equal(calls, 2);
   });
 
+  await test("one instrument answered with a 4xx does not pause the other instruments; a 5xx does", async () => {
+    const ref = { t: 1_000_000 };
+    let calls = 0;
+    const f: ExnessFetch = async (url) => {
+      calls += 1;
+      if (String(url).includes("instrument=BADSYM")) return json(404, {});
+      return exnessFetch([])(url, { method: "GET", headers: {} });
+    };
+    const c = new ExnessApiClient({ env: ENV, fetchImpl: f, clock: clockAt(ref) });
+    await assert.rejects(c.getCandles("BADSYM", "1h", 5), (e: unknown) => e instanceof ExnessApiError && e.kind === "http");
+    const before = calls;
+    await assert.rejects(c.getCandles("BADSYM", "1h", 5), (e: unknown) => e instanceof ExnessApiError && e.kind !== "blocked");
+    assert.ok(calls > before, "the second request must be sent, not blocked by the first one's 4xx");
+    let n5 = 0;
+    const g: ExnessFetch = async () => { n5 += 1; return json(503, {}); };
+    const c2 = new ExnessApiClient({ env: ENV, fetchImpl: g, clock: clockAt(ref) });
+    await assert.rejects(c2.getCandles("XAUUSD", "1h", 5), (e: unknown) => e instanceof ExnessApiError && e.kind === "http");
+    await assert.rejects(c2.getCandles("XAUUSD", "1h", 5), (e: unknown) => e instanceof ExnessApiError && e.kind === "blocked");
+    assert.equal(n5, 1, "the 503 (here on the access-point discovery) opens the pause: the second call is not sent");
+  });
+
   await test("only GET requests are ever made", async () => {
     const methods: string[] = [];
     const f: ExnessFetch = async (url, init) => {

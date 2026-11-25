@@ -178,7 +178,9 @@ export class ExnessApiClient {
       throw new ExnessApiError("auth", `Exness API rejected the request (HTTP ${res.status})`);
     }
     if (!res.ok) {
-      this.blockedUntil = now + BLOCK_AFTER_FAILURE_MS;
+      // a request the API refused as a client error (400, 404, 422: for example one instrument without candles) says nothing about the API's health and
+      // must not pause every other instrument; only server-side failures (5xx and similar) open the global pause
+      if (res.status >= 500 || res.status === 408 || res.status === 425) this.blockedUntil = now + BLOCK_AFTER_FAILURE_MS;
       throw new ExnessApiError("http", `Exness API returned HTTP ${res.status}`);
     }
     try {
