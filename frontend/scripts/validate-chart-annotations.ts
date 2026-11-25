@@ -152,7 +152,7 @@ import { PRO_LAYERS_CLEAN, PRO_LAYERS_DEFAULT } from "../lib/chart-engine/annota
   check("Range: 5D = 5 days, ALL = null, YTD = since 1 Jan", rangeSpanMs("5D", now) === 5 * 86_400_000 && rangeSpanMs("ALL", now) === null && rangeSpanMs("YTD", now) === now - Date.UTC(2026, 0, 1));
 
   // layer presets
-  check("Layers: default has sessions off and plan on; clean keeps drawings only", PRO_LAYERS_DEFAULT.sessions === false && PRO_LAYERS_DEFAULT.plan === true && PRO_LAYERS_CLEAN.drawings === true && Object.entries(PRO_LAYERS_CLEAN).filter(([k, v]) => k !== "drawings" && v).length === 0);
+  check("Layers: default has sessions (LDN / NY tags) and plan on; clean keeps drawings only", PRO_LAYERS_DEFAULT.sessions === true && PRO_LAYERS_DEFAULT.plan === true && PRO_LAYERS_CLEAN.drawings === true && Object.entries(PRO_LAYERS_CLEAN).filter(([k, v]) => k !== "drawings" && v).length === 0);
 }
 
 // Readout maths (hand-checked): EMA of a constant is the constant; RSI of a strictly rising series is 100, falling is 0; Wilder RSI worked example
