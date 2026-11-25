@@ -12,7 +12,17 @@ interface Activity { ts: string; agent: string; arm: string; level: string; text
 interface Radar { symbol: string; rel_volume: number | null; chg24: number | null; breakout: boolean; trend_ok: boolean; bullish: boolean; liquid: boolean }
 interface Position { symbol: string; entry: number; price: number | null; pnl_pct: number; stop: number; qty: number }
 interface Trade { symbol: string; reason: string; pnl: number; r: number; closed: string }
+interface Account {
+  ts: string;
+  env: string;
+  usdt_free: number;
+  equity: number;
+  positions: { symbol: string; qty: number; price: number | null; value: number | null; entry: number | null; pnl_pct: number | null; stop: number | null; managed: boolean }[];
+  open_orders: { symbol: string; side: string; type: string; stop_price: string | null; price: string | null; qty: string | null }[];
+}
 interface Snapshot {
+  account?: Account | null;
+  demo_trades?: Trade[];
   last_bar: string | null;
   regime: { breadth_above_ema200_pct?: number; btc_24h_pct?: number; btc_7d_pct?: number };
   llm?: { spent_today_usd?: number; budget_usd?: number; calls?: number; failed?: number };
@@ -32,6 +42,7 @@ interface Live {
   rel_live: Record<string, number>;
   arms: Record<string, { equity: number; return_pct: number; day_pnl: number; open: number }>;
   positions: { symbol: string; price: number; pnl_pct: number }[];
+  account?: Account | null;
 }
 interface Payload { snapshot: Snapshot | null; receivedAt?: string; ageSeconds?: number; live?: Live | null; liveAgeSeconds?: number | null; configured: boolean }
 
@@ -48,6 +59,7 @@ function merge(snap: Snapshot | null, live: Live | null | undefined, liveOk: boo
   return {
     ...snap,
     arms,
+    account: live.account ?? snap.account,
     positions: snap.positions.map((p) => (pos.has(p.symbol) ? { ...p, price: pos.get(p.symbol)!.price, pnl_pct: pos.get(p.symbol)!.pnl_pct } : p)),
     radar: snap.radar.map((r) => ({ ...r, rel_volume: live.rel_live[r.symbol] ?? r.rel_volume, chg24: live.chg24[r.symbol] ?? r.chg24 })),
     ticker: main.filter((s) => live.prices[s] != null).map((s) => ({ symbol: s, price: live.prices[s], chg24: live.chg24[s] ?? null })),
@@ -56,8 +68,8 @@ function merge(snap: Snapshot | null, live: Live | null | undefined, liveOk: boo
 
 const AGENTS = ["scout", "risk_checker", "sentiment", "strategy", "execution", "risk_manager", "reviewer"];
 const LABEL: Record<string, string> = { scout: "SCOUT", risk_checker: "RISK CHK", sentiment: "SENTIMENT", strategy: "STRATEGY", execution: "EXECUTION", risk_manager: "RISK MGR", reviewer: "REVIEWER" };
-const ARM_NAME: Record<string, string> = { desk: "Claude desk", rules: "Rules only", random: "Random entries" };
-const ARM_COLOR: Record<string, string> = { desk: "#22f08a", rules: "#7c8cff", random: "#8a93a6" };
+const ARM_NAME: Record<string, string> = { demo: "Claude on Binance demo", desk: "Claude desk", rules: "Rules only", random: "Random entries" };
+const ARM_COLOR: Record<string, string> = { demo: "#f6c744", desk: "#22f08a", rules: "#7c8cff", random: "#8a93a6" };
 
 const fmt = (n: number | null | undefined, d = 2) => (n == null ? "-" : Number(n).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d }));
 const tone = (n: number) => (n > 0 ? "text-emerald-400" : n < 0 ? "text-rose-400" : "text-[#9bb6cf]");
@@ -89,7 +101,7 @@ function drawEquity(c: HTMLCanvasElement, arms: Record<string, Arm>) {
   x.strokeStyle = "#ffffff14"; x.fillStyle = "#7d8aa5"; x.font = "10px monospace";
   for (let i = 0; i <= 4; i++) { const v = lo + ((hi - lo) * i) / 4, y = iy(v); x.beginPath(); x.moveTo(44, y); x.lineTo(W, y); x.stroke(); x.fillText(v.toFixed(1) + "%", 2, y + 3); }
   x.strokeStyle = "#ffffff30"; x.setLineDash([4, 4]); x.beginPath(); x.moveTo(44, iy(0)); x.lineTo(W, iy(0)); x.stroke(); x.setLineDash([]);
-  for (const k of ["random", "rules", "desk"]) {
+  for (const k of ["random", "rules", "desk", "demo"]) {
     const s = series[k];
     if (!s || !s.length) continue;
     x.strokeStyle = ARM_COLOR[k]; x.lineWidth = k === "desk" ? 2.2 : 1.4; x.beginPath();
@@ -270,7 +282,7 @@ export default function ArenaView({ endpoint, variant }: { endpoint: string; var
               <>
                 <div className="flex items-baseline justify-between"><span>CLAUDE DESK</span><span className={`text-2xl font-extrabold ${tone(desk.return_pct)}`}>{desk.return_pct >= 0 ? "+" : ""}{fmt(desk.return_pct)}%</span></div>
                 <div className="text-[#5d7a96]">equity {fmt(desk.equity)} | max DD {fmt(desk.max_dd_pct)}% | win {desk.win_pct == null ? "-" : fmt(desk.win_pct, 0) + "%"} | PF {desk.profit_factor == null ? "-" : fmt(desk.profit_factor)} | {desk.trades} trades</div>
-                {(["rules", "random"] as const).map((k) => (
+                {(["demo", "rules", "random"] as const).filter((k) => snap.arms[k]).map((k) => (
                   <div key={k} className="mt-1 flex justify-between"><span>{ARM_NAME[k].toUpperCase()}</span><b className={tone(snap.arms[k].stats.return_pct)}>{snap.arms[k].stats.return_pct >= 0 ? "+" : ""}{fmt(snap.arms[k].stats.return_pct)}% <span className="text-[10px] font-normal text-[#5d7a96]">({snap.arms[k].stats.trades} trades)</span></b></div>
                 ))}
                 <p className={`${head} mt-4`}>RISK GAUGES</p>
@@ -320,6 +332,51 @@ export default function ArenaView({ endpoint, variant }: { endpoint: string; var
             </div>
           ))}
         </div>
+
+        {variant === "admin" && snap?.account && (
+          <div className="p-2">
+            <div className={panel}>
+              <p className={head}>BINANCE {snap.account.env.toUpperCase()} ACCOUNT &mdash; balance, positions, open orders (virtual funds)</p>
+              <div className="mb-2 flex flex-wrap gap-x-8 gap-y-1">
+                <span>Equity <b>{fmt(snap.account.equity)}</b> USDT</span>
+                <span>Free USDT <b>{fmt(snap.account.usdt_free)}</b></span>
+                <span className="text-[#5d7a96]">updated {new Date(snap.account.ts).toLocaleTimeString()}</span>
+              </div>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div>
+                  <p className="mb-1 text-[10px] tracking-[0.18em] text-[#5d7a96]">POSITIONS (held on the account)</p>
+                  {snap.account.positions.length === 0 ? <p className="text-[#5d7a96]">flat</p> : (
+                    <table className="w-full text-[11.5px]">
+                      <thead><tr className="text-left text-[#5d7a96]"><th>Coin</th><th className="text-right">Qty</th><th className="text-right">Value</th><th className="text-right">Entry</th><th className="text-right">P&amp;L</th><th className="text-right">Stop</th></tr></thead>
+                      <tbody>
+                        {snap.account.positions.map((p) => (
+                          <tr key={p.symbol} className="border-t border-white/10">
+                            <td>{p.symbol}{!p.managed && <span className="ml-1 text-[10px] text-amber-300">not ours</span>}</td>
+                            <td className="text-right">{fmt(p.qty, 4)}</td>
+                            <td className="text-right">{fmt(p.value)}</td>
+                            <td className="text-right">{p.entry == null ? "-" : fmt(p.entry, 4)}</td>
+                            <td className={`text-right ${tone(p.pnl_pct ?? 0)}`}>{p.pnl_pct == null ? "-" : `${fmt(p.pnl_pct)}%`}</td>
+                            <td className="text-right">{p.stop == null ? "-" : fmt(p.stop, 4)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+                <div>
+                  <p className="mb-1 text-[10px] tracking-[0.18em] text-[#5d7a96]">OPEN ORDERS (protective stops live on the exchange)</p>
+                  {snap.account.open_orders.length === 0 ? <p className="text-[#5d7a96]">none</p> : snap.account.open_orders.map((o, i) => (
+                    <div key={i} className="flex justify-between border-t border-white/10 py-0.5 text-[11.5px]"><span>{o.symbol} {o.side} {o.type}</span><span>stop {o.stop_price ?? "-"} &middot; qty {o.qty ?? "-"}</span></div>
+                  ))}
+                  <p className="mb-1 mt-3 text-[10px] tracking-[0.18em] text-[#5d7a96]">RECENT DEMO TRADES</p>
+                  {(snap.demo_trades ?? []).length === 0 ? <p className="text-[#5d7a96]">no closed trades yet</p> : (snap.demo_trades ?? []).slice(0, 8).map((t, i) => (
+                    <div key={i} className="flex justify-between text-[11.5px]"><span>{t.symbol} <span className="text-[#5d7a96]">{t.reason}</span></span><span className={tone(t.pnl)}>{t.pnl >= 0 ? "+" : ""}{fmt(t.pnl)} ({fmt(t.r)}R)</span></div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {snap && (
           <div className="grid gap-2 p-2 lg:grid-cols-2">

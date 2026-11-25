@@ -13,9 +13,12 @@ export function userDelayMinutes(raw: string | undefined): number {
 
 export function sanitizeForUsers(payload: Json | null, live: Json | null, delayMin: number, nowMs: number): { snapshot: Json | null; live: Json | null } {
   const outLive: Json | null = live ? { ...live } : null;
+  if (outLive) delete outLive.account;
   if (!payload) return { snapshot: null, live: outLive };
   const p: Json = { ...payload };
   delete p.llm;
+  delete p.account;        // balances / open orders of the demo account are admin-only
+  delete p.demo_trades;
   p.lessons = [];
   if (delayMin > 0) {
     const cutoff = nowMs - delayMin * 60_000;

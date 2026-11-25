@@ -12,14 +12,16 @@ const payload = () => ({
   activity: [{ ts: iso(5), agent: "strategy", text: "BUY SOL" }, { ts: iso(3000), agent: "scout", text: "old" }],
   trades: [{ symbol: "SOLUSDT", closed: iso(10), pnl: 5 }, { symbol: "ETHUSDT", closed: iso(4000), pnl: -2 }],
   positions: [{ symbol: "SOLUSDT" }], pending: [{ symbol: "ETHUSDT" }],
+  account: { equity: 123, positions: [], open_orders: [] }, demo_trades: [{ symbol: "SOLUSDT" }],
   agents: [{ name: "strategy", ts: iso(5), text: "BUY SOL", level: "good" }], arms: { desk: { stats: { equity: 1 } } }, radar: [{ symbol: "BTCUSDT" }],
 });
-const live = () => ({ ts: "t", arms: {}, positions: [{ symbol: "SOLUSDT", pnl_pct: 1 }], prices: { BTCUSDT: 1 } });
+const live = () => ({ ts: "t", arms: {}, positions: [{ symbol: "SOLUSDT", pnl_pct: 1 }], prices: { BTCUSDT: 1 }, account: { equity: 1 } });
 
 check("delay parsing: default 0, junk -> 0, capped", userDelayMinutes(undefined) === 0 && userDelayMinutes("abc") === 0 && userDelayMinutes("-5") === 0 && userDelayMinutes("60") === 60 && userDelayMinutes("999999") === 7 * 24 * 60);
 
 const a = sanitizeForUsers(payload(), live(), 0, NOW);
 check("live mode: Claude spend/budget/calls are never sent to users", !!a.snapshot && !("llm" in a.snapshot));
+check("live mode: the Binance demo account (balances, open orders, trades) is admin-only", !("account" in a.snapshot!) && !("demo_trades" in a.snapshot!) && !("account" in (a.live as object)));
 check("live mode: reviewer lessons are not sent", Array.isArray(a.snapshot!.lessons) && (a.snapshot!.lessons as unknown[]).length === 0);
 check("live mode: decisions, positions and trades are visible (owner choice)", (a.snapshot!.activity as unknown[]).length === 2 && (a.snapshot!.positions as unknown[]).length === 1 && (a.snapshot!.trades as unknown[]).length === 2);
 check("live mode: live position P&L passes through", ((a.live as { positions: unknown[] }).positions).length === 1);
