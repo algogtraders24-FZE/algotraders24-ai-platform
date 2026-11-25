@@ -6,6 +6,7 @@ import { ApiResponse } from "@/services/backend/ApiResponse";
 import { getUserOrNull } from "@/lib/auth/protectedRoute";
 import { SIGNAL_TIMEFRAME_TO_ENGINE_TIMEFRAME, maxRangeDaysFor } from "@/services/algo-test/algo-test.service";
 import { exnessHistoryEnabled } from "@/services/algo-test/historical-data/exness-provider";
+import { backtestQuotaService } from "@/services/chart/chart-quota.service";
 
 export const dynamic = "force-dynamic";
 
@@ -16,5 +17,8 @@ export const GET = withContext(async (_req, ctx) => {
   for (const [signalTf, engineTf] of Object.entries(SIGNAL_TIMEFRAME_TO_ENGINE_TIMEFRAME)) {
     try { limits[signalTf] = maxRangeDaysFor(engineTf); } catch { /* a timeframe with no data coverage has no limit to show */ }
   }
-  return ApiResponse.success({ limits, source: exnessHistoryEnabled() ? "exness" : "twelve-data" }, ctx.requestId, 200, ctx.startedAt);
+  // the free test has its own, shorter window; the panel shows how many backtests the user has left
+  const backtest = await backtestQuotaService.status(user.profile.id, user.profile.role);
+  if (backtest.maxRangeDays !== null) for (const k of Object.keys(limits)) limits[k] = Math.min(limits[k], backtest.maxRangeDays);
+  return ApiResponse.success({ limits, source: exnessHistoryEnabled() ? "exness" : "twelve-data", backtest }, ctx.requestId, 200, ctx.startedAt);
 });

@@ -63,3 +63,49 @@ export function decideQuota(i: QuotaInput): QuotaDecision {
   const allowed = used < dailyLimit;
   return { allowed, reason: allowed ? "ok" : "daily_limit", dailyLimit, usedToday: used, remainingToday: Math.max(0, dailyLimit - used), isPro: false, trialDaysLeft, trialEndsAt };
 }
+
+// ---------------------------------------------------------------------------------------------------------------------------------------------------------
+// Strategy Tester backtests of registry strategies (owner decision 2026-11-25: a free user gets ONE free test, then a paid plan is needed).
+// The free test is limited to a window of 90 days to bound its cost; paid users have a daily cap; admins are not limited.
+
+export const BACKTEST_QUOTA = {
+  /** Completed backtests a free user may run in total. */
+  freeTotal: 1,
+  /** Longest window (days) of that free test. */
+  freeMaxRangeDays: 90,
+  /** Completed backtests a paid user may run per UTC day. */
+  proDaily: 30,
+} as const;
+
+export type BacktestReason = "ok" | "free_limit_reached" | "daily_limit";
+
+export interface BacktestInput {
+  /** Completed backtests this user has run in total. */
+  usedTotal: number;
+  /** ... and today (UTC). */
+  usedToday: number;
+  isPro: boolean;
+  isAdmin: boolean;
+}
+
+export interface BacktestDecision {
+  allowed: boolean;
+  reason: BacktestReason;
+  isPro: boolean;
+  /** Runs left (free: of the one included; paid: today). null for admins. */
+  remaining: number | null;
+  /** The limit remaining counts against (free: total, paid: per day). null for admins. */
+  limit: number | null;
+  /** Longest window in days for this user (null = the data provider's own limit). */
+  maxRangeDays: number | null;
+}
+
+export function decideBacktest(i: BacktestInput): BacktestDecision {
+  if (i.isAdmin) return { allowed: true, reason: "ok", isPro: true, remaining: null, limit: null, maxRangeDays: null };
+  if (i.isPro) {
+    const left = Math.max(0, BACKTEST_QUOTA.proDaily - Math.max(0, i.usedToday));
+    return { allowed: left > 0, reason: left > 0 ? "ok" : "daily_limit", isPro: true, remaining: left, limit: BACKTEST_QUOTA.proDaily, maxRangeDays: null };
+  }
+  const left = Math.max(0, BACKTEST_QUOTA.freeTotal - Math.max(0, i.usedTotal));
+  return { allowed: left > 0, reason: left > 0 ? "ok" : "free_limit_reached", isPro: false, remaining: left, limit: BACKTEST_QUOTA.freeTotal, maxRangeDays: BACKTEST_QUOTA.freeMaxRangeDays };
+}

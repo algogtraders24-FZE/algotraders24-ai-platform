@@ -23,7 +23,7 @@
 // not a rate-limit engine.
 import { prisma } from "@/lib/prisma";
 
-export type RequestLogType = "market_analysis" | "knowledge_search" | "quant_chat" | "trading_copilot" | "algo_test_compile" | "checkout" | "chart_analyze" | "pragya_answer";
+export type RequestLogType = "market_analysis" | "knowledge_search" | "quant_chat" | "trading_copilot" | "algo_test_compile" | "checkout" | "chart_analyze" | "pragya_answer" | "algo_test_run";
 
 export class RequestLogService {
   async record(userId: string, type: RequestLogType): Promise<void> {

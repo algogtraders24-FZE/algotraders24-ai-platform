@@ -1,7 +1,7 @@
 // scripts/validate-chart-quota.ts - the Analyze / PRAGYA limits: 30 free days, 10 analyses a day, then a paid plan.
 // Run: npx tsx scripts/validate-chart-quota.ts
 import assert from "node:assert/strict";
-import { CHART_QUOTA, decideQuota, utcDayStart, type QuotaInput } from "../lib/access/chart-quota";
+import { BACKTEST_QUOTA, CHART_QUOTA, decideBacktest, decideQuota, utcDayStart, type QuotaInput } from "../lib/access/chart-quota";
 
 let passed = 0, failed = 0;
 function test(name: string, fn: () => void) {
@@ -61,6 +61,31 @@ test("trial end time is exactly 30 days after the first use", () => {
   const d = decideQuota({ ...base, firstUseAt: daysAgo(3) });
   assert.equal(d.trialEndsAt, new Date(daysAgo(3).getTime() + 30 * 86_400_000).toISOString());
   assert.equal(d.trialDaysLeft, 27);
+});
+
+test("backtests: a free user gets exactly one, limited to 90 days", () => {
+  const first = decideBacktest({ usedTotal: 0, usedToday: 0, isPro: false, isAdmin: false });
+  assert.equal(first.allowed, true);
+  assert.equal(first.remaining, 1);
+  assert.equal(first.maxRangeDays, BACKTEST_QUOTA.freeMaxRangeDays);
+  const second = decideBacktest({ usedTotal: 1, usedToday: 1, isPro: false, isAdmin: false });
+  assert.equal(second.allowed, false);
+  assert.equal(second.reason, "free_limit_reached");
+});
+test("backtests: the free test is not renewed by a new day", () => {
+  assert.equal(decideBacktest({ usedTotal: 1, usedToday: 0, isPro: false, isAdmin: false }).allowed, false);
+});
+test("backtests: a paid user is limited per day, not in total, and has no free-window cap", () => {
+  assert.equal(decideBacktest({ usedTotal: 500, usedToday: 29, isPro: true, isAdmin: false }).allowed, true);
+  const d = decideBacktest({ usedTotal: 500, usedToday: 30, isPro: true, isAdmin: false });
+  assert.equal(d.allowed, false);
+  assert.equal(d.reason, "daily_limit");
+  assert.equal(d.maxRangeDays, null);
+});
+test("backtests: an admin is never limited", () => {
+  const d = decideBacktest({ usedTotal: 9999, usedToday: 9999, isPro: false, isAdmin: true });
+  assert.equal(d.allowed, true);
+  assert.equal(d.remaining, null);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
