@@ -40,6 +40,13 @@ const TIMEFRAME_MAP: Record<string, string> = {
   "4h": "H4",
   "1d": "D1",
   "1w": "W1",
+  // the chart and the market-data route ask with the "min / day / week" spellings: without these, every interval except 1h and 4h failed here and fell back to the bridge
+  "1min": "M1",
+  "5min": "M5",
+  "15min": "M15",
+  "30min": "M30",
+  "1day": "D1",
+  "1week": "W1",
 };
 
 export interface ExnessCandle {
