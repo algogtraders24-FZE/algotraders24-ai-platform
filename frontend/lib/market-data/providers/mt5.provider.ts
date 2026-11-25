@@ -293,6 +293,8 @@ export class Mt5Provider implements MarketDataProvider, SnapshotProvider, TimeSe
           this.lastSource = "exness";
         } catch (error) {
           candles = undefined; // any Exness API problem: fall back to the VPS bridge below
+          // visible in the server logs (no secrets: kind and message of our own error class), so a pair that fails can be traced
+          console.warn("[mt5] Exness candles failed", { symbol: spec.mt5Symbol, interval, outputSize, kind: error instanceof ExnessApiError ? error.kind : "other", message: error instanceof Error ? error.message.slice(0, 160) : "" });
           exnessBusy = error instanceof ExnessApiError && (error.kind === "blocked" || error.kind === "rate_limit" || error.kind === "http");
         }
       }
