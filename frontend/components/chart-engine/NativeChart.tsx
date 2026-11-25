@@ -110,6 +110,7 @@ import { listTemplates, saveTemplate, deleteTemplate } from "@/lib/chart-engine/
 import type { ChartTemplate } from "@/lib/chart-engine/templates/types";
 import Modal from "@/components/ui/Modal";
 import type { QuotaDecision } from "@/lib/access/chart-quota";
+import { applyLiveQuote, planFreshness, timeframeMs } from "@/lib/chart-engine/live-price";
 
 const PRICE_AXIS_WIDTH = 74;
 const TIME_AXIS_HEIGHT = 22;
@@ -1249,8 +1250,10 @@ export default function NativeChart({
         }
       } catch { /* quota service unreachable: do not block the trader */ }
     }
-    const analysis = computeAnnotations(candles);
-    const plan = buildTradePlan(candles);
+    // the engine reads the chart at the price the trader sees now: the forming candle is brought up to the live quote first
+    const fresh = applyLiveQuote(candles, liveQuote, timeframeMs(timeframe));
+    const analysis = computeAnnotations(fresh);
+    const plan = buildTradePlan(fresh);
     const reveal = () => {
       setProState({ analysis, layers: PRO_LAYERS_DEFAULT });
       setProPlan(plan);
@@ -1261,24 +1264,25 @@ export default function NativeChart({
     const viewport = viewportRef.current;
     if (!proLayout || !viewport) {
       reveal();
-      void askPragya(analysis, plan);
+      void askPragya(analysis, plan, fresh);
       return;
     }
     setScanReady(false);
-    void askPragya(analysis, plan).finally(() => setScanReady(true));
+    void askPragya(analysis, plan, fresh).finally(() => setScanReady(true));
     setScan({ curves: computeScanCurves(candles, viewport, { width: dimsRef.current.width, height: dimsRef.current.height, priceAxisWidth: PRICE_AXIS_WIDTH, timeAxisHeight: TIME_AXIS_HEIGHT }), finish: reveal });
     playScanSweep(2800);
   }
 
   /** The measured facts PRAGYA answers chat questions from: EMA / RSI / ATR, structure, levels and the plan (no record replay, so it is instant). */
   function buildChatFacts(): string | null {
-    const analysis = computeAnnotations(candles);
-    return buildReadout(candles, analysis, planAt(candles), (n) => fmtP(n))?.paragraph ?? null;
+    const fresh = applyLiveQuote(candles, liveQuote, timeframeMs(timeframe));
+    const analysis = computeAnnotations(fresh);
+    return buildReadout(fresh, analysis, planAt(fresh), (n) => fmtP(n))?.paragraph ?? null;
   }
 
   /** PRAGYA (the platform's Gemini assistant) turns the measured facts into a short analysis; its answer is checked server-side (no invented numbers, no promises) and the measured readout stays as the fallback. */
-  async function askPragya(analysis: AnnotationResult, plan: TradePlan) {
-    const facts = buildReadout(candles, analysis, plan, (n) => fmtP(n));
+  async function askPragya(analysis: AnnotationResult, plan: TradePlan, source: ChartCandle[] = candles) {
+    const facts = buildReadout(source, analysis, plan, (n) => fmtP(n));
     if (!facts) return;
     setPragya({ status: "loading", text: "" });
     const record = plan.state === "plan" && plan.record
@@ -1970,6 +1974,7 @@ export default function NativeChart({
           onOpenTester={() => setTesterOpen(true)}
           onAnalyze={runAnalyze}
           quota={quota}
+          planStale={proPlan && proPlan.state === "plan" && liveQuote ? planFreshness(proPlan, (liveQuote.bid + liveQuote.ask) / 2).reason : null}
           onTimeframe={onTimeframeChange}
           onSymbol={onSymbolChange}
           scanning={scan !== null}

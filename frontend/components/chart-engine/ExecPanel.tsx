@@ -25,7 +25,7 @@ const CHIP: Record<string, { label: string; cls: string }> = {
 const nonce = () => `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 const fmtP = (n: number) => (Math.abs(n) >= 100 ? n.toFixed(2) : Math.abs(n) >= 10 ? n.toFixed(3) : n.toFixed(5));
 
-export default function ExecPanel({ active, symbol, plan, formatPrice, onEnabled }: { active: boolean; symbol: string; plan: TradePlan | null; formatPrice: (n: number) => string; onEnabled?: (enabled: boolean) => void }) {
+export default function ExecPanel({ active, symbol, plan, formatPrice, onEnabled, staleReason }: { active: boolean; symbol: string; plan: TradePlan | null; formatPrice: (n: number) => string; onEnabled?: (enabled: boolean) => void; staleReason?: string | null }) {
   const [state, setState] = useState<State | null>(null);
   const [lots, setLots] = useState("0.01");
   const [review, setReview] = useState(false);
@@ -115,8 +115,9 @@ export default function ExecPanel({ active, symbol, plan, formatPrice, onEnabled
           <label className="mt-3 flex flex-col gap-1 text-[11px] uppercase text-text-3">Lots (max {maxLots})
             <input value={lots} inputMode="decimal" onChange={(e) => setLots(e.target.value)} className="w-28 rounded-md border border-border bg-ink-3 px-2 py-1.5 text-[13px] text-text focus:border-gold focus:outline-none" />
           </label>
+          {staleReason && <p className="mt-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-[12.5px] text-amber-200">{staleReason} Run Re-analyze on the Chat tab, then send the new plan.</p>}
           {!review ? (
-            <button type="button" disabled={!connected || !lotsOk} onClick={() => setReview(true)} className="mt-3 w-full rounded-lg bg-gold py-2.5 text-[14px] font-semibold text-ink hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40">Review order</button>
+            <button type="button" disabled={!connected || !lotsOk || Boolean(staleReason)} onClick={() => setReview(true)} className="mt-3 w-full rounded-lg bg-gold py-2.5 text-[14px] font-semibold text-ink hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40">Review order</button>
           ) : (
             <div className="mt-3 rounded-lg border border-gold/40 bg-gold/5 p-3">
               <p className="font-semibold text-text">Review</p>

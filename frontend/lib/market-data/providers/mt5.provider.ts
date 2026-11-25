@@ -43,6 +43,12 @@ import { TtlCache, systemClock, type Clock } from "../cache";
 const PROVIDER_NAME = "mt5";
 const DEFAULT_QUOTE_CACHE_TTL_MS = 15_000;
 const DEFAULT_CANDLE_CACHE_TTL_MS = 5 * 60_000;
+/** How old a cached candle series may be when it is served: the last candle of a fast timeframe must be current (a 5 minute old close made analyses and plans lag the live price). */
+function candleFreshnessMs(interval: string, fallbackMs: number): number {
+  if (/^(1|5|15|30)min$|^(1|5|15|30)m$|^1h$/.test(interval)) return 15_000;
+  if (interval === "4h") return 60_000;
+  return fallbackMs;
+}
 const DEFAULT_INTERVAL = "1h";
 const DEFAULT_OUTPUT_SIZE = 100;
 
@@ -283,7 +289,7 @@ export class Mt5Provider implements MarketDataProvider, SnapshotProvider, TimeSe
     const outputSize = request.outputSize ?? DEFAULT_OUTPUT_SIZE;
     const cacheKey = `${spec.mt5Symbol}|${interval}|${outputSize}`;
 
-    let candles = this.candleCache.get(cacheKey);
+    let candles = this.candleCache.getStale(cacheKey, candleFreshnessMs(interval, DEFAULT_CANDLE_CACHE_TTL_MS))?.value;
     let exnessBusy = false;
     let exnessMissing = false;
     if (!candles) {
