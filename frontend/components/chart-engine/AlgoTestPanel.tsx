@@ -293,6 +293,12 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reopen is a one-time, mount-time reconciliation of the URL's own testId, not a reaction to onOverlayChange identity
   }, []);
 
+  // registry strategies declare their timeframe; AI strategies pick theirs while compiling, so the tightest common limit (5m) is used for the form and the server decides the rest
+  const limitKey = mode === "registry" ? strategyDef?.supportedTimeframes[0] ?? "5m" : "5m";
+  const maxRangeDays = limits?.[limitKey] ?? MAX_RANGE_DAYS;
+  // every hook of this component sits ABOVE the early returns below: a hook after them changes the hook count for blocked symbols and crashes the page (React error 300)
+  useEffect(() => { if (!startTouched.current) setStartDate(isoDateNDaysAgo(maxRangeDays)); }, [maxRangeDays]);
+
   if (!isActive) return null;
 
   // P4.3 - the chart-symbol gate is now scoped to Registry mode only
@@ -335,10 +341,6 @@ const AlgoTestPanel = forwardRef<AlgoTestPanelHandle, AlgoTestPanelProps>(functi
   const rangeDays = (new Date(endDate).getTime() - new Date(startDate).getTime()) / 86_400_000;
   const parsedBalance = Number(initialBalance);
   const balanceValid = Number.isFinite(parsedBalance) && parsedBalance > 0;
-  // registry strategies declare their timeframe; AI strategies pick theirs while compiling, so the tightest common limit (5m) is used for the form and the server decides the rest
-  const limitKey = mode === "registry" ? strategyDef?.supportedTimeframes[0] ?? "5m" : "5m";
-  const maxRangeDays = limits?.[limitKey] ?? MAX_RANGE_DAYS;
-  useEffect(() => { if (!startTouched.current) setStartDate(isoDateNDaysAgo(maxRangeDays)); }, [maxRangeDays]);
   const rangeValid = rangeDays > 0 && rangeDays <= maxRangeDays;
   const intentValid = mode === "ai" ? intent.trim().length > 0 && intent.length <= MAX_INTENT_LENGTH : true;
   const canSubmit = balanceValid && rangeValid && intentValid && (mode === "registry" ? parametersValid : true) && !submitting;
