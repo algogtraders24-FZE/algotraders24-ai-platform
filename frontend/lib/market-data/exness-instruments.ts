@@ -32,11 +32,32 @@ export async function listExnessInstruments(): Promise<ExnessInstrumentDto[]> {
   return list;
 }
 
-/** Makes an Exness-listed symbol chartable. Returns false when Exness does not list it. */
+const SAFE_SYMBOL = /^[A-Z0-9._#-]{3,24}$/;
+const MAX_UNLISTED_REGISTRATIONS = 300;
+let unlistedRegistered = 0;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Makes an Exness-listed symbol chartable. Returns false when Exness does not list it.
+ * Serverless instances keep their own list cache and the Exness API can answer slowly or refuse for a moment, so an empty list is retried once; if the
+ * list is still unavailable the symbol (when it looks like a plain instrument id) is registered from its own name and the candles call decides: a wrong
+ * symbol then fails there with a clear "unavailable" message instead of every pair failing at once.
+ */
 export async function ensureExnessInstrumentRegistered(symbolRaw: string): Promise<boolean> {
   const symbol = symbolRaw.toUpperCase();
   if (getCanonicalInstrument(symbol)) return true;
-  const entry = (await listExnessInstruments()).find((i) => i.symbol === symbol);
+  let list = await listExnessInstruments();
+  if (list.length === 0) {
+    await sleep(700);
+    list = await listExnessInstruments();
+  }
+  if (list.length === 0) {
+    if (!SAFE_SYMBOL.test(symbol) || unlistedRegistered >= MAX_UNLISTED_REGISTRATIONS || !getSharedExnessClient().isEnabled()) return false;
+    unlistedRegistered += 1;
+    registerDiscoveredInstrument(buildExnessCanonical(toExnessDto(symbol)));
+    return true;
+  }
+  const entry = list.find((i) => i.symbol === symbol);
   if (!entry) return false;
   registerDiscoveredInstrument(buildExnessCanonical(entry));
   return true;

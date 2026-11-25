@@ -1594,21 +1594,22 @@ export default function NativeChart({
         primary={`Chart visualization is unavailable for ${resolution.displaySymbol}.`}
         secondary={resolution.reason}
         height={containerHeight}
+        picker={proLayout ? symbolPicker : undefined}
       />
     );
   }
 
   if (result.status === "loading") {
-    return <StateMessage primary="Loading chart data…" height={proLayout ? "100%" : containerHeight} />;
+    return <StateMessage primary="Loading chart data…" height={proLayout ? "100%" : containerHeight} picker={proLayout ? symbolPicker : undefined} />;
   }
   if (result.status === "unsupported") {
-    return <StateMessage primary="Native chart data is unavailable for this instrument." secondary={result.message} height={proLayout ? "100%" : containerHeight} />;
+    return <StateMessage primary="Native chart data is unavailable for this instrument." secondary={result.message} height={proLayout ? "100%" : containerHeight} picker={proLayout ? symbolPicker : undefined} />;
   }
   if (result.status === "error") {
-    return <StateMessage primary="Chart data is temporarily unavailable." secondary={result.message} height={proLayout ? "100%" : containerHeight} />;
+    return <StateMessage primary="Chart data is temporarily unavailable." secondary={result.message} height={proLayout ? "100%" : containerHeight} picker={proLayout ? symbolPicker : undefined} />;
   }
   if (result.status === "empty") {
-    return <StateMessage primary="No candle data is available yet for this symbol and timeframe." height={proLayout ? "100%" : containerHeight} />;
+    return <StateMessage primary="No candle data is available yet for this symbol and timeframe." height={proLayout ? "100%" : containerHeight} picker={proLayout ? symbolPicker : undefined} />;
   }
 
   const hoveredCandle = hoveredIndex >= 0 && hoveredIndex < candles.length ? candles[hoveredIndex] : null;
@@ -2008,14 +2009,17 @@ function OhlcField({ label, value }: { label: string; value: number }) {
   );
 }
 
-function StateMessage({ primary, secondary, height }: { primary: string; secondary?: string; height: number | string }) {
+function StateMessage({ primary, secondary, height, picker }: { primary: string; secondary?: string; height: number | string; picker?: React.ReactNode }) {
   return (
     <div
-      className="flex w-full flex-col items-center justify-center gap-1.5 rounded-panel border border-border bg-ink-2 px-4 text-center"
+      className="relative flex w-full flex-col items-center justify-center gap-1.5 rounded-panel border border-border bg-ink-2 px-4 text-center"
       style={{ height }}
     >
+      {/* Pro layout: the symbol picker stays reachable, so a pair that cannot load never traps the user on a bare message */}
+      {picker && <div className="absolute left-3 top-3">{picker}</div>}
       <p className="text-sm text-text-2">{primary}</p>
       {secondary && <p className="text-xs text-text-3">{secondary}</p>}
+      {picker && <button type="button" onClick={() => window.location.reload()} className="mt-2 rounded-md border border-border bg-ink-3 px-3 py-1.5 text-[13px] text-text-2 hover:bg-ink-4">Reload</button>}
     </div>
   );
 }
