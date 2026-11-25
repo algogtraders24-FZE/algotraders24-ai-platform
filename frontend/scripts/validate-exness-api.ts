@@ -286,6 +286,17 @@ async function clientTests(): Promise<void> {
     assert.equal(n5, 1, "the 503 (here on the access-point discovery) opens the pause: the second call is not sent");
   });
 
+  await test("every interval spelling the chart uses is served (1min, 5min, 15min, 30min, 1h, 4h, 1day, 1week and the short forms)", async () => {
+    const want: Record<string, string> = { "1min": "M1", "5min": "M5", "15min": "M15", "30min": "M30", "1h": "H1", "4h": "H4", "1day": "D1", "1week": "W1", "1m": "M1", "5m": "M5", "15m": "M15", "30m": "M30", "1d": "D1", "1w": "W1" };
+    for (const [interval, tf] of Object.entries(want)) {
+      const log: string[] = [];
+      const c = new ExnessApiClient({ env: ENV, fetchImpl: exnessFetch(log), sleep: async () => undefined });
+      await c.getCandles("EURCHF", interval, 5);
+      const url = log.find((u) => u.includes("/market-data/accounts/")) ?? "";
+      assert.ok(url.includes(`timeframe=${tf}`), `${interval} -> ${url}`);
+    }
+  });
+
   await test("only GET requests are ever made", async () => {
     const methods: string[] = [];
     const f: ExnessFetch = async (url, init) => {
